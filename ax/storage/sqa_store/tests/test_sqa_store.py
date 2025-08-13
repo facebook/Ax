@@ -24,7 +24,6 @@ from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
-from ax.core.batch_trial import LifecycleStage
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -887,30 +886,6 @@ class SQAStoreTest(TestCase):
         )
         loaded_experiment = load_experiment(exp.name)
         self.assertEqual(exp, loaded_experiment)
-
-    def test_trial_lifecycle_stage(self) -> None:
-        save_experiment(self.experiment)
-
-        existing_trial = self.experiment.trials[0]
-        existing_trial.mark_staged()
-        existing_trial._lifecycle_stage = LifecycleStage.EXPLORATION_CONCURRENT
-        new_trial = self.experiment.new_batch_trial(
-            generator_run=get_generator_run(),
-            lifecycle_stage=LifecycleStage.ITERATION,
-        )
-        save_or_update_trials(
-            experiment=self.experiment, trials=[existing_trial, new_trial]
-        )
-        loaded_experiment = load_experiment(self.experiment.name)
-        self.assertEqual(
-            # pyre-fixme[16]: `BaseTrial` has no attribute `lifecycle_stage`.
-            loaded_experiment.trials[existing_trial.index].lifecycle_stage,
-            LifecycleStage.EXPLORATION_CONCURRENT,
-        )
-        self.assertEqual(
-            loaded_experiment.trials[new_trial.index].lifecycle_stage,
-            LifecycleStage.ITERATION,
-        )
 
     def test_SaveValidation(self) -> None:
         with self.assertRaises(ValueError):

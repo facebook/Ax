@@ -26,12 +26,7 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.batch_trial import (
-    AbandonedArm,
-    BatchTrial,
-    GeneratorRunStruct,
-    LifecycleStage,
-)
+from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
 from ax.core.experiment import DataType
 from ax.core.generator_run import GeneratorRun
@@ -347,7 +342,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Interval": Interval,
     "IsSingleObjective": IsSingleObjective,
     "Keys": Keys,
-    "LifecycleStage": LifecycleStage,
     # DEPRECATED; remains here backward compatibility, with old class
     # name linked to the new corresponding class
     "ListSurrogate": Surrogate,

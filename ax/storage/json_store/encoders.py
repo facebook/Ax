@@ -129,7 +129,6 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
         "generation_step_index": batch._generation_step_index,
-        "lifecycle_stage": batch.lifecycle_stage,
         "properties": batch._properties,
     }
 

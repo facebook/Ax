@@ -22,7 +22,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
-from ax.core.batch_trial import BatchTrial, LifecycleStage
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
@@ -1169,7 +1169,6 @@ class Experiment(Base):
         add_status_quo_arm: bool | None = False,
         trial_type: str | None = None,
         ttl_seconds: int | None = None,
-        lifecycle_stage: LifecycleStage | None = None,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment.
 
@@ -1192,8 +1191,6 @@ class Experiment(Base):
                 'dead' trials, for which the evaluation process might have
                 crashed etc., and which should be considered failed after
                 their 'time to live' has passed.
-            lifecycle_stage: The stage of the experiment lifecycle that this
-                trial represents
         """
         if ttl_seconds is not None:
             self._trials_have_ttl = True
@@ -1204,7 +1201,6 @@ class Experiment(Base):
             generator_runs=generator_runs,
             add_status_quo_arm=add_status_quo_arm,
             ttl_seconds=ttl_seconds,
-            lifecycle_stage=lifecycle_stage,
         )
 
     def get_batch_trial(self, trial_index: int) -> BatchTrial:
