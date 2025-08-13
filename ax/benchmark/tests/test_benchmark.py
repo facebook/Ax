@@ -55,6 +55,16 @@ from ax.benchmark.methods.sobol import (
 )
 from ax.benchmark.problems.registry import get_benchmark_problem
 from ax.benchmark.problems.synthetic.from_botorch import get_augmented_branin_problem
+from ax.benchmark.testing.benchmark_stubs import (
+    get_async_benchmark_method,
+    get_async_benchmark_problem,
+    get_discrete_search_space,
+    get_moo_surrogate,
+    get_multi_objective_benchmark_problem,
+    get_single_objective_benchmark_problem,
+    get_soo_surrogate,
+    TestDataset,
+)
 
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -71,16 +81,6 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import get_logger
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import (
-    get_async_benchmark_method,
-    get_async_benchmark_problem,
-    get_discrete_search_space,
-    get_moo_surrogate,
-    get_multi_objective_benchmark_problem,
-    get_single_objective_benchmark_problem,
-    get_soo_surrogate,
-    TestDataset,
-)
 
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -353,7 +353,8 @@ class TestBenchmark(TestCase):
 
                 with mock_patch_method_original(
                     mock_path=(
-                        "ax.utils.testing.benchmark_stubs.ExternalGenerationNode._gen"
+                        "ax.benchmark.testing.benchmark_stubs."
+                        "ExternalGenerationNode._gen"
                     ),
                     original_method=ExternalGenerationNode._gen,
                 ) as mock_gen:

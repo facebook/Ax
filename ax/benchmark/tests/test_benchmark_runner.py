@@ -24,6 +24,11 @@ from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
     Jenatton,
 )
+from ax.benchmark.testing.benchmark_stubs import (
+    DummyTestFunction,
+    get_jenatton_trials,
+    get_soo_surrogate_test_function,
+)
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -32,11 +37,6 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import (
-    DummyTestFunction,
-    get_jenatton_trials,
-    get_soo_surrogate_test_function,
-)
 
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize

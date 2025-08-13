@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import torch
 from ax.adapter.torch import TorchAdapter
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
+from ax.benchmark.testing.benchmark_stubs import get_soo_surrogate_test_function
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import get_soo_surrogate_test_function
 
 
 class TestSurrogateTestFunction(TestCase):

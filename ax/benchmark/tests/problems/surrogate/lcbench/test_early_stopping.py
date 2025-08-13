@@ -19,8 +19,8 @@ from ax.benchmark.problems.surrogate.lcbench.utils import (
     BASELINE_VALUES,
     DEFAULT_METRIC_NAME,
 )
+from ax.benchmark.testing.benchmark_stubs import get_mock_lcbench_data
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import get_mock_lcbench_data
 from pyre_extensions import assert_is_instance, none_throws
 
 

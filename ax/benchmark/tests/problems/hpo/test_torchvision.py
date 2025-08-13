@@ -17,9 +17,9 @@ from ax.benchmark.problems.hpo.torchvision import (
     PyTorchCNNTorchvisionBenchmarkTestFunction,
 )
 from ax.benchmark.problems.registry import get_benchmark_problem
+from ax.benchmark.testing.benchmark_stubs import TestDataset
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import TestDataset
 from pyre_extensions import assert_is_instance
 
 
