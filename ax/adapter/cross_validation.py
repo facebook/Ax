@@ -20,6 +20,7 @@ from ax.adapter.base import Adapter, unwrap_observation_data
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UnsupportedError
+from ax.exceptions.model import CrossValidationError
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.model_fit_stats import (
     coefficient_of_determination,
@@ -181,8 +182,29 @@ def cross_validate(
                 if test_selector is None or test_selector(obs)
             ]
         # Form CVResult objects
+        if len(cv_test_observations) < len(cv_test_predictions):
+            msg = (
+                "There are fewer test observations than predictions. "
+                "This can happen when transforms that reduce the number of "
+                "observations are used in the Adapter used in cross validation. "
+            )
+            if folds == n:
+                msg += (
+                    "Since this is leave-one-out cross validation, all observations "
+                    "correspond to the same arm and we can utilize the first "
+                    "observation in CV results."
+                )
+                logger.warning(msg)
+            else:
+                msg += (
+                    "Since this is not leave-one-out cross validation, we cannot "
+                    "guarantee consistency of predictions and observations. "
+                    "Use leave-one-out cross validation with data reducing transforms, "
+                    "or use cross validation with `untransform=True`."
+                )
+                raise CrossValidationError(msg)
         for observed, prediction in zip(
-            cv_test_observations, cv_test_predictions, strict=True
+            cv_test_observations, cv_test_predictions, strict=False
         ):
             result.append(CVResult(observed=observed, predicted=prediction))
     return result

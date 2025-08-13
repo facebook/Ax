@@ -17,10 +17,12 @@ from ax.adapter.cross_validation import (
     CVDiagnostics,
     CVResult,
     has_good_opt_config_model_fit,
+    logger,
 )
 from ax.adapter.data_utils import ExperimentData
-from ax.adapter.registry import Generators
+from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core import ObservationFeatures
 from ax.core.metric import Metric
@@ -33,6 +35,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import UnsupportedError
+from ax.exceptions.model import CrossValidationError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -220,6 +223,39 @@ class CrossValidationTest(TestCase):
                 )
             call_kwargs = mock_cv.call_args.kwargs
             self.assertTrue(call_kwargs["use_posterior_predictive"])
+
+    def test_cross_validate_with_data_reducing_transforms(self) -> None:
+        # With transforms like TransformToNewSQ, the number of observations
+        # and predictions may not match (because transforms throw away some data).
+        # This checks that cross_validate handles this correctly for LOOCV
+        # and errors out for non-LOO CV.
+        # Experiment has multiple batch trials each with status quo arm.
+        experiment = get_branin_experiment(
+            with_status_quo=True, with_completed_batch=True, num_batch_trial=3
+        )
+        adapter = TorchAdapter(
+            experiment=experiment,
+            generator=BoTorchGenerator(),
+            transforms=MBM_X_trans + [TransformToNewSQ] + Y_trans,
+        )
+        # With untransform=True (default), it just works.
+        with self.assertNoLogs(logger=logger):
+            res = cross_validate(model=adapter, folds=-1)
+        # SQ arm is repeated 3 times, so we add +2 for that.
+        self.assertEqual(len(res), len(experiment.arms_by_name) + 2)
+
+        # With untransform=False, LOOCV should work and log a warning.
+        with self.assertLogs(logger=logger):
+            res = cross_validate(model=adapter, folds=-1, untransform=False)
+        # We only have one result for SQ arm here, due to TransformToNewSQ.
+        self.assertEqual(len(res), len(experiment.arms_by_name))
+
+        # 2-fold CV should error out.
+        with self.assertRaisesRegex(
+            CrossValidationError,
+            "fewer test observations than predictions",
+        ):
+            cross_validate(model=adapter, folds=2, untransform=False)
 
     def test_cross_validate_gives_a_useful_error_for_insufficient_data(self) -> None:
         # Sobol with no data and torch with only one point.

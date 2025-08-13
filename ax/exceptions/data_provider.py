@@ -22,7 +22,6 @@ class DataProviderError(Exception):
         self,
         message: str,
         data_provider: str,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         data_provider_error: Any,
     ) -> None:
         self.message = message
