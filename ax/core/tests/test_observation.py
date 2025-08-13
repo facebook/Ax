@@ -243,6 +243,7 @@ class ObservationsTest(TestCase):
                 "sem": 2.0,
                 "trial_index": 1,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -251,6 +252,7 @@ class ObservationsTest(TestCase):
                 "sem": 3.0,
                 "trial_index": 2,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -259,6 +261,7 @@ class ObservationsTest(TestCase):
                 "sem": 4.0,
                 "trial_index": 1,
                 "metric_name": "b",
+                "metric_signature": "a",
             },
         ]
         arms = {
@@ -282,7 +285,14 @@ class ObservationsTest(TestCase):
         type(experiment).trials = PropertyMock(return_value=trials)
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
 
@@ -336,6 +346,7 @@ class ObservationsTest(TestCase):
                 "updated_parameters": {"x": 0, "y": "a", "z": 0.5},
                 "mean_t": np.array([2.0]),
                 "covariance_t": np.array([[4.0]]),
+                "metric_signature": "a",
             },
             0.25: {
                 "arm_name": "0_1",
@@ -348,6 +359,7 @@ class ObservationsTest(TestCase):
                 "updated_parameters": {"x": 1, "y": "b", "z": 0.25},
                 "mean_t": np.array([3.0]),
                 "covariance_t": np.array([[9.0]]),
+                "metric_signature": "a",
             },
             1: {
                 "arm_name": "0_0",
@@ -360,6 +372,7 @@ class ObservationsTest(TestCase):
                 "updated_parameters": {"x": 0, "y": "a", "z": 1},
                 "mean_t": np.array([4.0]),
                 "covariance_t": np.array([[16.0]]),
+                "metric_signature": "b",
             },
         }
         arms = {
@@ -385,7 +398,15 @@ class ObservationsTest(TestCase):
         type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(list(truth.values()))[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name", "fidelities"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "fidelities",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
         observations = observations_from_data(experiment, data)
@@ -417,6 +438,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[4.0]]),
                 "step": 0.5,
                 "timestamp": 50,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -429,6 +451,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[9.0]]),
                 "step": 0.25,
                 "timestamp": 25,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -441,6 +464,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "step": 1,
                 "timestamp": 100,
+                "metric_signature": "b",
             },
         ]
         arms = [
@@ -478,6 +502,7 @@ class ObservationsTest(TestCase):
                 "metric_name",
                 "step",
                 "timestamp",
+                "metric_signature",
             ]
         ]
         data = MapData(
@@ -526,6 +551,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[4.0]]),
                 "z": 0.5,
                 "timestamp": 50,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "1_0",
@@ -539,6 +565,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "z": 1,
                 "timestamp": 100,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "1_0",
@@ -552,6 +579,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "z": 1,
                 "timestamp": 100,
+                "metric_signature": "b",
             },
             {
                 "arm_name": "1_0",
@@ -565,6 +593,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[16.0]]),
                 "z": 1,
                 "timestamp": 100,
+                "metric_signature": "c",
             },
             {
                 "arm_name": "2_0",
@@ -578,6 +607,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[9.0]]),
                 "z": 0.25,
                 "timestamp": 25,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "2_1",
@@ -591,6 +621,7 @@ class ObservationsTest(TestCase):
                 "covariance_t": np.array([[9.0]]),
                 "z": 0.75,
                 "timestamp": 25,
+                "metric_signature": "a",
             },
         ]
         arms = {
@@ -632,7 +663,14 @@ class ObservationsTest(TestCase):
         )
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
 
@@ -683,6 +721,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 1,
                 "metric_name": "a",
                 "start_time": 0,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -692,6 +731,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 2,
                 "metric_name": "a",
                 "start_time": 0,
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -701,6 +741,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 1,
                 "metric_name": "b",
                 "start_time": None,
+                "metric_signature": "b",
             },
             {
                 "arm_name": "0_1",
@@ -710,6 +751,7 @@ class ObservationsTest(TestCase):
                 "trial_index": 2,
                 "metric_name": "b",
                 "start_time": None,
+                "metric_signature": "b",
             },
         ]
         arms = {
@@ -734,7 +776,15 @@ class ObservationsTest(TestCase):
         type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name", "start_time"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "start_time",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
         observations = observations_from_data(experiment, data)
@@ -776,6 +826,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:45:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:47:00",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_0",
@@ -786,6 +837,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
+                "metric_signature": "b",
             },
             {
                 "arm_name": "0_1",
@@ -796,6 +848,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "a",
                 "start_time": "2024-03-20 08:43:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "0_1",
@@ -806,6 +859,7 @@ class ObservationsTest(TestCase):
                 "metric_name": "b",
                 "start_time": "2024-03-20 08:45:00",
                 "end_time": pd.NaT if with_nat else "2024-03-20 08:46:00",
+                "metric_signature": "b",
             },
         ]
         arms_by_name = {
@@ -829,6 +883,7 @@ class ObservationsTest(TestCase):
                 "metric_name",
                 "start_time",
                 "end_time",
+                "metric_signature",
             ]
         ]
         data = Data(df=df)
@@ -927,6 +982,7 @@ class ObservationsTest(TestCase):
                 "sem": 2.0,
                 "trial_index": 0,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
             {
                 "arm_name": "1_0",
@@ -935,6 +991,7 @@ class ObservationsTest(TestCase):
                 "sem": 3.0,
                 "trial_index": 1,
                 "metric_name": "a",
+                "metric_signature": "a",
             },
         ]
         arms = {
@@ -967,7 +1024,14 @@ class ObservationsTest(TestCase):
         type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(truth)[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name"]
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "metric_signature",
+            ]
         ]
         data = Data(df=df)
         observations = observations_from_data(experiment, data)

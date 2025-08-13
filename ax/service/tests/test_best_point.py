@@ -97,6 +97,7 @@ class TestBestPointMixin(TestCase):
                 "arm_name": "status_quo",
                 "mean": 0.0,
                 "sem": 0.0,
+                "metric_signature": m,
             }
             for m in ["m1", "m2", "m3"]
         ]
@@ -129,6 +130,7 @@ class TestBestPointMixin(TestCase):
                         "arm_name": arm.name,
                         "mean": float(i),
                         "sem": 0.0,
+                        "metric_signature": m,
                     }
                     for m in exp.metrics.keys()
                 ]
@@ -151,6 +153,7 @@ class TestBestPointMixin(TestCase):
                         "arm_name": arm.name,
                         "mean": 10 * float(i),
                         "sem": 0.0,
+                        "metric_signature": m,
                     }
                     for m in exp.metrics.keys()
                 ]

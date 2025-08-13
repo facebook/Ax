@@ -113,6 +113,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
                 "arm_name": none_throws(trial.arm).name,
                 "mean": values[0],
                 "sem": 0.0,
+                "metric_signature": "m1",
             },
             {
                 "trial_index": trial.index,
@@ -120,6 +121,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
                 "arm_name": none_throws(trial.arm).name,
                 "mean": values[1],
                 "sem": 0.0,
+                "metric_signature": "m2",
             },
             {
                 "trial_index": trial.index,
@@ -127,6 +129,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
                 "arm_name": none_throws(trial.arm).name,
                 "mean": values[2],
                 "sem": 0.0,
+                "metric_signature": "m3",
             },
         ]
         return Data(df=pd.DataFrame.from_records(df_dicts))

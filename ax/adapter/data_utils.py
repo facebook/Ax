@@ -120,7 +120,7 @@ class ExperimentData:
         observation_data: A dataframe, indexed by (trial_index, arm_name[, *map_keys])
             map_keys being optional, containing the mean and sem observations for each
             metric. The columns of the dataframe are multi-indexed, with the first level
-            being "mean" or "sem" and the second level being the metric name.
+            being "mean" or "sem" and the second level being the metric signature.
             This is typically constructed by pivoting `(Map)Data.true_df`.
             If the `Data` object contains additional metadata columns like `start_time`
             and `end_time`, these will be carried onto `observation_data`. The metadata
@@ -412,7 +412,7 @@ def _extract_observation_data(
             if isinstance(metric, MapMetric)
             else data_loader_config.statuses_to_fit
         )
-        to_keep |= (df["metric_name"] == metric.name) & trial_statuses.isin(
+        to_keep |= (df["metric_signature"] == metric.signature) & trial_statuses.isin(
             valid_statuses
         )
     df = df.loc[to_keep]
@@ -424,6 +424,7 @@ def _extract_observation_data(
     standard_columns = {
         "trial_index",
         "arm_name",
+        "metric_signature",
         "metric_name",
         "mean",
         "sem",
@@ -434,7 +435,7 @@ def _extract_observation_data(
     # Pivot the df to be indexed by (trial_index, arm_name, *map_keys)
     # and to have columns "mean" & "sem" for each metric.
     observation_data = df.pivot(
-        columns="metric_name",
+        columns="metric_signature",
         index=[
             "trial_index",
             "arm_name",

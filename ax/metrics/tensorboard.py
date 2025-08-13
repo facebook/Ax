@@ -145,6 +145,7 @@ try:
                                 else t.tensor_proto.float_val[0]
                             ),
                             "sem": float("nan"),
+                            "metric_signature": metric.signature,
                         }
                         for run_name, tags in scalar_dict.items()
                         for tag in tags
@@ -227,7 +228,14 @@ try:
                 pd.DataFrame(records)
                 # If a metric has multiple records for the same arm, metric, and
                 # step (sometimes caused by restarts, etc) take the mean
-                .groupby(["arm_name", "metric_name", self.map_key_info.key])
+                .groupby(
+                    [
+                        "arm_name",
+                        "metric_name",
+                        "metric_signature",
+                        self.map_key_info.key,
+                    ]
+                )
                 .mean()
                 .reset_index()
             )

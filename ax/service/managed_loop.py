@@ -209,6 +209,13 @@ class OptimizationLoop:
         trial = self._get_new_trial()
 
         trial.mark_running(no_runner_required=True)
+        metric_name_to_sig = {
+            metric.name: metric.signature
+            for metric in none_throws(
+                self.experiment.optimization_config
+            ).objective.metrics
+        }
+
         _, data = data_and_evaluations_from_raw_data(
             raw_data={
                 arm.name: self._call_evaluation_function(arm.parameters, weight)
@@ -217,9 +224,7 @@ class OptimizationLoop:
             trial_index=self.current_trial,
             sample_sizes={},
             data_type=self.experiment.default_data_type,
-            metric_names=none_throws(
-                self.experiment.optimization_config
-            ).objective.metric_names,
+            metric_name_to_sig=metric_name_to_sig,
         )
 
         self.experiment.attach_data(data=data)

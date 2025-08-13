@@ -1095,6 +1095,8 @@ class Decoder:
         # NOTE: Need dtype=False, otherwise infers arm_names like
         # "4_1" should be int 41.
         kwargs["df"] = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
+        if "metric_signature" not in kwargs["df"].columns:
+            kwargs["df"]["metric_signature"] = kwargs["df"]["metric_name"]
 
         dat = data_constructor(**kwargs)
 

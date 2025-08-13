@@ -1757,12 +1757,15 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         if opt_config is None:
             return True
 
+        metric_name_to_sig = {
+            metric.name: metric.signature for metric in opt_config.objective.metrics
+        }
         _, data = data_and_evaluations_from_raw_data(
             raw_data={"data": raw_data},
             sample_sizes={},
             trial_index=trial_index,
             data_type=self.experiment.default_data_type,
-            metric_names=opt_config.objective.metric_names,
+            metric_name_to_sig=metric_name_to_sig,
         )
         required_metrics = set(opt_config.metrics.keys())
         provided_metrics = data.metric_names

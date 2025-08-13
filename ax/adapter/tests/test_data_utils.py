@@ -103,6 +103,7 @@ class TestDataUtils(TestCase):
                         "mean": 0.4,
                         "sem": 0.2,
                         "trial_index": t.index,
+                        "metric_signature": "m1",
                     }
                 ]
             )
@@ -140,7 +141,7 @@ class TestDataUtils(TestCase):
         # First 4 rows correspond to 2 metrics from the 2 completed trials.
         data_df = exp.lookup_data().df[:4]
         expected_obs_df = data_df.pivot(
-            columns="metric_name",
+            columns="metric_signature",
             index=["trial_index", "arm_name"],
             values=["mean", "sem"],
         )
@@ -157,7 +158,7 @@ class TestDataUtils(TestCase):
             experiment_data.observation_data.columns.equals(
                 MultiIndex.from_tuples(
                     [("mean", "m1"), ("mean", "m2"), ("sem", "m1"), ("sem", "m2")],
-                    names=[None, "metric_name"],
+                    names=[None, "metric_signature"],
                 )
             )
         )
@@ -180,7 +181,7 @@ class TestDataUtils(TestCase):
         # All data should be included.
         data_df = exp.lookup_data().df
         expected_obs_df = data_df.pivot(
-            columns="metric_name",
+            columns="metric_signature",
             index=["trial_index", "arm_name"],
             values=["mean", "sem"],
         )
@@ -322,6 +323,7 @@ class TestDataUtils(TestCase):
                     {
                         "arm_name": t.arms[0].name,
                         "metric_name": "branin_a",
+                        "metric_signature": "branin_a",
                         "mean": 0.4 * t.index,
                         "sem": 0.2 + 0.1 * t.index,
                         "trial_index": t.index,
@@ -334,6 +336,7 @@ class TestDataUtils(TestCase):
                     {
                         "arm_name": t.arms[0].name,
                         "metric_name": "branin_b",
+                        "metric_signature": "branin_b",
                         "mean": 0.4 * t.index,
                         "sem": 0.2 + 0.1 * t.index,
                         "trial_index": t.index,

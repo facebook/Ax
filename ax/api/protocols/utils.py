@@ -75,6 +75,7 @@ class _APIMetric(MapMetric, ABC):
                 self.map_key_info.key: progression,
                 "mean": mean,
                 "sem": sem,
+                "metric_signature": self.signature,
             }
             return Ok(
                 value=MapData(

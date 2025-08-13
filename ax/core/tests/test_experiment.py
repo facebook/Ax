@@ -460,6 +460,7 @@ class ExperimentTest(TestCase):
                             "mean": 3,
                             "sem": 0,
                             "trial_index": 0,
+                            "metric_signature": "not_yet_on_experiment",
                         }
                     ]
                 )
@@ -503,6 +504,7 @@ class ExperimentTest(TestCase):
                         "mean": 3,
                         "sem": 0,
                         "trial_index": 0,
+                        "metric_signature": "not_yet_on_experiment",
                     },
                     {
                         "arm_name": "0_0",
@@ -510,6 +512,7 @@ class ExperimentTest(TestCase):
                         "mean": 3,
                         "sem": 0,
                         "trial_index": 0,
+                        "metric_signature": "z",
                     },
                 ]
             )
@@ -682,6 +685,7 @@ class ExperimentTest(TestCase):
                     "1_13",
                 ],
                 "metric_name": ["b"] * 9,
+                "metric_signature": ["b"] * 9,
                 "mean": list(range(1, 10)),
                 "sem": [0.1 + i * 0.05 for i in range(9)],
                 "trial_index": [0, 0, 0, 0, 0, 1, 1, 1, 1],
@@ -701,6 +705,7 @@ class ExperimentTest(TestCase):
                         "0_11",
                     ],
                     "metric_name": ["b"] * 5,
+                    "metric_signature": ["b"] * 5,
                     "mean": [5.0, 1.0, 4.0, 2.0, 3.0],
                     "sem": [0.3, 0.1, 0.25, 0.15, 0.2],
                 }
@@ -718,6 +723,7 @@ class ExperimentTest(TestCase):
                         "1_13",
                     ],
                     "metric_name": ["b"] * 4,
+                    "metric_signature": ["b"] * 4,
                     "mean": [6.0, 7.0, 8.0, 9.0],
                     "sem": [0.35, 0.4, 0.45, 0.5],
                 }
@@ -1104,6 +1110,7 @@ class ExperimentTest(TestCase):
                 "mean": [100.0],
                 "sem": [1.0],
                 "trial_index": [1],
+                "metric_signature": ["branin"],
             },
         )
         cloned_experiment = experiment.clone_with(trial_indices=[1], data=Data(df=df))
@@ -1496,6 +1503,10 @@ class ExperimentWithMapDataTest(TestCase):
                 for arm_name, partial_results in evaluations.items()
             },
             trial_index=0,
+            metric_name_to_sig={
+                "no_fetch_impl_metric": "no_fetch_impl_metric",
+                "epoch": "epoch",
+            },
         )
         self.experiment.attach_data(first_epoch)
         remaining_epochs = MapData.from_map_evaluations(
@@ -1504,6 +1515,10 @@ class ExperimentWithMapDataTest(TestCase):
                 for arm_name, partial_results in evaluations.items()
             },
             trial_index=0,
+            metric_name_to_sig={
+                "no_fetch_impl_metric": "no_fetch_impl_metric",
+                "epoch": "epoch",
+            },
         )
         self.experiment.attach_data(remaining_epochs)
         self.experiment.trials[0].mark_completed()
@@ -1887,6 +1902,7 @@ class ExperimentWithMapDataTest(TestCase):
                 "metric_name": ["b"] * 12,
                 "mean": [float(x) for x in range(1, 13)],
                 "sem": [0.1 + i * 0.05 for i in range(12)],
+                "metric_signature": ["b"] * 12,
             }
         )
 
@@ -1923,6 +1939,7 @@ class ExperimentWithMapDataTest(TestCase):
                     0.6,
                     0.65,
                 ],
+                "metric_signature": ["b"] * 12,
             }
         )
 
