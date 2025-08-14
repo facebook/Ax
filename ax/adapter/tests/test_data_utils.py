@@ -85,6 +85,7 @@ class TestDataUtils(TestCase):
         observations = [[0.1, 1.0], [0.2, 2.0]]
         exp = get_experiment_with_observations(observations=observations)
         # Add another trial but fail it.
+        # Also add some custom arm metadata.
         sobol = Generators.SOBOL(experiment=exp)
         exp.new_trial(generator_run=sobol.gen(1)).run().mark_failed()
         # Add an abandoned trial but include data for one metric.
@@ -113,13 +114,14 @@ class TestDataUtils(TestCase):
         experiment_data = extract_experiment_data(
             experiment=exp, data_loader_config=DataLoaderConfig()
         )
-        # Arm data: All trials with data should be included.
+        # Arm data: Only the trials that have data and are in valid statuses
+        # should be included. This excludes arm 3_0 since it is ABANDONED.
         # Filtering happens when constructing datasets.
-        arms_with_data = ["0_0", "1_0", "3_0"]
+        valid_arms = ["0_0", "1_0"]
         expected_arm_df = DataFrame(
-            [exp.arms_by_name[arm_name].parameters for arm_name in arms_with_data],
+            [exp.arms_by_name[arm_name].parameters for arm_name in valid_arms],
             index=MultiIndex.from_tuples(
-                [(0, "0_0"), (1, "1_0"), (3, "3_0")],
+                [(0, "0_0"), (1, "1_0")],
                 names=["trial_index", "arm_name"],
             ),
         )
@@ -133,7 +135,6 @@ class TestDataUtils(TestCase):
             [
                 {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
                 {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
-                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY, "test": "test_metadata"},
             ],
         )
         # Observation data: Only completed trials should be included.
@@ -174,8 +175,27 @@ class TestDataUtils(TestCase):
         experiment_data = extract_experiment_data(
             experiment=exp, data_loader_config=DataLoaderConfig(fit_abandoned=True)
         )
+        # Arm data now includes 3_0 since fit_abandoned=True.
+        valid_arms = ["0_0", "1_0", "3_0"]
+        expected_arm_df = DataFrame(
+            [exp.arms_by_name[arm_name].parameters for arm_name in valid_arms],
+            index=MultiIndex.from_tuples(
+                [(0, "0_0"), (1, "1_0"), (3, "3_0")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
         assert_frame_equal(
             experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
+        )
+        # Check metadata. It only includes info about trial completion etc.
+        metadata = experiment_data.arm_data["metadata"].tolist()
+        self.assertEqual(
+            metadata,
+            [
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY, "test": "test_metadata"},
+            ],
         )
         # All data should be included.
         data_df = exp.lookup_data().df
@@ -308,6 +328,30 @@ class TestDataUtils(TestCase):
         )
         # Check equality with self.
         self.assertEqual(experiment_data, experiment_data)
+
+    def test_extract_experiment_data_batch_trials(self) -> None:
+        # Check that abandoned arms are correctly handled in BatchTrial.
+        experiment = get_branin_experiment(with_batch=True, num_batch_trial=3)
+        # Add data for all trials.
+        experiment.trials[0].mark_completed(unsafe=True)
+        experiment.trials[1].run()
+        experiment.trials[2].run()
+        experiment.fetch_data()
+        # Abandon trial 1 and some arms of trial 2.
+        experiment.trials[1].mark_abandoned(unsafe=True)
+        experiment.trials[2].mark_arm_abandoned(arm_name="2_14")
+        experiment.trials[2].mark_arm_abandoned(arm_name="2_13")
+        experiment.trials[2].mark_arm_abandoned(arm_name="2_12")
+        # We expect to see only trial 0 and non-abandoned arms of trial 2.
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        expected_arms = {
+            arm.name
+            for arm in experiment.trials[0].arms + experiment.trials[2].active_arms
+        }
+        for df in [experiment_data.arm_data, experiment_data.observation_data]:
+            self.assertEqual(set(df.index.get_level_values("arm_name")), expected_arms)
 
     def test_extract_experiment_data_with_metadata_columns(self) -> None:
         # Tests the case where the Data.df includes additional columns,

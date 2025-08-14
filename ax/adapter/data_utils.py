@@ -310,15 +310,15 @@ def extract_experiment_data(
     """
     data = data or experiment.lookup_data()
     arm_data = _extract_arm_data(experiment=experiment)
-    # Filter arm_data to only include arms with data.
-    arm_data = arm_data.loc[
-        arm_data.index.isin(
-            data.true_df[["trial_index", "arm_name"]].apply(tuple, axis=1)
-        )
-    ]
     observation_data = _extract_observation_data(
         experiment=experiment, data_loader_config=data_loader_config, data=data
     )
+    # Filter arm_data to only include the rows in observation_data.
+    index = observation_data.index
+    if (num_levels := len(index.names)) > 2:
+        # Keep only the first two levels: trial_index, arm_name.
+        index = index.droplevel(level=list(range(2, num_levels)))
+    arm_data = arm_data.loc[arm_data.index.isin(index)]
     return ExperimentData(arm_data=arm_data, observation_data=observation_data)
 
 
@@ -406,6 +406,20 @@ def _extract_observation_data(
     trial_statuses = df["trial_index"].map(
         {trial_index: trial.status for trial_index, trial in experiment.trials.items()}
     )
+    # If there are abandoned arms, mark the corresponding rows as abandoned.
+    abandoned_arms = {
+        i: {arm.name for arm in trial.abandoned_arms}
+        for i, trial in experiment.trials.items()
+        if trial.abandoned_arms
+    }
+    if abandoned_arms:
+        is_abandoned = df[["trial_index", "arm_name"]].apply(
+            lambda row: row["trial_index"] in abandoned_arms
+            and row["arm_name"] in abandoned_arms[row["trial_index"]],
+            axis=1,
+        )
+        trial_statuses[is_abandoned] = TrialStatus.ABANDONED
+    # Check against valid statuses and filter the rows.
     for metric in experiment.metrics.values():
         valid_statuses = (
             data_loader_config.statuses_to_fit_map_metric
