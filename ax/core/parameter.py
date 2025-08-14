@@ -16,7 +16,7 @@ from math import inf
 from typing import cast, Union
 from warnings import warn
 
-from ax.core.types import TNumeric, TParamValue, TParamValueList
+from ax.core.types import TNumeric, TParameterization, TParamValue, TParamValueList
 from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
@@ -920,3 +920,155 @@ class FixedParameter(Parameter):
             return f"value='{self._value}'"
         else:
             return f"value={self._value}"
+
+
+class DerivedParameter(Parameter):
+    """A parameter that is a linear function of other parameters."""
+
+    def __init__(
+        self,
+        name: str,
+        parameter_type: ParameterType,
+        parameter_names_to_weights: dict[str, float],
+        intercept: float = 0.0,
+        is_fidelity: bool = False,
+        target_value: TParamValue = None,
+    ) -> None:
+        """Initialize FixedParameter
+
+        Args:
+            name: Name of the parameter.
+            parameter_type: Enum indicating the type of parameter
+                value (e.g. string, int).
+            parameter_names_to_weights: A dictionary mapping parameter names to
+                weights. The derived parameter is a linear function of the form
+                `intercept + sum(parameter_name_to_weights[parameter_name] *
+                parameter_value)`.
+            is_fidelity: Whether this parameter is a fidelity parameter.
+            target_value: Target value of this parameter if it is a fidelity.
+        """
+        if is_fidelity:
+            raise UnsupportedError("Derived parameters cannot be fidelity parameters.")
+        elif target_value is not None:
+            raise UnsupportedError(
+                "Derived parameters do not support specifying a target value."
+            )
+        elif parameter_type not in (ParameterType.FLOAT, ParameterType.INT):
+            raise UserInputError(
+                "Derived parameters must be of type float or int, but got "
+                f"{parameter_type}."
+            )
+        self.set_parameter_names_to_weights(
+            parameter_names_to_weights=parameter_names_to_weights
+        )
+
+        self._name = name
+        self._parameter_type = parameter_type
+        self._intercept = intercept
+        self._is_fidelity = is_fidelity
+        self._target_value = None
+
+    @property
+    def parameter_names_to_weights(self) -> dict[str, TParamValue]:
+        return self._parameter_names_to_weights
+
+    def set_parameter_names_to_weights(
+        self, parameter_names_to_weights: dict[str, float]
+    ) -> None:
+        if len(parameter_names_to_weights) == 0:
+            raise UserInputError(
+                "Derived parameters must have at least one parameter in "
+                "`parameter_names_to_weights`."
+            )
+        self._parameter_names_to_weights = parameter_names_to_weights
+
+    @property
+    def intercept(self) -> float:
+        return self._intercept
+
+    def set_intercept(self, intercept: float) -> None:
+        self._intercept = intercept
+
+    def cardinality(self) -> float:
+        if self.parameter_type == ParameterType.FLOAT:
+            return inf
+        raise UnsupportedError(
+            "cardinality for an integer DerivedParameter is not supported."
+        )
+
+    def compute(self, parameters: TParameterization) -> TParamValue:
+        """Compute the value of the derived parameter.
+
+        Args:
+            parameterization: A dictionary mapping parameter names to values.
+
+        Returns:
+            The value of the derived parameter.
+        """
+        return self.cast(
+            self._intercept
+            + sum(
+                self._parameter_names_to_weights[parameter_name]
+                * parameters[parameter_name]
+                for parameter_name in self._parameter_names_to_weights
+            )
+        )
+
+    def validate(
+        self,
+        value: TParamValue,
+        raises: bool = False,
+        parameters: TParameterization | None = None,
+    ) -> bool:
+        """Checks that the input is equal to the fixed value.
+
+        Args:
+            value: Value being checked.
+            raises: If true, and validation fails, raises a UserInputError.
+
+        Raises:
+            UserInputError: If validation fails and raises is True.
+
+        Returns:
+            True if valid, False otherwise.
+        """
+        is_valid = False
+        if parameters is None:
+            if raises:
+                raise UserInputError(
+                    "Must specify `parameters` to validate a derived parameter"
+                )
+        else:
+            expected_value = self.compute(parameters=parameters)
+            is_valid = expected_value == value
+            if raises and not is_valid:
+                raise UserInputError(
+                    f"Value {value} is not equal to the expected derived"
+                    f" value: {expected_value}."
+                )
+        return is_valid
+
+    def clone(self) -> DerivedParameter:
+        return DerivedParameter(
+            name=self._name,
+            parameter_type=self._parameter_type,
+            parameter_names_to_weights=self._parameter_names_to_weights.copy(),
+            intercept=self._intercept,
+            is_fidelity=self._is_fidelity,
+            target_value=self._target_value,
+        )
+
+    def __repr__(self) -> str:
+        ret_val = self._base_repr()
+        return ret_val + ")"
+
+    @property
+    def domain_repr(self) -> str:
+        """Returns a string representation of the derived parameter."""
+        terms = [
+            f"{weight} * {name}"
+            for name, weight in self._parameter_names_to_weights.items()
+        ]
+        if self._intercept != 0.0:
+            terms.append(str(self._intercept))
+        return "value=" + " + ".join(terms)

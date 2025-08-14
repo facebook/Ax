@@ -43,6 +43,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     ParameterType,
     RangeParameter,
@@ -125,6 +126,7 @@ from ax.storage.json_store.encoders import (
     choice_parameter_to_dict,
     data_to_dict,
     default_to_dict,
+    derived_parameter_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
     generation_node_to_dict,
@@ -202,6 +204,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     ChainedInputTransform: botorch_component_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
+    DerivedParameter: derived_parameter_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
@@ -323,6 +326,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Data": Data,
     "DataLoaderConfig": DataLoaderConfig,
     "DataType": DataType,
+    "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
     "Experiment": Experiment,
     "FactorialMetric": FactorialMetric,

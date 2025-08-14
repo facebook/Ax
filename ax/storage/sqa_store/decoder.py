@@ -42,7 +42,13 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    Parameter,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -419,6 +425,15 @@ class Decoder:
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
                 dependents=parameter_sqa.dependents,
+            )
+        elif parameter_sqa.domain_type == DomainType.DERIVED:
+            parameter = DerivedParameter(
+                name=parameter_sqa.name,
+                parameter_type=parameter_sqa.parameter_type,
+                parameter_names_to_weights=parameter_sqa.parameter_names_to_weights,
+                intercept=parameter_sqa.intercept,
+                is_fidelity=parameter_sqa.is_fidelity or False,
+                target_value=parameter_sqa.target_value,
             )
         else:
             raise SQADecodeError(

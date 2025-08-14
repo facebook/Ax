@@ -87,6 +87,12 @@ class SQAParameter(Base):
     # Attributes for Fixed Parameters
     fixed_value: Column[TParamValue | None] = Column(JSONEncodedObject)
 
+    # Attributes for Derived Parameters
+    parameter_names_to_weights: Column[dict[str, TParamValue]] = Column(
+        JSONEncodedObject
+    )
+    intercept: Column[float] = Column(Float)
+
 
 class SQAParameterConstraint(Base):
     __tablename__: str = "parameter_constraint_v2"
