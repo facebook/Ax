@@ -352,8 +352,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return next(iter(objectives_to_directions.items()))
 
     def _all_objectives_and_directions(self, experiment: Experiment) -> dict[str, bool]:
-        """Returns a dict containing the metric names and corresponding directions for
-        each objective in the experiment or in `self.metric_names`, if specified.
+        """A dictionary mapping metric names to corresponding directions, i.e.
+        a Boolean indicating whether the objective is minimized, for each objective in
+        the experiment or in `self.metric_names`, if specified.
+
+        Args:
+            experiment: The experiment containing the optimization config.
+
+        Returns: A dictionary mapping metric names to a Boolean indicating whether
+            the objective is being minimized.
         """
         if self.metric_names is None:
             logger.debug(
