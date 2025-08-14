@@ -112,7 +112,7 @@ def batch_trial_from_json(
     batch._refresh_arms_by_name()  # Trigger cache build
 
     # Trial.arms_by_name only returns arms with weights
-    batch.add_status_quo_arm = (
+    batch.should_add_status_quo_arm = (
         batch.status_quo is not None and batch.status_quo.name in batch.arms_by_name
     )
 
