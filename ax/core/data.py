@@ -216,7 +216,7 @@ class Data(Base, SerializationMixin):
     def df(self) -> pd.DataFrame:
         return self._df
 
-    def get_filtered_results(self: TData, **filters: dict[str, Any]) -> pd.DataFrame:
+    def get_filtered_results(self, **filters: Any) -> pd.DataFrame:
         """Return filtered subset of data.
 
         Args:
