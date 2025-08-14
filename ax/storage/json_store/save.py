@@ -21,13 +21,11 @@ from ax.storage.json_store.registry import (
 def save_experiment(
     experiment: Experiment,
     filepath: str,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: dict[
         type, Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
     class_encoder_registry: dict[
