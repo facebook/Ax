@@ -655,7 +655,15 @@ class Surrogate(Base):
         )
 
         if not should_use_model_list and len(datasets) > 1:
-            datasets = convert_to_block_design(datasets=datasets, force=True)
+            try:
+                datasets = convert_to_block_design(datasets=datasets, force=False)
+            except UnsupportedError as e:
+                # If the block design conversion fails, use model-list.
+                logger.warning(
+                    "Conversion to block design failed. Using model-list instead."
+                    f"Original error: {e}"
+                )
+                should_use_model_list = True
         self._training_data = list(datasets)  # So that it can be modified if needed.
 
         feature_names_set = set(search_space_digest.feature_names)

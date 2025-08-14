@@ -214,7 +214,6 @@ def outcome_transform_type_from_json(
     return REVERSE_OUTCOME_TRANSFORM_REGISTRY[outcome_transform_type]
 
 
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def class_from_json(json: dict[str, Any]) -> type[Any]:
     """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
     index_in_registry = json.pop("index")
