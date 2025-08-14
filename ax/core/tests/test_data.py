@@ -10,7 +10,7 @@ import random
 from unittest.mock import patch
 
 import pandas as pd
-from ax.core.data import clone_without_metrics, custom_data_class, Data
+from ax.core.data import Data
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 
@@ -155,33 +155,16 @@ class DataTest(TestCase):
         self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
         self.assertTrue(Data.from_multiple_data([]).df.empty)
 
-    def test_CustomData(self) -> None:
-        CustomData = custom_data_class(
-            column_data_types={"metadata": str, "created_time": pd.Timestamp},
-            required_columns={"metadata"},
-        )
-        data_entry = {
-            "trial_index": 0,
-            "arm_name": "0_1",
-            "mean": 3.7,
-            "sem": 0.5,
-            "metric_name": "b",
-            "metadata": "42",
-            "created_time": "2018-09-20",
-        }
-        data = CustomData(df=pd.DataFrame([data_entry]))
+    def test_OtherClassInequality(self) -> None:
+        class CustomData(Data):
+            pass
+
+        data = CustomData(df=self.df)
         self.assertNotEqual(data, Data(self.df))
-        self.assertTrue(isinstance(data.df.iloc[0]["created_time"], pd.Timestamp))
-
-        data_entry2 = {k: v for k, v in data_entry.items() if k != "metadata"}
-
-        # Test without required column
-        with self.assertRaises(ValueError):
-            CustomData(df=pd.DataFrame([data_entry2]))
 
         # Try making regular data with extra column
-        with self.assertRaises(ValueError):
-            Data(df=pd.DataFrame([data_entry2]))
+        with self.assertRaisesRegex(ValueError, "cat"):
+            Data(df=self.df.assign(cat="dog"))
 
     def test_FromEvaluationsIsoFormat(self) -> None:
         now = pd.Timestamp.now()
@@ -219,43 +202,6 @@ class DataTest(TestCase):
             self.assertEqual(data.df["start_time"][0].day, day)
             self.assertEqual(data.df["end_time"][0].day, day)
 
-    def test_CloneWithoutMetrics(self) -> None:
-        data = Data(df=self.df)
-        expected = Data(
-            df=pd.DataFrame(
-                [
-                    {
-                        "arm_name": "0_0",
-                        "mean": 1.8,
-                        "sem": 0.3,
-                        "trial_index": 1,
-                        "metric_name": "b",
-                        "start_time": "2018-01-01",
-                        "end_time": "2018-01-02",
-                    },
-                    {
-                        "arm_name": "0_1",
-                        "mean": 3.7,
-                        "sem": 0.5,
-                        "trial_index": 1,
-                        "metric_name": "b",
-                        "start_time": "2018-01-01",
-                        "end_time": "2018-01-02",
-                    },
-                    {
-                        "arm_name": "0_2",
-                        "mean": 3.0,
-                        "sem": None,
-                        "trial_index": 1,
-                        "metric_name": "b",
-                        "start_time": "2018-01-01",
-                        "end_time": "2018-01-02",
-                    },
-                ]
-            )
-        )
-        self.assertEqual(clone_without_metrics(data, {"a"}), expected)
-
     def test_from_multiple(self) -> None:
         with self.subTest("Combinining non-empty Data"):
             data = Data.from_multiple_data([Data(df=self.df), Data(df=self.df)])
@@ -266,7 +212,10 @@ class DataTest(TestCase):
             self.assertEqual(data, Data())
 
         with self.subTest("Can't combine different types"):
-            CustomData = custom_data_class()
+
+            class CustomData(Data):
+                pass
+
             with self.assertRaisesRegex(
                 TypeError, "All data objects must be instances of"
             ):
@@ -274,71 +223,25 @@ class DataTest(TestCase):
 
     def test_FromMultipleDataMismatchedTypes(self) -> None:
         # create two custom data types
-        CustomDataA = custom_data_class(
-            column_data_types={"metadata": str, "created_time": pd.Timestamp},
-            required_columns={"metadata"},
-        )
-        CustomDataB = custom_data_class(column_data_types={"year": pd.Timestamp})
+        class CustomDataA(Data):
+            pass
+
+        class CustomDataB(Data):
+            pass
 
         # Test using `Data.from_multiple_data` to combine non-Data types
         with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
             Data.from_multiple_data([CustomDataA(), CustomDataB()])
 
         # Test data of multiple non-empty types raises a value error
-        with self.assertRaises(ValueError):
-            data_elt_A = CustomDataA(
-                df=pd.DataFrame(
-                    [
-                        {
-                            "arm_name": "0_1",
-                            "mean": 3.7,
-                            "sem": 0.5,
-                            "metric_name": "b",
-                            "metadata": "42",
-                            "created_time": "2018-09-20",
-                        }
-                    ]
-                )
-            )
-            data_elt_B = CustomDataB(
-                df=pd.DataFrame(
-                    [
-                        {
-                            "arm_name": "0_1",
-                            "mean": 3.7,
-                            "sem": 0.5,
-                            "metric_name": "b",
-                            "year": "2018-09-20",
-                        }
-                    ]
-                )
-            )
+        data_elt_A = CustomDataA(df=self.df)
+        data_elt_B = CustomDataB(df=self.df)
+        with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
             Data.from_multiple_data([data_elt_A, data_elt_B])
 
     def test_from_multiple_with_generator(self) -> None:
         data = Data.from_multiple_data(Data(df=self.df) for _ in range(2))
         self.assertEqual(len(data.df), 2 * len(self.df))
-
-    def test_GetFilteredResults(self) -> None:
-        data = Data(df=self.df)
-        actual_filtered = data.get_filtered_results(arm_name="0_0", metric_name="a")
-        # Create new Data to replicate timestamp casting.
-        expected_filtered = Data(
-            pd.DataFrame(
-                [
-                    {
-                        "arm_name": "0_0",
-                        "metric_name": "a",
-                        "mean": 2.0,
-                        "sem": 0.2,
-                        "trial_index": 1,
-                        "start_time": "2018-01-01",
-                        "end_time": "2018-01-02",
-                    },
-                ]
-            )
-        ).df
-        self.assertTrue(actual_filtered.equals(expected_filtered))
 
     def test_data_column_data_types_default(self) -> None:
         self.assertEqual(Data.column_data_types(), Data.COLUMN_DATA_TYPES)
