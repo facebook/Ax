@@ -574,7 +574,7 @@ class BaseAdapterTest(TestCase):
         )
         sobol_run = sobol_generator.gen(n=5)
         exp.new_batch_trial(
-            sobol_run, add_status_quo_arm=False
+            sobol_run, should_add_status_quo_arm=False
         ).set_status_quo_with_weight(status_quo=exp.status_quo, weight=1.0).run()
 
         # create data where metrics vary in start and end times
@@ -862,7 +862,7 @@ class BaseAdapterTest(TestCase):
         gr2 = generator2.gen(n=5)
         sq_vals = {"x1": 5.0, "x2": 5.0}
         for gr in [gr1, gr2]:
-            trial = experiment.new_batch_trial(add_status_quo_arm=True)
+            trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
             trial.add_generator_run(gr)
             trial.mark_running(no_runner_required=True)
             trial.mark_completed()

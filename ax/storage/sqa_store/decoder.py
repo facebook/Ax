@@ -1011,7 +1011,7 @@ class Decoder:
             trial._refresh_arms_by_name()  # Trigger cache build
 
             # Trial.arms_by_name only returns arms with weights
-            trial.add_status_quo_arm = (
+            trial.should_add_status_quo_arm = (
                 trial.status_quo is not None
                 and trial.status_quo.name in trial.arms_by_name
             )
