@@ -23,6 +23,8 @@ class DomainType(enum.Enum):
     CHOICE: int = 2
     # pyre-fixme[35]: Target cannot be annotated.
     ENVIRONMENTAL_RANGE: int = 3
+    # pyre-fixme[35]: Target cannot be annotated.
+    DERIVED: int = 4
 
 
 class MetricIntent(enum.Enum):
