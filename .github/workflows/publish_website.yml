@@ -41,7 +41,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: 'docusaurus-versions' # release branch
+        ref: 'gh-pages' # release branch
         fetch-depth: 0
     - name: Sync release branch with main
       run: |
@@ -106,7 +106,7 @@ jobs:
 
         git add versioned_docs/ versioned_sidebars/ versions.json
         git commit -m "Create version ${{ inputs.new_version }} of site in Docusaurus"
-        git push --force origin HEAD:docusaurus-versions
+        git push --force origin HEAD:gh-pages
     - name: Build website
       run: |
         bash scripts/make_docs.sh -b
