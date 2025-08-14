@@ -368,7 +368,7 @@ def get_branin_experiment_with_status_quo_trials(
     for _ in range(num_sobol_trials):
         sobol_run = sobol.gen(n=1)
         t = exp.new_batch_trial().add_generator_run(sobol_run)
-        t.set_status_quo_with_weight(status_quo=exp.status_quo, weight=0.5)
+        t.add_status_quo_arm(status_quo=exp.status_quo, weight=0.5)
         exp.attach_data(get_branin_data_batch(batch=t))
         t.run().mark_completed()
     return exp
@@ -633,8 +633,8 @@ def get_multi_type_experiment(
         gr = generator.gen(num_arms)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.set_status_quo_with_weight(status_quo=t1.arms[0], weight=0.5)
-        t2.set_status_quo_with_weight(status_quo=t2.arms[0], weight=0.5)
+        t1.add_status_quo_arm(status_quo=t1.arms[0], weight=0.5)
+        t2.add_status_quo_arm(status_quo=t2.arms[0], weight=0.5)
         t1.run()
         t2.run()
 
@@ -662,8 +662,8 @@ def get_multi_type_experiment_with_multi_objective(
         gr = generator.gen(10)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.set_status_quo_with_weight(status_quo=t1.arms[0], weight=0.5)
-        t2.set_status_quo_with_weight(status_quo=t2.arms[0], weight=0.5)
+        t1.add_status_quo_arm(status_quo=t1.arms[0], weight=0.5)
+        t2.add_status_quo_arm(status_quo=t2.arms[0], weight=0.5)
         t1.run()
         t2.run()
 
@@ -1842,7 +1842,7 @@ def get_batch_trial(
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     batch.runner = SyntheticRunner()
-    batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
+    batch.add_status_quo_arm(status_quo=arms[0], weight=0.5)
     batch.should_add_status_quo_arm = True
     batch._generation_step_index = 0
     return batch
@@ -1886,7 +1886,7 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
     batch = experiment.new_batch_trial()
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=1)
     batch.runner = SyntheticRunner()
-    batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
+    batch.add_status_quo_arm(status_quo=arms[0], weight=0.5)
     return batch
 
 

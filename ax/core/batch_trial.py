@@ -163,7 +163,7 @@ class BatchTrial(BaseTrial):
                     "no weight can be set for it."
                 )
             else:
-                self.set_status_quo_with_weight(status_quo=status_quo, weight=1.0)
+                self.add_status_quo_arm(status_quo=status_quo, weight=1.0)
         else:
             # Set the status quo for tracking purposes
             # It will not be included in arm_weights
@@ -302,9 +302,7 @@ class BatchTrial(BaseTrial):
         generator_run.index = len(self._generator_run_structs) - 1
 
         if self.status_quo is not None and self.should_add_status_quo_arm:
-            self.set_status_quo_with_weight(
-                status_quo=none_throws(self.status_quo), weight=1.0
-            )
+            self.add_status_quo_arm(status_quo=none_throws(self.status_quo), weight=1.0)
 
         if generator_run._generation_step_index is not None:
             self._set_generation_step_index(
@@ -320,9 +318,7 @@ class BatchTrial(BaseTrial):
 
     @status_quo.setter
     def status_quo(self, status_quo: Arm | None) -> None:
-        raise NotImplementedError(
-            "Use `set_status_quo_with_weight` to set the status quo arm."
-        )
+        raise NotImplementedError("Use `add_status_quo_arm` to set the status quo arm.")
 
     def unset_status_quo(self) -> None:
         """Set the status quo to None."""
@@ -331,9 +327,7 @@ class BatchTrial(BaseTrial):
         self._refresh_arms_by_name()
 
     @immutable_once_run
-    def set_status_quo_with_weight(
-        self, status_quo: Arm, weight: float | None
-    ) -> BatchTrial:
+    def add_status_quo_arm(self, status_quo: Arm, weight: float | None) -> BatchTrial:
         """Sets status quo arm with given weight. This weight *overrides* any
         weight the status quo has from generator runs attached to this batch.
         Thus, this function is not the same as using add_arm, which will
@@ -547,7 +541,7 @@ class BatchTrial(BaseTrial):
 
         if (self._status_quo is not None) and include_sq:
             sq_weight = self._status_quo_weight_override
-            new_trial.set_status_quo_with_weight(
+            new_trial.add_status_quo_arm(
                 self._status_quo.clone(),
                 weight=sq_weight,
             )

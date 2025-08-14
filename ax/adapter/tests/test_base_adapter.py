@@ -575,7 +575,7 @@ class BaseAdapterTest(TestCase):
         sobol_run = sobol_generator.gen(n=5)
         exp.new_batch_trial(
             sobol_run, should_add_status_quo_arm=False
-        ).set_status_quo_with_weight(status_quo=exp.status_quo, weight=1.0).run()
+        ).add_status_quo_arm(status_quo=exp.status_quo, weight=1.0).run()
 
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
