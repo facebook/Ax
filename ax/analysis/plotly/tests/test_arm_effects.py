@@ -389,7 +389,7 @@ class TestArmEffectsPlotRel(TestCase):
                 generator_runs=self.generation_strategy._gen_with_multiple_nodes(
                     experiment=self.experiment, n=3
                 )
-            ).set_status_quo_with_weight(
+            ).add_status_quo_arm(
                 status_quo=self.experiment.status_quo, weight=1.0
             ).mark_completed(unsafe=True)
             self.experiment.fetch_data()
