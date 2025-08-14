@@ -21,6 +21,7 @@ from ax.generators.torch.botorch_modular.utils import (
     construct_acquisition_and_optimizer_options,
     convert_to_block_design,
     get_cv_fold,
+    logger,
     ModelConfig,
     subset_state_dict,
     use_model_list,
@@ -186,6 +187,28 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 ),
                 datasets=[self.supervised_dataset],
             ),
+        )
+        # Check that it doesn't error out when given a mix of known and unknown noise.
+        ds1 = self.fixed_noise_dataset
+        ds1.outcome_names = ["y2"]
+        datasets = [self.supervised_dataset, ds1]
+        with self.assertLogs(logger=logger, level="DEBUG") as logs:
+            choose_botorch_acqf_class(
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, -1.0]),
+                    is_moo=True,
+                    outcome_constraints=(
+                        torch.tensor([[1.0, 0.0]]),
+                        torch.tensor([[4.0]]),
+                    ),
+                ),
+                datasets=datasets,
+            )
+        self.assertTrue(
+            any(
+                "Only a subset of datasets have noise observations." in str(log)
+                for log in logs
+            )
         )
 
     def test_construct_acquisition_and_optimizer_options(self) -> None:
@@ -514,7 +537,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         X = torch.rand(4, 2)
         Ys = [torch.rand(4, 1), torch.rand(4, 1)]
         metric_names = ["y1", "y2"]
-        datasets = [
+        datasets_unknown_noise = [
             SupervisedDataset(
                 X=X,
                 Y=Ys[i],
@@ -523,7 +546,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
             for i in range(2)
         ]
-        new_datasets = convert_to_block_design(datasets=datasets)
+        new_datasets = convert_to_block_design(datasets=datasets_unknown_noise)
         self.assertEqual(len(new_datasets), 1)
         self.assertIsInstance(new_datasets[0], SupervisedDataset)
         self.assertTrue(torch.equal(new_datasets[0].X, X))
@@ -532,7 +555,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
 
         # simple case: block design, fixed
         Yvars = [torch.rand(4, 1), torch.rand(4, 1)]
-        datasets = [
+        datasets_noisy = [
             SupervisedDataset(
                 X=X,
                 Y=Ys[i],
@@ -542,7 +565,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
             for i in range(2)
         ]
-        new_datasets = convert_to_block_design(datasets=datasets)
+        new_datasets = convert_to_block_design(datasets=datasets_noisy)
         self.assertEqual(len(new_datasets), 1)
         self.assertIsNotNone(new_datasets[0].Yvar)
         self.assertTrue(torch.equal(new_datasets[0].X, X))
@@ -565,16 +588,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
         ):
             convert_to_block_design(datasets=datasets)
 
-        # test warning is issued if not block design and force=True (supervised)
-        with warnings.catch_warnings(record=True) as ws:
+        # test a log is produced if not block design and force=True (supervised)
+        with self.assertLogs(logger=logger, level="DEBUG") as logs:
             new_datasets = convert_to_block_design(datasets=datasets, force=True)
-        # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got `bool`.
-        self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
         self.assertTrue(
             any(
-                "Forcing conversion of data not complying to a block design"
-                in str(w.message)
-                for w in ws
+                "Forcing conversion of data not complying to a block design" in str(log)
+                for log in logs
             )
         )
         self.assertEqual(len(new_datasets), 1)
@@ -586,21 +606,19 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.assertEqual(new_datasets[0].outcome_names, metric_names)
 
-        # test warning is issued if not block design and force=True (fixed)
+        # test a log is produced if not block design and force=True (fixed)
         datasets = [
             SupervisedDataset(
                 X=X, Y=Y, Yvar=Yvar, feature_names=["x1", "x2"], outcome_names=[name]
             )
             for X, Y, Yvar, name in zip((X, X2), Ys, Yvars, metric_names)
         ]
-        with warnings.catch_warnings(record=True) as ws:
+        with self.assertLogs(logger=logger, level="DEBUG") as logs:
             new_datasets = convert_to_block_design(datasets=datasets, force=True)
-        self.assertTrue(any(issubclass(w.category, AxWarning) for w in ws))
         self.assertTrue(
             any(
-                "Forcing conversion of data not complying to a block design"
-                in str(w.message)
-                for w in ws
+                "Forcing conversion of data not complying to a block design" in str(log)
+                for log in logs
             )
         )
         self.assertEqual(len(new_datasets), 1)
@@ -616,6 +634,24 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
         )
         self.assertEqual(new_datasets[0].outcome_names, metric_names)
+
+        # Test that known and unknown noise can be merged if force=True.
+        datasets = [datasets_unknown_noise[0], datasets_noisy[1]]
+        with self.assertLogs(logger=logger, level="DEBUG") as logs:
+            new_datasets = convert_to_block_design(datasets=datasets, force=True)
+        self.assertTrue(
+            any(
+                "Only a subset of datasets have noise observations." in str(log)
+                for log in logs
+            )
+        )
+        self.assertEqual(len(new_datasets), 1)
+        self.assertIsNone(new_datasets[0].Yvar)
+        # Errors out if force=False.
+        with self.assertRaisesRegex(
+            UnsupportedError, "Cannot convert mixed data with and without variance"
+        ):
+            convert_to_block_design(datasets=datasets, force=False)
 
     def test_to_inequality_constraints(self) -> None:
         A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]])

@@ -106,9 +106,7 @@ class RegistryKwargs:
     class_decoder_registry: TClassDecoderRegistry
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
 def object_from_json(
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     object_json: Any,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
@@ -288,7 +286,6 @@ def object_from_json(
         raise JSONDecodeError(err)
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
 def ax_class_from_json_dict(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
