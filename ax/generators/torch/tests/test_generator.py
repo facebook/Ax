@@ -17,7 +17,6 @@ from unittest.mock import Mock, patch
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.exceptions.model import ModelError
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
@@ -271,53 +270,6 @@ class BoTorchGeneratorTest(TestCase):
             ValueError, "BoTorch `AcquisitionFunction` has not yet been set."
         ):
             self.model.botorch_acqf_class
-
-    @mock.patch(f"{SURROGATE_PATH}.use_model_list", return_value=False)
-    def test__construct__raises_on_mixed_data(self, _: Mock) -> None:
-        """Ensure proper error is raised when mixing data w/ and w/o variance."""
-        ds1, ds2 = self.non_block_design_training_data
-        datasets = [
-            ds1,
-            SupervisedDataset(
-                X=ds2.X,
-                Y=ds2.Y,
-                feature_names=ds2.feature_names,
-                outcome_names=ds2.outcome_names,
-            ),
-        ]
-        msg = (
-            "Cannot convert mixed data with and without variance "
-            "observations to `block design`."
-        )
-        with self.assertRaisesRegex(UnsupportedError, msg):
-            self.model.fit(
-                datasets=datasets,
-                search_space_digest=self.search_space_digest,
-            )
-
-    @mock.patch(f"{SURROGATE_PATH}.use_model_list", return_value=False)
-    def test__construct__converts_non_block(self, _: Mock) -> None:
-        """Ensure non-block design data is converted with warnings."""
-        ds = self.block_design_training_data[0]
-        X1 = ds.X
-        X2 = torch.cat((X1[:1], torch.rand_like(X1[1:])))
-        datasets = [
-            ds,
-            SupervisedDataset(
-                X=X2,
-                Y=ds.Y,
-                Yvar=ds.Yvar,
-                feature_names=ds.feature_names,
-                outcome_names=["y2"],
-            ),
-        ]
-        with self.assertWarnsRegex(
-            AxWarning, "Forcing conversion of data not complying to a block design"
-        ):
-            self.model.fit(
-                datasets=datasets,
-                search_space_digest=self.search_space_digest,
-            )
 
     def test__construct(self) -> None:
         """Test autoset."""

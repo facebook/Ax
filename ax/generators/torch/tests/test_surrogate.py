@@ -28,6 +28,7 @@ from ax.generators.torch.botorch_modular.surrogate import (
     _construct_specified_input_transforms,
     _extract_model_kwargs,
     _make_botorch_input_transform,
+    logger,
     submodel_input_constructor,
     Surrogate,
     SurrogateSpec,
@@ -1159,6 +1160,35 @@ class SurrogateTest(TestCase):
         if torch.cuda.is_available():
             self.setUp(cuda=True)
             self.test_fit_multiple_model_configs()
+
+    @mock_botorch_optimize
+    def test_fit_mixed_noise_observations(self) -> None:
+        # Tests model fitting when only a subset of datasets have noise observations.
+        surrogate = Surrogate(allow_batched_models=True)
+        ds0 = self.training_data[0]
+        datasets = [
+            ds0,
+            SupervisedDataset(
+                X=ds0.X,
+                Y=ds0.Y,
+                Yvar=ds0.Y,  # Make sure there is noise.
+                feature_names=ds0.feature_names,
+                outcome_names=["metric_noisy"],
+            ),
+        ]
+        # Should log a message about failure to convert to batched design
+        # and fit a model-list rather than batched model.
+        with self.assertLogs(logger=logger, level="WARNING") as logs:
+            surrogate.fit(
+                datasets=datasets, search_space_digest=self.search_space_digest
+            )
+        self.assertTrue(
+            any("Conversion to block design failed." in str(log) for log in logs)
+        )
+        m0, m1 = assert_is_instance(surrogate.model, ModelListGP).models
+        # Model 0 should be noise free, model 1 should have known noise.
+        self.assertIsInstance(m0.likelihood, GaussianLikelihood)
+        self.assertIsInstance(m1.likelihood, FixedNoiseGaussianLikelihood)
 
     def test_cross_validate_error_for_heterogeneous_datasets(self) -> None:
         # self.ds2.outcome_names[0] = "metric"
