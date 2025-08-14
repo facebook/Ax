@@ -1166,8 +1166,7 @@ class Client(WithDBSettingsBase):
                     if metric.name == multi_objective.objectives[i].metric.name:
                         multi_objective._objectives[i]._metric = metric
                         return
-
-            if isinstance(
+            elif isinstance(
                 scalarized_objective := optimization_config.objective,
                 ScalarizedObjective,
             ):
@@ -1175,8 +1174,7 @@ class Client(WithDBSettingsBase):
                     if metric.name == scalarized_objective.metrics[i].name:
                         scalarized_objective._metrics[i] = metric
                         return
-
-            if (
+            elif (
                 isinstance(optimization_config.objective, Objective)
                 and metric.name == optimization_config.objective.metric.name
             ):
