@@ -107,7 +107,7 @@ class BatchTrial(BaseTrial):
             trial's associated generator run is immutable once set.  This cannot
             be combined with the `generator_run` argument.
         trial_type: Type of this trial, if used in MultiTypeExperiment.
-        add_status_quo_arm: If True, adds the status quo arm to the trial with a
+        should_add_status_quo_arm: If True, adds the status quo arm to the trial with a
             weight of 1.0. If False, the _status_quo is still set on the trial for
             tracking purposes, but without a weight it will not be an Arm present on
             the trial
@@ -129,7 +129,7 @@ class BatchTrial(BaseTrial):
         generator_run: GeneratorRun | None = None,
         generator_runs: list[GeneratorRun] | None = None,
         trial_type: str | None = None,
-        add_status_quo_arm: bool | None = False,
+        should_add_status_quo_arm: bool | None = False,
         ttl_seconds: int | None = None,
         index: int | None = None,
     ) -> None:
@@ -154,9 +154,9 @@ class BatchTrial(BaseTrial):
             for gr in generator_runs:
                 self.add_generator_run(generator_run=gr)
 
-        self.add_status_quo_arm = add_status_quo_arm
+        self.should_add_status_quo_arm = should_add_status_quo_arm
         status_quo = experiment.status_quo
-        if add_status_quo_arm:
+        if should_add_status_quo_arm:
             if status_quo is None:
                 raise ValueError(
                     "Experiment does not have a status quo arm so "
@@ -301,7 +301,7 @@ class BatchTrial(BaseTrial):
         )
         generator_run.index = len(self._generator_run_structs) - 1
 
-        if self.status_quo is not None and self.add_status_quo_arm:
+        if self.status_quo is not None and self.should_add_status_quo_arm:
             self.set_status_quo_with_weight(
                 status_quo=none_throws(self.status_quo), weight=1.0
             )

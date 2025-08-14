@@ -326,7 +326,7 @@ def get_branin_experiment(
         for _ in range(num_batch_trial):
             sobol_generator = get_sobol(search_space=exp.search_space)
             sobol_run = sobol_generator.gen(n=num_arms_per_trial)
-            trial = exp.new_batch_trial(add_status_quo_arm=with_status_quo)
+            trial = exp.new_batch_trial(should_add_status_quo_arm=with_status_quo)
             trial.add_generator_run(sobol_run)
 
             if with_completed_batch:
@@ -708,9 +708,9 @@ def get_factorial_experiment(
             for p in exp.search_space.parameters.values()
         )
         factorial_run = factorial_generator.gen(n=n)
-        exp.new_batch_trial(add_status_quo_arm=with_status_quo).add_generator_run(
-            factorial_run
-        )
+        exp.new_batch_trial(
+            should_add_status_quo_arm=with_status_quo
+        ).add_generator_run(factorial_run)
 
     return exp
 
@@ -889,7 +889,7 @@ def get_branin_experiment_with_multi_objective(
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
         sobol_run = sobol_generator.gen(n=5)
         trial = exp.new_batch_trial(
-            add_status_quo_arm=with_status_quo
+            should_add_status_quo_arm=with_status_quo
         ).add_generator_run(sobol_run)
 
         if with_completed_batch:
@@ -943,9 +943,9 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
 
     sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
     sobol_run = sobol_generator.gen(n=5)
-    exp.new_batch_trial(add_status_quo_arm=True).add_generator_run(sobol_run)
+    exp.new_batch_trial(should_add_status_quo_arm=True).add_generator_run(sobol_run)
     none_throws(exp.trials.get(0)).run()
-    exp.new_batch_trial(add_status_quo_arm=True).add_generator_run(sobol_run)
+    exp.new_batch_trial(should_add_status_quo_arm=True).add_generator_run(sobol_run)
     none_throws(exp.trials.get(1)).run()
 
     return exp
@@ -1313,31 +1313,31 @@ def _configure_online_experiments(experiments: list[Experiment]) -> None:
 
         # Add a candidate to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
 
         # Add a RUNNING trial to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True)
 
         # Add a FAILED trial to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True)
         trial.mark_failed()
 
         # Add an ABANDONED trial to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_abandoned()
 
         # Add a custom arm to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arms_and_weights(arms=sobol_run.arms)
 
@@ -1843,7 +1843,7 @@ def get_batch_trial(
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     batch.runner = SyntheticRunner()
     batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
-    batch.add_status_quo_arm = True
+    batch.should_add_status_quo_arm = True
     batch._generation_step_index = 0
     return batch
 
