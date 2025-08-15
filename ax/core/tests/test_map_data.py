@@ -10,7 +10,13 @@ import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.tests.test_data import TestDataBase
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
+
+
+class TestMapData2XYZ(TestDataBase):
+    cls: type[MapData] = MapData
 
 
 class MapDataTest(TestCase):
@@ -78,12 +84,7 @@ class MapDataTest(TestCase):
             ]
         )
 
-        self.map_key_infos = [
-            MapKeyInfo(
-                key="epoch",
-                default_value=0,
-            )
-        ]
+        self.map_key_infos = [MapKeyInfo(key="epoch", default_value=0)]
 
         self.mmd = MapData(df=self.df, map_key_infos=self.map_key_infos)
 
@@ -99,12 +100,6 @@ class MapDataTest(TestCase):
         self.assertEqual(self.mmd.map_key_infos[0].value_type, int)
 
     def test_init(self) -> None:
-        empty = MapData()
-        self.assertTrue(empty.map_df.empty)
-        # Check that the required columns do not include any map keys.
-        self.assertEqual(empty.REQUIRED_COLUMNS, empty.required_columns())
-        self.assertEqual(set(empty.map_df.columns), empty.REQUIRED_COLUMNS)
-
         # Initialize empty with map key infos.
         empty = MapData(map_key_infos=self.map_key_infos)
         self.assertTrue(empty.map_df.empty)
@@ -117,23 +112,16 @@ class MapDataTest(TestCase):
         with self.assertRaisesRegex(ValueError, "map_key_infos may be `None` iff"):
             MapData(df=self.df, map_key_infos=None)
 
+    def test_from_evaluations(self) -> None:
+        with self.assertRaisesRegex(
+            UnsupportedError, "MapData.from_evaluations is not supported"
+        ):
+            MapData.from_evaluations(evaluations={}, trial_index=0)
+
     def test_properties(self) -> None:
         self.assertEqual(self.mmd.map_key_infos, self.map_key_infos)
         self.assertEqual(self.mmd.map_keys, ["epoch"])
         self.assertEqual(self.mmd.map_key_to_type, {"epoch": int})
-
-    def test_clone(self) -> None:
-        self.mmd._db_id = 1234
-        clone = self.mmd.clone()
-        # Make sure the two objects are equal.
-        self.assertTrue(clone.map_df.equals(self.mmd.map_df))
-        self.assertTrue(clone.df.equals(self.mmd.df))
-        self.assertEqual(clone.map_key_infos, self.mmd.map_key_infos)
-        self.assertEqual(clone.description, self.mmd.description)
-        # Make sure it's not the original object or df.
-        self.assertIsNot(clone, self.mmd)
-        self.assertIsNot(clone.map_df, self.mmd.map_df)
-        self.assertIsNone(clone._db_id)
 
     def test_combine(self) -> None:
         data = MapData.from_multiple_map_data([])
