@@ -173,14 +173,7 @@ class DataTest(TestCase):
         self.assertNotEqual(data, Data(self.df))
         self.assertTrue(isinstance(data.df.iloc[0]["created_time"], pd.Timestamp))
 
-        data_entry2 = {
-            "trial_index": 0,
-            "arm_name": "0_1",
-            "mean": 3.7,
-            "sem": 0.5,
-            "metric_name": "b",
-            "created_time": "2018-09-20",
-        }
+        data_entry2 = {k: v for k, v in data_entry.items() if k != "metadata"}
 
         # Test without required column
         with self.assertRaises(ValueError):
@@ -328,8 +321,6 @@ class DataTest(TestCase):
 
     def test_GetFilteredResults(self) -> None:
         data = Data(df=self.df)
-        # pyre-fixme[6]: For 1st param expected `Dict[str, typing.Any]` but got `str`.
-        # pyre-fixme[6]: For 2nd param expected `Dict[str, typing.Any]` but got `str`.
         actual_filtered = data.get_filtered_results(arm_name="0_0", metric_name="a")
         # Create new Data to replicate timestamp casting.
         expected_filtered = Data(

@@ -570,7 +570,6 @@ def tensor_to_dict(obj: Tensor) -> dict[str, Any]:
     }
 
 
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
     """Convert any class to a dictionary."""
     for _class in CLASS_TO_REGISTRY:
@@ -594,7 +593,6 @@ def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
     )
 
 
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def botorch_component_to_dict(input_obj: Any) -> dict[str, Any]:
     class_type = input_obj.__class__
     if isinstance(input_obj, InputTransform):

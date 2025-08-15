@@ -29,15 +29,13 @@ from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 from ax.utils.common.typeutils_torch import torch_type_to_str
 
 
-# pyre-ignore[3]: Missing return annotation
 def object_to_json(
-    # pyre-ignore[2]: Missing parameter annotation
     obj: Any,
-    # pyre-ignore[2, 24]: Missing parameter annotation, Invalid type parameters
+    # pyre-ignore[24]: Missing parameter annotation, Invalid type parameters
     encoder_registry: dict[
         type, Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-ignore[2, 24]: Missing parameter annotation, Invalid type parameters
+    # pyre-ignore[24]: Missing parameter annotation, Invalid type parameters
     class_encoder_registry: dict[
         type, Callable[[Any], dict[str, Any]]
     ] = CORE_CLASS_ENCODER_REGISTRY,

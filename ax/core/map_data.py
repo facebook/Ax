@@ -275,8 +275,8 @@ class MapData(Data):
         ]
         map_keys = {
             key
-            for name, map_dict_and_metrics_list in evaluations.items()
-            for map_dict, evaluation in map_dict_and_metrics_list
+            for _, map_dict_and_metrics_list in evaluations.items()
+            for map_dict, _ in map_dict_and_metrics_list
             for key in map_dict.keys()
         }
         map_key_infos = map_key_infos or [
