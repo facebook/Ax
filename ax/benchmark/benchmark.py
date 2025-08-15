@@ -326,9 +326,8 @@ def get_best_parameters(
     trial_indices: Iterable[int] | None = None,
 ) -> TParameterization | None:
     """
-    Get the most promising point.
-
-    Only SOO is supported. It will return None if no best point can be found.
+    Get the most promising point. Returns None if no point is predicted to
+    satisfy all outcome constraints.
 
     Args:
         experiment: The experiment to get the data from. This should contain
@@ -421,16 +420,17 @@ def get_benchmark_result_from_experiment_and_gs(
             optimization_config=problem.optimization_config,
         )
     )
-    inference_trace = get_inference_trace(
-        trial_completion_order=trial_completion_order,
-        experiment=experiment,
-        problem=problem,
-        generation_strategy=generation_strategy,
-    )
-
-    optimization_trace = (
-        inference_trace if problem.report_inference_value_as_trace else oracle_trace
-    )
+    if problem.report_inference_value_as_trace:
+        inference_trace = get_inference_trace(
+            trial_completion_order=trial_completion_order,
+            experiment=experiment,
+            problem=problem,
+            generation_strategy=generation_strategy,
+        )
+        optimization_trace = inference_trace
+    else:
+        optimization_trace = oracle_trace
+        inference_trace = None
 
     score_trace = compute_score_trace(
         optimization_trace=optimization_trace,
@@ -507,7 +507,7 @@ def run_optimization_with_orchestrator(
 
     orchestrator = Orchestrator(
         experiment=experiment,
-        generation_strategy=method.generation_strategy.clone_reset(),
+        generation_strategy=method.generation_strategy,
         options=orchestrator_options,
     )
 
@@ -562,6 +562,8 @@ def benchmark_replication(
     Return:
         ``BenchmarkResult`` object.
     """
+    # Reset the generation strategy to ensure that it is in an unused state.
+    method.generation_strategy = method.generation_strategy.clone_reset()
     experiment = run_optimization_with_orchestrator(
         problem=problem,
         method=method,
