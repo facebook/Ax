@@ -21,6 +21,7 @@ import pandas as pd
 import torch
 from ax.adapter.registry import _decode_callables_from_references, GeneratorRegistryBase
 from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import GeneratorRunStruct
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -165,6 +166,9 @@ def object_from_json(
         # Used for decoding classes (not objects).
         elif _type in class_decoder_registry:
             return class_decoder_registry[_type](object_json)
+
+        elif _type == "GeneratorRunStruct":
+            object_json.pop("weight")  # Deprecated.
 
         elif _type not in decoder_registry:
             err = (

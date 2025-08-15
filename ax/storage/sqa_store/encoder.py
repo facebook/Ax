@@ -995,7 +995,7 @@ class Encoder:
                 )
             for struct in trial.generator_run_structs:
                 gr_sqa = self.generator_run_to_sqa(
-                    generator_run=struct.generator_run, weight=struct.weight
+                    generator_run=struct.generator_run, weight=1.0
                 )
                 generator_runs.append(gr_sqa)
 
