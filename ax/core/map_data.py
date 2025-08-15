@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from bisect import bisect_right
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
 from typing import Any, Generic, TypeVar
@@ -17,7 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.data import _filter_df, Data
-from ax.core.types import TMapTrialEvaluation
+from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
@@ -144,7 +144,7 @@ class MapData(Data):
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
             if missing_columns:
-                raise UnsupportedError(
+                raise ValueError(
                     f"Dataframe must contain required columns {missing_columns}."
                 )
             extra_columns = columns - self.supported_columns(
@@ -497,6 +497,21 @@ class MapData(Data):
             df=subsampled_df,
             map_key_infos=self.map_key_infos,
             description=self.description,
+        )
+
+    @classmethod
+    def from_evaluations(
+        cls,
+        evaluations: Mapping[str, TTrialEvaluation],
+        trial_index: int,
+        sample_sizes: Mapping[str, int] | None = None,
+        start_time: int | str | None = None,
+        end_time: int | str | None = None,
+    ) -> MapData:
+        """Not supported for MapData."""
+        raise UnsupportedError(
+            "MapData.from_evaluations is not supported. "
+            "Please use MapData.from_map_evaluations instead."
         )
 
 

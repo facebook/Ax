@@ -11,8 +11,10 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.data import Data
+from ax.core.map_data import MapData, MapKeyInfo
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
+from pyre_extensions import assert_is_instance
 
 REPR_1000: str = (
     "Data(df=\n|    |   trial_index |   arm_name | metric_name   |   mean |   sem "
@@ -46,75 +48,99 @@ REPR_500: str = (
 )
 
 
-class DataTest(TestCase):
+def get_test_dataframe() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "arm_name": "0_0",
+                "mean": 2.0,
+                "sem": 0.2,
+                "trial_index": 1,
+                "metric_name": "a",
+                "start_time": "2018-01-01",
+                "end_time": "2018-01-02",
+            },
+            {
+                "arm_name": "0_0",
+                "mean": 1.8,
+                "sem": 0.3,
+                "trial_index": 1,
+                "metric_name": "b",
+                "start_time": "2018-01-01",
+                "end_time": "2018-01-02",
+            },
+            {
+                "arm_name": "0_1",
+                "mean": 4.0,
+                "sem": 0.6,
+                "trial_index": 1,
+                "metric_name": "a",
+                "start_time": "2018-01-01",
+                "end_time": "2018-01-02",
+            },
+            {
+                "arm_name": "0_1",
+                "mean": 3.7,
+                "sem": 0.5,
+                "trial_index": 1,
+                "metric_name": "b",
+                "start_time": "2018-01-01",
+                "end_time": "2018-01-02",
+            },
+            {
+                "arm_name": "0_2",
+                "mean": 0.5,
+                "sem": None,
+                "trial_index": 1,
+                "metric_name": "a",
+                "start_time": "2018-01-01",
+                "end_time": "2018-01-02",
+            },
+            {
+                "arm_name": "0_2",
+                "mean": 3.0,
+                "sem": None,
+                "trial_index": 1,
+                "metric_name": "b",
+                "start_time": "2018-01-01",
+                "end_time": "2018-01-02",
+            },
+        ]
+    )
+
+
+class TestDataBase(TestCase):
+    """
+    Covers both Data and MapData tests.
+
+    MapData tests are in test_map_data.py.
+    """
+
+    cls: type[Data] = Data
+
     def setUp(self) -> None:
         super().setUp()
-        self.df_hash = "be6ca1edb2d83e08c460665476d32caa"
-        self.df = pd.DataFrame(
-            [
-                {
-                    "arm_name": "0_0",
-                    "mean": 2.0,
-                    "sem": 0.2,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-                {
-                    "arm_name": "0_0",
-                    "mean": 1.8,
-                    "sem": 0.3,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-                {
-                    "arm_name": "0_1",
-                    "mean": 4.0,
-                    "sem": 0.6,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-                {
-                    "arm_name": "0_1",
-                    "mean": 3.7,
-                    "sem": 0.5,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": 0.5,
-                    "sem": None,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": 3.0,
-                    "sem": None,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                },
-            ]
-        )
+        df = get_test_dataframe()
 
-    def test_Data(self) -> None:
-        self.assertEqual(Data(), Data())
-        data = Data(df=self.df)
-        self.assertEqual(data, data)
+        if self.cls is Data:
+            self.df = df
+            self.data_with_df = Data(df=self.df)
+            self.data_without_df = Data()
+        else:
+            df_1 = df.copy().assign(epoch=0)
+            df_2 = df.copy().assign(epoch=1)
+            self.df = pd.concat((df_1, df_2))
+            self.data_with_df = MapData(
+                df=self.df, map_key_infos=[MapKeyInfo(key="epoch", default_value=0.0)]
+            )
+            self.data_without_df = MapData()
 
-        df = data.df
+    def test_init(self) -> None:
+        # For Data, this is Data(). For MapData, this is MapData(map_keys=[]).
+        self.assertEqual(self.data_without_df, self.data_without_df)
+        self.assertEqual(self.data_with_df, self.data_with_df)
+
+        df = self.data_with_df.df
         self.assertEqual(
             float(df[df["arm_name"] == "0_0"][df["metric_name"] == "a"]["mean"].item()),
             2.0,
@@ -124,16 +150,9 @@ class DataTest(TestCase):
             0.5,
         )
 
-    def test_repr(self) -> None:
-        self.assertEqual(
-            str(Data(df=self.df)),
-            REPR_1000,
-        )
-        with patch(f"{Data.__module__}.DF_REPR_MAX_LENGTH", 500):
-            self.assertEqual(str(Data(df=self.df)), REPR_500)
-
     def test_clone(self) -> None:
-        data = Data(df=self.df, description="test")
+        data = self.data_with_df
+        data.description = "test"
         data._db_id = 1234
         data_clone = data.clone()
         # Check equality of the objects.
@@ -143,17 +162,64 @@ class DataTest(TestCase):
         self.assertIsNot(data, data_clone)
         self.assertIsNot(data.df, data_clone.df)
         self.assertIsNone(data_clone._db_id)
+        if self.cls is MapData:
+            data = assert_is_instance(data, MapData)
+            data_clone = assert_is_instance(data_clone, MapData)
+            self.assertEqual(data.map_key_infos, data_clone.map_key_infos)
+            self.assertIsNot(data.map_df, data_clone.map_df)
+            self.assertTrue(data.map_df.equals(data_clone.map_df))
 
     def test_BadData(self) -> None:
         df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
-        with self.assertRaises(ValueError):
-            Data(df=df)
+        with self.assertRaisesRegex(
+            ValueError, "Dataframe must contain required columns"
+        ):
+            if self.cls is Data:
+                Data(df=df)
+            else:
+                MapData(df=df, map_key_infos=[])
 
     def test_EmptyData(self) -> None:
-        df = Data().df
+        data = self.data_without_df
+        df = data.df
         self.assertTrue(df.empty)
-        self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
-        self.assertTrue(Data.from_multiple_data([]).df.empty)
+        self.assertTrue(self.cls.from_multiple_data([]).df.empty)
+
+        if isinstance(data, MapData):
+            self.assertTrue(data.map_df.empty)
+        self.assertEqual(Data.REQUIRED_COLUMNS, data.required_columns())
+        self.assertEqual(set(df.columns), set(Data.REQUIRED_COLUMNS))
+
+    def test_from_multiple_with_generator(self) -> None:
+        data = self.cls.from_multiple_data(self.data_with_df for _ in range(2))
+        self.assertEqual(len(data.true_df), 2 * len(self.data_with_df.true_df))
+
+    def test_data_column_data_types_default(self) -> None:
+        self.assertEqual(self.cls.column_data_types(), self.cls.COLUMN_DATA_TYPES)
+
+    def test_data_column_data_types_with_extra_columns(self) -> None:
+        bartype = random.choice([str, int, float])
+        columns = self.cls.column_data_types(extra_column_types={"foo": bartype})
+        for c, t in self.cls.COLUMN_DATA_TYPES.items():
+            self.assertEqual(columns[c], t)
+        self.assertEqual(columns["foo"], bartype)
+
+
+class DataTest(TestCase):
+    """Tests that are specific to Data and not shared with MapData."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.df_hash = "be6ca1edb2d83e08c460665476d32caa"
+        self.df = get_test_dataframe()
+
+    def test_repr(self) -> None:
+        self.assertEqual(
+            str(Data(df=self.df)),
+            REPR_1000,
+        )
+        with patch(f"{Data.__module__}.DF_REPR_MAX_LENGTH", 500):
+            self.assertEqual(str(Data(df=self.df)), REPR_500)
 
     def test_OtherClassInequality(self) -> None:
         class CustomData(Data):
@@ -238,17 +304,3 @@ class DataTest(TestCase):
         data_elt_B = CustomDataB(df=self.df)
         with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
             Data.from_multiple_data([data_elt_A, data_elt_B])
-
-    def test_from_multiple_with_generator(self) -> None:
-        data = Data.from_multiple_data(Data(df=self.df) for _ in range(2))
-        self.assertEqual(len(data.df), 2 * len(self.df))
-
-    def test_data_column_data_types_default(self) -> None:
-        self.assertEqual(Data.column_data_types(), Data.COLUMN_DATA_TYPES)
-
-    def test_data_column_data_types_with_extra_columns(self) -> None:
-        bartype = random.choice([str, int, float])
-        columns = Data.column_data_types(extra_column_types={"foo": bartype})
-        for c, t in Data.COLUMN_DATA_TYPES.items():
-            self.assertEqual(columns[c], t)
-        self.assertEqual(columns["foo"], bartype)
