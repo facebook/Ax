@@ -52,7 +52,7 @@ from ax.utils.testing.core_stubs import (
 )
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from torch.utils.data import Dataset
 
 
@@ -291,8 +291,15 @@ class DeterministicGenerationNode(ExternalGenerationNode):
             )
         super().__init__(node_name="Deterministic")
 
+        self.search_space = search_space
         self.param_name: str = param.name
-        self.iterator: Iterator[TParamValue] = iter(param.values)
+        self._iterator_gs: GenerationStrategy | None = None
+        self.iterator: Iterator[TParamValue] | None = None
+
+    def _reset_iterator(self) -> None:
+        # pyre-ignore[16]:  `ax.core.parameter.Parameter` has no attribute `values`.
+        self.iterator = iter(self.search_space.parameters[self.param_name].values)
+        self._iterator_gs = self.generation_strategy
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         return
@@ -300,7 +307,16 @@ class DeterministicGenerationNode(ExternalGenerationNode):
     def get_next_candidate(
         self, pending_parameters: list[TParameterization]
     ) -> TParameterization:
-        return {self.param_name: next(self.iterator)}
+        # check if the generation strategy has changed (i.e., clone_reset
+        # has been called)
+        should_reset = (
+            self._iterator_gs is None
+            or self._iterator_gs is not self.generation_strategy
+        )
+        if should_reset:
+            self._reset_iterator()
+
+        return {self.param_name: next(none_throws(self.iterator))}
 
 
 def get_discrete_search_space(n_values: int = 20) -> SearchSpace:
