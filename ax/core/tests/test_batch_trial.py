@@ -197,11 +197,9 @@ class BatchTrialTest(TestCase):
         self.assertIsNone(self.batch.status_quo)
         self.assertIsNone(self.batch._status_quo_weight_override)
 
-    def test_status_quo_set_on_clone(
-        self,
-    ) -> None:
+    def test_status_quo_set_on_clone_to(self) -> None:
         self.experiment.status_quo = self.status_quo
-        batch2 = self.batch.clone()
+        batch2 = self.batch.clone_to(include_sq=False)
         self.assertEqual(batch2.status_quo, self.experiment.status_quo)
         # Since should_add_status_quo_arm was False,
         # _status_quo_weight_override should be False and the

@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-import warnings
-
 from collections import defaultdict, OrderedDict
 from collections.abc import MutableMapping
 from dataclasses import dataclass
@@ -497,15 +495,6 @@ class BatchTrial(BaseTrial):
         abandoned_arm = AbandonedArm(name=arm_name, time=datetime.now(), reason=reason)
         self._abandoned_arms_metadata[arm_name] = abandoned_arm
         return self
-
-    def clone(self) -> BatchTrial:
-        """Clone the trial and attach it to the current experiment."""
-        warnings.warn(
-            "clone() method is getting deprecated. Please use clone_to() instead.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self.clone_to(include_sq=False)
 
     def clone_to(
         self,
