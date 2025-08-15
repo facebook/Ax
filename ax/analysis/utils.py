@@ -219,16 +219,17 @@ def prepare_arm_data(
             trial_statuses=trial_statuses,
             target_trial_index=target_trial_index,
         )
-        df = relativize_data(
-            experiment=experiment,
-            df=df,
-            metric_names=filtered_metric_names,
-            is_raw_data=is_raw_data,
-            trial_index=trial_index,
-            trial_statuses=trial_statuses,
-            target_trial_index=target_trial_index,
-            status_quo_df=status_quo_df,
-        )
+        if relativize:
+            df = relativize_data(
+                experiment=experiment,
+                df=df,
+                metric_names=filtered_metric_names,
+                is_raw_data=is_raw_data,
+                trial_index=trial_index,
+                trial_statuses=trial_statuses,
+                target_trial_index=target_trial_index,
+                status_quo_df=status_quo_df,
+            )
 
     # Add additional columns which do not require predicting or extracting data.
     df["trial_status"] = df["trial_index"].apply(
