@@ -73,7 +73,6 @@ class BoTorchGenerator(TorchGenerator, Base):
             multiple acquisition functions to be used with MultiAcquisition.
         surrogate_spec: An optional ``SurrogateSpec`` object specifying how to
             construct the ``Surrogate`` and the underlying BoTorch ``Model``.
-        surrogate_specs: DEPRECATED. Please use ``surrogate_spec`` instead.
         surrogate: In lieu of ``SurrogateSpec``, an instance of ``Surrogate`` may
             be provided. In most cases, ``surrogate_spec`` should be used instead.
         refit_on_cv: Whether to reoptimize model parameters during call to

@@ -83,6 +83,7 @@ class RandomGenerator(Generator):
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
         self.attempted_draws: int = 0
         if generated_points is not None:
+            # generated_points was deprecated in Ax 1.0.0, so it can now be reaped.
             warnings.warn(
                 "The `generated_points` argument is deprecated and will be removed "
                 "in a future version of Ax. It is being ignored in favor of "

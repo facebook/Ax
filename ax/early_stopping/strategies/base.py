@@ -470,6 +470,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         outcomes: Sequence[str] | None = None,
         parameters: list[str] | None = None,
     ) -> None:
+        # Deprecated in Ax 1.1.0, so should be removed in Ax 1.2.0+.
         raise DeprecationWarning(
             "`ModelBasedEarlyStoppingStrategy.get_training_data` is deprecated. "
             "Subclasses should either extract the training data manually, "
