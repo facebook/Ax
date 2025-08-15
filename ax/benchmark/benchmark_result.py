@@ -52,7 +52,8 @@ class BenchmarkResult(Base):
             points based only on data that would be observable in realistic
             settings, as specified by `BenchmarkMethod.get_best_parameters`, and
             then evaluating the oracle objective value of that point according
-            to the problem's `OptimizationConfig`.
+            to the problem's `OptimizationConfig`. Only reported if
+            report_inference_value_as_trace is enabled in the BenchmarkProblem.
 
             By default, if it is not overridden,
             `BenchmarkMethod.get_best_parameters` uses the empirical best point
@@ -96,7 +97,7 @@ class BenchmarkResult(Base):
     seed: int
 
     oracle_trace: npt.NDArray
-    inference_trace: npt.NDArray
+    inference_trace: npt.NDArray | None
     optimization_trace: npt.NDArray
     score_trace: npt.NDArray
     cost_trace: npt.NDArray

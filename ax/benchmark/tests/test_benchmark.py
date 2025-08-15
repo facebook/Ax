@@ -17,7 +17,6 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
-from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
     _get_oracle_value_of_params,
@@ -38,7 +37,6 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
-    get_continuous_search_space,
     get_moo_opt_config,
     get_soo_opt_config,
 )
@@ -82,7 +80,10 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
 
-from ax.utils.testing.core_stubs import get_experiment_with_observations
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -261,7 +262,9 @@ class TestBenchmark(TestCase):
                 self.assertTrue(np.isfinite(res.score_trace).all())
                 self.assertTrue(np.all(res.score_trace <= 100))
 
-    def _test_replication_async(self, map_data: bool) -> None:
+    def _test_replication_async(
+        self, map_data: bool, report_inference_value_as_trace: bool
+    ) -> None:
         """
         The test function is the identity function, higher is better, observed
         to be noiseless, and the same at every point on the trajectory. And the
@@ -349,6 +352,7 @@ class TestBenchmark(TestCase):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
                     step_runtime_fn=step_runtime_fn,
+                    report_inference_value_as_trace=report_inference_value_as_trace,
                 )
 
                 with mock_patch_method_original(
@@ -417,12 +421,15 @@ class TestBenchmark(TestCase):
                         },
                         f"Failure for trial {trial_index} with {case_name}",
                     )
-                self.assertFalse(np.isnan(result.inference_trace).any())
-                self.assertEqual(
-                    result.inference_trace.tolist(),
-                    expected_traces[case_name],
-                    msg=case_name,
-                )
+                if report_inference_value_as_trace:
+                    self.assertFalse(np.isnan(result.inference_trace).any())
+                    self.assertEqual(
+                        result.inference_trace.tolist(),
+                        expected_traces[case_name],
+                        msg=case_name,
+                    )
+                else:
+                    self.assertIsNone(result.inference_trace)
                 self.assertEqual(
                     result.oracle_trace.tolist(),
                     expected_traces[case_name],
@@ -466,8 +473,15 @@ class TestBenchmark(TestCase):
                 self.assertEqual(completed_times, expected_completed_times)
 
     def test_replication_async(self) -> None:
-        self._test_replication_async(map_data=False)
-        self._test_replication_async(map_data=True)
+        self._test_replication_async(
+            map_data=False, report_inference_value_as_trace=False
+        )
+        self._test_replication_async(
+            map_data=True, report_inference_value_as_trace=False
+        )
+        self._test_replication_async(
+            map_data=False, report_inference_value_as_trace=True
+        )
 
     def test_run_optimization_with_orchestrator(self) -> None:
         method = get_async_benchmark_method()
@@ -491,6 +505,7 @@ class TestBenchmark(TestCase):
                 none_throws(runner.simulated_backend_runner).simulator._verbose_logging
             )
 
+        method.generation_strategy = method.generation_strategy.clone_reset()
         with self.subTest("Logs not produced by default"), self.assertNoLogs(
             level=logging.INFO, logger=logger
         ), self.assertNoLogs(logger=logger):
@@ -618,9 +633,9 @@ class TestBenchmark(TestCase):
             self.assertEqual(max_run, {0: 4, 1: 2, 2: 2, 3: 2})
 
     def test_replication_variable_runtime(self) -> None:
-        method = get_async_benchmark_method(max_pending_trials=1)
         for map_data in [False, True]:
             with self.subTest(map_data=map_data):
+                method = get_async_benchmark_method(max_pending_trials=1)
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
                     step_runtime_fn=lambda params: params["x0"] + 1,
@@ -652,9 +667,7 @@ class TestBenchmark(TestCase):
                 self.assertEqual(start_times, expected_start_times)
 
     @mock_botorch_optimize
-    def _test_replication_with_inference_value(
-        self, batch_size: int, report_inference_value_as_trace: bool
-    ) -> None:
+    def _test_replication_with_inference_value(self, batch_size: int) -> None:
         seed = 1
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
@@ -667,35 +680,29 @@ class TestBenchmark(TestCase):
         num_trials = 4
         problem = get_single_objective_benchmark_problem(
             num_trials=num_trials,
-            report_inference_value_as_trace=report_inference_value_as_trace,
+            report_inference_value_as_trace=True,
             noise_std=100.0,
         )
         res = self.benchmark_replication(problem=problem, method=method, seed=seed)
         # The inference trace could coincide with the oracle trace, but it won't
         # happen in this example with high noise and a seed
-        self.assertEqual(
-            np.equal(res.inference_trace, res.optimization_trace).all(),
-            report_inference_value_as_trace,
+        self.assertTrue(
+            np.equal(none_throws(res.inference_trace), res.optimization_trace).all(),
         )
-        self.assertEqual(
+        self.assertFalse(
             np.equal(res.oracle_trace, res.optimization_trace).all(),
-            not report_inference_value_as_trace,
         )
 
         self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
-        self.assertTrue((res.inference_trace >= res.oracle_trace).all())
+        self.assertTrue((none_throws(res.inference_trace) >= res.oracle_trace).all())
 
     def test_replication_with_inference_value(self) -> None:
-        for batch_size, report_inference_value_as_trace in product(
-            [1, 2], [False, True]
-        ):
+        for batch_size in [1, 2]:
             with self.subTest(
                 batch_size=batch_size,
-                report_inference_value_as_trace=report_inference_value_as_trace,
             ):
                 self._test_replication_with_inference_value(
                     batch_size=batch_size,
-                    report_inference_value_as_trace=report_inference_value_as_trace,
                 )
 
         with self.assertRaisesRegex(
@@ -793,7 +800,11 @@ class TestBenchmark(TestCase):
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     distribute_replications=False,
                 ),
-                get_augmented_branin_problem(fidelity_or_task="fidelity"),
+                get_single_objective_benchmark_problem(
+                    observe_noise_sd=False,
+                    num_trials=6,
+                    report_inference_value_as_trace=True,
+                ),
                 "MBM::SingleTaskGP_qLogNEI",
             ),
         ]:
@@ -827,9 +838,7 @@ class TestBenchmark(TestCase):
 
         self.assertTrue(np.all(res.score_trace <= 100))
         self.assertEqual(len(res.cost_trace), problem.num_trials)
-        self.assertEqual(len(res.inference_trace), problem.num_trials)
-        # since inference trace is not supported for MOO, it should be all NaN
-        self.assertTrue(np.isnan(res.inference_trace).all())
+        self.assertIsNone(res.inference_trace)
 
     def test_benchmark_one_method_problem(self) -> None:
         problem = get_single_objective_benchmark_problem()
@@ -1196,6 +1205,7 @@ class TestBenchmark(TestCase):
             ):
                 get_opt_trace_by_steps(experiment=experiment)
 
+        method.generation_strategy = method.generation_strategy.clone_reset()
         with self.subTest("Constrained"):
             problem = get_benchmark_problem("constrained_gramacy_observed_noise")
             experiment = self.run_optimization_with_orchestrator(
@@ -1237,72 +1247,28 @@ class TestBenchmark(TestCase):
         self.assertLessEqual(transformed.score_trace.min(), result.score_trace.min())
 
     def test_get_best_parameters(self) -> None:
-        """
-        Whether this produces the correct values is tested more thoroughly in
-        other tests such as `test_replication_with_inference_value` and
-        `test_get_inference_trace_from_params`.  Setting up an experiment with
-        data and trials without just running a benchmark is a pain, so in those
-        tests, we just run a benchmark.
-        """
-        gs = get_sobol_generation_strategy()
-
-        search_space = get_continuous_search_space(bounds=[(0, 1)])
-        moo_config = get_moo_opt_config(outcome_names=["a", "b"], ref_point=[0, 0])
-        experiment = Experiment(
-            name="test",
-            is_test=True,
-            search_space=search_space,
-            optimization_config=moo_config,
+        experiment = get_branin_experiment()
+        generation_strategy = get_sobol_generation_strategy()
+        mock_function = (
+            "ax.service.utils.best_point."
+            "get_best_parameters_from_model_predictions_with_trial_index"
         )
+
+        with patch(mock_function, return_value=None):
+            result = get_best_parameters(experiment, generation_strategy)
+            self.assertIsNone(result)
+
+        with patch(mock_function, return_value=(0, {"x": 1.0}, None)):
+            result = get_best_parameters(experiment, generation_strategy)
+            self.assertEqual(result, {"x": 1.0})
 
         with self.subTest("MOO not supported"), self.assertRaisesRegex(
             NotImplementedError, "Please use `get_pareto_optimal_parameters`"
         ):
-            get_best_parameters(experiment=experiment, generation_strategy=gs)
-
-        soo_config = get_soo_opt_config(outcome_names=["a"])
-        with self.subTest("Empty experiment"):
-            result = get_best_parameters(
-                experiment=experiment.clone_with(optimization_config=soo_config),
-                generation_strategy=gs,
+            experiment = get_branin_experiment_with_multi_objective()
+            get_best_parameters(
+                experiment=experiment, generation_strategy=generation_strategy
             )
-            self.assertIsNone(result)
-
-        with self.subTest("All constraints violated"):
-            experiment = get_experiment_with_observations(
-                observations=[[1, -1], [2, -1]],
-                constrained=True,
-            )
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs
-            )
-            self.assertIsNone(best_point)
-
-        with self.subTest("No completed trials"):
-            experiment = get_experiment_with_observations(observations=[])
-            sobol_generator = get_sobol(search_space=experiment.search_space)
-            for _ in range(3):
-                trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
-                trial.run()
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs
-            )
-            self.assertIsNone(best_point)
-
-        experiment = get_experiment_with_observations(
-            observations=[[1], [2]], constrained=False
-        )
-        with self.subTest("Working case"):
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs
-            )
-            self.assertEqual(best_point, experiment.trials[1].arms[0].parameters)
-
-        with self.subTest("Trial indices"):
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs, trial_indices=[0]
-            )
-            self.assertEqual(best_point, experiment.trials[0].arms[0].parameters)
 
     def test_get_benchmark_result_from_experiment_and_gs(self) -> None:
         problem = get_single_objective_benchmark_problem()
