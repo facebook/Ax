@@ -112,6 +112,8 @@ class Adapter:
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         data_loader_config: DataLoaderConfig | None = None,
+        # fit_out_of_design, fit_abandoned, and fit_only_completed_map_metrics
+        # were deprecated in Ax 1.0.0, so they can now be reaped.
         fit_out_of_design: bool | None = None,
         fit_abandoned: bool | None = None,
         fit_only_completed_map_metrics: bool | None = None,
