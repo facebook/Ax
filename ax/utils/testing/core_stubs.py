@@ -1036,7 +1036,9 @@ def get_experiment_with_observations(
                 raise NotImplementedError
         else:
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(metrics=metrics),
+                objective=MultiObjective(
+                    objectives=[Objective(metric=metric) for metric in metrics]
+                ),
                 objective_thresholds=[
                     ObjectiveThreshold(
                         metric=metrics[i],

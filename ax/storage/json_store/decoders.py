@@ -20,6 +20,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.generator_run import GeneratorRun
+from ax.core.objective import MultiObjective, Objective
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -358,3 +359,13 @@ def default_from_json(json: dict[str, Any]) -> _DefaultType:
             f"Expected empty json object for ``DEFAULT``, got {json=}"
         )
     return DEFAULT
+
+
+def multi_objective_from_json(objectives: list[Objective], **kwargs):
+    """
+    Load MultiObjective from JSON.
+
+    Ignore fields which are no longer supported, such as ``weights``,
+    ``metrics``, and ``minimize``.
+    """
+    return MultiObjective(objectives=objectives)
