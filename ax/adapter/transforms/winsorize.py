@@ -30,7 +30,7 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
+from ax.exceptions.core import AxOptimizationWarning, UserInputError
 from ax.generators.types import TConfig, WinsorizationConfig
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -106,7 +106,7 @@ class Winsorize(Transform):
         )
         optimization_config = adapter._optimization_config if adapter else None
         if config is None and optimization_config is None:
-            raise ValueError(
+            raise UserInputError(
                 "Transform config for `Winsorize` transform must be specified and "
                 "non-empty when using winsorization, or an adapter containing an "
                 "optimization_config must be provided."
@@ -209,13 +209,24 @@ def _get_cutoffs(
     # When no optimization config is available, return defaults.
     if adapter is None or optimization_config is None:
         return DEFAULT_CUTOFFS
-    if any(oc.relative for oc in optimization_config.all_constraints):
+    relative_constraint_metrics = {
+        metric.name
+        for oc in optimization_config.all_constraints
+        for metric in (
+            oc.metrics if isinstance(oc, ScalarizedOutcomeConstraint) else [oc.metric]
+        )
+        if oc.relative
+    }
+    if metric_name in relative_constraint_metrics:
         if not use_raw_sq:
-            raise UnsupportedError(
+            warnings.warn(
                 "Automatic winsorization doesn't support relative outcome constraints "
                 "or objective thresholds when `derelativize_with_raw_status_quo` is "
-                "not set to `True`."
+                f"not set to `True`. Skipping winsorization for metric {metric_name}.",
+                AxOptimizationWarning,
+                stacklevel=3,
             )
+            return DEFAULT_CUTOFFS
         optimization_config = derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config, adapter=adapter
         )
@@ -281,7 +292,7 @@ def _get_auto_winsorization_cutoffs_multi_objective(
             "Encountered a `MultiObjective` without objective thresholds. We will "
             "winsorize each objective separately. We strongly recommend specifying "
             "the objective thresholds when using multi-objective optimization.",
-            AxWarning,
+            AxOptimizationWarning,
             stacklevel=3,
         )
         objectives = assert_is_instance(optimization_config.objective, MultiObjective)
@@ -312,7 +323,7 @@ def _obtain_cutoffs_from_outcome_constraints(
             "Automatic winsorization isn't supported for a "
             "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
             f"manually if you want to winsorize metric {metric_name}.",
-            AxWarning,
+            AxOptimizationWarning,
             stacklevel=3,
         )
     outcome_constraints = _get_non_scalarized_outcome_constraints(

@@ -39,7 +39,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.core import AxOptimizationWarning, DataRequiredError, UserInputError
 from ax.generators.base import Generator
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
@@ -195,7 +195,7 @@ class WinsorizeTransformTest(TestCase):
         ):
             Winsorize(search_space=None, observations=[])
         with self.assertRaisesRegex(
-            ValueError,
+            UserInputError,
             "Transform config for `Winsorize` transform must be specified and "
             "non-empty when using winsorization.",
         ):
@@ -458,7 +458,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m1"], (-INF, INF))
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
         self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
-        # Add a relative constraint, which should raise an error
+        # Add a relative constraint, which should warn and skip relative metrics.
         outcome_constraint = OutcomeConstraint(
             metric=m1, op=ComparisonOp.LEQ, bound=3, relative=True
         )
@@ -466,16 +466,19 @@ class WinsorizeTransformTest(TestCase):
             objective=Objective(metric=m2, minimize=True),
             outcome_constraints=[outcome_constraint],
         )
-        with self.assertRaisesRegex(
-            UnsupportedError,
+        with self.assertWarnsRegex(
+            AxOptimizationWarning,
             "Automatic winsorization doesn't support relative outcome constraints "
             "or objective thresholds when `derelativize_with_raw_status_quo` is not "
             "set to `True`.",
         ):
-            get_transform(
+            transform = get_transform(
                 observation_data=deepcopy(all_obsd),
                 optimization_config=optimization_config,
             )
+        self.assertEqual(transform.cutoffs["m1"], (-INF, INF))
+        self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
+        self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Make the constraint absolute, which should trigger winsorization
         optimization_config.outcome_constraints[0].relative = False
         transform = get_transform(
@@ -530,7 +533,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))
         self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
-        # Add relative objective thresholds (should raise an error)
+        # Add relative objective thresholds. Should warn and skip.
         objective_thresholds = [
             ObjectiveThreshold(m1, 3, relative=True),
             ObjectiveThreshold(m2, 4, relative=True),
@@ -540,16 +543,18 @@ class WinsorizeTransformTest(TestCase):
             objective_thresholds=objective_thresholds,
             outcome_constraints=[],
         )
-        with self.assertRaisesRegex(
-            UnsupportedError,
+        with self.assertWarnsRegex(
+            AxOptimizationWarning,
             "Automatic winsorization doesn't support relative outcome constraints or "
             "objective thresholds when `derelativize_with_raw_status_quo` is not set "
             "to `True`.",
         ):
-            get_transform(
+            transform = get_transform(
                 observation_data=deepcopy(all_obsd),
                 optimization_config=optimization_config,
             )
+        for i in range(1, 4):
+            self.assertEqual(transform.cutoffs[f"m{i}"], (-INF, INF))
         # Make the objective thresholds absolute (should trigger winsorization)
         optimization_config.objective_thresholds[0].relative = False
         optimization_config.objective_thresholds[1].relative = False
@@ -636,14 +641,18 @@ class WinsorizeTransformTest(TestCase):
         experiment.attach_data(data)
 
         adapter = Adapter(experiment=experiment, generator=Generator())
-        with self.assertRaisesRegex(
-            UnsupportedError, "`derelativize_with_raw_status_quo` is not set to `True`"
+        # Warns and skips without `derelativize_with_raw_status_quo`.
+        with self.assertWarnsRegex(
+            AxOptimizationWarning,
+            "`derelativize_with_raw_status_quo` is not set to `True`",
         ):
-            Winsorize(
+            t = Winsorize(
                 search_space=search_space,
                 observations=OBSERVATION_DATA,
                 adapter=adapter,
             )
+        self.assertDictEqual(t.cutoffs, {"a": (-INF, INF), "b": (-INF, INF)})
+        # Winsorizes with `derelativize_with_raw_status_quo`.
         t = Winsorize(
             search_space=search_space,
             observations=OBSERVATION_DATA,
