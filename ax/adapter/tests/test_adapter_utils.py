@@ -22,7 +22,7 @@ from ax.adapter.adapter_utils import (
 from ax.adapter.registry import Cont_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -161,7 +161,9 @@ class TestAdapterUtils(TestCase):
         mb = Metric(name="b", lower_is_better=True)
         mc = Metric(name="c", lower_is_better=False)
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(metrics=[ma, mb]),
+            objective=MultiObjective(
+                objectives=[Objective(metric=ma), Objective(metric=mb)]
+            ),
             outcome_constraints=[
                 OutcomeConstraint(
                     mc,
