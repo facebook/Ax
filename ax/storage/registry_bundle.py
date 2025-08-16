@@ -8,8 +8,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractproperty
+
 from collections import ChainMap
 from collections.abc import Callable
+
+from functools import cached_property
 from typing import Any
 
 from ax.core.metric import Metric
@@ -63,16 +66,13 @@ class RegistryBundleBase(ABC):
         self,
         metric_clss: dict[type[Metric], int | None],
         runner_clss: dict[type[Runner], int | None],
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         json_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]],
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         json_class_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]],
         json_decoder_registry: TDecoderRegistry,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         json_class_decoder_registry: dict[str, Callable[[dict[str, Any]], Any]],
     ) -> None:
         # pyre-fixme[4]: Attribute must be annotated.
@@ -106,7 +106,6 @@ class RegistryBundleBase(ABC):
         return self._runner_registry
 
     @property
-    # pyre-fixme[3]: Return annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
     def encoder_registry(self) -> dict[type, Callable[[Any], dict[str, Any]]]:
@@ -117,14 +116,12 @@ class RegistryBundleBase(ABC):
         return self._decoder_registry
 
     @property
-    # pyre-fixme[3]: Return annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
     def class_encoder_registry(self) -> dict[type, Callable[[Any], dict[str, Any]]]:
         return self._json_class_encoder_registry
 
     @property
-    # pyre-fixme[3]: Return annotation cannot contain `Any`.
     def class_decoder_registry(self) -> dict[str, Callable[[dict[str, Any]], Any]]:
         return self._json_class_decoder_registry
 
@@ -173,20 +170,17 @@ class RegistryBundle(RegistryBundleBase):
         self,
         metric_clss: dict[type[Metric], int | None],
         runner_clss: dict[type[Runner], int | None],
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         json_encoder_registry: dict[
             type, Callable[[Any], dict[str, Any]]
         ] = CORE_ENCODER_REGISTRY,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         json_class_encoder_registry: dict[
             type, Callable[[Any], dict[str, Any]]
         ] = CORE_CLASS_ENCODER_REGISTRY,
         json_decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         json_class_decoder_registry: dict[
             str, Callable[[dict[str, Any]], Any]
         ] = CORE_CLASS_DECODER_REGISTRY,
@@ -211,15 +205,14 @@ class RegistryBundle(RegistryBundleBase):
         self._encoder = Encoder(self._sqa_config)
         self._decoder = Decoder(self._sqa_config)
 
-    # TODO[mpolson64] change @property to @cached_property once we deprecate 3.7
-    @property
+    @cached_property
     def sqa_config(self) -> SQAConfig:
         return self._sqa_config
 
-    @property
+    @cached_property
     def encoder(self) -> Encoder:
         return self._encoder
 
-    @property
+    @cached_property
     def decoder(self) -> Decoder:
         return self._decoder
