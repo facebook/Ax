@@ -15,8 +15,21 @@ from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 
 
-class TestMapData2XYZ(TestDataBase):
+class TestMapData(TestDataBase):
     cls: type[MapData] = MapData
+
+
+class TestMapKeyInfo(TestCase):
+    def test_init(self) -> None:
+        with self.subTest("Cast to float"):
+            map_key_info = MapKeyInfo(key="epoch", default_value=0)
+            self.assertIsInstance(map_key_info.default_value, float)
+            self.assertEqual(map_key_info.default_value, 0.0)
+
+        with self.subTest("Normal case"):
+            map_key_info = MapKeyInfo(key="epoch", default_value=5.0)
+            self.assertIsInstance(map_key_info.default_value, float)
+            self.assertEqual(map_key_info.key, "epoch")
 
 
 class MapDataTest(TestCase):
@@ -96,8 +109,7 @@ class MapDataTest(TestCase):
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
 
         self.assertEqual(self.mmd.map_key_infos[0].key, "epoch")
-        self.assertEqual(self.mmd.map_key_infos[0].default_value, 0)
-        self.assertEqual(self.mmd.map_key_infos[0].value_type, int)
+        self.assertEqual(self.mmd.map_key_infos[0].default_value, 0.0)
 
     def test_init(self) -> None:
         # Initialize empty with map key infos.
@@ -121,7 +133,7 @@ class MapDataTest(TestCase):
     def test_properties(self) -> None:
         self.assertEqual(self.mmd.map_key_infos, self.map_key_infos)
         self.assertEqual(self.mmd.map_keys, ["epoch"])
-        self.assertEqual(self.mmd.map_key_to_type, {"epoch": int})
+        self.assertEqual(self.mmd.map_key_to_type, {"epoch": float})
 
     def test_combine(self) -> None:
         data = MapData.from_multiple_map_data([])
@@ -306,9 +318,9 @@ class MapDataTest(TestCase):
                 MapData.DEDUPLICATE_BY_COLUMNS
             ).size()
             expected_rows_per_group = np.minimum(
-                large_map_data_latest.map_df.groupby(
-                    MapData.DEDUPLICATE_BY_COLUMNS
-                ).epoch.max(),
+                large_map_data_latest.map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)
+                .epoch.max()
+                .astype(int),
                 rows_per_group,
             )
             self.assertTrue(actual_rows_per_group.equals(expected_rows_per_group))

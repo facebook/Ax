@@ -2621,7 +2621,7 @@ def get_observations_with_invalid_value(invalid_value: float) -> list[Observatio
     return observations
 
 
-def get_map_key_info() -> MapKeyInfo[float]:
+def get_map_key_info() -> MapKeyInfo:
     return MapKeyInfo(key="epoch", default_value=0.0)
 
 
