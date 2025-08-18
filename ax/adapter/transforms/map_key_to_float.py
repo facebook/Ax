@@ -106,11 +106,11 @@ class MapKeyToFloat(MetadataToFloat):
         if len(obsf.parameters) == 0:
             obsf.parameters = {p.name: p.upper for p in self._parameter_list}
             return
-        if obsf.metadata is None or len(obsf.metadata) == 0:
-            obsf.metadata = {p.name: p.upper for p in self._parameter_list}
+        if obsf.metadata is None:
+            obsf.metadata = {}
         metadata: dict[str, Any] = none_throws(obsf.metadata)
         for p in self._parameter_list:
-            if isnan(metadata[p.name]):
+            if isnan(metadata.get(p.name, float("nan"))):
                 metadata[p.name] = p.upper
         super()._transform_observation_feature(obsf)
 

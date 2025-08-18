@@ -426,8 +426,11 @@ class MapKeyToFloatTransformTest(TestCase):
             obsf.metadata["dummy"] = 1.0
         # should be exactly one parameter
         (p,) = self.t._parameter_list
-        with self.assertRaisesRegex(KeyError, f"'{p.name}'"):
-            self.t.transform_observation_features(obs_ft2)
+        # Transform fills missing values with the upper bound.
+        tf_obs_ft = self.t.transform_observation_features(obs_ft2)
+        for obs in tf_obs_ft:
+            self.assertEqual(obs.parameters[p.name], p.upper)
+            self.assertEqual(obs.metadata, {"dummy": 1.0})
 
     def test_constant_progression(self) -> None:
         for constant in (23, np.nan):
