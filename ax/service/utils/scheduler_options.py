@@ -5,6 +5,9 @@
 
 # pyre-strict
 
+# Scheduler was deprecated in Ax 1.1.0, so it should be removed in Ax
+# Ax 1.2.0+.
+
 
 class SchedulerOptions:
     raise DeprecationWarning(
