@@ -156,7 +156,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
 
 class BraninFidelityMapMetric(NoisyFunctionMapMetric):
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="fidelity", default_value=0.0)
+    map_key_info: MapKeyInfo = MapKeyInfo(key="fidelity", default_value=0.0)
 
     def __init__(
         self,

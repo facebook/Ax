@@ -11,7 +11,7 @@ from bisect import bisect_right
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -33,19 +33,12 @@ from pyre_extensions import assert_is_instance
 logger: Logger = get_logger(__name__)
 
 
-T = TypeVar("T")
-
-
-class MapKeyInfo(Generic[T], SortableBase):
+class MapKeyInfo(SortableBase):
     """Helper class storing map keys and auxilary info for use in MapData"""
 
-    def __init__(
-        self,
-        key: str,
-        default_value: T,
-    ) -> None:
-        self._key = key
-        self._default_value = default_value
+    def __init__(self, key: str, default_value: float) -> None:
+        self.key = key
+        self.default_value = float(default_value)
 
     def __str__(self) -> str:
         return f"MapKeyInfo({self.key}, {self.default_value})"
@@ -56,23 +49,9 @@ class MapKeyInfo(Generic[T], SortableBase):
     def _unique_id(self) -> str:
         return str(self.__hash__())
 
-    @property
-    def key(self) -> str:
-        return self._key
-
-    @property
-    def default_value(self) -> T:
-        return self._default_value
-
-    @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def value_type(self) -> type:
-        return type(self._default_value)
-
-    def clone(self) -> MapKeyInfo[T]:
+    def clone(self) -> MapKeyInfo:
         """Return a copy of this MapKeyInfo."""
-        return MapKeyInfo(key=self.key, default_value=deepcopy(self.default_value))
+        return MapKeyInfo(key=self.key, default_value=self.default_value)
 
 
 class MapData(Data):
@@ -100,13 +79,11 @@ class MapData(Data):
     _map_df: pd.DataFrame
     _memo_df: pd.DataFrame | None
 
-    # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
     _map_key_infos: list[MapKeyInfo]
 
     def __init__(
         self,
         df: pd.DataFrame | None = None,
-        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Iterable[MapKeyInfo] | None = None,
         description: str | None = None,
         _skip_ordering_and_validation: bool = False,
@@ -189,7 +166,6 @@ class MapData(Data):
         return self.map_df
 
     @property
-    # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
     def map_key_infos(self) -> list[MapKeyInfo]:
         return self._map_key_infos
 
@@ -204,7 +180,7 @@ class MapData(Data):
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
     def map_key_to_type(self) -> dict[str, type]:
-        return {mki.key: mki.value_type for mki in self.map_key_infos}
+        return {mki.key: float for mki in self.map_key_infos}
 
     @staticmethod
     def from_multiple_map_data(
@@ -257,7 +233,6 @@ class MapData(Data):
     def from_map_evaluations(
         evaluations: dict[str, TMapTrialEvaluation],
         trial_index: int,
-        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Iterable[MapKeyInfo] | None = None,
     ) -> MapData:
         records = [
