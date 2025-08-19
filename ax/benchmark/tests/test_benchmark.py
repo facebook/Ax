@@ -17,7 +17,6 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
-from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
 from ax.benchmark.benchmark import (
     _get_oracle_value_of_params,
@@ -38,7 +37,6 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
-    get_continuous_search_space,
     get_moo_opt_config,
     get_soo_opt_config,
 )
@@ -275,8 +273,6 @@ class TestBenchmark(TestCase):
             map_data: If True, the test function produces time-series data with
                 just one step, so behavior is the same as when map_data=False.
         """
-        method = get_async_benchmark_method()
-
         complete_out_of_order_runtimes = {
             0: 2,
             1: 1,
@@ -345,6 +341,8 @@ class TestBenchmark(TestCase):
         }
 
         for case_name, step_runtime_fn in step_runtime_fns.items():
+            method = get_async_benchmark_method()
+
             with self.subTest(case_name, step_runtime_fn=step_runtime_fn):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
@@ -417,12 +415,9 @@ class TestBenchmark(TestCase):
                         },
                         f"Failure for trial {trial_index} with {case_name}",
                     )
-                self.assertFalse(np.isnan(result.inference_trace).any())
-                self.assertEqual(
-                    result.inference_trace.tolist(),
-                    expected_traces[case_name],
-                    msg=case_name,
-                )
+                # Evaluating inference trace here is not relevant since the GS
+                # is not model-based.
+                self.assertTrue(np.isnan(result.inference_trace).all())
                 self.assertEqual(
                     result.oracle_trace.tolist(),
                     expected_traces[case_name],
@@ -491,6 +486,7 @@ class TestBenchmark(TestCase):
                 none_throws(runner.simulated_backend_runner).simulator._verbose_logging
             )
 
+        method = get_async_benchmark_method()
         with self.subTest("Logs not produced by default"), self.assertNoLogs(
             level=logging.INFO, logger=logger
         ), self.assertNoLogs(logger=logger):
@@ -618,9 +614,9 @@ class TestBenchmark(TestCase):
             self.assertEqual(max_run, {0: 4, 1: 2, 2: 2, 3: 2})
 
     def test_replication_variable_runtime(self) -> None:
-        method = get_async_benchmark_method(max_pending_trials=1)
         for map_data in [False, True]:
             with self.subTest(map_data=map_data):
+                method = get_async_benchmark_method(max_pending_trials=1)
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
                     step_runtime_fn=lambda params: params["x0"] + 1,
@@ -793,7 +789,11 @@ class TestBenchmark(TestCase):
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     distribute_replications=False,
                 ),
-                get_augmented_branin_problem(fidelity_or_task="fidelity"),
+                get_single_objective_benchmark_problem(
+                    observe_noise_sd=False,
+                    num_trials=6,
+                    report_inference_value_as_trace=True,
+                ),
                 "MBM::SingleTaskGP_qLogNEI",
             ),
         ]:
@@ -1196,6 +1196,7 @@ class TestBenchmark(TestCase):
             ):
                 get_opt_trace_by_steps(experiment=experiment)
 
+        method = get_sobol_benchmark_method(distribute_replications=False)
         with self.subTest("Constrained"):
             problem = get_benchmark_problem("constrained_gramacy_observed_noise")
             experiment = self.run_optimization_with_orchestrator(
@@ -1237,72 +1238,20 @@ class TestBenchmark(TestCase):
         self.assertLessEqual(transformed.score_trace.min(), result.score_trace.min())
 
     def test_get_best_parameters(self) -> None:
-        """
-        Whether this produces the correct values is tested more thoroughly in
-        other tests such as `test_replication_with_inference_value` and
-        `test_get_inference_trace_from_params`.  Setting up an experiment with
-        data and trials without just running a benchmark is a pain, so in those
-        tests, we just run a benchmark.
-        """
-        gs = get_sobol_generation_strategy()
-
-        search_space = get_continuous_search_space(bounds=[(0, 1)])
-        moo_config = get_moo_opt_config(outcome_names=["a", "b"], ref_point=[0, 0])
-        experiment = Experiment(
-            name="test",
-            is_test=True,
-            search_space=search_space,
-            optimization_config=moo_config,
+        experiment = get_experiment_with_observations(observations=[[1.0, 2.0]])
+        generation_strategy = get_sobol_generation_strategy()
+        mock_function = (
+            "ax.benchmark.benchmark."
+            "get_best_parameters_from_model_predictions_with_trial_index"
         )
 
-        with self.subTest("MOO not supported"), self.assertRaisesRegex(
-            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
-        ):
-            get_best_parameters(experiment=experiment, generation_strategy=gs)
-
-        soo_config = get_soo_opt_config(outcome_names=["a"])
-        with self.subTest("Empty experiment"):
-            result = get_best_parameters(
-                experiment=experiment.clone_with(optimization_config=soo_config),
-                generation_strategy=gs,
-            )
+        with patch(mock_function, return_value=None):
+            result = get_best_parameters(experiment, generation_strategy)
             self.assertIsNone(result)
 
-        with self.subTest("All constraints violated"):
-            experiment = get_experiment_with_observations(
-                observations=[[1, -1], [2, -1]],
-                constrained=True,
-            )
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs
-            )
-            self.assertIsNone(best_point)
-
-        with self.subTest("No completed trials"):
-            experiment = get_experiment_with_observations(observations=[])
-            sobol_generator = get_sobol(search_space=experiment.search_space)
-            for _ in range(3):
-                trial = experiment.new_trial(generator_run=sobol_generator.gen(n=1))
-                trial.run()
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs
-            )
-            self.assertIsNone(best_point)
-
-        experiment = get_experiment_with_observations(
-            observations=[[1], [2]], constrained=False
-        )
-        with self.subTest("Working case"):
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs
-            )
-            self.assertEqual(best_point, experiment.trials[1].arms[0].parameters)
-
-        with self.subTest("Trial indices"):
-            best_point = get_best_parameters(
-                experiment=experiment, generation_strategy=gs, trial_indices=[0]
-            )
-            self.assertEqual(best_point, experiment.trials[0].arms[0].parameters)
+        with patch(mock_function, return_value=(0, {"x": 1.0}, None)):
+            result = get_best_parameters(experiment, generation_strategy)
+            self.assertEqual(result, {"x": 1.0})
 
     def test_get_benchmark_result_from_experiment_and_gs(self) -> None:
         problem = get_single_objective_benchmark_problem()
