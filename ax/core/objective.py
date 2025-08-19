@@ -8,9 +8,7 @@
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Iterable
-from typing import Any
 
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
@@ -96,41 +94,14 @@ class MultiObjective(Objective):
         objectives: List of objectives.
     """
 
-    def __init__(
-        self,
-        objectives: list[Objective] | None = None,
-        **extra_kwargs: Any,  # Here to satisfy serialization.
-    ) -> None:
+    def __init__(self, objectives: list[Objective]) -> None:
         """Create a new objective.
 
         Args:
             objectives: The list of objectives to be jointly optimized.
 
         """
-        # Support backwards compatibility for old API in which
-        # MultiObjective constructor accepted `metrics` and `minimize`
-        # rather than `objectives`
-        if objectives is None:
-            if "metrics" not in extra_kwargs:
-                raise ValueError(
-                    "Must either specify `objectives` or `metrics` "
-                    "as input to `MultiObjective` constructor."
-                )
-            metrics = extra_kwargs["metrics"]
-            minimize = extra_kwargs.get("minimize", None)
-            warnings.warn(
-                "Passing `metrics` and `minimize` as input to the `MultiObjective` "
-                "constructor will soon be deprecated. Instead, pass a list of "
-                "`objectives`. This will become an error in the future.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            objectives = []
-            for metric in metrics:
-                objectives.append(Objective(metric=metric, minimize=minimize))
-
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._objectives = none_throws(objectives)
+        self._objectives: list[Objective] = objectives
 
     @property
     def metric(self) -> Metric:

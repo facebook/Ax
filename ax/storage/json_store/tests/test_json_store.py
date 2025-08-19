@@ -45,7 +45,11 @@ from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
 )
-from ax.storage.json_store.decoders import botorch_component_from_json, class_from_json
+from ax.storage.json_store.decoders import (
+    botorch_component_from_json,
+    class_from_json,
+    multi_objective_from_json,
+)
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.encoders import (
     botorch_component_to_dict,
@@ -1148,6 +1152,23 @@ class JSONStoreTest(TestCase):
         deserialized_object = object_from_json(object_json)
         expected_object = get_multi_objective()
         self.assertEqual(deserialized_object, expected_object)
+
+    def test_multi_objective_from_json_warning(self) -> None:
+        objectives = [get_objective()]
+
+        # Test that warning is logged when deprecated kwargs are passed
+        with self.assertLogs("ax.utils.common.kwargs", level="WARNING") as cm:
+            multi_objective_from_json(
+                objectives=objectives,
+                weights=[1.0],
+                metrics=["test_metric"],
+                minimize=True,
+            )
+
+        # Verify the warning message
+        self.assertTrue(
+            any("Found unexpected kwargs" in warning for warning in cm.output)
+        )
 
     def test_surrogate_spec_backwards_compatibility(self) -> None:
         # This is an invalid example that has both deprecated args
