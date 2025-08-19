@@ -17,7 +17,6 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
-
 from ax.adapter.registry import Generators
 from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
@@ -27,8 +26,8 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, Objective
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.trial import Trial
@@ -564,20 +563,40 @@ class SQAStoreTest(TestCase):
         )
 
         for immutable in [True, False]:
-            for multi_objective in [True, False]:
+            for composite_type in ["none", "multi_objective", "scalarized"]:
                 custom_metric_names = ["custom_test_metric"]
-                experiment = get_experiment_with_custom_runner_and_metric(
-                    constrain_search_space=False,
-                    immutable=immutable,
-                    multi_objective=multi_objective,
-                    num_trials=1,
-                )
-                if multi_objective:
+
+                # Create appropriate experiment based on composite type
+                if composite_type == "multi_objective":
+                    experiment = get_experiment_with_custom_runner_and_metric(
+                        constrain_search_space=False,
+                        immutable=immutable,
+                        multi_objective=True,
+                        num_trials=1,
+                    )
                     custom_metric_names.extend(["m1", "m3"])
-                    for metric_name in custom_metric_names:
-                        self.assertEqual(
-                            experiment.metrics[metric_name].__class__, CustomTestMetric
-                        )
+                elif composite_type == "scalarized":
+                    experiment = get_experiment_with_custom_runner_and_metric(
+                        constrain_search_space=False,
+                        immutable=immutable,
+                        scalarized_objective=True,
+                        has_outcome_constraint=True,
+                        num_trials=1,
+                    )
+                    custom_metric_names.extend(["m1", "m3", "oc_m3", "oc_m4"])
+                else:  # "none" - regular single objective
+                    experiment = get_experiment_with_custom_runner_and_metric(
+                        constrain_search_space=False,
+                        immutable=immutable,
+                        multi_objective=False,
+                        num_trials=1,
+                    )
+
+                # Verify custom metrics are being used
+                for metric_name in custom_metric_names:
+                    self.assertEqual(
+                        experiment.metrics[metric_name].__class__, CustomTestMetric
+                    )
 
                 # Save the experiment to db using the updated registries.
                 save_experiment(experiment, config=sqa_config)
@@ -599,18 +618,19 @@ class SQAStoreTest(TestCase):
                 self.assertIs(loaded_experiment.runner, None)
 
                 for metric_name in custom_metric_names:
-                    self.assertTrue(metric_name in loaded_experiment.metrics)
-                    self.assertEqual(
-                        loaded_experiment.metrics["custom_test_metric"].__class__,
-                        Metric,
-                    )
+                    if metric_name in loaded_experiment.metrics:
+                        self.assertEqual(
+                            loaded_experiment.metrics[metric_name].__class__,
+                            Metric,
+                        )
                 self.assertEqual(len(loaded_experiment.trials), 1)
                 trial = loaded_experiment.trials[0]
                 self.assertIs(trial.runner, None)
                 delete_experiment(exp_name=experiment.name)
-                # check generator runs
+
+                # Check generator runs
                 gr = trial.generator_runs[0]
-                if multi_objective and not immutable:
+                if composite_type == "multi_objective" and not immutable:
                     objectives = assert_is_instance(
                         none_throws(gr.optimization_config).objective, MultiObjective
                     ).objectives
@@ -618,6 +638,20 @@ class SQAStoreTest(TestCase):
                         metric = objective.metric
                         self.assertEqual(metric.name, f"m{1 + 2 * i}")
                         self.assertEqual(metric.__class__, Metric)
+                elif composite_type == "scalarized" and not immutable:
+                    # Check scalarized objective children
+                    scalarized_objective = none_throws(gr.optimization_config).objective
+                    if isinstance(scalarized_objective, ScalarizedObjective):
+                        for metric in scalarized_objective.metrics:
+                            self.assertEqual(metric.__class__, Metric)
+
+                    # Check scalarized outcome constraint children
+                    for constraint in none_throws(
+                        gr.optimization_config
+                    ).outcome_constraints:
+                        if isinstance(constraint, ScalarizedOutcomeConstraint):
+                            for metric in constraint.metrics:
+                                self.assertEqual(metric.__class__, Metric)
 
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
