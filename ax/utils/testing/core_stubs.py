@@ -203,24 +203,61 @@ def get_experiment_with_custom_runner_and_metric(
     constrain_search_space: bool = True,
     immutable: bool = False,
     multi_objective: bool = False,
+    scalarized_objective: bool = False,
     num_trials: int = 3,
     has_outcome_constraint: bool = False,
 ) -> Experiment:
+    # Validate mutually exclusive parameters
+    if multi_objective and scalarized_objective:
+        raise ValueError("multi_objective and scalarized_objective cannot both be True")
+
+    # Create optimization config based on the requested type
+    if multi_objective:
+        optimization_config = get_multi_objective_optimization_config(
+            custom_metric=True,
+            outcome_constraint=has_outcome_constraint,
+            relative=False,
+        )
+    elif scalarized_objective:
+        # Create scalarized objective with custom metrics
+        custom_scalarized_objective = ScalarizedObjective(
+            metrics=[
+                CustomTestMetric(name="m1", test_attribute="test"),
+                CustomTestMetric(name="m3", test_attribute="test"),
+            ],
+            weights=[1.0, 2.0],
+            minimize=False,
+        )
+
+        outcome_constraints = []
+        if has_outcome_constraint:
+            # When both scalarized_objective and has_outcome_constraint are True,
+            # automatically use scalarized outcome constraint
+            custom_scalarized_constraint = ScalarizedOutcomeConstraint(
+                metrics=[
+                    CustomTestMetric(name="oc_m3", test_attribute="test"),
+                    CustomTestMetric(name="oc_m4", test_attribute="test"),
+                ],
+                weights=[0.2, 0.8],
+                op=ComparisonOp.GEQ,
+                bound=-0.25,
+            )
+            outcome_constraints.append(custom_scalarized_constraint)
+
+        optimization_config = OptimizationConfig(
+            objective=custom_scalarized_objective,
+            outcome_constraints=outcome_constraints,
+        )
+    else:
+        optimization_config = get_optimization_config(
+            outcome_constraint=has_outcome_constraint, relative=False
+        )
+
     # Create experiment with custom runner and metric
     experiment = Experiment(
         name="test",
         search_space=get_search_space(constrain_search_space=constrain_search_space),
-        optimization_config=(
-            get_multi_objective_optimization_config(
-                custom_metric=True,
-                outcome_constraint=has_outcome_constraint,
-                relative=False,
-            )
-            if multi_objective
-            else get_optimization_config(
-                outcome_constraint=has_outcome_constraint, relative=False
-            )
-        ),
+        optimization_config=optimization_config,
         description="test description",
         tracking_metrics=[
             CustomTestMetric(name="custom_test_metric", test_attribute="test")
