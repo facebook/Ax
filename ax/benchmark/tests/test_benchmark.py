@@ -63,7 +63,6 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
-    TestDataset,
 )
 
 from ax.core.experiment import Experiment
@@ -706,13 +705,6 @@ class TestBenchmark(TestCase):
 
     @mock_botorch_optimize
     def test_replication_mbm(self) -> None:
-        with patch.dict(
-            "ax.benchmark.problems.hpo.torchvision._REGISTRY",
-            {"MNIST": TestDataset},
-        ):
-            mnist_problem = get_benchmark_problem(
-                problem_key="hpo_pytorch_cnn_MNIST", name="MNIST", num_trials=6
-            )
         for method, problem, expected_name in [
             (
                 get_sobol_botorch_modular_acquisition(
@@ -766,15 +758,6 @@ class TestBenchmark(TestCase):
                 ),
                 get_multi_objective_benchmark_problem(num_trials=6),
                 "MBM::SAAS_qLogNEI",
-            ),
-            (
-                get_sobol_botorch_modular_acquisition(
-                    model_cls=SingleTaskGP,
-                    acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
-                ),
-                mnist_problem,
-                "MBM::SingleTaskGP_qLogNEI",
             ),
             (
                 get_sobol_botorch_modular_acquisition(

@@ -52,8 +52,6 @@ from ax.utils.testing.core_stubs import (
 )
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
-from pyre_extensions import assert_is_instance
-from torch.utils.data import Dataset
 
 
 def get_single_objective_benchmark_problem(
@@ -206,30 +204,6 @@ class DummyTestFunction(BenchmarkTestFunction):
     def evaluate_true(self, params: dict[str, float]) -> torch.Tensor:
         value = sum(elt**2 for elt in params.values())
         return value * torch.ones(self.num_outcomes, dtype=torch.double)
-
-
-class TestDataset(Dataset):
-    def __init__(
-        self,
-        root: str = "",
-        train: bool = True,
-        download: bool = True,
-        transform: Any = None,
-    ) -> None:
-        torch.manual_seed(0)
-        self.data: torch.Tensor = torch.randint(
-            low=0, high=256, size=(32, 1, 28, 28), dtype=torch.float32
-        )
-        self.targets: torch.Tensor = torch.randint(
-            low=0, high=10, size=(32,), dtype=torch.uint8
-        )
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
-        target = assert_is_instance(self.targets[idx].item(), int)
-        return self.data[idx], target
 
 
 def get_jenatton_arm(i: int) -> Arm:
