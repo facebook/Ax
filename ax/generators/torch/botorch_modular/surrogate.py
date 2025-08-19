@@ -62,7 +62,8 @@ from ax.utils.stats.model_fit_stats import (
     RANK_CORRELATION,
 )
 from botorch.exceptions.errors import ModelFittingError
-from botorch.models.model import Model
+from botorch.models.gpytorch import GPyTorchModel
+from botorch.models.model import Model, ModelList
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
@@ -758,7 +759,10 @@ class Surrogate(Base):
             self._last_datasets[outcome_name_tuple] = dataset
 
         if should_use_model_list:
-            self._model = ModelListGP(*models)
+            if all(isinstance(model, GPyTorchModel) for model in models):
+                self._model = ModelListGP(*models)
+            else:
+                self._model = ModelList(*models)
         else:
             self._model = models[0]
         self._outcomes = outcome_names  # In the order of input datasets
@@ -1179,11 +1183,13 @@ class Surrogate(Base):
                 model_names_i[outcome] = model_name
             if isinstance(self._model, ModelListGP):
                 models.append(ModelListGP(*models_i))
+            elif isinstance(self._model, ModelList):
+                models.append(ModelList(*models_i))
             elif len(models_i) > 1:
                 # If MBM supports ModelList in the future, this will need to be
                 # updated here.
                 raise ValueError(
-                    "Got multiple models but not a ModelListGP"
+                    "Got multiple models but not a ModelListGP or ModelList."
                 )  # pragma: no cover
             else:
                 models.append(models_i[0])

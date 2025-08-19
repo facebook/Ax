@@ -1820,6 +1820,60 @@ class SurrogateTest(TestCase):
         }
         surrogate.models_for_gen(10)
 
+    def test_non_gp_model_list(self) -> None:
+        """Test that when non-GP models are used with
+        should_use_model_list, surrogate._model will be a ModelList instead of
+        ModelListGP."""
+        surrogate = Surrogate()
+        ds0 = self.training_data[0]
+
+        # Create datasets for multiple outcomes to force should_use_model_list = True
+        datasets = [
+            ds0,
+            SupervisedDataset(
+                X=ds0.X + 0.1,
+                Y=torch.ones_like(ds0.Y),
+                feature_names=ds0.feature_names,
+                outcome_names=["deterministic_metric"],
+            ),
+        ]
+
+        def mock_construct_model(
+            dataset: SupervisedDataset,
+            search_space_digest: SearchSpaceDigest,
+            model_config: ModelConfig,
+            state_dict: dict[str, Any] | None,
+            refit: bool,
+        ) -> Model:
+            """Mock out Surrogate._construct_model because
+            it is incompatible with `GenericDeterministicModel`,
+            and therefore we can't specify `metric_to_model_configs`
+            in the surrogate spec.
+            """
+            if "deterministic" in dataset.outcome_names[0]:
+                # Return a mock DeterministicModel for the deterministic metric
+                return Mock(spec=GenericDeterministicModel)
+            else:
+                # Return a regular GP model for the first outcome
+                return SingleTaskGP(train_X=dataset.X, train_Y=dataset.Y)
+
+        with patch.object(
+            surrogate, "_construct_model", side_effect=mock_construct_model
+        ):
+            surrogate.fit(
+                datasets=datasets, search_space_digest=self.search_space_digest
+            )
+
+        model = none_throws(surrogate._model)
+        self.assertIsInstance(model, ModelList)
+        self.assertNotIsInstance(model, ModelListGP)
+
+        model_list = assert_is_instance(model, ModelList)
+        models = model_list.models
+        self.assertEqual(len(models), 2)
+        self.assertIsInstance(models[0], SingleTaskGP)
+        self.assertTrue(isinstance(models[1], Mock))
+
 
 class SurrogateWithModelListTest(TestCase):
     def setUp(self) -> None:
