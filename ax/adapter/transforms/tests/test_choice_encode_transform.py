@@ -18,9 +18,14 @@ from ax.adapter.transforms.choice_encode import (
     OrderedChoiceToIntegerRange,
 )
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
@@ -180,6 +185,58 @@ class ChoiceEncodeTransformTest(TestCase):
         t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
+
+    def test_hss_dependents_are_preserved(self) -> None:
+        # x0
+        # ├── x1
+        # └── x2
+        #     ├── (False) EMPTY
+        #     └── (True) x3
+        hss = HierarchicalSearchSpace(
+            parameters=[
+                FixedParameter(
+                    "x0",
+                    parameter_type=ParameterType.BOOL,
+                    value=True,
+                    dependents={True: ["x1", "x2"]},
+                ),
+                RangeParameter(
+                    "x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                ChoiceParameter(
+                    "x2",
+                    parameter_type=ParameterType.STRING,
+                    values=["NO", "YES"],
+                    is_ordered=True,
+                    sort_values=True,
+                    dependents={"NO": [], "YES": ["x3"]},
+                ),
+                RangeParameter(
+                    "x3",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+        hss = self.t_class(search_space=hss).transform_search_space(hss)
+
+        # x0 should be untouched because it's a fixed parameter.
+        self.assertIsInstance(hss.parameters["x0"], FixedParameter)
+        self.assertEqual(hss.parameters["x0"].parameter_type, ParameterType.BOOL)
+        # pyre-ignore[16] # Pyre doesn't understand fixed parameters have `.value`
+        self.assertEqual(hss.parameters["x0"].value, True)
+        self.assertEqual(hss.parameters["x0"].dependents, {True: ["x1", "x2"]})
+
+        self.assertFalse(hss.parameters["x1"].is_hierarchical)
+        self.assertFalse(hss.parameters["x3"].is_hierarchical)
+
+        self.assertTrue(hss.parameters["x2"].is_hierarchical)
+        self.assertEqual(hss.parameters["x2"].parameter_type, ParameterType.INT)
+        self.assertEqual(hss.parameters["x2"].dependents, {0: [], 1: ["x3"]})
 
     def test_with_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
@@ -390,6 +447,12 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
         t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
         t_deprecated = OrderedChoiceEncode(search_space=ss3, observations=[])
         self.assertEqual(t.__dict__, t_deprecated.__dict__)
+
+    def test_hss_dependents_are_preserved(self) -> None:
+        """
+        Skip the HSS test. `OrderedChoiceToIntegerRange` cannot support hierarchical
+        search spaces, because range parameters cannot have dependents.
+        """
 
 
 def normalize_values(values: Sized) -> list[float]:
