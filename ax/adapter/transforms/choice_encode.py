@@ -96,12 +96,23 @@ class ChoiceToNumericChoice(Transform):
                         f"Cannot choice-encode fidelity parameter {p_name}"
                     )
                 tvals, ptype = transform_choice_values(p)
+
+                dependents = None
+                if p.is_hierarchical:
+                    # The dependents of hierarchical parameters need to be updated to
+                    # reflect the changes by encoding.
+                    dependents = {
+                        self.encoded_parameters[p.name][val]: deps
+                        for val, deps in p.dependents.items()
+                    }
+
                 transformed_parameters[p_name] = ChoiceParameter(
                     name=p_name,
                     parameter_type=ptype,
                     values=tvals.tolist(),
                     is_ordered=p.is_ordered,
                     sort_values=p.sort_values,
+                    dependents=dependents,
                 )
             else:
                 transformed_parameters[p.name] = p
