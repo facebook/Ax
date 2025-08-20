@@ -53,6 +53,7 @@ from botorch.acquisition.objective import (
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models.model import Model
+from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
@@ -534,6 +535,17 @@ def predict_from_model(
             if isinstance(posterior, GaussianMixturePosterior):
                 mean = posterior.mixture_mean.cpu().detach()
                 var = posterior.mixture_variance.cpu().detach().clamp_min(0)
+            elif isinstance(posterior, EnsemblePosterior) and posterior.values.ndim > 2:
+                # Compute dimensions to average over (all except last 2)
+                # Not using the build-in EnsemblePosterior.variance() since that
+                # does not allow us to compute variance over _all_ batch dimensions
+                avg_dims = tuple(range(posterior.values.ndim - 2))
+                mean = posterior.values.mean(dim=avg_dims).cpu().detach()
+                var = posterior.values.var(dim=avg_dims).cpu().detach()
+
+                # Replace NaN values with zero (occurs when ensemble size is 1)
+                if posterior.values[..., 0, 0].numel() == 1:
+                    var = torch.zeros_like(var)
             else:
                 try:
                     mean = posterior.mean.cpu().detach()  # type: ignore
