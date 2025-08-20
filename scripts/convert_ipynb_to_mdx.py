@@ -18,6 +18,13 @@ import mdformat
 import nbformat
 import pandas as pd
 from nbformat.notebooknode import NotebookNode
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s"
+)
+
 
 SCRIPTS_DIR = Path(__file__).parent.resolve()
 LIB_DIR = SCRIPTS_DIR.parent.resolve()
@@ -77,10 +84,14 @@ def load_notebook(path: Path) -> NotebookNode:
     Returns:
         NotebookNode: `nbformat` object, which contains all the notebook cells in it.
     """
-    with path.open("r") as f:
-        nb_str = f.read()
-        nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
-    return nb
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            nb_str = f.read()
+        return nbformat.reads(nb_str, nbformat.NO_CONVERT)
+    except Exception as e:
+        logging.error(f"Failed to load notebook {path}: {e}")
+        return None
+
 
 
 def create_folders(path: Path) -> tuple[str, Path]:
