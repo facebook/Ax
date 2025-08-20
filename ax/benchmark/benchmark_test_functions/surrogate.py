@@ -15,8 +15,15 @@ from ax.core.observation import ObservationFeatures
 from ax.core.types import TParamValue
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
+from botorch.models.deterministic import (
+    DeterministicModel,
+    MatheronPathModel,
+    PosteriorMeanModel,
+)
 from pyre_extensions import none_throws
 from torch import Tensor
+
+RANDOM_SURROGATE_TYPES: list[type[DeterministicModel]] = [MatheronPathModel]
 
 
 @dataclass(kw_only=True)
@@ -35,12 +42,18 @@ class SurrogateTestFunction(BenchmarkTestFunction):
         get_surrogate: Function that returns the surrogate, to allow for lazy
             construction. If `get_surrogate` is not provided, `surrogate` must
             be provided and vice versa.
+        surrogate_model_type: The type of surrogate model to use. We either pass
+            in a type of deterministic model, (e.g. PosteriorMeanModel) or
+            a function that returns a deterministic model
+            (e.g. get_matheron_path_model).
     """
 
     name: str
     outcome_names: Sequence[str]
     _surrogate: TorchAdapter | None = None
     get_surrogate: None | Callable[[], TorchAdapter] = None
+    surrogate_model_type: type[DeterministicModel] = PosteriorMeanModel
+    seed: int = 0
 
     def __post_init__(self) -> None:
         if self.get_surrogate is None and self._surrogate is None:
@@ -49,10 +62,41 @@ class SurrogateTestFunction(BenchmarkTestFunction):
                 " vice versa."
             )
 
+    def specify_surrogate_type(self) -> None:
+        """Substitute the surrogate model for a deterministic model used for
+        benchmarking."""
+        # pyre-ignore[16]: `ax.generators.torch_base.TorchGenerator` has no attribute
+        # `surrogate`.
+        surrogate_model = none_throws(self._surrogate).generator.surrogate
+
+        if isinstance(surrogate_model.model, DeterministicModel):
+            return  # Already wrapped
+
+        base_model = surrogate_model.model
+
+        # Check if surrogate_model_type accepts a 'seed' argument
+        if self.surrogate_model_type in RANDOM_SURROGATE_TYPES:
+            # pyre-ignore[45]: Cannot instantiate abstract class `DeterministicModel`
+            # with abstract method `forward`.
+            wrapped_model = self.surrogate_model_type(base_model, seed=self.seed)
+        else:
+            # pyre-ignore[45]: Cannot instantiate abstract class `DeterministicModel`
+            # with abstract method `forward`.
+            wrapped_model = self.surrogate_model_type(base_model)
+
+        surrogate_model._model = wrapped_model
+
     @property
     def surrogate(self) -> TorchAdapter:
         if self._surrogate is None:
             self._surrogate = none_throws(self.get_surrogate)()
+        if not isinstance(
+            # pyre-ignore[16]: `ax.generators.torch_base.TorchGenerator` has no
+            # attribute `surrogate`.
+            self._surrogate.generator.surrogate.model,
+            DeterministicModel,
+        ):
+            self.specify_surrogate_type()
         return none_throws(self._surrogate)
 
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
