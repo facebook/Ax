@@ -11,9 +11,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
-from ax.benchmark.problems.hpo.torchvision import (
-    get_pytorch_cnn_torchvision_benchmark_problem,
-)
 from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.benchmark.problems.surrogate.lcbench.early_stopping import (
     get_lcbench_early_stopping_benchmark_problem,
@@ -128,20 +125,6 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
             "num_trials": 25,
             "observe_noise_sd": False,
             "n_dummy_dimensions": 24,
-        },
-    ),
-    "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
-        factory_fn=get_pytorch_cnn_torchvision_benchmark_problem,
-        factory_kwargs={
-            "name": "MNIST",
-            "num_trials": 20,
-        },
-    ),
-    "hpo_pytorch_cnn_FashionMNIST": BenchmarkProblemRegistryEntry(
-        factory_fn=get_pytorch_cnn_torchvision_benchmark_problem,
-        factory_kwargs={
-            "name": "FashionMNIST",
-            "num_trials": 50,
         },
     ),
     "jenatton": BenchmarkProblemRegistryEntry(

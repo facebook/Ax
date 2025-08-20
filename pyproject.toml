@@ -43,7 +43,6 @@ dev = [
     "sphinx",
     "sphinx-autodoc-typehints",
     "sphinx_rtd_theme",
-    "torchvision>=0.5.0",
     "lxml",
     "mdformat-myst",
 ]
@@ -59,7 +58,6 @@ notebook = [
 unittest_minimal = [
     # For tensorboard unit tests (min req: numpy 2.0 compatibility).
     "tensorboard>=2.18.0",
-    "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
     # Required for building RayTune tutorial notebook and
     # deserializing data for benchmark suites.
