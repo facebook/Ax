@@ -508,10 +508,9 @@ def observations_from_data(
     if isinstance(data, MapData):
         map_keys = data.map_keys
         if latest_rows_per_group is not None:
-            data = data.latest(map_keys=map_keys, rows_per_group=latest_rows_per_group)
+            data = data.latest(rows_per_group=latest_rows_per_group)
         elif limit_rows_per_metric is not None or limit_rows_per_group is not None:
             data = data.subsample(
-                map_key=data.map_keys[0],
                 limit_rows_per_metric=limit_rows_per_metric,
                 limit_rows_per_group=limit_rows_per_group,
                 include_first_last=True,
