@@ -34,6 +34,7 @@ from ax.core.utils import (
     get_pending_observation_features,
     get_pending_observation_features_based_on_trial_status as get_pending_status,
     get_target_trial_index,
+    is_bandit_experiment,
     MissingMetrics,
 )
 from ax.exceptions.core import AxError, UserInputError
@@ -783,3 +784,18 @@ class UtilsTest(TestCase):
         decorated_func = batch_trial_only(msg=custom_message)(mock_func)
         with self.assertRaisesRegex(AxError, custom_message):
             decorated_func(trial="not a batch trial")
+
+    def test_is_bandit_experiment_util(self) -> None:
+        with self.subTest("non-bandit GS"):
+            self.assertFalse(
+                is_bandit_experiment(generation_strategy_name="non-bandit GS")
+            )
+
+        with self.subTest("bandit GS"):
+            self.assertTrue(
+                is_bandit_experiment(
+                    generation_strategy_name=(
+                        Keys.FACTORIAL_PLUS_EMPIRICAL_BAYES_THOMPSON_SAMPLING
+                    )
+                )
+            )
