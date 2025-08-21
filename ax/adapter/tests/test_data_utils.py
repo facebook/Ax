@@ -7,9 +7,11 @@
 # pyre-strict
 
 from copy import deepcopy
+from math import nan
 from unittest import mock
 
 import numpy as np
+
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.core.data import Data
@@ -262,7 +264,7 @@ class TestDataUtils(TestCase):
         metrics = set(experiment_data.metric_names)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
-            [(0, "0_0", 0.0), (0, "0_0", 3.0), (1, "1_0", 0.0)],
+            [(0, "0_0", float("NaN")), (0, "0_0", 3.0), (1, "1_0", float("NaN"))],
             names=["trial_index", "arm_name", "timestamp"],
         )
         expected_mean_df = DataFrame(
@@ -303,10 +305,12 @@ class TestDataUtils(TestCase):
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [
+                (0, "0_0", nan),
                 (0, "0_0", 0.0),
                 (0, "0_0", 1.0),
                 (0, "0_0", 2.0),
                 (0, "0_0", 3.0),
+                (1, "1_0", nan),
                 (1, "1_0", 0.0),
                 (1, "1_0", 1.0),
             ],
@@ -314,12 +318,14 @@ class TestDataUtils(TestCase):
         )
         expected_mean_df = DataFrame(
             [
-                {"branin": t_0_metric, "branin_map": t_0_metric},
-                {"branin": None, "branin_map": t_0_metric},
-                {"branin": None, "branin_map": t_0_metric},
-                {"branin": None, "branin_map": t_0_metric},
-                {"branin": t_1_metric, "branin_map": t_1_metric},
-                {"branin": None, "branin_map": t_1_metric},
+                {"branin": t_0_metric, "branin_map": None},  # t=nan
+                {"branin": None, "branin_map": t_0_metric},  # t=0
+                {"branin": None, "branin_map": t_0_metric},  # t=1
+                {"branin": None, "branin_map": t_0_metric},  # t=2
+                {"branin": None, "branin_map": t_0_metric},  # t=3
+                {"branin": t_1_metric, "branin_map": None},  # t=nan
+                {"branin": None, "branin_map": t_1_metric},  # t=0
+                {"branin": None, "branin_map": t_1_metric},  # t=1
             ],
             index=index,
         )
@@ -456,10 +462,29 @@ class TestDataUtils(TestCase):
         assert_frame_equal(experiment_data.arm_data, filtered_data.arm_data)
         # Observation data is filtered to only include one row for each arm
         # and no timestamp on the index.
-        # In this case, the data is identical to timeframe 0 for both arms.
-        expected_obs_data = experiment_data.observation_data.loc[
-            [(0, "0_0", 0.0), (1, "1_0", 0.0)]
-        ].droplevel(2)
+        # In this case, the data is identical to timestamp 0 for branin_map and
+        # timestamp nan for branin.
+
+        # the first two rows of experiment_data.observation_data.loc[(0, "0_0")]:
+        #                 mean               sem            metadata
+        #               branin branin_map branin branin_map        n frac_nonnull
+        # timestamp
+        # NaN        55.602113        NaN    0.0        NaN  10000.0    55.602113
+        # 0.0              NaN  55.602113    NaN        0.0      NaN          NaN
+
+        # this operation coalesces it to take the non-null values, putting data
+        # for branin and branin_map on the same row.
+        expected_obs_data = (
+            experiment_data.observation_data.loc[
+                experiment_data.observation_data.index.get_level_values(
+                    "timestamp"
+                ).isin((0, nan))
+            ]
+            .reset_index("timestamp", drop=True)
+            .groupby(level=["trial_index", "arm_name"])
+            .first()
+        )
+
         assert_frame_equal(filtered_data.observation_data, expected_obs_data)
 
     def test_convert_to_list_of_observations(self) -> None:
@@ -479,7 +504,23 @@ class TestDataUtils(TestCase):
         # Experiment data shouldn't be modified.
         self.assertEqual(experiment_data, copy_data)
         # Check that the observations are correct.
-        expected = [
+        branin_trial_0 = Observation(
+            features=ObservationFeatures(
+                parameters={"x1": 0.0, "x2": 0.0},
+                trial_index=0,
+                metadata={
+                    Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY,
+                    "timestamp": float("NaN"),
+                },
+            ),
+            data=ObservationData(
+                metric_names=["branin"],
+                means=np.array([55.602112642270264]),
+                covariance=np.diag([0.0]),
+            ),
+            arm_name="0_0",
+        )
+        branin_map_trial_0 = [
             Observation(
                 features=ObservationFeatures(
                     parameters={"x1": 0.0, "x2": 0.0},
@@ -490,18 +531,28 @@ class TestDataUtils(TestCase):
                     },
                 ),
                 data=ObservationData(
-                    # The indexing removes the non-map metric when timestamp > 0.
-                    metric_names=["branin", "branin_map"][bool(timestamp) :],
-                    # Means are deterministic based on the parameterization.
-                    means=np.array(
-                        [55.602112642270264, 55.602112642270264][bool(timestamp) :]
-                    ),
-                    covariance=np.diag([0.0, 0.0][bool(timestamp) :]),
+                    metric_names=["branin_map"],
+                    means=np.array([55.602112642270264]),
+                    covariance=np.diag([0.0]),
                 ),
                 arm_name="0_0",
             )
             for timestamp in [0.0, 1.0, 2.0, 3.0]
-        ] + [
+        ]
+        branin_trial_1 = Observation(
+            features=ObservationFeatures(
+                parameters={"x1": 1.0, "x2": 1.0},
+                trial_index=1,
+                metadata={"timestamp": float("NaN")},
+            ),
+            data=ObservationData(
+                metric_names=["branin"],
+                means=np.array([27.702905548512433]),
+                covariance=np.diag([0.0]),
+            ),
+            arm_name="1_0",
+        )
+        branin_map_trial_1 = [
             Observation(
                 features=ObservationFeatures(
                     parameters={"x1": 1.0, "x2": 1.0},
@@ -509,16 +560,21 @@ class TestDataUtils(TestCase):
                     metadata={"timestamp": timestamp},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"][bool(timestamp) :],
-                    means=np.array(
-                        [27.702905548512433, 27.702905548512433][bool(timestamp) :]
-                    ),
-                    covariance=np.diag([0.0, 0.0][bool(timestamp) :]),
+                    metric_names=["branin_map"],
+                    means=np.array([27.702905548512433]),
+                    covariance=np.diag([0.0]),
                 ),
                 arm_name="1_0",
             )
             for timestamp in [0.0, 1.0]
         ]
+
+        expected = (
+            [branin_trial_0]
+            + branin_map_trial_0
+            + [branin_trial_1]
+            + branin_map_trial_1
+        )
         self.assertEqual(observations, expected)
 
         # After removing the map keys.

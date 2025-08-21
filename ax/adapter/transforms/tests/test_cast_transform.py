@@ -456,8 +456,8 @@ class CastTransformTest(TestCase):
         ).transform_experiment_data(experiment_data=deepcopy(experiment_data))
         # Arm data should only include first three rows.
         assert_frame_equal(transformed_data.arm_data, experiment_data.arm_data.iloc[:2])
-        # Observation data should include all but last row for last trial.
+        # Observation data should include all but rows for last trial.
         assert_frame_equal(
             transformed_data.observation_data,
-            experiment_data.observation_data.iloc[:-1],
+            experiment_data.observation_data.iloc[:-2],
         )
