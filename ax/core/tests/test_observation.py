@@ -482,10 +482,7 @@ class ObservationsTest(TestCase):
         ]
         data = MapData(
             df=df,
-            map_key_infos=[
-                MapKeyInfo(key="step", default_value=0.0),
-                MapKeyInfo(key="timestamp", default_value=0.0),
-            ],
+            map_key_infos=[MapKeyInfo(key="step"), MapKeyInfo(key="timestamp")],
         )
         observations = observations_from_data(experiment=experiment, data=data)
         self.assertEqual(len(observations), 3)
