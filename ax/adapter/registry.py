@@ -130,17 +130,16 @@ rel_EB_ashr_trans: list[type[Transform]] = [
     SearchSpaceToChoice,
 ]
 
-# This is a modification of Cont_X_trans that replaces OneHot and
-# OrderedChoiceToIntegerRange with ChoiceToNumericChoice. This results in retaining
-# all choice parameters as discrete, while using continuous relaxation for integer
-# valued RangeParameters.
+# This is a modification of MBM_X_trans that replaces OneHot and
+# OrderedChoiceToIntegerRange with ChoiceToNumericChoice.
+# This retains unordered choice parameters as a single parameter
+# and uses MixedSingleTaskGP with CategoricalKernel in MBM to support them.
 Mixed_transforms: list[type[Transform]] = [
     RemoveFixed,
     ChoiceToNumericChoice,
-    IntToFloat,
+    LogIntToFloat,
     Log,
     Logit,
-    UnitX,
 ]
 
 Y_trans: list[type[Transform]] = [Derelativize, BilogY, StandardizeY]
