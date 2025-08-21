@@ -7,10 +7,13 @@
 
 from __future__ import annotations
 
+import warnings
+
 from bisect import bisect_right
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
+from math import isnan, nan
 from typing import Any
 
 import numpy as np
@@ -34,31 +37,45 @@ logger: Logger = get_logger(__name__)
 
 
 class MapKeyInfo(SortableBase):
-    """Helper class storing map keys and auxilary info for use in MapData"""
+    """
+    Helper class storing map keys and auxilary info for use in MapData.
 
-    def __init__(self, key: str, default_value: float) -> None:
+    Args:
+        key: A string. This will correspond to a column in MapData's DataFrames.
+        default_value: Provided only for deserialization backwards
+            compatibility.
+    """
+
+    def __init__(self, key: str, default_value: float = nan) -> None:
         self.key = key
-        self.default_value = float(default_value)
+        if not isnan(default_value):
+            warnings.warn(
+                f"default_value will be treated as NaN even "
+                f"though {default_value} was passed.",
+                stacklevel=2,
+            )
+        self.default_value: float = nan
 
     def __str__(self) -> str:
-        return f"MapKeyInfo({self.key}, {self.default_value})"
+        return f"MapKeyInfo({self.key})"
 
     def __hash__(self) -> int:
-        return hash((self.key, self.default_value))
+        return hash(self.key)
 
     def _unique_id(self) -> str:
         return str(self.__hash__())
 
     def clone(self) -> MapKeyInfo:
         """Return a copy of this MapKeyInfo."""
-        return MapKeyInfo(key=self.key, default_value=self.default_value)
+        return MapKeyInfo(key=self.key)
 
 
 class MapData(Data):
     """Class storing mapping-like results for an experiment.
 
-    Data is stored in a dataframe, and auxiliary information ((key name,
-    default value) pairs) are stored in a collection of MapKeyInfo objects.
+    Data is stored in a dataframe, and auxiliary information is stored in
+    DataFrame with column names given by the keys in the passed ``MapKeyInfo``
+    objects.
 
     Mapping-like results occur whenever a metric is reported as a collection
     of results, each element corresponding to a tuple of values.
@@ -192,26 +209,15 @@ class MapData(Data):
 
         unique_map_key_infos = []
         for mki in (mki for datum in data for mki in datum.map_key_infos):
-            if any(
-                mki.key == unique.key
-                and not np.isclose(
-                    mki.default_value, unique.default_value, equal_nan=True
-                )
-                for unique in unique_map_key_infos
-            ):
-                logger.warning(f"MapKeyInfo conflict for {mki.key}, eliding {mki}.")
-            else:
-                if not any(mki.key == unique.key for unique in unique_map_key_infos):
-                    # If there is a key conflict but the mkis are equal, silently do
-                    # not add the duplicate.
-                    unique_map_key_infos.append(mki)
+            if not any(mki.key == unique.key for unique in unique_map_key_infos):
+                # If there is a key conflict but the mkis are equal, silently do
+                # not add the duplicate.
+                unique_map_key_infos.append(mki)
 
         # Avoid concatenating empty dataframes which logs a warning.
         non_empty_dfs = [datum.map_df for datum in data if not datum.map_df.empty]
         df = (
-            pd.concat(non_empty_dfs).fillna(
-                value={mki.key: mki.default_value for mki in unique_map_key_infos}
-            )
+            pd.concat(non_empty_dfs)
             if len(non_empty_dfs) > 0
             else pd.DataFrame(
                 columns=[*{col for datum in data for col in datum.required_columns()}]
@@ -221,7 +227,7 @@ class MapData(Data):
         # Esnure that all map keys are present in the dataframe.
         for mki in unique_map_key_infos:
             if mki.key not in df.columns:
-                df[mki.key] = mki.default_value
+                df[mki.key] = nan
 
         if subset_metrics:
             subset_metrics_mask = df["metric_name"].isin(subset_metrics)
@@ -254,9 +260,7 @@ class MapData(Data):
             for map_dict, _ in map_dict_and_metrics_list
             for key in map_dict.keys()
         }
-        map_key_infos = map_key_infos or [
-            MapKeyInfo(key=key, default_value=np.nan) for key in map_keys
-        ]
+        map_key_infos = map_key_infos or [MapKeyInfo(key=key) for key in map_keys]
 
         if {mki.key for mki in map_key_infos} != map_keys:
             raise ValueError("Inconsistent map_key sets in evaluations.")
@@ -351,7 +355,7 @@ class MapData(Data):
         Used for storage.
         """
         args["map_key_infos"] = [
-            MapKeyInfo(d["key"], d["default_value"])
+            MapKeyInfo(d["key"])
             # Using .get() with a default empty list to handle cases where
             # map_key_infos might not exist. This is important when decoding experiments
             # that were originally not using MapData but were encoded as if they were

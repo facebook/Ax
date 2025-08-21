@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+from math import isnan
+
 import numpy as np
 import pandas as pd
 from ax.core.data import Data
@@ -21,14 +23,14 @@ class TestMapData(TestDataBase):
 
 class TestMapKeyInfo(TestCase):
     def test_init(self) -> None:
-        with self.subTest("Cast to float"):
-            map_key_info = MapKeyInfo(key="epoch", default_value=0)
-            self.assertIsInstance(map_key_info.default_value, float)
-            self.assertEqual(map_key_info.default_value, 0.0)
+        with self.subTest("No default passed"):
+            map_key_info = MapKeyInfo(key="epoch")
+            self.assertTrue(isnan(map_key_info.default_value))
 
-        with self.subTest("Normal case"):
-            map_key_info = MapKeyInfo(key="epoch", default_value=5.0)
-            self.assertIsInstance(map_key_info.default_value, float)
+        with self.subTest("Default passed"):
+            with self.assertWarnsRegex(Warning, "default_value will be treated as NaN"):
+                map_key_info = MapKeyInfo(key="epoch", default_value=5.0)
+            self.assertTrue(isnan(map_key_info.default_value))
             self.assertEqual(map_key_info.key, "epoch")
 
 
@@ -97,7 +99,7 @@ class MapDataTest(TestCase):
             ]
         )
 
-        self.map_key_infos = [MapKeyInfo(key="epoch", default_value=0)]
+        self.map_key_infos = [MapKeyInfo(key="epoch")]
 
         self.mmd = MapData(df=self.df, map_key_infos=self.map_key_infos)
 
@@ -107,9 +109,6 @@ class MapDataTest(TestCase):
 
     def test_map_key_info(self) -> None:
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
-
-        self.assertEqual(self.mmd.map_key_infos[0].key, "epoch")
-        self.assertEqual(self.mmd.map_key_infos[0].default_value, 0.0)
 
     def test_init(self) -> None:
         # Initialize empty with map key infos.
@@ -163,7 +162,7 @@ class MapDataTest(TestCase):
                 },
             ]
         )
-        different_map_key_infos = [MapKeyInfo(key="timestamp", default_value=0.0)]
+        different_map_key_infos = [MapKeyInfo(key="timestamp")]
         different_mmd = MapData(
             df=different_map_df, map_key_infos=different_map_key_infos
         )
@@ -216,8 +215,7 @@ class MapDataTest(TestCase):
             (
                 downcast_combined.map_df[downcast_combined.map_df["arm_name"] == "0_4"][
                     "epoch"
-                ]
-                == self.mmd.map_key_infos[0].default_value
+                ].isnull()
             ).all()
         )
 
@@ -247,7 +245,7 @@ class MapDataTest(TestCase):
                         ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
                     ]
                 },
-                map_key_infos=[MapKeyInfo(key="f1", default_value=0.0)],
+                map_key_infos=[MapKeyInfo(key="f1")],
                 trial_index=0,
             )
 

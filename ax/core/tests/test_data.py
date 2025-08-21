@@ -131,7 +131,7 @@ class TestDataBase(TestCase):
             df_2 = df.copy().assign(epoch=1)
             self.df = pd.concat((df_1, df_2))
             self.data_with_df = MapData(
-                df=self.df, map_key_infos=[MapKeyInfo(key="epoch", default_value=0.0)]
+                df=self.df, map_key_infos=[MapKeyInfo(key="epoch")]
             )
             self.data_without_df = MapData()
 
