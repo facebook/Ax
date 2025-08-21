@@ -20,6 +20,7 @@ class TrialStatus(int, Enum):
                   ------------->         --> FAILED (retryable)
                                          --> EARLY_STOPPED (deemed unpromising)
                   -------------------------> ABANDONED (non-retryable)
+                  -------------------------> STALE (retryable, never run)
 
     Trial is marked as a ``CANDIDATE`` immediately upon its creation.
 
@@ -35,11 +36,16 @@ class TrialStatus(int, Enum):
     action (if some trial in experiment is poorly-performing, deterministically
     failing etc., and should not be run again in the experiment). It might also
     be marked ``ABANDONED`` in an automated way if the trial's execution
-    encounters an error that indicates that the arm(s) in the trial should bot
+    encounters an error that indicates that the arm(s) in the trial should not
     be evaluated in the experiment again (e.g. the parameterization in a given
     arm deterministically causes trial evaluation to fail). Note that it's also
     possible to abandon a single arm in a `BatchTrial` via
     ``batch.mark_arm_abandoned``.
+
+    ``STALE`` trials represent old candidate trials that were generated but never
+    executed. These trials are considered terminal but retryable, meaning they
+    can be re-suggested by Ax models since they were never actually run and
+    therefore don't provide any data about the performance of their arms.
 
     Early-stopped refers to trials that were deemed
     unpromising by an early-stopping strategy and therefore terminated.
@@ -66,6 +72,7 @@ class TrialStatus(int, Enum):
     ABANDONED = 5
     DISPATCHED = 6  # Deprecated.
     EARLY_STOPPED = 7
+    STALE = 8
 
     @property
     def is_terminal(self) -> bool:
@@ -75,6 +82,7 @@ class TrialStatus(int, Enum):
             or self == TrialStatus.COMPLETED
             or self == TrialStatus.FAILED
             or self == TrialStatus.EARLY_STOPPED
+            or self == TrialStatus.STALE
         )
 
     @property
@@ -116,6 +124,11 @@ class TrialStatus(int, Enum):
     def is_early_stopped(self) -> bool:
         """True if this trial is an early stopped one."""
         return self == TrialStatus.EARLY_STOPPED
+
+    @property
+    def is_stale(self) -> bool:
+        """True if this trial is a stale one."""
+        return self == TrialStatus.STALE
 
     def __format__(self, fmt: str) -> str:
         """Define `__format__` to avoid pulling the `__format__` from the `int`
