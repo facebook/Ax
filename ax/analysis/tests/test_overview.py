@@ -263,6 +263,11 @@ class TestOverview(TestCase):
         self.assertIn("BanditRollout", card_names)
         self.assertIn("MarginalEffectsPlot", card_names)
 
+        # Check that cross validation plots and top surfaces are excluded for bandit
+        # experiments
+        self.assertNotIn("CrossValidationPlot", card_names)
+        self.assertNotIn("TopSurfacesAnalysis", card_names)
+
         # Ensure BanditRollout card is not an error card
         bandit_rollout_cards = [c for c in all_cards if c.name == "BanditRollout"]
         self.assertEqual(len(bandit_rollout_cards), 1)
