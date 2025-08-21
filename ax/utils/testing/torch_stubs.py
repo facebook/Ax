@@ -46,7 +46,7 @@ def get_torch_test_data(
         Yvar = torch.tensor([[0.0 + offset], [2.0 + offset]], **tkwargs)
 
     bounds = [
-        (0.0 + offset, 1.0 + offset),
+        (0.0 + offset, 2.0 + offset),
         (1.0 + offset, 4.0 + offset),
         (2.0 + offset, 5.0 + offset),
     ]
