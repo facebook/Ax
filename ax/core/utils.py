@@ -243,6 +243,28 @@ def get_model_times(experiment: Experiment) -> tuple[float, float]:
     return fit_time, gen_time
 
 
+def is_bandit_experiment(generation_strategy_name: str) -> bool:
+    """
+    Determine if an experiment is a bandit experiment based on the generation
+    strategy name.
+
+    A bandit experiment is identified by having a generation strategy with the name
+    "FACTORIAL + EMPIRICAL_BAYES_THOMPSON_SAMPLING".
+
+    Args:
+        generation_strategy_name: Name of the generation_strategy of the experiment
+            that needs to be checked.
+
+    Returns:
+        True if the generation strategy indicates this is a bandit experiment,
+        False otherwise.
+    """
+    return (
+        generation_strategy_name
+        == Keys.FACTORIAL_PLUS_EMPIRICAL_BAYES_THOMPSON_SAMPLING
+    )
+
+
 # -------------------- Pending observations extraction utils. ---------------------
 
 
