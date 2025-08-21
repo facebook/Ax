@@ -585,9 +585,7 @@ def _get_curve_plot_dropdown(
         subsampled_data = (
             data
             if limit_points_per_plot is None
-            else data.subsample(
-                limit_rows_per_metric=limit_points_per_plot, map_key=map_key
-            )
+            else data.subsample(limit_rows_per_metric=limit_points_per_plot)
         )
         map_df = subsampled_data.map_df
         metric_df = map_df[map_df["metric_name"] == m.name]

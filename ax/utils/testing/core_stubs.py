@@ -2644,7 +2644,6 @@ def get_map_data(trial_index: int = 0) -> MapData:
     return MapData.from_map_evaluations(
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
         trial_index=trial_index,
-        map_key_infos=[get_map_key_info()],
     )
 
 

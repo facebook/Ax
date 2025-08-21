@@ -200,10 +200,7 @@ class MapData(Data):
         return {mki.key: float for mki in self.map_key_infos}
 
     @staticmethod
-    def from_multiple_map_data(
-        data: Sequence[MapData],
-        subset_metrics: Iterable[str] | None = None,
-    ) -> MapData:
+    def from_multiple_map_data(data: Sequence[MapData]) -> MapData:
         if len(data) == 0:
             return MapData()
 
@@ -229,17 +226,11 @@ class MapData(Data):
             if mki.key not in df.columns:
                 df[mki.key] = nan
 
-        if subset_metrics:
-            subset_metrics_mask = df["metric_name"].isin(subset_metrics)
-            df = df[subset_metrics_mask]
-
         return MapData(df=df, map_key_infos=unique_map_key_infos)
 
     @staticmethod
     def from_map_evaluations(
-        evaluations: dict[str, TMapTrialEvaluation],
-        trial_index: int,
-        map_key_infos: Iterable[MapKeyInfo] | None = None,
+        evaluations: dict[str, TMapTrialEvaluation], trial_index: int
     ) -> MapData:
         records = [
             {
@@ -260,7 +251,7 @@ class MapData(Data):
             for map_dict, _ in map_dict_and_metrics_list
             for key in map_dict.keys()
         }
-        map_key_infos = map_key_infos or [MapKeyInfo(key=key) for key in map_keys]
+        map_key_infos = [MapKeyInfo(key=key) for key in map_keys]
 
         if {mki.key for mki in map_key_infos} != map_keys:
             raise ValueError("Inconsistent map_key sets in evaluations.")
@@ -280,11 +271,7 @@ class MapData(Data):
         )
 
     @classmethod
-    def from_multiple_data(
-        cls,
-        data: Iterable[Data],
-        subset_metrics: Iterable[str] | None = None,
-    ) -> MapData:
+    def from_multiple_data(cls, data: Iterable[Data]) -> MapData:
         """Downcast instances of Data into instances of MapData with empty
         map_key_infos if necessary then combine as usual (filling in empty cells with
         default values).
@@ -298,7 +285,7 @@ class MapData(Data):
             for datum in data
         ]
 
-        return cls.from_multiple_map_data(data=map_datas, subset_metrics=subset_metrics)
+        return cls.from_multiple_map_data(data=map_datas)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -377,11 +364,7 @@ class MapData(Data):
             description=self.description,
         )
 
-    def latest(
-        self,
-        map_keys: list[str] | None = None,
-        rows_per_group: int = 1,
-    ) -> MapData:
+    def latest(self, rows_per_group: int = 1) -> MapData:
         """Return a new MapData with the most recently observed `rows_per_group`
         rows for each (arm, metric) group, determined by the `map_key` values,
         where higher implies more recent.
@@ -392,8 +375,7 @@ class MapData(Data):
         If `rows_per_group` is greater than the number of rows in a given
         (arm, metric) group, then all rows are returned.
         """
-        if map_keys is None:
-            map_keys = self.map_keys
+        map_keys = self.map_keys
 
         return MapData(
             df=_tail(
@@ -405,7 +387,6 @@ class MapData(Data):
 
     def subsample(
         self,
-        map_key: str | None = None,
         keep_every: int | None = None,
         limit_rows_per_group: int | None = None,
         limit_rows_per_metric: int | None = None,
@@ -452,12 +433,11 @@ class MapData(Data):
                 "without subsampling."
             )
             return self
-        if map_key is None:
-            if len(self.map_keys) > 1:
-                raise ValueError(
-                    "More than one `map_key` found, cannot decide target to subsample."
-                )
-            map_key = self.map_keys[0]
+        if len(self.map_keys) > 1:
+            raise ValueError(
+                "More than one `map_key` found, cannot decide target to subsample."
+            )
+        map_key = self.map_keys[0]
         subsampled_metric_dfs = []
         for metric_name in self.map_df["metric_name"].unique():
             metric_map_df = _filter_df(self.map_df, metric_names=[metric_name])
