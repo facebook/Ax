@@ -379,10 +379,7 @@ def _extract_observation_data(
     data = data if data is not None else experiment.lookup_data()
     if isinstance(data, MapData):
         map_keys = data.map_keys
-        if len(map_keys) > 1:
-            raise UnsupportedError(
-                f"Multiple map keys are not supported. The data has {map_keys=}."
-            )
+
         if data_loader_config.latest_rows_per_group is not None:
             data = data.latest(
                 rows_per_group=data_loader_config.latest_rows_per_group,

@@ -416,7 +416,6 @@ class ObservationsTest(TestCase):
                 "mean_t": np.array([2.0]),
                 "covariance_t": np.array([[4.0]]),
                 "step": 0.5,
-                "timestamp": 50,
             },
             {
                 "arm_name": "0_1",
@@ -428,7 +427,6 @@ class ObservationsTest(TestCase):
                 "mean_t": np.array([3.0]),
                 "covariance_t": np.array([[9.0]]),
                 "step": 0.25,
-                "timestamp": 25,
             },
             {
                 "arm_name": "0_0",
@@ -440,7 +438,6 @@ class ObservationsTest(TestCase):
                 "mean_t": np.array([4.0]),
                 "covariance_t": np.array([[16.0]]),
                 "step": 1,
-                "timestamp": 100,
             },
         ]
         arms = [
@@ -470,20 +467,9 @@ class ObservationsTest(TestCase):
             experiment.new_trial(generator_run=GeneratorRun(arms=[arm]))
 
         df = pd.DataFrame(truth)[
-            [
-                "arm_name",
-                "trial_index",
-                "mean",
-                "sem",
-                "metric_name",
-                "step",
-                "timestamp",
-            ]
+            ["arm_name", "trial_index", "mean", "sem", "metric_name", "step"]
         ]
-        data = MapData(
-            df=df,
-            map_key_infos=[MapKeyInfo(key="step"), MapKeyInfo(key="timestamp")],
-        )
+        data = MapData(df=df, map_key_infos=[MapKeyInfo(key="step")])
         observations = observations_from_data(experiment=experiment, data=data)
         self.assertEqual(len(observations), 3)
 
@@ -497,9 +483,7 @@ class ObservationsTest(TestCase):
             # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
-            self.assertEqual(
-                obs.features.metadata, {"step": t["step"], "timestamp": t["timestamp"]}
-            )
+            self.assertEqual(obs.features.metadata, {"step": t["step"]})
 
         # testing that we can handle empty data with latest_rows_per_group
         empty_data = MapData()
