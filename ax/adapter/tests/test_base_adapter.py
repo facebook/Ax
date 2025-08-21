@@ -661,8 +661,10 @@ class BaseAdapterTest(TestCase):
                 )
             mock_combine.assert_called_once()
             call_kwargs = mock_combine.call_args.kwargs
+            # 3 for metric 'branin_map' with timestamp=0, 1, 2, and 1 for metric
+            # 'branin' with timestamp=NaN
             self.assertEqual(
-                len(call_kwargs["status_quo_observations"]), 3 + additional_fetch
+                len(call_kwargs["status_quo_observations"]), 4 + additional_fetch
             )
             if additional_fetch:
                 # Last observation should only include the constraint metric.
