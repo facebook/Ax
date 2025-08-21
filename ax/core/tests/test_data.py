@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.data import Data
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from pyre_extensions import assert_is_instance
@@ -130,9 +130,7 @@ class TestDataBase(TestCase):
             df_1 = df.copy().assign(epoch=0)
             df_2 = df.copy().assign(epoch=1)
             self.df = pd.concat((df_1, df_2))
-            self.data_with_df = MapData(
-                df=self.df, map_key_infos=[MapKeyInfo(key="epoch")]
-            )
+            self.data_with_df = MapData.from_df(df=self.df, map_key="epoch")
             self.data_without_df = MapData()
 
     def test_init(self) -> None:
@@ -165,7 +163,7 @@ class TestDataBase(TestCase):
         if self.cls is MapData:
             data = assert_is_instance(data, MapData)
             data_clone = assert_is_instance(data_clone, MapData)
-            self.assertEqual(data.map_key_infos, data_clone.map_key_infos)
+            self.assertEqual(data.map_key, data_clone.map_key)
             self.assertIsNot(data.map_df, data_clone.map_df)
             self.assertTrue(data.map_df.equals(data_clone.map_df))
 

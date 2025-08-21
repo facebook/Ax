@@ -175,12 +175,13 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             metric_names=[metric_name],
         )
         map_data = assert_is_instance(map_data, MapData)
+        map_key = none_throws(map_data.map_key)
         self.assertTrue(
             es_strategy.is_eligible(
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
+                map_key=map_key,
             )[0]
         )
 
@@ -192,7 +193,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             trial_index=trial_index,
             experiment=experiment,
             df=fake_df,
-            map_key=map_data.map_keys[0],
+            map_key=map_key,
         )
         self.assertFalse(fake_es)
         self.assertEqual(
@@ -211,7 +212,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
+                map_key=map_key,
             )[0]
         )
 
@@ -221,7 +222,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
+                map_key=map_key,
             )[0]
         )
 
@@ -234,7 +235,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_indices={0},
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_data.map_keys[0],
+                map_key=map_key,
             )
 
     def test_early_stopping_savings(self) -> None:

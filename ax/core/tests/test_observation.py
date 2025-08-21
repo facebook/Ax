@@ -16,7 +16,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.observation import (
@@ -469,7 +469,7 @@ class ObservationsTest(TestCase):
         df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "step"]
         ]
-        data = MapData(df=df, map_key_infos=[MapKeyInfo(key="step")])
+        data = MapData.from_df(df=df, map_key="step")
         observations = observations_from_data(experiment=experiment, data=data)
         self.assertEqual(len(observations), 3)
 

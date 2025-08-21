@@ -890,10 +890,10 @@ class Experiment(Base):
         del last_data_init_args["df"]
 
         last_data_type = type(last_data)
-        merge_keys = ["trial_index", "metric_name", "arm_name"] + (
-            # pyre-ignore[16]
-            last_data.map_keys if issubclass(last_data_type, MapData) else []
-        )
+        merge_keys = ["trial_index", "metric_name", "arm_name"]
+        if isinstance(last_data, MapData) and last_data.map_key is not None:
+            merge_keys += [last_data.map_key]
+
         # this merge is like a SQL left join on merge keys
         # it will return a dataframe with the columns in merge_keys
         # plus "_merge" and any other columns in last_data.true_df with _left appended
@@ -1428,11 +1428,11 @@ class Experiment(Base):
                 # Attach updated data to new trial on experiment.
                 data_constructor = old_experiment.default_data_constructor
                 old_data = (
-                    cast(type[MapData], data_constructor)(
+                    MapData.from_df(
                         df=new_df,
-                        map_key_infos=assert_is_instance(
+                        map_key=assert_is_instance(
                             old_experiment.lookup_data(), MapData
-                        ).map_key_infos,
+                        ).map_key,
                     )
                     if data_constructor == MapData
                     else data_constructor(df=new_df)

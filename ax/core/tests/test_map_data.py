@@ -11,7 +11,7 @@ from math import isnan
 import numpy as np
 import pandas as pd
 from ax.core.data import Data
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import _tail, MapData, MapKeyInfo
 from ax.core.tests.test_data import TestDataBase
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
@@ -99,21 +99,29 @@ class MapDataTest(TestCase):
             ]
         )
 
-        self.map_key_infos = [MapKeyInfo(key="epoch")]
+        self.map_key = "epoch"
+        self.map_key_infos = [MapKeyInfo(key=self.map_key)]
 
-        self.mmd = MapData(df=self.df, map_key_infos=self.map_key_infos)
+        self.mmd = MapData.from_df(df=self.df, map_key=self.map_key)
 
     def test_df(self) -> None:
         df = self.mmd.df
         self.assertEqual(set(df["trial_index"].drop_duplicates()), {0, 1})
 
     def test_map_key_info(self) -> None:
+        self.assertEqual(self.map_key, self.mmd.map_key)
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
 
     def test_init(self) -> None:
         # Initialize empty with map key infos.
         empty = MapData(map_key_infos=self.map_key_infos)
         self.assertTrue(empty.map_df.empty)
+
+        # Initialize empty with map key.
+        empty = MapData.from_df(map_key=self.map_key)
+        self.assertTrue(empty.map_df.empty)
+        self.assertEqual(empty.map_key, self.map_key)
+
         # Check that the required columns include the map keys.
         self.assertEqual(
             empty.REQUIRED_COLUMNS.union(["epoch"]), empty.required_columns()
@@ -123,15 +131,6 @@ class MapDataTest(TestCase):
         with self.assertRaisesRegex(ValueError, "map_key_infos may be `None` iff"):
             MapData(df=self.df, map_key_infos=None)
 
-        with self.assertRaisesRegex(ValueError, "Received multiple map keys:"):
-            MapData(
-                df=self.df,
-                map_key_infos=[
-                    MapKeyInfo(key="epoch", default_value=0),
-                    MapKeyInfo(key="cat", default_value=0),
-                ],
-            )
-
     def test_from_evaluations(self) -> None:
         with self.assertRaisesRegex(
             UnsupportedError, "MapData.from_evaluations is not supported"
@@ -140,8 +139,8 @@ class MapDataTest(TestCase):
 
     def test_properties(self) -> None:
         self.assertEqual(self.mmd.map_key_infos, self.map_key_infos)
-        self.assertEqual(self.mmd.map_keys, ["epoch"])
-        self.assertEqual(self.mmd.map_key_to_type, {"epoch": float})
+        self.assertEqual(self.mmd.map_key, self.map_key)
+        self.assertEqual(self.mmd.map_key, "epoch")
 
     def test_combine(self) -> None:
         with self.subTest("From no MapDatas"):
@@ -152,6 +151,7 @@ class MapDataTest(TestCase):
             mmd_double = MapData.from_multiple_map_data([self.mmd, self.mmd])
             self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
             self.assertEqual(mmd_double.map_key_infos, self.mmd.map_key_infos)
+            self.assertEqual(mmd_double.map_key, self.mmd.map_key)
 
         with self.subTest("From two MapDatas with different map_key_info keys"):
             different_map_df = pd.DataFrame(
@@ -174,12 +174,11 @@ class MapDataTest(TestCase):
                     },
                 ]
             )
-            different_map_key_infos = [MapKeyInfo(key="timestamp")]
-            different_mmd = MapData(
-                df=different_map_df, map_key_infos=different_map_key_infos
-            )
+            different_mmd = MapData.from_df(df=different_map_df, map_key="timestamp")
 
-            with self.assertRaisesRegex(ValueError, "Received multiple map keys"):
+            with self.assertRaisesRegex(
+                ValueError, "Received MapData with different map keys"
+            ):
                 MapData.from_multiple_map_data([self.mmd, different_mmd])
 
         with self.subTest("Only one has a map key"):
@@ -210,6 +209,7 @@ class MapDataTest(TestCase):
             self.assertEqual(
                 downcast_combined.map_df.columns.size, self.mmd.map_df.columns.size
             )
+            self.assertEqual(downcast_combined.map_key, self.map_key)
             self.assertEqual(downcast_combined.map_key_infos, self.map_key_infos)
 
         # Check that the Data's rows' epoch cell has the correct default value
@@ -236,10 +236,10 @@ class MapDataTest(TestCase):
             )
             self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
             self.assertEqual(len(map_data.map_df), 2)
-            self.assertEqual(set(map_data.map_keys), {"f1"})
+            self.assertEqual(map_data.map_key, "f1")
 
     def test_upcast(self) -> None:
-        fresh = MapData(df=self.df, map_key_infos=self.map_key_infos)
+        fresh = MapData.from_df(df=self.df, map_key=self.map_key)
         self.assertIsNone(fresh._memo_df)  # Assert df is not cached before first call
 
         self.assertEqual(
@@ -251,7 +251,7 @@ class MapDataTest(TestCase):
 
         self.assertTrue(
             fresh.df.equals(
-                fresh.map_df.sort_values(fresh.map_keys).drop_duplicates(
+                fresh.map_df.sort_values(fresh.map_key).drop_duplicates(
                     MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
                 )
             )
@@ -280,13 +280,13 @@ class MapDataTest(TestCase):
                 for epoch in range(max_epoch)
             ]
         )
-        large_map_data = MapData(df=large_map_df, map_key_infos=self.map_key_infos)
+        large_map_data = MapData.from_df(df=large_map_df, map_key=self.map_key)
 
         shuffled_large_map_df = large_map_data.map_df.groupby(
             MapData.DEDUPLICATE_BY_COLUMNS
         ).sample(frac=1, random_state=seed)
-        shuffled_large_map_data = MapData(
-            df=shuffled_large_map_df, map_key_infos=self.map_key_infos
+        shuffled_large_map_data = MapData.from_df(
+            df=shuffled_large_map_df, map_key=self.map_key
         )
 
         for rows_per_group in [1, 40]:
@@ -322,6 +322,11 @@ class MapDataTest(TestCase):
                 )
             )
 
+    def test_tail(self) -> None:
+        """`_tail` is tested more thoroughly but implicitly in `test_latest`."""
+        with self.assertRaisesRegex(ValueError, "`map_key` can only be None when"):
+            _tail(map_df=self.mmd.map_df, map_key=None)
+
     def test_subsample(self) -> None:
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
         max_epochs = [25, 50, 75, 100]
@@ -343,7 +348,7 @@ class MapDataTest(TestCase):
                 for epoch in range(max_epoch)
             ]
         )
-        large_map_data = MapData(df=large_map_df, map_key_infos=self.map_key_infos)
+        large_map_data = MapData.from_df(df=large_map_df, map_key=self.map_key)
         large_map_df_sparse_metric = pd.DataFrame(
             [
                 {
@@ -361,8 +366,8 @@ class MapDataTest(TestCase):
                 for epoch in range(max_epoch if metric_name == "a" else max_epoch // 5)
             ]
         )
-        large_map_data_sparse_metric = MapData(
-            df=large_map_df_sparse_metric, map_key_infos=self.map_key_infos
+        large_map_data_sparse_metric = MapData.from_df(
+            df=large_map_df_sparse_metric, map_key=self.map_key
         )
 
         # test keep_every
