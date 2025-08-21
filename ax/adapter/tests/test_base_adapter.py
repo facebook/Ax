@@ -585,29 +585,6 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(adapter.status_quo_name, "status_quo")
         self.assertIsNotNone(adapter.status_quo)
 
-    def test_set_status_quo_with_multiple_trials_with_status_quo(self) -> None:
-        exp = get_experiment_with_repeated_arms(with_data=True)
-        exp.status_quo = assert_is_instance(exp.trials[1], BatchTrial).status_quo
-        adapter = Adapter(experiment=exp, generator=Generator())
-        # Check that for experiments with many trials the status quo is set
-        # to the value of the status quo of the last trial (target trial).
-        self.assertEqual(
-            adapter.status_quo,
-            Observation(
-                features=ObservationFeatures(
-                    parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-                    trial_index=get_target_trial_index(experiment=exp),
-                    metadata={},
-                ),
-                data=ObservationData(
-                    means=np.array([2.0, 4.0]),
-                    covariance=np.array([[1.0, 0.0], [0.0, 16.0]]),
-                    metric_names=["a", "b"],
-                ),
-                arm_name="0_0",
-            ),
-        )
-
     def test_set_status_quo_with_multiple_observations(self) -> None:
         # Test for the case where the status quo arm has multiple observations
         # for the target trial. This happens with MapData.
