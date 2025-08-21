@@ -176,11 +176,6 @@ class MapDataTest(TestCase):
             combined.map_key_infos, self.map_key_infos + different_map_key_infos
         )
 
-        combined_subset = MapData.from_multiple_map_data(
-            [self.mmd, different_mmd], ["a"]
-        )
-        self.assertTrue((combined_subset.map_df["metric_name"] == "a").all())
-
         data_df = pd.DataFrame(
             [
                 {
@@ -235,19 +230,6 @@ class MapDataTest(TestCase):
             self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
             self.assertEqual(len(map_data.map_df), 2)
             self.assertEqual(set(map_data.map_keys), {"f1", "f2"})
-
-        with self.assertRaisesRegex(
-            ValueError, "Inconsistent map_key sets in evaluations"
-        ):
-            MapData.from_map_evaluations(
-                evaluations={
-                    "0_1": [
-                        ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
-                    ]
-                },
-                map_key_infos=[MapKeyInfo(key="f1")],
-                trial_index=0,
-            )
 
     def test_upcast(self) -> None:
         fresh = MapData(df=self.df, map_key_infos=self.map_key_infos)
@@ -383,9 +365,6 @@ class MapDataTest(TestCase):
         self.assertEqual(len(subsample.map_df), 20)
         subsample = large_map_data.subsample(limit_rows_per_group=7)
         self.assertEqual(len(subsample.map_df), 36)
-        # test passing specific map_key
-        subsample = large_map_data.subsample(map_key="epoch", keep_every=10)
-        self.assertEqual(len(subsample.map_df), 52)
 
         # test limit_rows_per_group
         subsample = large_map_data.subsample(limit_rows_per_group=1)

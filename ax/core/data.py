@@ -357,9 +357,7 @@ class Data(Base, SerializationMixin):
         )
 
     @classmethod
-    def from_multiple_data(
-        cls, data: Iterable[Data], subset_metrics: Iterable[str] | None = None
-    ) -> Data:
+    def from_multiple_data(cls, data: Iterable[Data]) -> Data:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
@@ -369,15 +367,7 @@ class Data(Base, SerializationMixin):
                 metrics, names of which appear in this iterable,
                 in the underlying dataframe.
         """
-        data_out = cls.from_multiple(data=data)
-        if len(data_out.df.index) == 0:
-            return data_out
-        if subset_metrics:
-            data_out._df = data_out.df.loc[
-                data_out.df["metric_name"].isin(subset_metrics)
-            ]
-
-        return data_out
+        return cls.from_multiple(data=data)
 
     def clone(self) -> Data:
         """Returns a new Data object with the same underlying dataframe."""

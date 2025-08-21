@@ -385,7 +385,6 @@ def _extract_observation_data(
             )
         if data_loader_config.latest_rows_per_group is not None:
             data = data.latest(
-                map_keys=map_keys,
                 rows_per_group=data_loader_config.latest_rows_per_group,
             )
         elif (
@@ -393,7 +392,6 @@ def _extract_observation_data(
             or data_loader_config.limit_rows_per_group is not None
         ):
             data = data.subsample(
-                map_key=data.map_keys[0],
                 limit_rows_per_metric=data_loader_config.limit_rows_per_metric,
                 limit_rows_per_group=data_loader_config.limit_rows_per_group,
                 include_first_last=True,
