@@ -175,7 +175,13 @@ from ax.utils.testing.backend_simulator import (
 )
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
-from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
+from botorch.models.transforms.input import (
+    ChainedInputTransform,
+    FilterFeatures,
+    InputTransform,
+    Normalize,
+    Round,
+)
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
@@ -232,6 +238,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
     Normalize: botorch_component_to_dict,
+    FilterFeatures: botorch_component_to_dict,
     PercentileEarlyStoppingStrategy: percentile_early_stopping_strategy_to_dict,
     SklearnMetric: metric_to_dict,
     ChemistryMetric: metric_to_dict,
@@ -280,6 +287,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,  # Ax MBM component
     AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
+    InputTransform: botorch_modular_to_dict,  # BoTorch input transform component
     Likelihood: botorch_modular_to_dict,  # BoTorch component
     torch.nn.Module: botorch_modular_to_dict,  # BoTorch module
     MarginalLogLikelihood: botorch_modular_to_dict,  # BoTorch component

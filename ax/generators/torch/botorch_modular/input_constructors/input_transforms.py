@@ -16,6 +16,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models.transforms.input import (
+    FilterFeatures,
     InputPerturbation,
     InputTransform,
     Normalize,
@@ -201,6 +202,54 @@ def _input_transform_argparse_normalize(
             d=d,
             torch_device=torch_device,
             torch_dtype=torch_dtype,
+        )
+
+    return input_transform_options
+
+
+@input_transform_argparse.register(FilterFeatures)
+def _input_transform_argparse_filter_features(
+    input_transform_class: type[FilterFeatures],
+    dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
+    input_transform_options: dict[str, Any] | None = None,
+    torch_device: torch.device | None = None,
+    torch_dtype: torch.dtype | None = None,
+) -> dict[str, Any]:
+    """Extract the FilterFeatures input transform kwargs from the given arguments.
+
+    Args:
+        input_transform_class: Input transform class.
+        dataset: Dataset containing feature matrix and the response.
+        search_space_digest: Search space digest.
+        input_transform_options: Input transform kwargs. May contain:
+            - "feature_indices": Explicit list of feature indices to keep
+            - "ignored_params": List of parameter names to ignore
+            - Other FilterFeatures kwargs
+
+    Returns:
+        A dictionary with FilterFeatures kwargs.
+    """
+    # If no options are provided, keep all features
+    if input_transform_options is None or len(input_transform_options) == 0:
+        return {"feature_indices": torch.arange(len(dataset.feature_names))}
+
+    # If feature_indices is already provided, use it directly
+    if "feature_indices" in input_transform_options:
+        return input_transform_options
+
+    # If ignored_params is provided, compute feature_indices from it
+    # and find feature_indices to keep
+    if "ignored_params" in input_transform_options:
+        ignored_params = input_transform_options.pop("ignored_params")
+        feature_names = dataset.feature_names
+
+        feature_indices = [
+            i for i, name in enumerate(feature_names) if name not in ignored_params
+        ]
+
+        input_transform_options["feature_indices"] = torch.tensor(
+            feature_indices, dtype=torch.int64
         )
 
     return input_transform_options
