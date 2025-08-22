@@ -134,9 +134,7 @@ class Trial(BaseTrial):
         )
 
     @immutable_once_run
-    def add_generator_run(
-        self, generator_run: GeneratorRun, multiplier: float = 1.0
-    ) -> Trial:
+    def add_generator_run(self, generator_run: GeneratorRun) -> Trial:
         """Add a generator run to the trial.
 
         Note: since trial includes only one arm, this will raise a ValueError if

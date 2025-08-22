@@ -302,7 +302,7 @@ class SQAStoreTest(TestCase):
         # ensure we can save the experiment
         save_experiment(experiment)
 
-    def test_ExperimentSaveAndLoad(self) -> None:
+    def test_experiment_save_load(self) -> None:
         for exp in [
             self.experiment,
             get_experiment_with_map_data_type(),
@@ -1401,7 +1401,7 @@ class SQAStoreTest(TestCase):
 
         generator_run = get_generator_run()
         # pyre-fixme[16]: `BaseTrial` has no attribute `add_generator_run`.
-        trial.add_generator_run(generator_run=generator_run, multiplier=0.5)
+        trial.add_generator_run(generator_run=generator_run)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 4)
 
