@@ -333,36 +333,3 @@ Utils
     :members:
     :undoc-members:
     :show-inheritance:
-
-
-Test Metrics
-------------
-
-Backend Simulator Map
-~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.testing.metrics.backend_simulator_map
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Branin Backend Map
-~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.utils.testing.metrics.branin_backend_map
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Tutorials
----------
-
-Neural Net
-~~~~~~~~~~
-
-.. automodule:: ax.utils.tutorials.cnn_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
