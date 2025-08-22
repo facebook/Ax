@@ -1877,7 +1877,7 @@ def get_batch_trial(
     batch = experiment.new_batch_trial()
     arms = get_arms_from_dict(get_arm_weights1())
     weights = get_weights_from_dict(get_arm_weights1())
-    batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=0.75)
+    batch.add_arms_and_weights(arms=arms, weights=weights)
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     batch.runner = SyntheticRunner()
@@ -1923,7 +1923,7 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
     arms = prev_arms + next_arms
     weights = prev_weights + next_weights
     batch = experiment.new_batch_trial()
-    batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=1)
+    batch.add_arms_and_weights(arms=arms, weights=weights)
     batch.runner = SyntheticRunner()
     batch.add_status_quo_arm(status_quo=arms[0], weight=0.5)
     return batch

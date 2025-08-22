@@ -73,11 +73,10 @@ class GeneratorRunStruct(SortableBase):
     """Stores GeneratorRun object as well as the weight with which it was added."""
 
     generator_run: GeneratorRun
-    weight: float
 
     @property
     def _unique_id(self) -> str:
-        return self.generator_run._unique_id + ":" + str(self.weight)
+        return self.generator_run._unique_id
 
 
 class BatchTrial(BaseTrial):
@@ -202,13 +201,11 @@ class BatchTrial(BaseTrial):
         if len(self._generator_run_structs) == 0 and self.status_quo is None:
             return arm_weights
         for struct in self._generator_run_structs:
-            multiplier = struct.weight
             for arm, weight in struct.generator_run.arm_weights.items():
-                scaled_weight = weight * multiplier
                 if arm in arm_weights:
-                    arm_weights[arm] += scaled_weight
+                    arm_weights[arm] += weight
                 else:
-                    arm_weights[arm] = scaled_weight
+                    arm_weights[arm] = weight
         if self.status_quo is not None and self._status_quo_weight_override is not None:
             # If override is specified, this is the weight the status quo gets,
             # regardless of whether it appeared in any generator runs.
@@ -238,15 +235,12 @@ class BatchTrial(BaseTrial):
         self,
         arms: list[Arm],
         weights: list[float] | None = None,
-        multiplier: float = 1.0,
     ) -> BatchTrial:
         """Add arms and weights to the trial.
 
         Args:
             arms: The arms to be added.
             weights: The weights associated with the arms.
-            multiplier: The multiplier applied to input weights before merging with
-                the current set of arms and weights.
 
         Returns:
             The trial instance.
@@ -255,13 +249,10 @@ class BatchTrial(BaseTrial):
             generator_run=GeneratorRun(
                 arms=arms, weights=weights, type=GeneratorRunType.MANUAL.name
             ),
-            multiplier=multiplier,
         )
 
     @immutable_once_run
-    def add_generator_run(
-        self, generator_run: GeneratorRun, multiplier: float = 1.0
-    ) -> BatchTrial:
+    def add_generator_run(self, generator_run: GeneratorRun) -> BatchTrial:
         """Add a generator run to the trial.
 
         The arms and weights from the generator run will be merged with
@@ -270,8 +261,6 @@ class BatchTrial(BaseTrial):
 
         Args:
             generator_run: The generator run to be added.
-            multiplier: The multiplier applied to input weights before merging with
-                the current set of arms and weights.
 
         Returns:
             The trial instance.
@@ -295,7 +284,7 @@ class BatchTrial(BaseTrial):
             self._check_existing_and_name_arm(arm)
 
         self._generator_run_structs.append(
-            GeneratorRunStruct(generator_run=generator_run, weight=multiplier)
+            GeneratorRunStruct(generator_run=generator_run)
         )
         generator_run.index = len(self._generator_run_structs) - 1
 
@@ -524,9 +513,9 @@ class BatchTrial(BaseTrial):
             if use_old_experiment:
                 # don't clone gen run in case we are attaching cloned trial to
                 # the same experiment
-                new_trial.add_generator_run(struct.generator_run, struct.weight)
+                new_trial.add_generator_run(struct.generator_run)
             else:
-                new_trial.add_generator_run(struct.generator_run.clone(), struct.weight)
+                new_trial.add_generator_run(struct.generator_run.clone())
 
         if (self._status_quo is not None) and include_sq:
             sq_weight = self._status_quo_weight_override
