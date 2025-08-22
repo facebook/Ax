@@ -102,7 +102,6 @@ class MapData(Data):
         self,
         df: pd.DataFrame | None = None,
         map_key_infos: Iterable[MapKeyInfo] | None = None,
-        description: str | None = None,
         _skip_ordering_and_validation: bool = False,
     ) -> None:
         """Initialize a ``MapData`` object from the given DataFrame and MapKeyInfos.
@@ -117,7 +116,6 @@ class MapData(Data):
                 ``MapKeyInfo`` contains information about the mapping-like
                 structure of the data. See the ``MapData`` class docstring for
                 additional information.
-            description: Human-readable description of data.
             _skip_ordering_and_validation: If True, uses the given DataFrame
                 as is, without ordering its columns or validating its contents.
                 Intended only for use in `MapData.filter`, where the contents
@@ -184,8 +182,6 @@ class MapData(Data):
             if not (self._map_df.columns == col_order).all():
                 self._map_df = self._map_df.reindex(columns=col_order)
 
-        self.description = description
-
         self._memo_df = None
 
     @classmethod
@@ -193,7 +189,6 @@ class MapData(Data):
         cls,
         df: pd.DataFrame | None = None,
         map_key: str | None = None,
-        description: str | None = None,
         _skip_ordering_and_validation: bool = False,
     ) -> MapData:
         """
@@ -205,13 +200,11 @@ class MapData(Data):
             df: Passed to MapData.__init__.
             map_key: Used to construct a MapKeyInfo object, which will be passed
                 to MapData.__init__.
-            description: Passed to MapData.__init__.
             _skip_ordering_and_validation: Passed to MapData.__init__.
         """
         return MapData(
             df=df,
             map_key_infos=[MapKeyInfo(key=map_key)] if map_key is not None else [],
-            description=description,
             _skip_ordering_and_validation=_skip_ordering_and_validation,
         )
 
@@ -407,7 +400,6 @@ class MapData(Data):
         return MapData(
             df=deepcopy(self.map_df),
             map_key_infos=[mki.clone() for mki in self.map_key_infos],
-            description=self.description,
         )
 
     def latest(self, rows_per_group: int = 1) -> MapData:
@@ -426,7 +418,6 @@ class MapData(Data):
                 map_df=self.map_df, map_key=self.map_key, n=rows_per_group, sort=True
             ),
             map_key=self.map_key,
-            description=self.description,
         )
 
     def subsample(
@@ -492,11 +483,7 @@ class MapData(Data):
                 )
             )
         subsampled_df: pd.DataFrame = pd.concat(subsampled_metric_dfs)
-        return MapData.from_df(
-            df=subsampled_df,
-            map_key=self.map_key,
-            description=self.description,
-        )
+        return MapData.from_df(df=subsampled_df, map_key=self.map_key)
 
     @classmethod
     def from_evaluations(
