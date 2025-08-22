@@ -43,6 +43,7 @@ from ax.core.trial_status import (
 from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import (
     AxError,
+    OptimizationNotConfiguredError,
     RunnerNotFoundError,
     UnsupportedError,
     UserInputError,
@@ -1122,6 +1123,49 @@ class Experiment(Base):
                 for status in STATUSES_EXPECTING_DATA
             )
         )
+
+    def trial_indices_with_data(
+        self, critical_metrics_only: bool | None = True
+    ) -> set[int]:
+        """Set of indices of trials for which we have data for either all metrics on
+        the experiment, or all metrics in the optimization config. Helpful for
+        determining which trials currently have data for modeling.
+
+        Args:
+            critical_metrics_only: If True, only return trials for which we have
+            metrics for the optimization config. If False, return trials for which
+            we have data for all metrics on the experiment, including tracking metrics
+        """
+        if critical_metrics_only:
+            if self.optimization_config is None:
+                raise OptimizationNotConfiguredError(
+                    "Cannot find trials with data for optimization config metrics "
+                    "because no optimization config has been defined."
+                )
+            metric_names = set(self.optimization_config.metrics.keys())
+        else:
+            metric_names = set(self.metrics.keys())
+            if len(metric_names) == 0:
+                return set()
+
+        exp_data = self.lookup_data().filter(metric_names=metric_names)
+        trials_with_data = set()
+        for trial_idx in self.trials.keys():
+            metrics_in_trial_data = set(
+                exp_data.df[exp_data.df["trial_index"] == trial_idx][
+                    "metric_name"
+                ].unique()
+            )
+            if metrics_in_trial_data == metric_names:
+                trials_with_data.add(trial_idx)
+            else:
+                logger.debug(
+                    f"Trial {trial_idx} does not have data for required metrics "
+                    f"({metric_names}) on the experiment. "
+                    f"Metrics present in trial data: {metrics_in_trial_data}"
+                )
+
+        return trials_with_data
 
     @property
     def default_data_type(self) -> DataType:
