@@ -34,6 +34,10 @@ from typing import cast, Optional, Union
 import torch
 from ax.exceptions.core import AxError
 from ax.generators.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
+from ax.generators.torch.botorch_modular.optimizer_defaults import (
+    BATCH_LIMIT,
+    INIT_BATCH_LIMIT,
+)
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     get_outcome_constraint_transforms,
@@ -530,8 +534,8 @@ def scipy_optimizer_list(
     """
     # Use SLSQP by default for small problems since it yields faster wall times.
     optimize_options: dict[str, bool | float | int | str] = {
-        "batch_limit": 5,
-        "init_batch_limit": 32,
+        "batch_limit": BATCH_LIMIT,
+        "init_batch_limit": INIT_BATCH_LIMIT,
         "method": "SLSQP",
     }
     if options is not None:

@@ -14,6 +14,11 @@ from typing import Any, Protocol
 
 import torch
 from ax.generators.model_utils import best_observed_point
+from ax.generators.torch.botorch_modular.optimizer_defaults import (
+    BATCH_LIMIT,
+    INIT_BATCH_LIMIT,
+    MAX_OPT_AGG_SIZE,
+)
 from ax.generators.torch_base import TorchGenerator
 from ax.generators.types import TConfig
 from botorch.acquisition import get_acquisition_function
@@ -498,13 +503,9 @@ def scipy_optimizer(
 
     sequential = not joint_optimization
     optimize_acqf_options: dict[str, bool | float | int | str] = {
-        "batch_limit": 5,  # these are overwritten by the defaults
-        # in `botorch_modular.optimizer_argparse`
-        "init_batch_limit": 32,
-        "max_optimization_problem_aggregation_size": 5,  # this is to make sure we
-        # don't throw too many opt. problems together into one, as that degrades
-        # performance. This is ignored if, we use the parallel l-bfgs-b
-        # implementation or the torch optimizer.
+        "batch_limit": BATCH_LIMIT,
+        "init_batch_limit": INIT_BATCH_LIMIT,
+        "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
     }
     if options is not None:
         optimize_acqf_options.update(options)
