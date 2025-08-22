@@ -289,11 +289,14 @@ class Cast(Transform):
                     arm_data.index
                 )
             ]
-
+        # Add any missing columns to the arm_data to complete it.
+        arm_data = arm_data.reindex(
+            columns=list(self.search_space.parameters) + ["metadata"], fill_value=None
+        )
         # Cast columns to the correct datatype & round RangeParameters, if applicable.
         column_to_type = {
-            p: PARAMETER_PYTHON_TYPE_MAP[self.search_space.parameters[p].parameter_type]
-            for p in parameter_names
+            p: PARAMETER_PYTHON_TYPE_MAP[param.parameter_type]
+            for p, param in self.search_space.parameters.items()
         }
         arm_data = arm_data.astype(dtype=column_to_type, copy=False)
         # Round to digits if any parameter specifies it.
