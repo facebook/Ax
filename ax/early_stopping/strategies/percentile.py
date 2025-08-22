@@ -117,7 +117,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             # don't stop any trials if we don't get data back
             return {}
 
-        map_key = next(iter(data.map_keys))
+        map_key = none_throws(data.map_key)
         df = data.map_df
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do

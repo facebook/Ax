@@ -708,7 +708,7 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
 
     objective_name = optimization_config.objective.metric.name
     data = assert_is_instance(experiment.lookup_data(), MapData)
-    map_key = data.map_key_infos[0].key
+    map_key = none_throws(data.map_key)
     map_df = data.map_df
 
     # Has timestamps; needs to be merged with map_df because it contains

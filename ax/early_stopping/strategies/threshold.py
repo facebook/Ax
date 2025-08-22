@@ -15,6 +15,7 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -109,7 +110,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             # don't stop any trials if we don't get data back
             return {}
 
-        map_key = next(iter(data.map_keys))
+        map_key = none_throws(data.map_key)
         df = data.map_df
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do

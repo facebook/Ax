@@ -378,8 +378,6 @@ def _extract_observation_data(
     """
     data = data if data is not None else experiment.lookup_data()
     if isinstance(data, MapData):
-        map_keys = data.map_keys
-
         if data_loader_config.latest_rows_per_group is not None:
             data = data.latest(
                 rows_per_group=data_loader_config.latest_rows_per_group,
@@ -393,8 +391,10 @@ def _extract_observation_data(
                 limit_rows_per_group=data_loader_config.limit_rows_per_group,
                 include_first_last=True,
             )
+
+        map_key = [data.map_key] if data.map_key is not None else []
     else:
-        map_keys = []
+        map_key = []
     df = data.true_df
     # Filter out rows for invalid statuses.
     to_keep = Series(index=df.index, data=False)
@@ -436,18 +436,18 @@ def _extract_observation_data(
         "metric_name",
         "mean",
         "sem",
-        *map_keys,
+        *map_key,
     }
     metadata_columns = [col for col in df.columns if col not in standard_columns]
 
-    # Pivot the df to be indexed by (trial_index, arm_name, *map_keys)
+    # Pivot the df to be indexed by (trial_index, arm_name, *map_key)
     # and to have columns "mean" & "sem" for each metric.
     observation_data = df.pivot(
         columns="metric_name",
         index=[
             "trial_index",
             "arm_name",
-            *map_keys,
+            *map_key,
         ],
         values=["mean", "sem"],
     )
@@ -455,12 +455,12 @@ def _extract_observation_data(
     # If metadata columns exist, add them to the pivoted dataframe.
     if metadata_columns:
         # Create a dataframe with just the index columns and metadata columns.
-        metadata_df = df[["trial_index", "arm_name", *map_keys, *metadata_columns]]
+        metadata_df = df[["trial_index", "arm_name", *map_key, *metadata_columns]]
         # Set the index to match the observation_data index.
         # All null rows are dropped to still capture the metadata in the next step
         # if it exists for only a subset of metrics.
         metadata_df = metadata_df.set_index(
-            ["trial_index", "arm_name", *map_keys]
+            ["trial_index", "arm_name", *map_key]
         ).dropna(how="all")
         # Drop duplicates to ensure we have only one row per unique index.
         # This is necessary when there are multiple metrics.
