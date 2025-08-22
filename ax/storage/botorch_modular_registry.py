@@ -77,6 +77,7 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
+    FilterFeatures,
     InputPerturbation,
     InputTransform,
     Normalize,
@@ -204,6 +205,7 @@ INPUT_TRANSFORM_REGISTRY: dict[type[InputTransform], str] = {
     Round: "Round",
     Warp: "Warp",
     InputPerturbation: "InputPerturbation",
+    FilterFeatures: "FilterFeatures",
 }
 
 """
