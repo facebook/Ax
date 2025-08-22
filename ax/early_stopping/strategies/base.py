@@ -167,9 +167,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             if (map_key := data.map_key) is not None:
                 values = map_df[map_key].astype(float)
                 map_df[map_key] = values / values.abs().max()
-        return MapData.from_df(
-            df=map_df, map_key=data.map_key, description=data.description
-        )
+        return MapData.from_df(df=map_df, map_key=data.map_key)
 
     @staticmethod
     def _log_and_return_trial_ignored(
@@ -443,9 +441,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if map_data is not None and self.min_progression_modeling is not None:
             map_df = map_data.map_df
             map_df = map_df[map_df[map_data.map_key] >= self.min_progression_modeling]
-            map_data = MapData.from_df(
-                df=map_df, map_key=map_data.map_key, description=map_data.description
-            )
+            map_data = MapData.from_df(df=map_df, map_key=map_data.map_key)
         return map_data
 
     def get_training_data(
