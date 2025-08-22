@@ -18,7 +18,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import get_target_trial_index
@@ -499,19 +499,32 @@ def _prepare_p_feasible(
         return pd.Series(np.ones(len(df)))
 
     # If an arm is missing data for a metric leave the mean as NaN.
+    oc_names = []
+    for oc in outcome_constraints:
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            # take the str representation of the scalarized outcome constraint
+            oc_names.append(str(oc))
+        else:
+            oc_names.append(oc.metric.name)
+
+    assert len(oc_names) == len(outcome_constraints)
+
     means = []
     sigmas = []
-    for constraint in outcome_constraints:
-        df_constraint = none_throws(rel_df if constraint.relative else df)
-        if f"{constraint.metric.name}_mean" in df_constraint.columns:
-            means.append(df_constraint[f"{constraint.metric.name}_mean"].tolist())
+    for i, oc_name in enumerate(oc_names):
+        df_constraint = none_throws(rel_df if outcome_constraints[i].relative else df)
+        # TODO[T235432214]: currently we are leaving the mean as NaN if the constraint
+        # is on ScalarizedOutcomeConstraint but we should be able to calculate it by
+        # setting the mean to be weights * individual metrics and sem to be
+        # sqrt(sum((weights * individual_sems)^2)), assuming independence.
+        if f"{oc_name}_mean" in df_constraint.columns:
+            means.append(df_constraint[f"{oc_name}_mean"].tolist())
 
         else:
             means.append(np.nan * np.ones(len(df_constraint)))
-        # If an arm is missing data for a metric treat the sd as 0.
         sigmas.append(
-            (df_constraint[f"{constraint.metric.name}_sem"].fillna(0)).tolist()
-            if f"{constraint.metric.name}_sem" in df_constraint.columns
+            (df_constraint[f"{oc_name}_sem"].fillna(0)).tolist()
+            if f"{oc_name}_sem" in df_constraint.columns
             else [0] * len(df)
         )
 

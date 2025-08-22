@@ -2559,7 +2559,6 @@ def get_data(
     num_non_sq_arms: int = 4,
     include_sq: bool = True,
 ) -> Data:
-    assert num_non_sq_arms < 5, "Only up to 4 arms currently handled."
     arm_names = ["status_quo"] if include_sq else []
     arm_names += [f"{trial_index}_{i}" for i in range(num_non_sq_arms)]
     num_arms = num_non_sq_arms + 1 if include_sq else num_non_sq_arms
@@ -2567,9 +2566,9 @@ def get_data(
         "trial_index": trial_index,
         "metric_name": metric_name,
         "arm_name": arm_names,
-        "mean": [1, 3, 2, 2.25, 1.75][:num_arms],
-        "sem": [0, 0.5, 0.25, 0.40, 0.15][:num_arms],
-        "n": [100, 100, 100, 100, 100][:num_arms],
+        "mean": ([1, 3, 2, 2.25, 1.75] * ((num_arms + 4) // 5))[:num_arms],
+        "sem": ([0, 0.5, 0.25, 0.40, 0.15] * ((num_arms + 4) // 5))[:num_arms],
+        "n": ([100, 100, 100, 100, 100] * ((num_arms + 4) // 5))[:num_arms],
     }
     return Data(df=pd.DataFrame.from_records(df_dict))
 

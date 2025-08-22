@@ -17,14 +17,17 @@ from ax.analysis.analysis_card import ErrorAnalysisCard
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.scatter import ScatterPlot
+from ax.analysis.results import ResultsAnalysis
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.optimization_config import Objective, OptimizationConfig
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.generation_strategy.generation_strategy import (
@@ -35,7 +38,12 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from ax.utils.testing.core_stubs import (
+    get_data,
+    get_experiment_with_scalarized_objective_and_outcome_constraint,
+    get_offline_experiments,
+    get_online_experiments,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 
@@ -301,3 +309,71 @@ class TestOverview(TestCase):
             # Check that the marginal effects cards are not error cards
             for card in marginal_effects_cards:
                 self.assertNotIsInstance(card, ErrorAnalysisCard)
+
+    @mock_botorch_optimize
+    def test_results_analysis_with_scalarized_constraints(self) -> None:
+        """Test ResultsAnalysis works correctly with ScalarizedOutcomeConstraints."""
+        # Create an experiment specifically with scalarized outcome constraints
+        experiment = get_experiment_with_scalarized_objective_and_outcome_constraint()
+        trial = experiment.new_batch_trial(
+            generator_run=GeneratorRun(
+                # The arm needs to be satisfying the parameter constraints
+                # to be included in modeling
+                arms=[Arm(parameters={"w": 5.1, "x": 5, "y": "foo", "z": True})]
+            ),
+            should_add_status_quo_arm=True,
+        )
+        trial.mark_running(no_runner_required=True)
+
+        data = []
+        for m_name, _ in experiment.metrics.items():
+            data.append(
+                get_data(
+                    metric_name=m_name,
+                    trial_index=trial.index,
+                    num_non_sq_arms=1,
+                    include_sq=True,
+                )
+            )
+        data = Data.from_multiple_data(data)
+        experiment.attach_data(data)
+        trial.mark_completed()
+
+        # Create a generation strategy for the test
+        generation_strategy = get_default_generation_strategy_at_MBM_node(
+            experiment=experiment
+        )
+
+        # Test that ResultsAnalysis doesn't error with scalarized constraints
+        analysis = ResultsAnalysis()
+        card_group = analysis.compute(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+        )
+
+        # Should not error and should produce a valid card group
+        self.assertIsNotNone(card_group)
+        self.assertEqual(card_group.title, "Results Analysis")
+
+        # Should have some children (at least one analysis card)
+        self.assertGreater(len(card_group.children), 0)
+
+        # No error cards should be present
+        for card in card_group.flatten():
+            self.assertNotIsInstance(card, ErrorAnalysisCard)
+
+        # Verify the experiment actually has scalarized outcome constraints
+        self.assertIsNotNone(experiment.optimization_config)
+        outcome_constraints = experiment.optimization_config.outcome_constraints
+        self.assertIsNotNone(outcome_constraints)
+
+        scalarized_constraints = [
+            constraint
+            for constraint in outcome_constraints
+            if isinstance(constraint, ScalarizedOutcomeConstraint)
+        ]
+        self.assertGreater(
+            len(scalarized_constraints),
+            0,
+            "Experiment should have at least one ScalarizedOutcomeConstraint",
+        )
