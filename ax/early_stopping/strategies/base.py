@@ -161,13 +161,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         data = assert_is_instance(data, MapData)
         map_keys = data.map_keys
-        if len(list(map_keys)) > 1:
-            logger.info(
-                f"{self.__class__.__name__} expects MapData with a single "
-                "map key, but the data attached to the experiment has multiple: "
-                f"{data.map_keys}. Not stopping any trials."
-            )
-            return None
         map_df = data.map_df
         # keep only relevant metrics
         map_df = map_df[map_df["metric_name"].isin(metric_names)].copy()

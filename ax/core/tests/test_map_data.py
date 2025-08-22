@@ -123,6 +123,15 @@ class MapDataTest(TestCase):
         with self.assertRaisesRegex(ValueError, "map_key_infos may be `None` iff"):
             MapData(df=self.df, map_key_infos=None)
 
+        with self.assertRaisesRegex(ValueError, "Received multiple map keys:"):
+            MapData(
+                df=self.df,
+                map_key_infos=[
+                    MapKeyInfo(key="epoch", default_value=0),
+                    MapKeyInfo(key="cat", default_value=0),
+                ],
+            )
+
     def test_from_evaluations(self) -> None:
         with self.assertRaisesRegex(
             UnsupportedError, "MapData.from_evaluations is not supported"
@@ -135,75 +144,73 @@ class MapDataTest(TestCase):
         self.assertEqual(self.mmd.map_key_to_type, {"epoch": float})
 
     def test_combine(self) -> None:
-        data = MapData.from_multiple_map_data([])
-        self.assertEqual(data.map_df.size, 0)
+        with self.subTest("From no MapDatas"):
+            data = MapData.from_multiple_map_data([])
+            self.assertEqual(data.map_df.size, 0)
 
-        mmd_double = MapData.from_multiple_map_data([self.mmd, self.mmd])
-        self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
-        self.assertEqual(mmd_double.map_key_infos, self.mmd.map_key_infos)
+        with self.subTest("From two MapDatas with same map_key_info"):
+            mmd_double = MapData.from_multiple_map_data([self.mmd, self.mmd])
+            self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
+            self.assertEqual(mmd_double.map_key_infos, self.mmd.map_key_infos)
 
-        different_map_df = pd.DataFrame(
-            [
-                {
-                    "arm_name": "0_3",
-                    "timestamp": 11,
-                    "mean": 2.0,
-                    "sem": 0.2,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                },
-                {
-                    "arm_name": "0_3",
-                    "timestamp": 18,
-                    "mean": 1.8,
-                    "sem": 0.3,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                },
-            ]
-        )
-        different_map_key_infos = [MapKeyInfo(key="timestamp")]
-        different_mmd = MapData(
-            df=different_map_df, map_key_infos=different_map_key_infos
-        )
+        with self.subTest("From two MapDatas with different map_key_info keys"):
+            different_map_df = pd.DataFrame(
+                [
+                    {
+                        "arm_name": "0_3",
+                        "timestamp": 11,
+                        "mean": 2.0,
+                        "sem": 0.2,
+                        "trial_index": 1,
+                        "metric_name": "a",
+                    },
+                    {
+                        "arm_name": "0_3",
+                        "timestamp": 18,
+                        "mean": 1.8,
+                        "sem": 0.3,
+                        "trial_index": 1,
+                        "metric_name": "b",
+                    },
+                ]
+            )
+            different_map_key_infos = [MapKeyInfo(key="timestamp")]
+            different_mmd = MapData(
+                df=different_map_df, map_key_infos=different_map_key_infos
+            )
 
-        combined = MapData.from_multiple_map_data([self.mmd, different_mmd])
-        self.assertEqual(
-            len(combined.map_df), len(self.mmd.map_df) + len(different_mmd.map_df)
-        )
-        self.assertEqual(combined.map_df.columns.size, self.mmd.map_df.columns.size + 1)
-        self.assertEqual(
-            combined.map_key_infos, self.map_key_infos + different_map_key_infos
-        )
+            with self.assertRaisesRegex(ValueError, "Received multiple map keys"):
+                MapData.from_multiple_map_data([self.mmd, different_mmd])
 
-        data_df = pd.DataFrame(
-            [
-                {
-                    "arm_name": "0_4",
-                    "mean": 2.0,
-                    "sem": 0.2,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                },
-                {
-                    "arm_name": "0_4",
-                    "mean": 1.8,
-                    "sem": 0.3,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                },
-            ]
-        )
-        data = Data(df=data_df)
+        with self.subTest("Only one has a map key"):
+            data_df = pd.DataFrame(
+                [
+                    {
+                        "arm_name": "0_4",
+                        "mean": 2.0,
+                        "sem": 0.2,
+                        "trial_index": 1,
+                        "metric_name": "a",
+                    },
+                    {
+                        "arm_name": "0_4",
+                        "mean": 1.8,
+                        "sem": 0.3,
+                        "trial_index": 1,
+                        "metric_name": "b",
+                    },
+                ]
+            )
+            data = Data(df=data_df)
 
-        downcast_combined = MapData.from_multiple_data([self.mmd, data])
-        self.assertEqual(
-            len(downcast_combined.map_df), len(self.mmd.map_df) + len(data.df)
-        )
-        self.assertEqual(
-            downcast_combined.map_df.columns.size, self.mmd.map_df.columns.size
-        )
-        self.assertEqual(downcast_combined.map_key_infos, self.map_key_infos)
+            downcast_combined = MapData.from_multiple_data([self.mmd, data])
+            self.assertEqual(
+                len(downcast_combined.map_df), len(self.mmd.map_df) + len(data.df)
+            )
+            self.assertEqual(
+                downcast_combined.map_df.columns.size, self.mmd.map_df.columns.size
+            )
+            self.assertEqual(downcast_combined.map_key_infos, self.map_key_infos)
 
         # Check that the Data's rows' epoch cell has the correct default value
         self.assertTrue(
@@ -221,15 +228,15 @@ class MapDataTest(TestCase):
             map_data = MapData.from_map_evaluations(
                 evaluations={
                     "0_1": [
-                        ({"f1": 1.0, "f2": 0.5}, {"b": eval1}),
-                        ({"f1": 1.0, "f2": 0.75}, {"b": eval2}),
+                        ({"f1": 1.0}, {"b": eval1}),
+                        ({"f1": 1.0}, {"b": eval2}),
                     ]
                 },
                 trial_index=0,
             )
             self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
             self.assertEqual(len(map_data.map_df), 2)
-            self.assertEqual(set(map_data.map_keys), {"f1", "f2"})
+            self.assertEqual(set(map_data.map_keys), {"f1"})
 
     def test_upcast(self) -> None:
         fresh = MapData(df=self.df, map_key_infos=self.map_key_infos)

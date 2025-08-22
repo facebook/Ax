@@ -109,9 +109,10 @@ class MapData(Data):
 
         Args:
             df: DataFrame with underlying data, and required columns.
-            map_key_infos: A list of MapKeyInfo objects, each of which contains
-                information about the mapping-like structure of the data.
-                See the class docstring for additional information.
+            map_key_infos: A list of zero or one ``MapKeyInfo`` objects. The
+                ``MapKeyInfo`` contains information about the mapping-like
+                structure of the data. See the ``MapData`` class docstring for
+                additional information.
             description: Human-readable description of data.
             _skip_ordering_and_validation: If True, uses the given DataFrame
                 as is, without ordering its columns or validating its contents.
@@ -122,6 +123,12 @@ class MapData(Data):
             raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
         self._map_key_infos = list(map_key_infos) if map_key_infos is not None else []
+        if len(self._map_key_infos) > 1:
+            raise ValueError(
+                "Received multiple map keys: "
+                f"{[mki.key for mki in self._map_key_infos]}. `map_key_infos` "
+                "must have zero or one elements."
+            )
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
             columns = list(self.required_columns().union(self.map_keys))
@@ -433,10 +440,6 @@ class MapData(Data):
                 "without subsampling."
             )
             return self
-        if len(self.map_keys) > 1:
-            raise ValueError(
-                "More than one `map_key` found, cannot decide target to subsample."
-            )
         map_key = self.map_keys[0]
         subsampled_metric_dfs = []
         for metric_name in self.map_df["metric_name"].unique():
