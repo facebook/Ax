@@ -980,7 +980,6 @@ class Decoder:
                         reduced_state=reduced_state,
                         immutable_search_space_and_opt_config=immutable_ss_and_oc,
                     ),
-                    weight=float(generator_run_sqa.weight or 1.0),
                 )
                 for generator_run_sqa in trial_sqa.generator_runs
             ]

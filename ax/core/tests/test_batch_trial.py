@@ -134,11 +134,15 @@ class BatchTrialTest(TestCase):
         ]
         new_weights = [0.75, 0.25]
         gr = GeneratorRun(arms=new_arms, weights=new_weights)
-        self.batch.add_generator_run(gr, 2.0)
+        new_gr_total_weight = sum(new_weights)
+        self.batch.add_generator_run(gr)
 
         self.assertEqual(len(self.batch.arms), len(self.arms) + 1)
         self.assertEqual(len(self.batch.generator_run_structs), 2)
-        self.assertEqual(sum(self.batch.weights), sum(self.weights) + 2)
+        self.assertEqual(
+            float(sum(self.batch.weights)),
+            float(sum(self.weights)) + new_gr_total_weight,
+        )
         # Check the GS index was not overwritten to None.
         self.assertEqual(self.batch._generation_step_index, 0)
 
@@ -675,13 +679,10 @@ class BatchTrialTest(TestCase):
         self.assertTrue(abandoned_arm < abandoned_arm_2)
 
         generator_run = get_generator_run()
-        generator_run_struct = GeneratorRunStruct(
-            generator_run=generator_run, weight=1.0
-        )
-        generator_run_struct_2 = GeneratorRunStruct(
-            generator_run=generator_run, weight=2.0
-        )
-        self.assertTrue(generator_run_struct < generator_run_struct_2)
+        # Struct with the same GR should have the same unique ID.
+        generator_run_struct = GeneratorRunStruct(generator_run=generator_run)
+        generator_run_struct_2 = GeneratorRunStruct(generator_run=generator_run)
+        self.assertTrue(generator_run_struct == generator_run_struct_2)
 
     def test_attach_batch_trial_data(self) -> None:
         # Verify components before we attach trial data

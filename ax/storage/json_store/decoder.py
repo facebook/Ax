@@ -166,6 +166,9 @@ def object_from_json(
         elif _type in class_decoder_registry:
             return class_decoder_registry[_type](object_json)
 
+        elif _type == "GeneratorRunStruct":
+            object_json.pop("weight", None)  # Deprecated.
+
         elif _type not in decoder_registry:
             err = (
                 f"The JSON dictionary passed to `object_from_json` has a type "
