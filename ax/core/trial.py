@@ -152,11 +152,8 @@ class Trial(BaseTrial):
         self.experiment.search_space.check_types(
             generator_run.arms[0].parameters, raise_error=True
         )
-
         self._check_existing_and_name_arm(generator_run.arms[0])
-
         self._generator_run = generator_run
-        generator_run.index = 0
         self._set_generation_step_index(
             generation_step_index=generator_run._generation_step_index
         )

@@ -830,7 +830,6 @@ class Encoder:
             time_created=generator_run.time_created,
             generator_run_type=generator_run_type,
             weight=weight,
-            index=generator_run.index,
             fit_time=generator_run.fit_time,
             gen_time=generator_run.gen_time,
             best_arm_name=best_arm_name,

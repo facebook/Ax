@@ -376,7 +376,6 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> dict[str, Any]:
         "model_predictions": gr.model_predictions,
         "best_arm_predictions": gr.best_arm_predictions,
         "generator_run_type": gr.generator_run_type,
-        "index": gr.index,
         "fit_time": gr.fit_time,
         "gen_time": gr.gen_time,
         "model_key": gr._model_key,

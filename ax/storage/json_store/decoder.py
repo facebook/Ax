@@ -320,7 +320,7 @@ def generator_run_from_json(
     """Load Ax GeneratorRun from JSON."""
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
-    index_json = object_json.pop("index")
+    object_json.pop("index", None)  # Deprecated.
     # Remove `objective_thresholds` to avoid issues with registries, since
     # `ObjectiveThreshold` depend on `Metric` objects.
     object_json.pop("objective_thresholds", None)
@@ -354,11 +354,6 @@ def generator_run_from_json(
     )
     generator_run._generator_run_type = object_from_json(
         type_json,
-        decoder_registry=decoder_registry,
-        class_decoder_registry=class_decoder_registry,
-    )
-    generator_run._index = object_from_json(
-        index_json,
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
