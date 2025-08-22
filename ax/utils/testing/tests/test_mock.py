@@ -11,6 +11,10 @@ from unittest.mock import patch
 import torch
 from ax.adapter.registry import Generators
 from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
+from ax.generators.torch.botorch_modular.optimizer_defaults import (
+    BATCH_LIMIT,
+    INIT_BATCH_LIMIT,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize_context_manager
@@ -70,8 +74,8 @@ class TestMock(TestCase):
         self.assertEqual(
             opt_inputs.options,
             {
-                "init_batch_limit": 32,
-                "batch_limit": 5,
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
                 "maxiter_alternating": 1,
                 "maxiter_continuous": 1,
                 "maxiter_init": 1,

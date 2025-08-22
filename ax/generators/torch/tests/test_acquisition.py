@@ -23,6 +23,11 @@ from ax.exceptions.core import AxError, SearchSpaceExhausted
 from ax.generators.torch.botorch_modular.acquisition import Acquisition, logger
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
+from ax.generators.torch.botorch_modular.optimizer_defaults import (
+    BATCH_LIMIT,
+    INIT_BATCH_LIMIT,
+    MAX_OPT_AGG_SIZE,
+)
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
@@ -342,9 +347,9 @@ class AcquisitionTest(TestCase):
             bounds=mock.ANY,
             q=n,
             options={
-                "init_batch_limit": 32,
-                "batch_limit": 5,
-                "max_optimization_problem_aggregation_size": 5,
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
+                "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
             },
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -694,7 +699,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
             q=3,
-            options={"init_batch_limit": 32, "batch_limit": 5},
+            options={"init_batch_limit": INIT_BATCH_LIMIT, "batch_limit": BATCH_LIMIT},
             fixed_features_list=[{1: 0}, {1: 1}, {1: 2}],
             inequality_constraints=self.inequality_constraints,
             post_processing_func=self.rounding_func,
@@ -743,8 +748,8 @@ class AcquisitionTest(TestCase):
             cat_dims={},
             q=3,
             options={
-                "init_batch_limit": 32,
-                "batch_limit": 5,
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,
@@ -782,8 +787,8 @@ class AcquisitionTest(TestCase):
             cat_dims={1: list(range(b_upper_bound + 1))},
             q=3,
             options={
-                "init_batch_limit": 32,
-                "batch_limit": 5,
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,
