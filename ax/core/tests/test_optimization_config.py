@@ -229,6 +229,30 @@ class OptimizationConfigTest(TestCase):
             config.outcome_constraints, [self.outcome_constraint, opposing_constraint]
         )
 
+        # Test with ScalarizedOutcomeConstraint
+        # should work when not constraining obj
+        config_with_scalarized = OptimizationConfig(
+            objective=self.objective,
+            outcome_constraints=[self.scalarized_outcome_constraint],
+        )
+        self.assertEqual(len(config_with_scalarized.outcome_constraints), 1)
+
+        # Can't constrain on metric in ScalarizedOutcomeConstraint
+        # that overlaps with objective
+        scalarized_with_objective_metric = ScalarizedOutcomeConstraint(
+            metrics=[self.metrics["m1"], self.metrics["m4"]],  # m1 is objective metric
+            weights=[0.5, 0.5],
+            op=ComparisonOp.GEQ,
+            bound=0.0,
+        )
+        with self.assertRaisesRegex(
+            ValueError, "Cannot constrain on objective metric."
+        ):
+            OptimizationConfig(
+                objective=self.objective,
+                outcome_constraints=[scalarized_with_objective_metric],
+            )
+
     def test_Clone(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective,
@@ -517,6 +541,39 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.assertEqual(
             config.outcome_constraints, [self.outcome_constraint, opposing_constraint]
         )
+
+        # Test with ScalarizedOutcomeConstraint
+        #  should work when not constraining objective
+        scalarized_constraint = ScalarizedOutcomeConstraint(
+            metrics=[self.metrics["m3"]],  # m3 is not in multi_objective (m1, m2)
+            weights=[1.0],
+            op=ComparisonOp.GEQ,
+            bound=0.0,
+        )
+        config_with_scalarized = MultiObjectiveOptimizationConfig(
+            objective=self.multi_objective,
+            outcome_constraints=[scalarized_constraint],
+        )
+        self.assertEqual(len(config_with_scalarized.outcome_constraints), 1)
+
+        # Can't constrain on metric in ScalarizedOutcomeConstraint
+        # that overlaps with objective
+        scalarized_with_objective_metric = ScalarizedOutcomeConstraint(
+            metrics=[
+                self.metrics["m1"],
+                self.metrics["m3"],
+            ],  # m1 is in multi_objective
+            weights=[0.5, 0.5],
+            op=ComparisonOp.GEQ,
+            bound=0.0,
+        )
+        with self.assertRaisesRegex(
+            ValueError, "Cannot constrain on objective metric."
+        ):
+            MultiObjectiveOptimizationConfig(
+                objective=self.multi_objective,
+                outcome_constraints=[scalarized_with_objective_metric],
+            )
 
     def test_Clone(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
