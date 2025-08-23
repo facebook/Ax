@@ -28,6 +28,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -76,10 +77,11 @@ class ResultsAnalysis(Analysis):
         constraint_names = []
         if (optimization_config := experiment.optimization_config) is not None:
             objective_names = optimization_config.objective.metric_names
-            constraint_names = [
-                constraint.metric.name
-                for constraint in optimization_config.outcome_constraints
-            ]
+            for oc in optimization_config.outcome_constraints:
+                if isinstance(oc, ScalarizedOutcomeConstraint):
+                    constraint_names.extend([m.name for m in oc.metrics])
+                else:
+                    constraint_names.append(oc.metric.name)
 
         # Relativize the effects if the status quo is set and there are BatchTrials
         # present.
