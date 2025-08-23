@@ -379,18 +379,26 @@ class MapData(Data):
         """Given a dictionary, extract the properties needed to initialize the metric.
         Used for storage.
         """
+        # .get for when map_key_infos were not passed
         args["map_key_infos"] = [
-            MapKeyInfo(d["key"])
-            # Using .get() with a default empty list to handle cases where
-            # map_key_infos might not exist. This is important when decoding experiments
-            # that were originally not using MapData but were encoded as if they were
-            # using MapData due to some underlying method call's side effects.
-            # example: when when configure_optimization is called, it overrights metric
-            # to mapmetric even if no mapkeyinfo is provided. This would inturn change
-            # Experiment.default_data_type to MapData when this opt_config is being set.
-            for d in args.get("map_key_infos", [])
+            MapKeyInfo(d["key"]) for d in args.get("map_key_infos", [])
         ]
-        return super().deserialize_init_args(args=args)
+
+        deserialized = super().deserialize_init_args(args=args)
+        map_key_infos = deserialized["map_key_infos"]
+
+        if len(map_key_infos) > 0:
+            keys = [d.key for d in map_key_infos]
+            warnings.warn(
+                "Received multiple map keys. All but the first will be "
+                f"dropped. Keys are {keys}",
+                stacklevel=2,
+            )
+            deserialized["map_key_infos"] = [map_key_infos[0]]
+            if deserialized["df"] is not None:
+                deserialized["df"].drop(columns=keys[1:], inplace=True)
+
+        return deserialized
 
     def clone(self) -> MapData:
         """Returns a new ``MapData`` object with the same underlying dataframe
