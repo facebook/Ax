@@ -836,7 +836,6 @@ class Decoder:
             value=generator_run_sqa.generator_run_type,
             enum=self.config.generator_run_type_enum,
         )
-        generator_run._index = generator_run_sqa.index
         generator_run.db_id = generator_run_sqa.id
         return generator_run
 

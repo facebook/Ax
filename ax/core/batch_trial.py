@@ -286,7 +286,6 @@ class BatchTrial(BaseTrial):
         self._generator_run_structs.append(
             GeneratorRunStruct(generator_run=generator_run)
         )
-        generator_run.index = len(self._generator_run_structs) - 1
 
         if self.status_quo is not None and self.should_add_status_quo_arm:
             self.add_status_quo_arm(status_quo=none_throws(self.status_quo), weight=1.0)
