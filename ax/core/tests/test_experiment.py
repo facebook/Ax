@@ -1159,9 +1159,7 @@ class ExperimentTest(TestCase):
             with_completed_batch=True,
         )
         experiment.trials[0]._trial_type = "foo"
-        with self.assertRaisesRegex(
-            ValueError, "Experiment does not support trial_type foo."
-        ):
+        with self.assertRaisesRegex(ValueError, ".* foo is not supported by the exp"):
             experiment.clone_with()
         cloned_experiment = experiment.clone_with(clear_trial_type=True)
         self.assertIsNone(cloned_experiment.trials[0].trial_type)

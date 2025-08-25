@@ -101,14 +101,16 @@ class BaseTrial(ABC, SortableBase):
         self._ttl_seconds: int | None = ttl_seconds
         self._index: int = self._experiment._attach_trial(self, index=index)
 
-        if trial_type is not None:
-            if not self._experiment.supports_trial_type(trial_type):
-                raise ValueError(
-                    f"Experiment does not support trial_type {trial_type}."
-                )
-        else:
-            trial_type = self._experiment.default_trial_type
-        self._trial_type: str | None = trial_type
+        trial_type = (
+            trial_type
+            if trial_type is not None
+            else self._experiment.default_trial_type
+        )
+        if not self._experiment.supports_trial_type(trial_type):
+            raise ValueError(
+                f"Trial type {trial_type} is not supported by the experiment."
+            )
+        self._trial_type = trial_type
 
         self.__status: TrialStatus | None = None
         # Uses `_status` setter, which updates trial statuses to trial indices
@@ -234,18 +236,6 @@ class BaseTrial(ABC, SortableBase):
         (e.g. different deployment types).
         """
         return self._trial_type
-
-    @trial_type.setter
-    @immutable_once_run
-    def trial_type(self, trial_type: str | None) -> None:
-        """Identifier used to distinguish trial types in experiments
-        with multiple trial types.
-        """
-        if self._experiment is not None:
-            if not self._experiment.supports_trial_type(trial_type):
-                raise ValueError(f"{trial_type} is not supported by the experiment.")
-
-        self._trial_type = trial_type
 
     def assign_runner(self) -> BaseTrial:
         """Assigns default experiment runner if trial doesn't already have one."""

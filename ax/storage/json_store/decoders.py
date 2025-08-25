@@ -18,7 +18,7 @@ from typing import Any, TYPE_CHECKING, TypeVar
 import torch
 from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
 from ax.core.runner import Runner
@@ -41,7 +41,7 @@ from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.utils.types import _DefaultType, DEFAULT
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from torch.distributions.transformed_distribution import TransformedDistribution
 
 logger: logging.Logger = get_logger(__name__)
@@ -65,7 +65,7 @@ def batch_trial_from_json(
     time_run_started: datetime | None,
     abandoned_reason: str | None,
     run_metadata: dict[str, Any] | None,
-    generator_run_structs: list[GeneratorRunStruct],
+    generator_runs: list[GeneratorRun],
     runner: Runner | None,
     abandoned_arms_metadata: dict[str, AbandonedArm],
     num_arms_created: int,
@@ -93,7 +93,6 @@ def batch_trial_from_json(
     )
     batch._index = index
     batch._trial_type = trial_type
-    batch._status = status
     batch._time_created = time_created
     batch._time_completed = time_completed
     batch._time_staged = time_staged
@@ -102,21 +101,24 @@ def batch_trial_from_json(
     batch._failed_reason = failed_reason
     batch._run_metadata = run_metadata or {}
     batch._stop_metadata = stop_metadata or {}
-    batch._generator_run_structs = generator_run_structs
+    batch._generator_runs = generator_runs
     batch._runner = runner
     batch._abandoned_arms_metadata = abandoned_arms_metadata
     batch._num_arms_created = num_arms_created
-    batch._status_quo = status_quo
-    batch._status_quo_weight_override = status_quo_weight_override
     batch._generation_step_index = generation_step_index
     batch._properties = properties
     batch._refresh_arms_by_name()  # Trigger cache build
 
     # Trial.arms_by_name only returns arms with weights
-    batch.should_add_status_quo_arm = (
-        batch.status_quo is not None and batch.status_quo.name in batch.arms_by_name
-    )
+    batch.should_add_status_quo_arm = batch.status_quo is not None
+    if batch.should_add_status_quo_arm:
+        batch.add_status_quo_arm(
+            status_quo=experiment.search_space.cast_arm(none_throws(status_quo)),
+            weight=status_quo_weight_override,
+        )
 
+    # Set trial status last, after adding all the arms.
+    batch._status = status
     warn_on_kwargs(callable_with_kwargs=BatchTrial, **kwargs)
     return batch
 
