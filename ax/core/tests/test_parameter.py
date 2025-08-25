@@ -6,11 +6,13 @@
 
 # pyre-strict
 
+from math import isinf
 from typing import cast
 
 from ax.core.parameter import (
     _get_parameter_type,
     ChoiceParameter,
+    DerivedParameter,
     EPS,
     FixedParameter,
     ParameterType,
@@ -709,6 +711,203 @@ class FixedParameterTest(TestCase):
                 "parameter_type": "string",
             },
         )
+
+
+class DerivedParameterTest(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.param1 = DerivedParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="2.0 * a + 1.0",
+        )
+        self.param1_domain_repr = "value=2.0 * a + 1.0"
+        self.param1_repr = (
+            "DerivedParameter(name='x', parameter_type=FLOAT, "
+            f"{self.param1_domain_repr})"
+        )
+        self.param2 = DerivedParameter(
+            name="x2",
+            parameter_type=ParameterType.INT,
+            expression_str="2.0 * a + 3.0 * b",
+        )
+        self.param2_domain_repr = "value=2.0 * a + 3.0 * b"
+        self.param2_repr = (
+            "DerivedParameter(name='x2', parameter_type=INT, "
+            f"{self.param2_domain_repr})"
+        )
+
+    def test_invalid_inputs(self) -> None:
+        with self.assertRaisesRegex(
+            UnsupportedError, "Derived parameters cannot be fidelity parameters."
+        ):
+            DerivedParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="2.0 * a",
+                is_fidelity=True,
+            )
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Derived parameters do not support specifying a target value.",
+        ):
+            DerivedParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="2.0 * a",
+                target_value=0.0,
+            )
+        for parameter_type in (ParameterType.BOOL, ParameterType.STRING):
+            with self.assertRaisesRegex(
+                UserInputError,
+                "Derived parameters must be of type float or int, but got "
+                f"{parameter_type}.",
+            ):
+                DerivedParameter(
+                    name="x",
+                    parameter_type=parameter_type,
+                    expression_str="2.0 * a",
+                )
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Derived parameters must have at least one parameter in "
+            "`expression_str`.",
+        ):
+            DerivedParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="1.0",
+            )
+
+        # test non-linear expression
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Only linear expressions are currently supported.",
+        ):
+            DerivedParameter(
+                name="x", parameter_type=ParameterType.FLOAT, expression_str="y * z"
+            )
+
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Only linear expressions are currently supported.",
+        ):
+            DerivedParameter(
+                name="x", parameter_type=ParameterType.FLOAT, expression_str="y ** 2"
+            )
+
+    def test_eq(self) -> None:
+        param2 = DerivedParameter(
+            name="x", parameter_type=ParameterType.FLOAT, expression_str="2.0 * a + 1.0"
+        )
+        self.assertEqual(self.param1, param2)
+
+        param3 = DerivedParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            expression_str="2.0 * a + 3.0 * b + 1.0",
+        )
+        self.assertNotEqual(self.param1, param3)
+
+    def test_attributes(self) -> None:
+        self.assertEqual(self.param1.name, "x")
+        self.assertEqual(self.param1.parameter_type, ParameterType.FLOAT)
+        self.assertEqual(self.param1._parameter_names_to_weights, {"a": 2.0})
+        self.assertEqual(self.param1._intercept, 1.0)
+        self.assertTrue(self.param1.is_numeric)
+        self.assertEqual(self.param1.expression_str, "2.0 * a + 1.0")
+
+    def test_repr(self) -> None:
+        self.assertEqual(str(self.param1), self.param1_repr)
+        self.assertEqual(str(self.param2), self.param2_repr)
+        self.param1._intercept = 5.0
+        self.assertNotEqual(str(self.param1), self.param1_repr)
+
+    def test_validate(self) -> None:
+        self.assertFalse(self.param1.validate(value=None))
+        self.assertFalse(self.param1.validate(value=1.0))
+
+        # Check with raises
+        with self.assertRaisesRegex(
+            UserInputError, "Must specify `parameters` to validate a derived parameter"
+        ):
+            self.assertFalse(self.param1.validate(value=3.0, raises=True))
+
+        with self.assertRaisesRegex(
+            UserInputError, "Value 3.0 is not equal to the expected derived value: 5.0."
+        ):
+            self.assertFalse(
+                self.param1.validate(value=3.0, parameters={"a": 2.0}, raises=True)
+            )
+
+        self.assertTrue(
+            self.param1.validate(value=3.0, parameters={"a": 1.0}, raises=True)
+        )
+
+    def test_set_parameter_names_to_weights(self) -> None:
+        new_expression_str = "5.0 * c"
+        self.param1.set_expression_str(expression_str=new_expression_str)
+        self.assertEqual(self.param1._expression_str, new_expression_str)
+        self.assertEqual(self.param1.parameter_names_to_weights, {"c": 5.0})
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Derived parameters must have at least one parameter in "
+            "`expression_str`.",
+        ):
+            self.param1.set_expression_str(expression_str="1.0")
+
+    def test_clone(self) -> None:
+        param_clone = self.param1.clone()
+        self.assertEqual(
+            self.param1.parameter_names_to_weights,
+            param_clone.parameter_names_to_weights,
+        )
+        self.assertIsNot(
+            self.param1.parameter_names_to_weights,
+            param_clone.parameter_names_to_weights,
+        )
+        self.assertEqual(self.param1._expression_str, param_clone._expression_str)
+
+        param_clone._parameter_names_to_weights["c"] = 1.0
+        self.assertNotIn("c", self.param1.parameter_names_to_weights)
+
+    def test_cast(self) -> None:
+        self.assertEqual(self.param1.cast(1), 1.0)
+        self.assertEqual(self.param1.cast(1.0), 1.0)
+        with self.assertRaisesRegex(UnsupportedError, "None values"):
+            self.param1.cast(None)
+
+    def test_domain_repr(self) -> None:
+        self.assertEqual(self.param1.domain_repr, self.param1_domain_repr)
+        self.assertEqual(self.param2.domain_repr, self.param2_domain_repr)
+
+    def test_summary_dict(self) -> None:
+        self.assertDictEqual(
+            self.param1.summary_dict,
+            {
+                "domain": "value=2.0 * a + 1.0",
+                "name": "x",
+                "parameter_type": "float",
+                "type": "Derived",
+            },
+        )
+        self.assertDictEqual(
+            self.param2.summary_dict,
+            {
+                "domain": "value=2.0 * a + 3.0 * b",
+                "name": "x2",
+                "parameter_type": "int",
+                "type": "Derived",
+            },
+        )
+
+    def test_cardinality(self) -> None:
+        self.assertTrue(isinf(self.param1.cardinality()))
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "cardinality for an integer DerivedParameter is not supported.",
+        ):
+            self.param2.cardinality()
 
 
 class ParameterEqualityTest(TestCase):

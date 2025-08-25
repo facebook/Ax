@@ -16,11 +16,18 @@ from math import inf
 from typing import cast, Union
 from warnings import warn
 
-from ax.core.types import TNumeric, TParamValue, TParamValueList
+from ax.core.types import TNumeric, TParameterization, TParamValue, TParamValueList
 from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
+
+from ax.utils.common.string_utils import sanitize_name, unsanitize_name
 from pyre_extensions import assert_is_instance, none_throws
+from sympy.core.add import Add
+from sympy.core.mul import Mul
+from sympy.core.numbers import Float, Integer
+from sympy.core.symbol import Symbol
+from sympy.core.sympify import sympify
 
 logger: Logger = get_logger(__name__)
 
@@ -920,3 +927,181 @@ class FixedParameter(Parameter):
             return f"value='{self._value}'"
         else:
             return f"value={self._value}"
+
+
+class DerivedParameter(Parameter):
+    """A parameter that is a deterministic function of other parameters.
+
+    Currently, only support for linear functions are implemented, but this is
+    extendable to non-linear functions.
+    """
+
+    # pyre-fixme [13]: Uninitialized attribute [13]: Attribute `_intercept` is
+    # declared in class `DerivedParameter` to have type `float` but is never
+    # initialized.
+    _intercept: float
+    # pyre-fixme [13]: Uninitialized attribute [13]: Attribute
+    # `_parameter_names_to_weights` is declared in class `DerivedParameter` to#
+    # have type `typing.Dict[str, float]` but is never initialized.
+    _parameter_names_to_weights: dict[str, float]
+
+    def __init__(
+        self,
+        name: str,
+        parameter_type: ParameterType,
+        expression_str: str,
+        is_fidelity: bool = False,
+        target_value: TParamValue = None,
+    ) -> None:
+        """Initialize DerivedParameter
+
+        Args:
+            name: Name of the parameter.
+            parameter_type: Enum indicating the type of parameter
+                value (e.g. string, int).
+            expression_str: A string expression of the derived parameter definition.
+            is_fidelity: Whether this parameter is a fidelity parameter.
+            target_value: Target value of this parameter if it is a fidelity.
+        """
+        if is_fidelity:
+            raise UnsupportedError("Derived parameters cannot be fidelity parameters.")
+        elif target_value is not None:
+            raise UnsupportedError(
+                "Derived parameters do not support specifying a target value."
+            )
+        elif parameter_type not in (ParameterType.FLOAT, ParameterType.INT):
+            raise UserInputError(
+                "Derived parameters must be of type float or int, but got "
+                f"{parameter_type}."
+            )
+
+        self.set_expression_str(expression_str=expression_str)
+        self._name = name
+        self._parameter_type = parameter_type
+        self._is_fidelity = is_fidelity
+        self._target_value = target_value
+
+    def _parse_expression_str(self, expression_str: str) -> None:
+        """Parse the expression str into parameter names and coefficients.
+
+        Currently only linear functions are supported.
+        """
+        expression = sympify(sanitize_name(expression_str))
+        if isinstance(expression, (Float, Integer)):
+            raise UserInputError(
+                "Derived parameters must have at least one parameter in "
+                "`expression_str`."
+            )
+        elif not isinstance(expression, (Add, Mul, Symbol)):
+            raise UnsupportedError("Only linear expressions are currently supported.")
+        coefficient_dict = expression.as_coefficients_dict()
+        self._intercept = float(coefficient_dict.pop(1, 0.0))
+        parameter_names_to_weights = {}
+        for name, coef in coefficient_dict.items():
+            if not isinstance(name, Symbol):
+                raise UnsupportedError(
+                    "Only linear expressions are currently supported."
+                )
+            parameter_names_to_weights[unsanitize_name(str(name))] = float(coef)
+        self._parameter_names_to_weights = parameter_names_to_weights
+
+    @property
+    def domain_repr(self) -> str:
+        """Returns a string representation of the derived parameter."""
+        terms = [
+            f"{weight} * {name}"
+            for name, weight in self._parameter_names_to_weights.items()
+        ]
+        if self._intercept != 0.0:
+            terms.append(str(self._intercept))
+        return "value=" + " + ".join(terms)
+
+    @property
+    def parameter_names_to_weights(self) -> dict[str, float]:
+        return self._parameter_names_to_weights
+
+    @property
+    def expression_str(self) -> str:
+        return self._expression_str
+
+    def set_expression_str(self, expression_str: str) -> None:
+        self._expression_str = expression_str
+        self._parse_expression_str(expression_str=expression_str)
+
+    @property
+    def intercept(self) -> float:
+        return self._intercept
+
+    def cardinality(self) -> float:
+        if self.parameter_type == ParameterType.FLOAT:
+            return inf
+        raise UnsupportedError(
+            "cardinality for an integer DerivedParameter is not supported."
+        )
+
+    def compute(self, parameters: TParameterization) -> TParamValue:
+        """Compute the value of the derived parameter.
+
+        Args:
+            parameterization: A dictionary mapping parameter names to values.
+
+        Returns:
+            The value of the derived parameter.
+        """
+        return self.cast(
+            self._intercept
+            + sum(
+                self._parameter_names_to_weights[parameter_name]
+                * float(parameters[parameter_name])
+                for parameter_name in self._parameter_names_to_weights
+            )
+        )
+
+    def validate(
+        self,
+        value: TParamValue,
+        raises: bool = False,
+        parameters: TParameterization | None = None,
+    ) -> bool:
+        """Checks that the input is equal to the derived value.
+
+        Args:
+            value: Value being checked.
+            raises: If true, and validation fails, raises a UserInputError.
+            parameters: A dictionary mapping parameter names to values. Used to
+                compute the expected derived parameter value.
+
+        Raises:
+            UserInputError: If validation fails and raises is True.
+
+        Returns:
+            True if valid, False otherwise.
+        """
+        is_valid = False
+        if parameters is None:
+            if raises:
+                raise UserInputError(
+                    "Must specify `parameters` to validate a derived parameter"
+                )
+            return False
+        expected_value = self.compute(parameters=parameters)
+        is_valid = expected_value == value
+        if raises and not is_valid:
+            raise UserInputError(
+                f"Value {value} is not equal to the expected derived"
+                f" value: {expected_value}."
+            )
+        return is_valid
+
+    def clone(self) -> DerivedParameter:
+        return DerivedParameter(
+            name=self._name,
+            parameter_type=self._parameter_type,
+            expression_str=self._expression_str,
+            is_fidelity=self._is_fidelity,
+            target_value=self._target_value,
+        )
+
+    def __repr__(self) -> str:
+        ret_val = self._base_repr()
+        return ret_val + ")"

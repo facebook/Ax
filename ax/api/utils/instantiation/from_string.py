@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-import re
 from collections.abc import Sequence
 
 from ax.core.map_metric import MapMetric
@@ -23,6 +22,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.exceptions.core import UserInputError
+from ax.utils.common.string_utils import sanitize_name, unsanitize_name
 from pyre_extensions import assert_is_instance, none_throws
 from sympy.core.add import Add
 from sympy.core.expr import Expr
@@ -30,10 +30,6 @@ from sympy.core.mul import Mul
 from sympy.core.relational import GreaterThan, LessThan
 from sympy.core.symbol import Symbol
 from sympy.core.sympify import sympify
-
-DOT_PLACEHOLDER = "__dot__"
-SLASH_PLACEHOLDER = "__slash__"
-COLON_PLACEHOLDER = "__colon__"
 
 
 def optimization_config_from_string(
@@ -115,7 +111,7 @@ def parse_parameter_constraint(constraint_str: str) -> ParameterConstraint:
     bound = 0
     for term, coefficient in coefficient_dict.items():
         if term.is_symbol:
-            constraint_dict[_unsanitize_name(term.name)] = coefficient
+            constraint_dict[unsanitize_name(term.name)] = coefficient
         elif term.is_number:
             # Invert because we are "moving" the bound to the right hand side
             bound = -1 * coefficient
@@ -136,7 +132,7 @@ def parse_objective(objective_str: str) -> Objective:
     linear objectives.
     """
     # Parse the objective string into a SymPy expression
-    expression = sympify(_sanitize_name(objective_str))
+    expression = sympify(sanitize_name(objective_str))
 
     if isinstance(expression, tuple):  # Multi-objective
         return MultiObjective(
@@ -188,7 +184,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
         term, coefficient = next(iter(constraint_dict.items()))
 
         return OutcomeConstraint(
-            metric=MapMetric(name=_unsanitize_name(term)),
+            metric=MapMetric(name=unsanitize_name(term)),
             op=ComparisonOp.LEQ if coefficient > 0 else ComparisonOp.GEQ,
             bound=bound / coefficient,
             relative=is_relative,
@@ -196,7 +192,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
 
     names, coefficients = zip(*constraint_dict.items())
     return ScalarizedOutcomeConstraint(
-        metrics=[MapMetric(name=_unsanitize_name(name)) for name in names],
+        metrics=[MapMetric(name=unsanitize_name(name)) for name in names],
         op=ComparisonOp.LEQ,
         weights=[*coefficients],
         bound=bound,
@@ -215,7 +211,7 @@ def _create_single_objective(expression: Expr) -> Objective:
     if isinstance(expression, Symbol):
         return Objective(
             metric=MapMetric(
-                name=_unsanitize_name(str(expression.name)), lower_is_better=False
+                name=unsanitize_name(str(expression.name)), lower_is_better=False
             ),
             minimize=False,
         )
@@ -237,7 +233,7 @@ def _create_single_objective(expression: Expr) -> Objective:
 
         return Objective(
             metric=MapMetric(
-                name=_unsanitize_name(str(symbol)), lower_is_better=minimize
+                name=unsanitize_name(str(symbol)), lower_is_better=minimize
             ),
             minimize=minimize,
         )
@@ -246,7 +242,7 @@ def _create_single_objective(expression: Expr) -> Objective:
     elif isinstance(expression, Add):
         names, coefficients = zip(*expression.as_coefficients_dict().items())
         return ScalarizedObjective(
-            metrics=[MapMetric(name=_unsanitize_name(str(name))) for name in names],
+            metrics=[MapMetric(name=unsanitize_name(str(name))) for name in names],
             weights=[float(coefficient) for coefficient in coefficients],
             minimize=False,
         )
@@ -264,7 +260,7 @@ def _extract_coefficient_dict_from_inequality(
     constraints.
     """
     # Parse the constraint string into a SymPy inequality
-    inequality = sympify(_sanitize_name(inequality_str))
+    inequality = sympify(sanitize_name(inequality_str))
 
     # Check the SymPy object is a valid inequality
     if not isinstance(inequality, GreaterThan | LessThan):
@@ -280,52 +276,3 @@ def _extract_coefficient_dict_from_inequality(
     return {
         key: float(value) for key, value in expression.as_coefficients_dict().items()
     }
-
-
-def _sanitize_name(s: str) -> str:
-    """
-    Converts a string with normal dots and slashes to a string with sanitized dots and
-    slashes. This is temporarily necessary because SymPy symbol names must be valid
-    Python identifiers, but some legacy Ax users may include dots or slashes in their
-    parameter names.
-
-    Note that we need to be careful here not to sanitize the string too much, as some
-    dots are meaningful (ex. the objective "foo.bar + 0.1 * baz" should be parsed as
-    "foo__dot__bar + 0.1 * baz" not "foo__dot__bar + 0__dot__1 * baz").
-    """
-
-    # Replace occurances of "." and "/" when they appear after a valid Python variable
-    # name and before any alphanumeric character.
-    sans_dots = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z0-9_])",
-        rf"\1{DOT_PLACEHOLDER}\2",
-        s,
-    )
-    sans_slash = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]*)\/([a-zA-Z0-9_])",
-        rf"\1{SLASH_PLACEHOLDER}\2",
-        sans_dots,
-    )
-    sans_colon = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]*):([a-zA-Z0-9_])",
-        rf"\1{COLON_PLACEHOLDER}\2",
-        sans_slash,
-    )
-
-    return sans_colon
-
-
-def _unsanitize_name(s: str) -> str:
-    """
-    Converts a string with sanitized dots and slashes back to a string with normal dots
-    and slashes. This is temporarily necessary because SymPy symbol names must be valid
-    Python identifiers, but some legacy Ax users may include dots or slashes in their
-    parameter names.
-    """
-
-    # Unsanitize in the reverse order of sanitization
-    with_colon = re.sub(rf"{COLON_PLACEHOLDER}", ":", s)
-    with_slash = re.sub(rf"{SLASH_PLACEHOLDER}", "/", with_colon)
-    with_dot = re.sub(rf"{DOT_PLACEHOLDER}", ".", with_slash)
-
-    return with_dot

@@ -775,9 +775,9 @@ class ExperimentTest(TestCase):
 
         attached_parameterizations, trial_index = self.experiment.attach_trial(
             parameterizations=[
-                {"w": 5.3, "x": 5, "y": "baz", "z": True},
-                {"w": 5.2, "x": 5, "y": "foo", "z": True},
-                {"w": 5.1, "x": 5, "y": "bar", "z": True},
+                {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
+                {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
+                {"w": 5.1, "x": 5, "y": "bar", "z": True, "d": 11.2},
             ],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
@@ -795,9 +795,9 @@ class ExperimentTest(TestCase):
 
         attached_parameterizations, trial_index = self.experiment.attach_trial(
             parameterizations=[
-                {"w": 5.3, "x": 5, "y": "baz", "z": True},
-                {"w": 5.2, "x": 5, "y": "foo", "z": True},
-                {"w": 5.1, "x": 5, "y": "bar", "z": True},
+                {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
+                {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
+                {"w": 5.1, "x": 5, "y": "bar", "z": True, "d": 11.2},
             ],
             arm_names=["arm1", "arm2", "arm3"],
             ttl_seconds=3600,
@@ -819,7 +819,7 @@ class ExperimentTest(TestCase):
         num_trials = len(self.experiment.trials)
 
         attached_parameterization, trial_index = self.experiment.attach_trial(
-            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
+            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
         )
@@ -831,7 +831,7 @@ class ExperimentTest(TestCase):
         num_trials = len(self.experiment.trials)
 
         attached_parameterization, trial_index = self.experiment.attach_trial(
-            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
+            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             arm_names=["arm1"],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},

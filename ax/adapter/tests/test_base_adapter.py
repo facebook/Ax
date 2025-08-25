@@ -595,7 +595,7 @@ class BaseAdapterTest(TestCase):
             adapter.status_quo,
             Observation(
                 features=ObservationFeatures(
-                    parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
+                    parameters={"w": 0.85, "x": 1, "y": "baz", "z": False, "d": 2.7},
                     trial_index=get_target_trial_index(experiment=exp),
                     metadata={},
                 ),

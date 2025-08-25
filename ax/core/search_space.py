@@ -22,6 +22,7 @@ from ax import core
 from ax.core.arm import Arm
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     Parameter,
     ParameterType,
@@ -79,6 +80,9 @@ class SearchSpace(Base):
             raise ValueError("Parameter names must be unique.")
 
         self._parameters: dict[str, Parameter] = {p.name: p for p in parameters}
+        for p in parameters:
+            if isinstance(p, DerivedParameter):
+                self._validate_derived_parameter(parameter=p)
         self.set_parameter_constraints(parameter_constraints or [])
 
     @property
@@ -156,6 +160,8 @@ class SearchSpace(Base):
                 f"Parameter `{parameter.name}` already exists in search space. "
                 "Use `update_parameter` to update an existing parameter."
             )
+        elif isinstance(parameter, DerivedParameter):
+            self._validate_derived_parameter(parameter=parameter)
         self._parameters[parameter.name] = parameter
 
     def update_parameter(self, parameter: Parameter) -> None:
@@ -171,6 +177,8 @@ class SearchSpace(Base):
                 f"Parameter `{parameter.name}` has type {prev_type.name}. "
                 f"Cannot update to type {parameter.parameter_type.name}."
             )
+        elif isinstance(parameter, DerivedParameter):
+            self._validate_derived_parameter(parameter=parameter)
 
         self._parameters[parameter.name] = parameter
 
@@ -228,7 +236,13 @@ class SearchSpace(Base):
                 return False
 
         for name, value in parameterization.items():
-            if not self.parameters[name].validate(value):
+            p = self.parameters[name]
+            kwargs = (
+                {"parameters": parameterization}
+                if isinstance(p, DerivedParameter)
+                else {}
+            )
+            if not p.validate(value=value, raises=False, **kwargs):
                 if raise_error:
                     raise ValueError(
                         f"{value} is not a valid value for "
@@ -373,9 +387,15 @@ class SearchSpace(Base):
                         )
             else:
                 for parameter_name in constraint.constraint_dict.keys():
-                    if parameter_name not in self._parameters.keys():
+                    p = self._parameters.get(parameter_name)
+                    if p is None:
                         raise ValueError(
                             f"`{parameter_name}` does not exist in search space."
+                        )
+                    elif isinstance(p, DerivedParameter):
+                        raise ValueError(
+                            "Parameter constraints cannot be used with derived "
+                            "parameters."
                         )
 
     def validate_membership(self, parameters: TParameterization) -> None:
@@ -396,6 +416,39 @@ class SearchSpace(Base):
                     f"expected  {parameter.python_type}. If the intention was to have"
                     f" the parameter on experiment be of type {typ}, set `value_type`"
                     f" on experiment creation for {p_name}."
+                )
+
+    def _validate_derived_parameter(self, parameter: DerivedParameter) -> None:
+        is_int = parameter.parameter_type == ParameterType.INT
+        for p_name in parameter.parameter_names_to_weights.keys():
+            p = self._parameters.get(p_name)
+            if p is None:
+                raise ValueError(
+                    f"Parameter {p_name} is not in the search space, but is used in a "
+                    "derived parameter."
+                )
+            if not p.is_numeric:
+                raise ValueError(
+                    f"Parameter {p_name} is not a float or int, but is used in a "
+                    "derived parameter."
+                )
+            elif is_int and p.parameter_type == ParameterType.FLOAT:
+                raise ValueError(
+                    f"Parameter {p_name} is a float, but is used in a derived "
+                    "parameter with int type."
+                )
+            elif isinstance(p, DerivedParameter):
+                raise ValueError(
+                    "Parameter cannot be derived from another derived parameter."
+                )
+            elif isinstance(p, FixedParameter):
+                # Note: relaxing this would require updating RemoveFixed to ensure
+                # FixedParameters are added back in untransform_observation_features,
+                # before derived parameters are added back.
+                raise ValueError(
+                    "Parameter cannot be derived from a fixed parameter. The "
+                    "`intercept` argument in a derived parameter can be used "
+                    "to add an fixed value to a derived parameter."
                 )
 
     def __repr__(self) -> str:

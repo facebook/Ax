@@ -48,6 +48,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     Parameter,
     ParameterType,
@@ -1533,6 +1534,7 @@ def get_search_space(constrain_search_space: bool = True) -> SearchSpace:
         get_range_parameter2(),
         get_choice_parameter(),
         get_fixed_parameter(),
+        get_derived_parameter(),
     ]
     parameter_constraints = []
     if constrain_search_space:
@@ -2072,6 +2074,12 @@ def get_fixed_parameter() -> FixedParameter:
     return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 
 
+def get_derived_parameter() -> DerivedParameter:
+    return DerivedParameter(
+        name="d", parameter_type=ParameterType.FLOAT, expression_str="2.0 * w + 1.0"
+    )
+
+
 def get_model_parameter(with_fixed_parameter: bool = False) -> ChoiceParameter:
     return ChoiceParameter(
         name="model",
@@ -2438,7 +2446,7 @@ def get_arm() -> Arm:
     # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
     # parameter `parameters` to call `ax.core.arm.Arm.__init__` but got
     # `Dict[str, typing.Union[float, str]]`.
-    return Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True})
+    return Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5})
 
 
 def get_status_quo() -> Arm:
@@ -2446,30 +2454,30 @@ def get_status_quo() -> Arm:
         # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
         # parameter `parameters` to call `ax.core.arm.Arm.__init__`
         # but got `Dict[str, typing.Union[float, str]]`.
-        parameters={"w": 0.2, "x": 1, "y": "bar", "z": False},
+        parameters={"w": 0.2, "x": 1, "y": "bar", "z": False, "d": 1.4},
         name="status_quo",
     )
 
 
 def get_arm_weights1() -> MutableMapping[Arm, float]:
     parameters_dicts: list[TParameterization] = [
-        {"w": 0.85, "x": 1, "y": "baz", "z": False},
-        {"w": 0.75, "x": 1, "y": "foo", "z": True},
-        {"w": 1.4, "x": 2, "y": "bar", "z": True},
+        {"w": 0.85, "x": 1, "y": "baz", "z": False, "d": 2.7},
+        {"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5},
+        {"w": 1.4, "x": 2, "y": "bar", "z": True, "d": 3.8},
     ]
     arms = [Arm(param_dict) for param_dict in parameters_dicts]
-    weights = [0.25, 0.5, 0.25]
+    weights = [0.25, 0.3, 0.25, 0.2]
     return OrderedDict(zip(arms, weights))
 
 
 def get_arm_weights2() -> MutableMapping[Arm, float]:  # update
     parameters_dicts: list[TParameterization] = [
-        {"w": 0.96, "x": 3, "y": "hello", "z": True},
-        {"w": 0.16, "x": 4, "y": "dear", "z": True},
-        {"w": 3.1, "x": 5, "y": "world", "z": False},
+        {"w": 0.96, "x": 3, "y": "hello", "z": True, "d": 2.92},
+        {"w": 0.16, "x": 4, "y": "dear", "z": True, "d": 1.32},
+        {"w": 3.1, "x": 5, "y": "world", "z": False, "d": 7.2},
     ]
     arms = [Arm(param_dict) for param_dict in parameters_dicts]
-    weights = [0.25, 0.5, 0.25]
+    weights = [0.25, 0.3, 0.25, 0.2]
     return OrderedDict(zip(arms, weights))
 
 

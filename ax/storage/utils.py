@@ -15,14 +15,11 @@ from ax.core.formatting_utils import DataType  # noqa F401
 class DomainType(enum.Enum):
     """Class for enumerating domain types."""
 
-    # pyre-fixme[35]: Target cannot be annotated.
-    FIXED: int = 0
-    # pyre-fixme[35]: Target cannot be annotated.
-    RANGE: int = 1
-    # pyre-fixme[35]: Target cannot be annotated.
-    CHOICE: int = 2
-    # pyre-fixme[35]: Target cannot be annotated.
-    ENVIRONMENTAL_RANGE: int = 3
+    FIXED = 0
+    RANGE = 1
+    CHOICE = 2
+    ENVIRONMENTAL_RANGE = 3
+    DERIVED = 4
 
 
 class MetricIntent(enum.Enum):

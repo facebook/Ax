@@ -299,7 +299,7 @@ class TrialTest(TestCase):
         repr_ = (
             "Trial(experiment_name='test', index=0, "
             "status=TrialStatus.CANDIDATE, arm=Arm(name='0_0', "
-            "parameters={'w': 0.85, 'x': 1, 'y': 'baz', 'z': False}))"
+            "parameters={'w': 0.85, 'x': 1, 'y': 'baz', 'z': False, 'd': 2.7}))"
         )
         self.assertEqual(str(self.trial), repr_)
 

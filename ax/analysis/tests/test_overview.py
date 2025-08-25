@@ -319,7 +319,9 @@ class TestOverview(TestCase):
             generator_run=GeneratorRun(
                 # The arm needs to be satisfying the parameter constraints
                 # to be included in modeling
-                arms=[Arm(parameters={"w": 5.1, "x": 5, "y": "foo", "z": True})]
+                arms=[
+                    Arm(parameters={"w": 5.1, "x": 5, "y": "foo", "z": True, "d": 11.2})
+                ]
             ),
             should_add_status_quo_arm=True,
         )

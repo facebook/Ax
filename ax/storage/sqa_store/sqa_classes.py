@@ -87,6 +87,9 @@ class SQAParameter(Base):
     # Attributes for Fixed Parameters
     fixed_value: Column[TParamValue | None] = Column(JSONEncodedObject)
 
+    # Attribute for Derived Parameters
+    expression_str: Column[str | None] = Column(String(LONGTEXT_BYTES))
+
 
 class SQAParameterConstraint(Base):
     __tablename__: str = "parameter_constraint_v2"
