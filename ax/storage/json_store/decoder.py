@@ -485,7 +485,9 @@ def trials_from_json(
             for k, v in batch_json.items()
             if k != "__type"
         }
-        batch_json["generator_runs"] = batch_json.pop("generator_run_structs", None)
+        # Backward compatibility for the deprecation of `generator_run_structs`.
+        if "generator_run_structs" in batch_json:
+            batch_json["generator_runs"] = batch_json.pop("generator_run_structs", None)
         loaded_trials[int(index)] = (
             trial_from_json(experiment=experiment, **batch_json)
             if is_trial
