@@ -1026,7 +1026,9 @@ class SQAStoreTest(TestCase):
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 
-        experiment.status_quo = Arm(parameters={"w": 0.0, "x": 1, "y": "y", "z": True})
+        experiment.status_quo = Arm(
+            parameters={"w": 0.0, "x": 1, "y": "y", "z": True, "d": 1.0}
+        )
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 

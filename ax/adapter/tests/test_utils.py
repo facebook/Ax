@@ -45,7 +45,7 @@ class TestAdapterUtils(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_experiment()
-        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
+        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         self.experiment_2 = get_experiment()
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))

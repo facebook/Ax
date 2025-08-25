@@ -129,8 +129,8 @@ class BatchTrialTest(TestCase):
         # one of these arms already exists on the BatchTrial,
         # so we should just update its weight
         new_arms = [
-            Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-            Arm(parameters={"w": 1.4, "x": 5, "y": "bar", "z": False}),
+            Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5}),
+            Arm(parameters={"w": 1.4, "x": 5, "y": "bar", "z": False, "d": 3.8}),
         ]
         new_weights = [0.75, 0.25]
         gr = GeneratorRun(arms=new_arms, weights=new_weights)
@@ -569,8 +569,14 @@ class BatchTrialTest(TestCase):
     def test_AddGeneratorRunValidation(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         new_arms = [
-            Arm(name="0_1", parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
-            Arm(name="0_2", parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
+            Arm(
+                name="0_1",
+                parameters={"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5},
+            ),
+            Arm(
+                name="0_2",
+                parameters={"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5},
+            ),
         ]
         gr = GeneratorRun(arms=new_arms)
         with self.assertRaises(ValueError):

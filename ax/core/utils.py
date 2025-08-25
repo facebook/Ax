@@ -38,7 +38,6 @@ TArmTrial = tuple[str, int]
 # Threshold for switching to pending points extraction based on trial status.
 MANY_TRIALS_IN_EXPERIMENT = 100
 
-
 # --------------------------- Data integrity utils. ---------------------------
 
 

@@ -14,6 +14,7 @@ from ax.adapter.transforms.remove_fixed import RemoveFixed
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     ParameterType,
     RangeParameter,
@@ -39,16 +40,21 @@ class RemoveFixedTransformTest(TestCase):
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
                 FixedParameter("c", parameter_type=ParameterType.STRING, value="a"),
+                DerivedParameter(
+                    "d",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="2.0 * a + 1.0",
+                ),
             ]
         )
         self.t = RemoveFixed(search_space=self.search_space)
 
     def test_Init(self) -> None:
-        self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
+        self.assertEqual(list(self.t.fixed_or_derived_parameters.keys()), ["c", "d"])
 
     def test_TransformObservationFeatures(self) -> None:
         observation_features = [
-            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a", "d": 5.4})
         ]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -59,10 +65,10 @@ class RemoveFixedTransformTest(TestCase):
         self.assertEqual(obs_ft2, observation_features)
 
         observation_features = [
-            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a", "d": 5.4})
         ]
         observation_features_different = [
-            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "b"})
+            ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "b", "d": 5.4})
         ]
         # Fixed parameter is out of design. It will still get removed.
         t_obs = self.t.transform_observation_features(observation_features)
@@ -74,7 +80,8 @@ class RemoveFixedTransformTest(TestCase):
     def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
-        self.assertEqual(ss2.parameters.get("c"), None)
+        for name in ("c", "d"):
+            self.assertIsNone(ss2.parameters.get(name))
 
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
@@ -119,9 +126,9 @@ class RemoveFixedTransformTest(TestCase):
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
-            {"a": 1, "b": "a", "c": "a"},
-            {"a": 2, "b": "b", "c": "a"},
-            {"a": 3, "b": "c", "c": "a"},
+            {"a": 1.0, "b": "a", "c": "a", "d": 3.0},
+            {"a": 2.0, "b": "b", "c": "a", "d": 5.0},
+            {"a": 3.0, "b": "c", "c": "a", "d": 7.0},
         ]
         experiment = get_experiment_with_observations(
             observations=[[1.0], [2.0], [3.0]],
@@ -135,10 +142,10 @@ class RemoveFixedTransformTest(TestCase):
         transformed_data = self.t.transform_experiment_data(
             experiment_data=copy_experiment_data
         )
-
-        self.assertIn("c", experiment_data.arm_data)
-        # Check that `c` has been removed.
-        self.assertNotIn("c", transformed_data.arm_data)
+        for name in ("c", "d"):
+            self.assertIn(name, experiment_data.arm_data)
+            # Check that `c` has been removed.
+            self.assertNotIn(name, transformed_data.arm_data)
 
         # Check that other columns remain unchanged.
         assert_series_equal(
