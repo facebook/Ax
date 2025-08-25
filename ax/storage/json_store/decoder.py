@@ -168,6 +168,9 @@ def object_from_json(
 
         elif _type == "GeneratorRunStruct":
             object_json.pop("weight", None)  # Deprecated.
+            gr_json = object_json["generator_run"]
+            assert gr_json.pop("__type") == "GeneratorRun"
+            return generator_run_from_json(object_json=gr_json, **vars(registry_kwargs))
 
         elif _type not in decoder_registry:
             err = (
@@ -277,7 +280,6 @@ def object_from_json(
             object_json = _sanitize_legacy_surrogate_inputs(object_json=object_json)
         if _class is SurrogateSpec:
             object_json = _sanitize_inputs_to_surrogate_spec(object_json=object_json)
-
         return ax_class_from_json_dict(
             _class=_class, object_json=object_json, **vars(registry_kwargs)
         )
@@ -483,6 +485,7 @@ def trials_from_json(
             for k, v in batch_json.items()
             if k != "__type"
         }
+        batch_json["generator_runs"] = batch_json.pop("generator_run_structs", None)
         loaded_trials[int(index)] = (
             trial_from_json(experiment=experiment, **batch_json)
             if is_trial

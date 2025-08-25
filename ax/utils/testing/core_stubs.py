@@ -1874,14 +1874,13 @@ def get_batch_trial(
     experiment = experiment or get_experiment(
         constrain_search_space=constrain_search_space
     )
-    batch = experiment.new_batch_trial()
+    batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
     arms = get_arms_from_dict(get_arm_weights1())
     weights = get_weights_from_dict(get_arm_weights1())
     batch.add_arms_and_weights(arms=arms, weights=weights)
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     batch.runner = SyntheticRunner()
-    batch.add_status_quo_arm(status_quo=arms[0], weight=0.5)
     batch.should_add_status_quo_arm = True
     batch._generation_step_index = 0
     return batch
