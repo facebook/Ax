@@ -746,6 +746,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # This simulates an ensemble of 5 models with 2 test points and 2 outputs
         posterior_values = torch.rand(5, 2, 2)  # (5 models, 2 points, 2 outputs)
         mock_posterior.values = posterior_values
+        mock_posterior.ensemble_size = 5
+
+        # Mock the mean and variance properties (new behavior)
+        expected_mean = posterior_values.mean(dim=0)
+        expected_var = posterior_values.var(dim=0)
+        mock_posterior.mean = expected_mean
+        mock_posterior.variance = expected_var
 
         # Create a mock model
         mock_model = Mock()
@@ -761,26 +768,25 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(mean.shape, (2, 2))  # (n_points, n_outputs)
         self.assertEqual(cov.shape, (2, 2, 2))  # (n_points, n_outputs, n_outputs)
 
-        # Verify mean calculation (should be mean over ensemble dimension)
-        expected_mean = posterior_values.mean(dim=0)  # Average over first dimension
+        # Verify mean and variance calculations use the posterior properties
         self.assertTrue(torch.allclose(mean, expected_mean))
-
-        # Verify variance calculation (should be variance over ensemble dimension)
-        expected_var = posterior_values.var(dim=0)
-        # Check that the diagonal of the covariance matches expected variance
         self.assertTrue(
             torch.allclose(torch.diagonal(cov, dim1=-2, dim2=-1), expected_var)
         )
 
-        # Test with use_posterior_predictive=True
-        mock_model.reset_mock()
-        predict_from_model(mock_model, X, use_posterior_predictive=True)
-        mock_model.posterior.assert_called_once()
-
+        # Test with batched posterior (ndim > 2)
         mock_posterior2 = Mock(spec=EnsemblePosterior)
-        # Shape: (num_models, batch1, batch2, output_shape) - ndim = 4
+        # Shape: (num_models, batch1, batch2, output_shape) - ndim = 5
         posterior_values_5d = torch.rand(2, 3, 4, 2, 2)
         mock_posterior2.values = posterior_values_5d
+        mock_posterior2.ensemble_size = 2
+
+        # Mock batched mean and variance
+        batch_mean = torch.rand(3, 4, 2, 2)  # After averaging over ensemble dim
+        batch_var = torch.rand(3, 4, 2, 2)
+        mock_posterior2.mean = batch_mean
+        mock_posterior2.variance = batch_var
+
         mock_model2 = Mock()
         mock_model2.posterior.return_value = mock_posterior2
 
@@ -789,32 +795,85 @@ class BoTorchGeneratorUtilsTest(TestCase):
             mock_model2, X2, use_posterior_predictive=False
         )
 
-        # Should average over first two dimensions (all except last 2)
-        expected_mean_5d = posterior_values_5d.mean(dim=(0, 1, 2))
-        expected_var_5d = posterior_values_5d.var(dim=(0, 1, 2))
+        # Should use the posterior's mean/variance properties and average over batch dims
+        expected_mean_5d = batch_mean.mean(dim=(0, 1))
+        expected_var_5d = batch_var.mean(dim=(0, 1))
 
         self.assertTrue(torch.allclose(mean2, expected_mean_5d))
         self.assertTrue(
             torch.allclose(torch.diagonal(cov2, dim1=-2, dim2=-1), expected_var_5d)
         )
 
-        # Test case where ensemble size is 1 or non-existant
-        # (variance should be zero, not NaN)
-        posterior_values_singles = [
-            torch.rand(1, 2, 2),
-            torch.rand(1, 1, 2, 2),
-        ]  # Single ensemble model
-        mock_model.reset_mock()
+        # Test case where ensemble size is 1 (variance should be zero)
         mock_posterior_single = Mock(spec=EnsemblePosterior)
-        mock_model.posterior.return_value = mock_posterior_single
-        for i, posterior_values_single in enumerate(posterior_values_singles):
-            with self.subTest(i=i, shape=posterior_values_single.shape):
-                mock_posterior_single.values = posterior_values_single
-                mean_single, cov_single = predict_from_model(
-                    mock_model, X, use_posterior_predictive=False
-                )
-                # Variance should be zero (not NaN) when ensemble size is 1
-                var_single = torch.diagonal(cov_single, dim1=-2, dim2=-1)
-                self.assertTrue(
-                    torch.allclose(var_single, torch.zeros_like(var_single))
-                )
+        posterior_values_single = torch.rand(1, 2, 2)
+        mock_posterior_single.values = posterior_values_single
+        mock_posterior_single.ensemble_size = 1
+        mock_posterior_single.mean = torch.rand(2, 2)
+        mock_posterior_single.variance = torch.rand(2, 2)
+
+        mock_model_single = Mock()
+        mock_model_single.posterior.return_value = mock_posterior_single
+
+        _, cov_single = predict_from_model(
+            mock_model_single, X, use_posterior_predictive=False
+        )
+        # Variance should be set to zero when ensemble size is 1
+        var_single = torch.diagonal(cov_single, dim1=-2, dim2=-1)
+        self.assertTrue(torch.allclose(var_single, torch.zeros_like(var_single)))
+
+    def test_predict_from_model_weighted_ensemble(self) -> None:
+        """Test predict_from_model with weighted EnsemblePosterior."""
+        # Create an actual EnsemblePosterior with non-uniform weights
+        X = torch.rand(2, 3)
+
+        # Values: (ensemble_size, n_points, n_outputs)
+        values = torch.tensor(
+            [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
+        )  # 2 models, 2 points, 2 outs
+        weights = torch.tensor([0.3, 0.7])  # Non-uniform weights
+
+        posterior = EnsemblePosterior(values=values, weights=weights)
+
+        # Create a mock model that returns our real EnsemblePosterior
+        mock_model = Mock()
+        mock_model.posterior.return_value = posterior
+
+        # Test prediction
+        mean, cov = predict_from_model(mock_model, X, use_posterior_predictive=False)
+
+        # Verify that weighted mean is computed correctly
+        # Expected weighted mean: 0.3 * values[0] + 0.7 * values[1]
+        expected_mean = 0.3 * values[0] + 0.7 * values[1]
+        self.assertTrue(torch.allclose(mean, expected_mean))
+
+        # Verify shapes
+        self.assertEqual(mean.shape, (2, 2))  # (n_points, n_outputs)
+        self.assertEqual(cov.shape, (2, 2, 2))  # (n_points, n_outputs, n_outputs)
+
+        # Test ensemble with multiple models in dim -4
+        # but single in dim -3 (zero variance)
+        X = torch.rand(2, 3)
+
+        # Create posterior with shape (batch_dim, ensemble_size=1, n_points, n_outputs)
+        # Multiple models in dim -4, single model in dim -3
+        posterior_values = torch.rand(
+            3, 1, 2, 2
+        )  # (3 batch, 1 ensemble, 2 points, 2 outputs)
+
+        mock_posterior = Mock(spec=EnsemblePosterior)
+        mock_posterior.values = posterior_values
+        mock_posterior.ensemble_size = 1
+        mock_posterior.mean = torch.rand(3, 2, 2)  # Mean over ensemble dim
+        mock_posterior.variance = torch.zeros(
+            3, 2, 2
+        )  # Zero variance for single ensemble
+
+        mock_model = Mock()
+        mock_model.posterior.return_value = mock_posterior
+
+        mean, cov = predict_from_model(mock_model, X, use_posterior_predictive=False)
+
+        # Variance should be zero when ensemble size is 1
+        var = torch.diagonal(cov, dim1=-2, dim2=-1)
+        self.assertTrue(torch.all(var == torch.zeros_like(var)))
