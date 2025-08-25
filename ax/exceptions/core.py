@@ -91,6 +91,13 @@ class DataRequiredError(AxError):
     """
 
 
+class OptimizationNotConfiguredError(AxError):
+    """Raised when attempting to perform an operation that relies on information
+    from the experiment optimization config, but the optimization config has not
+    been defined yet.
+    """
+
+
 class MisconfiguredExperiment(AxError):
     """Raised when experiment has incomplete or incorrect information."""
 
