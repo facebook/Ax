@@ -535,16 +535,27 @@ def predict_from_model(
             if isinstance(posterior, GaussianMixturePosterior):
                 mean = posterior.mixture_mean.cpu().detach()
                 var = posterior.mixture_variance.cpu().detach().clamp_min(0)
-            elif isinstance(posterior, EnsemblePosterior) and posterior.values.ndim > 2:
-                # Compute dimensions to average over (all except last 2)
-                # Not using the build-in EnsemblePosterior.variance() since that
-                # does not allow us to compute variance over _all_ batch dimensions
-                avg_dims = tuple(range(posterior.values.ndim - 2))
-                mean = posterior.values.mean(dim=avg_dims).cpu().detach()
-                var = posterior.values.var(dim=avg_dims).cpu().detach()
+            elif isinstance(posterior, EnsemblePosterior):
+                # Use the built-in mean and variance properties which now properly
+                # handle non-uniform ensemble weights when provided
+                if posterior.values.ndim > 2:
+                    # For batched posteriors, we need to average over batch dimensions
+                    # while respecting the ensemble weights
+                    batch_dims = tuple(range(posterior.values.ndim - 3))
+                    if batch_dims:
+                        # Average over batch dimensions with ensemble weights
+                        mean = posterior.mean.mean(dim=batch_dims).cpu().detach()
+                        var = posterior.variance.mean(dim=batch_dims).cpu().detach()
+                    else:
+                        mean = posterior.mean.cpu().detach()
+                        var = posterior.variance.cpu().detach()
+                else:
+                    # No batch dimensions
+                    mean = posterior.mean.cpu().detach()
+                    var = posterior.variance.cpu().detach()
 
                 # Replace NaN values with zero (occurs when ensemble size is 1)
-                if posterior.values[..., 0, 0].numel() == 1:
+                if posterior.ensemble_size == 1:
                     var = torch.zeros_like(var)
             else:
                 try:
