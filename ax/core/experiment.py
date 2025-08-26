@@ -404,10 +404,7 @@ class Experiment(Base):
             for metric_name in metrics_to_track:
                 self.add_tracking_metric(prev_optimization_config.metrics[metric_name])
 
-        if any(
-            isinstance(metric, MapMetric)
-            for metric in optimization_config.metrics.values()
-        ):
+        if any(metric.has_map_data for metric in optimization_config.metrics.values()):
             self._default_data_type = DataType.MAP_DATA
 
     @property
@@ -464,7 +461,7 @@ class Experiment(Base):
                 "before adding it to tracking metrics."
             )
 
-        if isinstance(metric, MapMetric):
+        if metric.has_map_data:
             self._default_data_type = DataType.MAP_DATA
 
         self._tracking_metrics[metric.name] = metric

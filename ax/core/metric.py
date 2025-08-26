@@ -20,6 +20,7 @@ from logging import Logger
 from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data
+from ax.core.map_data import MapData
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
@@ -389,6 +390,10 @@ class Metric(SortableBase, SerializationMixin):
             for trial_index, results_by_metric_name in trials_results.items()
         }
         return results, contains_new_data
+
+    @property
+    def has_map_data(self) -> bool:
+        return issubclass(self.data_constructor, MapData)
 
     @property
     def _unique_id(self) -> str:

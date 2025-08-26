@@ -425,7 +425,9 @@ def get_standard_plots(
     try:
         logger.debug("Starting MapMetric plots.")
         map_metrics = [
-            m for m in experiment.metrics.values() if isinstance(m, MapMetric)
+            m
+            for m in experiment.metrics.values()
+            if isinstance(m, MapMetric) and m.has_map_data
         ]
         if map_metrics:
             # Sort so that objective metrics appear first
