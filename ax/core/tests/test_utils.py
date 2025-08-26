@@ -55,7 +55,7 @@ class UtilsTest(TestCase):
         super().setUp()
         self.empty_experiment = get_experiment()
         self.experiment = get_experiment()
-        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
+        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         self.experiment_2 = get_experiment()
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
@@ -585,7 +585,7 @@ class UtilsTest(TestCase):
         exp = get_experiment(with_status_quo=False)
         in_design_status_quo = Arm(
             name="in_design_status_quo",
-            parameters={"w": 5.45, "x": 5, "y": "bar", "z": True},
+            parameters={"w": 5.45, "x": 5, "y": "bar", "z": True, "d": 11.9},
         )
         exp.status_quo = in_design_status_quo
         batch = exp.new_batch_trial().add_arm(self.arm)

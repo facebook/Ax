@@ -29,7 +29,12 @@ from ax.core.optimization_config import (
     PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -186,6 +191,18 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
         "sort_values": parameter.sort_values,
+    }
+
+
+def derived_parameter_to_dict(parameter: DerivedParameter) -> dict[str, Any]:
+    """Convert Ax fixed parameter to a dictionary."""
+    return {
+        "__type": parameter.__class__.__name__,
+        "name": parameter.name,
+        "parameter_type": parameter.parameter_type,
+        "expression_str": parameter.expression_str,
+        "is_fidelity": parameter.is_fidelity,
+        "target_value": parameter.target_value,
     }
 
 

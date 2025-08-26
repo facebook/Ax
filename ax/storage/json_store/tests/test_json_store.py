@@ -85,6 +85,7 @@ from ax.utils.testing.core_stubs import (
     get_chained_input_transform,
     get_choice_parameter,
     get_default_orchestrator_options,
+    get_derived_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
     get_experiment_with_map_data,
@@ -191,6 +192,7 @@ TEST_CASES = [
     ("ChoiceParameter", get_sorted_choice_parameter),
     # testing with non-default argument
     ("DataLoaderConfig", partial(DataLoaderConfig, fit_out_of_design=True)),
+    ("DerivedParameter", get_derived_parameter),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),

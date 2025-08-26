@@ -38,7 +38,13 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    Parameter,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -297,6 +303,17 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+            )
+        elif isinstance(parameter, DerivedParameter):
+            # pyre-fixme[29]: `SQAParameter` is not a function.
+            return parameter_class(
+                id=parameter.db_id,
+                name=parameter.name,
+                domain_type=DomainType.DERIVED,
+                parameter_type=parameter.parameter_type,
+                expression_str=parameter.expression_str,
+                is_fidelity=parameter.is_fidelity,
+                target_value=parameter.target_value,
             )
         else:
             raise SQAEncodeError(
