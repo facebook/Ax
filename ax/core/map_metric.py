@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from ax.core.data import Data
+
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.metric import Metric, MetricFetchE
 from ax.utils.common.result import Result
@@ -30,5 +32,5 @@ class MapMetric(Metric):
         properties: Properties specific to a particular metric.
     """
 
-    data_constructor: type[MapData] = MapData
+    data_constructor: type[Data] = MapData
     map_key_info: MapKeyInfo = MapKeyInfo(key=DEFAULT_MAP_KEY)
