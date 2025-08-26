@@ -365,9 +365,18 @@ class TorchAdapter(Adapter):
             return [], [], None
         arm_data = experiment_data.arm_data
         obs_data = experiment_data.observation_data
+        obs_data_mean = obs_data["mean"]
         sems_df = obs_data["sem"]
+        # Check for duplication between parameter names and metric names
+        obs_mean_cols = set(obs_data_mean.columns)
+        arm_data_cols = set(arm_data.columns)
+        duplicated_names = obs_mean_cols.intersection(arm_data_cols)
+
         # Join mean & arms to align and repeat the arm rows if necessary.
-        mean_and_params = obs_data["mean"].join(arm_data, how="left")
+        # Add suffix if there are duplicate column names.
+        mean_and_params = obs_data_mean.join(
+            arm_data, how="left", lsuffix="_metric", rsuffix="_parameter"
+        )
         # Reindex to only trial_index and arm_name, to move
         # any progression columns out of the index.
         levels_to_move = list(
@@ -378,7 +387,9 @@ class TorchAdapter(Adapter):
             mean_and_params.reset_index(level=levels_to_move, inplace=True)
         # This will include the progression if it is in parameters.
         # This is also tolerant to missing columns, which is relevant for TL.
-        params_np = mean_and_params.filter(parameters).to_numpy()
+        params_np = mean_and_params.filter(
+            [i + "_parameter" if i in duplicated_names else i for i in parameters]
+        ).to_numpy()
         trial_indices_np = mean_and_params.index.get_level_values(
             "trial_index"
         ).to_numpy()
@@ -386,13 +397,16 @@ class TorchAdapter(Adapter):
         datasets: list[SupervisedDataset] = []
         candidate_metadata = []
         for outcome in outcomes:
-            if outcome not in mean_and_params:
+            outcome_col_name = (
+                outcome + "_metric" if outcome in duplicated_names else outcome
+            )
+            if outcome_col_name not in mean_and_params:
                 raise DataRequiredError(
                     f"Attempting to extract a dataset for {outcome=} but no "
                     "corresponding data was found in the experiment data."
                 )
             # Drop NaN columns from means & corresponding params.
-            outcome_means = mean_and_params[outcome].to_numpy()
+            outcome_means = mean_and_params[outcome_col_name].to_numpy()
             to_keep = ~np.isnan(outcome_means)
             Y = torch.from_numpy(outcome_means[to_keep]).double().view(-1, 1)
             X = torch.from_numpy(params_np[to_keep]).double()
