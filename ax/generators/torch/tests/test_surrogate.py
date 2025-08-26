@@ -1794,7 +1794,6 @@ class SurrogateTest(TestCase):
         }
         _, models = surrogate.models_for_gen(10)
         for model in models:
-            print(model.covar_module)
             self.assertEqual(
                 id(model), id(surrogate._model_name_to_model["metric"]["Matern"])
             )
