@@ -28,6 +28,7 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     ParameterType,
     RangeParameter,
@@ -736,6 +737,7 @@ class TestAxClient(TestCase):
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
             ax_client.experiment
+        expression_str = "x4 + 2.0 * x6 + 1.0"
         ax_client.create_experiment(
             name="test_experiment",
             parameters=[
@@ -771,6 +773,12 @@ class TestAxClient(TestCase):
                     "name": "x6",
                     "type": "range",
                     "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x7",
+                    "type": "derived",
+                    "expression_str": expression_str,
                     "value_type": "int",
                 },
             ],
@@ -820,6 +828,20 @@ class TestAxClient(TestCase):
                 name="x5",
                 parameter_type=ParameterType.STRING,
                 values=["one", "two", "three"],
+            ),
+        )
+        self.assertEqual(
+            ax_client._experiment.search_space.parameters["x6"],
+            RangeParameter(
+                name="x6", parameter_type=ParameterType.INT, lower=1.0, upper=3.0
+            ),
+        )
+        self.assertEqual(
+            ax_client._experiment.search_space.parameters["x7"],
+            DerivedParameter(
+                name="x7",
+                parameter_type=ParameterType.INT,
+                expression_str=expression_str,
             ),
         )
         self.assertEqual(
