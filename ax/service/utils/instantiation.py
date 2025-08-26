@@ -29,6 +29,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     Parameter,
     PARAMETER_PYTHON_TYPE_MAP,
@@ -63,7 +64,7 @@ logger: Logger = get_logger(__name__)
 TParameterRepresentation = dict[
     str, Union[TParamValue, Sequence[TParamValue], dict[str, list[str]]]
 ]
-PARAM_CLASSES = ["range", "choice", "fixed"]
+PARAM_CLASSES = ["range", "choice", "fixed", "derived"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
 COMPARISON_OPS: dict[str, ComparisonOp] = {
     "<=": ComparisonOp.LEQ,
@@ -84,6 +85,7 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
     "is_task",
     "digits",
     "dependents",
+    "expression_str",
 }
 
 
@@ -320,6 +322,25 @@ class InstantiationBase:
         )
 
     @classmethod
+    def _make_derived_param(
+        cls,
+        name: str,
+        representation: TParameterRepresentation,
+        parameter_type: str | None,
+    ) -> DerivedParameter:
+        assert (
+            "expression_str" in representation
+        ), "expression_str is required for derived parameters."
+        msg = "parameter_type is required for derived parameters."
+        return DerivedParameter(
+            name=name,
+            parameter_type=cls._get_parameter_type(
+                PARAM_TYPES[none_throws(parameter_type, msg)]  # pyre-ignore[6]
+            ),
+            expression_str=assert_is_instance(representation["expression_str"], str),
+        )
+
+    @classmethod
     def parameter_from_json(
         cls,
         representation: TParameterRepresentation,
@@ -343,7 +364,7 @@ class InstantiationBase:
         parameter_class = representation["type"]
         assert isinstance(parameter_class, str) and parameter_class in PARAM_CLASSES, (
             "Type in parameter JSON representation must be "
-            "`range`, `choice`, or `fixed`."
+            "`range`, `choice`, `fixed` or `derived`."
         )
 
         parameter_type = representation.get("value_type", None)
@@ -395,8 +416,15 @@ class InstantiationBase:
                 representation=representation,
                 parameter_type=parameter_type,
             )
-        else:
-            raise ValueError(f"Unrecognized parameter type {parameter_class}.")
+
+        if parameter_class == "derived":
+            return cls._make_derived_param(
+                name=name,
+                representation=representation,
+                parameter_type=parameter_type,
+            )
+
+        raise ValueError(f"Unrecognized parameter type {parameter_class}.")
 
     @staticmethod
     def constraint_from_str(
@@ -780,12 +808,15 @@ class InstantiationBase:
                 experiment search space.
                 Required elements in the dictionaries are:
                 1. "name" (name of parameter, string),
-                2. "type" (type of parameter: "range", "fixed", or "choice", string),
+                2. "type" (type of parameter: "range", "fixed", "choice", or
+                "derived", string),
                 and one of the following:
                 3a. "bounds" for range parameters (list of two values, lower bound
                 first),
                 3b. "values" for choice parameters (list of values), or
                 3c. "value" for fixed parameters (single value).
+                3d. "expression_str" for derived parameters (string containing
+                the definition of the derived parameter).
                 Optional elements are:
                 1. "log_scale" (for float-valued range parameters, bool),
                 2. "value_type" (to specify type that values of this parameter should
@@ -883,7 +914,9 @@ class InstantiationBase:
         if default_trial_type is not None:
             return MultiTypeExperiment(
                 name=none_throws(name),
-                search_space=cls.make_search_space(parameters, parameter_constraints),
+                search_space=cls.make_search_space(
+                    parameters=parameters, parameter_constraints=parameter_constraints
+                ),
                 default_trial_type=none_throws(default_trial_type),
                 default_runner=none_throws(default_runner),
                 optimization_config=optimization_config,
