@@ -414,7 +414,7 @@ def _filter_data_on_status(
         metric = experiment.metrics[metric_name]
         statuses_to_include_metric = (
             statuses_to_include_map_metric
-            if isinstance(metric, MapMetric)
+            if isinstance(metric, MapMetric) and metric.has_map_data
             else statuses_to_include
         )
         if trial_status is not None and trial_status not in statuses_to_include_metric:

@@ -418,7 +418,7 @@ def _extract_observation_data(
     for metric in experiment.metrics.values():
         valid_statuses = (
             data_loader_config.statuses_to_fit_map_metric
-            if isinstance(metric, MapMetric)
+            if isinstance(metric, MapMetric) and metric.has_map_data
             else data_loader_config.statuses_to_fit
         )
         to_keep |= (df["metric_name"] == metric.name) & trial_statuses.isin(
