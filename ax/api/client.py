@@ -388,7 +388,7 @@ class Client(WithDBSettingsBase):
                         decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
                     )
                 )
-                + f"using GenerationNode {generator_run[0]._generation_node_name}."
+                + f" using GenerationNode {generator_run[0]._generation_node_name}."
             )
 
             trial.mark_running(no_runner_required=True)
