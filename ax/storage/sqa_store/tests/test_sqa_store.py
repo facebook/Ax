@@ -1016,7 +1016,7 @@ class SQAStoreTest(TestCase):
         )
 
     def test_ExperimentUpdates(self) -> None:
-        experiment = get_experiment_with_batch_trial()
+        experiment = get_experiment()
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 
@@ -2318,10 +2318,11 @@ class SQAStoreTest(TestCase):
         # we create completely new arms in DB for the
         # new trials
         experiment.new_batch_trial(
-            generator_run=GeneratorRun(arms=experiment.trials[0].arms)
+            generator_run=GeneratorRun(arms=experiment.trials[0].arms),
+            should_add_status_quo_arm=True,
         )
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAArm).count(), 7)
+        self.assertEqual(get_session().query(SQAArm).count(), 9)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

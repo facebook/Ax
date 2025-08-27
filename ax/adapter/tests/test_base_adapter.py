@@ -33,12 +33,11 @@ from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
-from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
@@ -61,7 +60,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_experiment,
     get_experiment_with_observations,
-    get_experiment_with_repeated_arms,
     get_map_metric,
     get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
@@ -77,7 +75,7 @@ from ax.utils.testing.modeling_stubs import (
 from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.utils.assorted import validate_input_scaling
 from pandas.testing import assert_frame_equal
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 ADAPTER__GEN_PATH: str = "ax.adapter.base.Adapter._gen"
 
