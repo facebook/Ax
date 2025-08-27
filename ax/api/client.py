@@ -495,7 +495,7 @@ class Client(WithDBSettingsBase):
 
         trial = assert_is_instance(self._experiment.trials[trial_index], Trial)
         trial.update_trial_data(
-            raw_data=data_with_progression, combine_with_last_data=True
+            raw_data=data_with_progression,
         )
 
         self._save_or_update_trial_in_db_if_possible(
