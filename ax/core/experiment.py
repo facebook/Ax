@@ -284,6 +284,12 @@ class Experiment(Base):
 
     @status_quo.setter
     def status_quo(self, status_quo: Arm | None) -> None:
+        # Make status_quo immutable once any trial has been created.
+        if self._status_quo is not None and len(self.trials) > 0:
+            raise UnsupportedError(
+                "Modifications of status_quo are disabled after trials have been "
+                "created."
+            )
         if status_quo is not None:
             self.search_space.check_types(
                 parameterization=status_quo.parameters,
