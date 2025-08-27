@@ -1016,7 +1016,7 @@ class SQAStoreTest(TestCase):
         )
 
     def test_ExperimentUpdates(self) -> None:
-        experiment = get_experiment()
+        experiment = get_experiment(with_status_quo=False)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
 
@@ -2310,7 +2310,7 @@ class SQAStoreTest(TestCase):
             )
 
     def test_RepeatedArmStorage(self) -> None:
-        experiment = get_experiment_with_batch_trial()
+        experiment = get_experiment_with_batch_trial(with_status_quo=True)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAArm).count(), 4)
 

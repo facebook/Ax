@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 from collections import defaultdict, OrderedDict
 from collections.abc import MutableMapping
 from dataclasses import dataclass
@@ -139,8 +141,8 @@ class BatchTrial(BaseTrial):
         self._arms_by_name: dict[str, Arm] = {}
         self._generator_run_structs: list[GeneratorRunStruct] = []
         self._abandoned_arms_metadata: dict[str, AbandonedArm] = {}
-        self._status_quo: Arm | None = None
         self._status_quo_weight_override: float | None = None
+        self.should_add_status_quo_arm = should_add_status_quo_arm
         if generator_run is not None:
             if generator_runs is not None:
                 raise UnsupportedError(
@@ -151,7 +153,6 @@ class BatchTrial(BaseTrial):
             for gr in generator_runs:
                 self.add_generator_run(generator_run=gr)
 
-        self.should_add_status_quo_arm = should_add_status_quo_arm
         status_quo = experiment.status_quo
         if should_add_status_quo_arm:
             if status_quo is None:
@@ -160,11 +161,7 @@ class BatchTrial(BaseTrial):
                     "no weight can be set for it."
                 )
             else:
-                self.add_status_quo_arm(status_quo=status_quo, weight=1.0)
-        else:
-            # Set the status quo for tracking purposes
-            # It will not be included in arm_weights
-            self._status_quo = status_quo
+                self.add_status_quo_arm(weight=1.0)
 
         # Trial status quos are stored in the DB as a generator run
         # with one arm; thus we need to store two `db_id` values
@@ -288,7 +285,7 @@ class BatchTrial(BaseTrial):
         )
 
         if self.status_quo is not None and self.should_add_status_quo_arm:
-            self.add_status_quo_arm(status_quo=none_throws(self.status_quo), weight=1.0)
+            self.add_status_quo_arm(weight=1.0)
 
         if generator_run._generation_step_index is not None:
             self._set_generation_step_index(
@@ -299,8 +296,8 @@ class BatchTrial(BaseTrial):
 
     @property
     def status_quo(self) -> Arm | None:
-        """The control arm for this batch."""
-        return self._status_quo
+        """Return the status quo from the experiment this trial is associated with."""
+        return self.experiment.status_quo
 
     @status_quo.setter
     def status_quo(self, status_quo: Arm | None) -> None:
@@ -308,34 +305,37 @@ class BatchTrial(BaseTrial):
 
     def unset_status_quo(self) -> None:
         """Set the status quo to None."""
-        self._status_quo = None
         self._status_quo_weight_override = None
         self._refresh_arms_by_name()
 
     @immutable_once_run
-    def add_status_quo_arm(self, status_quo: Arm, weight: float | None) -> BatchTrial:
-        """Sets status quo arm with given weight. This weight *overrides* any
-        weight the status quo has from generator runs attached to this batch.
-        Thus, this function is not the same as using add_arm, which will
-        result in the weight being additive over all generator runs.
+    def add_status_quo_arm(self, weight: float | None) -> BatchTrial:
+        """Adds the status quo arm from the Experiment to the BatchTrial with a given
+        weight. This weight *overrides* any weight the status quo has from generator
+        runs attached to this batch. Thus, this function is not the same as
+        using add_arm, which will result in the weight being additive over all
+        generator runs.
         """
         # Assign a name to this arm if none exists
         if weight is not None:
             if weight <= 0.0:
                 raise ValueError("Status quo weight must be positive.")
-            if status_quo is None:
-                raise ValueError("Cannot set weight because status quo is not defined.")
+            if self.experiment.status_quo is None:
+                raise ValueError(
+                    "Cannot set weight because status quo is "
+                    "not defined on the Experiment."
+                )
+            if (
+                self._status_quo_weight_override is not None
+                and weight != self._status_quo_weight_override
+            ):
+                warnings.warn(
+                    f"Status quo weight is being overridden from {weight} "
+                    f"to {self._status_quo_weight_override}.",
+                    UserWarning,
+                    stacklevel=3,
+                )
 
-        if status_quo is not None:
-            self.experiment.search_space.check_types(
-                status_quo.parameters, raise_error=True
-            )
-            self.experiment._name_and_store_arm_if_not_exists(
-                arm=status_quo,
-                proposed_name="status_quo_" + str(self.index),
-                replace=True,
-            )
-        self._status_quo = status_quo.clone() if status_quo is not None else None
         self._status_quo_weight_override = weight
         self._refresh_arms_by_name()
         return self
@@ -516,10 +516,9 @@ class BatchTrial(BaseTrial):
             else:
                 new_trial.add_generator_run(struct.generator_run.clone())
 
-        if (self._status_quo is not None) and include_sq:
+        if (self.status_quo is not None) and include_sq:
             sq_weight = self._status_quo_weight_override
             new_trial.add_status_quo_arm(
-                self._status_quo.clone(),
                 weight=sq_weight,
             )
         self._update_trial_attrs_on_clone(new_trial=new_trial)

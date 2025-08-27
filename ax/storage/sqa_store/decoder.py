@@ -1004,7 +1004,6 @@ class Decoder:
                         == GeneratorRunType.STATUS_QUO.name
                     ):
                         status_quo_weight = struct.generator_run.weights[0]
-                        trial._status_quo = struct.generator_run.arms[0]
                         trial._status_quo_weight_override = status_quo_weight
                         trial._status_quo_generator_run_db_id = (
                             struct.generator_run.db_id
