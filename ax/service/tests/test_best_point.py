@@ -134,7 +134,7 @@ class TestBestPointMixin(TestCase):
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict)))
-        self.assertEqual(get_trace(exp), [len(trial.arms) - 1])
+        self.assertEqual(get_trace(exp), [len(trial.arms) - 2])
         # test that there is performance metric in the trace for each
         # completed/early-stopped trial
         trial1 = assert_is_instance(trial, BatchTrial).clone_to()

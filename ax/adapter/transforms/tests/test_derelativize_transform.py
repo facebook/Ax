@@ -91,8 +91,12 @@ class DerelativizeTransformTest(TestCase):
             ]
         )
         experiment.search_space = search_space
-        experiment.status_quo = Arm(parameters={"x": 2.0, "y": 10.0}, name="0_0")
-        g = Adapter(experiment=experiment, generator=Generator())
+        # clone experiment since we can't overwrite sq in subsequent tests
+        experiment_1 = experiment.clone_with(
+            name="experiment_1",
+            status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="0_0"),
+        )
+        g = Adapter(experiment=experiment_1, generator=Generator())
 
         # Test with no relative constraints
         objective = Objective(Metric("c"), minimize=True)
@@ -167,8 +171,11 @@ class DerelativizeTransformTest(TestCase):
 
         # Test with relative constraint, out-of-design status quo
         mock_predict.side_effect = RuntimeError()
-        experiment.status_quo = Arm(parameters={"x": None, "y": None}, name="1_0")
-        g = Adapter(experiment=experiment, generator=Generator())
+        experiment_2 = experiment.clone_with(
+            name="experiment_2",
+            status_quo=Arm(parameters={"x": None, "y": None}, name="1_0"),
+        )
+        g = Adapter(experiment=experiment_2, generator=Generator())
         oc = OptimizationConfig(
             objective=objective,
             outcome_constraints=[
@@ -211,8 +218,12 @@ class DerelativizeTransformTest(TestCase):
         self.assertEqual(mock_predict.call_count, 1)
 
         # Raises error if predict fails with in-design status quo
-        experiment.status_quo = Arm(parameters={"x": 2.0, "y": 10.0}, name="0_0")
-        g = Adapter(experiment=experiment, generator=Generator())
+        experiment_3 = experiment.clone_with(name="experiment_3")
+        experiment_3 = experiment.clone_with(
+            name="experiment_3",
+            status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="0_0"),
+        )
+        g = Adapter(experiment=experiment_3, generator=Generator())
         oc = OptimizationConfig(
             objective=objective,
             outcome_constraints=[

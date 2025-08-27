@@ -776,6 +776,10 @@ def get_experiment_with_repeated_arms(with_data: bool = False) -> Experiment:
                         ("0_1", "b", 4.0, 4.0, 0),
                         ("0_1", "a", 2.0, 1.0, 1),
                         ("0_1", "b", 1.0, 5.0, 1),
+                        ("status_quo", "a", 2.0, 1.0, 0),
+                        ("status_quo", "b", 4.0, 4.0, 0),
+                        ("status_quo", "a", 2.0, 1.0, 1),
+                        ("status_quo", "b", 4.0, 4.0, 1),
                     )
                 ]
             )
@@ -1876,14 +1880,13 @@ def get_batch_trial(
     experiment = experiment or get_experiment(
         constrain_search_space=constrain_search_space
     )
-    batch = experiment.new_batch_trial()
+    batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
     arms = get_arms_from_dict(get_arm_weights1())
     weights = get_weights_from_dict(get_arm_weights1())
     batch.add_arms_and_weights(arms=arms, weights=weights)
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     batch.runner = SyntheticRunner()
-    batch.add_status_quo_arm(status_quo=arms[0], weight=0.5)
     batch.should_add_status_quo_arm = True
     batch._generation_step_index = 0
     return batch
@@ -1924,10 +1927,9 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
     # Add num_repeated_arms to the new trial.
     arms = prev_arms + next_arms
     weights = prev_weights + next_weights
-    batch = experiment.new_batch_trial()
+    batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
     batch.add_arms_and_weights(arms=arms, weights=weights)
     batch.runner = SyntheticRunner()
-    batch.add_status_quo_arm(status_quo=arms[0], weight=0.5)
     return batch
 
 
