@@ -1981,6 +1981,7 @@ class TestAxOrchestrator(TestCase):
         experiment.runner = self.runner
 
         gs = self.two_sobol_steps_GS
+        self.branin_experiment.status_quo = None
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,

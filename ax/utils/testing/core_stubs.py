@@ -406,7 +406,7 @@ def get_branin_experiment_with_status_quo_trials(
     for _ in range(num_sobol_trials):
         sobol_run = sobol.gen(n=1)
         t = exp.new_batch_trial().add_generator_run(sobol_run)
-        t.add_status_quo_arm(status_quo=exp.status_quo, weight=0.5)
+        t.add_status_quo_arm(weight=0.5)
         exp.attach_data(get_branin_data_batch(batch=t))
         t.run().mark_completed()
     return exp
@@ -656,6 +656,7 @@ def get_multi_type_experiment(
         default_trial_type="type1",
         default_runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
+        status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}),
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.add_trial_type(
@@ -671,8 +672,8 @@ def get_multi_type_experiment(
         gr = generator.gen(num_arms)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.add_status_quo_arm(status_quo=t1.arms[0], weight=0.5)
-        t2.add_status_quo_arm(status_quo=t2.arms[0], weight=0.5)
+        t1.add_status_quo_arm(weight=0.5)
+        t2.add_status_quo_arm(weight=0.5)
         t1.run()
         t2.run()
 
@@ -700,8 +701,8 @@ def get_multi_type_experiment_with_multi_objective(
         gr = generator.gen(10)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.add_status_quo_arm(status_quo=t1.arms[0], weight=0.5)
-        t2.add_status_quo_arm(status_quo=t2.arms[0], weight=0.5)
+        t1.add_status_quo_arm(weight=0.5)
+        t2.add_status_quo_arm(weight=0.5)
         t1.run()
         t2.run()
 
@@ -802,8 +803,12 @@ def get_experiment_with_trial() -> Experiment:
     return trial.experiment
 
 
-def get_experiment_with_batch_trial(constrain_search_space: bool = True) -> Experiment:
-    batch_trial = get_batch_trial(constrain_search_space=constrain_search_space)
+def get_experiment_with_batch_trial(
+    constrain_search_space: bool = True, with_status_quo: bool = True
+) -> Experiment:
+    batch_trial = get_batch_trial(
+        constrain_search_space=constrain_search_space, with_status_quo=with_status_quo
+    )
     return batch_trial.experiment
 
 
@@ -1876,9 +1881,10 @@ def get_batch_trial(
     abandon_arm: bool = True,
     experiment: Experiment | None = None,
     constrain_search_space: bool = True,
+    with_status_quo: bool = True,
 ) -> BatchTrial:
     experiment = experiment or get_experiment(
-        constrain_search_space=constrain_search_space
+        constrain_search_space=constrain_search_space, with_status_quo=with_status_quo
     )
     batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
     arms = get_arms_from_dict(get_arm_weights1())
