@@ -664,7 +664,7 @@ def extract_map_keys_from_opt_config(
     map_metrics = {
         name: metric
         for name, metric in optimization_config.metrics.items()
-        if isinstance(metric, MapMetric)
+        if isinstance(metric, MapMetric) and metric.has_map_data
     }
     map_key_names = {m.map_key_info.key for m in map_metrics.values()}
     return map_key_names
