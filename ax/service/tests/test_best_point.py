@@ -156,7 +156,7 @@ class TestBestPointMixin(TestCase):
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
-        self.assertEqual(get_trace(exp), [2, 20.0])
+        self.assertEqual(get_trace(exp), [3.0, 20.0])
 
     def test_get_hypervolume(self) -> None:
         # W/ empty data.

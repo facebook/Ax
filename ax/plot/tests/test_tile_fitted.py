@@ -187,6 +187,7 @@ class TileObservationsTest(TestCase):
         )
 
         # Data
+        print(exp.status_quo)
         self.assertEqual(config.data["data"][0]["x"], ["0_0", "0_1"])
         self.assertEqual(config.data["data"][0]["y"], [3.0, 2.0])
         self.assertEqual(config.data["data"][0]["type"], "scatter")
