@@ -651,6 +651,58 @@ class TorchAdapterTest(TestCase):
                     search_space_digest=search_space_digest,
                 )
 
+    def test_convert_experiment_data_with_conflicting_names(self) -> None:
+        """Test that _convert_experiment_data handles parameter name
+        and metric name conflicts."""
+        feature_names = ["m1", "x0", "x1"]  # m1 is both a feature and metric
+        search_space = get_search_space_for_range_values(
+            min=0.0, max=5.0, parameter_names=feature_names
+        )
+        raw_X = torch.rand(5, 3) * 5
+
+        raw_m1_Y = torch.sin(raw_X).sum(-1, keepdim=True)
+        raw_Y = torch.cat([raw_m1_Y, raw_m1_Y + 1.0], dim=1)
+
+        experiment = get_experiment_with_observations(
+            parameterizations=[
+                {f"{feature_names[i]}": x_[i].item() for i in range(3)} for x_ in raw_X
+            ],
+            observations=raw_Y.tolist(),
+            search_space=search_space,
+        )
+        adapter = TorchAdapter(experiment=experiment, generator=TorchGenerator())
+
+        metric_names = ["m1", "m2"]
+        experiment_data = adapter.get_training_data()
+
+        search_space_digest = SearchSpaceDigest(
+            feature_names=feature_names,
+            bounds=[(0.0, 5.0)] * 3,
+        )
+
+        # This should work without errors despite the name conflict
+        converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
+            experiment_data=experiment_data,
+            outcomes=metric_names,
+            parameters=feature_names,
+            search_space_digest=search_space_digest,
+        )
+
+        # Verify the datasets were created correctly
+        self.assertEqual(len(converted_datasets), 2)
+        self.assertEqual(len(ordered_outcomes), 2)
+        self.assertIn("m1", ordered_outcomes)
+        self.assertIn("m2", ordered_outcomes)
+
+        # Check that all datasets have the correct feature names and shapes
+        for dataset in converted_datasets:
+            self.assertEqual(dataset.feature_names, feature_names)
+            self.assertEqual(dataset.X.shape[1], 3)
+            self.assertEqual(dataset.Y.shape[1], 1)
+            # Verify we have data for all 5 observations
+            self.assertEqual(dataset.X.shape[0], 5)
+            self.assertEqual(dataset.Y.shape[0], 5)
+
     def test_convert_contextual_observations(self) -> None:
         raw_X = torch.rand(10, 3) * 5
         raw_X[:, -1].round_()  # Make sure last column is integer.
