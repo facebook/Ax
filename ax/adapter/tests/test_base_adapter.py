@@ -575,7 +575,7 @@ class BaseAdapterTest(TestCase):
         sobol_run = sobol_generator.gen(n=5)
         exp.new_batch_trial(
             sobol_run, should_add_status_quo_arm=False
-        ).add_status_quo_arm(status_quo=exp.status_quo, weight=1.0).run()
+        ).add_status_quo_arm(weight=1.0).run()
 
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
@@ -587,7 +587,8 @@ class BaseAdapterTest(TestCase):
 
     def test_set_status_quo_with_multiple_trials_with_status_quo(self) -> None:
         exp = get_experiment_with_repeated_arms(with_data=True)
-        exp.status_quo = assert_is_instance(exp.trials[1], BatchTrial).status_quo
+        last_trial = assert_is_instance(list(exp.trials.values())[-1], BatchTrial)
+        last_trial_sq = none_throws(last_trial.status_quo)
         adapter = Adapter(experiment=exp, generator=Generator())
         # Check that for experiments with many trials the status quo is set
         # to the value of the status quo of the last trial (target trial).
@@ -595,16 +596,16 @@ class BaseAdapterTest(TestCase):
             adapter.status_quo,
             Observation(
                 features=ObservationFeatures(
-                    parameters={"w": 0.85, "x": 1, "y": "baz", "z": False, "d": 2.7},
+                    parameters=last_trial_sq.parameters,
                     trial_index=get_target_trial_index(experiment=exp),
                     metadata={},
                 ),
                 data=ObservationData(
-                    means=np.array([2.0, 4.0]),
-                    covariance=np.array([[1.0, 0.0], [0.0, 16.0]]),
+                    means=np.array([2.0, 8.0]),
+                    covariance=np.array([[1.0, 0.0], [0.0, 9.0]]),
                     metric_names=["a", "b"],
                 ),
-                arm_name="0_0",
+                arm_name=last_trial_sq.name,
             ),
         )
 

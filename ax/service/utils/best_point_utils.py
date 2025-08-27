@@ -7,6 +7,7 @@
 # pyre-strict
 
 from ax.core.experiment import Experiment
+from ax.exceptions.core import UserInputError
 from pyre_extensions import none_throws
 
 BASELINE_ARM_NAME = "baseline_arm"
@@ -50,5 +51,4 @@ def select_baseline_name_default_first_trial(
         baseline_arm_name = experiment.trials[0].arms[0].name
         return baseline_arm_name, True
 
-    else:
-        raise ValueError("Could not find valid baseline arm.")
+    raise UserInputError("Could not find valid baseline arm.")

@@ -14,10 +14,11 @@ import numpy as np
 from ax.core.arm import Arm
 from ax.core.base_trial import (
     MANUAL_GENERATION_METHOD_STR,
+    STATUS_QUO_GENERATION_METHOD_STR,
     TrialStatus,
     UNKNOWN_GENERATION_METHOD_STR,
 )
-from ax.core.batch_trial import BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.parameter import FixedParameter, ParameterType
@@ -41,11 +42,9 @@ from pyre_extensions import assert_is_instance
 class BatchTrialTest(TestCase):
     def setUp(self) -> None:
         self.experiment = get_experiment()
-        self.experiment.status_quo = None
         self.batch = self.experiment.new_batch_trial()
         arms = get_arms()
         weights = get_weights()
-        self.status_quo = arms[0]
         self.sq_weight = weights[0]
         self.new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
         self.arms = arms[1:]
@@ -76,7 +75,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status, TrialStatus.CANDIDATE)
         self.assertIsNotNone(self.batch.time_created)
         self.assertEqual(
-            self.batch.generator_run_structs[0].generator_run.generator_run_type,
+            self.batch.generator_runs[0].generator_run_type,
             GeneratorRunType.MANUAL.name,
         )
         self.assertEqual(self.batch.generation_method_str, MANUAL_GENERATION_METHOD_STR)
@@ -97,30 +96,24 @@ class BatchTrialTest(TestCase):
         self.batch.runner = SyntheticRunner()
         self.assertIsNotNone(self.batch.runner)
 
-        self.batch.trial_type = None
-        self.assertIsNone(self.batch.trial_type)
-
-        # Default experiment only supports None as trial_type
-        with self.assertRaises(ValueError):
-            self.batch.trial_type = ""
-
     def test_AddArm(self) -> None:
+        NEW_ARM_WEIGHT = 3
         self.assertEqual(len(self.batch.arms), len(self.arms))
-        self.assertEqual(len(self.batch.generator_run_structs), 1)
+        self.assertEqual(len(self.batch.generator_runs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
 
         arm_parameters = get_arm().parameters
         arm_parameters["w"] = 5.0
-        self.batch.add_arm(Arm(arm_parameters), 3)
+        self.batch.add_arm(arm=Arm(arm_parameters), weight=NEW_ARM_WEIGHT)
 
         self.assertEqual(self.batch.arms_by_name["0_2"], self.batch.arms[2])
         self.assertEqual(len(self.batch.arms), len(self.arms) + 1)
-        self.assertEqual(len(self.batch.generator_run_structs), 2)
-        self.assertEqual(sum(self.batch.weights), sum(self.weights) + 3)
+        self.assertEqual(len(self.batch.generator_runs), 2)
+        self.assertEqual(sum(self.batch.weights), sum(self.weights) + NEW_ARM_WEIGHT)
 
     def test_add_generator_run(self) -> None:
         self.assertEqual(len(self.batch.arms), len(self.arms))
-        self.assertEqual(len(self.batch.generator_run_structs), 1)
+        self.assertEqual(len(self.batch.generator_runs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
 
         # Overwrite the GS index to not-None.
@@ -134,11 +127,11 @@ class BatchTrialTest(TestCase):
         ]
         new_weights = [0.75, 0.25]
         gr = GeneratorRun(arms=new_arms, weights=new_weights)
-        new_gr_total_weight = sum(new_weights)
+        new_gr_total_weight = float(sum(new_weights))
         self.batch.add_generator_run(gr)
 
         self.assertEqual(len(self.batch.arms), len(self.arms) + 1)
-        self.assertEqual(len(self.batch.generator_run_structs), 2)
+        self.assertEqual(len(self.batch.generator_runs), 2)
         self.assertEqual(
             float(sum(self.batch.weights)),
             float(sum(self.weights)) + new_gr_total_weight,
@@ -153,56 +146,23 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.arms_by_name["0_0"], self.batch.arms[0])
         self.assertEqual(self.batch.arms_by_name["0_1"], self.batch.arms[1])
         self.assertEqual(len(batch.arms), len(self.arms))
-        self.assertEqual(len(self.batch.generator_run_structs), 1)
-
-    def test_StatusQuoOverlap(self) -> None:
-        # Set status quo to existing arm
-        self.batch.add_status_quo_arm(self.arms[0], self.sq_weight)
-        # Status quo weight is set to the average of other arms' weights.
-        # In this case, there are only two arms: 0_0 (SQ) and 0_1 (not SQ).
-        # So their weights are equal, as weight(0_0) = avg(weight(0_1)).
-        self.assertEqual(self.batch.weights[0], self.batch.weights[1])
-        self.assertTrue(self.batch.status_quo.parameters == self.arms[0].parameters)
-        self.assertEqual(self.batch.status_quo.name, self.batch.arms[0].name)
-        self.assertEqual(self.batch.arm_weights[self.batch.arms[0]], self.sq_weight)
-        self.assertEqual(sum(self.batch.weights), self.weights[1] + self.sq_weight)
-
-        # Set status quo to new arm, add it
-        self.batch.add_status_quo_arm(self.new_sq, self.sq_weight)
-        self.assertEqual(self.batch.status_quo.name, "status_quo_0")
-        self.batch.add_arms_and_weights([self.new_sq])
-        self.assertEqual(
-            self.batch.generator_run_structs[1].generator_run.arms[0].name,
-            "status_quo_0",
-        )
+        self.assertEqual(len(self.batch.generator_runs), 1)
 
     def test_status_quo_cannot_have_negative_weight(self) -> None:
         with self.assertRaises(ValueError):
-            self.batch.add_status_quo_arm(self.new_sq, -1)
+            self.batch.add_status_quo_arm(-1)
 
     def test_status_quo_cannot_be_set_directly(self) -> None:
         # Test that directly setting the status quo raises an error
         with self.assertRaises(NotImplementedError):
             self.batch.status_quo = self.new_sq
 
-    def test_status_quo_can_be_set_to_a_new_arm(self) -> None:
-        tot_weight = sum(self.batch.weights)
-        # Set status quo to new arm
-        self.batch.add_status_quo_arm(self.new_sq, self.sq_weight)
-        self.assertTrue(self.batch.status_quo == self.new_sq)
-        self.assertEqual(self.batch.status_quo.name, "status_quo_0")
-        self.assertEqual(sum(self.batch.weights), tot_weight + self.sq_weight)
-
     def test_status_quo_weight_is_ignored_when_none(self) -> None:
         tot_weight = sum(self.batch.weights)
-        # sq weight should be ignored when sq is None
-        self.batch.unset_status_quo()
         self.assertEqual(sum(self.batch.weights), tot_weight)
-        self.assertIsNone(self.batch.status_quo)
         self.assertIsNone(self.batch._status_quo_weight_override)
 
     def test_status_quo_set_on_clone_to(self) -> None:
-        self.experiment.status_quo = self.status_quo
         batch2 = self.batch.clone_to(include_sq=False)
         self.assertEqual(batch2.status_quo, self.experiment.status_quo)
         # Since should_add_status_quo_arm was False,
@@ -216,18 +176,10 @@ class BatchTrialTest(TestCase):
         self.assertEqual(batch3._status_quo_weight_override, 1.0)
         self.assertTrue(batch2.status_quo in batch3.arm_weights)
 
-    def test_status_quo_cannot_be_set_with_different_name(self) -> None:
-        # Set status quo to new arm
-        self.batch.add_status_quo_arm(self.status_quo, self.sq_weight)
-        with self.assertRaises(ValueError):
-            self.batch.add_status_quo_arm(
-                Arm(self.status_quo.parameters, name="new_name"), 1
-            )
-
     def test_cannot_add_status_quo_arm_without_status_quo(self) -> None:
-        self.experiment.status_quo = None
+        exp = get_experiment(with_status_quo=False)  # get exp w/o status quo
         with self.assertRaises(ValueError):
-            self.experiment.new_batch_trial(should_add_status_quo_arm=True)
+            exp.new_batch_trial(should_add_status_quo_arm=True)
 
     def test_ArmsByName(self) -> None:
         # Initializes empty
@@ -243,17 +195,13 @@ class BatchTrialTest(TestCase):
         self.assertEqual(newbatch.arms_by_name, {"0_0": self.batch.arms[0]})
 
         # Refreshed when status quo is set
-        newbatch.add_status_quo_arm(self.batch.arms[1], 1.0)
+        newbatch.add_status_quo_arm(1.0)
         self.assertEqual(
             newbatch.arms_by_name,
-            {"0_0": self.batch.arms[0], "0_1": self.batch.arms[1]},
-        )
-
-        # Refreshed when status quo is unset
-        newbatch.unset_status_quo()
-        self.assertEqual(
-            newbatch.arms_by_name,
-            {"0_0": self.batch.arms[0]},
+            {
+                "0_0": self.batch.arms[0],
+                "status_quo": self.batch.status_quo,
+            },
         )
 
     def test_BatchLifecycle(self) -> None:
@@ -419,11 +367,9 @@ class BatchTrialTest(TestCase):
     )
     def test_clone_to(self, _) -> None:
         experiment = get_experiment()
-        experiment.status_quo = None
         batch = experiment.new_batch_trial(ttl_seconds=123, trial_type="foo")
         arms = get_arms()
         weights = get_weights()
-        status_quo = arms[0]
         arms = arms[1:]
         weights = weights[1:]
         batch.add_arms_and_weights(arms=arms, weights=weights)
@@ -434,12 +380,11 @@ class BatchTrialTest(TestCase):
         new_batch_trial_0 = batch.clone_to()
         # cloning the trial and attached it to a new experiment
         new_experiment = get_experiment()
-        new_experiment.status_quo = None
-        batch.clone_to(new_experiment)
+        batch.clone_to(experiment=new_experiment)
         new_batch_trial_1 = assert_is_instance(new_experiment.trials[0], BatchTrial)
-
         self.assertEqual(new_batch_trial_0.index, 1)
-        # Set index to original trial's value for equality check.
+
+        # Set index and creation time to original trial's value for equality check.
         new_batch_trial_0._index = batch.index
         new_batch_trial_0._time_created = batch._time_created
         new_batch_trial_1._time_created = batch._time_created
@@ -456,23 +401,21 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(new_batch_trial_1.arms), 3)
         self.assertEqual(len(batch.arms), 2)
 
-        # cloning a trial that has status quo arm
-        status_quo = Arm(
-            name="status_quo", parameters={"w": 0.0, "x": 1, "y": "foo", "z": True}
-        )
-        batch.add_status_quo_arm(status_quo=status_quo, weight=1.0)
+        batch.add_status_quo_arm(weight=1.0)
+        batch.should_add_status_quo_arm = True
         batch.mark_running(no_runner_required=True)
-        new_batch_trial = batch.clone_to()
-        self.assertEqual(new_batch_trial.index, 2)
+        cloned_batch = batch.clone_to()
+        self.assertEqual(cloned_batch.index, 2)
         # Set index & time_created to original trial's value for equality check.
-        new_batch_trial._index = batch.index
-        new_batch_trial._time_created = batch._time_created
-        self.assertEqual(new_batch_trial, batch)
+        cloned_batch._index = batch.index
+        cloned_batch._time_created = batch._time_created
+        self.assertEqual(cloned_batch, batch)
         # test cloning with clear_trial_type=True
-        new_batch_trial = batch.clone_to(clear_trial_type=True)
-        self.assertIsNone(new_batch_trial.trial_type)
+        cloned_batch = batch.clone_to(clear_trial_type=True)
+        self.assertIsNone(cloned_batch.trial_type)
         self.assertEqual(
-            new_batch_trial.generation_method_str, MANUAL_GENERATION_METHOD_STR
+            cloned_batch.generation_method_str,
+            f"{MANUAL_GENERATION_METHOD_STR}, {STATUS_QUO_GENERATION_METHOD_STR}",
         )
 
     def test_Runner(self) -> None:
@@ -626,9 +569,9 @@ class BatchTrialTest(TestCase):
 
         # Arms are named when adding GR to trial, so reassign to have a GR that has
         # names arms.
-        gr_1 = self.batch._generator_run_structs[-1].generator_run
+        gr_1 = self.batch._generator_runs[-1]
         self.batch.add_generator_run(gr_2)
-        gr_2 = self.batch._generator_run_structs[-1].generator_run
+        gr_2 = self.batch._generator_runs[-1]
         # gr_2 has no candidate metadata; all candidate metadata should come from gr_1
         cand_metadata_expected = {
             a.name: gr_1.candidate_metadata_by_arm_signature[a.signature]
@@ -657,7 +600,7 @@ class BatchTrialTest(TestCase):
         #  typing.Any]]]]`; used as `Dict[str, Dict[str, str]]`.
         gr_3._candidate_metadata_by_arm_signature = new_cand_metadata
         self.batch.add_generator_run(gr_3)
-        gr_3 = self.batch._generator_run_structs[-1].generator_run
+        gr_3 = self.batch._generator_runs[-1]
         cand_metadata_expected.update(
             {
                 a.name: gr_1.candidate_metadata_by_arm_signature[a.signature]
@@ -674,21 +617,6 @@ class BatchTrialTest(TestCase):
                 self.batch._get_candidate_metadata(arm.name),
             )
         self.assertEqual(self.batch.generation_method_str, "Manual, Sobol")
-
-    def test_Sortable(self) -> None:
-        new_batch_trial = self.experiment.new_batch_trial()
-        self.assertTrue(self.batch < new_batch_trial)
-
-        abandoned_arm = get_abandoned_arm()
-        abandoned_arm_2 = get_abandoned_arm()
-        abandoned_arm_2.name = "0_1"
-        self.assertTrue(abandoned_arm < abandoned_arm_2)
-
-        generator_run = get_generator_run()
-        # Struct with the same GR should have the same unique ID.
-        generator_run_struct = GeneratorRunStruct(generator_run=generator_run)
-        generator_run_struct_2 = GeneratorRunStruct(generator_run=generator_run)
-        self.assertTrue(generator_run_struct == generator_run_struct_2)
 
     def test_attach_batch_trial_data(self) -> None:
         # Verify components before we attach trial data

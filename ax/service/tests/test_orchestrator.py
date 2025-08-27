@@ -1981,6 +1981,7 @@ class TestAxOrchestrator(TestCase):
         experiment.runner = self.runner
 
         gs = self.two_sobol_steps_GS
+        self.branin_experiment.status_quo = None
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
@@ -1992,7 +1993,7 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             orchestrator.get_improvement_over_baseline(
                 experiment=orchestrator.experiment,
                 generation_strategy=orchestrator.generation_strategy,

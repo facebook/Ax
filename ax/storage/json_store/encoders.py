@@ -129,7 +129,7 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "failed_reason": batch.failed_reason,
         "run_metadata": batch.run_metadata,
         "stop_metadata": batch.stop_metadata,
-        "generator_run_structs": batch.generator_run_structs,
+        "generator_runs": batch.generator_runs,
         "runner": batch.runner,
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,

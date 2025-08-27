@@ -1361,10 +1361,10 @@ def tile_fitted(
 
     for i, metric in enumerate(metrics):
         data = _single_metric_traces(
-            model,
-            metric,
-            generator_runs_dict,
-            rel,
+            model=model,
+            metric=metric,
+            generator_runs_dict=generator_runs_dict,
+            rel=rel,
             showlegend=i == 0,
             show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,
@@ -1374,11 +1374,15 @@ def tile_fitted(
             scalarized_metric_config=scalarized_metric_config,
         )
 
+        print(data)
+
         # order arm name sorting arm numbers within batch
         names_by_arm = sorted(
             np.unique(np.concatenate([d["x"] for d in data])),
             key=lambda x: arm_name_to_tuple(x),
         )
+
+        print(names_by_arm)
 
         # get arm names sorted by effect size
         names_by_effect = list(

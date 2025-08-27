@@ -134,7 +134,7 @@ class TestBestPointMixin(TestCase):
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict)))
-        self.assertEqual(get_trace(exp), [len(trial.arms) - 1])
+        self.assertEqual(get_trace(exp), [len(trial.arms) - 2])
         # test that there is performance metric in the trace for each
         # completed/early-stopped trial
         trial1 = assert_is_instance(trial, BatchTrial).clone_to()
@@ -156,7 +156,7 @@ class TestBestPointMixin(TestCase):
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
-        self.assertEqual(get_trace(exp), [2, 20.0])
+        self.assertEqual(get_trace(exp), [3.0, 20.0])
 
     def test_get_hypervolume(self) -> None:
         # W/ empty data.

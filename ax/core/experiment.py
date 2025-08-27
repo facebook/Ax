@@ -284,6 +284,12 @@ class Experiment(Base):
 
     @status_quo.setter
     def status_quo(self, status_quo: Arm | None) -> None:
+        # Make status_quo immutable once any trial has been created.
+        if self._status_quo is not None and len(self.trials) > 0:
+            raise UnsupportedError(
+                "Modifications of status_quo are disabled after trials have been "
+                "created."
+            )
         if status_quo is not None:
             self.search_space.check_types(
                 parameterization=status_quo.parameters,
@@ -1882,19 +1888,18 @@ class Experiment(Base):
         data_by_trial = {}
         for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
             trial = self.trials[trial_index]
-            if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
-                new_trial = trial.clone_to(
-                    cloned_experiment, clear_trial_type=clear_trial_type
-                )
-                new_index = new_trial.index
-                trial_data, timestamp = self.lookup_data_for_trial(trial_index)
-                # Clone the data to avoid overwriting the original in the DB.
-                trial_data = trial_data.clone()
-                trial_data.df["trial_index"] = new_index
-                if timestamp != -1:
-                    data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
-            else:
+            if not isinstance(trial, (Trial, BatchTrial)):
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
+            new_trial = trial.clone_to(
+                cloned_experiment, clear_trial_type=clear_trial_type
+            )
+            new_index = new_trial.index
+            trial_data, timestamp = self.lookup_data_for_trial(trial_index)
+            # Clone the data to avoid overwriting the original in the DB.
+            trial_data = trial_data.clone()
+            trial_data.df["trial_index"] = new_index
+            if timestamp != -1:
+                data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
         if data is not None:
             # If user passed in data, use it.
             cloned_experiment.attach_data(data.clone())
