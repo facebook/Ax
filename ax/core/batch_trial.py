@@ -374,7 +374,6 @@ class BatchTrial(BaseTrial):
                 weight=weight,
                 generator_run_type=GeneratorRunType.STATUS_QUO,
             )
-        self._status_quo_weight_override = weight
         self._refresh_arms_by_name()
         return self
 
@@ -388,7 +387,6 @@ class BatchTrial(BaseTrial):
         for idx, gr in enumerate(self.generator_runs):
             if gr._generator_run_type == GeneratorRunType.STATUS_QUO.name:
                 del self.generator_runs[idx]
-                self._status_quo_weight_override = None
                 self._refresh_arms_by_name()
                 return self
 
