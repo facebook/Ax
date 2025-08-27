@@ -98,12 +98,15 @@ class RandomAdapter(Adapter):
             search_space.parameter_constraints, self.parameters
         )
         # Extract generated points to deduplicate against.
+        # Exclude out-of-design arms (which can only be manual arms
+        # instead of adapter-generated arms).
         generated_points = None
         if self.generator.deduplicate:
             arms_to_deduplicate = self._experiment.arms_by_signature_for_deduplication
             generated_obs = [
                 ObservationFeatures.from_arm(arm=arm)
                 for arm in arms_to_deduplicate.values()
+                if self._search_space.check_membership(parameterization=arm.parameters)
             ]
             # Transform
             for t in self.transforms.values():
