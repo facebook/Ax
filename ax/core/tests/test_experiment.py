@@ -354,24 +354,31 @@ class ExperimentTest(TestCase):
 
     def test_StatusQuoSetter(self) -> None:
         sq_parameters = self.experiment.status_quo.parameters
-        self.experiment.status_quo = None
-        self.assertIsNone(self.experiment.status_quo)
 
-        # Verify normal update
+        # Verify normal update when no trials exist
         sq_parameters["w"] = 3.5
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
-        self.assertEqual(self.experiment.status_quo.name, "status_quo")
-        self.assertTrue("status_quo" in self.experiment.arms_by_name)
+        self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
+        self.assertTrue("status_quo" not in self.experiment.arms_by_name)
 
         # Verify all None values
         self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
         self.assertIsNone(self.experiment.status_quo.parameters["w"])
 
+        # Switch back to sq with values
+        self.experiment.status_quo = Arm(sq_parameters)
+
         # Try extra param
         sq_parameters["a"] = 4
         with self.assertRaises(ValueError):
             self.experiment.status_quo = Arm(sq_parameters)
+
+        # Try missing param - need to use a copy since we modified sq_parameters earlier
+        sq_parameters_copy = sq_parameters.copy()
+        sq_parameters_copy.pop("w", None)  # Use pop with default to avoid KeyError
+        with self.assertRaises(ValueError):
+            self.experiment.status_quo = Arm(sq_parameters_copy)
 
         # Try wrong type
         sq_parameters.pop("a")
@@ -383,48 +390,19 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
         self.assertEqual(len(self.experiment.arms_by_name), 1)
 
-        # Change status quo, verify still just 1 arm
-        with patch("ax.core.experiment.logger.warning") as mock_logger:
-            sq_parameters["w"] = 3.6
-            self.experiment.status_quo = Arm(sq_parameters)
-        mock_logger.assert_called_once()
-        self.assertIn("status_quo is updated", mock_logger.call_args.args[0])
-        self.assertEqual(len(self.experiment.arms_by_signature), 1)
-        self.assertEqual(len(self.experiment.arms_by_name), 1)
-
-        # Make a batch, add status quo to it, then change exp status quo, verify 2 arms
-        batch = self.experiment.new_batch_trial()
-        batch.add_status_quo_arm(self.experiment.status_quo, 1)
+        # Try to change status_quo after trials have been created
+        _ = self.experiment.new_batch_trial(should_add_status_quo_arm=True)
         sq_parameters["w"] = 3.7
-        self.experiment.status_quo = Arm(sq_parameters)
-        self.assertEqual(len(self.experiment.arms_by_signature), 2)
-        self.assertEqual(len(self.experiment.arms_by_name), 2)
-        self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
-        self.assertTrue("status_quo_e0" in self.experiment.arms_by_name)
-
-        # Try missing param
-        sq_parameters.pop("w")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UnsupportedError) as e:
             self.experiment.status_quo = Arm(sq_parameters)
-
-        # Actually name the status quo.
-        exp = Experiment(
-            name="test3",
-            search_space=get_branin_search_space(),
-            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
-            runner=SyntheticRunner(),
+        self.assertIn(
+            "Modifications of status_quo are disabled after trials have been "
+            "created",
+            str(e.exception),
         )
-        batch = exp.new_batch_trial()
-        arms = get_branin_arms(n=1, seed=0)
-        batch.add_arms_and_weights(arms=arms)
-        self.assertIsNone(exp.status_quo)
-        exp.status_quo = arms[0]
-        # pyre-fixme[16]: Optional type has no attribute `name`.
-        self.assertEqual(exp.status_quo.name, "0_0")
 
-        # Try setting sq to existing arm with different name
-        with self.assertRaises(ValueError):
-            exp.status_quo = Arm(arms[0].parameters, name="new_name")
+        # Verify status_quo wasn't changed
+        self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
 
     def test_RegisterArm(self) -> None:
         # Create a new arm, register on experiment
@@ -1040,12 +1018,8 @@ class ExperimentTest(TestCase):
                 ),
             ],
         )
-
-        new_status_quo = Arm({"x1": 1.0, "x2": 1.0})
-
         cloned_experiment = experiment.clone_with(
             search_space=larger_search_space,
-            status_quo=new_status_quo,
         )
         self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
         self.assertEqual(len(cloned_experiment.trials), 4)
@@ -1062,10 +1036,6 @@ class ExperimentTest(TestCase):
             cloned_experiment.search_space.parameters["x2"], ChoiceParameter
         )
         self.assertEqual(len(x2.values), 16)
-        self.assertEqual(
-            assert_is_instance(cloned_experiment.status_quo, Arm).parameters,
-            {"x1": 1.0, "x2": 1.0},
-        )
         # make sure the sq of the original experiment is unchanged
         self.assertEqual(
             assert_is_instance(experiment.status_quo, Arm).parameters,
@@ -1075,17 +1045,6 @@ class ExperimentTest(TestCase):
 
         self.assertEqual(
             cloned_experiment.lookup_data_for_trial(1)[0].df["trial_index"].iloc[0], 1
-        )
-
-        # make sure updating cloned experiment doesn't change the original experiment
-        cloned_experiment.status_quo = Arm({"x1": -1.0, "x2": 1.0})
-        self.assertEqual(
-            assert_is_instance(cloned_experiment.status_quo, Arm).parameters,
-            {"x1": -1.0, "x2": 1.0},
-        )
-        self.assertEqual(
-            assert_is_instance(experiment.status_quo, Arm).parameters,
-            {"x1": 0.0, "x2": 0.0},
         )
 
         # Save the cloned experiment to db and make sure the original
@@ -1129,7 +1088,6 @@ class ExperimentTest(TestCase):
         )
         cloned_experiment = experiment.clone_with(
             search_space=larger_search_space,
-            status_quo=new_status_quo,
         )
         new_data = cloned_experiment.lookup_data()
         self.assertNotEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
@@ -1176,7 +1134,6 @@ class ExperimentTest(TestCase):
 
         cloned_experiment_extra_properties = experiment_w_props.clone_with(
             search_space=larger_search_space,
-            status_quo=new_status_quo,
             properties_to_keep=["owners", "extra_field_keep"],
         )
         self.assertEqual(
