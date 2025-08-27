@@ -49,7 +49,7 @@ class TestAdapterUtils(TestCase):
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         self.experiment_2 = get_experiment()
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
-        self.batch_trial.add_status_quo_arm(self.experiment_2.status_quo, 1)
+        self.batch_trial.add_status_quo_arm(1)
         self.obs_feat = ObservationFeatures.from_arm(
             arm=self.trial.arm, trial_index=self.trial.index
         )
