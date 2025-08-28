@@ -22,7 +22,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import TrialMutationError, UnsupportedError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -248,10 +248,10 @@ class BatchTrialTest(TestCase):
             self.assertFalse(self.batch.status.expecting_data)
 
             # Cannot change arms or runner once run
-            with self.assertRaises(ValueError):
+            with self.assertRaises(TrialMutationError):
                 self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
 
-            with self.assertRaises(ValueError):
+            with self.assertRaises(TrialMutationError):
                 self.batch.runner = None
 
             # Cannot run batch that was already run
@@ -296,19 +296,19 @@ class BatchTrialTest(TestCase):
             self.assertTrue(self.batch.status.is_terminal)
 
             # Cannot change status after BatchTrial is completed
-            with self.assertRaises(ValueError):
+            with self.assertRaises(TrialMutationError):
                 self.batch.mark_staged()
 
-            with self.assertRaises(ValueError):
+            with self.assertRaises(TrialMutationError):
                 self.batch.mark_completed()
 
-            with self.assertRaises(ValueError):
+            with self.assertRaises(TrialMutationError):
                 self.batch.mark_running()
 
             with self.assertRaises(ValueError):
                 self.batch.mark_abandoned()
 
-            with self.assertRaises(ValueError):
+            with self.assertRaises(TrialMutationError):
                 self.batch.mark_failed()
 
             # Check that the trial statuses mapping on experiment is updated when

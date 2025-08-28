@@ -33,7 +33,7 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import ObjectNotFoundError
+from ax.exceptions.core import ObjectNotFoundError, TrialMutationError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -2282,7 +2282,7 @@ class SQAStoreTest(TestCase):
         experiment = get_experiment_with_batch_trial()
         experiment.trials[0]._properties["foo"] = "bar"
         with self.assertRaisesRegex(
-            ValueError, "Trial must be saved before being updated."
+            TrialMutationError, "Trial must be saved before being updated."
         ):
             update_properties_on_trial(
                 trial_with_updated_properties=experiment.trials[0],
@@ -2303,7 +2303,7 @@ class SQAStoreTest(TestCase):
     def test_update_trial_status_not_saved(self) -> None:
         experiment = get_experiment_with_batch_trial()
         with self.assertRaisesRegex(
-            ValueError, "Trial must be saved before being updated."
+            TrialMutationError, "Trial must be saved before being updated."
         ):
             update_trial_status(
                 trial_with_updated_status=experiment.trials[0],

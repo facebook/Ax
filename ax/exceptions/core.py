@@ -156,6 +156,10 @@ class IncompatibleDependencyVersion(AxError):
     """Raise when an imcompatible dependency version is installed."""
 
 
+class TrialMutationError(AxError):
+    """Raise when attempting to update a trial under invalid conditions."""
+
+
 class AxWarning(Warning):
     """Base Ax warning.
 
