@@ -447,6 +447,32 @@ class TestDataUtils(TestCase):
             filtered.observation_data, experiment_data.observation_data.loc[mask]
         )
 
+    def test_filter_by_trial_index(self) -> None:
+        # This is a 2 objective experiment with 5 trials, 1 arm each.
+        observations = [[0.1, 1.0], [0.2, 2.0], [0.3, 3.0], [0.4, 4.0], [0.5, 5.0]]
+        exp = get_experiment_with_observations(observations=observations)
+        experiment_data = extract_experiment_data(
+            experiment=exp, data_loader_config=DataLoaderConfig()
+        )
+        self.assertEqual(len(experiment_data.arm_data), 5)
+        self.assertEqual(len(experiment_data.observation_data), 5)
+        # Filter to only include trials 1 & 3.
+        trial_indices = [1, 3]
+        filtered = experiment_data.filter_by_trial_index(trial_indices=trial_indices)
+        self.assertEqual(
+            list(filtered.arm_data.index.get_level_values("trial_index")), trial_indices
+        )
+        self.assertEqual(
+            list(filtered.observation_data.index.get_level_values("trial_index")),
+            trial_indices,
+        )
+        # Check that filtering was applied correctly.
+        mask = [False, True, False, True, False]
+        assert_frame_equal(filtered.arm_data, experiment_data.arm_data.loc[mask])
+        assert_frame_equal(
+            filtered.observation_data, experiment_data.observation_data.loc[mask]
+        )
+
     def test_filter_latest_observations(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_trials_and_data=True)
         experiment_data = extract_experiment_data(

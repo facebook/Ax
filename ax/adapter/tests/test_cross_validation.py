@@ -7,6 +7,7 @@
 # pyre-strict
 
 import warnings
+from collections.abc import Iterable
 from unittest import mock
 
 import numpy as np
@@ -14,8 +15,10 @@ from ax.adapter.cross_validation import (
     assess_model_fit,
     compute_diagnostics,
     cross_validate,
+    CVData,
     CVDiagnostics,
     CVResult,
+    gen_trial_split,
     has_good_opt_config_model_fit,
     logger,
 )
@@ -223,6 +226,73 @@ class CrossValidationTest(TestCase):
                 )
             call_kwargs = mock_cv.call_args.kwargs
             self.assertTrue(call_kwargs["use_posterior_predictive"])
+
+    def test_cross_validate_w_fold_generator(self) -> None:
+        for train_trials, test_trial, exp_train_trials in [
+            (None, 3, {0, 1, 2}),
+            ([0, 1], 2, {0, 1}),
+        ]:
+
+            def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
+                return gen_trial_split(
+                    training_data=training_data,
+                    train_trials=train_trials,  # noqa B023
+                    test_trials=[test_trial],  # noqa B023
+                )
+
+            with mock.patch.object(
+                self.adapter, "cross_validate", wraps=self.adapter.cross_validate
+            ) as mock_cv:
+                result = cross_validate(
+                    model=self.adapter, fold_generator=fold_generator
+                )
+            self.assertEqual(len(result), 1)
+            z = mock_cv.mock_calls
+            self.assertEqual(len(z), 1)
+            self.assertEqual(z[0][2]["cv_test_points"][0].trial_index, test_trial)
+            self.assertEqual(
+                set(
+                    z[0][2]["cv_training_data"].arm_data.index.get_level_values(
+                        "trial_index"
+                    )
+                ),
+                exp_train_trials,
+            )
+
+        # Test errors
+        def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
+            return gen_trial_split(training_data=training_data, test_trials=[])
+
+        with self.assertRaisesRegex(ValueError, "No test trials provided"):
+            cross_validate(model=self.adapter, fold_generator=fold_generator)
+
+        def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
+            return gen_trial_split(training_data=training_data, test_trials=[5])
+
+        with self.assertRaisesRegex(ValueError, "not all in training data"):
+            cross_validate(model=self.adapter, fold_generator=fold_generator)
+
+        def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
+            return gen_trial_split(training_data=training_data, test_trials=[5])
+
+        with self.assertRaisesRegex(ValueError, "not all in training data"):
+            cross_validate(model=self.adapter, fold_generator=fold_generator)
+
+        def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
+            return gen_trial_split(
+                training_data=training_data, train_trials=[0, 1], test_trials=[1]
+            )
+
+        with self.assertRaisesRegex(ValueError, "Test and train trials overlap"):
+            cross_validate(model=self.adapter, fold_generator=fold_generator)
+
+        def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
+            return gen_trial_split(
+                training_data=training_data, test_trials=[0, 1, 2, 3]
+            )
+
+        with self.assertRaisesRegex(ValueError, "All trials in data"):
+            cross_validate(model=self.adapter, fold_generator=fold_generator)
 
     def test_cross_validate_with_data_reducing_transforms(self) -> None:
         # With transforms like TransformToNewSQ, the number of observations
