@@ -191,7 +191,6 @@ def _get_experiment_sqa(
     exp_sqa_class: type[SQAExperiment],
     trial_sqa_class: type[SQATrial],
     auxiliary_experiment_sqa_class: type[SQAAuxiliaryExperiment],
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_query_options: list[Any] | None = None,
     load_trials_in_batches_of_size: int | None = None,
     skip_runners_and_metrics: bool = False,
@@ -261,7 +260,6 @@ def _get_trials_sqa(
     experiment_id: int,
     trial_sqa_class: type[SQATrial],
     load_trials_in_batches_of_size: int | None = None,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_query_options: list[Any] | None = None,
     skip_runners_and_metrics: bool = False,
 ) -> list[SQATrial]:
