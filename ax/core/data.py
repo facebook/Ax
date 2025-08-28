@@ -42,7 +42,6 @@ class Data(Base, SerializationMixin):
         df: DataFrame with underlying data, and required columns. For Data, the
             required columns are "arm_name", "metric_name", "mean", and "sem", the
             latter two of which must be numeric.
-        description: Human-readable description of data.
 
     """
 
@@ -77,14 +76,12 @@ class Data(Base, SerializationMixin):
     def __init__(
         self: TData,
         df: pd.DataFrame | None = None,
-        description: str | None = None,
         _skip_ordering_and_validation: bool = False,
     ) -> None:
         """Initialize a ``Data`` object from the given DataFrame.
 
         Args:
             df: DataFrame with underlying data, and required columns.
-            description: Human-readable description of data.
             _skip_ordering_and_validation: If True, uses the given DataFrame
                 as is, without ordering its columns or validating its contents.
                 Intended only for use in `Data.filter`, where the contents
@@ -111,8 +108,6 @@ class Data(Base, SerializationMixin):
             # Reorder the columns for easier viewing
             col_order = [c for c in self.column_data_types() if c in df.columns]
             self._df = df.reindex(columns=col_order, copy=False)
-
-        self.description = description
 
     @classmethod
     def _safecast_df(
@@ -203,6 +198,7 @@ class Data(Base, SerializationMixin):
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.
             args["df"] = pd.read_json(StringIO(args["df"]["value"]), dtype=False)
+        # Backward compatibility
         return extract_init_args(args=args, class_=cls)
 
     @property
@@ -371,7 +367,7 @@ class Data(Base, SerializationMixin):
 
     def clone(self) -> Data:
         """Returns a new Data object with the same underlying dataframe."""
-        return Data(df=deepcopy(self.df), description=self.description)
+        return Data(df=deepcopy(self.df))
 
 
 def _ms_epoch_to_isoformat(epoch: int) -> str:

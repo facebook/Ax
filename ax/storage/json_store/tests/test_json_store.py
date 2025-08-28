@@ -28,6 +28,7 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_benchmark_time_varying_metric,
 )
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
+from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
@@ -609,7 +610,6 @@ class JSONStoreTest(TestCase):
                     {"key": "epoch", "default_value": nan},
                     {"key": "timestamps", "default_value": nan},
                 ],
-                "description": None,
                 "__type": "MapData",
             }
             with self.assertWarnsRegex(Warning, "Received multiple"):
@@ -633,7 +633,6 @@ class JSONStoreTest(TestCase):
                     ),
                 },
                 "map_key_infos": [{"key": "epoch", "default_value": nan}],
-                "description": None,
                 "__type": "MapData",
             }
             map_data = object_from_json(
@@ -654,7 +653,6 @@ class JSONStoreTest(TestCase):
                     ),
                 },
                 "map_key_infos": [],
-                "description": None,
                 "__type": "MapData",
             }
             map_data = object_from_json(
@@ -664,6 +662,36 @@ class JSONStoreTest(TestCase):
             )
             self.assertIsInstance(map_data, MapData)
             self.assertEqual(len(map_data.df), 0)
+
+    def test_decode_data_backward_compatible(self) -> None:
+        empty_df_json = {
+            "__type": "DataFrame",
+            "value": (
+                '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{}'
+                ',"sem":{}}'
+            ),
+        }
+        with self.subTest("Description is None"):
+            data_json = {"df": empty_df_json, "description": None, "__type": "Data"}
+            data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertIsInstance(data, Data)
+
+        with self.subTest("Description is not None"):
+            data_json = {
+                "df": empty_df_json,
+                "description": "description",
+                "__type": "Data",
+            }
+            data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertIsInstance(data, Data)
 
     def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
