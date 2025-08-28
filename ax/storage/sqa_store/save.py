@@ -22,7 +22,7 @@ from ax.core.metric import Metric
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.runner import Runner
 from ax.core.trial import Trial
-from ax.exceptions.core import AxError, UserInputError
+from ax.exceptions.core import AxError, TrialMutationError, UserInputError
 from ax.exceptions.storage import SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope, SQABase
@@ -551,7 +551,7 @@ def update_properties_on_trial(
 
     trial_id = trial_with_updated_properties.db_id
     if trial_id is None:
-        raise ValueError("Trial must be saved before being updated.")
+        raise TrialMutationError("Trial must be saved before being updated.")
 
     with session_scope() as session:
         session.query(trial_sqa_class).filter_by(id=trial_id).update(
@@ -570,7 +570,7 @@ def update_trial_status(
 
     trial_id = trial_with_updated_status.db_id
     if trial_id is None:
-        raise ValueError("Trial must be saved before being updated.")
+        raise TrialMutationError("Trial must be saved before being updated.")
 
     with session_scope() as session:
         session.query(trial_sqa_class).filter_by(id=trial_id).update(
