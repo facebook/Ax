@@ -16,6 +16,7 @@ from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -290,22 +291,41 @@ def _prepare_modeled_arm_data(
         - METRIC_NAME_sem for each metric_name in metric_names
     """
     # Extract the information necessary to construct each row of the DataFrame.
-    trial_index_arm_pairs = [
-        # Arms from the experiment (empty if trial_index=-1)
-        *[
+
+    # Filter trials by trial_index, target_trial_index, and trial_statuses
+    filtered_trials = [
+        trial
+        for trial in experiment.trials.values()
+        if (
             (
-                trial.index,
-                arm,
+                (trial.index == trial_index)
+                or (trial_index is None)
+                or (trial.index == target_trial_index)
             )
-            for trial in experiment.trials.values()
-            if ((trial.index == trial_index) or (trial_index is None))
             and ((trial_statuses is None) or (trial.status in trial_statuses))
-            or (trial.index == target_trial_index)
-            for arm in trial.arms
-        ],
-        # Additional arms passed in by the user
-        *[(-1, arm) for arm in additional_arms or []],
+        )
     ]
+
+    # Exclude abandoned arms if the trial is of type BatchTrial
+    trial_index_arm_pairs = [
+        (trial.index, arm)
+        for trial in filtered_trials
+        for arm in (
+            [
+                arm
+                for arm in trial.arms
+                if arm.name
+                not in [
+                    abandoned_arm.name
+                    for abandoned_arm in trial.abandoned_arms_metadata
+                ]
+            ]
+            if isinstance(trial, BatchTrial)
+            else trial.arms
+        )
+    ]
+    # Add additional arms passed in by the user
+    trial_index_arm_pairs += [(-1, arm) for arm in additional_arms or []]
 
     # Remove arms with missing parameters since we cannot predict for them.
     predictable_pairs = [

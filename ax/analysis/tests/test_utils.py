@@ -14,7 +14,10 @@ from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
-from ax.core.trial_status import TrialStatus
+from ax.core.batch_trial import BatchTrial
+from ax.core.experiment import Experiment
+from ax.core.metric import Metric
+from ax.core.trial_status import TrialStatus  # noqa
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.statstools import relativize_data
@@ -257,6 +260,53 @@ class TestUtils(TestCase):
 
         # Check that all SEMs have the correct value
         self.assertTrue((only_completed_trials_df["foo_sem"] == 0.1).all())
+
+    def test_prepare_arm_data_use_model_predictions_with_abandoned_arms(self) -> None:
+        search_space = self.client._experiment.search_space.clone()
+
+        # Configure an experiment with batch trials
+        test_exp = Experiment(
+            name="test_exp_multifeed",
+            search_space=search_space,
+            description="test MF experiment",
+            tracking_metrics=[
+                Metric(name="foo"),
+                Metric(name="bar"),
+                Metric(name="baz"),
+                Metric(name="qux"),
+            ],
+            is_test=True,
+        )
+        trial = BatchTrial(test_exp)
+
+        # set 2 arms and abandon one
+        trial.add_arms_and_weights(
+            [
+                Arm(name="0_0", parameters={"x1": 0.5, "x2": 0.5}),
+                Arm(name="0_1", parameters={"x1": 1.5, "x2": 1.5}),
+            ]
+        )
+        trial.mark_arm_abandoned(arm_name="0_1")
+        trial.attach_batch_trial_data(
+            raw_data={
+                "0_0": {
+                    "foo": 1.0,
+                    "bar": 2.0,
+                    "baz": 3.0,
+                    "qux": 4.0,
+                }
+            }
+        )
+
+        df = prepare_arm_data(
+            experiment=test_exp,
+            metric_names=["foo", "bar", "baz", "qux"],
+            use_model_predictions=True,
+            adapter=self.client._generation_strategy.adapter,
+        )
+
+        self.assertIn("0_0", df["arm_name"].values)
+        self.assertNotIn("0_1", df["arm_name"].values)
 
     def test_prepare_arm_data_use_model_predictions(self) -> None:
         df = prepare_arm_data(
