@@ -17,6 +17,7 @@ from warnings import warn
 import numpy as np
 import numpy.typing as npt
 from ax.adapter.base import Adapter, unwrap_observation_data
+from ax.adapter.data_utils import ExperimentData
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UnsupportedError
@@ -46,6 +47,13 @@ class CVResult(NamedTuple):
     predicted: ObservationData
 
 
+class CVData(NamedTuple):
+    """Data for cross validation."""
+
+    training_data: ExperimentData
+    test_data: ExperimentData
+
+
 class AssessModelFitResult(NamedTuple):
     """Container for model fit assessment results"""
 
@@ -56,18 +64,20 @@ class AssessModelFitResult(NamedTuple):
 def cross_validate(
     model: Adapter,
     folds: int = -1,
-    test_selector: Callable | None = None,
+    test_selector: Callable[[Observation], bool] | None = None,
     untransform: bool = True,
     use_posterior_predictive: bool = False,
+    fold_generator: Callable[[ExperimentData], Iterable[CVData]] | None = None,
 ) -> list[CVResult]:
     """Cross validation for model predictions.
 
     Splits the model's training data into train/test folds and makes
     out-of-sample predictions on the test folds.
 
-    Train/test splits are made based on arm names, so that repeated
-    observations of a arm will always be in the train or test set
-    together.
+    By default, train/test splits are made based on arm names, so that
+    repeated observations of a arm will always be in the train or test set
+    together. Different behavior can be achieved by passing in a custom
+    fold_generator.
 
     The test set can be limited to a specific set of observations by passing in
     a test_selector callable. This function should take in an Observation
@@ -79,7 +89,7 @@ def cross_validate(
     Args:
         model: Fitted model (Adapter) to cross validate.
         folds: Number of folds. Use -1 for leave-one-out, otherwise will be
-            k-fold.
+            k-fold. Unless fold_generator is used to specify different behavior.
         test_selector: Function for selecting observations for the test set.
         untransform: Whether to untransform the model predictions before
             cross validating.
@@ -98,45 +108,23 @@ def cross_validate(
             observation noise). Note: we should reconsider how we compute
             cross-validation and model fit metrics where there is non-
             Gaussian noise.
+        fold_generator: A function that generates train/test folds in the form
+            of CVData objects. Defaults to k-fold CV.
 
     Returns:
         A CVResult for each observation in the training data.
     """
     # Get in-design training data.
     training_data = model.get_training_data(filter_in_design=True)
-    arm_names = set(training_data.arm_data.index.unique(level="arm_name"))
-    n = len(arm_names)
-    if n < 2:
-        raise UnsupportedError(
-            "Cross validation requires at least two in-design arms in the training "
-            f"data. Only {n} in-design arms were found."
-        )
-    elif folds > n:
-        raise ValueError(
-            f"Training data only has {n} arms, which is less than {folds} folds."
-        )
-    elif folds < 2 and folds != -1:
-        raise ValueError("Folds must be -1 for LOO, or > 1.")
-    elif folds == -1:
-        folds = n
+    if fold_generator is None:
 
-    arm_names_rnd = np.array(list(arm_names))
-    # Not necessary to shuffle when using LOO, avoids differences in floating point
-    # computations making equality tests brittle.
-    if folds != n:
-        np.random.shuffle(arm_names_rnd)
+        def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
+            return _kfold_train_test_split(folds=folds, training_data=training_data)
+
     result = []
-    for train_names, test_names in _gen_train_test_split(
-        folds=folds, arm_names=arm_names_rnd
-    ):
-        # Construct train/test data
-        # cv_training_data is ExperimentData and cv_test_points is a list of
-        # ObservationFeatures. We extract both by filtering adapter.training_data.
-        # The intermediate cv_test_observations is required to continue supporting
-        # test_selector, which expects an Observation input. It is also used when
-        # packaging CVResult later.
-        cv_training_data = training_data.filter_by_arm_names(arm_names=train_names)
-        cv_test_data = training_data.filter_by_arm_names(arm_names=test_names)
+    for cv_data in fold_generator(training_data):
+        cv_training_data = cv_data.training_data
+        cv_test_data = cv_data.test_data
         cv_test_observations = [
             obs
             for obs in cv_test_data.convert_to_list_of_observations()
@@ -188,7 +176,7 @@ def cross_validate(
                 "This can happen when transforms that reduce the number of "
                 "observations are used in the Adapter used in cross validation. "
             )
-            if folds == n:
+            if folds == -1:
                 msg += (
                     "Since this is leave-one-out cross validation, all observations "
                     "correspond to the same arm and we can utilize the first "
@@ -203,6 +191,7 @@ def cross_validate(
                     "or use cross validation with `untransform=True`."
                 )
                 raise CrossValidationError(msg)
+
         for observed, prediction in zip(
             cv_test_observations, cv_test_predictions, strict=False
         ):
@@ -340,20 +329,40 @@ def has_good_opt_config_model_fit(
     return has_good_opt_config_fit
 
 
-def _gen_train_test_split(
+def _kfold_train_test_split(
     folds: int,
-    arm_names: npt.NDArray,
-) -> Iterable[tuple[set[str], set[str]]]:
-    """Return train/test splits of arm names.
+    training_data: ExperimentData,
+) -> Iterable[CVData]:
+    """Return train/test CV splits based on arm names.
 
     Args:
         folds: Number of folds to return
-        arm_names: Array of arm names
+        training_data: Training data to split
 
     Returns:
-        Yields (train, test) tuple of arm names.
+        Yields CVData object of train/test data.
     """
-    n = len(arm_names)
+    arm_name_vals = set(training_data.arm_data.index.unique(level="arm_name"))
+    n = len(arm_name_vals)
+    if n < 2:
+        raise UnsupportedError(
+            "Cross validation requires at least two in-design arms in the training "
+            f"data. Only {n} in-design arms were found."
+        )
+    elif folds > n:
+        raise ValueError(
+            f"Training data only has {n} arms, which is less than {folds} folds."
+        )
+    elif folds < 2 and folds != -1:
+        raise ValueError("Folds must be -1 for LOO, or > 1.")
+    elif folds == -1:
+        folds = n
+
+    arm_names = np.array(list(arm_name_vals))
+    # Not necessary to shuffle when using LOO, avoids differences in floating point
+    # computations making equality tests brittle.
+    if folds != n:
+        np.random.shuffle(arm_names)
     test_size = n // folds  # The size of all test sets but the last
     final_size = test_size + (n - folds * test_size)  # Grab the leftovers
     for fold in range(folds):
@@ -361,7 +370,46 @@ def _gen_train_test_split(
         # Roll the list of arm names to get a fresh test set
         arm_names = np.roll(arm_names, test_size)
         n_test = test_size if fold < folds - 1 else final_size
-        yield set(arm_names[:-n_test]), set(arm_names[-n_test:])
+        train_names = set(arm_names[:-n_test])
+        test_names = set(arm_names[-n_test:])
+        yield CVData(
+            training_data=training_data.filter_by_arm_names(arm_names=train_names),
+            test_data=training_data.filter_by_arm_names(arm_names=test_names),
+        )
+
+
+def gen_trial_split(
+    training_data: ExperimentData,
+    test_trials: list[int],
+    train_trials: list[int] | None = None,
+) -> Iterable[CVData]:
+    """Return a single train/test CV split based on trial index.
+
+    Args:
+        training_data: Training data to split
+        test_trials: List of trial indices to use as test data
+
+    Returns:
+        A single CVData object of train/test data.
+    """
+    if len(test_trials) == 0:
+        raise ValueError("No test trials provided.")
+    all_trials = training_data.arm_data.index.get_level_values("trial_index")
+    if set(test_trials) - set(all_trials):
+        raise ValueError(
+            f"Trials {test_trials} not all in training data trials {all_trials}."
+        )
+    if train_trials is None:
+        train_trials = list(set(all_trials) - set(test_trials))
+    else:
+        if set(train_trials).intersection(set(test_trials)):
+            raise ValueError("Test and train trials overlap.")
+    if len(train_trials) == 0:
+        raise ValueError(f"All trials in data, {all_trials}, specified as test trials.")
+    logger.debug(f"Using trials {train_trials} for training.")
+    train_data = training_data.filter_by_trial_index(trial_indices=train_trials)
+    test_data = training_data.filter_by_trial_index(trial_indices=test_trials)
+    return [CVData(training_data=train_data, test_data=test_data)]
 
 
 """

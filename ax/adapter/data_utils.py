@@ -189,6 +189,22 @@ class ExperimentData:
             ],
         )
 
+    def filter_by_trial_index(self, trial_indices: Iterable[int]) -> ExperimentData:
+        """
+        Returns a new ``ExperimentData`` object that is filtered to only include
+        the rows corresponding to trials in ``trial_indices``.
+        """
+        return ExperimentData(
+            arm_data=self.arm_data[
+                self.arm_data.index.get_level_values("trial_index").isin(trial_indices)
+            ],
+            observation_data=self.observation_data[
+                self.observation_data.index.get_level_values("trial_index").isin(
+                    trial_indices
+                )
+            ],
+        )
+
     def filter_latest_observations(self) -> ExperimentData:
         """
         Returns a new ``ExperimentData`` object, where the ``observation_data`` is
