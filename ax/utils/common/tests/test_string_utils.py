@@ -18,7 +18,7 @@ class StringUtilsTest(TestCase):
         self.assertEqual(
             sanitize_name("foo.bar + 0.1 * baz"), "foo__dot__bar + 0.1 * baz"
         )
-        for s in ("foo;", "foo__", "foo\\", "'foo"):
+        for s in ("foo;", "foo\\", "'foo"):
             with self.assertRaisesRegex(
                 ValueError, "has forbidden control characters."
             ):

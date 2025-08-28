@@ -11,7 +11,7 @@ import re
 DOT_PLACEHOLDER = "__dot__"
 SLASH_PLACEHOLDER = "__slash__"
 COLON_PLACEHOLDER = "__colon__"
-_forbidden_re: re.Pattern[str] = re.compile(r"[\;\[\'\\]|__")
+_forbidden_re: re.Pattern[str] = re.compile(r"[\;\[\'\\]")
 
 
 def sanitize_name(s: str) -> str:
@@ -26,8 +26,8 @@ def sanitize_name(s: str) -> str:
     "foo__dot__bar + 0.1 * baz" not "foo__dot__bar + 0__dot__1 * baz").
 
 
-    This does not allowobvious attack vectors  `;`, `[` and `__`,
-    backslashes, and quotations. Colons, dots, and slashes are sanitized.
+    This does not allow obvious attack vectors  `;`, `[`, backslashes, and quotations.
+    Colons, dots, and slashes are sanitized.
     """
     if _forbidden_re.search(s) is not None:
         raise ValueError(f"Expression {s} has forbidden control characters.")
