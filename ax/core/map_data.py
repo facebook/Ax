@@ -34,6 +34,7 @@ from ax.utils.common.serialization import (
 from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
+DEFAULT_MAP_KEY = "step"
 
 
 class MapKeyInfo(SortableBase):
@@ -115,14 +116,13 @@ class MapData(Data):
             map_key_infos: A list of zero or one ``MapKeyInfo`` objects. The
                 ``MapKeyInfo`` contains information about the mapping-like
                 structure of the data. See the ``MapData`` class docstring for
-                additional information.
+                additional information. If ``map_key_infos`` is not provided,
+                the map key will be assumed to be the default map key, "step."
             _skip_ordering_and_validation: If True, uses the given DataFrame
                 as is, without ordering its columns or validating its contents.
                 Intended only for use in `MapData.filter`, where the contents
                 of the DataFrame are known to be ordered and valid.
         """
-        if map_key_infos is None and df is not None:
-            raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
         # _map_key_infos should not be referenced, since it might go away, but
         # is being kept around to allow for serialization (see
@@ -137,14 +137,15 @@ class MapData(Data):
                 "must have zero or one elements."
             )
 
-        self.map_key: str | None = (
-            None if len(self._map_key_infos) == 0 else self._map_key_infos[0].key
+        self.map_key: str = (
+            DEFAULT_MAP_KEY
+            if len(self._map_key_infos) == 0
+            else self._map_key_infos[0].key
         )
-        map_keys = [self.map_key] if self.map_key is not None else []
-        map_key_to_type = {col: float for col in map_keys}
+        map_key_to_type = {self.map_key: float}
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
-            columns = list(self.required_columns().union(map_keys))
+            columns = list(self.required_columns())
             # Create columns with expected dtypes
             dtype_dict = {**self.COLUMN_DATA_TYPES, **map_key_to_type}
 
@@ -154,13 +155,17 @@ class MapData(Data):
         elif _skip_ordering_and_validation:
             self._map_df = df
         else:
+            if self.map_key not in df.columns:
+                df[self.map_key] = nan
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
             if missing_columns:
                 raise ValueError(
                     f"Dataframe must contain required columns {missing_columns}."
                 )
-            supported_columns = self.supported_columns(extra_column_names=map_keys)
+            supported_columns = self.supported_columns(
+                extra_column_names=[self.map_key]
+            )
             extra_columns = columns - supported_columns
             if extra_columns:
                 raise UnsupportedError(f"Columns {extra_columns} are not supported.")
@@ -188,7 +193,7 @@ class MapData(Data):
     def from_df(
         cls,
         df: pd.DataFrame | None = None,
-        map_key: str | None = None,
+        map_key: str = DEFAULT_MAP_KEY,
         _skip_ordering_and_validation: bool = False,
     ) -> MapData:
         """
@@ -204,7 +209,7 @@ class MapData(Data):
         """
         return MapData(
             df=df,
-            map_key_infos=[MapKeyInfo(key=map_key)] if map_key is not None else [],
+            map_key_infos=[MapKeyInfo(key=map_key)],
             _skip_ordering_and_validation=_skip_ordering_and_validation,
         )
 
@@ -223,27 +228,23 @@ class MapData(Data):
         return self._map_key_infos
 
     def required_columns(self) -> set[str]:
-        return (
-            super().required_columns().union({self.map_key} if self.map_key else set())
-        )
+        return super().required_columns().union({self.map_key})
 
     @staticmethod
     def from_multiple_map_data(data: Sequence[MapData]) -> MapData:
         if len(data) == 0:
             return MapData()
 
-        map_key = None
-        for datum in data:
-            current_map_key = datum.map_key
-            if current_map_key is None:
-                continue
-            if map_key is not None and map_key != current_map_key:
-                raise ValueError(
-                    f"Received MapData with different map keys: "
-                    f"{map_key} and {current_map_key}. "
-                    f"Different map keys are not supported."
-                )
-            map_key = current_map_key
+        map_keys = {datum.map_key for datum in data}
+        keys_iter = iter(map_keys)
+        map_key = next(keys_iter)
+        if len(map_keys) > 1:
+            other_key = next(keys_iter)
+            raise ValueError(
+                f"Received MapData with different map keys: "
+                f"{map_key} and {other_key}. "
+                f"Different map keys are not supported."
+            )
 
         # Avoid concatenating empty dataframes which logs a warning.
         non_empty_dfs = [datum.map_df for datum in data if not datum.map_df.empty]
@@ -256,7 +257,7 @@ class MapData(Data):
         )
 
         # Ensure that all map keys are present in the dataframe.
-        if map_key is not None and map_key not in df.columns:
+        if map_key not in df.columns:
             df[map_key] = nan
 
         return MapData.from_df(df=df, map_key=map_key)
@@ -309,9 +310,16 @@ class MapData(Data):
         map_key_infos if necessary then combine as usual (filling in empty cells with
         default values).
         """
+        try:
+            map_key = next(
+                datum.map_key for datum in data if isinstance(datum, MapData)
+            )
+        except StopIteration:
+            map_key = DEFAULT_MAP_KEY
+
         map_datas = [
             (
-                cls(df=datum.df, map_key_infos=[])
+                MapData.from_df(df=datum.df.assign(**{map_key: nan}), map_key=map_key)
                 if not isinstance(datum, MapData)
                 else datum
             )
@@ -328,12 +336,10 @@ class MapData(Data):
         if self._memo_df is not None:
             return self._memo_df
 
-        # If map_keys is empty just return the df
-        if self.map_key is None:
+        if len(self.map_df) == 0:
             return self.map_df
 
         self._memo_df = _tail(map_df=self.map_df, map_key=self.map_key, n=1, sort=True)
-
         return self._memo_df
 
     @copy_doc(Data.filter)

@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from ax.core.data import Data
 
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import DEFAULT_MAP_KEY, MapData, MapKeyInfo
 from ax.core.metric import Metric, MetricFetchE
 from ax.utils.common.result import Result
 
 MapMetricFetchResult = Result[MapData, MetricFetchE]
-DEFAULT_MAP_KEY = "step"
 
 
 class MapMetric(Metric):
