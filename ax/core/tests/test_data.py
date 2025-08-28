@@ -150,12 +150,10 @@ class TestDataBase(TestCase):
 
     def test_clone(self) -> None:
         data = self.data_with_df
-        data.description = "test"
         data._db_id = 1234
         data_clone = data.clone()
         # Check equality of the objects.
         self.assertTrue(data.df.equals(data_clone.df))
-        self.assertEqual(data.description, data_clone.description)
         # Make sure it's not the original object or df.
         self.assertIsNot(data, data_clone)
         self.assertIsNot(data.df, data_clone.df)

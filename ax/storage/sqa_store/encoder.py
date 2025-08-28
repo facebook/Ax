@@ -1092,7 +1092,6 @@ class Encoder:
         return data_class(
             id=data.db_id,
             data_json=data.true_df.to_json(),
-            description=data.description,
             time_created=timestamp,
             trial_index=trial_index,
             structure_metadata_json=json.dumps(
