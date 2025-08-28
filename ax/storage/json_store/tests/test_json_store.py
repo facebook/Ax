@@ -10,6 +10,7 @@ import dataclasses
 import os
 import tempfile
 from functools import partial
+from math import nan
 
 import numpy as np
 import torch
@@ -28,6 +29,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 )
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.runner import Runner
@@ -267,7 +269,6 @@ TEST_CASES = [
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
-    ("MapData", get_map_data),
     ("MapData", get_map_data),
     ("MapKeyInfo", get_map_key_info),
     ("Metric", get_metric),
@@ -591,6 +592,78 @@ class JSONStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+
+    def test_decode_map_data_backward_compatible(self) -> None:
+        with self.subTest("Multiple map keys"):
+            data_with_two_map_keys_json = {
+                "df": {
+                    "__type": "DataFrame",
+                    "value": (
+                        '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},'
+                        '"metric_name":{"0":"a","1":"a"},"mean":{"0":0.0,"1":0.0},'
+                        '"sem":{"0":0.0,"1":0.0},"epoch":{"0":0.0,"1":1.0},'
+                        '"timestamps":{"0":3.0,"1":4.0}}'
+                    ),
+                },
+                "map_key_infos": [
+                    {"key": "epoch", "default_value": nan},
+                    {"key": "timestamps", "default_value": nan},
+                ],
+                "description": None,
+                "__type": "MapData",
+            }
+            with self.assertWarnsRegex(Warning, "Received multiple"):
+                map_data = object_from_json(
+                    data_with_two_map_keys_json,
+                    decoder_registry=CORE_DECODER_REGISTRY,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+            # The "timestamp" map key will be silently dropped.
+            self.assertEqual(map_data.map_key, "epoch")
+            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
+
+        with self.subTest("Single map key"):
+            data_json = {
+                "df": {
+                    "__type": "DataFrame",
+                    "value": (
+                        '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},'
+                        '"metric_name":{"0":"a","1":"a"},"mean":{"0":0.0,"1":0.0},'
+                        '"sem":{"0":0.0,"1":0.0},"epoch":{"0":0.0,"1":1.0}}'
+                    ),
+                },
+                "map_key_infos": [{"key": "epoch", "default_value": nan}],
+                "description": None,
+                "__type": "MapData",
+            }
+            map_data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertEqual(map_data.map_key, "epoch")
+            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
+
+        with self.subTest("No map key"):
+            data_json = {
+                "df": {
+                    "__type": "DataFrame",
+                    "value": (
+                        '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{}'
+                        ',"sem":{}}'
+                    ),
+                },
+                "map_key_infos": [],
+                "description": None,
+                "__type": "MapData",
+            }
+            map_data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertIsInstance(map_data, MapData)
+            self.assertEqual(len(map_data.df), 0)
 
     def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
