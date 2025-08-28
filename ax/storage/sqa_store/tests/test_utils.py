@@ -6,9 +6,15 @@
 # pyre-strict
 
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
+from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.load import load_experiment
 from ax.storage.sqa_store.save import save_experiment
-from ax.storage.sqa_store.utils import copy_db_ids
+from ax.storage.sqa_store.sqa_config import (
+    SQAConfig,
+    SQAExperiment,
+    SQAGenerationStrategy,
+)
+from ax.storage.sqa_store.utils import are_relationships_loaded, copy_db_ids
 from ax.utils.common.base import Base
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -31,6 +37,8 @@ class SQAStoreUtilsTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         init_test_engine_and_session_factory(force_init=True)
+        self.config = SQAConfig()
+        self.encoder = Encoder(config=self.config)
 
     def test_CopyDBIDsBatchTrialExp(self) -> None:
         exp1 = get_experiment_with_batch_trial()
@@ -117,3 +125,15 @@ class SQAStoreUtilsTest(TestCase):
         )
         copy_db_ids(source_obj, target_obj)
         self.assertEqual(source_obj, target_obj)
+
+    def test_are_relationships_loaded(self) -> None:
+        exp_sqa = SQAExperiment()
+        exp_sqa.generation_strategy = SQAGenerationStrategy()
+
+        # Test that GS relationship is loaded
+        result = are_relationships_loaded(exp_sqa, ["generation_strategy"])
+        self.assertTrue(result)
+
+        # Test that trials relationship is unloaded
+        result = are_relationships_loaded(exp_sqa, ["trials"])
+        self.assertFalse(result)
