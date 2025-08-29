@@ -71,6 +71,9 @@ CI_ALPHA: float = 0.5
 # The max length of a hover label to prevent overflow making the hover unreadable
 MAX_HOVER_LABEL_LEN: int = 300
 
+SINGLE_CANDIDATE_TRIAL_LEGEND: str = "Candidate Trial"
+MULTIPLE_CANDIDATE_TRIALS_LEGEND: str = "Candidate Trials"
+
 
 def get_scatter_point_color(
     hex_color: str,
