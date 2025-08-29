@@ -9,6 +9,7 @@
 import dataclasses
 import os
 import tempfile
+import warnings
 from functools import partial
 from math import nan
 
@@ -635,11 +636,14 @@ class JSONStoreTest(TestCase):
                 "map_key_infos": [{"key": "epoch", "default_value": nan}],
                 "__type": "MapData",
             }
-            map_data = object_from_json(
-                data_json,
-                decoder_registry=CORE_DECODER_REGISTRY,
-                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-            )
+            with warnings.catch_warnings(record=True) as ws:
+                map_data = object_from_json(
+                    data_json,
+                    decoder_registry=CORE_DECODER_REGISTRY,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+            # No warning about multiple map keys
+            self.assertFalse(any("Received multiple" in str(w) for w in ws))
             self.assertEqual(map_data.map_key, "epoch")
             self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
 

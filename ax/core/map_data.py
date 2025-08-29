@@ -382,14 +382,15 @@ class MapData(Data):
 
         if len(map_key_infos) > 0:
             keys = [d.key for d in map_key_infos]
-            warnings.warn(
-                "Received multiple map keys. All but the first will be "
-                f"dropped. Keys are {keys}",
-                stacklevel=2,
-            )
+            if len(map_key_infos) > 1:
+                warnings.warn(
+                    "Received multiple map keys. All but the first will be "
+                    f"dropped. Keys are {keys}",
+                    stacklevel=2,
+                )
+                if deserialized["df"] is not None:
+                    deserialized["df"].drop(columns=keys[1:], inplace=True)
             deserialized["map_key_infos"] = [map_key_infos[0]]
-            if deserialized["df"] is not None:
-                deserialized["df"].drop(columns=keys[1:], inplace=True)
 
         return deserialized
 
