@@ -71,6 +71,8 @@ class SQAParameter(Base):
     )
     is_fidelity: Column[bool | None] = Column(Boolean)
     target_value: Column[TParamValue | None] = Column(JSONEncodedObject)
+    backfill_value: Column[TParamValue | None] = Column(JSONEncodedObject)
+    default_value: Column[TParamValue | None] = Column(JSONEncodedObject)
 
     # Attributes for Range Parameters
     digits: Column[int | None] = Column(Integer)
