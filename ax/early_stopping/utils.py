@@ -11,7 +11,7 @@ from logging import Logger
 
 import pandas as pd
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
@@ -22,7 +22,6 @@ logger: Logger = get_logger(__name__)
 
 def align_partial_results(
     df: pd.DataFrame,
-    progr_key: str,  # progression key
     metrics: list[str],
     interpolation: str = "slinear",
     do_forward_fill: bool = False,
@@ -32,8 +31,6 @@ def align_partial_results(
 
     Args:
         df: The DataFrame containing the raw data (in long format).
-        progr_key: The key of the column indexing progression (such as
-            the number of training examples, timestamps, etc.).
         metrics: The names of the metrics to consider.
         interpolation: The interpolation method used to fill missing values
             (if applicable). See `pandas.DataFrame.interpolate` for
@@ -66,6 +63,7 @@ def align_partial_results(
     # select relevant metrics
     df = df[df["metric_name"].isin(metrics)]
     # log some information about raw data
+    progr_key = MAP_KEY
     for m in metrics:
         df_m = df[df["metric_name"] == m]
         if len(df_m) > 0:
@@ -143,10 +141,7 @@ def align_partial_results(
     return dfs_mean, dfs_sem
 
 
-def estimate_early_stopping_savings(
-    experiment: Experiment,
-    map_key: str | None = None,
-) -> float:
+def estimate_early_stopping_savings(experiment: Experiment) -> float:
     """Estimate resource savings due to early stopping by considering
     COMPLETED and EARLY_STOPPED trials. First, use the mean of final
     progressions of the set completed trials as a benchmark for the
@@ -157,7 +152,6 @@ def estimate_early_stopping_savings(
 
     Args:
         experiment: The experiment.
-        map_key: The map_key to use when computing resource savings.
 
     Returns:
         The estimated resource savings as a fraction of total resource usage (i.e.
@@ -166,14 +160,7 @@ def estimate_early_stopping_savings(
     """
 
     map_data = assert_is_instance(experiment.lookup_data(), MapData)
-
-    # If no map_key is provided, use some arbitrary map_key in the experiment's MapData
-    if map_key is not None:
-        step_key = map_key
-    elif map_data.map_key is not None:
-        step_key = map_data.map_key
-    else:
-        return 0
+    step_key = MAP_KEY
 
     # Get final number of steps of each trial
     trial_resources = (

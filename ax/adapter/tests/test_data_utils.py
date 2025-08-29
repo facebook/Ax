@@ -31,6 +31,10 @@ from pandas.testing import assert_frame_equal
 
 
 class TestDataUtils(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.maxDiff = None
+
     def test_data_loader_config(self) -> None:
         # Defaults
         config = DataLoaderConfig()
@@ -66,16 +70,24 @@ class TestDataUtils(TestCase):
     def test_extract_experiment_data_empty(self) -> None:
         # Tests extraction of experiment data from experiments with no data.
         empty_exp = get_branin_experiment()
-        for empty_exp in [
-            get_branin_experiment(),
-            get_branin_experiment_with_timestamp_map_metric(),
-        ]:
+        for is_map in [False, True]:
+            empty_exp = (
+                get_branin_experiment_with_timestamp_map_metric()
+                if is_map
+                else get_branin_experiment()
+            )
             experiment_data = extract_experiment_data(
                 experiment=empty_exp, data_loader_config=DataLoaderConfig()
             )
-            for df in (experiment_data.arm_data, experiment_data.observation_data):
-                self.assertEqual(len(df), 0)
-                self.assertEqual(df.index.names, ["trial_index", "arm_name"])
+            expected_ind_names = ["trial_index", "arm_name"]
+            self.assertEqual(len(experiment_data.arm_data), 0)
+            self.assertEqual(experiment_data.arm_data.index.names, expected_ind_names)
+            if is_map:
+                expected_ind_names.append("step")
+            self.assertEqual(len(experiment_data.observation_data), 0)
+            self.assertEqual(
+                experiment_data.observation_data.index.names, expected_ind_names
+            )
             self.assertEqual(
                 experiment_data.arm_data.columns.to_list(),
                 list(empty_exp.parameters) + ["metadata"],
@@ -265,7 +277,7 @@ class TestDataUtils(TestCase):
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [(0, "0_0", float("NaN")), (0, "0_0", 3.0), (1, "1_0", float("NaN"))],
-            names=["trial_index", "arm_name", "timestamp"],
+            names=["trial_index", "arm_name", "step"],
         )
         expected_mean_df = DataFrame(
             [
@@ -314,7 +326,7 @@ class TestDataUtils(TestCase):
                 (1, "1_0", 0.0),
                 (1, "1_0", 1.0),
             ],
-            names=["trial_index", "arm_name", "timestamp"],
+            names=["trial_index", "arm_name", "step"],
         )
         expected_mean_df = DataFrame(
             [
@@ -502,11 +514,11 @@ class TestDataUtils(TestCase):
         # for branin and branin_map on the same row.
         expected_obs_data = (
             experiment_data.observation_data.loc[
-                experiment_data.observation_data.index.get_level_values(
-                    "timestamp"
-                ).isin((0, nan))
+                experiment_data.observation_data.index.get_level_values("step").isin(
+                    (0, nan)
+                )
             ]
-            .reset_index("timestamp", drop=True)
+            .reset_index("step", drop=True)
             .groupby(level=["trial_index", "arm_name"])
             .first()
         )
@@ -536,7 +548,7 @@ class TestDataUtils(TestCase):
                 trial_index=0,
                 metadata={
                     Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY,
-                    "timestamp": float("NaN"),
+                    "step": float("NaN"),
                 },
             ),
             data=ObservationData(
@@ -553,7 +565,7 @@ class TestDataUtils(TestCase):
                     trial_index=0,
                     metadata={
                         Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY,
-                        "timestamp": timestamp,
+                        "step": timestamp,
                     },
                 ),
                 data=ObservationData(
@@ -569,7 +581,7 @@ class TestDataUtils(TestCase):
             features=ObservationFeatures(
                 parameters={"x1": 1.0, "x2": 1.0},
                 trial_index=1,
-                metadata={"timestamp": float("NaN")},
+                metadata={"step": float("NaN")},
             ),
             data=ObservationData(
                 metric_names=["branin"],
@@ -583,7 +595,7 @@ class TestDataUtils(TestCase):
                 features=ObservationFeatures(
                     parameters={"x1": 1.0, "x2": 1.0},
                     trial_index=1,
-                    metadata={"timestamp": timestamp},
+                    metadata={"step": timestamp},
                 ),
                 data=ObservationData(
                     metric_names=["branin_map"],

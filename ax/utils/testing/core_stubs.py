@@ -31,7 +31,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -2663,27 +2663,26 @@ def get_non_monolithic_branin_moo_data() -> Data:
 def get_map_data(trial_index: int = 0) -> MapData:
     evaluations = {
         "status_quo": [
-            ({"epoch": 1}, {"ax_test_metric": (1.0, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (2.0, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (3.0, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+            (1, {"ax_test_metric": (1.0, 0.5)}),
+            (2, {"ax_test_metric": (2.0, 0.5)}),
+            (3, {"ax_test_metric": (3.0, 0.5)}),
+            (4, {"ax_test_metric": (4.0, 0.5)}),
         ],
         "0_0": [
-            ({"epoch": 1}, {"ax_test_metric": (3.7, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (3.8, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (3.9, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+            (1, {"ax_test_metric": (3.7, 0.5)}),
+            (2, {"ax_test_metric": (3.8, 0.5)}),
+            (3, {"ax_test_metric": (3.9, 0.5)}),
+            (4, {"ax_test_metric": (4.0, 0.5)}),
         ],
         "0_1": [
-            ({"epoch": 1}, {"ax_test_metric": (3.0, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (5.0, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (6.0, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (1.0, 0.5)}),
+            (1, {"ax_test_metric": (3.0, 0.5)}),
+            (2, {"ax_test_metric": (5.0, 0.5)}),
+            (3, {"ax_test_metric": (6.0, 0.5)}),
+            (4, {"ax_test_metric": (1.0, 0.5)}),
         ],
     }
     return MapData.from_map_evaluations(
-        evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
-        trial_index=trial_index,
+        evaluations=evaluations, trial_index=trial_index
     )
 
 
@@ -2697,10 +2696,6 @@ def get_observations_with_invalid_value(invalid_value: float) -> list[Observatio
         Observation(features=ObservationFeatures({}), data=obsd_with_non_finite)
     ]
     return observations
-
-
-def get_map_key_info() -> MapKeyInfo:
-    return MapKeyInfo(key="epoch")
 
 
 def get_branin_data(

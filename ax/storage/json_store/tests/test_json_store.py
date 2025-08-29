@@ -32,7 +32,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.parameter import ParameterType
@@ -107,7 +107,6 @@ from ax.utils.testing.core_stubs import (
     get_improvement_global_stopping_strategy,
     get_interval,
     get_map_data,
-    get_map_key_info,
     get_metric,
     get_mll_type,
     get_model_type,
@@ -292,7 +291,6 @@ TEST_CASES = [
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
     ("MapData", get_map_data),
-    ("MapKeyInfo", get_map_key_info),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
     ("MultiObjectiveOptimizationConfig", get_multi_objective_optimization_config),
@@ -619,6 +617,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
 
+    # TODO: units to cover all cases
     def test_decode_map_data_backward_compatible(self) -> None:
         with self.subTest("Multiple map keys"):
             data_with_two_map_keys_json = {
@@ -637,15 +636,18 @@ class JSONStoreTest(TestCase):
                 ],
                 "__type": "MapData",
             }
-            with self.assertWarnsRegex(Warning, "Received multiple"):
+            with self.assertWarnsRegex(
+                Warning, "Received multiple map keys. All except epoch"
+            ):
                 map_data = object_from_json(
                     data_with_two_map_keys_json,
                     decoder_registry=CORE_DECODER_REGISTRY,
                     class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
                 )
-            # The "timestamp" map key will be silently dropped.
-            self.assertEqual(map_data.map_key, "epoch")
-            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
+            # The "timestamp" map key will be silently dropped, and "epoch" will
+            # be renamed to MAP_KEY
+            self.assertIn(MAP_KEY, map_data.true_df.columns)
+            self.assertEqual(map_data.true_df[MAP_KEY].tolist(), [0.0, 1.0])
 
         with self.subTest("Single map key"):
             data_json = {
@@ -660,16 +662,18 @@ class JSONStoreTest(TestCase):
                 "map_key_infos": [{"key": "epoch", "default_value": nan}],
                 "__type": "MapData",
             }
-            with warnings.catch_warnings(record=True) as ws:
+            with self.assertWarnsRegex(
+                Warning, f"epoch will be renamed to {MAP_KEY}"
+            ), warnings.catch_warnings(record=True) as ws:
                 map_data = object_from_json(
                     data_json,
                     decoder_registry=CORE_DECODER_REGISTRY,
                     class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
                 )
+            self.assertIn(MAP_KEY, map_data.true_df.columns)
+            self.assertEqual(map_data.true_df[MAP_KEY].tolist(), [0.0, 1.0])
             # No warning about multiple map keys
             self.assertFalse(any("Received multiple" in str(w) for w in ws))
-            self.assertEqual(map_data.map_key, "epoch")
-            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
 
         with self.subTest("No map key"):
             data_json = {

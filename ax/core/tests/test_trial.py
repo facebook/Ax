@@ -329,11 +329,11 @@ class TrialTest(TestCase):
             len(self.trial.experiment.metrics)
             - len(self.trial.experiment.tracking_metrics),
         )
-        self.assertTrue("m1" in self.trial.experiment.metrics)
-        self.assertTrue("m2" in self.trial.experiment.metrics)
+        self.assertIn("m1", self.trial.experiment.metrics)
+        self.assertIn("m2", self.trial.experiment.metrics)
 
         data = self.trial.lookup_data().df.to_dict(orient="index")
-        self.assertTrue(len(data) == 0)
+        self.assertEqual(len(data), 0)
 
         # Attach data
         self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
@@ -353,7 +353,7 @@ class TrialTest(TestCase):
             UserInputError,
             "The format of the `raw_data` is not compatible with `Data`. ",
         ):
-            self.trial.update_trial_data(raw_data=[({"time": 0}, {"m1": 1.0})])
+            self.trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
 
         # Try to attach Data to a MapData experiment.
         map_experiment = get_test_map_data_experiment(
@@ -362,7 +362,7 @@ class TrialTest(TestCase):
         map_trial = map_experiment.new_trial().add_arm(
             arm=get_branin_arms(n=1, seed=0)[0]
         )
-        map_trial.update_trial_data(raw_data=[({"time": 0}, {"m1": 1.0})])
+        map_trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
         with self.assertRaisesRegex(
             UserInputError,
             "The format of the `raw_data` is not compatible with `MapData`. ",
