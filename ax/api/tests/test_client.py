@@ -36,7 +36,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.service.utils.with_db_settings_base import (
     _save_generation_strategy_to_db_if_possible,
 )
@@ -1460,6 +1460,101 @@ class TestClient(TestCase):
             ScalarizedObjective,
         )
         self.assertIn(qux_metric_scalar, scalar.metrics)
+
+    def test_add_parameters(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+                RangeParameterConfig(name="x2", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="test_exp",
+        )
+        client.configure_optimization(objective="foo")
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client._set_runner(DummyRunner())
+        client.attach_baseline({"x1": 0.0, "x2": 0.0})
+
+        # Run a trial
+        client.run_trials(1)
+
+        # Can't add parameter without a backfill value
+        with self.assertRaises(UserInputError):
+            client.add_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x3",
+                        parameter_type="float",
+                        bounds=(-1, 1),
+                    )
+                ],
+                backfill_values={},
+            )
+
+        # Ignores extra backfill values
+        with self.assertLogs(logger="ax.api.client", level="WARNING") as lg:
+            client.add_parameters(
+                parameters=[],
+                backfill_values={"x3": 0.0},
+            )
+            self.assertTrue(
+                any(
+                    ("Backfill values provided for parameters not being added") in msg
+                    for msg in lg.output
+                )
+            )
+
+        # Successfully adds parameter
+        client.add_parameters(
+            parameters=[
+                RangeParameterConfig(
+                    name="x3",
+                    parameter_type="float",
+                    bounds=(-1, 1),
+                )
+            ],
+            backfill_values={"x3": 0.0},
+            status_quo_values={"x3": 0.0},
+        )
+
+        # Run one more trial
+        client.run_trials(1)
+        self.assertEqual(
+            client._experiment.trials[2].arms[0].parameters.keys(), {"x1", "x2", "x3"}
+        )
+
+    def test_disable_parameters(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+                ChoiceParameterConfig(
+                    name="x2", parameter_type="str", values=["value_a", "value_b"]
+                ),
+            ],
+            name="test_exp",
+        )
+        client.configure_optimization(objective="foo")
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client._set_runner(DummyRunner())
+        client.attach_baseline({"x1": 0.0, "x2": "value_a"})
+
+        # Run a trial
+        client.run_trials(1)
+
+        # Successfully disables parameter
+        client.disable_parameters(
+            default_parameter_values={"x2": "value_b"},
+        )
+
+        # Run one more trial
+        client.run_trials(1)
+        self.assertEqual(
+            client._experiment.trials[2].arms[0].parameters["x2"],
+            "value_b",
+        )
 
 
 class DummyRunner(IRunner):
