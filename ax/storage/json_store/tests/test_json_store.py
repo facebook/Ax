@@ -7,6 +7,7 @@
 # pyre-strict
 
 import dataclasses
+import json
 import os
 import tempfile
 import warnings
@@ -34,6 +35,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
+from ax.core.parameter import ParameterType
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -100,6 +102,7 @@ from ax.utils.testing.core_stubs import (
     get_gamma_prior,
     get_generator_run,
     get_hartmann_metric,
+    get_hierarchical_choice_parameter,
     get_hierarchical_search_space,
     get_improvement_global_stopping_strategy,
     get_interval,
@@ -194,6 +197,22 @@ TEST_CASES = [
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
     ("ChoiceParameter", get_sorted_choice_parameter),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.BOOL),
+    ),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.INT),
+    ),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.FLOAT),
+    ),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.STRING),
+    ),
     # testing with non-default argument
     ("DataLoaderConfig", partial(DataLoaderConfig, fit_out_of_design=True)),
     ("DerivedParameter", get_derived_parameter),
@@ -205,6 +224,7 @@ TEST_CASES = [
     ("Experiment", get_experiment_with_map_data),
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
+    ("FixedParameter", partial(get_fixed_parameter, with_dependents=True)),
     ("GammaPrior", get_gamma_prior),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     (
@@ -404,6 +424,10 @@ class JSONStoreTest(TestCase):
                 encoder_registry=CORE_ENCODER_REGISTRY,
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
+
+            # Dump and reload the json_object to simulate serialization round-trip.
+            json_str = json.dumps(json_object)
+            json_object = json.loads(json_str)
 
             converted_object = object_from_json(
                 json_object,

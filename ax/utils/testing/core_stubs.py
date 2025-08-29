@@ -2078,8 +2078,33 @@ def get_task_choice_parameter() -> ChoiceParameter:
     )
 
 
-def get_fixed_parameter() -> FixedParameter:
-    return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
+def get_hierarchical_choice_parameter(parameter_type: ParameterType) -> ChoiceParameter:
+    if parameter_type == ParameterType.BOOL:
+        values = [True, False]
+    elif parameter_type == ParameterType.INT:
+        values = [0, 1]
+    elif parameter_type == ParameterType.FLOAT:
+        values = [0.0, 1.0]
+    else:
+        values = ["yee", "haw"]
+
+    return ChoiceParameter(
+        name="x",
+        parameter_type=parameter_type,
+        values=values,  # pyre-ignore [6]
+        is_ordered=True,
+        sort_values=False,
+        dependents={values[0]: ["y"], values[1]: ["z"]},
+    )
+
+
+def get_fixed_parameter(with_dependents: bool = False) -> FixedParameter:
+    return FixedParameter(
+        name="z",
+        parameter_type=ParameterType.BOOL,
+        value=True,
+        dependents={True: ["y"]} if with_dependents else None,  # pyre-ignore [6]
+    )
 
 
 def get_derived_parameter() -> DerivedParameter:

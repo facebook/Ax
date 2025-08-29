@@ -21,6 +21,12 @@ from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    TParamValue,
+)
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -52,6 +58,33 @@ if TYPE_CHECKING:
     from ax import core  # noqa F401
 
 T = TypeVar("T")
+
+
+def string_to_parameter_value(s: str, parameter_type: ParameterType) -> TParamValue:
+    if parameter_type == ParameterType.BOOL:
+        if s == "false":
+            return False
+        elif s == "true":
+            return True
+        else:
+            raise ValueError(
+                f"Expected 'true' or 'false' for boolean parameter, got {s}."
+            )
+
+    elif parameter_type == ParameterType.INT:
+        try:
+            return int(s)
+        except ValueError:
+            raise ValueError(f"Expected integer for int parameter, got {s}.")
+
+    elif parameter_type == ParameterType.FLOAT:
+        try:
+            return float(s)
+        except ValueError:
+            raise ValueError(f"Expected float for float parameter, got {s}.")
+
+    elif parameter_type == ParameterType.STRING:
+        return s
 
 
 def batch_trial_from_json(
@@ -372,3 +405,61 @@ def multi_objective_from_json(
     if len(kwargs) > 0:
         warn_on_kwargs(callable_with_kwargs=MultiObjective, **kwargs)
     return MultiObjective(objectives=objectives)
+
+
+def choice_parameter_from_json(
+    name: str,
+    parameter_type: ParameterType,
+    values: list[TParamValue],
+    is_ordered: bool | None = None,
+    is_task: bool = False,
+    is_fidelity: bool = False,
+    target_value: TParamValue = None,
+    sort_values: bool | None = None,
+    dependents: dict[TParamValue, list[str]] | None = None,
+) -> ChoiceParameter:
+    # JSON converts dictionary keys to strings. We need to convert them back.
+    if dependents is not None:
+        dependents = {
+            # pyre-ignore [6]: JSON keys are always strings
+            string_to_parameter_value(s=key, parameter_type=parameter_type): value
+            for key, value in dependents.items()
+        }
+
+    return ChoiceParameter(
+        name=name,
+        parameter_type=parameter_type,
+        values=values,
+        is_ordered=is_ordered,
+        is_task=is_task,
+        is_fidelity=is_fidelity,
+        target_value=target_value,
+        sort_values=sort_values,
+        dependents=dependents,
+    )
+
+
+def fixed_parameter_from_json(
+    name: str,
+    parameter_type: ParameterType,
+    value: TParamValue,
+    is_fidelity: bool = False,
+    target_value: TParamValue = None,
+    dependents: dict[TParamValue, list[str]] | None = None,
+) -> FixedParameter:
+    # JSON converts dictionary keys to strings. We need to convert them back.
+    if dependents is not None:
+        dependents = {
+            # pyre-ignore [6]: JSON keys are always strings
+            string_to_parameter_value(s=key, parameter_type=parameter_type): value
+            for key, value in dependents.items()
+        }
+
+    return FixedParameter(
+        name=name,
+        parameter_type=parameter_type,
+        value=value,
+        is_fidelity=is_fidelity,
+        target_value=target_value,
+        dependents=dependents,
+    )
