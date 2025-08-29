@@ -693,13 +693,13 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         NOTE: This method will raise an Exception if it is called multiple times
         with the same ``raw_data``. These cases typically arise when ``raw_data``
-        does not change over time. To avoid this, pass a timestep metric in
-        ``raw_data``, for example:
+        does not change over time. To avoid this, pass a "step" (progression)
+        metric in ``raw_data``, for example:
 
         .. code-block:: python
 
             for ts in range(100):
-                raw_data = [({"ts": ts}, {"my_objective": (1.0, 0.0)})]
+                raw_data = [(ts, {"my_objective": (1.0, 0.0)})]
                 ax_client.update_running_trial_with_intermediate_data(
                     trial_index=0, raw_data=raw_data
                 )
