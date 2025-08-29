@@ -14,7 +14,10 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import Analysis
-from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_RED
+from ax.analysis.plotly.color_constants import (
+    BOTORCH_COLOR_SCALE,
+    CONSTRAINT_VIOLATION_RED,
+)
 
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
@@ -343,9 +346,11 @@ def _prepare_figure(
         trial_indices.append(candidate_trial)
 
     scatters = []
+    scatter_trial_indices = []  # Track trial indices for each scatter
 
-    # Track candidate trials that get included in the plot
+    # Track trials that get included in the plot
     num_candidate_trials = 0
+    num_non_candidate_trials = 0
     candidate_trial_marker = None
 
     for trial_index in trial_indices:
@@ -388,6 +393,8 @@ def _prepare_figure(
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
             num_candidate_trials += 1
             candidate_trial_marker = marker
+        else:
+            num_non_candidate_trials += 1
 
         text = trial_df.apply(
             lambda row: get_arm_tooltip(
@@ -405,9 +412,7 @@ def _prepare_figure(
                 mode="markers",
                 marker=marker,
                 name=get_trial_trace_name(trial_index=trial_index),
-                showlegend=(
-                    trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
-                ),
+                showlegend=False,  # Will be set after determining use_colorscale
                 hoverinfo="text",
                 text=text,
                 legendgroup="candidate_trials"
@@ -415,6 +420,38 @@ def _prepare_figure(
                 else None,
             )
         )
+        scatter_trial_indices.append(trial_index)
+
+    # Determine use_colorscale based on actual included trials
+    use_colorscale = num_non_candidate_trials > 10
+
+    # Update markers and legend settings based on use_colorscale
+    for scatter, trial_index in zip(scatters, scatter_trial_indices):
+        trial_df = df[df["trial_index"] == trial_index]
+
+        if use_colorscale:
+            # Add colorscale settings to marker
+            scatter.marker.update(
+                {
+                    "colorscale": BOTORCH_COLOR_SCALE,
+                    "showscale": True,
+                    "cmin": min(scatter_trial_indices),
+                    "cmax": max(scatter_trial_indices),
+                    "colorbar": {
+                        "title": "Trial Index",
+                        "orientation": "h",
+                        "x": 0.4,
+                        "xanchor": "center",
+                        "y": -0.30,
+                        "yanchor": "top",
+                    },
+                }
+            )
+        else:
+            # Show legend for all non-candidate trials when not using colorscale
+            scatter.showlegend = (
+                trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
+            )
 
     figure = go.Figure(data=scatters)
     figure.update_layout(
@@ -442,6 +479,29 @@ def _prepare_figure(
                 legendgroup="candidate_trials",
             )
         )
+
+    legend_position = LEGEND_POSITION.copy()
+    if use_colorscale:
+        # Position legend to the right, align with colorscale
+        legend_position.update(
+            {
+                "orientation": "v",
+                "yanchor": "top",
+                "y": -0.33,
+                "xanchor": "left",
+                "x": 0.9,
+            }
+        )
+
+    figure = go.Figure(data=scatters)
+    figure.update_layout(
+        xaxis_title=x_metric_label,
+        yaxis_title=y_metric_label,
+        xaxis_tickformat=".2%" if is_relative else None,
+        yaxis_tickformat=".2%" if is_relative else None,
+        legend=legend_position,
+        margin=MARGIN_REDUCUTION,
+    )
 
     # Add a red circle with no fill if any arms are marked as possibly infeasible.
     if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():

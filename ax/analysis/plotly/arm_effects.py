@@ -14,7 +14,10 @@ from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
-from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_RED
+from ax.analysis.plotly.color_constants import (
+    BOTORCH_COLOR_SCALE,
+    CONSTRAINT_VIOLATION_RED,
+)
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
@@ -336,7 +339,9 @@ def _prepare_figure(
         trial_indices.append(candidate_trial)
 
     trials_list = trials.tolist()
+
     scatters = []
+    scatter_trial_indices = []  # Track trial indices for each scatter
     # Sort the dataframe by trial index and arm name.
     # Non-default arm names (not digit + underscore + digit) are sorted to the front.
     # default arm names (e.g. 0_0, 1_8) are sorted that '0_1' < '0_5' < '0_10'
@@ -346,8 +351,9 @@ def _prepare_figure(
     arm_order = []
     arm_label = []
 
-    # Track candidate trials that get included in the plot
+    # Track trials that get included in the plot
     num_candidate_trials = 0
+    num_non_candidate_trials = 0
     candidate_trial_marker = None
 
     for trial_index in trial_indices:
@@ -356,6 +362,7 @@ def _prepare_figure(
         # Skip trials with no valid data points as they will not end up in the plot
         if xy_df.empty:
             continue
+
         arm_order = arm_order + xy_df["x_key_order"].to_list()
         arm_label = arm_label + xy_df["arm_name"].to_list()
         if not trial_df[f"{metric_name}_sem"].isna().all():
@@ -371,6 +378,7 @@ def _prepare_figure(
             }
         else:
             error_y = None
+
         marker = {
             "color": trial_index_to_color(
                 trial_df=trial_df,
@@ -392,6 +400,8 @@ def _prepare_figure(
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
             num_candidate_trials += 1
             candidate_trial_marker = marker
+        else:
+            num_non_candidate_trials += 1
 
         text = trial_df.apply(
             lambda row: get_arm_tooltip(row=row, metric_names=[metric_name]), axis=1
@@ -405,9 +415,7 @@ def _prepare_figure(
                 mode="markers",
                 marker=marker,
                 name=get_trial_trace_name(trial_index=trial_index),
-                showlegend=(
-                    trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
-                ),
+                showlegend=False,  # Will be set after determining use_colorscale
                 hoverinfo="text",
                 text=text,
                 legendgroup="candidate_trials"
@@ -415,6 +423,38 @@ def _prepare_figure(
                 else None,
             )
         )
+        scatter_trial_indices.append(trial_index)
+
+    # Determine use_colorscale based on actual included trials
+    use_colorscale = num_non_candidate_trials > 10
+
+    # Update markers and legend settings based on use_colorscale
+    for scatter, trial_index in zip(scatters, scatter_trial_indices):
+        trial_df = df[df["trial_index"] == trial_index]
+
+        if use_colorscale:
+            # Add colorscale settings to marker
+            scatter.marker.update(
+                {
+                    "colorscale": BOTORCH_COLOR_SCALE,
+                    "showscale": True,
+                    "cmin": min(scatter_trial_indices),
+                    "cmax": max(scatter_trial_indices),
+                    "colorbar": {
+                        "title": "Trial Index",
+                        "orientation": "h",
+                        "x": 0.4,
+                        "xanchor": "center",
+                        "y": -0.30,
+                        "yanchor": "top",
+                    },
+                }
+            )
+        else:
+            # Show legend for all non-candidate trials when not using colorscale
+            scatter.showlegend = (
+                trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
+            )
 
     # get the max length of x-ticker (arm name) to set the xaxis label and
     # legend position
@@ -424,7 +464,19 @@ def _prepare_figure(
     legend_y = LEGEND_BASE_OFFSET - (max_label_len / X_TICKER_SCALING_FACTOR)
 
     legend_position = LEGEND_POSITION.copy()
-    legend_position["y"] = legend_y
+    if use_colorscale:
+        # Position candidate legend to the right of the colorscale
+        legend_position.update(
+            {
+                "orientation": "v",
+                "yanchor": "top",
+                "y": -0.33,
+                "xanchor": "left",
+                "x": 0.9,
+            }
+        )
+    else:
+        legend_position["y"] = legend_y
 
     figure = go.Figure(data=scatters)
     figure.update_layout(
