@@ -8,7 +8,7 @@
 
 import enum
 from collections import defaultdict
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -38,9 +38,8 @@ SingleMetricData = Union[FloatLike, tuple[FloatLike, Optional[FloatLike]]]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.
 TTrialEvaluation = Mapping[str, SingleMetricData]
 
-# 1-arm evaluation data with arbitrary partial results
-TMapDict = Mapping[str, Hashable]
-TMapTrialEvaluation = Sequence[tuple[TMapDict, TTrialEvaluation]]
+#                     [      (step (float), TTrialEvaluation)]
+TMapTrialEvaluation = Sequence[tuple[float, TTrialEvaluation]]
 
 # Format for trasmitting evaluation data to Ax is either:
 # 1) {metric_name -> (mean, standard error)} (TTrialEvaluation)
@@ -109,13 +108,17 @@ def merge_model_predict(
     return mu, cov
 
 
-def validate_floatlike(floatlike: Any) -> None:
-    if not (
+def _is_floatlike(floatlike: Any) -> bool:
+    return (
         isinstance(floatlike, float)
         or isinstance(floatlike, int)
         or isinstance(floatlike, np.floating)
         or isinstance(floatlike, np.integer)
-    ):
+    )
+
+
+def validate_floatlike(floatlike: Any) -> None:
+    if not _is_floatlike(floatlike=floatlike):
         raise TypeError(f"Expected FloatLike, found {floatlike}")
 
 
@@ -163,18 +166,16 @@ def validate_parameterization(parameterization: Mapping[Any, Any]) -> None:
         validate_param_value(param_value=value)
 
 
-def validate_map_dict(map_dict: Mapping[Any, Any]) -> None:
-    for key, value in map_dict.items():
-        if not isinstance(key, str):
-            raise TypeError(f"Keys must be strings in TMapDict, found {key}.")
-
-        if not isinstance(value, Hashable):
-            raise TypeError(f"Values must be Hashable in TMapDict, found {value}.")
+def validate_step(step: float) -> None:
+    if not _is_floatlike(floatlike=step):
+        raise TypeError(
+            f"Steps must be float-like in TMapTrialEvaluation; found {step}."
+        )
 
 
 def validate_map_trial_evaluation(evaluation: TMapTrialEvaluation) -> None:
-    for map_dict, trial_evaluation in evaluation:
-        validate_map_dict(map_dict=map_dict)
+    for step, trial_evaluation in evaluation:
+        validate_step(step=step)
         validate_trial_evaluation(evaluation=trial_evaluation)
 
 
