@@ -402,7 +402,7 @@ class TorchAdapterTest(TestCase):
         )
         self.assertEqual(
             list(adapter.transforms.keys()),
-            ["Cast", "OneHot", "UnitX"],
+            ["FillMissingParameters", "Cast", "OneHot", "UnitX"],
         )
 
         mean = 1.0
