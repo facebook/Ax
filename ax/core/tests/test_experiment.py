@@ -7,6 +7,7 @@
 # pyre-strict
 
 from collections import OrderedDict
+from time import sleep
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -1956,3 +1957,94 @@ class ExperimentWithMapDataTest(TestCase):
             sorted_df,
             expected_sorted_df,
         )
+
+    def test_check_TTL_on_candidate_trials_no_ttl(self) -> None:
+        """
+        Test that _check_TTL_on_candidate_trials only runs when _trials_have_ttl
+        is True.
+        """
+        experiment_no_ttl = get_experiment()
+
+        candidate_trial_no_ttl = experiment_no_ttl.new_trial()
+        self.assertFalse(experiment_no_ttl._trials_have_ttl)
+        # This should be a no-op since no trials have TTL
+        experiment_no_ttl._check_TTL_on_candidate_trials()
+        self.assertTrue(candidate_trial_no_ttl.status.is_candidate)
+
+    def test_check_TTL_single_candidate_trial(self) -> None:
+        """Test that single candidate trial with TTL should NOT be marked as stale."""
+        experiment_with_ttl = get_experiment()
+        single_candidate = experiment_with_ttl.new_trial(ttl_seconds=1)
+        sleep(1.1)  # Wait for TTL to expire
+        experiment_with_ttl._check_TTL_on_candidate_trials()
+        # Should remain candidate
+        self.assertTrue(single_candidate.status.is_candidate)
+
+    def test_check_TTL_multiple_candidate_trials_same_type(self) -> None:
+        """
+        Test that multiple candidate trials of same type - only older ones marked stale.
+        """
+        experiment_multi = get_experiment()
+
+        # Create multiple candidate trials with same trial_type (None by default)
+        older_candidate1 = experiment_multi.new_trial(ttl_seconds=1)
+        sleep(0.1)  # Small delay to ensure different creation times
+        older_candidate2 = experiment_multi.new_trial(ttl_seconds=1)
+        sleep(0.1)
+        latest_candidate = experiment_multi.new_trial(ttl_seconds=1)
+
+        # Also create trials with different statuses to verify they're handled correctly
+        running_trial = experiment_multi.new_trial(ttl_seconds=1)
+        running_trial.mark_running(no_runner_required=True)
+
+        completed_trial = experiment_multi.new_trial(ttl_seconds=1)
+        completed_trial.mark_running(no_runner_required=True)
+        completed_trial.mark_completed()
+
+        sleep(1.1)  # Wait for TTL to expire
+
+        # Manually call _check_TTL_on_candidate_trials
+        experiment_multi._check_TTL_on_candidate_trials()
+
+        # Verify expected behavior:
+        # - Older candidate trials should become STALE
+        # - Latest candidate trial should remain CANDIDATE (preserved)
+        # - Running trial should remain RUNNING (unaffected by TTL)
+        # - Completed trial should remain COMPLETED (unaffected by TTL)
+        self.assertTrue(older_candidate1.status.is_stale)
+        self.assertTrue(older_candidate2.status.is_stale)
+        self.assertTrue(latest_candidate.status.is_candidate)  # Latest preserved
+        self.assertTrue(running_trial.status.is_running)
+        self.assertTrue(completed_trial.status.is_completed)
+
+    def test_check_TTL_multiple_candidate_trials_different_types(self) -> None:
+        """
+        Test that multiple candidate trials with different trial_types preserve
+        latest of each type.
+        """
+        experiment_types = get_experiment()
+
+        # Mock supports_trial_type to allow different trial types
+        with patch.object(experiment_types, "supports_trial_type", return_value=True):
+            type_a_older = experiment_types.new_trial(
+                ttl_seconds=1, trial_type="type_a"
+            )
+            sleep(0.1)
+            type_a_latest = experiment_types.new_trial(
+                ttl_seconds=1, trial_type="type_a"
+            )
+            sleep(0.1)
+            type_b_single = experiment_types.new_trial(
+                ttl_seconds=1, trial_type="type_b"
+            )
+
+            sleep(1.1)  # Wait for TTL to expire
+            experiment_types._check_TTL_on_candidate_trials()
+
+            # Verify behavior:
+            # - type_a_older should be stale (multiple of same type, not latest)
+            # - type_a_latest should remain candidate (latest of its type)
+            # - type_b_single should remain candidate (only one of its type)
+            self.assertTrue(type_a_older.status.is_stale)
+            self.assertTrue(type_a_latest.status.is_candidate)
+            self.assertTrue(type_b_single.status.is_candidate)
