@@ -23,6 +23,8 @@ from ax.analysis.plotly.utils import (
     LEGEND_BASE_OFFSET,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
+    MULTIPLE_CANDIDATE_TRIALS_LEGEND,
+    SINGLE_CANDIDATE_TRIAL_LEGEND,
     trial_index_to_color,
     truncate_label,
     X_TICKER_SCALING_FACTOR,
@@ -343,9 +345,17 @@ def _prepare_figure(
     df["x_key_order"] = df["trial_index"].astype(str) + ":" + df["arm_name"]
     arm_order = []
     arm_label = []
+
+    # Track candidate trials that get included in the plot
+    num_candidate_trials = 0
+    candidate_trial_marker = None
+
     for trial_index in trial_indices:
         trial_df = df[df["trial_index"] == trial_index]
         xy_df = trial_df[~trial_df[f"{metric_name}_mean"].isna()]
+        # Skip trials with no valid data points as they will not end up in the plot
+        if xy_df.empty:
+            continue
         arm_order = arm_order + xy_df["x_key_order"].to_list()
         arm_label = arm_label + xy_df["arm_name"].to_list()
         if not trial_df[f"{metric_name}_sem"].isna().all():
@@ -378,9 +388,15 @@ def _prepare_figure(
                 "color": CONSTRAINT_VIOLATION_RED,
             },
         }
+
+        if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
+            num_candidate_trials += 1
+            candidate_trial_marker = marker
+
         text = trial_df.apply(
             lambda row: get_arm_tooltip(row=row, metric_names=[metric_name]), axis=1
         )
+
         scatters.append(
             go.Scatter(
                 x=xy_df["x_key_order"],
@@ -389,8 +405,14 @@ def _prepare_figure(
                 mode="markers",
                 marker=marker,
                 name=get_trial_trace_name(trial_index=trial_index),
+                showlegend=(
+                    trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
+                ),
                 hoverinfo="text",
                 text=text,
+                legendgroup="candidate_trials"
+                if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name
+                else None,
             )
         )
 
@@ -413,6 +435,23 @@ def _prepare_figure(
         margin=MARGIN_REDUCUTION,
         xaxis={"tickvals": arm_order, "ticktext": arm_label},
     )
+
+    # Add candidate trial legend at the end
+    if num_candidate_trials > 0:
+        figure.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                marker=candidate_trial_marker,
+                name=SINGLE_CANDIDATE_TRIAL_LEGEND
+                if num_candidate_trials == 1
+                else MULTIPLE_CANDIDATE_TRIALS_LEGEND,
+                showlegend=True,
+                hoverinfo="skip",
+                legendgroup="candidate_trials",
+            )
+        )
 
     # Add a horizontal line for the status quo.
     if status_quo_arm_name in df["arm_name"].values:
