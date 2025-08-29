@@ -21,6 +21,7 @@ from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TOutcome, TParameterization
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
+from ax.api.utils.instantiation.from_config import parameter_from_config
 from ax.api.utils.instantiation.from_string import optimization_config_from_string
 from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.storage import db_settings_from_storage_config
@@ -38,7 +39,7 @@ from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
 )
-from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
+from ax.exceptions.core import ObjectNotFoundError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
@@ -202,6 +203,81 @@ class Client(WithDBSettingsBase):
             torch_device=torch_device,
         )
         self.set_generation_strategy(generation_strategy=generation_strategy)
+
+    def add_parameters(
+        self,
+        parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
+        backfill_values: TParameterization,
+        status_quo_values: TParameterization | None = None,
+    ) -> None:
+        """
+        Add new parameters to the experiment's search space. This allows extending
+        the search space after the experiment has run some trials.
+
+        Backfill values must be provided for all new parameters to ensure existing
+        trials in the experiment remain valid within the expanded search space. The
+        backfill values represent the parameter values that were used in the existing
+        trials.
+
+        Args:
+            parameters: A sequence of parameter configurations to add to the search
+                space.
+            backfill_values: Parameter values to assign to existing trials for the
+                new parameters being added. All new parameter names must have
+                corresponding backfill values provided.
+            status_quo_values: Optional parameter values for the new parameters to
+                use in the status quo (baseline) arm, if one is defined. If None,
+                the backfill values will be used for the status quo.
+        """
+        parameters_to_add = [
+            parameter_from_config(parameter_config) for parameter_config in parameters
+        ]
+        parameter_names = {parameter.name for parameter in parameters_to_add}
+        missing_backfill_values = parameter_names - backfill_values.keys()
+        if missing_backfill_values:
+            raise UserInputError(
+                "You must provide backfill values for all parameters being added. "
+                f"Missing values for parameters: {missing_backfill_values}."
+            )
+        extra_backfill_values = backfill_values.keys() - parameter_names
+        if extra_backfill_values:
+            logger.warning(
+                "Backfill values provided for parameters not being added: "
+                f"{extra_backfill_values}. Will ingore these values."
+            )
+        for parameter in parameters_to_add:
+            if parameter.name in backfill_values:
+                parameter._backfill_value = backfill_values[parameter.name]
+        self._experiment.add_parameters_to_search_space(
+            parameters=parameters_to_add,
+            # pyre-fixme[6]: Type narrowing broken because core Ax
+            # TParameterization is dict not Mapping
+            status_quo_values=status_quo_values,
+        )
+
+    def disable_parameters(
+        self,
+        default_parameter_values: TParameterization,
+    ) -> None:
+        """
+        Disable parameters in the experiment. This allows narrowing the search space
+        after the experiment has run some trials.
+
+        When parameters are disabled, they are effectively removed from the search
+        space for future trial generation. Existing trials remain valid, and the
+        disabled parameters are replaced with fixed default values for all subsequent
+        trials.
+
+        Args:
+            default_parameter_values: Fixed values to use for the disabled parameters
+                in all future trials. These values will be used for the parameter in
+                all subsequent trials.
+        """
+        self._experiment.disable_parameters_in_search_space(
+            # pyre-fixme[6]: Type narrowing broken because core Ax
+            # TParameterization is dict not Mapping
+            default_parameter_values=default_parameter_values
+        )
 
     # -------------------- Section 1.1: Configure Automation ------------------------
     def configure_runner(self, runner: IRunner) -> None:
