@@ -10,13 +10,14 @@ from __future__ import annotations
 
 from ax.core.data import Data
 
-from ax.core.map_data import MAP_KEY, MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.metric import Metric, MetricFetchE
 from ax.utils.common.result import Result
 
 MapMetricFetchResult = Result[MapData, MetricFetchE]
 
 
+# TODO: serialization tests
 class MapMetric(Metric):
     """Base class for representing metrics that return `MapData`.
 
@@ -32,4 +33,3 @@ class MapMetric(Metric):
     """
 
     data_constructor: type[Data] = MapData
-    map_key_info: MapKeyInfo = MapKeyInfo(key=MAP_KEY)

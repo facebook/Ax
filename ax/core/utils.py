@@ -650,24 +650,18 @@ def _time_trial_completed_safe(trial: BatchTrial) -> datetime:
 # -------------------- MapMetric related utils. ---------------------
 
 
-def extract_map_keys_from_opt_config(
-    optimization_config: OptimizationConfig,
-) -> set[str]:
-    """Extract names of the map keys of all map metrics from the optimization config.
+def has_map_metrics(optimization_config: OptimizationConfig) -> bool:
+    """Check if the optimization config has any ``MapMetric``s.
 
     Args:
         optimization_config: Optimization config.
-
-    Returns:
-        A set of map keys.
     """
-    map_metrics = {
-        name: metric
-        for name, metric in optimization_config.metrics.items()
-        if isinstance(metric, MapMetric) and metric.has_map_data
-    }
-    map_key_names = {m.map_key_info.key for m in map_metrics.values()}
-    return map_key_names
+    metrics = optimization_config.metrics
+    # Technically an OptimizationConfig could have zero metrics since a
+    # MultiObjective could have 0 objectives
+    if len(metrics) == 0:
+        return False
+    return any(isinstance(metric, MapMetric) for metric in metrics.values())
 
 
 # -------------------- Context manager and decorator utils. ---------------------

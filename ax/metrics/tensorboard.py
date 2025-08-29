@@ -17,7 +17,7 @@ import numpy as np
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.trial import Trial
@@ -40,8 +40,6 @@ try:
 
     class TensorboardMetric(MapMetric):
         """A *new* `MapMetric` for getting Tensorboard metrics."""
-
-        map_key_info: MapKeyInfo = MapKeyInfo(key="step")
 
         def __init__(
             self,
@@ -138,7 +136,7 @@ try:
                             "trial_index": trial.index,
                             "arm_name": arm_name,
                             "metric_name": metric.name,
-                            self.map_key_info.key: t.step,
+                            MAP_KEY: t.step,
                             "mean": (
                                 t.tensor_proto.double_val[0]
                                 if t.tensor_proto.double_val
@@ -173,7 +171,6 @@ try:
                     res[metric.name] = Ok(
                         MapData(
                             df=df,
-                            map_key_infos=[self.map_key_info],
                         )
                     )
 
@@ -227,7 +224,7 @@ try:
                 pd.DataFrame(records)
                 # If a metric has multiple records for the same arm, metric, and
                 # step (sometimes caused by restarts, etc) take the mean
-                .groupby(["arm_name", "metric_name", self.map_key_info.key])
+                .groupby(["arm_name", "metric_name", MAP_KEY])
                 .mean()
                 .reset_index()
             )

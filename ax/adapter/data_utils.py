@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
@@ -55,7 +55,7 @@ class DataLoaderConfig:
         limit_rows_per_metric: Subsample the map data so that the total number of
             rows per metric is limited by this value.
         limit_rows_per_group: Subsample the map data so that the number of rows
-            in the `map_key` column for each (arm, metric) is limited by this value.
+            in the `MAP_KEY` column for each (arm, metric) is limited by this value.
     """
 
     fit_out_of_design: bool = False
@@ -408,9 +408,6 @@ def _extract_observation_data(
                 include_first_last=True,
             )
 
-        map_key = [data.map_key] if data.map_key is not None else []
-    else:
-        map_key = []
     df = data.true_df
     # Filter out rows for invalid statuses.
     to_keep = Series(index=df.index, data=False)
@@ -446,38 +443,27 @@ def _extract_observation_data(
         df = df.assign(mean=None, sem=None)
 
     # Identify potential metadata columns.
-    standard_columns = {
-        "trial_index",
-        "arm_name",
-        "metric_name",
-        "mean",
-        "sem",
-        *map_key,
-    }
+    index_cols = ["trial_index", "arm_name"]
+    if isinstance(data, MapData):
+        index_cols.append(MAP_KEY)
+
+    standard_columns = set(index_cols).union({"metric_name", "mean", "sem"})
     metadata_columns = [col for col in df.columns if col not in standard_columns]
 
     # Pivot the df to be indexed by (trial_index, arm_name, *map_key)
     # and to have columns "mean" & "sem" for each metric.
     observation_data = df.pivot(
-        columns="metric_name",
-        index=[
-            "trial_index",
-            "arm_name",
-            *map_key,
-        ],
-        values=["mean", "sem"],
+        columns="metric_name", index=index_cols, values=["mean", "sem"]
     )
 
     # If metadata columns exist, add them to the pivoted dataframe.
     if metadata_columns:
         # Create a dataframe with just the index columns and metadata columns.
-        metadata_df = df[["trial_index", "arm_name", *map_key, *metadata_columns]]
+        metadata_df = df[index_cols + metadata_columns]
         # Set the index to match the observation_data index.
         # All null rows are dropped to still capture the metadata in the next step
         # if it exists for only a subset of metrics.
-        metadata_df = metadata_df.set_index(
-            ["trial_index", "arm_name", *map_key]
-        ).dropna(how="all")
+        metadata_df = metadata_df.set_index(index_cols).dropna(how="all")
         # Drop duplicates to ensure we have only one row per unique index.
         # This is necessary when there are multiple metrics.
         metadata_df = metadata_df.loc[~metadata_df.index.duplicated(keep="first")]

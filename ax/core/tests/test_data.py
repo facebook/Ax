@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.data import Data
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from pyre_extensions import assert_is_instance
@@ -127,10 +127,10 @@ class TestDataBase(TestCase):
             self.data_with_df = Data(df=self.df)
             self.data_without_df = Data()
         else:
-            df_1 = df.copy().assign(epoch=0)
-            df_2 = df.copy().assign(epoch=1)
+            df_1 = df.copy().assign(**{MAP_KEY: 0})
+            df_2 = df.copy().assign(**{MAP_KEY: 1})
             self.df = pd.concat((df_1, df_2))
-            self.data_with_df = MapData.from_df(df=self.df, map_key="epoch")
+            self.data_with_df = MapData(df=self.df)
             self.data_without_df = MapData()
 
     def test_init(self) -> None:
@@ -161,7 +161,6 @@ class TestDataBase(TestCase):
         if self.cls is MapData:
             data = assert_is_instance(data, MapData)
             data_clone = assert_is_instance(data_clone, MapData)
-            self.assertEqual(data.map_key, data_clone.map_key)
             self.assertIsNot(data.map_df, data_clone.map_df)
             self.assertTrue(data.map_df.equals(data_clone.map_df))
 
@@ -173,7 +172,7 @@ class TestDataBase(TestCase):
             if self.cls is Data:
                 Data(df=df)
             else:
-                MapData(df=df, map_key_infos=[])
+                MapData(df=df)
 
     def test_EmptyData(self) -> None:
         data = self.data_without_df
@@ -183,8 +182,11 @@ class TestDataBase(TestCase):
 
         if isinstance(data, MapData):
             self.assertTrue(data.map_df.empty)
-        self.assertEqual(Data.REQUIRED_COLUMNS, data.required_columns())
-        self.assertEqual(set(df.columns), set(Data.REQUIRED_COLUMNS))
+            expected_columns = Data.REQUIRED_COLUMNS.union({MAP_KEY})
+        else:
+            expected_columns = Data.REQUIRED_COLUMNS
+        self.assertEqual(expected_columns, data.required_columns())
+        self.assertEqual(set(df.columns), expected_columns)
 
     def test_from_multiple_with_generator(self) -> None:
         data = self.cls.from_multiple_data(self.data_with_df for _ in range(2))
