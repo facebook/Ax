@@ -26,6 +26,8 @@ from ax.analysis.plotly.utils import (
     get_trial_trace_name,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
+    MULTIPLE_CANDIDATE_TRIALS_LEGEND,
+    SINGLE_CANDIDATE_TRIAL_LEGEND,
     trial_index_to_color,
     truncate_label,
     Z_SCORE_95_CI,
@@ -339,7 +341,12 @@ def _prepare_figure(
     trial_indices = trials_list.copy()
     if not np.isnan(candidate_trial):
         trial_indices.append(candidate_trial)
+
     scatters = []
+
+    # Track candidate trials that get included in the plot
+    num_candidate_trials = 0
+    candidate_trial_marker = None
 
     for trial_index in trial_indices:
         trial_df = df[df["trial_index"] == trial_index]
@@ -355,6 +362,11 @@ def _prepare_figure(
             trials_list=trials_list,
             trial_index=trial_index,
         )
+
+        # Skip trials with no meaningful data for either metric
+        if mean_x.empty and mean_y.empty:
+            continue
+
         marker = {
             "color": trial_index_to_color(
                 trial_df=trial_df,
@@ -373,6 +385,10 @@ def _prepare_figure(
             },
         }
 
+        if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
+            num_candidate_trials += 1
+            candidate_trial_marker = marker
+
         text = trial_df.apply(
             lambda row: get_arm_tooltip(
                 row=row, metric_names=[x_metric_name, y_metric_name]
@@ -389,8 +405,14 @@ def _prepare_figure(
                 mode="markers",
                 marker=marker,
                 name=get_trial_trace_name(trial_index=trial_index),
+                showlegend=(
+                    trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
+                ),
                 hoverinfo="text",
                 text=text,
+                legendgroup="candidate_trials"
+                if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name
+                else None,
             )
         )
 
@@ -403,6 +425,23 @@ def _prepare_figure(
         legend=LEGEND_POSITION,
         margin=MARGIN_REDUCUTION,
     )
+
+    # Add candidate trial legend at the end
+    if num_candidate_trials > 0:
+        figure.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                marker=candidate_trial_marker,
+                name=SINGLE_CANDIDATE_TRIAL_LEGEND
+                if num_candidate_trials == 1
+                else MULTIPLE_CANDIDATE_TRIALS_LEGEND,
+                showlegend=True,
+                hoverinfo="skip",
+                legendgroup="candidate_trials",
+            )
+        )
 
     # Add a red circle with no fill if any arms are marked as possibly infeasible.
     if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
