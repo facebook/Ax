@@ -107,8 +107,10 @@ from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.storage.json_store.decoders import (
+    choice_parameter_from_json,
     class_from_json,
     default_from_json,
+    fixed_parameter_from_json,
     input_transform_type_from_json,
     multi_objective_from_json,
     outcome_transform_type_from_json,
@@ -322,7 +324,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ChainedInputTransform": ChainedInputTransform,
     "ChemistryMetric": ChemistryMetric,
     "ChemistryProblemType": ChemistryProblemType,
-    "ChoiceParameter": ChoiceParameter,
+    "ChoiceParameter": choice_parameter_from_json,
     "ComparisonOp": ComparisonOp,
     "Data": Data,
     "DataLoaderConfig": DataLoaderConfig,
@@ -331,7 +333,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "DomainType": DomainType,
     "Experiment": Experiment,
     "FactorialMetric": FactorialMetric,
-    "FixedParameter": FixedParameter,
+    "FixedParameter": fixed_parameter_from_json,
     "GammaPrior": GammaPrior,
     "GenerationNode": GenerationNode,
     "GenerationStrategy": GenerationStrategy,

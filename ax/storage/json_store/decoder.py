@@ -334,6 +334,17 @@ def generator_run_from_json(
             for k, v in object_json.items()
         }
     )
+    # NOTE: JSON converts all tuples to lists, and we need to convert them back. This is
+    # an ad hoc fix, though.
+    if isinstance(generator_run._best_arm_predictions, list):
+        arm, arm_prediction = generator_run._best_arm_predictions
+        if arm_prediction is not None and isinstance(arm_prediction, list):
+            arm_prediction = tuple(arm_prediction)
+        generator_run._best_arm_predictions = (arm, arm_prediction)
+
+    if isinstance(generator_run._model_predictions, list):
+        generator_run._model_predictions = tuple(generator_run._model_predictions)
+
     # Remove deprecated kwargs from model kwargs & adapter kwargs.
     if generator_run._model_kwargs is not None:
         generator_run._model_kwargs = {
