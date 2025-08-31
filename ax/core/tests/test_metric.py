@@ -31,8 +31,51 @@ class MetricTest(TestCase):
         pass
 
     def test_init(self) -> None:
-        metric = Metric(name="m1", lower_is_better=False)
-        self.assertEqual(str(metric), METRIC_STRING)
+        with self.subTest("init with different name and signature"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "Specify either `signature` or `name`, but not both. "
+                "`signature` should be used as a unique identifier for the metric. "
+                "The `name` argument is on a deprecation path.",
+            ):
+                metric = Metric(name="m1", signature="m2", lower_is_better=False)
+
+        with self.subTest("init with no name and no signature"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "Specify either `signature` or `name`, but not both. "
+                "`signature` should be used as a unique identifier for the metric. "
+                "The `name` argument is on a deprecation path.",
+            ):
+                metric = Metric(lower_is_better=False)
+
+        with self.subTest("init with name only"):
+            with self.assertWarnsRegex(
+                DeprecationWarning,
+                "The `name` attribute is on a deprecation path and will be "
+                "replaced by `signature`.",
+            ):
+                metric = Metric(name="m1", lower_is_better=False)
+                self.assertEqual(str(metric), METRIC_STRING)
+                self.assertEqual(metric.name, metric.signature)
+                self.assertEqual(metric.name, metric.label)
+
+        with self.subTest("init with signature only"):
+            metric = Metric(signature="m1", lower_is_better=False)
+            self.assertEqual(str(metric), METRIC_STRING)
+            self.assertEqual(metric.name, metric.signature)
+            self.assertEqual(metric.name, metric.label)
+
+        with self.subTest("init with same name and signature"):
+            with self.assertWarnsRegex(
+                DeprecationWarning,
+                "The `name` attribute is on a deprecation path and will be "
+                "replaced by `signature`.",
+            ):
+                metric = Metric(name="m1", signature="m1", lower_is_better=False)
+                self.assertEqual(str(metric), METRIC_STRING)
+                self.assertEqual(metric.name, metric.signature)
+                self.assertEqual(metric.name, metric.label)
 
     def test_eq(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)

@@ -100,20 +100,48 @@ class Metric(SortableBase, SerializationMixin):
 
     def __init__(
         self,
-        name: str,
+        name: str | None = None,
         lower_is_better: bool | None = None,
         properties: dict[str, Any] | None = None,
+        signature: str | None = None,
+        label: str | None = None,
     ) -> None:
         """Inits Metric.
 
         Args:
-            name: Name of metric.
+            name: Name of metric (on deprecation path).
             lower_is_better: Flag for metrics which should be minimized.
             properties: Dictionary of this metric's properties
+            signature: The name/unique identifier of the metric.
+            label: Label of metric (a.k.a display name).
         """
-        self._name = name
+
+        if (signature and name and signature != name) or (
+            signature is None and name is None
+        ):
+            raise ValueError(
+                "Specify either `signature` or `name`, but not both. "
+                "`signature` should be used as a unique identifier for the metric. "
+                "The `name` argument is on a deprecation path."
+            )
+
+        if signature is not None:
+            self._name: str = signature
+            self._signature: str = signature
+
+        if name is not None:
+            warnings.warn(
+                "The `name` attribute is on a deprecation path and will be "
+                "replaced by `signature`.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._name: str = name
+            self._signature: str = name
+
         self.lower_is_better = lower_is_better
         self.properties: dict[str, Any] = properties or {}
+        self._label: str = label if label is not None else self._signature
 
     # ---------- Properties and methods that subclasses often override. ----------
 
@@ -284,7 +312,23 @@ class Metric(SortableBase, SerializationMixin):
     @property
     def name(self) -> str:
         """Get name of metric."""
+        warnings.warn(
+            "The `name` attribute is on a deprecation path and will be "
+            "replaced by `signature`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self._name
+
+    @property
+    def signature(self) -> str:
+        """Get signature of metric."""
+        return self._signature
+
+    @property
+    def label(self) -> str:
+        """Get label of metric."""
+        return self._label
 
     def clone(self) -> Metric:
         """Create a copy of this Metric."""
