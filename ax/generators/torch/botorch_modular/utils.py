@@ -37,6 +37,7 @@ from botorch.models.fully_bayesian import (
     AbstractFullyBayesianSingleTaskGP,
     FullyBayesianSingleTaskGP,
 )
+
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -51,6 +52,7 @@ from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
+from botorch_fb.models.scaling_laws import LinearScalingLaw, PowerScalingLawSum
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.likelihoods import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -624,6 +626,39 @@ def _fit_botorch_model_fully_bayesian_nuts(
     mll_options = mll_options or {}
     mll_options.setdefault("disable_progbar", True)
     fit_fully_bayesian_model_nuts(model, **mll_options)
+
+
+@fit_botorch_model.register(LinearScalingLaw)
+@fit_botorch_model.register(PowerScalingLawSum)
+def _fit_botorch_model_scaling_law(
+    model: LinearScalingLaw | PowerScalingLawSum,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    """Fit a scaling law model using its own fit method."""
+    if model._train_X is None or model._train_Y is None:
+        raise ValueError(
+            f"Cannot fit {model.__class__.__name__} without training data. "
+            "Model training data (_train_X and _train_Y) must be set."
+        )
+
+    train_X = cast(Tensor, model._train_X)
+    train_Y = cast(Tensor, model._train_Y)
+
+    mll_options = mll_options or {}
+
+    if isinstance(model, PowerScalingLawSum):
+        fit_options = {}
+        if "theta_init" in mll_options:
+            fit_options["theta_init"] = mll_options["theta_init"]
+        if "tol" in mll_options:
+            fit_options["tol"] = mll_options["tol"]
+        if "quantify_uncertainty" in mll_options:
+            fit_options["quantify_uncertainty"] = mll_options["quantify_uncertainty"]
+
+        model.fit(train_X, train_Y, **fit_options)
+    else:
+        model.fit(train_X, train_Y)
 
 
 @fit_botorch_model.register(object)
