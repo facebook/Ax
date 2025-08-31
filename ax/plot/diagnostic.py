@@ -434,8 +434,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
     """
     insample_data: dict[str, PlotInSampleArm] = {}
     metric_names = list(data.df["metric_name"].unique())
-    for struct in batch.generator_run_structs:
-        generator_run = struct.generator_run
+    for generator_run in batch.generator_runs:
         if generator_run.model_predictions is None:
             continue
         for i, arm in enumerate(generator_run.arms):

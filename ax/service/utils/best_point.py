@@ -278,9 +278,9 @@ def get_best_parameters_from_model_predictions_with_trial_index(
         if isinstance(trial, Trial):
             gr = trial.generator_run
         elif isinstance(trial, BatchTrial):
-            if len(trial.generator_run_structs) > 0:
+            if len(trial.generator_runs) > 0:
                 # In theory batch_trial can have >1 gr, grab the first
-                gr = trial.generator_run_structs[0].generator_run
+                gr = trial.generator_runs[0]
         if gr is not None:
             break
 
