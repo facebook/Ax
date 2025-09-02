@@ -787,7 +787,6 @@ class TorchAdapterTest(TestCase):
         converted_datasets2, _, _ = adapter._get_fit_args(
             search_space=search_space,
             experiment_data=experiment_data,
-            parameters=feature_names,
             update_outcomes_and_parameters=True,
         )
         self.assertEqual(adapter.outcomes, expected_outcomes)
@@ -797,7 +796,6 @@ class TorchAdapterTest(TestCase):
         adapter._get_fit_args(
             search_space=search_space,
             experiment_data=experiment_data,
-            parameters=feature_names,
             update_outcomes_and_parameters=False,
         )
         self.assertEqual(adapter.outcomes, expected_outcomes)
