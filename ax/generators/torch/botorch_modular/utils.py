@@ -111,10 +111,8 @@ class ModelConfig:
             parsing the ``covar_module_options`` in ``covar_module_argparse``,
             and gets passed to the model constructor as ``covar_module``.
         covar_module_options: Covariance module kwargs.
-            in favor of model_configs.
         likelihood_class: ``Likelihood`` class. This gets initialized with
             ``likelihood_options`` and gets passed to the model constructor.
-            This argument is deprecated in favor of model_configs.
         likelihood_options: Likelihood options.
         name: Name of the model config. This is used to identify the model config.
     """
