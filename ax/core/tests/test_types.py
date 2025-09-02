@@ -10,10 +10,10 @@ from ax.core.types import (
     merge_model_predict,
     validate_evaluation_outcome,
     validate_floatlike,
-    validate_map_dict,
     validate_param_value,
     validate_parameterization,
     validate_single_metric_data,
+    validate_step,
     validate_trial_evaluation,
 )
 from ax.utils.common.testutils import TestCase
@@ -56,7 +56,7 @@ class TypesTest(TestCase):
     def test_Validate(self) -> None:
         trial_evaluation = {"foo": 0.0}
         trial_evaluation_with_noise = {"foo": (0.0, 0.0)}
-        map_trial_evaluation = [({"a": 0.0}, trial_evaluation)]
+        map_trial_evaluation = [(0.0, trial_evaluation)]
 
         validate_evaluation_outcome(outcome=trial_evaluation)
         validate_evaluation_outcome(outcome=trial_evaluation_with_noise)
@@ -86,12 +86,8 @@ class TypesTest(TestCase):
         ):
             validate_parameterization(parameterization={0: 0})
 
-        with self.assertRaisesRegex(
-            TypeError, "Keys must be strings in TMapDict, found 0."
-        ):
-            validate_map_dict(map_dict={0: 0})
-
-        with self.assertRaisesRegex(
-            TypeError, "Values must be Hashable in TMapDict, found"
-        ):
-            validate_map_dict(map_dict={"foo": []})
+        with self.assertRaisesRegex(TypeError, "Steps must be float"):
+            # pyre-fixme[6]: Incompatible parameter type: In call
+            # `validate_step`, for argument `step`, expected `float` but got
+            # `str`
+            validate_step(step="0")

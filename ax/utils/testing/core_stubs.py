@@ -2663,27 +2663,26 @@ def get_non_monolithic_branin_moo_data() -> Data:
 def get_map_data(trial_index: int = 0) -> MapData:
     evaluations = {
         "status_quo": [
-            ({"epoch": 1}, {"ax_test_metric": (1.0, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (2.0, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (3.0, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+            (1, {"ax_test_metric": (1.0, 0.5)}),
+            (2, {"ax_test_metric": (2.0, 0.5)}),
+            (3, {"ax_test_metric": (3.0, 0.5)}),
+            (4, {"ax_test_metric": (4.0, 0.5)}),
         ],
         "0_0": [
-            ({"epoch": 1}, {"ax_test_metric": (3.7, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (3.8, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (3.9, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+            (1, {"ax_test_metric": (3.7, 0.5)}),
+            (2, {"ax_test_metric": (3.8, 0.5)}),
+            (3, {"ax_test_metric": (3.9, 0.5)}),
+            (4, {"ax_test_metric": (4.0, 0.5)}),
         ],
         "0_1": [
-            ({"epoch": 1}, {"ax_test_metric": (3.0, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (5.0, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (6.0, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (1.0, 0.5)}),
+            (1, {"ax_test_metric": (3.0, 0.5)}),
+            (2, {"ax_test_metric": (5.0, 0.5)}),
+            (3, {"ax_test_metric": (6.0, 0.5)}),
+            (4, {"ax_test_metric": (1.0, 0.5)}),
         ],
     }
     return MapData.from_map_evaluations(
-        evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
-        trial_index=trial_index,
+        evaluations=evaluations, trial_index=trial_index
     )
 
 

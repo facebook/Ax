@@ -34,6 +34,7 @@ from ax.utils.common.serialization import (
 from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
+MAP_KEY = "step"
 
 
 class MapKeyInfo(SortableBase):
@@ -263,7 +264,7 @@ class MapData(Data):
 
     @staticmethod
     def from_map_evaluations(
-        evaluations: dict[str, TMapTrialEvaluation], trial_index: int
+        evaluations: Mapping[str, TMapTrialEvaluation], trial_index: int
     ) -> MapData:
         records = [
             {
@@ -272,24 +273,13 @@ class MapData(Data):
                 "mean": value[0] if isinstance(value, tuple) else value,
                 "sem": value[1] if isinstance(value, tuple) else None,
                 "trial_index": trial_index,
-                **map_dict,
+                MAP_KEY: step,
             }
             for name, map_dict_and_metrics_list in evaluations.items()
-            for map_dict, evaluation in map_dict_and_metrics_list
+            for step, evaluation in map_dict_and_metrics_list
             for metric_name, value in evaluation.items()
         ]
-        map_keys = {
-            key
-            for _, map_dict_and_metrics_list in evaluations.items()
-            for map_dict, _ in map_dict_and_metrics_list
-            for key in map_dict.keys()
-        }
-        map_key_infos = [MapKeyInfo(key=key) for key in map_keys]
-
-        if {mki.key for mki in map_key_infos} != map_keys:
-            raise ValueError("Inconsistent map_key sets in evaluations.")
-
-        return MapData(df=pd.DataFrame(records), map_key_infos=map_key_infos)
+        return MapData.from_df(df=pd.DataFrame(records), map_key=MAP_KEY)
 
     @property
     def map_df(self) -> pd.DataFrame:

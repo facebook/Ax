@@ -1500,10 +1500,10 @@ class ExperimentWithMapDataTest(TestCase):
     def test_FetchDataWithMapData(self) -> None:
         evaluations = {
             "0_0": [
-                ({"epoch": 1}, {"no_fetch_impl_metric": (3.7, 0.5)}),
-                ({"epoch": 2}, {"no_fetch_impl_metric": (3.8, 0.5)}),
-                ({"epoch": 3}, {"no_fetch_impl_metric": (3.9, 0.5)}),
-                ({"epoch": 4}, {"no_fetch_impl_metric": (4.0, 0.5)}),
+                (1, {"no_fetch_impl_metric": (3.7, 0.5)}),
+                (2, {"no_fetch_impl_metric": (3.8, 0.5)}),
+                (3, {"no_fetch_impl_metric": (3.9, 0.5)}),
+                (4, {"no_fetch_impl_metric": (4.0, 0.5)}),
             ],
         }
 
