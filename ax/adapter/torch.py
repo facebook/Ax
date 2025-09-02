@@ -498,24 +498,20 @@ class TorchAdapter(Adapter):
         search_space: SearchSpace,
         cv_training_data: ExperimentData,
         cv_test_points: list[ObservationFeatures],
-        parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
         """Make predictions at ``cv_test_points`` using only the data
         in ``cv_training_data``.
         """
-        if not self.parameters:
+        if self.parameters is None:
             raise ValueError(FIT_MODEL_ERROR.format(action="_cross_validate"))
         datasets, _, search_space_digest = self._get_fit_args(
             search_space=search_space,
             experiment_data=cv_training_data,
-            parameters=parameters,
             update_outcomes_and_parameters=False,
         )
-        if parameters is None:
-            parameters = self.parameters
         X_test = torch.tensor(
-            [[obsf.parameters[p] for p in parameters] for obsf in cv_test_points],
+            [[obsf.parameters[p] for p in self.parameters] for obsf in cv_test_points],
             dtype=torch.double,
             device=self.device,
         )
@@ -687,7 +683,6 @@ class TorchAdapter(Adapter):
         self,
         search_space: SearchSpace,
         experiment_data: ExperimentData,
-        parameters: list[str] | None,
         update_outcomes_and_parameters: bool,
     ) -> tuple[
         list[SupervisedDataset],
@@ -703,8 +698,6 @@ class TorchAdapter(Adapter):
             experiment_data: A container of two dataframes ``arm_data`` and
                 ``observation_data``, containing parameterizations, observations,
                 and metadata extracted from ``Trial``s and ``Data`` of the experiment.
-            parameters: Names of parameters to be used in the generator. Defaults to
-                all parameters in the search space.
             update_outcomes_and_parameters: Whether to update `self.outcomes` with
                 all outcomes found in the observations and `self.parameters` with
                 all parameters in the search space. Typically only used in `_fit`.
@@ -726,8 +719,6 @@ class TorchAdapter(Adapter):
                         + self.parameters[idx + 1 :]
                         + [Keys.TASK_FEATURE_NAME.value]
                     )
-        if parameters is None:
-            parameters = self.parameters
         # Only update outcomes if fitting a model on tracking metrics. Otherwise,
         # we will only fit models to the outcomes that are extracted from optimization
         # config in Adapter.__init__.
@@ -741,7 +732,7 @@ class TorchAdapter(Adapter):
         datasets, ordered_outcomes, candidate_metadata = self._convert_experiment_data(
             experiment_data=experiment_data,
             outcomes=self.outcomes,
-            parameters=parameters,
+            parameters=self.parameters,
             search_space_digest=search_space_digest,
         )
 
@@ -761,7 +752,6 @@ class TorchAdapter(Adapter):
         self,
         search_space: SearchSpace,
         experiment_data: ExperimentData,
-        parameters: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
         if experiment_data == self._last_experiment_data:
@@ -773,7 +763,6 @@ class TorchAdapter(Adapter):
         datasets, candidate_metadata, search_space_digest = self._get_fit_args(
             search_space=search_space,
             experiment_data=experiment_data,
-            parameters=parameters,
             update_outcomes_and_parameters=True,
         )
         self.generator.fit(
