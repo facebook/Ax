@@ -11,7 +11,7 @@ import sys
 import time
 from itertools import product
 from math import ceil
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -1532,13 +1532,17 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
                 trial_index,
-                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 raw_data=[
                     (
-                        {"progression": y / 2.0},
-                        {"objective": (branin(x, y / 2.0), 0.0)},
+                        y / 2.0,
+                        {
+                            "objective": (
+                                assert_is_instance(branin(x, y / 2.0), float),
+                                0.0,
+                            )
+                        },
                     ),
-                    ({"progression": y}, {"objective": (branin(x, y), 0.0)}),
+                    (y, {"objective": (assert_is_instance(branin(x, y), float), 0.0)}),
                 ],
             )
 
@@ -1579,18 +1583,14 @@ class TestAxClient(TestCase):
         # Launch Trial and update it 3 times with additional data.
         for t in range(3):
             x, y = parameterization.get("x"), parameterization.get("y")
+            value = assert_is_instance(branin(x, y) + t, float)
+            raw_data = [(t, {"branin": (value, 0.0)})]
             if t < 2:
                 ax_client.update_running_trial_with_intermediate_data(
-                    0,
-                    # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
-                    raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
+                    0, raw_data=raw_data
                 )
             if t == 2:
-                ax_client.complete_trial(
-                    0,
-                    # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
-                    raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
-                )
+                ax_client.complete_trial(0, raw_data=raw_data)
             # pyre-fixme[16]: `Data` has no attribute `map_df`.
             fetch_data = ax_client.experiment.fetch_data().map_df
             self.assertEqual(len(fetch_data), 0 if t < 2 else 3)
@@ -1606,12 +1606,15 @@ class TestAxClient(TestCase):
             support_intermediate_data=False,
         )
         parameterization, trial_index = no_intermediate_data_ax_client.get_next_trial()
-        with self.assertRaises(ValueError):
+        # Error because the experiment isn't configured to use MapData
+        with self.assertRaisesRegex(
+            ValueError, "requires that this client's `experiment` be constructed with"
+        ):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
                 raw_data=[
                     # pyre-fixme[61]: `t` is undefined, or not always defined.
-                    ({"t": p_t}, {"branin": (branin(x, y) + t, 0.0)})
+                    (p_t, {"branin": (branin(x, y) + t, 0.0)})
                     # pyre-fixme[61]: `t` is undefined, or not always defined.
                     for p_t in range(t + 1)
                 ],
@@ -1671,19 +1674,17 @@ class TestAxClient(TestCase):
         # Can't update before completing.
         with self.assertRaisesRegex(ValueError, ".* not in a terminal state"):
             ax_client.update_trial_data(
-                trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+                trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})]
             )
-        ax_client.complete_trial(
-            trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
-        )
+        ax_client.complete_trial(trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})])
         # Cannot complete a trial twice, should use `update_trial_data`.
         with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
             ax_client.complete_trial(
-                trial_index=idx, raw_data=[({"t": 0}, {"branin": (0, 0.0)})]
+                trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})]
             )
         # Check that the update changes the data.
         ax_client.update_trial_data(
-            trial_index=idx, raw_data=[({"t": 0}, {"branin": (1, 0.0)})]
+            trial_index=idx, raw_data=[(0, {"branin": (1, 0.0)})]
         )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
@@ -1692,17 +1693,16 @@ class TestAxClient(TestCase):
 
         # With early stopped trial.
         params, idx = ax_client.get_next_trial()
+        value = assert_is_instance(branin(*params.values()), float)
         ax_client.update_running_trial_with_intermediate_data(
-            idx,
-            # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
-            raw_data=[({"t": 0}, {"branin": (branin(*params.values()), 0.0)})],
+            idx, raw_data=[(0, {"branin": (value, 0.0)})]
         )
 
         ax_client.stop_trial_early(trial_index=idx)
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
         ax_client.update_trial_data(
-            trial_index=idx, raw_data=[({"t": 0}, {"branin": (2, 0.0)})]
+            trial_index=idx, raw_data=[(0, {"branin": (2, 0.0)})]
         )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
@@ -1713,7 +1713,7 @@ class TestAxClient(TestCase):
         params, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(trial_index=idx)
         ax_client.update_trial_data(
-            trial_index=idx, raw_data=[({"t": 0}, {"branin": (3, 0.0)})]
+            trial_index=idx, raw_data=[(0, {"branin": (3, 0.0)})]
         )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(df["mean"].item(), 3.0)
@@ -1721,7 +1721,7 @@ class TestAxClient(TestCase):
         # Incomplete trial fails
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(
-            trial_index=idx, raw_data=[({"t": 0}, {"missing_metric": (0, 0.0)})]
+            trial_index=idx, raw_data=[(0, {"missing_metric": (0, 0.0)})]
         )
         self.assertTrue(ax_client.get_trial(idx).status.is_failed)
 
@@ -1738,14 +1738,14 @@ class TestAxClient(TestCase):
         # Trial with complete data
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(
-            trial_index=idx, raw_data=[({"fidelity": 1}, {"branin": (123, 0.0)})]
+            trial_index=idx, raw_data=[(1, {"branin": (123, 0.0)})]
         )
         self.assertTrue(ax_client.get_trial(idx).status.is_completed)
         # Trial with incomplete data
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(
             trial_index=idx,
-            raw_data=[({"fidelity": 2}, {"missing_metric": (456, 0.0)})],
+            raw_data=[(2, {"missing_metric": (456, 0.0)})],
         )
         self.assertTrue(ax_client.get_trial(idx).status.is_failed)
 
@@ -2079,10 +2079,10 @@ class TestAxClient(TestCase):
         )
         for _ in range(5):
             parameters, trial_index = ax_client.get_next_trial()
+            value = assert_is_instance(branin(*parameters.values()), float)
             ax_client.complete_trial(
                 trial_index=trial_index,
-                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
-                raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
+                raw_data=[(0, {"branin": (value, 0.0)})],
             )
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
@@ -2116,10 +2116,9 @@ class TestAxClient(TestCase):
 
         # Attach an early stopped trial.
         parameters, trial_index = ax_client.get_next_trial()
+        value = assert_is_instance(branin(*parameters.values()), float)
         ax_client.update_running_trial_with_intermediate_data(
-            trial_index=trial_index,
-            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
-            raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
+            trial_index=trial_index, raw_data=[(0, {"branin": (value, 0.0)})]
         )
         ax_client.stop_trial_early(trial_index=trial_index)
 
@@ -2883,10 +2882,9 @@ class TestAxClient(TestCase):
             support_intermediate_data=True,
         )
         parameters, idx = ax_client.get_next_trial()
+        value = assert_is_instance(branin(*parameters.values()), float)
         ax_client.update_running_trial_with_intermediate_data(
-            idx,
-            # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
-            raw_data=[({"t": 0}, {"branin": (branin(*parameters.values()), 0.0)})],
+            idx, raw_data=[(0, {"branin": (value, 0.0)})]
         )
         ax_client.stop_trial_early(idx)
         trial = ax_client.get_trial(idx)
@@ -2919,10 +2917,10 @@ class TestAxClient(TestCase):
         exception = MaxParallelismReachedException(step_index=1, num_running=10)
 
         # pyre-fixme[53]: Captured variable `exception` is not annotated.
-        # pyre-fixme[2]: Parameter must be annotated.
-        def fake_new_trial(*args, **kwargs) -> None:
+        def fake_new_trial(*args: Any, **kwargs: Any) -> None:
             raise exception
 
+        # pyre-fixme[8]: Incompatible attribute type
         ax_client.experiment.new_trial = fake_new_trial
 
         # Without early stopping.

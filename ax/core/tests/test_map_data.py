@@ -226,17 +226,11 @@ class MapDataTest(TestCase):
             eval1 = (3.7, sem) if sem is not None else 3.7
             eval2 = (3.8, sem) if sem is not None else 3.8
             map_data = MapData.from_map_evaluations(
-                evaluations={
-                    "0_1": [
-                        ({"f1": 1.0}, {"b": eval1}),
-                        ({"f1": 1.0}, {"b": eval2}),
-                    ]
-                },
+                evaluations={"0_1": [(1.0, {"b": eval1}), (1.0, {"b": eval2})]},
                 trial_index=0,
             )
             self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
             self.assertEqual(len(map_data.map_df), 2)
-            self.assertEqual(map_data.map_key, "f1")
 
     def test_upcast(self) -> None:
         fresh = MapData.from_df(df=self.df, map_key=self.map_key)
