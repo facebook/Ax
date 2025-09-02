@@ -501,8 +501,7 @@ class Acquisition(Base):
         if optimizer_options is not None:
             forbidden_optimizer_options = [
                 "equality_constraints",
-                "inequality_constraints",
-                "nonlinear_inequality_constraints",
+                "inequality_constraints",  # These should be constructed by Ax
                 "batch_initial_conditions",
                 "return_best_only",
                 "return_full_tree",
