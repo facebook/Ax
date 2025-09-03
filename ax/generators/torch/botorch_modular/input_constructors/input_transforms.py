@@ -16,6 +16,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models.transforms.input import (
+    FilterFeatures,
     InputPerturbation,
     InputTransform,
     Normalize,
@@ -206,6 +207,98 @@ def _input_transform_argparse_normalize(
     return input_transform_options
 
 
+@input_transform_argparse.register(FilterFeatures)
+def _input_transform_argparse_filter_features(
+    input_transform_class: type[FilterFeatures],
+    dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
+    input_transform_options: dict[str, Any] | None = None,
+    torch_device: torch.device | None = None,
+    torch_dtype: torch.dtype | None = None,
+) -> dict[str, Any]:
+    """Extract the FilterFeatures input transform kwargs from the given arguments.
+
+    Args:
+        input_transform_class: Input transform class.
+        dataset: Dataset containing feature matrix and the response.
+        search_space_digest: Search space digest.
+        input_transform_options: Input transform kwargs. May contain:
+            - "feature_indices": Explicit list of feature indices to keep
+            - "ignored_params": List of parameter names to ignore
+            - Other FilterFeatures kwargs
+        torch_device: The device on which the input transform will be used.
+        torch_dtype: The dtype on which the input transform will be used.
+
+    Returns:
+        A dictionary with FilterFeatures kwargs.
+    """
+    input_transform_options_copy = (
+        input_transform_options.copy() if input_transform_options else {}
+    )
+
+    # If no options are provided, keep all features
+    if not input_transform_options_copy:
+        return {"feature_indices": torch.arange(len(dataset.feature_names))}
+
+    feature_names = dataset.feature_names
+
+    # Validate ignored_params if present
+    if "ignored_params" in input_transform_options_copy:
+        ignored_params = input_transform_options_copy["ignored_params"]
+        invalid_params = [
+            param for param in ignored_params if param not in feature_names
+        ]
+        # TO DO: This may error out on Categorical parameters that went through
+        # `OneHot` transform. We should add the ability to handle this in the future.
+        if invalid_params:
+            raise ValueError(
+                f"Invalid parameter names in ignored_params: {invalid_params}. "
+                f"Valid feature names are: {feature_names}."
+            )
+
+    # If feature_indices is already provided, use it directly
+    if "feature_indices" in input_transform_options_copy:
+        if "ignored_params" in input_transform_options_copy:
+            # If both feature_indices and ignored_params are provided, check for
+            # consistency and pop "ignored_params"
+            feature_indices = input_transform_options_copy["feature_indices"]
+            filtered_indices_from_ignored_param = torch.tensor(
+                [
+                    i
+                    for i, name in enumerate(feature_names)
+                    if name not in input_transform_options_copy["ignored_params"]
+                ],
+                dtype=torch.int64,
+            )
+
+            if not torch.equal(feature_indices, filtered_indices_from_ignored_param):
+                raise ValueError(
+                    f"Filtered features passed in by feature_indices {feature_indices} "
+                    "is inconsistent with filtered feature indices computed from "
+                    f"ignored_params {filtered_indices_from_ignored_param}."
+                    "Please provide only one of 'feature_indices' or 'ignored_params', "
+                    "or ensure they are consistent."
+                )
+            # pop "ignored_params" as it is not an expected arg of FilterFeatures
+            input_transform_options_copy.pop("ignored_params")
+        return input_transform_options_copy
+
+    # If only ignored_params is provided, compute feature_indices from it
+    # and find feature_indices to keep
+    if "ignored_params" in input_transform_options_copy:
+        ignored_params = input_transform_options_copy.pop("ignored_params")
+
+        feature_indices = [
+            i for i, name in enumerate(feature_names) if name not in ignored_params
+        ]
+
+        input_transform_options_copy["feature_indices"] = torch.tensor(
+            feature_indices, dtype=torch.int64
+        )
+
+    return input_transform_options_copy
+
+
 @input_transform_argparse.register(InputPerturbation)
 def _input_transform_argparse_input_perturbation(
     input_transform_class: type[InputPerturbation],
@@ -222,6 +315,8 @@ def _input_transform_argparse_input_perturbation(
         dataset: Dataset containing feature matrix and the response.
         search_space_digest: Search space digest.
         input_transform_options: Input transform kwargs.
+        torch_device: The device on which the input transform will be used.
+        torch_dtype: The dtype on which the input transform will be used.
 
     Returns:
         A dictionary with input transform kwargs.
