@@ -215,9 +215,9 @@ class OneHot(Transform):
         arm_data = experiment_data.arm_data
         for p_name, values in self.encoded_values.items():
             # First, replace values with 0, 1, 2, so that column names are as expected.
-            arm_data = arm_data.replace(
-                to_replace={p_name: {v: i for i, v in enumerate(values)}}
-            ).astype({p_name: int})
+            arm_data[p_name] = arm_data[p_name].map(
+                {v: i for i, v in enumerate(values)}
+            )
 
             if len(values) == 2:
                 # Handle the special case. Only need to rename the column.
