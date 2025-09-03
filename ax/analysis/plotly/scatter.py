@@ -453,33 +453,7 @@ def _prepare_figure(
                 trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
             )
 
-    figure = go.Figure(data=scatters)
-    figure.update_layout(
-        xaxis_title=x_metric_label,
-        yaxis_title=y_metric_label,
-        xaxis_tickformat=".2%" if is_relative else None,
-        yaxis_tickformat=".2%" if is_relative else None,
-        legend=LEGEND_POSITION,
-        margin=MARGIN_REDUCUTION,
-    )
-
-    # Add candidate trial legend at the end
-    if num_candidate_trials > 0:
-        figure.add_trace(
-            go.Scatter(
-                x=[None],
-                y=[None],
-                mode="markers",
-                marker=candidate_trial_marker,
-                name=SINGLE_CANDIDATE_TRIAL_LEGEND
-                if num_candidate_trials == 1
-                else MULTIPLE_CANDIDATE_TRIALS_LEGEND,
-                showlegend=True,
-                hoverinfo="skip",
-                legendgroup="candidate_trials",
-            )
-        )
-
+    # Determine legend position before creating figure
     legend_position = LEGEND_POSITION.copy()
     if use_colorscale:
         # Position legend to the right, align with colorscale
@@ -502,6 +476,23 @@ def _prepare_figure(
         legend=legend_position,
         margin=MARGIN_REDUCUTION,
     )
+
+    # Add candidate trial legend at the end
+    if num_candidate_trials > 0:
+        figure.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                marker=candidate_trial_marker,
+                name=SINGLE_CANDIDATE_TRIAL_LEGEND
+                if num_candidate_trials == 1
+                else MULTIPLE_CANDIDATE_TRIALS_LEGEND,
+                showlegend=True,
+                hoverinfo="skip",
+                legendgroup="candidate_trials",
+            )
+        )
 
     # Add a red circle with no fill if any arms are marked as possibly infeasible.
     if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
