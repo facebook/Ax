@@ -209,7 +209,7 @@ class RandomGenerator(Generator):
                 )
                 points = polytope_sampler.draw(n=n).numpy()
                 if rounding_func is not None:
-                    points = rounding_func(points)
+                    points = np.array([rounding_func(point) for point in points])
                 # TODO: Deduplicate points (should refactor deduplication logic
                 # to cover both the rejection sampling and polytope sampling cases.
             else:
