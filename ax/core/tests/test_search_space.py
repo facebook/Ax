@@ -587,6 +587,7 @@ class SearchSpaceDigestTest(TestCase):
             "fidelity_features": [0],
             "target_values": {0: 1.0},
             "robust_digest": None,
+            "hierarchical_dependencies": None,
         }
 
     def test_SearchSpaceDigest(self) -> None:
