@@ -34,6 +34,24 @@ class MetricTest(TestCase):
         metric = Metric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)
 
+    def test_name_validation(self) -> None:
+        # Test that non-string names raise ValueError
+        with self.assertRaisesRegex(
+            ValueError, "Metric name must be a string, got <class 'int'>"
+        ):
+            Metric(name=123)  # pyre-ignore[6]
+
+        # Test that empty string raises ValueError. This is to prevent
+        # downstream issues in the ObservationData class.
+        with self.assertRaisesRegex(
+            ValueError, "Metric name must be a non-empty string"
+        ):
+            Metric(name="")
+
+        # Test that valid string names work
+        metric1 = Metric(name="m")
+        self.assertEqual(metric1.name, "m")
+
     def test_eq(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)
         metric2 = Metric(name="m1", lower_is_better=False)
