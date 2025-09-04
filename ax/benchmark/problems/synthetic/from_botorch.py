@@ -98,6 +98,8 @@ def create_problem_from_botorch(
         dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
     ) = None,
     n_dummy_dimensions: int = 0,
+    use_map_metric: bool = False,
+    n_steps: int = 1,
 ) -> BenchmarkProblem:
     """
     Create a ``BenchmarkProblem`` from a BoTorch ``BaseTestProblem``.
@@ -154,6 +156,12 @@ def create_problem_from_botorch(
         n_dummy_dimensions: If >0, the search space will be augmented
             with extra dimensions. The corresponding parameters will have no
             effect on function values.
+        use_map_metric: Whether to use a ``BenchmarkMapMetric`` (rather than a
+            ``BenchmarkMetric``).
+        n_steps: Number of steps (progression values) in each evaluation. The
+            default of 1 reflects a normal synthetic function evaluation. A
+            higher number results in repeating the evaluation and getting the
+            same result ``n_steps`` times (before IID noise is added).
 
     Example:
         >>> from ax.benchmark.benchmark_problem import create_problem_from_botorch
@@ -213,6 +221,7 @@ def create_problem_from_botorch(
         dummy_param_names={
             n for n in search_space.parameters if "embedding_dummy_" in n
         },
+        n_steps=n_steps,
     )
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
@@ -224,12 +233,14 @@ def create_problem_from_botorch(
             observe_noise_sd=observe_noise_sd,
             outcome_names=test_function.outcome_names,
             ref_point=test_problem._ref_point,
+            use_map_metric=use_map_metric,
         )
     else:
         optimization_config = get_soo_opt_config(
             outcome_names=test_function.outcome_names,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
+            use_map_metric=use_map_metric,
         )
 
     optimal_value = (
