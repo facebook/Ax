@@ -34,13 +34,15 @@ class Derelativize(Transform):
     """Changes relative constraints to not-relative constraints using a plug-in
     estimate of the status quo value.
 
-    If status quo is in-design, uses model estimate at status quo. If not, uses
-    raw observation at status quo.
+    By default, if status quo is in-design, uses model estimate at status quo.
+    If not, uses raw observation at status quo. If flag "use_raw_status_quo" is
+    set to True in the transform config, will always use raw observation.
 
-    Will raise an error if status quo is in-design and model fails to predict
-    for it, unless the flag "use_raw_status_quo" is set to True in the
-    transform config, in which case it will fall back to using the observed
-    value in the training data.
+    If using model estimate and a fitted model is not yet available, the
+    transform will be no-op. This can happen when transforming the data before
+    fitting the model. During candidate generation, the fitted model will be
+    available and the predictions can be used to derelativize the optimization
+    config before using it for candidate generation.
 
     Transform is done in-place.
     """
@@ -78,9 +80,20 @@ class Derelativize(Transform):
         ):
             # Only use model predictions if the status quo is in the search space
             # (including parameter constraints) and `use_raw_sq` is false.
-            f, cov = adapter.predict(
-                observation_features=[sq.features], use_posterior_predictive=True
-            )
+            try:
+                f, cov = adapter.predict(
+                    observation_features=[sq.features], use_posterior_predictive=True
+                )
+            except ValueError as e:
+                if "Generator must be fit" in str(e):
+                    logger.debug(
+                        "Returning optimization config as is since the fitted model "
+                        "is not yet available."
+                    )
+                    return optimization_config
+                else:
+                    raise e
+
             # Warn if the raw SQ values are outside of the CI for the predictions.
             _warn_if_raw_sq_is_out_of_CI(
                 optimization_config=optimization_config,

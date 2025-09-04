@@ -403,3 +403,44 @@ class DerelativizeTransformTest(TestCase):
         ), self.assertLogs(logger=logger) as mock_logs:
             adapter.gen(n=1)
         self.assertIn("deviate more than", mock_logs.records[0].getMessage())
+
+    def test_without_fitted_model(self) -> None:
+        # This test checks that the transform is no-op without a fitted model.
+        exp = get_branin_experiment(
+            with_status_quo=True,
+            with_completed_trial=True,
+            with_relative_constraint=True,
+        )
+        # Add data for SQ.
+        trial = exp.new_trial().add_arm(exp.status_quo).run().mark_completed()
+        exp.attach_data(get_branin_data(trials=[trial], metrics=exp.metrics))
+
+        adapter = TorchAdapter(
+            experiment=exp,
+            generator=BoTorchGenerator(),
+            transforms=[Derelativize],
+            fit_on_init=False,
+        )
+        t = Derelativize(search_space=exp.search_space, adapter=adapter)
+        opt_config = none_throws(exp.optimization_config)
+        with self.assertLogs(logger=logger, level="DEBUG") as mock_logs:
+            self.assertEqual(
+                t.transform_optimization_config(
+                    optimization_config=opt_config.clone(), adapter=adapter
+                ),
+                opt_config,
+            )
+        self.assertIn(
+            "fitted model is not yet available", mock_logs.records[0].getMessage()
+        )
+        # Check that it is transformed with a fitted model.
+        adapter = TorchAdapter(
+            experiment=exp, generator=BoTorchGenerator(), transforms=[Derelativize]
+        )
+        t = Derelativize(search_space=exp.search_space, adapter=adapter)
+        self.assertNotEqual(
+            t.transform_optimization_config(
+                optimization_config=opt_config.clone(), adapter=adapter
+            ),
+            opt_config,
+        )
