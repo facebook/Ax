@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.benchmark.problems.surrogate.lcbench.early_stopping import (
     get_lcbench_early_stopping_benchmark_problem,
@@ -24,6 +24,7 @@ from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_hartmann,
     get_discrete_rosenbrock,
 )
+from ax.benchmark.problems.synthetic.from_botorch import create_problem_from_botorch
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from botorch.test_functions import synthetic
 from botorch.test_functions.multi_objective import BraninCurrin
