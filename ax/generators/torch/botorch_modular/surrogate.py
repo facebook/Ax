@@ -104,7 +104,7 @@ MODEL_SELECTION_METRIC_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
 
 def _extract_model_kwargs(
     search_space_digest: SearchSpaceDigest, botorch_model_class: type[Model]
-) -> dict[str, list[int] | int]:
+) -> dict[str, list[int] | dict[int, dict[int, list[int]]] | int]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
     method of a BoTorch `Model` class.
@@ -131,7 +131,7 @@ def _extract_model_kwargs(
         # skipped if there is no task feature.
         raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
-    kwargs: dict[str, list[int] | int] = {}
+    kwargs: dict[str, list[int] | dict[int, dict[int, list[int]]] | int] = {}
     if len(search_space_digest.categorical_features) > 0:
         kwargs["categorical_features"] = search_space_digest.categorical_features
     if len(fidelity_features) > 0:
@@ -142,6 +142,13 @@ def _extract_model_kwargs(
             # to support heterogeneous search spaces
             task_feature = -1
         kwargs["task_feature"] = task_feature
+    # Regular BoTorch models do not expect the argument `hierarchical_dependencies`.
+    # For now, it is the user's responsibility to make sure a hierarchical model is used
+    # when the HSS is not flattened.
+    if search_space_digest.hierarchical_dependencies:
+        kwargs["hierarchical_dependencies"] = (
+            search_space_digest.hierarchical_dependencies
+        )
     return kwargs
 
 

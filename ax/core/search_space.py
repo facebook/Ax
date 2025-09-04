@@ -496,14 +496,19 @@ class HierarchicalSearchSpace(SearchSpace):
         self,
         parameters: list[Parameter],
         parameter_constraints: list[ParameterConstraint] | None = None,
+        requires_root: bool = True,
     ) -> None:
         super().__init__(
             parameters=parameters, parameter_constraints=parameter_constraints
         )
         self._all_parameter_names: set[str] = set(self.parameters.keys())
-        self._root: Parameter = self._find_root()
-        self._validate_hierarchical_structure()
-        logger.debug(f"Found root: {self.root}.")
+
+        if requires_root:
+            self._root: Parameter = self._find_root()
+            self._validate_hierarchical_structure()
+            logger.debug(f"Found root: {self.root}.")
+
+        self.requires_root = requires_root
 
     @property
     def root(self) -> Parameter:
@@ -511,6 +516,15 @@ class HierarchicalSearchSpace(SearchSpace):
         ``HierarchicalSearchSpace`` construction.
         """
         return self._root
+
+    def clone(self) -> HierarchicalSearchSpace:
+        return self.__class__(
+            parameters=[p.clone() for p in self._parameters.values()],
+            parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
+            # Use `getattr` for backward compatibility, because hierarchical search
+            # spaces loaded from existing checkpoints do not have `.requires_root`.
+            requires_root=getattr(self, "requires_root", True),
+        )
 
     def flatten(self) -> SearchSpace:
         """Returns a flattened ``SearchSpace`` with all the parameters in the
@@ -1124,6 +1138,15 @@ class SearchSpaceDigest:
             task parameters to their respective target value.
         robust_digest: An optional `RobustSearchSpaceDigest` that carries the
             additional attributes if using a `RobustSearchSpace`.
+        hierarchical_dependencies: A dictionary that specifies the dependencies between
+            parameters if using `HierarchicalSearchSpace`. It looks like as follows
+            ```
+            # P2 is active if P1 == 0
+            # P3 and P4 are active if P1 == 1
+            {
+                1: {0: [2], 1: [3, 4]},
+            }
+            ```
     """
 
     feature_names: list[str]
@@ -1135,6 +1158,9 @@ class SearchSpaceDigest:
     fidelity_features: list[int] = field(default_factory=list)
     target_values: dict[int, int | float] = field(default_factory=dict)
     robust_digest: RobustSearchSpaceDigest | None = None
+    # NOTE: We restrict that hierarchical parameters have to be either categorical or
+    # discrete.
+    hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
 
 
 @dataclass
