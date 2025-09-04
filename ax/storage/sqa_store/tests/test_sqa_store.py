@@ -1899,6 +1899,8 @@ class SQAStoreTest(TestCase):
         generation_strategy._generator_runs[0]._model_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
         generation_strategy._generator_runs[0]._optimization_config = None
+        generation_strategy._generator_runs[1]._search_space = None
+        generation_strategy._generator_runs[1]._optimization_config = None
         # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
@@ -1961,6 +1963,8 @@ class SQAStoreTest(TestCase):
         generation_strategy._generator_runs[0]._model_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
         generation_strategy._generator_runs[0]._optimization_config = None
+        generation_strategy._generator_runs[1]._search_space = None
+        generation_strategy._generator_runs[1]._optimization_config = None
         # Now experiment on generation strategy should be equal to the original
         # experiment with reduced state.
         self.assertEqual(new_generation_strategy.experiment, experiment)
@@ -2244,8 +2248,9 @@ class SQAStoreTest(TestCase):
         )
 
         save_generation_strategy(generation_strategy=generation_strategy)
-        load_generation_strategy_by_experiment_name(experiment_name=experiment.name)
-        _mock_get_gs_sqa_imm_oc_ss.assert_called_once()
+        load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name, reduced_state=True
+        )
         self.assertTrue(
             _mock_gr_from_sqa.call_args.kwargs.get(
                 "immutable_search_space_and_opt_config"

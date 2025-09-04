@@ -78,6 +78,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from ax.storage.sqa_store.utils import are_relationships_loaded
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -732,19 +733,31 @@ class Decoder:
             arms.append(self.arm_from_sqa(arm_sqa=arm_sqa))
             weights.append(arm_sqa.weight)
         if not reduced_state and not immutable_search_space_and_opt_config:
-            (
-                opt_config,
-                tracking_metrics,
-            ) = self.opt_config_and_tracking_metrics_from_sqa(
-                metrics_sqa=generator_run_sqa.metrics
-            )
-            if len(tracking_metrics) > 0:
-                raise SQADecodeError("GeneratorRun should not have tracking metrics.")
+            # Check if metrics, parameters, and parameter constraints are present
+            # on the generator run SQA object, since these attributes
+            # were potentially lazy loaded.
+            if are_relationships_loaded(
+                sqa_object=generator_run_sqa,
+                relationship_names=["metrics", "parameters", "parameter_constraints"],
+            ):
+                (
+                    opt_config,
+                    tracking_metrics,
+                ) = self.opt_config_and_tracking_metrics_from_sqa(
+                    metrics_sqa=generator_run_sqa.metrics
+                )
+                if len(tracking_metrics) > 0:
+                    raise SQADecodeError(
+                        "GeneratorRun should not have tracking metrics."
+                    )
 
-            search_space = self.search_space_from_sqa(
-                parameters_sqa=generator_run_sqa.parameters,
-                parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
-            )
+                search_space = self.search_space_from_sqa(
+                    parameters_sqa=generator_run_sqa.parameters,
+                    parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
+                )
+            else:
+                opt_config = None
+                search_space = None
 
         best_arm_predictions = None
         model_predictions = None
@@ -913,7 +926,11 @@ class Decoder:
                     self.generator_run_from_sqa(
                         generator_run_sqa=gs_sqa.generator_runs[-1],
                         reduced_state=False,
-                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                        # We set immutable_search_space_and_opt_config to reduced_state
+                        # to ensure that metrics and parameters are not loaded as part
+                        # of the generator run, as they are not required for a
+                        # generator run to be "fully" loaded.
+                        immutable_search_space_and_opt_config=reduced_state,
                     )
                 )
             except JSONDecodeError:
