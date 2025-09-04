@@ -8,7 +8,7 @@
 from itertools import product
 
 import torch
-from ax.benchmark.benchmark_metric import BenchmarkMetric
+from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_problem import get_continuous_search_space
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.problems.synthetic.from_botorch import (
@@ -342,3 +342,40 @@ class TestFromBoTorch(TestCase):
                 test_problem=Branin(), n_dummy_dimensions=24, observe_noise_sd=True
             )
             self.assertEqual(name, "Branin_observed_noise_26d")
+
+    def test_with_map_metric(self) -> None:
+        with self.subTest("With default n_steps"):
+            problem = create_problem_from_botorch(
+                test_problem_class=Branin,
+                test_problem_kwargs={},
+                num_trials=1,
+                use_map_metric=True,
+            )
+            self.assertIsInstance(
+                problem.optimization_config.objective.metric, BenchmarkMapMetric
+            )
+            self.assertEqual(problem.test_function.n_steps, 1)
+
+        with self.subTest("With non-default n_steps"):
+            n_steps = 4
+            problem = create_problem_from_botorch(
+                test_problem_class=Branin,
+                test_problem_kwargs={},
+                num_trials=1,
+                use_map_metric=True,
+                n_steps=4,
+            )
+            self.assertIsInstance(
+                problem.optimization_config.objective.metric, BenchmarkMapMetric
+            )
+            self.assertEqual(problem.test_function.n_steps, n_steps)
+
+        with self.subTest("MOO"):
+            problem = create_problem_from_botorch(
+                test_problem_class=BraninCurrin,
+                test_problem_kwargs={},
+                num_trials=1,
+                use_map_metric=True,
+            )
+            metric = next(iter(problem.optimization_config.metrics.values()))
+            self.assertIsInstance(metric, BenchmarkMapMetric)
