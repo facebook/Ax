@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ax-platform"
 description = "Adaptive Experimentation"
-authors = [{name = "Facebook, Inc."}]
+authors = [{name = "Meta Platforms, Inc."}]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
