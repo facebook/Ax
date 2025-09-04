@@ -37,7 +37,6 @@ from ax.benchmark.benchmark import (
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
-    create_problem_from_botorch,
     get_continuous_search_space,
     get_moo_opt_config,
     get_soo_opt_config,
@@ -54,7 +53,10 @@ from ax.benchmark.methods.sobol import (
     get_sobol_generation_strategy,
 )
 from ax.benchmark.problems.registry import get_benchmark_problem
-from ax.benchmark.problems.synthetic.from_botorch import get_augmented_branin_problem
+from ax.benchmark.problems.synthetic.from_botorch import (
+    create_problem_from_botorch,
+    get_augmented_branin_problem,
+)
 from ax.benchmark.testing.benchmark_stubs import (
     get_async_benchmark_method,
     get_async_benchmark_problem,

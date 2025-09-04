@@ -22,7 +22,6 @@ from ax.benchmark.benchmark_metric import (
 )
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
-    create_problem_from_botorch,
     get_moo_opt_config,
     get_soo_opt_config,
 )
@@ -33,6 +32,7 @@ from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunctio
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.problems.surrogate.lcbench.data import LCBenchData
 from ax.benchmark.problems.surrogate.lcbench.utils import get_lcbench_parameters
+from ax.benchmark.problems.synthetic.from_botorch import create_problem_from_botorch
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
