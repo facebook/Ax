@@ -88,7 +88,7 @@ find = {}
 
 [tool.setuptools_scm]
 write_to = "ax/version.py"
-local_scheme = "no-local-version"
+local_scheme = "node-and-date"
 
 [tool.usort]
 first_party_detection = false
