@@ -469,7 +469,7 @@ class ObservationsTest(TestCase):
         df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "step"]
         ]
-        data = MapData.from_df(df=df, map_key="step")
+        data = MapData(df=df)
         observations = observations_from_data(experiment=experiment, data=data)
         self.assertEqual(len(observations), 3)
 

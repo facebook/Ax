@@ -34,7 +34,7 @@ from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -647,7 +647,7 @@ class BaseAdapterTest(TestCase):
                     set(call_kwargs["status_quo_observations"][-1].data.metric_names),
                     {"branin_map_constraint"},
                 )
-            self.assertEqual(call_kwargs["map_key"], "timestamp")
+            self.assertEqual(call_kwargs["map_key"], MAP_KEY)
             opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
             self.assertEqual(call_kwargs["metrics"], opt_config_metrics)
             adapter_sq = none_throws(adapter.status_quo)

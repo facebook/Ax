@@ -49,7 +49,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 absolute values; if `minimize` is False, then "bottom" actually refers
                 to the top trials in terms of metric value.
             min_progression: Only stop trials if the latest progression value
-                (e.g. timestamp, epochs, training data used) is greater than this
+                (i.e. "step") is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
                 to make a decision.
             max_progression: Do not stop trials that have passed `max_progression`.

@@ -16,7 +16,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric, MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.utils.common.result import Err, Ok
@@ -26,8 +26,6 @@ class NoisyFunctionMapMetric(MapMetric):
     """A metric defined by a generic deterministic function, with normal noise
     with mean 0 and mean_sd scale added to the result.
     """
-
-    map_key_info: MapKeyInfo = MapKeyInfo(key="timestamp")
 
     def __init__(
         self,
@@ -101,12 +99,10 @@ class NoisyFunctionMapMetric(MapMetric):
                         else 0.0
                         for item in res
                     ],
-                    self.map_key_info.key: [
-                        item[self.map_key_info.key] for item in res
-                    ],
+                    MAP_KEY: [item[MAP_KEY] for item in res],
                 }
             )
-            return Ok(value=MapData(df=df, map_key_infos=[self.map_key_info]))
+            return Ok(value=MapData(df=df))
 
         except Exception as e:
             return Err(

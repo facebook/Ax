@@ -16,7 +16,7 @@ import pandas as pd
 from ax.api.types import TParameterization
 
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import MetricFetchE, MetricFetchResult
 from ax.core.runner import Runner
@@ -36,8 +36,6 @@ class _APIMetric(MapMetric, ABC):
     Ideally we will be able to remove this class in the future, once we have stablized
     structure of ax.core.Metric to be more in line with our long term vision for Ax.
     """
-
-    map_key_info: MapKeyInfo = MapKeyInfo(key="step")
 
     def __init__(self, name: str) -> None:
         super().__init__(name=name)
@@ -72,16 +70,11 @@ class _APIMetric(MapMetric, ABC):
                 "trial_index": trial.index,
                 "arm_name": none_throws(trial.arm).name,
                 "metric_name": self.name,
-                self.map_key_info.key: progression,
+                MAP_KEY: progression,
                 "mean": mean,
                 "sem": sem,
             }
-            return Ok(
-                value=MapData(
-                    df=pd.DataFrame.from_records([record]),
-                    map_key_infos=[self.map_key_info],
-                )
-            )
+            return Ok(value=MapData(df=pd.DataFrame.from_records([record])))
         except Exception as e:
             return Err(
                 value=MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)

@@ -259,13 +259,9 @@ class BenchmarkMapMetric(MapMetric, BenchmarkMetricBase):
         return True
 
     def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
-        # Just in case the key was renamed by a subclass
-        df = df.rename(columns={"step": self.map_key_info.key})
-        return Ok(value=MapData(df=df, map_key_infos=[self.map_key_info]))
+        return Ok(value=MapData(df=df))
 
 
 class BenchmarkMapUnavailableWhileRunningMetric(MapMetric, BenchmarkMetricBase):
     def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
-        # Just in case the key was renamed by a subclass
-        df = df.rename(columns={"step": self.map_key_info.key})
-        return Ok(value=MapData(df=df, map_key_infos=[self.map_key_info]))
+        return Ok(value=MapData(df=df))
