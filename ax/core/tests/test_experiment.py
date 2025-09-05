@@ -7,6 +7,7 @@
 # pyre-strict
 
 from collections import OrderedDict
+from time import sleep
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -1956,3 +1957,39 @@ class ExperimentWithMapDataTest(TestCase):
             sorted_df,
             expected_sorted_df,
         )
+
+    def test_check_TTL_on_trials_no_ttl(self) -> None:
+        """
+        Test that _check_TTL_on_candidate_trials only runs when
+        _trials_have_ttl is True.
+        """
+        candidate_trial_no_ttl = self.experiment.new_trial()
+        self.assertFalse(self.experiment._trials_have_ttl)
+        # This should be a no-op since no trials have TTL
+        sleep(1.1)  # Wait for sometime
+        self.experiment._check_TTL_on_candidate_trials()
+        self.assertTrue(candidate_trial_no_ttl.status.is_candidate)
+
+    def test_check_TTL_on_trials_with_ttl(self) -> None:
+        """Test that candidate trial with TTL should be marked as stale."""
+        candidate_trial_with_ttl = self.experiment.new_trial(ttl_seconds=1)
+        self.assertTrue(self.experiment._trials_have_ttl)
+
+        # Also create trials with different statuses to verify they're handled correctly
+        running_trial = self.experiment.new_trial(ttl_seconds=1)
+        running_trial.mark_running(no_runner_required=True)
+
+        completed_trial = self.experiment.new_trial(ttl_seconds=1)
+        completed_trial.mark_running(no_runner_required=True)
+        completed_trial.mark_completed()
+
+        sleep(1.1)  # Wait for TTL to expire
+        self.experiment._check_TTL_on_candidate_trials()
+
+        # Verify expected behavior:
+        # - Candidate trial should become STALE
+        # - Running trial should remain RUNNING (unaffected by TTL)
+        # - Completed trial should remain COMPLETED (unaffected by TTL)
+        self.assertTrue(candidate_trial_with_ttl.status.is_stale)
+        self.assertTrue(running_trial.status.is_running)
+        self.assertTrue(completed_trial.status.is_completed)

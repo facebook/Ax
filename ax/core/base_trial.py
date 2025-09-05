@@ -155,7 +155,7 @@ class BaseTrial(ABC, SortableBase):
     @property
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
-        self._mark_failed_if_past_TTL()
+        self._mark_stale_if_past_TTL()
         return none_throws(self._status)
 
     @status.setter
@@ -647,6 +647,27 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
+    def mark_stale(self, unsafe: bool = False) -> BaseTrial:
+        """Mark trial as stale.
+
+        Args:
+            unsafe: Ignore sanity checks on state transitions.
+        Returns:
+            The trial instance.
+        """
+        if not unsafe and self._status != TrialStatus.CANDIDATE:
+            raise TrialMutationError(
+                message=(
+                    "Cannot mark this candidate as `STALE` because the current status "
+                    f"is {self.status} and only trials with status `CANDIDATE` are "
+                    "eligible to be marked as `STALE`."
+                )
+            )
+
+        self._status = TrialStatus.STALE
+        self._time_completed = datetime.now()
+        return self
+
     def mark_as(
         self, status: TrialStatus, unsafe: bool = False, **kwargs: Any
     ) -> BaseTrial:
@@ -674,6 +695,8 @@ class BaseTrial(ABC, SortableBase):
             self.mark_completed(unsafe=unsafe)
         elif status == TrialStatus.EARLY_STOPPED:
             self.mark_early_stopped(unsafe=unsafe)
+        elif status == TrialStatus.STALE:
+            self.mark_stale(unsafe=unsafe)
         else:
             raise TrialMutationError(f"Cannot mark trial as {status}.")
         return self
@@ -721,17 +744,17 @@ class BaseTrial(ABC, SortableBase):
             else UNKNOWN_GENERATION_METHOD_STR
         )
 
-    def _mark_failed_if_past_TTL(self) -> None:
-        """If trial has TTL set and is running, check if the TTL has elapsed
-        and mark the trial failed if so.
+    def _mark_stale_if_past_TTL(self) -> None:
         """
-        if self.ttl_seconds is None or not none_throws(self._status).is_running:
+        Changes a `CANDIDATE` trial's status to `STALE` if the trial has a 'ttl' set
+        and the time elapsed is greater than the ttl value.
+        """
+        if self.ttl_seconds is None or not none_throws(self._status).is_candidate:
             return
-        time_run_started = self._time_run_started
-        assert time_run_started is not None
-        dt = datetime.now() - time_run_started
-        if dt > timedelta(seconds=none_throws(self.ttl_seconds)):
-            self.mark_failed()
+
+        time_elapsed = datetime.now() - self._time_created
+        if time_elapsed > timedelta(seconds=none_throws(self.ttl_seconds)):
+            self.mark_stale()
 
     @property
     def _status(self) -> TrialStatus | None:

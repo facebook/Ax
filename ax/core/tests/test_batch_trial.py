@@ -311,6 +311,9 @@ class BatchTrialTest(TestCase):
             with self.assertRaises(TrialMutationError):
                 self.batch.mark_failed()
 
+            with self.assertRaises(TrialMutationError):
+                self.batch.mark_stale()
+
             # Check that the trial statuses mapping on experiment is updated when
             # trial status is set hackily / directly, without using `mark_X`.
             self.batch._status = TrialStatus.CANDIDATE
@@ -339,6 +342,13 @@ class BatchTrialTest(TestCase):
         self.batch.mark_failed()
 
         self.assertEqual(self.batch.status, TrialStatus.FAILED)
+        self.assertIsNotNone(self.batch.time_completed)
+
+    def test_StaleBatchTrial(self) -> None:
+        self.assertTrue(self.batch.status.is_candidate)
+        self.batch.mark_stale()
+
+        self.assertEqual(self.batch.status, TrialStatus.STALE)
         self.assertIsNotNone(self.batch.time_completed)
 
     def test_EarlyStoppedBatchTrial(self) -> None:
@@ -544,34 +554,34 @@ class BatchTrialTest(TestCase):
             "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)",
         )
 
-    def test_TTL(self) -> None:
-        # Verify that TLL is checked on execution of the `status` property.
-        self.batch.ttl_seconds = 1
-        self.batch.mark_running(no_runner_required=True)
-        self.assertTrue(self.batch.status.is_running)
+    def test_TTL_status_property_check(self) -> None:
+        """Verify that TTL is checked on execution of the `status` property."""
+        candidate_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+        self.assertTrue(candidate_trial.status.is_candidate)
         sleep(1)  # Wait 1 second for trial TTL to elapse.
-        self.assertTrue(self.batch.status.is_failed)
-        self.assertIn(0, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+        # Candidate should become stale on expiration of TTL.
+        self.assertTrue(candidate_trial.status.is_stale)
+        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.STALE])
 
-        # Verify that TTL is checked on `experiment.trial_indices_by_status`.
-        batch_trial = self.experiment.new_batch_trial(ttl_seconds=1)
-        batch_trial.mark_running(no_runner_required=True)
-        self.assertTrue(batch_trial.status.is_running)
+    def test_TTL_trial_indices_by_status_check(self) -> None:
+        """Verify that TTL is checked on `experiment.trial_indices_by_status`."""
+        candidate_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+        self.assertTrue(candidate_trial.status.is_candidate)
         sleep(1)  # Wait 1 second for trial TTL to elapse.
-        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
-        self.assertTrue(self.experiment.trials[1].status.is_failed)
+        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.STALE])
+        self.assertTrue(candidate_trial.status.is_stale)
 
-        # Verify that TTL is checked on `experiment.trials`.
-        batch_trial = self.experiment.new_batch_trial(ttl_seconds=1)
-        batch_trial.mark_running(no_runner_required=True)
-        self.assertTrue(batch_trial.status.is_running)
-        self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.RUNNING])
+    def test_TTL_experiment_trials_check(self) -> None:
+        """Verify that TTL is checked on `experiment.trials`."""
+        candidate_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+        self.assertTrue(candidate_trial.status.is_candidate)
+        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.CANDIDATE])
         sleep(1)  # Wait 1 second for trial TTL to elapse.
         self.experiment.trials
         # Check `_status`, not `status`, to ensure it's within `trials` that the status
         # was actually changed, not in `status`.
-        self.assertEqual(batch_trial._status, TrialStatus.FAILED)
-        self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
+        self.assertEqual(candidate_trial._status, TrialStatus.STALE)
+        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.STALE])
 
     def test_get_candidate_metadata_from_all_generator_runs(self) -> None:
         self.assertEqual(self.batch.generation_method_str, MANUAL_GENERATION_METHOD_STR)
