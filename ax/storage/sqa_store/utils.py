@@ -13,6 +13,7 @@ from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import SQADecodeError
 from ax.utils.common.base import Base, SortableBase
+from sqlalchemy import inspect
 
 
 JSON_ATTRS = ["baseline_workflow_inputs"]
@@ -172,3 +173,18 @@ def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None
 
     else:
         return
+
+
+def are_relationships_loaded(sqa_object: Any, relationship_names: list[str]) -> bool:
+    """Check that the given relationships are loaded for the given SQLAlchemy object.
+
+    Args:
+        sqa_object: The SQLAlchemy object to check.
+        relationship_names: The names of the relationships to check.
+
+    Returns:
+        True if all of the relationships are loaded, False otherwise.
+    """
+    inspector = inspect(sqa_object)
+    # inspector.unloaded is a set of attribute names that are NOT loaded
+    return all(name not in inspector.unloaded for name in relationship_names)

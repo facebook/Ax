@@ -8,8 +8,6 @@
 
 from typing import Any, Optional, TYPE_CHECKING
 
-import numpy as np
-import numpy.typing as npt
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.deprecated_transform_mixin import DeprecatedTransformMixin
@@ -26,14 +24,12 @@ if TYPE_CHECKING:
 
 
 class ChoiceToNumericChoice(Transform):
-    """Convert general ChoiceParameters to integer or float ChoiceParameters.
+    """Convert non-numeric ChoiceParameters to integer ChoiceParameters.
 
-    If the parameter type is numeric (int, float) and the parameter is ordered,
-    then the values are normalized to the unit interval while retaining relative
-    spacing. If the parameter type is unordered (categorical) or ordered but
-    non-numeric, this transform uses an integer encoding to `0, 1, ..., n_choices - 1`.
-    The resulting choice parameter will be considered ordered iff the original
-    parameter is.
+    If the parameter type is numeric (int, float), the parameter is not modified.
+    If the parameter is non-numeric, this transform uses an integer encoding to
+    `0, 1, ..., n_choices - 1`. The resulting choice parameter will be considered
+    ordered iff the original parameter is.
 
     In the inverse transform, parameters will be mapped back onto the original domain.
 
@@ -67,8 +63,8 @@ class ChoiceToNumericChoice(Transform):
         self.encoded_parameters: dict[str, dict[TParamValue, TParamValue]] = {}
         self.encoded_parameters_inverse: dict[str, ClosestLookupDict] = {}
         for p in search_space.parameters.values():
-            if isinstance(p, ChoiceParameter) and not p.is_task:
-                transformed_values, _ = transform_choice_values(p)
+            if isinstance(p, ChoiceParameter) and not p.is_numeric and not p.is_task:
+                transformed_values = list(range(len(p.values)))
                 self.encoded_parameters[p.name] = dict(
                     zip(p.values, transformed_values)
                 )
@@ -91,17 +87,31 @@ class ChoiceToNumericChoice(Transform):
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
-                if p.is_fidelity:
-                    raise ValueError(
-                        f"Cannot choice-encode fidelity parameter {p_name}"
-                    )
-                tvals, ptype = transform_choice_values(p)
+                encoding = self.encoded_parameters[p_name]
+                dependents = None
+                if p.is_hierarchical:
+                    # The dependents of hierarchical parameters need to be updated to
+                    # reflect the changes by encoding.
+                    dependents = {
+                        encoding[val]: deps for val, deps in p.dependents.items()
+                    }
+
                 transformed_parameters[p_name] = ChoiceParameter(
                     name=p_name,
-                    parameter_type=ptype,
-                    values=tvals.tolist(),
+                    parameter_type=ParameterType.INT,
+                    # Explicitly extracting values rather than passing
+                    # `list(encoding.values())` should make it possible to correctly
+                    # transform a parameter that has different (a subset of) values
+                    # than the parameter used to initialize the transform.
+                    values=[encoding[val] for val in p.values],
                     is_ordered=p.is_ordered,
+                    is_task=p.is_task,
+                    is_fidelity=p.is_fidelity,
+                    target_value=encoding[p.target_value]
+                    if p.target_value is not None
+                    else None,
                     sort_values=p.sort_values,
+                    dependents=dependents,
                 )
             else:
                 transformed_parameters[p.name] = p
@@ -247,29 +257,3 @@ class OrderedChoiceEncode(DeprecatedTransformMixin, OrderedChoiceToIntegerRange)
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-
-
-def transform_choice_values(p: ChoiceParameter) -> tuple[npt.NDArray, ParameterType]:
-    """Transforms the choice values and returns the new parameter type.
-
-    If the choices were numeric (int or float) and ordered, then they're cast
-    to float and rescaled to [0, 1]. Otherwise, they're cast to integers
-    `0, 1, ..., n_choices - 1`.
-    """
-    if p.is_numeric and p.is_ordered:
-        # If values are ordered numeric, retain relative distances.
-        values = np.array(p.values, dtype=float)
-        vmin, vmax = values.min(), values.max()
-        if len(values) > 1:
-            values = (values - vmin) / (vmax - vmin)
-        ptype = ParameterType.FLOAT
-    else:
-        # If values are unordered or not numeric, use integer encoding.
-        # The reason for using integers rather than floats is somewhat arcane - it has
-        # to do with slightly different representation of floats in pure python and in
-        # PyTorch, which require some careful handling when untransform the choices that
-        # a model may generate on the botorch end. Ints do not have this issue, so we
-        # are using them here.
-        values = np.arange(len(p.values))
-        ptype = ParameterType.INT
-    return values, ptype

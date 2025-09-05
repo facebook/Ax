@@ -60,7 +60,6 @@ jobs:
         python-version: "3.12"
     - name: Install dependencies
       env:
-        ALLOW_BOTORCH_LATEST: true
         ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         # use latest BoTorch

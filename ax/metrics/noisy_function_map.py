@@ -27,7 +27,7 @@ class NoisyFunctionMapMetric(MapMetric):
     with mean 0 and mean_sd scale added to the result.
     """
 
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="timestamp", default_value=0.0)
+    map_key_info: MapKeyInfo = MapKeyInfo(key="timestamp")
 
     def __init__(
         self,

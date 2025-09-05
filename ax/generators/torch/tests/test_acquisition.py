@@ -20,9 +20,14 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, SearchSpaceExhausted
-from ax.generators.torch.botorch_modular.acquisition import Acquisition
+from ax.generators.torch.botorch_modular.acquisition import Acquisition, logger
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
+from ax.generators.torch.botorch_modular.optimizer_defaults import (
+    BATCH_LIMIT,
+    INIT_BATCH_LIMIT,
+    MAX_OPT_AGG_SIZE,
+)
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
@@ -45,6 +50,7 @@ from botorch.acquisition.input_constructors import (
     get_acqf_input_constructor,
 )
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
@@ -341,9 +347,9 @@ class AcquisitionTest(TestCase):
             bounds=mock.ANY,
             q=n,
             options={
-                "init_batch_limit": 32,
-                "batch_limit": 5,
-                "max_optimization_problem_aggregation_size": 5,
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
+                "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
             },
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -693,7 +699,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
             q=3,
-            options={"init_batch_limit": 32, "batch_limit": 5},
+            options={"init_batch_limit": INIT_BATCH_LIMIT, "batch_limit": BATCH_LIMIT},
             fixed_features_list=[{1: 0}, {1: 1}, {1: 2}],
             inequality_constraints=self.inequality_constraints,
             post_processing_func=self.rounding_func,
@@ -742,8 +748,8 @@ class AcquisitionTest(TestCase):
             cat_dims={},
             q=3,
             options={
-                "init_batch_limit": 32,
-                "batch_limit": 5,
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,
@@ -781,8 +787,8 @@ class AcquisitionTest(TestCase):
             cat_dims={1: list(range(b_upper_bound + 1))},
             q=3,
             options={
-                "init_batch_limit": 32,
-                "batch_limit": 5,
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,
@@ -843,6 +849,7 @@ class AcquisitionTest(TestCase):
         _,
         with_no_X_observed: bool = False,
         with_outcome_constraints: bool = True,
+        with_objective_thresholds: bool = True,
     ) -> None:
         acqf_class = (
             DummyAcquisitionFunction
@@ -858,8 +865,10 @@ class AcquisitionTest(TestCase):
             )
         ]
         moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
-        moo_objective_thresholds = torch.tensor(
-            [0.5, 1.5, float("nan")], **self.tkwargs
+        moo_objective_thresholds = (
+            torch.tensor([0.5, 1.5, float("nan")], **self.tkwargs)
+            if with_objective_thresholds
+            else None
         )
         self.surrogate.fit(
             datasets=moo_training_data,
@@ -893,13 +902,14 @@ class AcquisitionTest(TestCase):
             options=self.options,
             botorch_acqf_options=self.botorch_acqf_options,
         )
-        self.assertTrue(
-            torch.equal(
-                moo_objective_thresholds[:2],
-                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-                acquisition.objective_thresholds[:2],
+        if moo_objective_thresholds is not None:
+            self.assertTrue(
+                torch.equal(
+                    moo_objective_thresholds[:2],
+                    # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
+                    acquisition.objective_thresholds[:2],
+                )
             )
-        )
         self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
         # test inferred objective_thresholds
         with ExitStack() as es:
@@ -971,6 +981,48 @@ class AcquisitionTest(TestCase):
 
     def test_init_no_X_observed(self) -> None:
         self.test_init_moo(with_no_X_observed=True, with_outcome_constraints=False)
+
+    def test_init_inferred_thresholds_with_constraints(self) -> None:
+        self.test_init_moo(
+            with_outcome_constraints=True, with_objective_thresholds=False
+        )
+
+    @mock_botorch_optimize
+    def test_init_p_feasible(self) -> None:
+        # Acquisition initialization should succeed when there are no feasible
+        # points and we're using an acqf that doesn't need thresholds.
+        moo_training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y.repeat(1, 3),
+                feature_names=self.feature_names,
+                outcome_names=["m1", "m2", "m3"],
+            )
+        ]
+        self.surrogate.fit(
+            datasets=moo_training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        torch_opt_config = TorchOptConfig(
+            objective_weights=torch.tensor([1.0, 1.0, 0.0], **self.tkwargs),
+            outcome_constraints=(
+                torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
+                torch.tensor([[0.0]], **self.tkwargs),
+            ),
+            is_moo=True,
+        )
+        with self.assertLogs(logger=logger, level="WARNING") as logs:
+            acquisition = Acquisition(
+                surrogate=self.surrogate,
+                search_space_digest=self.search_space_digest,
+                botorch_acqf_class=qLogProbabilityOfFeasibility,
+                torch_opt_config=torch_opt_config,
+            )
+        self.assertTrue(
+            any("Failed to infer objective thresholds." in str(log) for log in logs)
+        )
+        self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
+        self.assertIsNone(acquisition._full_objective_thresholds)
 
 
 class MultiAcquisitionTest(AcquisitionTest):

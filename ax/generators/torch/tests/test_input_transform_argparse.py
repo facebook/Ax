@@ -22,6 +22,7 @@ from ax.generators.torch.botorch_modular.input_constructors.input_transforms imp
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.models.transforms.input import (
+    FilterFeatures,
     InputPerturbation,
     InputStandardize,
     InputTransform,
@@ -261,3 +262,111 @@ class InputTransformArgparseTest(TestCase):
                 )
             )
         )
+
+    def test_argparse_filter_features(self) -> None:
+        # Test with no input_transform_options - should return all feature indices
+        input_transform_kwargs = input_transform_argparse(
+            FilterFeatures,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+        )
+        all_feature_indices = torch.arange(
+            len(self.dataset.feature_names), dtype=torch.int64
+        )
+        self.assertEqual(set(input_transform_kwargs.keys()), {"feature_indices"})
+        self.assertTrue(
+            torch.equal(input_transform_kwargs["feature_indices"], all_feature_indices)
+        )
+
+        # Test with empty input_transform_options - should return all feature indices
+        input_transform_kwargs = input_transform_argparse(
+            FilterFeatures,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={},
+        )
+        all_feature_indices = torch.arange(
+            len(self.dataset.feature_names), dtype=torch.int64
+        )
+        self.assertEqual(set(input_transform_kwargs.keys()), {"feature_indices"})
+        self.assertTrue(
+            torch.equal(input_transform_kwargs["feature_indices"], all_feature_indices)
+        )
+
+        # Test with explicit feature_indices - should pass through unchanged
+        feature_indices = torch.tensor([0, 2, 3], dtype=torch.int64)
+        input_transform_kwargs = input_transform_argparse(
+            FilterFeatures,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={"feature_indices": feature_indices},
+        )
+        self.assertEqual(set(input_transform_kwargs.keys()), {"feature_indices"})
+        self.assertTrue(
+            torch.equal(input_transform_kwargs["feature_indices"], feature_indices)
+        )
+        # Test with ignored_params - should convert to feature_indices
+        ignored_params = ["x1", "x3"]
+        expected_feature_indices = torch.tensor(
+            [0, 2], dtype=torch.int64
+        )  # Keep x0 and x2, ignore x1 and x3
+        input_transform_kwargs = input_transform_argparse(
+            FilterFeatures,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={"ignored_params": ignored_params},
+        )
+        self.assertEqual(set(input_transform_kwargs.keys()), {"feature_indices"})
+        self.assertTrue(
+            torch.equal(
+                input_transform_kwargs["feature_indices"], expected_feature_indices
+            )
+        )
+
+        # Test with empty ignored_params - should return all feature indices
+        input_transform_kwargs = input_transform_argparse(
+            FilterFeatures,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={"ignored_params": []},
+        )
+        self.assertEqual(set(input_transform_kwargs.keys()), {"feature_indices"})
+        self.assertTrue(
+            torch.equal(input_transform_kwargs["feature_indices"], all_feature_indices)
+        )
+
+        # Test when both feature_indices and ignored_params are specified - and
+        # they are consistent
+        feature_indices = torch.tensor([0, 2, 3], dtype=torch.int64)
+        input_transform_kwargs = input_transform_argparse(
+            FilterFeatures,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={
+                "feature_indices": feature_indices,
+                "ignored_params": ["x1"],
+            },
+        )
+        self.assertEqual(set(input_transform_kwargs.keys()), {"feature_indices"})
+        self.assertTrue(
+            torch.equal(input_transform_kwargs["feature_indices"], feature_indices)
+        )
+
+        # Test when both feature_indices and ignored_params are specified - and
+        # they are inconsistent
+        feature_indices = torch.tensor([0, 2, 3], dtype=torch.int64)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Filtered features passed in by feature_indices .* "
+            r"is inconsistent with filtered feature indices computed from "
+            r"ignored_params",
+        ):
+            input_transform_kwargs = input_transform_argparse(
+                FilterFeatures,
+                dataset=self.dataset,
+                search_space_digest=self.search_space_digest,
+                input_transform_options={
+                    "feature_indices": feature_indices,
+                    "ignored_params": ["x0", "x1"],
+                },
+            )

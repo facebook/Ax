@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+# Scheduler was deprecated in Ax 1.1.0, so it should be removed in
+# Ax 1.2.0+.
 class Scheduler:
     raise DeprecationWarning(
         "Scheduler is deprecated following renaming of the Scheduler to "
@@ -14,6 +16,8 @@ class Scheduler:
     )
 
 
+# Scheduler was deprecated in Ax 1.1.0, so it should be removed in
+# Ax 1.2.0+.
 class SchedulerInternalError(Exception):
     raise DeprecationWarning(
         "SchedulerInternalError is deprecated following renaming of the Scheduler to "

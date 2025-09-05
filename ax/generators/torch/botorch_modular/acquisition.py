@@ -13,6 +13,7 @@ import operator
 from collections.abc import Callable
 from functools import partial, reduce
 from itertools import product
+from logging import Logger
 from typing import Any, Mapping, Sequence
 
 import torch
@@ -34,13 +35,14 @@ from ax.generators.torch.utils import (
 from ax.generators.torch_base import TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
-from botorch.exceptions.errors import InputDataError
+from botorch.exceptions.errors import BotorchError, InputDataError
 from botorch.models.model import Model
 from botorch.optim.optimize import (
     optimize_acqf,
@@ -57,6 +59,9 @@ try:
     from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
 except ImportError:
     optimize_with_nsgaii = None
+
+
+logger: Logger = get_logger(__name__)
 
 
 # For fully discrete search spaces.
@@ -278,10 +283,18 @@ class Acquisition(Base):
         )
 
     def _update_objective_thresholds(self, torch_opt_config: TorchOptConfig) -> None:
-        # If MOO and some objective thresholds are not specified, infer them using
-        # the model that has already been subset to avoid re-subsetting it within
-        # `infer_objective_thresholds`.
-        if (
+        """If MOO and some objective thresholds are not specified, infer them using
+        the model that has already been subset to avoid re-subsetting it within
+        `infer_objective_thresholds`.
+
+        If risk measures are used, objective thresholds must be provided. If not,
+        this will error out.
+
+        If `infer_objective_thresholds` errors out, e.g., due to no feasible point,
+        this will log an error and let the optimization continue. Not all acquisition
+        functions require objective thresholds, so this is not necessarily a problem.
+        """
+        if not (
             torch_opt_config.is_moo
             and (
                 self._full_objective_thresholds is None
@@ -291,10 +304,12 @@ class Acquisition(Base):
             )
             and self.X_observed is not None
         ):
-            if torch_opt_config.risk_measure is not None:
-                raise NotImplementedError(
-                    "Objective thresholds must be provided when using risk measures."
-                )
+            return
+        if torch_opt_config.risk_measure is not None:
+            raise NotImplementedError(
+                "Objective thresholds must be provided when using risk measures."
+            )
+        try:
             self._full_objective_thresholds = infer_objective_thresholds(
                 model=self._model,
                 objective_weights=self._full_objective_weights,
@@ -307,6 +322,12 @@ class Acquisition(Base):
                 none_throws(self._full_objective_thresholds)[self._subset_idcs]
                 if self._subset_idcs is not None
                 else self._full_objective_thresholds
+            )
+        except (AxError, BotorchError) as e:
+            logger.warning(
+                "Failed to infer objective thresholds. Resuming optimization "
+                "without objective thresholds, which may or may not work depending "
+                f"on the acquisition function. Original error: {e}."
             )
 
     def _set_preference_model(self, torch_opt_config: TorchOptConfig) -> None:
@@ -480,8 +501,7 @@ class Acquisition(Base):
         if optimizer_options is not None:
             forbidden_optimizer_options = [
                 "equality_constraints",
-                "inequality_constraints",
-                "nonlinear_inequality_constraints",
+                "inequality_constraints",  # These should be constructed by Ax
                 "batch_initial_conditions",
                 "return_best_only",
                 "return_full_tree",

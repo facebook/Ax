@@ -14,7 +14,10 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import Analysis
-from ax.analysis.plotly.color_constants import CONSTRAINT_VIOLATION_RED
+from ax.analysis.plotly.color_constants import (
+    BOTORCH_COLOR_SCALE,
+    CONSTRAINT_VIOLATION_RED,
+)
 
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
@@ -26,6 +29,8 @@ from ax.analysis.plotly.utils import (
     get_trial_trace_name,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
+    MULTIPLE_CANDIDATE_TRIALS_LEGEND,
+    SINGLE_CANDIDATE_TRIAL_LEGEND,
     trial_index_to_color,
     truncate_label,
     Z_SCORE_95_CI,
@@ -339,7 +344,14 @@ def _prepare_figure(
     trial_indices = trials_list.copy()
     if not np.isnan(candidate_trial):
         trial_indices.append(candidate_trial)
+
     scatters = []
+    scatter_trial_indices = []  # Track trial indices for each scatter
+
+    # Track trials that get included in the plot
+    num_candidate_trials = 0
+    num_non_candidate_trials = 0
+    candidate_trial_marker = None
 
     for trial_index in trial_indices:
         trial_df = df[df["trial_index"] == trial_index]
@@ -355,6 +367,11 @@ def _prepare_figure(
             trials_list=trials_list,
             trial_index=trial_index,
         )
+
+        # Skip trials with no meaningful data for either metric
+        if mean_x.empty and mean_y.empty:
+            continue
+
         marker = {
             "color": trial_index_to_color(
                 trial_df=trial_df,
@@ -373,6 +390,12 @@ def _prepare_figure(
             },
         }
 
+        if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
+            num_candidate_trials += 1
+            candidate_trial_marker = marker
+        else:
+            num_non_candidate_trials += 1
+
         text = trial_df.apply(
             lambda row: get_arm_tooltip(
                 row=row, metric_names=[x_metric_name, y_metric_name]
@@ -389,9 +412,59 @@ def _prepare_figure(
                 mode="markers",
                 marker=marker,
                 name=get_trial_trace_name(trial_index=trial_index),
+                showlegend=False,  # Will be set after determining use_colorscale
                 hoverinfo="text",
                 text=text,
+                legendgroup="candidate_trials"
+                if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name
+                else None,
             )
+        )
+        scatter_trial_indices.append(trial_index)
+
+    # Determine use_colorscale based on actual included trials
+    use_colorscale = num_non_candidate_trials > 10
+
+    # Update markers and legend settings based on use_colorscale
+    for scatter, trial_index in zip(scatters, scatter_trial_indices):
+        trial_df = df[df["trial_index"] == trial_index]
+
+        if use_colorscale:
+            # Add colorscale settings to marker
+            scatter.marker.update(
+                {
+                    "colorscale": BOTORCH_COLOR_SCALE,
+                    "showscale": True,
+                    "cmin": min(scatter_trial_indices),
+                    "cmax": max(scatter_trial_indices),
+                    "colorbar": {
+                        "title": "Trial Index",
+                        "orientation": "h",
+                        "x": 0.4,
+                        "xanchor": "center",
+                        "y": -0.30,
+                        "yanchor": "top",
+                    },
+                }
+            )
+        else:
+            # Show legend for all non-candidate trials when not using colorscale
+            scatter.showlegend = (
+                trial_df["trial_status"].iloc[0] != TrialStatus.CANDIDATE.name
+            )
+
+    # Determine legend position before creating figure
+    legend_position = LEGEND_POSITION.copy()
+    if use_colorscale:
+        # Position legend to the right, align with colorscale
+        legend_position.update(
+            {
+                "orientation": "v",
+                "yanchor": "top",
+                "y": -0.33,
+                "xanchor": "left",
+                "x": 0.9,
+            }
         )
 
     figure = go.Figure(data=scatters)
@@ -400,9 +473,26 @@ def _prepare_figure(
         yaxis_title=y_metric_label,
         xaxis_tickformat=".2%" if is_relative else None,
         yaxis_tickformat=".2%" if is_relative else None,
-        legend=LEGEND_POSITION,
+        legend=legend_position,
         margin=MARGIN_REDUCUTION,
     )
+
+    # Add candidate trial legend at the end
+    if num_candidate_trials > 0:
+        figure.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                marker=candidate_trial_marker,
+                name=SINGLE_CANDIDATE_TRIAL_LEGEND
+                if num_candidate_trials == 1
+                else MULTIPLE_CANDIDATE_TRIALS_LEGEND,
+                showlegend=True,
+                hoverinfo="skip",
+                legendgroup="candidate_trials",
+            )
+        )
 
     # Add a red circle with no fill if any arms are marked as possibly infeasible.
     if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():

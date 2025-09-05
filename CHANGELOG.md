@@ -2,6 +2,22 @@
 
 The release log for Ax.
 
+## [1.1.1] -- Sept 4, 2025
+#### Bug fixes
+* Correctly filter out observations from Abandoned trials/arms during candidate
+    generation (#4155)
+* Handle scalarized objectives in ResultsAnalysis (#4193)
+* Fix bug in polytope sampler when generating more than one candidate in a batch (#4244)
+
+#### Other changes
+* Transition from setup.py to pyproject.toml for builds, modernizing Ax's build
+    configuration and bringing it in compliance with PEP 518 and PEP 621 (#4100)
+* Add py.typed file, which allows typecheckers like Pyre, mypy, etc. to see Ax's types
+    and avoid a TypeStub error when importing Ax (#4139)
+* Improve legibility of ArmEffectPlot by modifying legend and x-axis labels (#4220,
+    #4243)
+* Address logspew in OneHotEncoder transform (#4232)
+
 ## [1.1.0] -- Aug 11, 2025
 #### New Features
 * New option for the `method` parameter in `client.configure_generation_strategy`:

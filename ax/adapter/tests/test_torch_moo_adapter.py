@@ -47,7 +47,6 @@ from ax.utils.testing.core_stubs import (
     TEST_SOBOL_SEED,
 )
 from ax.utils.testing.mock import mock_botorch_optimize, skip_fit_gpytorch_mll
-from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from botorch.utils.multi_objective.pareto import is_non_dominated
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -104,12 +103,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             ),
         )
         adapter = TorchAdapter(
-            search_space=exp.search_space,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
-            optimization_config=exp.optimization_config,
-            transforms=[transform_1, transform_2],
             experiment=exp,
-            data=exp.fetch_data(),
+            generator=MultiObjectiveLegacyBoTorchGenerator(),
         )
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
@@ -565,7 +560,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             init_position=len(exp.arms_by_name) - 1,
         )
         sobol_run = sobol_generator.gen(n=2)
-        trial = exp.new_batch_trial(add_status_quo_arm=True)
+        trial = exp.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True).mark_completed()
         data = exp.fetch_data()

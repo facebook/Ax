@@ -160,26 +160,14 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             return None
 
         data = assert_is_instance(data, MapData)
-        map_keys = data.map_keys
-        if len(list(map_keys)) > 1:
-            logger.info(
-                f"{self.__class__.__name__} expects MapData with a single "
-                "map key, but the data attached to the experiment has multiple: "
-                f"{data.map_keys}. Not stopping any trials."
-            )
-            return None
         map_df = data.map_df
         # keep only relevant metrics
         map_df = map_df[map_df["metric_name"].isin(metric_names)].copy()
         if self.normalize_progressions:
-            for map_key in map_keys:
+            if (map_key := data.map_key) is not None:
                 values = map_df[map_key].astype(float)
                 map_df[map_key] = values / values.abs().max()
-        return MapData(
-            df=map_df,
-            map_key_infos=data.map_key_infos,
-            description=data.description,
-        )
+        return MapData.from_df(df=map_df, map_key=data.map_key)
 
     @staticmethod
     def _log_and_return_trial_ignored(
@@ -352,8 +340,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return next(iter(objectives_to_directions.items()))
 
     def _all_objectives_and_directions(self, experiment: Experiment) -> dict[str, bool]:
-        """Returns a dict containing the metric names and corresponding directions for
-        each objective in the experiment or in `self.metric_names`, if specified.
+        """A dictionary mapping metric names to corresponding directions, i.e.
+        a Boolean indicating whether the objective is minimized, for each objective in
+        the experiment or in `self.metric_names`, if specified.
+
+        Args:
+            experiment: The experiment containing the optimization config.
+
+        Returns: A dictionary mapping metric names to a Boolean indicating whether
+            the objective is being minimized.
         """
         if self.metric_names is None:
             logger.debug(
@@ -445,14 +440,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         )
         if map_data is not None and self.min_progression_modeling is not None:
             map_df = map_data.map_df
-            map_df = map_df[
-                map_df[map_data.map_keys[0]] >= self.min_progression_modeling
-            ]
-            map_data = MapData(
-                df=map_df,
-                map_key_infos=map_data.map_key_infos,
-                description=map_data.description,
-            )
+            map_df = map_df[map_df[map_data.map_key] >= self.min_progression_modeling]
+            map_data = MapData.from_df(df=map_df, map_key=map_data.map_key)
         return map_data
 
     def get_training_data(
@@ -463,6 +452,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         outcomes: Sequence[str] | None = None,
         parameters: list[str] | None = None,
     ) -> None:
+        # Deprecated in Ax 1.1.0, so should be removed in Ax 1.2.0+.
         raise DeprecationWarning(
             "`ModelBasedEarlyStoppingStrategy.get_training_data` is deprecated. "
             "Subclasses should either extract the training data manually, "

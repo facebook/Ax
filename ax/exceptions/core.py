@@ -91,6 +91,13 @@ class DataRequiredError(AxError):
     """
 
 
+class OptimizationNotConfiguredError(AxError):
+    """Raised when attempting to perform an operation that relies on information
+    from the experiment optimization config, but the optimization config has not
+    been defined yet.
+    """
+
+
 class MisconfiguredExperiment(AxError):
     """Raised when experiment has incomplete or incorrect information."""
 
@@ -149,6 +156,10 @@ class IncompatibleDependencyVersion(AxError):
     """Raise when an imcompatible dependency version is installed."""
 
 
+class TrialMutationError(AxError):
+    """Raise when attempting to update a trial under invalid conditions."""
+
+
 class AxWarning(Warning):
     """Base Ax warning.
 
@@ -172,3 +183,7 @@ class AxStorageWarning(AxWarning):
 
 class AxParameterWarning(AxWarning):
     """Ax warning used for concerns related to parameter setups."""
+
+
+class AxOptimizationWarning(AxWarning):
+    """Ax warning used for concerns related to modeling and optimization."""

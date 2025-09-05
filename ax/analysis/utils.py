@@ -16,9 +16,10 @@ from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import get_target_trial_index
@@ -219,16 +220,17 @@ def prepare_arm_data(
             trial_statuses=trial_statuses,
             target_trial_index=target_trial_index,
         )
-        df = relativize_data(
-            experiment=experiment,
-            df=df,
-            metric_names=filtered_metric_names,
-            is_raw_data=is_raw_data,
-            trial_index=trial_index,
-            trial_statuses=trial_statuses,
-            target_trial_index=target_trial_index,
-            status_quo_df=status_quo_df,
-        )
+        if relativize:
+            df = relativize_data(
+                experiment=experiment,
+                df=df,
+                metric_names=filtered_metric_names,
+                is_raw_data=is_raw_data,
+                trial_index=trial_index,
+                trial_statuses=trial_statuses,
+                target_trial_index=target_trial_index,
+                status_quo_df=status_quo_df,
+            )
 
     # Add additional columns which do not require predicting or extracting data.
     df["trial_status"] = df["trial_index"].apply(
@@ -289,22 +291,44 @@ def _prepare_modeled_arm_data(
         - METRIC_NAME_sem for each metric_name in metric_names
     """
     # Extract the information necessary to construct each row of the DataFrame.
-    trial_index_arm_pairs = [
-        # Arms from the experiment (empty if trial_index=-1)
-        *[
+
+    # Filter trials by trial_index, target_trial_index, and trial_statuses
+    filtered_trials = [
+        trial
+        for trial in experiment.trials.values()
+        if (
             (
-                trial.index,
-                arm,
+                (trial.index == trial_index)
+                or (trial_index is None)
+                or (trial.index == target_trial_index)
             )
-            for trial in experiment.trials.values()
-            if ((trial.index == trial_index) or (trial_index is None))
             and ((trial_statuses is None) or (trial.status in trial_statuses))
-            or (trial.index == target_trial_index)
-            for arm in trial.arms
-        ],
-        # Additional arms passed in by the user
-        *[(-1, arm) for arm in additional_arms or []],
+        )
     ]
+
+    # Exclude abandoned arms if the trial is of type BatchTrial
+    # https://www.internalfb.com/code/fbsource/[a19525e3f9e6]/fbcode/ax/core/batch_trial.py?lines=51
+    # Note: abandoned arms are expected to be excluded in all modeling and predictions.
+    # If there is a use case to include abandoned arms, please modify this logic.
+    trial_index_arm_pairs = [
+        (trial.index, arm)
+        for trial in filtered_trials
+        for arm in (
+            [
+                arm
+                for arm in trial.arms
+                if arm.name
+                not in [
+                    abandoned_arm.name
+                    for abandoned_arm in trial.abandoned_arms_metadata
+                ]
+            ]
+            if isinstance(trial, BatchTrial)
+            else trial.arms
+        )
+    ]
+    # Add additional arms passed in by the user
+    trial_index_arm_pairs += [(-1, arm) for arm in additional_arms or []]
 
     # Remove arms with missing parameters since we cannot predict for them.
     predictable_pairs = [
@@ -498,19 +522,32 @@ def _prepare_p_feasible(
         return pd.Series(np.ones(len(df)))
 
     # If an arm is missing data for a metric leave the mean as NaN.
+    oc_names = []
+    for oc in outcome_constraints:
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            # take the str representation of the scalarized outcome constraint
+            oc_names.append(str(oc))
+        else:
+            oc_names.append(oc.metric.name)
+
+    assert len(oc_names) == len(outcome_constraints)
+
     means = []
     sigmas = []
-    for constraint in outcome_constraints:
-        df_constraint = none_throws(rel_df if constraint.relative else df)
-        if f"{constraint.metric.name}_mean" in df_constraint.columns:
-            means.append(df_constraint[f"{constraint.metric.name}_mean"].tolist())
+    for i, oc_name in enumerate(oc_names):
+        df_constraint = none_throws(rel_df if outcome_constraints[i].relative else df)
+        # TODO[T235432214]: currently we are leaving the mean as NaN if the constraint
+        # is on ScalarizedOutcomeConstraint but we should be able to calculate it by
+        # setting the mean to be weights * individual metrics and sem to be
+        # sqrt(sum((weights * individual_sems)^2)), assuming independence.
+        if f"{oc_name}_mean" in df_constraint.columns:
+            means.append(df_constraint[f"{oc_name}_mean"].tolist())
 
         else:
             means.append(np.nan * np.ones(len(df_constraint)))
-        # If an arm is missing data for a metric treat the sd as 0.
         sigmas.append(
-            (df_constraint[f"{constraint.metric.name}_sem"].fillna(0)).tolist()
-            if f"{constraint.metric.name}_sem" in df_constraint.columns
+            (df_constraint[f"{oc_name}_sem"].fillna(0)).tolist()
+            if f"{oc_name}_sem" in df_constraint.columns
             else [0] * len(df)
         )
 

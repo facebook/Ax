@@ -708,10 +708,8 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
 
     objective_name = optimization_config.objective.metric.name
     data = assert_is_instance(experiment.lookup_data(), MapData)
-    map_key = data.map_key_infos[0].key
+    map_key = none_throws(data.map_key)
     map_df = data.map_df
-    if len(data.map_key_infos) > 1:
-        raise ValueError("Multiple map keys are not supported")
 
     # Has timestamps; needs to be merged with map_df because it contains
     # data on epochs that didn't actually run due to early stopping, and we need

@@ -44,6 +44,10 @@ class BoTorchTestFunction(BenchmarkTestFunction):
             ``self.botorch_problem``.
             self.botorch_problem.dim + len(dummy_param_names) should equal the
             number of parameters in the ``params`` passed to ``evaluate_true``.
+        n_steps: Number of data points produced per metric and per evaluation. 1
+            if data is not time-series. If data is time-series, this will
+            eventually become the number of values on a `MapMetric` for
+            evaluations that run to completion.
     """
 
     outcome_names: Sequence[str]
@@ -82,7 +86,7 @@ class BoTorchTestFunction(BenchmarkTestFunction):
             )
 
     def tensorize_params(self, params: Mapping[str, int | float]) -> torch.Tensor:
-        """Converts parameters to a tensor.
+        """Converts parameters to a 1d tensor.
 
         If modified bounds are provided, we normalize the parameters from the modified
         bounds to the unit cube, and then unnormalize to the original problem bounds.
@@ -114,8 +118,17 @@ class BoTorchTestFunction(BenchmarkTestFunction):
                 f"Expected {expected_n_dims} parameters, got {len(params)}."
             )
         x = self.tensorize_params(params=params)
-        objectives = self.botorch_problem(x).view(-1)
+        # self.botorch_problem(x) has shape [n_metrics] if n_metrics > 1,
+        # otherwise []. So `objectives` has shape [n_metrics]
+        objectives = torch.atleast_1d(self.botorch_problem(x))
         if isinstance(self.botorch_problem, ConstrainedBaseTestProblem):
-            constraints = self.botorch_problem.evaluate_slack_true(x).view(-1)
-            return torch.cat([objectives, constraints], dim=-1)
-        return objectives
+            constraints = torch.atleast_1d(self.botorch_problem.evaluate_slack_true(x))
+            metrics = torch.cat([objectives, constraints], dim=-1)
+        else:
+            metrics = objectives
+        # shape (n_metrics, 1)
+        metrics = metrics.unsqueeze(1)
+        if self.n_steps == 1:
+            return metrics
+        # shape (n_metrics, n_steps)
+        return metrics.repeat(1, self.n_steps)

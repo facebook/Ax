@@ -75,7 +75,6 @@ def warn_on_kwargs(callable_with_kwargs: Callable, **kwargs: Any) -> None:
         )
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
 def filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     """Filter out kwargs that are not applicable for a given function.
     Return a copy of given kwargs dict with only the required kwargs."""

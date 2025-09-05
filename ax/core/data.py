@@ -42,7 +42,6 @@ class Data(Base, SerializationMixin):
         df: DataFrame with underlying data, and required columns. For Data, the
             required columns are "arm_name", "metric_name", "mean", and "sem", the
             latter two of which must be numeric.
-        description: Human-readable description of data.
 
     """
 
@@ -77,14 +76,12 @@ class Data(Base, SerializationMixin):
     def __init__(
         self: TData,
         df: pd.DataFrame | None = None,
-        description: str | None = None,
         _skip_ordering_and_validation: bool = False,
     ) -> None:
         """Initialize a ``Data`` object from the given DataFrame.
 
         Args:
             df: DataFrame with underlying data, and required columns.
-            description: Human-readable description of data.
             _skip_ordering_and_validation: If True, uses the given DataFrame
                 as is, without ordering its columns or validating its contents.
                 Intended only for use in `Data.filter`, where the contents
@@ -111,8 +108,6 @@ class Data(Base, SerializationMixin):
             # Reorder the columns for easier viewing
             col_order = [c for c in self.column_data_types() if c in df.columns]
             self._df = df.reindex(columns=col_order, copy=False)
-
-        self.description = description
 
     @classmethod
     def _safecast_df(
@@ -203,6 +198,7 @@ class Data(Base, SerializationMixin):
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.
             args["df"] = pd.read_json(StringIO(args["df"]["value"]), dtype=False)
+        # Backward compatibility
         return extract_init_args(args=args, class_=cls)
 
     @property
@@ -215,29 +211,6 @@ class Data(Base, SerializationMixin):
     @property
     def df(self) -> pd.DataFrame:
         return self._df
-
-    def get_filtered_results(self: TData, **filters: dict[str, Any]) -> pd.DataFrame:
-        """Return filtered subset of data.
-
-        Args:
-            filter: Column names and values they must match.
-
-        Returns
-            df: The filtered DataFrame.
-        """
-        df = self.df.copy()
-        if df.empty:
-            return df
-
-        columns = df.columns
-        for colname, value in filters.items():
-            if colname not in columns:
-                raise ValueError(
-                    f"{colname} not in the set of columns: {columns}"
-                    f"in this data object of type: {str(type(self))}."
-                )
-            df = df[df[colname] == value]
-        return df
 
     @staticmethod
     def from_multiple(data: Iterable[TData]) -> TData:
@@ -380,9 +353,7 @@ class Data(Base, SerializationMixin):
         )
 
     @classmethod
-    def from_multiple_data(
-        cls, data: Iterable[Data], subset_metrics: Iterable[str] | None = None
-    ) -> Data:
+    def from_multiple_data(cls, data: Iterable[Data]) -> Data:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
@@ -392,79 +363,15 @@ class Data(Base, SerializationMixin):
                 metrics, names of which appear in this iterable,
                 in the underlying dataframe.
         """
-        data_out = cls.from_multiple(data=data)
-        if len(data_out.df.index) == 0:
-            return data_out
-        if subset_metrics:
-            data_out._df = data_out.df.loc[
-                data_out.df["metric_name"].isin(subset_metrics)
-            ]
-
-        return data_out
+        return cls.from_multiple(data=data)
 
     def clone(self) -> Data:
         """Returns a new Data object with the same underlying dataframe."""
-        return Data(df=deepcopy(self.df), description=self.description)
-
-
-def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> Data:
-    """Returns a new data object where rows containing the outcomes specified by
-    `metric_names` are filtered out. Used to sanitize data before using it as
-    training data for a model that requires data rectangularity.
-
-    Args:
-        data: Original data to clone.
-        excluded_metric_names: Metrics to avoid copying
-
-    Returns:
-        new version of the original data without specified metrics.
-    """
-    return Data(
-        df=data.df[
-            data.df["metric_name"].apply(lambda n: n not in excluded_metric_names)
-        ].copy()
-    )
+        return Data(df=deepcopy(self.df))
 
 
 def _ms_epoch_to_isoformat(epoch: int) -> str:
     return pd.Timestamp(epoch, unit="ms").isoformat()
-
-
-def custom_data_class(
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    column_data_types: Mapping[str, type] | None = None,
-    required_columns: set[str] | None = None,
-    time_columns: set[str] | None = None,
-) -> type[Data]:
-    """Creates a custom data class with additional columns.
-
-    All columns and their designations on the base data class are preserved,
-    the inputs here are appended to the definitions on the base class.
-
-    Args:
-        column_data_types: Dict from column name to column type.
-        required_columns: Set of additional columns required for this data object.
-        time_columns: Set of additional columns to cast to timestamp.
-
-    Returns:
-        New data subclass with amended column definitions.
-    """
-
-    class CustomData(Data):
-        @classmethod
-        def required_columns(cls) -> set[str]:
-            return (required_columns or set()).union(Data.REQUIRED_COLUMNS)
-
-        @classmethod
-        def column_data_types(
-            cls, extra_column_types: Mapping[str, type] | None = None
-        ) -> dict[str, type]:
-            return super().column_data_types(
-                {**(extra_column_types or {}), **(column_data_types or {})}
-            )
-
-    return CustomData
 
 
 def _filter_df(

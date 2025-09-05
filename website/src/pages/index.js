@@ -117,7 +117,7 @@ const QuickStart = () => (
           <TabItem value="mac" label="Mac">
             <CodeBlock
               language="bash"
-              showLineNumbers>{`conda install pytorch torchvision -c pytorch
+              showLineNumbers>{`conda install pytorch -c pytorch
 pip3 install ax-platform`}</CodeBlock>
           </TabItem>
         </Tabs>

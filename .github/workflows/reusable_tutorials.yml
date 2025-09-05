@@ -43,7 +43,6 @@ jobs:
     - if: ${{ !inputs.pinned_botorch }}
       name: Install dependencies with latest BoTorch
       env:
-        ALLOW_BOTORCH_LATEST: true
         ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         uv pip install git+https://github.com/cornellius-gp/linear_operator.git

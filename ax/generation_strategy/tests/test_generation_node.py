@@ -468,6 +468,9 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         with self.assertRaisesRegex(ModelError, "No fitted models were found"):
             self.model_selection_node.generator_spec_to_gen_from
 
+        # node._fitted_adapter returns None (rather than erroring out).
+        self.assertIsNone(self.model_selection_node._fitted_adapter)
+
         # Only one spec errors out.
         with patch.object(
             self.ms_mixed, "fit", side_effect=RuntimeError

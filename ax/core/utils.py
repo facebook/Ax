@@ -38,7 +38,6 @@ TArmTrial = tuple[str, int]
 # Threshold for switching to pending points extraction based on trial status.
 MANY_TRIALS_IN_EXPERIMENT = 100
 
-
 # --------------------------- Data integrity utils. ---------------------------
 
 
@@ -241,6 +240,28 @@ def get_model_times(experiment: Experiment) -> tuple[float, float]:
     fit_time = sum(t for t in fit_times if t is not None)
     gen_time = sum(t for t in gen_times if t is not None)
     return fit_time, gen_time
+
+
+def is_bandit_experiment(generation_strategy_name: str) -> bool:
+    """
+    Determine if an experiment is a bandit experiment based on the generation
+    strategy name.
+
+    A bandit experiment is identified by having a generation strategy with the name
+    "FACTORIAL + EMPIRICAL_BAYES_THOMPSON_SAMPLING".
+
+    Args:
+        generation_strategy_name: Name of the generation_strategy of the experiment
+            that needs to be checked.
+
+    Returns:
+        True if the generation strategy indicates this is a bandit experiment,
+        False otherwise.
+    """
+    return (
+        generation_strategy_name
+        == Keys.FACTORIAL_PLUS_EMPIRICAL_BAYES_THOMPSON_SAMPLING
+    )
 
 
 # -------------------- Pending observations extraction utils. ---------------------
@@ -643,7 +664,7 @@ def extract_map_keys_from_opt_config(
     map_metrics = {
         name: metric
         for name, metric in optimization_config.metrics.items()
-        if isinstance(metric, MapMetric)
+        if isinstance(metric, MapMetric) and metric.has_map_data
     }
     map_key_names = {m.map_key_info.key for m in map_metrics.values()}
     return map_key_names
@@ -652,16 +673,14 @@ def extract_map_keys_from_opt_config(
 # -------------------- Context manager and decorator utils. ---------------------
 
 
-# pyre-ignore[3]: Allowing `Any` in this case
 def batch_trial_only(msg: str | None = None) -> Callable[..., Any]:
     """A decorator to verify that the value passed to the `trial`
     argument to `func` is a `BatchTrial`.
     """
 
-    # pyre-ignore[2,3]: Allowing `Any` in this case
     def batch_trial_only_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def _batch_trial_only(*args: Any, **kwargs: Any) -> Any:  # pyre-ignore[3]
+        def _batch_trial_only(*args: Any, **kwargs: Any) -> Any:
             if "trial" not in kwargs:
                 raise AxError(
                     f"Expected a keyword argument `trial` to `{func.__name__}`."

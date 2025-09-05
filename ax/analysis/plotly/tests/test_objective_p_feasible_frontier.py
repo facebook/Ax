@@ -13,12 +13,18 @@ from ax.analysis.plotly.objective_p_feasible_frontier import (
     ObjectivePFeasibleFrontierPlot,
 )
 from ax.core.objective import MultiObjective, Objective
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_metric
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_multi_objective,
+    get_branin_metric,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.utils.testing import skip_if_import_error
 from pyre_extensions import none_throws
@@ -29,8 +35,12 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         super().setUp()
 
         torch.manual_seed(0)
-        self.experiment = get_branin_experiment(
-            with_completed_batch=True, with_absolute_constraint=True
+        self.experiment = get_branin_experiment_with_multi_objective(
+            with_completed_batch=True, with_absolute_constraint=True, num_objectives=3
+        )
+        self.experiment.optimization_config = OptimizationConfig(
+            objective=Objective(metric=self.experiment.metrics["branin_a"]),
+            outcome_constraints=self.experiment.optimization_config.outcome_constraints,
         )
         oc = none_throws(self.experiment.optimization_config).outcome_constraints[0]
         oc.bound = 10.0
@@ -50,13 +60,13 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
             experiment=self.experiment, adapter=adapter
         )
         self.assertEqual(
-            json.loads(card.blob)["layout"]["xaxis"]["title"]["text"], "branin"
+            json.loads(card.blob)["layout"]["xaxis"]["title"]["text"], "branin_a"
         )
         self.assertEqual(
             json.loads(card.blob)["layout"]["yaxis"]["title"]["text"],
             "% Chance of Satisfying the Constraints",
         )
-        self.assertFalse(card.df["branin_sem"].isna().any())
+        self.assertFalse(card.df["branin_a_sem"].isna().any())
         self.assertTrue(card.df["p_feasible_sem"].isna().all())
 
     def test_no_exceptions(self) -> None:
@@ -90,9 +100,15 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         ):
             ObjectivePFeasibleFrontierPlot().compute(experiment=self.experiment)
         self.experiment.add_tracking_metric(get_branin_metric("branin2"))
+        # Get only tracking metrics, excluding the objective metric to avoid
+        # "Cannot constrain on objective metric" error
+        constraint_metrics = [
+            self.experiment.metrics["branin_b"],
+            self.experiment.metrics["branin_c"],
+        ]
         opt_config.outcome_constraints = [
             ScalarizedOutcomeConstraint(
-                metrics=list(self.experiment.metrics.values()),
+                metrics=constraint_metrics,
                 weights=[1.0, 1.0],
                 relative=False,
                 bound=10.0,

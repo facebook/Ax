@@ -7,6 +7,7 @@
 # pyre-strict
 
 import warnings
+from copy import deepcopy
 from typing import Any
 from unittest import mock
 from unittest.mock import Mock
@@ -23,30 +24,26 @@ from ax.adapter.base import (
     logger,
     unwrap_observation_data,
 )
+from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.factory import get_sobol
-from ax.adapter.registry import Generators, Y_trans
+from ax.adapter.registry import MBM_X_trans, MBM_X_trans_base, Y_trans
+from ax.adapter.transforms.cast import Cast
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
-from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
-from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    observations_from_data,
-)
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter_constraint import SumConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.types import TParameterization
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
@@ -63,11 +60,10 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_experiment,
     get_experiment_with_observations,
-    get_experiment_with_repeated_arms,
     get_map_metric,
     get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
-    get_search_space_for_range_value,
+    get_search_space_for_range_values,
     get_search_space_for_value,
 )
 from ax.utils.testing.modeling_stubs import (
@@ -75,80 +71,164 @@ from ax.utils.testing.modeling_stubs import (
     get_observation1,
     get_observation1trans,
     get_observation2,
-    get_observation2trans,
-    transform_1,
-    transform_2,
 )
 from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.utils.assorted import validate_input_scaling
-from pyre_extensions import assert_is_instance, none_throws
+from pandas.testing import assert_frame_equal
+from pyre_extensions import none_throws
+
+ADAPTER__GEN_PATH: str = "ax.adapter.base.Adapter._gen"
 
 
 class BaseAdapterTest(TestCase):
-    @mock.patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(), get_observation2()]),
-    )
+    def test_init_empty(self) -> None:
+        # Test Adapter initialization with an experiment with no data.
+        exp = get_branin_experiment()
+        generator = Generator()
+        with mock.patch("ax.adapter.base.Adapter._fit") as mock_fit:
+            adapter = Adapter(
+                experiment=exp, generator=generator, transforms=MBM_X_trans_base
+            )
+        # Check that the properties are set correctly.
+        self.assertEqual(adapter._data_loader_config, DataLoaderConfig())
+        self.assertEqual(adapter._raw_transforms, [Cast] + MBM_X_trans_base)
+        self.assertEqual(adapter._transform_configs, {})
+        self.assertEqual(
+            list(adapter.transforms), [t.__name__ for t in [Cast] + MBM_X_trans_base]
+        )
+        self.assertEqual(adapter.fit_time, adapter.fit_time_since_gen)
+        self.assertEqual(adapter._metric_names, set())
+        self.assertEqual(adapter._optimization_config, exp.optimization_config)
+        self.assertEqual(adapter._training_in_design_idx, [])
+        self.assertIsNone(adapter._status_quo)
+        self.assertIsNone(adapter._status_quo_name)
+        self.assertIsNone(adapter._model_key)
+        self.assertIsNone(adapter._model_kwargs)
+        self.assertIsNone(adapter._bridge_kwargs)
+        self.assertEqual(adapter._search_space, exp.search_space)
+        self.assertEqual(adapter._model_space, exp.search_space)
+        self.assertTrue(adapter._fit_tracking_metrics)
+        self.assertEqual(adapter.outcomes, [])
+        self.assertEqual(
+            adapter._experiment_has_immutable_search_space_and_opt_config,
+            exp.immutable_search_space_and_opt_config,
+        )
+        self.assertIs(adapter._experiment, exp)
+        self.assertEqual(adapter._experiment_properties, exp._properties)
+        self.assertEqual(adapter._arms_by_signature, {})
+        self.assertIs(adapter.generator, generator)
+        # Check that the experiment data object is empty.
+        self.assertTrue(adapter._training_data.arm_data.empty)
+        self.assertTrue(adapter._training_data.observation_data.empty)
+        # Check that fit was called with the transformed arguments.
+        search_space = adapter._search_space.clone()
+        experiment_data = adapter.get_training_data()
+        for t in adapter.transforms.values():
+            search_space = t.transform_search_space(search_space)
+            experiment_data = t.transform_experiment_data(experiment_data)
+        mock_fit.assert_called_with(
+            search_space=search_space, experiment_data=experiment_data
+        )
+        # Test that fit is not called when fit_on_init = False.
+        mock_fit.reset_mock()
+        adapter = Adapter(experiment=exp, generator=Generator(), fit_on_init=False)
+        self.assertEqual(mock_fit.call_count, 0)
+
+    def _test_init_with_data(self, multi_objective: bool) -> None:
+        # Test Adapter initialization with a simple experiment with (non-map) data.
+        exp_constructor = (
+            get_branin_experiment_with_multi_objective
+            if multi_objective
+            else get_branin_experiment
+        )
+        exp = exp_constructor(with_completed_batch=True, with_status_quo=True)
+        generator = Generator()
+        with mock.patch("ax.adapter.base.Adapter._fit") as mock_fit:
+            adapter = Adapter(
+                experiment=exp, generator=generator, transforms=MBM_X_trans + Y_trans
+            )
+        # Check that the properties are set correctly.
+        # Only checking a subset that are expected to be different than test_init_empty.
+        self.assertEqual(adapter._raw_transforms, [Cast] + MBM_X_trans + Y_trans)
+        metric_names = set(exp.metrics)
+        self.assertEqual(adapter._metric_names, metric_names)
+        self.assertEqual(
+            adapter._training_in_design_idx, [True] * len(exp.arms_by_name)
+        )
+        self.assertEqual(adapter._optimization_config, exp.optimization_config)
+        self.assertEqual(adapter._status_quo_name, none_throws(exp.status_quo).name)
+        # Not checking SQ observation in detail, _set_status_quo is tested separately.
+        self.assertIsNotNone(adapter._status_quo)
+        self.assertEqual(adapter._arms_by_signature, exp.arms_by_signature)
+        # Check the raw training data.
+        exp_df = exp.to_df()
+        self.assertTrue(
+            np.allclose(
+                adapter._training_data.arm_data[["x1", "x2"]], exp_df[["x1", "x2"]]
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                adapter._training_data.observation_data[
+                    [("mean", m) for m in metric_names]
+                ],
+                exp_df.sort_values(by="arm_name")[list(metric_names)],
+            )
+        )
+        # Check that fit was called with the transformed arguments.
+        search_space = adapter._search_space.clone()
+        experiment_data = adapter.get_training_data()
+        for t in adapter.transforms.values():
+            search_space = t.transform_search_space(search_space)
+            experiment_data = t.transform_experiment_data(experiment_data)
+        mock_fit.assert_called_with(
+            search_space=search_space, experiment_data=experiment_data
+        )
+
+    def test_init_with_data_single_objective(self) -> None:
+        self._test_init_with_data(multi_objective=False)
+
+    def test_init_with_data_multi_objective(self) -> None:
+        self._test_init_with_data(multi_objective=True)
+
+    def test_fit_tracking_metrics(self) -> None:
+        # Test error when fit_tracking_metrics is False and optimization
+        # config is not specified.
+        exp = get_branin_experiment(has_optimization_config=False)
+        with self.assertRaisesRegex(UserInputError, "fit_tracking_metrics"):
+            Adapter(experiment=exp, generator=Generator(), fit_tracking_metrics=False)
+
+        # Test error when fit_tracking_metrics is False and optimization
+        # config is updated to include new metrics.
+        adapter = Adapter(
+            experiment=get_branin_experiment(),
+            generator=Generator(),
+            fit_tracking_metrics=False,
+        )
+        new_oc = OptimizationConfig(
+            objective=Objective(metric=Metric(name="test_metric2"), minimize=False),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
+            adapter.gen(n=1, optimization_config=new_oc)
+
     @mock.patch(
         "ax.adapter.base.gen_arms",
         autospec=True,
-        return_value=([Arm(parameters={})], None),
+        return_value=([Arm(parameters={"x1": 0.5, "x2": 0.5})], None),
     )
     @mock.patch("ax.adapter.base.Adapter._fit", autospec=True)
-    def test_Adapter(
-        self, mock_fit: Mock, mock_gen_arms: Mock, mock_observations_from_data: Mock
-    ) -> None:
-        # Test that on init transforms are stored and applied in the correct order
-        transforms = [transform_1, transform_2]
-        exp = get_experiment_for_value()
+    def test_gen_base(self, mock_fit: Mock, mock_gen_arms: Mock) -> None:
+        transforms = [UnitX, StandardizeY]
+        exp = get_branin_experiment(with_completed_trial=True)
+        search_space = exp.search_space
         adapter = Adapter(experiment=exp, generator=Generator(), transforms=transforms)
-        self.assertFalse(adapter._experiment_has_immutable_search_space_and_opt_config)
-        self.assertEqual(
-            list(adapter.transforms.keys()), ["Cast", "transform_1", "transform_2"]
-        )
-        fit_args = mock_fit.mock_calls[0][2]
-        self.assertTrue(fit_args["search_space"] == get_search_space_for_value(8.0))
-        self.assertTrue(fit_args["observations"] == [])
-        self.assertTrue(mock_observations_from_data.called)
-
-        # Test prediction with arms.
-        with self.assertRaisesRegex(
-            UserInputError, "Input to predict must be a list of `ObservationFeatures`."
-        ):
-            # pyre-ignore[6]: Intentionally wrong argument type.
-            adapter.predict([Arm(parameters={"x": 1.0})])
-
-        # Test errors on prediction.
-        adapter._predict = mock.MagicMock(
-            "ax.adapter.base.Adapter._predict",
-            autospec=True,
-            side_effect=ValueError("Predict failed"),
-        )
-        obs_features = [get_observation2().features]
-        with self.assertRaisesRegex(ValueError, "Predict failed"):
-            adapter.predict(obs_features)
-
-        # Test that transforms are applied correctly on predict
-        mock_predict = mock.MagicMock(
-            "ax.adapter.base.Adapter._predict",
-            autospec=True,
-            return_value=[get_observation2trans().data],
-        )
-        adapter._predict = mock_predict
-        adapter.predict(obs_features)
-        # Observation features sent to _predict are un-transformed afterwards
-        mock_predict.assert_called_with(
-            observation_features=obs_features, use_posterior_predictive=False
-        )
 
         # Test transforms applied on gen
-        adapter._gen = mock.MagicMock(
-            "ax.adapter.base.Adapter._gen",
-            autospec=True,
-            return_value=GenResults(
-                observation_features=[get_observation1trans().features], weights=[2]
-            ),
+        mock_return_value = GenResults(
+            observation_features=[
+                ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0})
+            ],
+            weights=[1.0],
         )
         oc = get_optimization_config_no_constraints()
         adapter._set_kwargs_to_save(
@@ -157,34 +237,52 @@ class BaseAdapterTest(TestCase):
         # Test input error when generating 0 candidates.
         with self.assertRaisesRegex(UserInputError, "Attempted to generate"):
             adapter.gen(n=0)
-        gr = adapter.gen(
-            n=1,
-            search_space=get_search_space_for_value(),
-            optimization_config=oc,
-            pending_observations={"a": [get_observation2().features]},
-            fixed_features=ObservationFeatures({"x": 5}),
-        )
+        with mock.patch(ADAPTER__GEN_PATH, return_value=mock_return_value) as mock_gen:
+            gr = adapter.gen(
+                n=1,
+                search_space=search_space,
+                optimization_config=oc,
+                pending_observations={
+                    "branin": [ObservationFeatures(parameters={"x1": 10.0, "x2": 15.0})]
+                },
+                fixed_features=ObservationFeatures({"x1": -5.0}),
+            )
         self.assertEqual(gr._model_key, "TestModel")
-        # pyre-fixme[16]: Callable `_gen` has no attribute `assert_called_with`.
-        adapter._gen.assert_called_with(
+        tf_search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name=name,
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                )
+                for name in ("x1", "x2")
+            ]
+        )
+        mock_gen.assert_called_with(
             n=1,
-            search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
+            search_space=tf_search_space,
             optimization_config=oc,
-            pending_observations={"a": [get_observation2trans().features]},
-            fixed_features=ObservationFeatures({"x": 36}),
+            pending_observations={
+                "branin": [ObservationFeatures(parameters={"x1": 1.0, "x2": 1.0})]
+            },
+            fixed_features=ObservationFeatures({"x1": 0.0}),
             model_gen_options=None,
         )
         mock_gen_arms.assert_called_with(
-            arms_by_signature={}, observation_features=[get_observation1().features]
+            arms_by_signature=mock.ANY,
+            observation_features=[
+                ObservationFeatures(parameters={"x1": -5.0, "x2": 0.0})
+            ],
         )
 
         # Gen with no pending observations and no fixed features
-        adapter.gen(
-            n=1, search_space=get_search_space_for_value(), optimization_config=None
-        )
-        adapter._gen.assert_called_with(
+        adapter._optimization_config = None
+        with mock.patch(ADAPTER__GEN_PATH, return_value=mock_return_value) as mock_gen:
+            adapter.gen(n=1, search_space=search_space, optimization_config=None)
+        mock_gen.assert_called_with(
             n=1,
-            search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
+            search_space=tf_search_space,
             optimization_config=None,
             pending_observations={},
             fixed_features=ObservationFeatures(parameters={}),
@@ -197,20 +295,46 @@ class BaseAdapterTest(TestCase):
                 metrics=[Metric(name="test_metric"), Metric(name="test_metric_2")]
             )
         )
-        adapter.gen(
-            n=1, search_space=get_search_space_for_value(), optimization_config=oc2
-        )
-        adapter._gen.assert_called_with(
+        with mock.patch(ADAPTER__GEN_PATH, return_value=mock_return_value) as mock_gen:
+            adapter.gen(n=1, search_space=search_space, optimization_config=oc2)
+        mock_gen.assert_called_with(
             n=1,
-            search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
+            search_space=tf_search_space,
             optimization_config=oc2,
             pending_observations={},
             fixed_features=ObservationFeatures(parameters={}),
             model_gen_options=None,
         )
 
+    @mock.patch(
+        "ax.adapter.base.Adapter._gen",
+        autospec=True,
+        return_value=GenResults(
+            observation_features=[get_observation1trans().features], weights=[2]
+        ),
+    )
+    def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _) -> None:
+        exp = get_experiment_for_value()
+        exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
+        exp.optimization_config = get_optimization_config_no_constraints()
+        adapter = Adapter(experiment=exp, generator=Generator())
+        self.assertTrue(adapter._experiment_has_immutable_search_space_and_opt_config)
+        gr = adapter.gen(1)
+        self.assertIsNone(gr.optimization_config)
+        self.assertIsNone(gr.search_space)
+
+    def test_cross_validate_base(self) -> None:
+        exp = get_branin_experiment(with_completed_batch=True)
+        adapter = Adapter(experiment=exp, generator=Generator(), transforms=[UnitX])
         # Test transforms applied on cross_validate and the warning is suppressed.
         called = False
+        mock_predictions: list[ObservationData] = [
+            ObservationData(
+                metric_names=["branin"],
+                means=np.zeros(1),
+                covariance=np.ones((1, 1)),
+            )
+        ]
 
         def warn_and_return_mock_obs(
             *args: Any, **kwargs: Any
@@ -222,7 +346,7 @@ class BaseAdapterTest(TestCase):
                 train_X=torch.randn(2, 5),
                 train_Y=torch.rand(2, 1),
             )
-            return [get_observation1trans().data]
+            return mock_predictions
 
         mock_cv = mock.MagicMock(
             "ax.adapter.base.Adapter._cross_validate",
@@ -230,8 +354,8 @@ class BaseAdapterTest(TestCase):
             side_effect=warn_and_return_mock_obs,
         )
         adapter._cross_validate = mock_cv
-        cv_training_data = [get_observation2()]
-        cv_test_points = [get_observation1().features]
+        cv_training_data = adapter.get_training_data()
+        cv_test_points = [ObservationFeatures(parameters={"x1": -5.0, "x2": 0.0})]
 
         # Test transforms applied on cv_training_data, cv_test_points
         (
@@ -241,10 +365,31 @@ class BaseAdapterTest(TestCase):
         ) = adapter._transform_inputs_for_cv(
             cv_training_data=cv_training_data, cv_test_points=cv_test_points
         )
-        self.assertEqual(transformed_cv_training_data, [get_observation2trans()])
-        self.assertEqual(transformed_cv_test_points, [get_observation1trans().features])
         self.assertEqual(
-            transformed_ss, SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)])
+            transformed_cv_training_data,
+            adapter.transforms["UnitX"].transform_experiment_data(
+                experiment_data=adapter.transforms["Cast"].transform_experiment_data(
+                    experiment_data=deepcopy(cv_training_data)
+                )
+            ),
+        )
+        self.assertEqual(
+            transformed_cv_test_points,
+            [ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0})],
+        )
+        self.assertEqual(
+            transformed_ss,
+            SearchSpace(
+                parameters=[
+                    RangeParameter(
+                        name=name,
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.0,
+                        upper=1.0,
+                    )
+                    for name in ("x1", "x2")
+                ]
+            ),
         )
 
         with warnings.catch_warnings(record=True) as ws:
@@ -255,12 +400,12 @@ class BaseAdapterTest(TestCase):
         self.assertFalse(any(w.category is InputDataWarning for w in ws))
 
         mock_cv.assert_called_with(
-            search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
-            cv_training_data=[get_observation2trans()],
-            cv_test_points=[get_observation1().features],  # untransformed after
+            search_space=transformed_ss,
+            cv_training_data=transformed_cv_training_data,
+            cv_test_points=cv_test_points,  # in-place untransformed after the call.
             use_posterior_predictive=False,
         )
-        self.assertTrue(cv_predictions == [get_observation1().data])
+        self.assertEqual(cv_predictions, mock_predictions)
 
         # Test use_posterior_predictive in CV
         adapter.cross_validate(
@@ -270,109 +415,19 @@ class BaseAdapterTest(TestCase):
         )
 
         mock_cv.assert_called_with(
-            search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
-            cv_training_data=[get_observation2trans()],
-            cv_test_points=[get_observation1().features],  # untransformed after
+            search_space=transformed_ss,
+            cv_training_data=transformed_cv_training_data,
+            cv_test_points=cv_test_points,  # in-place untransformed after the call.
             use_posterior_predictive=True,
         )
 
-        # Test stored training data
-        obs = adapter.get_training_data()
-        self.assertTrue(obs == [get_observation1(), get_observation2()])
-        self.assertEqual(adapter.metric_names, {"a", "b"})
-        self.assertIsNone(adapter.status_quo)
-        self.assertTrue(adapter.model_space == get_search_space_for_value())
-        self.assertEqual(adapter.training_in_design, [False, False])
-
-        with self.assertRaises(ValueError):
-            adapter.training_in_design = [True, True, False]
-
-        with self.assertRaises(ValueError):
-            adapter.training_in_design = [True, True, False]
-
-        # Test feature_importances
-        with self.assertRaises(NotImplementedError):
-            adapter.feature_importances("a")
-
-        # Test transform observation features
-        with mock.patch(
-            "ax.adapter.base.Adapter._transform_observation_features",
-            autospec=True,
-        ) as mock_tr:
-            adapter.transform_observation_features([get_observation2().features])
-        mock_tr.assert_called_with(adapter, [get_observation2trans().features])
-
-        # Test that fit is not called when fit_on_init = False.
-        mock_fit.reset_mock()
-        adapter = Adapter(experiment=exp, generator=Generator(), fit_on_init=False)
-        self.assertEqual(mock_fit.call_count, 0)
-
-        # Test error when fit_tracking_metrics is False and optimization
-        # config is not specified.
-        with self.assertRaisesRegex(UserInputError, "fit_tracking_metrics"):
-            Adapter(experiment=exp, generator=Generator(), fit_tracking_metrics=False)
-
-        # Test error when fit_tracking_metrics is False and optimization
-        # config is updated to include new metrics.
-        adapter = Adapter(
-            experiment=exp,
-            generator=Generator(),
-            optimization_config=oc,
-            fit_tracking_metrics=False,
-        )
-        new_oc = OptimizationConfig(
-            objective=Objective(metric=Metric(name="test_metric2"), minimize=False),
-        )
-        with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
-            adapter.gen(n=1, optimization_config=new_oc)
-
-    def test_transform_data(self) -> None:
-        search_space = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    name=f"x{i}",
-                    parameter_type=ParameterType.FLOAT,
-                    lower=2.0,
-                    upper=3.0,
-                )
-                for i in [1, 2]
-            ],
-            parameter_constraints=[
-                ParameterConstraint(constraint_dict={"x1": -1, "x2": -1}, bound=1.5)
-            ],
-        )
-        exp = Experiment(search_space=search_space)
-        adapter = Generators.SOBOL(experiment=exp, transforms=[IntToFloat, UnitX])
-        candidate = adapter.gen(n=1)
-
-        with self.subTest("Candidate in search space"):
-            self.assertTrue(
-                search_space.check_membership(
-                    parameterization=candidate.arms[0].parameters
-                )
-            )
-        int_to_float_tf = assert_is_instance(
-            adapter.transforms["IntToFloat"], IntToFloat
-        )
-
-        with self.subTest("IntToFloat uses correct search space"):
-            self.assertEqual(
-                int_to_float_tf.search_space.parameters["x1"],
-                search_space.parameters["x1"],
-            )
-
-    @mock.patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(), get_observation2()]),
-    )
     @mock.patch(
         "ax.adapter.base.gen_arms",
         autospec=True,
         return_value=([Arm(parameters={})], None),
     )
     @mock.patch("ax.adapter.base.Adapter._fit", autospec=True)
-    def test_repeat_candidates(self, _: Mock, __: Mock, ___: Mock) -> None:
+    def test_repeat_candidates(self, _: Mock, __: Mock) -> None:
         adapter = Adapter(
             experiment=get_experiment_for_value(),
             generator=Generator(),
@@ -413,26 +468,6 @@ class BaseAdapterTest(TestCase):
                 cm.output,
             )
 
-    @mock.patch(
-        "ax.adapter.base.gen_arms",
-        autospec=True,
-        return_value=([Arm(parameters={"x1": 0.0, "x2": 0.0})], None),
-    )
-    def test_with_status_quo(self, _: Mock) -> None:
-        # Test init with a status quo.
-        exp = get_branin_experiment(
-            with_trial=True,
-            with_status_quo=True,
-            with_completed_trial=True,
-        )
-        adapter = Adapter(
-            experiment=exp,
-            generator=Generator(),
-            transforms=Y_trans,
-        )
-        self.assertIsNotNone(adapter.status_quo)
-        self.assertEqual(adapter.status_quo.features.parameters, {"x1": 0.0, "x2": 0.0})
-
     @mock.patch("ax.adapter.base.Adapter._fit", autospec=True)
     @mock.patch("ax.adapter.base.Adapter._gen", autospec=True)
     def test_timing(self, _: Mock, __: Mock) -> None:
@@ -443,13 +478,19 @@ class BaseAdapterTest(TestCase):
         )
         self.assertEqual(adapter.fit_time, 0.0)
         adapter._fit_if_implemented(
-            search_space=search_space, observations=[], time_so_far=3.0
+            search_space=search_space,
+            experiment_data=adapter._training_data,
+            time_so_far=3.0,
         )
         adapter._fit_if_implemented(
-            search_space=search_space, observations=[], time_so_far=2.0
+            search_space=search_space,
+            experiment_data=adapter._training_data,
+            time_so_far=2.0,
         )
         adapter._fit_if_implemented(
-            search_space=search_space, observations=[], time_so_far=1.0
+            search_space=search_space,
+            experiment_data=adapter._training_data,
+            time_so_far=1.0,
         )
         self.assertAlmostEqual(adapter.fit_time, 6.0, places=1)
         self.assertAlmostEqual(adapter.fit_time_since_gen, 6.0, places=1)
@@ -457,12 +498,7 @@ class BaseAdapterTest(TestCase):
         self.assertAlmostEqual(adapter.fit_time, 6.0, places=1)
         self.assertAlmostEqual(adapter.fit_time_since_gen, 0.0, places=1)
 
-    @mock.patch(
-        "ax.adapter.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(), get_observation2()]),
-    )
-    def test_ood_gen(self, _) -> None:
+    def test_ood_gen(self) -> None:
         # Test fit_out_of_design by returning OOD candidates
         ss = SearchSpace([RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0)])
         experiment = Experiment(search_space=ss)
@@ -536,44 +572,16 @@ class BaseAdapterTest(TestCase):
         )
         sobol_run = sobol_generator.gen(n=5)
         exp.new_batch_trial(
-            sobol_run, add_status_quo_arm=False
-        ).set_status_quo_with_weight(status_quo=exp.status_quo, weight=1.0).run()
+            sobol_run, should_add_status_quo_arm=False
+        ).add_status_quo_arm(weight=1.0).run()
 
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
-        with warnings.catch_warnings(record=True) as ws, mock.patch.object(
-            exp, "lookup_data", return_value=data
-        ):
+        with mock.patch.object(exp, "lookup_data", return_value=data):
             adapter = Adapter(experiment=exp, generator=Generator(), data=data)
-        # Check that we get warnings about start and end time columns being discarded.
-        self.assertTrue(any("start_time" in str(w.message) for w in ws))
-        self.assertTrue(any("end_time" in str(w.message) for w in ws))
         # Check that SQ is set.
         self.assertEqual(adapter.status_quo_name, "status_quo")
         self.assertIsNotNone(adapter.status_quo)
-
-    def test_set_status_quo_with_multiple_trials_with_status_quo(self) -> None:
-        exp = get_experiment_with_repeated_arms(with_data=True)
-        exp.status_quo = assert_is_instance(exp.trials[1], BatchTrial).status_quo
-        adapter = Adapter(experiment=exp, generator=Generator())
-        # Check that for experiments with many trials the status quo is set
-        # to the value of the status quo of the last trial (target trial).
-        self.assertEqual(
-            adapter.status_quo,
-            Observation(
-                features=ObservationFeatures(
-                    parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-                    trial_index=get_target_trial_index(experiment=exp),
-                    metadata={},
-                ),
-                data=ObservationData(
-                    means=np.array([2.0, 4.0]),
-                    covariance=np.array([[1.0, 0.0], [0.0, 16.0]]),
-                    metric_names=["a", "b"],
-                ),
-                arm_name="0_0",
-            ),
-        )
 
     def test_set_status_quo_with_multiple_observations(self) -> None:
         # Test for the case where the status quo arm has multiple observations
@@ -628,8 +636,10 @@ class BaseAdapterTest(TestCase):
                 )
             mock_combine.assert_called_once()
             call_kwargs = mock_combine.call_args.kwargs
+            # 3 for metric 'branin_map' with timestamp=0, 1, 2, and 1 for metric
+            # 'branin' with timestamp=NaN
             self.assertEqual(
-                len(call_kwargs["status_quo_observations"]), 3 + additional_fetch
+                len(call_kwargs["status_quo_observations"]), 4 + additional_fetch
             )
             if additional_fetch:
                 # Last observation should only include the constraint metric.
@@ -719,15 +729,11 @@ class BaseAdapterTest(TestCase):
         with self.assertRaises(ValueError):
             unwrap_observation_data(observation_data + [od3])
 
-    def test_GenArms(self) -> None:
-        p1 = {"x": 0, "y": 1}
-        p2 = {"x": 4, "y": 8}
+    def test_gen_arms(self) -> None:
+        p1: TParameterization = {"x": 0, "y": 1}
+        p2: TParameterization = {"x": 4, "y": 8}
         observation_features = [
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, int]`.
             ObservationFeatures(parameters=p1),
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, int]`.
             ObservationFeatures(parameters=p2),
         ]
         arms, candidate_metadata = gen_arms(observation_features=observation_features)
@@ -750,49 +756,6 @@ class BaseAdapterTest(TestCase):
                 arms[1].signature: {"some_key": "some_val_1"},
             },
         )
-
-    @mock.patch(
-        "ax.adapter.base.Adapter._gen",
-        autospec=True,
-        return_value=GenResults(
-            observation_features=[get_observation1trans().features], weights=[2]
-        ),
-    )
-    def test_GenWithDefaults(self, mock_gen: Mock) -> None:
-        exp = get_experiment_for_value()
-        exp.optimization_config = get_optimization_config_no_constraints()
-        ss = get_search_space_for_range_value()
-        adapter = Adapter(experiment=exp, generator=Generator(), search_space=ss)
-        adapter.gen(1)
-        mock_gen.assert_called_with(
-            adapter,
-            n=1,
-            search_space=ss,
-            fixed_features=ObservationFeatures(parameters={}),
-            model_gen_options=None,
-            optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric("test_metric"), minimize=False),
-                outcome_constraints=[],
-            ),
-            pending_observations={},
-        )
-
-    @mock.patch(
-        "ax.adapter.base.Adapter._gen",
-        autospec=True,
-        return_value=GenResults(
-            observation_features=[get_observation1trans().features], weights=[2]
-        ),
-    )
-    def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _) -> None:
-        exp = get_experiment_for_value()
-        exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
-        exp.optimization_config = get_optimization_config_no_constraints()
-        adapter = Adapter(experiment=exp, generator=Generator())
-        self.assertTrue(adapter._experiment_has_immutable_search_space_and_opt_config)
-        gr = adapter.gen(1)
-        self.assertIsNone(gr.optimization_config)
-        self.assertIsNone(gr.search_space)
 
     def test_ClampObservationFeaturesNearBounds(self) -> None:
         cases = [
@@ -862,10 +825,10 @@ class BaseAdapterTest(TestCase):
                 ),
             ],
         )
-        sq_arm = Arm(name="status_quo", parameters={"x1": None})
+        sq_arm = Arm(name="status_quo", parameters={"x1": None, "x2": None})
         experiment = Experiment(
             name="test",
-            search_space=ss1,
+            search_space=ss2,
             optimization_config=get_branin_optimization_config(),
             status_quo=sq_arm,
             is_test=True,
@@ -876,7 +839,7 @@ class BaseAdapterTest(TestCase):
         gr2 = generator2.gen(n=5)
         sq_vals = {"x1": 5.0, "x2": 5.0}
         for gr in [gr1, gr2]:
-            trial = experiment.new_batch_trial(add_status_quo_arm=True)
+            trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
             trial.add_generator_run(gr)
             trial.mark_running(no_runner_required=True)
             trial.mark_completed()
@@ -890,10 +853,13 @@ class BaseAdapterTest(TestCase):
             ["Cast"],
         )
         # Check that SQ and all trial 1 are OOD
-        arm_names = [obs.arm_name for obs in m.get_training_data()]
-        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        ood_arms = set(
+            m.get_training_data()
+            .arm_data.loc[~np.array(m.training_in_design)]
+            .index.get_level_values("arm_name")
+        )
         self.assertEqual(
-            set(ood_arms), {"status_quo", "1_0", "1_1", "1_2", "1_3", "1_4"}
+            set(ood_arms), {"status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"}
         )
         # Fit with filling missing parameters
         m = Adapter(
@@ -909,15 +875,18 @@ class BaseAdapterTest(TestCase):
         # All arms are in design now
         self.assertEqual(sum(m.training_in_design), 12)
         # Check the arms with missing values were correctly filled
-        fit_args = mock_fit.mock_calls[1][2]
-        for obs in fit_args["observations"]:
-            if obs.arm_name == "status_quo":
-                self.assertEqual(obs.features.parameters, sq_vals)
-            elif obs.arm_name[0] == "0":
-                # These arms were all missing x2
-                self.assertEqual(obs.features.parameters["x2"], sq_vals["x2"])
+        fit_args = mock_fit.call_args.kwargs
+        arm_data = fit_args["experiment_data"].arm_data
+        sq_params = arm_data.loc[
+            arm_data.index.get_level_values("arm_name") == "status_quo"
+        ][["x1", "x2"]].to_dict(orient="records")
+        self.assertEqual(sq_params, [sq_vals, sq_vals])
+        trial_0_params = arm_data.loc[(0, slice(None))]
+        self.assertEqual(
+            trial_0_params["x2"].to_list(), [sq_vals["x2"]] * len(trial_0_params)
+        )
 
-    def test_SetModelSpace(self) -> None:
+    def test_set_model_space(self) -> None:
         # Set up experiment
         experiment = get_branin_experiment()
         # SQ values are OOD
@@ -953,8 +922,11 @@ class BaseAdapterTest(TestCase):
             search_space=ss,
             expand_model_space=False,
         )
-        arm_names = [obs.arm_name for obs in m.get_training_data()]
-        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        ood_arms = set(
+            m.get_training_data()
+            .arm_data.loc[~np.array(m.training_in_design)]
+            .index.get_level_values("arm_name")
+        )
         self.assertEqual(set(ood_arms), {"status_quo", "custom"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -5.0)  # pyre-ignore[16]
         self.assertEqual(m.model_space.parameters["x2"].upper, 15.0)  # pyre-ignore[16]
@@ -966,8 +938,11 @@ class BaseAdapterTest(TestCase):
             generator=Generator(),
             search_space=ss,
         )
-        arm_names = [obs.arm_name for obs in m.get_training_data()]
-        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        ood_arms = set(
+            m.get_training_data()
+            .arm_data.loc[~np.array(m.training_in_design)]
+            .index.get_level_values("arm_name")
+        )
         self.assertEqual(set(ood_arms), {"status_quo"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -20.0)
         self.assertEqual(m.model_space.parameters["x2"].upper, 18.0)
@@ -985,42 +960,38 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)
         self.assertEqual(m.model_space.parameter_constraints, [])
 
-    @mock.patch("ax.adapter.base.observations_from_data", wraps=observations_from_data)
+    @mock.patch(
+        "ax.adapter.base.extract_experiment_data", wraps=extract_experiment_data
+    )
     def test_fit_only_completed_map_metrics(
-        self, mock_observations_from_data: Mock
+        self, mock_extract_experiment_data: Mock
     ) -> None:
         # _prepare_observations is called in the constructor and itself calls
         # observations_from_data with expanded statuses to include.
         experiment = get_experiment_for_value()
         experiment.status_quo = Arm(name="1_1", parameters={"x": 3.0})
-        adapter = Adapter(
-            experiment=experiment,
-            generator=Generator(),
-            data=MapData(),
-            data_loader_config=DataLoaderConfig(
-                fit_only_completed_map_metrics=False,
-            ),
-        )
-        kwargs = mock_observations_from_data.call_args.kwargs
-        self.assertEqual(
-            kwargs["statuses_to_include_map_metric"],
-            adapter._data_loader_config.statuses_to_fit,
-        )
-        # assert `latest_rows_per_group` is 1
-        self.assertEqual(kwargs["latest_rows_per_group"], 1)
-        mock_observations_from_data.reset_mock()
-
-        # With fit_only_completed_map_metrics=True, statuses to fit is limited.
+        data_loader_config = DataLoaderConfig(fit_only_completed_map_metrics=False)
         Adapter(
             experiment=experiment,
             generator=Generator(),
-            data_loader_config=DataLoaderConfig(
-                fit_only_completed_map_metrics=True,
-            ),
+            data=MapData(),
+            data_loader_config=data_loader_config,
         )
-        kwargs = mock_observations_from_data.call_args.kwargs
+        kwargs = mock_extract_experiment_data.call_args.kwargs
+        self.assertEqual(kwargs["data_loader_config"], data_loader_config)
+        mock_extract_experiment_data.reset_mock()
+
+        # With fit_only_completed_map_metrics=True, statuses to fit is limited.
+        data_loader_config = DataLoaderConfig(fit_only_completed_map_metrics=True)
+        Adapter(
+            experiment=experiment,
+            generator=Generator(),
+            data_loader_config=data_loader_config,
+        )
+        kwargs = mock_extract_experiment_data.call_args.kwargs
+        self.assertEqual(kwargs["data_loader_config"], data_loader_config)
         self.assertEqual(
-            kwargs["statuses_to_include_map_metric"], {TrialStatus.COMPLETED}
+            data_loader_config.statuses_to_fit_map_metric, {TrialStatus.COMPLETED}
         )
 
     def test_data_extraction_from_experiment(self) -> None:
@@ -1047,12 +1018,37 @@ class BaseAdapterTest(TestCase):
         np_obs = np_obs / np.std(np_obs, ddof=1) * 2.0
         np_obs = np_obs - np.mean(np_obs)
 
-        experiment = get_experiment_with_observations(observations=np_obs.tolist())
+        search_space = get_search_space_for_range_values(min=2.0, max=6.0)
+        experiment = get_experiment_with_observations(
+            observations=np_obs.tolist(), search_space=search_space
+        )
         adapter = Adapter(
             experiment=experiment,
             generator=Generator(),
-            transforms=[StandardizeY],
+            transforms=[UnitX, StandardizeY],
         )
+        obs_features = [
+            ObservationFeatures(parameters={"x": 3.0, "y": 4.0}) for _ in range(3)
+        ]
+        tf_obs_features = UnitX(
+            search_space=search_space
+        ).transform_observation_features(observation_features=obs_features)
+
+        # Test prediction with arms.
+        with self.assertRaisesRegex(
+            UserInputError, "Input to predict must be a list of `ObservationFeatures`."
+        ):
+            # pyre-ignore[6]: Intentionally wrong argument type.
+            adapter.predict([Arm(parameters={"x": 1.0})])
+
+        # Test errors on prediction.
+        adapter._predict = mock.MagicMock(
+            "ax.adapter.base.Adapter._predict",
+            autospec=True,
+            side_effect=ValueError("Predict failed"),
+        )
+        with self.assertRaisesRegex(ValueError, "Predict failed"):
+            adapter.predict(observation_features=obs_features)
 
         def mock_predict(
             observation_features: list[ObservationFeatures],
@@ -1065,15 +1061,13 @@ class BaseAdapterTest(TestCase):
                 for _ in observation_features
             ]
 
-        obs_features = [
-            ObservationFeatures(parameters={"x": 3.0, "y": 4.0}) for _ in range(3)
-        ]
         with mock.patch.object(
             adapter, "_predict", side_effect=mock_predict
         ) as mock_pred:
             f, _ = adapter.predict(observation_features=obs_features)
+        # Check that _predict was called with transformed features.
         mock_pred.assert_called_once_with(
-            observation_features=obs_features, use_posterior_predictive=False
+            observation_features=tf_obs_features, use_posterior_predictive=False
         )
         # Check that the predictions were un-transformed with std dev = 2.0.
         self.assertTrue(np.allclose(f["m1"], np.ones(3) * 2.0))
@@ -1088,3 +1082,32 @@ class BaseAdapterTest(TestCase):
                     ObservationFeatures(parameters={"x": 3.0, "y": None}),
                 ]
             )
+
+    def test_get_training_data(self) -> None:
+        # Construct experiment with some out of design training data.
+        # Search space is x, y; both are range parameters in [0, 1].
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0], [4.0]],
+            parameterizations=[
+                {"x": 0.0, "y": 0.0},
+                {"x": 2.0, "y": 1.0},
+                {"x": 0.5, "y": 1.0},
+                {"x": 0.5},
+            ],
+        )
+        adapter = Adapter(
+            experiment=experiment, generator=Generator(), expand_model_space=False
+        )
+        # Check the default behavior, includes all data.
+        training_data = adapter.get_training_data()
+        self.assertIsInstance(training_data, ExperimentData)
+        self.assertEqual(len(training_data.arm_data), 4)
+        # Check in-design only.
+        in_design_training_data = adapter.get_training_data(filter_in_design=True)
+        assert_frame_equal(
+            in_design_training_data.arm_data, training_data.arm_data.iloc[[0, 2]]
+        )
+        assert_frame_equal(
+            in_design_training_data.observation_data,
+            training_data.observation_data.iloc[[0, 2]],
+        )

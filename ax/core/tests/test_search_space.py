@@ -17,6 +17,7 @@ from ax.core.arm import Arm
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     Parameter,
     ParameterType,
@@ -49,7 +50,7 @@ from ax.utils.testing.core_stubs import (
 )
 from pyre_extensions import assert_is_instance
 
-TOTAL_PARAMS = 6
+TOTAL_PARAMS = 7
 TUNABLE_PARAMS = 4
 RANGE_PARAMS = 3
 
@@ -80,6 +81,12 @@ class SearchSpaceTest(TestCase):
         self.g = RangeParameter(
             name="g", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
         )
+        self.h = DerivedParameter(
+            name="h", parameter_type=ParameterType.FLOAT, expression_str="2.0 * a + 1.0"
+        )
+        self.invalid_derived_param = DerivedParameter(
+            name="i", parameter_type=ParameterType.FLOAT, expression_str="2.0 * z"
+        )
         self.parameters: list[Parameter] = [
             self.a,
             self.b,
@@ -87,6 +94,7 @@ class SearchSpaceTest(TestCase):
             self.d,
             self.e,
             self.f,
+            self.h,
         ]
         self.ss1 = SearchSpace(parameters=self.parameters)
         self.ss2 = SearchSpace(
@@ -106,8 +114,8 @@ class SearchSpaceTest(TestCase):
             "ChoiceParameter(name='e', parameter_type=FLOAT, "
             "values=[0.0, 0.1, 0.2, 0.5], is_ordered=True, sort_values=True), "
             "RangeParameter(name='f', parameter_type=INT, range=[2, 10], "
-            "log_scale=True)], "
-            "parameter_constraints=[])"
+            "log_scale=True), DerivedParameter(name='h', parameter_type=FLOAT, "
+            "value=2.0 * a + 1.0)], parameter_constraints=[])"
         )
         self.ss2_repr = (
             "SearchSpace("
@@ -120,8 +128,9 @@ class SearchSpaceTest(TestCase):
             "ChoiceParameter(name='e', parameter_type=FLOAT, "
             "values=[0.0, 0.1, 0.2, 0.5], is_ordered=True, sort_values=True), "
             "RangeParameter(name='f', parameter_type=INT, range=[2, 10], "
-            "log_scale=True)], "
-            "parameter_constraints=[OrderConstraint(a <= b)])"
+            "log_scale=True), DerivedParameter(name='h', parameter_type=FLOAT, "
+            "value=2.0 * a + 1.0)], parameter_constraints=[OrderConstraint(a "
+            "<= b)])"
         )
 
     def test_Eq(self) -> None:
@@ -230,6 +239,26 @@ class SearchSpaceTest(TestCase):
                 ],
             )
 
+        # Invalid DerivedParameter
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter z is not in the search space, but is used in a "
+            "derived parameter.",
+        ):
+            SearchSpace(parameters=self.parameters + [self.invalid_derived_param])
+
+        # Constraint on derived parameter
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter constraints cannot be used with derived parameters.",
+        ):
+            SearchSpace(
+                parameters=self.parameters,
+                parameter_constraints=[
+                    ParameterConstraint(constraint_dict={"h": 1}, bound=0)
+                ],
+            )
+
     def test_BadSetter(self) -> None:
         new_p = RangeParameter(
             name="b", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
@@ -250,8 +279,27 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss1.update_parameter(new_p)
 
+        # add invalid derived_parameter
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter z is not in the search space, but is used in a "
+            "derived parameter.",
+        ):
+            self.ss1.add_parameter(parameter=self.invalid_derived_param)
+
+        # update to invalid derived_parameter
+        new_p = DerivedParameter(
+            name="h", parameter_type=ParameterType.FLOAT, expression_str="2.0 * z"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter z is not in the search space, but is used in a "
+            "derived parameter.",
+        ):
+            self.ss1.update_parameter(parameter=new_p)
+
     def test_CheckMembership(self) -> None:
-        p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
+        p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5, "h": 3.0}
 
         # Valid
         self.assertTrue(self.ss2.check_membership(p_dict))
@@ -473,6 +521,58 @@ class SearchSpaceTest(TestCase):
         )
         pd.testing.assert_frame_equal(df, expected_df)
 
+    def test_validate_derived_parameter(self) -> None:
+        # test with missing param
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter z is not in the search space, but is used in a derived "
+            "parameter.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=self.invalid_derived_param)
+
+        # test with non-numeric param
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.FLOAT, expression_str="c"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter c is not a float or int, but is used in a derived parameter.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+        # test int derived param with float constituent param
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.INT, expression_str="a"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter a is a float, but is used in a derived parameter with int type.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test derived param with constituent derived param
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.FLOAT, expression_str="h"
+        )
+        with self.assertRaisesRegex(
+            ValueError, "Parameter cannot be derived from another derived parameter."
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        fixed_param = FixedParameter(
+            name="y", parameter_type=ParameterType.FLOAT, value=1.0
+        )
+        self.ss1.add_parameter(fixed_param)
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.FLOAT, expression_str="y"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter cannot be derived from a fixed parameter. The "
+            "`intercept` argument in a derived parameter can be used "
+            "to add an fixed value to a derived parameter.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
 
 class SearchSpaceDigestTest(TestCase):
     def setUp(self) -> None:
@@ -487,6 +587,7 @@ class SearchSpaceDigestTest(TestCase):
             "fidelity_features": [0],
             "target_values": {0: 1.0},
             "robust_digest": None,
+            "hierarchical_dependencies": None,
         }
 
     def test_SearchSpaceDigest(self) -> None:

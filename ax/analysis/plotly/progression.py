@@ -21,7 +21,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 
 from plotly import graph_objects as go
-from pyre_extensions import assert_is_instance, override
+from pyre_extensions import assert_is_instance, none_throws, override
 
 
 class ProgressionPlot(Analysis):
@@ -67,9 +67,9 @@ class ProgressionPlot(Analysis):
         data = experiment.lookup_data()
         if not isinstance(data, MapData):
             raise UserInputError("ProgressionPlot requires MapData")
-        if len(data.map_key_infos) != 1:
-            raise UserInputError("ProgressionPlot requires a single map key on MapData")
-        map_key = data.map_key_infos[0].key
+        if data.map_key is None:
+            raise UserInputError("ProgressionPlot requires a map key on MapData")
+        map_key = data.map_key
 
         metric_name = self._metric_name or select_metric(experiment=experiment)
 
@@ -188,7 +188,7 @@ def _calculate_wallclock_timeseries(
 
     data = assert_is_instance(experiment.lookup_data(), MapData)
     df = data.map_df[data.map_df["metric_name"] == metric_name]
-    map_key = data.map_key_infos[0].key
+    map_key = none_throws(data.map_key)
 
     return {
         trial_index: dict(

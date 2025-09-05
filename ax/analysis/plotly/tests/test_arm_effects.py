@@ -10,6 +10,7 @@ from itertools import product
 
 from ax.adapter.registry import Generators
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_adhoc
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
@@ -319,10 +320,12 @@ class TestArmEffectsPlot(TestCase):
                 if with_additional_arms and use_model_predictions:
                     # validate that we plotted the additional arm
                     self.assertTrue(
-                        all(
-                            arm.name
-                            in json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+                        any(
+                            arm.name in datum["text"][0]
                             for card in cards.flatten()
+                            for datum in assert_is_instance(card, PlotlyAnalysisCard)
+                            .get_figure()
+                            ._data
                         )
                     )
 
@@ -389,9 +392,7 @@ class TestArmEffectsPlotRel(TestCase):
                 generator_runs=self.generation_strategy._gen_with_multiple_nodes(
                     experiment=self.experiment, n=3
                 )
-            ).set_status_quo_with_weight(
-                status_quo=self.experiment.status_quo, weight=1.0
-            ).mark_completed(unsafe=True)
+            ).add_status_quo_arm(weight=1.0).mark_completed(unsafe=True)
             self.experiment.fetch_data()
 
     def test_compute_with_relativize(self) -> None:

@@ -26,7 +26,6 @@ from ax.core.types import (
     TModelPredict,
     TModelPredictArm,
 )
-from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base, SortableBase
 from pyre_extensions import none_throws
 
@@ -180,7 +179,6 @@ class GeneratorRun(SortableBase):
         self._search_space = search_space
         self._model_predictions = model_predictions
         self._best_arm_predictions = best_arm_predictions
-        self._index: int | None = None
         self._fit_time = fit_time
         self._gen_time = gen_time
         self._model_key = model_key
@@ -243,24 +241,6 @@ class GeneratorRun(SortableBase):
     def time_created(self) -> datetime:
         """Creation time of the batch."""
         return self._time_created
-
-    @property
-    def index(self) -> int | None:
-        """The index of this generator run within a trial's list of generator run
-        structs. This field is set when the generator run is added to a trial.
-        """
-        return self._index
-
-    @index.setter
-    def index(self, index: int) -> None:
-        """Sets the index of this generator run within a trial's list of
-        generator runs. Cannot be changed after being set.
-        """
-        if self._index is not None and self._index != index:
-            raise UnsupportedError(
-                "Cannot change the index of a generator run once set."
-            )
-        self._index = index
 
     @property
     def optimization_config(self) -> OptimizationConfig | None:
@@ -368,7 +348,6 @@ class GeneratorRun(SortableBase):
             generation_node_name=self._generation_node_name,
         )
         generator_run._time_created = self._time_created
-        generator_run._index = self._index
         generator_run._model_key = self._model_key
         generator_run._model_kwargs = (
             self._model_kwargs.copy() if self._model_kwargs is not None else None
@@ -409,7 +388,4 @@ class GeneratorRun(SortableBase):
     @property
     def _unique_id(self) -> str:
         """Unique (within a given experiment) identifier for a GeneratorRun."""
-        if self.index is not None:
-            return str(self.index) + str(self.time_created)
-        else:
-            return str(self) + str(self.time_created)
+        return str(self) + str(self.time_created)

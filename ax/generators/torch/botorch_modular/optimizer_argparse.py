@@ -15,12 +15,13 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 
-# Acquisition defaults
-NUM_RESTARTS = 20
-RAW_SAMPLES = 1024
-INIT_BATCH_LIMIT = 32
-BATCH_LIMIT = 5
-MAX_OPT_AGG_SIZE = 5
+from .optimizer_defaults import (
+    BATCH_LIMIT,
+    INIT_BATCH_LIMIT,
+    MAX_OPT_AGG_SIZE,
+    NUM_RESTARTS,
+    RAW_SAMPLES,
+)
 
 
 def optimizer_argparse(

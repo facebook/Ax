@@ -7,9 +7,11 @@
 # pyre-strict
 
 from copy import deepcopy
+from math import nan
 from unittest import mock
 
 import numpy as np
+
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.core.data import Data
@@ -85,6 +87,7 @@ class TestDataUtils(TestCase):
         observations = [[0.1, 1.0], [0.2, 2.0]]
         exp = get_experiment_with_observations(observations=observations)
         # Add another trial but fail it.
+        # Also add some custom arm metadata.
         sobol = Generators.SOBOL(experiment=exp)
         exp.new_trial(generator_run=sobol.gen(1)).run().mark_failed()
         # Add an abandoned trial but include data for one metric.
@@ -113,13 +116,14 @@ class TestDataUtils(TestCase):
         experiment_data = extract_experiment_data(
             experiment=exp, data_loader_config=DataLoaderConfig()
         )
-        # Arm data: All trials with data should be included.
+        # Arm data: Only the trials that have data and are in valid statuses
+        # should be included. This excludes arm 3_0 since it is ABANDONED.
         # Filtering happens when constructing datasets.
-        arms_with_data = ["0_0", "1_0", "3_0"]
+        valid_arms = ["0_0", "1_0"]
         expected_arm_df = DataFrame(
-            [exp.arms_by_name[arm_name].parameters for arm_name in arms_with_data],
+            [exp.arms_by_name[arm_name].parameters for arm_name in valid_arms],
             index=MultiIndex.from_tuples(
-                [(0, "0_0"), (1, "1_0"), (3, "3_0")],
+                [(0, "0_0"), (1, "1_0")],
                 names=["trial_index", "arm_name"],
             ),
         )
@@ -133,7 +137,6 @@ class TestDataUtils(TestCase):
             [
                 {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
                 {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
-                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY, "test": "test_metadata"},
             ],
         )
         # Observation data: Only completed trials should be included.
@@ -174,8 +177,27 @@ class TestDataUtils(TestCase):
         experiment_data = extract_experiment_data(
             experiment=exp, data_loader_config=DataLoaderConfig(fit_abandoned=True)
         )
+        # Arm data now includes 3_0 since fit_abandoned=True.
+        valid_arms = ["0_0", "1_0", "3_0"]
+        expected_arm_df = DataFrame(
+            [exp.arms_by_name[arm_name].parameters for arm_name in valid_arms],
+            index=MultiIndex.from_tuples(
+                [(0, "0_0"), (1, "1_0"), (3, "3_0")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
         assert_frame_equal(
             experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
+        )
+        # Check metadata. It only includes info about trial completion etc.
+        metadata = experiment_data.arm_data["metadata"].tolist()
+        self.assertEqual(
+            metadata,
+            [
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
+                {Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY, "test": "test_metadata"},
+            ],
         )
         # All data should be included.
         data_df = exp.lookup_data().df
@@ -242,7 +264,7 @@ class TestDataUtils(TestCase):
         metrics = set(experiment_data.metric_names)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
-            [(0, "0_0", 0.0), (0, "0_0", 3.0), (1, "1_0", 0.0)],
+            [(0, "0_0", float("NaN")), (0, "0_0", 3.0), (1, "1_0", float("NaN"))],
             names=["trial_index", "arm_name", "timestamp"],
         )
         expected_mean_df = DataFrame(
@@ -283,10 +305,12 @@ class TestDataUtils(TestCase):
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [
+                (0, "0_0", nan),
                 (0, "0_0", 0.0),
                 (0, "0_0", 1.0),
                 (0, "0_0", 2.0),
                 (0, "0_0", 3.0),
+                (1, "1_0", nan),
                 (1, "1_0", 0.0),
                 (1, "1_0", 1.0),
             ],
@@ -294,12 +318,14 @@ class TestDataUtils(TestCase):
         )
         expected_mean_df = DataFrame(
             [
-                {"branin": t_0_metric, "branin_map": t_0_metric},
-                {"branin": None, "branin_map": t_0_metric},
-                {"branin": None, "branin_map": t_0_metric},
-                {"branin": None, "branin_map": t_0_metric},
-                {"branin": t_1_metric, "branin_map": t_1_metric},
-                {"branin": None, "branin_map": t_1_metric},
+                {"branin": t_0_metric, "branin_map": None},  # t=nan
+                {"branin": None, "branin_map": t_0_metric},  # t=0
+                {"branin": None, "branin_map": t_0_metric},  # t=1
+                {"branin": None, "branin_map": t_0_metric},  # t=2
+                {"branin": None, "branin_map": t_0_metric},  # t=3
+                {"branin": t_1_metric, "branin_map": None},  # t=nan
+                {"branin": None, "branin_map": t_1_metric},  # t=0
+                {"branin": None, "branin_map": t_1_metric},  # t=1
             ],
             index=index,
         )
@@ -308,6 +334,30 @@ class TestDataUtils(TestCase):
         )
         # Check equality with self.
         self.assertEqual(experiment_data, experiment_data)
+
+    def test_extract_experiment_data_batch_trials(self) -> None:
+        # Check that abandoned arms are correctly handled in BatchTrial.
+        experiment = get_branin_experiment(with_batch=True, num_batch_trial=3)
+        # Add data for all trials.
+        experiment.trials[0].mark_completed(unsafe=True)
+        experiment.trials[1].run()
+        experiment.trials[2].run()
+        experiment.fetch_data()
+        # Abandon trial 1 and some arms of trial 2.
+        experiment.trials[1].mark_abandoned(unsafe=True)
+        experiment.trials[2].mark_arm_abandoned(arm_name="2_14")
+        experiment.trials[2].mark_arm_abandoned(arm_name="2_13")
+        experiment.trials[2].mark_arm_abandoned(arm_name="2_12")
+        # We expect to see only trial 0 and non-abandoned arms of trial 2.
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        expected_arms = {
+            arm.name
+            for arm in experiment.trials[0].arms + experiment.trials[2].active_arms
+        }
+        for df in [experiment_data.arm_data, experiment_data.observation_data]:
+            self.assertEqual(set(df.index.get_level_values("arm_name")), expected_arms)
 
     def test_extract_experiment_data_with_metadata_columns(self) -> None:
         # Tests the case where the Data.df includes additional columns,
@@ -397,6 +447,32 @@ class TestDataUtils(TestCase):
             filtered.observation_data, experiment_data.observation_data.loc[mask]
         )
 
+    def test_filter_by_trial_index(self) -> None:
+        # This is a 2 objective experiment with 5 trials, 1 arm each.
+        observations = [[0.1, 1.0], [0.2, 2.0], [0.3, 3.0], [0.4, 4.0], [0.5, 5.0]]
+        exp = get_experiment_with_observations(observations=observations)
+        experiment_data = extract_experiment_data(
+            experiment=exp, data_loader_config=DataLoaderConfig()
+        )
+        self.assertEqual(len(experiment_data.arm_data), 5)
+        self.assertEqual(len(experiment_data.observation_data), 5)
+        # Filter to only include trials 1 & 3.
+        trial_indices = [1, 3]
+        filtered = experiment_data.filter_by_trial_index(trial_indices=trial_indices)
+        self.assertEqual(
+            list(filtered.arm_data.index.get_level_values("trial_index")), trial_indices
+        )
+        self.assertEqual(
+            list(filtered.observation_data.index.get_level_values("trial_index")),
+            trial_indices,
+        )
+        # Check that filtering was applied correctly.
+        mask = [False, True, False, True, False]
+        assert_frame_equal(filtered.arm_data, experiment_data.arm_data.loc[mask])
+        assert_frame_equal(
+            filtered.observation_data, experiment_data.observation_data.loc[mask]
+        )
+
     def test_filter_latest_observations(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_trials_and_data=True)
         experiment_data = extract_experiment_data(
@@ -412,10 +488,29 @@ class TestDataUtils(TestCase):
         assert_frame_equal(experiment_data.arm_data, filtered_data.arm_data)
         # Observation data is filtered to only include one row for each arm
         # and no timestamp on the index.
-        # In this case, the data is identical to timeframe 0 for both arms.
-        expected_obs_data = experiment_data.observation_data.loc[
-            [(0, "0_0", 0.0), (1, "1_0", 0.0)]
-        ].droplevel(2)
+        # In this case, the data is identical to timestamp 0 for branin_map and
+        # timestamp nan for branin.
+
+        # the first two rows of experiment_data.observation_data.loc[(0, "0_0")]:
+        #                 mean               sem            metadata
+        #               branin branin_map branin branin_map        n frac_nonnull
+        # timestamp
+        # NaN        55.602113        NaN    0.0        NaN  10000.0    55.602113
+        # 0.0              NaN  55.602113    NaN        0.0      NaN          NaN
+
+        # this operation coalesces it to take the non-null values, putting data
+        # for branin and branin_map on the same row.
+        expected_obs_data = (
+            experiment_data.observation_data.loc[
+                experiment_data.observation_data.index.get_level_values(
+                    "timestamp"
+                ).isin((0, nan))
+            ]
+            .reset_index("timestamp", drop=True)
+            .groupby(level=["trial_index", "arm_name"])
+            .first()
+        )
+
         assert_frame_equal(filtered_data.observation_data, expected_obs_data)
 
     def test_convert_to_list_of_observations(self) -> None:
@@ -435,7 +530,23 @@ class TestDataUtils(TestCase):
         # Experiment data shouldn't be modified.
         self.assertEqual(experiment_data, copy_data)
         # Check that the observations are correct.
-        expected = [
+        branin_trial_0 = Observation(
+            features=ObservationFeatures(
+                parameters={"x1": 0.0, "x2": 0.0},
+                trial_index=0,
+                metadata={
+                    Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY,
+                    "timestamp": float("NaN"),
+                },
+            ),
+            data=ObservationData(
+                metric_names=["branin"],
+                means=np.array([55.602112642270264]),
+                covariance=np.diag([0.0]),
+            ),
+            arm_name="0_0",
+        )
+        branin_map_trial_0 = [
             Observation(
                 features=ObservationFeatures(
                     parameters={"x1": 0.0, "x2": 0.0},
@@ -446,18 +557,28 @@ class TestDataUtils(TestCase):
                     },
                 ),
                 data=ObservationData(
-                    # The indexing removes the non-map metric when timestamp > 0.
-                    metric_names=["branin", "branin_map"][bool(timestamp) :],
-                    # Means are deterministic based on the parameterization.
-                    means=np.array(
-                        [55.602112642270264, 55.602112642270264][bool(timestamp) :]
-                    ),
-                    covariance=np.diag([0.0, 0.0][bool(timestamp) :]),
+                    metric_names=["branin_map"],
+                    means=np.array([55.602112642270264]),
+                    covariance=np.diag([0.0]),
                 ),
                 arm_name="0_0",
             )
             for timestamp in [0.0, 1.0, 2.0, 3.0]
-        ] + [
+        ]
+        branin_trial_1 = Observation(
+            features=ObservationFeatures(
+                parameters={"x1": 1.0, "x2": 1.0},
+                trial_index=1,
+                metadata={"timestamp": float("NaN")},
+            ),
+            data=ObservationData(
+                metric_names=["branin"],
+                means=np.array([27.702905548512433]),
+                covariance=np.diag([0.0]),
+            ),
+            arm_name="1_0",
+        )
+        branin_map_trial_1 = [
             Observation(
                 features=ObservationFeatures(
                     parameters={"x1": 1.0, "x2": 1.0},
@@ -465,16 +586,21 @@ class TestDataUtils(TestCase):
                     metadata={"timestamp": timestamp},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"][bool(timestamp) :],
-                    means=np.array(
-                        [27.702905548512433, 27.702905548512433][bool(timestamp) :]
-                    ),
-                    covariance=np.diag([0.0, 0.0][bool(timestamp) :]),
+                    metric_names=["branin_map"],
+                    means=np.array([27.702905548512433]),
+                    covariance=np.diag([0.0]),
                 ),
                 arm_name="1_0",
             )
             for timestamp in [0.0, 1.0]
         ]
+
+        expected = (
+            [branin_trial_0]
+            + branin_map_trial_0
+            + [branin_trial_1]
+            + branin_map_trial_1
+        )
         self.assertEqual(observations, expected)
 
         # After removing the map keys.

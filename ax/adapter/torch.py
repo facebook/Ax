@@ -37,6 +37,7 @@ from ax.adapter.adapter_utils import (
     validate_and_apply_final_transform,
 )
 from ax.adapter.base import Adapter, DataLoaderConfig, gen_arms, GenResults
+from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.cast import Cast
 from ax.core.arm import Arm
@@ -49,7 +50,6 @@ from ax.core.observation import (
     Observation,
     ObservationData,
     ObservationFeatures,
-    observations_from_data,
     separate_observations,
 )
 from ax.core.optimization_config import (
@@ -151,9 +151,9 @@ class TorchAdapter(Adapter):
                     optimization_config.preference_profile_name
                 )
 
-        # Tracks last set of observations used to fit the generator, to skip
+        # Tracks last experiment data used to fit the generator, to skip
         # generator fitting when it's not necessary.
-        self._last_observations: list[Observation] | None = None
+        self._last_experiment_data: ExperimentData | None = None
 
         # These are set in _fit.
         self.parameters: list[str] = []
@@ -321,116 +321,121 @@ class TorchAdapter(Adapter):
         )
         return tensor_func
 
-    def _array_list_to_tensors(self, arrays: list[npt.NDArray]) -> list[Tensor]:
-        return [self._array_to_tensor(x) for x in arrays]
-
     def _array_to_tensor(self, array: npt.NDArray | list[float]) -> Tensor:
         return torch.as_tensor(array, dtype=torch.double, device=self.device)
 
-    def _create_dataset(
+    def _convert_experiment_data(
         self,
-        Xs: dict[str, list[Tensor]],
-        Ys: dict[str, list[Tensor]],
-        Yvars: dict[str, list[Tensor]],
-        outcome: str,
-        parameters: list[str],
-        trial_indices: dict[str, list[int]] | None,
-    ) -> SupervisedDataset:
-        if outcome not in Xs:
-            raise ValueError(f"Outcome `{outcome}` was not observed.")
-        X = torch.stack(Xs[outcome], dim=0)
-        if outcome == Keys.PAIRWISE_PREFERENCE_QUERY.value:
-            Y = torch.tensor(
-                Ys[outcome], dtype=torch.long, device=self.device
-            ).unsqueeze(-1)
-            dataset = prep_pairwise_data(
-                X=X,
-                Y=Y,
-                group_indices=torch.tensor(none_throws(trial_indices)[outcome]),
-                outcome=outcome,
-                parameters=parameters,
-            )
-        else:
-            Yvar = torch.tensor(
-                Yvars[outcome], dtype=torch.double, device=self.device
-            ).unsqueeze(-1)
-            if Yvar.isnan().all():
-                Yvar = None
-            Y = torch.tensor(
-                Ys[outcome], dtype=torch.double, device=self.device
-            ).unsqueeze(-1)
-            dataset = SupervisedDataset(
-                X=X,
-                Y=Y,
-                Yvar=Yvar,
-                feature_names=parameters,
-                outcome_names=[outcome],
-                group_indices=torch.tensor(trial_indices[outcome])
-                if trial_indices
-                else None,
-            )
-        return dataset
-
-    def _convert_observations(
-        self,
-        observation_data: list[ObservationData],
-        observation_features: list[ObservationFeatures],
+        experiment_data: ExperimentData,
         outcomes: list[str],
         parameters: list[str],
         search_space_digest: SearchSpaceDigest | None,
     ) -> tuple[
         list[SupervisedDataset], list[str], list[list[TCandidateMetadata]] | None
     ]:
-        """Converts observations to a dictionary of `Dataset` containers and (optional)
-        candidate metadata.
+        """Converts ``ExperimentData`` to a dictionary of ``Dataset`` containers, a list
+        of outcomes -- in the same order as the datasets -- and candidate metadata.
+        The rows that have missing / NaN mean observations are dropped before
+        constructing the dataset for the corresponding outcome.
 
         Args:
-            observation_data: A list of `ObservationData` from which to extract
-                mean `Y` and variance `Yvar` observations. Must correspond 1:1 to
-                the `observation_features`.
-            observation_features: A list of `ObservationFeatures` from which to extract
-                parameter values. Must correspond 1:1 to the `observation_data`.
+            experiment_data: A container of two dataframes ``arm_data`` and
+                ``observation_data``, containing parameterizations, observations,
+                and metadata extracted from ``Trial``s and ``Data`` of the experiment.
             outcomes: The names of the outcomes to extract observations for.
-            parameters: The names of the parameters to extract. Any observation features
-                that are not included in `parameters` will be ignored.
-            search_space_digest: An optional `SearchSpaceDigest` containing information
+            parameters: The names of the parameters to extract. Any additional columns
+                of ``arm_data`` that is not included in `parameters` will be ignored.
+            search_space_digest: Optional ``SearchSpaceDigest`` containing information
                 about the search space. This is used to convert datasets into a
-                `MultiTaskDataset` where applicable.
+                ``MultiTaskDataset`` where applicable.
 
         Returns:
-            - A list of `Dataset` objects. The datsets will be for the set of outcomes
-                specified in `outcomes`, not necessarily in that order. Some outcomes
-                will be grouped into a single dataset if there are contextual datasets.
+            - A list of ``Dataset`` objects. The datasets will be for the set of
+                outcomes specified in ``outcomes``, not necessarily in that order.
+                Some outcomes will be grouped into a single dataset if there are
+                contextual datasets.
             - A list of outcomes in the order that they appear in the datasets,
                 accounting for reordering made necessary by contextual datasets.
             - An optional list of lists of candidate metadata. Each inner list
                 corresponds to one outcome. Each element in the inner list corresponds
                 to one observation.
+                NOTE: Candidate metadata is currently only utilized in TRBO generator.
         """
-        (
-            Xs,
-            Ys,
-            Yvars,
-            candidate_metadata_dict,
-            any_candidate_metadata_is_not_none,
-            trial_indices,
-        ) = self._extract_observation_data(
-            observation_data, observation_features, parameters
-        )
+        if len(outcomes) == 0:
+            return [], [], None
+        arm_data = experiment_data.arm_data
+        obs_data = experiment_data.observation_data
+        obs_data_mean = obs_data["mean"]
+        sems_df = obs_data["sem"]
+        # Check for duplication between parameter names and metric names
+        obs_mean_cols = set(obs_data_mean.columns)
+        arm_data_cols = set(arm_data.columns)
+        duplicated_names = obs_mean_cols.intersection(arm_data_cols)
 
+        # Join mean & arms to align and repeat the arm rows if necessary.
+        # Add suffix if there are duplicate column names.
+        mean_and_params = obs_data_mean.join(
+            arm_data, how="left", lsuffix="_metric", rsuffix="_parameter"
+        )
+        # Reindex to only trial_index and arm_name, to move
+        # any progression columns out of the index.
+        levels_to_move = list(
+            set(mean_and_params.index.names).difference({"trial_index", "arm_name"})
+        )
+        if len(levels_to_move) > 0:
+            # This is a copy of the original df. We can modify in-place for cheaper.
+            mean_and_params.reset_index(level=levels_to_move, inplace=True)
+        # This will include the progression if it is in parameters.
+        # This is also tolerant to missing columns, which is relevant for TL.
+        params_np = mean_and_params.filter(
+            [i + "_parameter" if i in duplicated_names else i for i in parameters]
+        ).to_numpy()
+        trial_indices_np = mean_and_params.index.get_level_values(
+            "trial_index"
+        ).to_numpy()
+        metadata = mean_and_params["metadata"]
         datasets: list[SupervisedDataset] = []
         candidate_metadata = []
         for outcome in outcomes:
-            dataset = self._create_dataset(
-                Xs=Xs,
-                Ys=Ys,
-                Yvars=Yvars,
-                outcome=outcome,
-                parameters=parameters,
-                trial_indices=trial_indices,
+            outcome_col_name = (
+                outcome + "_metric" if outcome in duplicated_names else outcome
             )
+            if outcome_col_name not in mean_and_params:
+                raise DataRequiredError(
+                    f"Attempting to extract a dataset for {outcome=} but no "
+                    "corresponding data was found in the experiment data."
+                )
+            # Drop NaN columns from means & corresponding params.
+            outcome_means = mean_and_params[outcome_col_name].to_numpy()
+            to_keep = ~np.isnan(outcome_means)
+            Y = torch.from_numpy(outcome_means[to_keep]).double().view(-1, 1)
+            X = torch.from_numpy(params_np[to_keep]).double()
+            sem = sems_df[outcome].to_numpy()[to_keep]
+            if np.all(np.isnan(sem)):
+                Yvar = None
+            else:
+                Yvar = torch.from_numpy(sem).double().square().view(-1, 1)
+            group_indices = torch.from_numpy(trial_indices_np[to_keep])
+            if outcome == Keys.PAIRWISE_PREFERENCE_QUERY.value:
+                dataset = prep_pairwise_data(
+                    X=X,
+                    Y=Y.to(dtype=torch.long),
+                    group_indices=group_indices,
+                    outcome=outcome,
+                    parameters=parameters,
+                )
+            else:
+                dataset = SupervisedDataset(
+                    X=X,
+                    Y=Y,
+                    Yvar=Yvar,
+                    feature_names=parameters,
+                    outcome_names=[outcome],
+                    group_indices=group_indices,
+                )
             datasets.append(dataset)
-            candidate_metadata.append(candidate_metadata_dict[outcome])
+            candidate_metadata.append(metadata.loc[to_keep].to_list())
+
         # If the search space digest specifies a task feature,
         # convert the datasets into MultiTaskDataset.
         if search_space_digest is not None and (
@@ -479,7 +484,7 @@ class TorchAdapter(Adapter):
         for d in datasets:
             ordered_outcomes.extend(d.outcome_names)
         # Re-order candidate metadata
-        if any_candidate_metadata_is_not_none:
+        if not metadata.isnull().all():
             ordered_metadata = []
             for outcome in ordered_outcomes:
                 ordered_metadata.append(candidate_metadata[outcomes.index(outcome)])
@@ -491,26 +496,22 @@ class TorchAdapter(Adapter):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        cv_training_data: list[Observation],
+        cv_training_data: ExperimentData,
         cv_test_points: list[ObservationFeatures],
-        parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
     ) -> list[ObservationData]:
-        """Make predictions at cv_test_points using only the data in obs_feats
-        and obs_data.
+        """Make predictions at ``cv_test_points`` using only the data
+        in ``cv_training_data``.
         """
-        if not self.parameters:
+        if self.parameters is None:
             raise ValueError(FIT_MODEL_ERROR.format(action="_cross_validate"))
         datasets, _, search_space_digest = self._get_fit_args(
             search_space=search_space,
-            observations=cv_training_data,
-            parameters=parameters,
+            experiment_data=cv_training_data,
             update_outcomes_and_parameters=False,
         )
-        if parameters is None:
-            parameters = self.parameters
         X_test = torch.tensor(
-            [[obsf.parameters[p] for p in parameters] for obsf in cv_test_points],
+            [[obsf.parameters[p] for p in self.parameters] for obsf in cv_test_points],
             dtype=torch.double,
             device=self.device,
         )
@@ -656,8 +657,11 @@ class TorchAdapter(Adapter):
                     "preference profile with recorded preference data."
                 )
 
-            pe_obs = observations_from_data(experiment=pe_exp, data=pe_data)
-            pe_obs_features, pe_obs_data = separate_observations(pe_obs)
+            pe_experiment_data = extract_experiment_data(
+                experiment=pe_exp,
+                data=pe_data,
+                data_loader_config=self._data_loader_config,
+            )
             pe_exp_param_names = list(pe_exp.search_space.parameters.keys())
 
             # Get all relevant information on the parameters
@@ -666,9 +670,8 @@ class TorchAdapter(Adapter):
             )
             pe_outcomes = [Keys.PAIRWISE_PREFERENCE_QUERY.value]
 
-            pe_datasets, _, _ = self._convert_observations(
-                observation_data=pe_obs_data,
-                observation_features=pe_obs_features,
+            pe_datasets, _, _ = self._convert_experiment_data(
+                experiment_data=pe_experiment_data,
                 outcomes=pe_outcomes,
                 parameters=pe_exp_param_names,
                 search_space_digest=pe_ssd,
@@ -679,8 +682,7 @@ class TorchAdapter(Adapter):
     def _get_fit_args(
         self,
         search_space: SearchSpace,
-        observations: list[Observation],
-        parameters: list[str] | None,
+        experiment_data: ExperimentData,
         update_outcomes_and_parameters: bool,
     ) -> tuple[
         list[SupervisedDataset],
@@ -688,24 +690,23 @@ class TorchAdapter(Adapter):
         SearchSpaceDigest,
     ]:
         """Helper for consolidating some common argument processing between
-        fit and cross validate methods. Extracts datasets and candidate metadate
-        from observations and the search space digest from the search space.
+        ``fit`` and ``cross_validate`` methods. Extracts datasets and candidate metadata
+        from ``experiment_data``, and ``search_space_digest`` from the ``search_space``.
 
         Args:
             search_space: A transformed search space for fitting the generator.
-            observations: The observations to fit the generator with. These should
-                also be transformed.
-            parameters: Names of parameters to be used in the generator. Defaults to
-                all parameters in the search space.
+            experiment_data: A container of two dataframes ``arm_data`` and
+                ``observation_data``, containing parameterizations, observations,
+                and metadata extracted from ``Trial``s and ``Data`` of the experiment.
             update_outcomes_and_parameters: Whether to update `self.outcomes` with
                 all outcomes found in the observations and `self.parameters` with
                 all parameters in the search space. Typically only used in `_fit`.
 
         Returns:
-            The datasets & metadata extracted from the observations and the
-            search space digest.
+            The datasets & metadata, extracted from the ``experiment_data``, and the
+            ``search_space_digest``.
         """
-        self._last_observations = observations
+        self._last_experiment_data = experiment_data
         if update_outcomes_and_parameters:
             self.parameters = list(search_space.parameters.keys())
             # Make sure that task feature is the last parameter. This is important
@@ -718,27 +719,20 @@ class TorchAdapter(Adapter):
                         + self.parameters[idx + 1 :]
                         + [Keys.TASK_FEATURE_NAME.value]
                     )
-        if parameters is None:
-            parameters = self.parameters
-        all_metric_names: set[str] = set()
-        observation_features, observation_data = separate_observations(observations)
         # Only update outcomes if fitting a model on tracking metrics. Otherwise,
         # we will only fit models to the outcomes that are extracted from optimization
         # config in Adapter.__init__.
         if update_outcomes_and_parameters and self._fit_tracking_metrics:
-            for od in observation_data:
-                all_metric_names.update(od.metric_names)
-            self.outcomes = sorted(all_metric_names)  # Deterministic order
+            self.outcomes = sorted(experiment_data.metric_names)
         # Get all relevant information on the parameters
         search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
         )
         # Convert observations to datasets
-        datasets, ordered_outcomes, candidate_metadata = self._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
+        datasets, ordered_outcomes, candidate_metadata = self._convert_experiment_data(
+            experiment_data=experiment_data,
             outcomes=self.outcomes,
-            parameters=parameters,
+            parameters=self.parameters,
             search_space_digest=search_space_digest,
         )
 
@@ -757,20 +751,18 @@ class TorchAdapter(Adapter):
     def _fit(
         self,
         search_space: SearchSpace,
-        observations: list[Observation],
-        parameters: list[str] | None = None,
+        experiment_data: ExperimentData,
         **kwargs: Any,
     ) -> None:
-        if observations == self._last_observations:
+        if experiment_data == self._last_experiment_data:
             logger.debug(
-                "The observations are identical to the last set of observations "
+                "The experiment data is identical to the last experiment data "
                 "used to fit the generator. Skipping generator fitting."
             )
             return
         datasets, candidate_metadata, search_space_digest = self._get_fit_args(
             search_space=search_space,
-            observations=observations,
-            parameters=parameters,
+            experiment_data=experiment_data,
             update_outcomes_and_parameters=True,
         )
         self.generator.fit(

@@ -37,7 +37,6 @@ from ax.benchmark.benchmark import (
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
-    create_problem_from_botorch,
     get_continuous_search_space,
     get_moo_opt_config,
     get_soo_opt_config,
@@ -54,7 +53,19 @@ from ax.benchmark.methods.sobol import (
     get_sobol_generation_strategy,
 )
 from ax.benchmark.problems.registry import get_benchmark_problem
-from ax.benchmark.problems.synthetic.from_botorch import get_augmented_branin_problem
+from ax.benchmark.problems.synthetic.from_botorch import (
+    create_problem_from_botorch,
+    get_augmented_branin_problem,
+)
+from ax.benchmark.testing.benchmark_stubs import (
+    get_async_benchmark_method,
+    get_async_benchmark_problem,
+    get_discrete_search_space,
+    get_moo_surrogate,
+    get_multi_objective_benchmark_problem,
+    get_single_objective_benchmark_problem,
+    get_soo_surrogate,
+)
 
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -71,16 +82,6 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import get_logger
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import (
-    get_async_benchmark_method,
-    get_async_benchmark_problem,
-    get_discrete_search_space,
-    get_moo_surrogate,
-    get_multi_objective_benchmark_problem,
-    get_single_objective_benchmark_problem,
-    get_soo_surrogate,
-    TestDataset,
-)
 
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -353,7 +354,8 @@ class TestBenchmark(TestCase):
 
                 with mock_patch_method_original(
                     mock_path=(
-                        "ax.utils.testing.benchmark_stubs.ExternalGenerationNode._gen"
+                        "ax.benchmark.testing.benchmark_stubs."
+                        "ExternalGenerationNode._gen"
                     ),
                     original_method=ExternalGenerationNode._gen,
                 ) as mock_gen:
@@ -705,13 +707,6 @@ class TestBenchmark(TestCase):
 
     @mock_botorch_optimize
     def test_replication_mbm(self) -> None:
-        with patch.dict(
-            "ax.benchmark.problems.hpo.torchvision._REGISTRY",
-            {"MNIST": TestDataset},
-        ):
-            mnist_problem = get_benchmark_problem(
-                problem_key="hpo_pytorch_cnn_MNIST", name="MNIST", num_trials=6
-            )
         for method, problem, expected_name in [
             (
                 get_sobol_botorch_modular_acquisition(
@@ -765,15 +760,6 @@ class TestBenchmark(TestCase):
                 ),
                 get_multi_objective_benchmark_problem(num_trials=6),
                 "MBM::SAAS_qLogNEI",
-            ),
-            (
-                get_sobol_botorch_modular_acquisition(
-                    model_cls=SingleTaskGP,
-                    acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
-                ),
-                mnist_problem,
-                "MBM::SingleTaskGP_qLogNEI",
             ),
             (
                 get_sobol_botorch_modular_acquisition(

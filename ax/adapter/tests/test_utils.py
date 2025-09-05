@@ -12,7 +12,6 @@ import numpy as np
 from ax.adapter.adapter_utils import (
     extract_objective_thresholds,
     extract_outcome_constraints,
-    feasible_hypervolume,
     observation_data_to_array,
     pending_observations_as_array_list,
 )
@@ -23,7 +22,6 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
     OutcomeConstraint,
@@ -47,11 +45,11 @@ class TestAdapterUtils(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_experiment()
-        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
+        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         self.experiment_2 = get_experiment()
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
-        self.batch_trial.set_status_quo_with_weight(self.experiment_2.status_quo, 1)
+        self.batch_trial.add_status_quo_arm(1)
         self.obs_feat = ObservationFeatures.from_arm(
             arm=self.trial.arm, trial_index=self.trial.index
         )
@@ -236,62 +234,6 @@ class TestAdapterUtils(TestCase):
                 equal_nan=True,
             )
         )
-
-    def test_feasible_hypervolume(self) -> None:
-        ma = Metric(name="a", lower_is_better=False)
-        mb = Metric(name="b", lower_is_better=True)
-        mc = Metric(name="c", lower_is_better=False)
-        optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(metrics=[ma, mb]),
-            outcome_constraints=[
-                OutcomeConstraint(
-                    mc,
-                    op=ComparisonOp.GEQ,
-                    bound=0,
-                    relative=False,
-                )
-            ],
-            objective_thresholds=[
-                ObjectiveThreshold(
-                    ma,
-                    bound=1.0,
-                ),
-                ObjectiveThreshold(
-                    mb,
-                    bound=1.0,
-                ),
-            ],
-        )
-        feas_hv = feasible_hypervolume(
-            optimization_config,
-            values={
-                "a": np.array(
-                    [
-                        1.0,
-                        3.0,
-                        2.0,
-                        2.0,
-                    ]
-                ),
-                "b": np.array(
-                    [
-                        0.0,
-                        1.0,
-                        0.0,
-                        0.0,
-                    ]
-                ),
-                "c": np.array(
-                    [
-                        0.0,
-                        -0.0,
-                        1.0,
-                        -2.0,
-                    ]
-                ),
-            },
-        )
-        self.assertEqual(list(feas_hv), [0.0, 0.0, 1.0, 1.0])
 
     def test_pending_observations_as_array_list(self) -> None:
         # Mark a trial dispatched so that there are pending observations.

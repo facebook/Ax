@@ -118,7 +118,10 @@ class BilogY(Transform):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         obs_data = experiment_data.observation_data
+        metric_names = experiment_data.metric_names
         for metric, bound in self.metric_to_bound.items():
+            if metric not in metric_names:
+                continue
             obs_data[("mean", metric)], obs_data[("sem", metric)] = match_ci_width(
                 mean=obs_data[("mean", metric)].to_numpy(),
                 sem=obs_data[("sem", metric)].to_numpy(),

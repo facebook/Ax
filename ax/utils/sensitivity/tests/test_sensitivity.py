@@ -197,11 +197,9 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_saas,
-            expected_first_order=torch.tensor([0.5757, 0.50996], dtype=torch.double),
-            expected_total_order=torch.tensor(
-                [0.991728, 0.096759], dtype=torch.float64
-            ),
-            expected_second_order=torch.tensor([0.8327], dtype=torch.double),
+            expected_first_order=torch.tensor([0.5752, 0.5143], dtype=torch.double),
+            expected_total_order=torch.tensor([0.9897, 0.0979], dtype=torch.float64),
+            expected_second_order=torch.tensor([0.8300], dtype=torch.double),
         )
 
         sensitivity_mean_bootstrap = SobolSensitivityGPMean(
@@ -215,15 +213,15 @@ class SensitivityAnalysisTest(TestCase):
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_bootstrap,
             expected_first_order=torch.tensor(
-                [[0.552428, 0.022773, 0.047721], [0.084449, 0.220925, 0.148635]],
+                [[0.5511, 0.0237, 0.0487], [0.0878, 0.2175, 0.1475]],
                 dtype=torch.float64,
             ),
             expected_total_order=torch.tensor(
-                [[0.696474, 0.024747, 0.049746], [0.840529, 0.111385, 0.105539]],
+                [[0.6946, 0.0242, 0.0497], [0.8412, 0.1112, 0.1062]],
                 dtype=torch.float64,
             ),
             expected_second_order=torch.tensor(
-                [[0.312184, 0.528756, 0.229947]], dtype=torch.float64
+                [[0.3119, 0.5284, 0.2299]], dtype=torch.float64
             ),
         )
 
@@ -238,15 +236,15 @@ class SensitivityAnalysisTest(TestCase):
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_bootstrap,
             expected_first_order=torch.tensor(
-                [[0.480626, 0.139699, 0.118194], [1.940658, 2.749022, 0.524311]],
+                [[0.4812, 0.1397, 0.1182], [1.9419, 2.7505, 0.5245]],
                 dtype=torch.float64,
             ),
             expected_total_order=torch.tensor(
-                [[0.223900, 0.094295, 0.097105], [0.674058, 0.288103, 0.169736]],
+                [[0.2238, 0.0941, 0.0970], [0.6736, 0.2878, 0.1697]],
                 dtype=torch.float64,
             ),
             expected_second_order=torch.tensor(
-                [[0.833348, 7.983371, 0.893497]], dtype=torch.float64
+                [[0.8344, 7.9860, 0.8936]], dtype=torch.float64
             ),
         )
 
@@ -255,12 +253,8 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean,
-            expected_first_order=torch.tensor(
-                [-0.040627, 0.445627], dtype=torch.float64
-            ),
-            expected_total_order=torch.tensor(
-                [0.440288, 0.632583], dtype=torch.float64
-            ),
+            expected_first_order=torch.tensor([-0.0408, 0.4454], dtype=torch.float64),
+            expected_total_order=torch.tensor([0.4405, 0.6326], dtype=torch.float64),
         )
 
         with self.assertRaisesRegex(ValueError, "Second order indices"):

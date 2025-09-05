@@ -10,10 +10,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
-from ax.benchmark.problems.hpo.torchvision import (
-    get_pytorch_cnn_torchvision_benchmark_problem,
-)
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.benchmark.problems.surrogate.lcbench.early_stopping import (
     get_lcbench_early_stopping_benchmark_problem,
@@ -27,6 +24,7 @@ from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_hartmann,
     get_discrete_rosenbrock,
 )
+from ax.benchmark.problems.synthetic.from_botorch import create_problem_from_botorch
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from botorch.test_functions import synthetic
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -128,20 +126,6 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
             "num_trials": 25,
             "observe_noise_sd": False,
             "n_dummy_dimensions": 24,
-        },
-    ),
-    "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
-        factory_fn=get_pytorch_cnn_torchvision_benchmark_problem,
-        factory_kwargs={
-            "name": "MNIST",
-            "num_trials": 20,
-        },
-    ),
-    "hpo_pytorch_cnn_FashionMNIST": BenchmarkProblemRegistryEntry(
-        factory_fn=get_pytorch_cnn_torchvision_benchmark_problem,
-        factory_kwargs={
-            "name": "FashionMNIST",
-            "num_trials": 50,
         },
     ),
     "jenatton": BenchmarkProblemRegistryEntry(

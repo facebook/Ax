@@ -111,10 +111,8 @@ class ModelConfig:
             parsing the ``covar_module_options`` in ``covar_module_argparse``,
             and gets passed to the model constructor as ``covar_module``.
         covar_module_options: Covariance module kwargs.
-            in favor of model_configs.
-        likelihood: ``Likelihood`` class. This gets initialized with
+        likelihood_class: ``Likelihood`` class. This gets initialized with
             ``likelihood_options`` and gets passed to the model constructor.
-            This argument is deprecated in favor of model_configs.
         likelihood_options: Likelihood options.
         name: Name of the model config. This is used to identify the model config.
     """
@@ -327,9 +325,7 @@ def choose_botorch_acqf_class(
         # NOTE: `convert_to_block_design` will drop points that are only observed by
         # some of the metrics which is natural as we are using observed values to
         # determine feasibility.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=AxWarning)
-            dataset = convert_to_block_design(datasets=datasets, force=True)[0]
+        dataset = convert_to_block_design(datasets=datasets, force=True)[0]
         con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
         feas_point_found = (con_observed <= 0).all(dim=-1).any().item()
 
@@ -432,15 +428,32 @@ def convert_to_block_design(
     datasets: Sequence[SupervisedDataset],
     force: bool = False,
 ) -> list[SupervisedDataset]:
-    # Convert data to "block design". TODO: Figure out a better
-    # solution for this using the data containers (pass outcome
-    # names as properties of the data containers)
+    """Converts a list of datasets to a single block-design dataset that contains
+    all outcomes.
+
+    Args:
+        datasets: A list of datasets to merge.
+        force: If True, will force conversion of data not complying to a block
+            design to block design by dropping observations that are not shared
+            between outcomes.
+            If only a subset of the outcomes have noise observations, all noise
+            observations will be dropped.
+
+    Returns:
+        A single element list containing the merged dataset.
+    """
     is_fixed = [ds.Yvar is not None for ds in datasets]
     if any(is_fixed) and not all(is_fixed):
-        raise UnsupportedError(
-            "Cannot convert mixed data with and without variance "
-            "observations to `block design`."
-        )
+        if force:
+            logger.debug(
+                "Only a subset of datasets have noise observations. "
+                "Dropping all noise observations since `force=True`. "
+            )
+        else:
+            raise UnsupportedError(
+                "Cannot convert mixed data with and without variance "
+                "observations to `block design`."
+            )
     is_fixed = all(is_fixed)
     Xs = [dataset.X for dataset in datasets]
     for dset in datasets[1:]:
@@ -462,12 +475,10 @@ def convert_to_block_design(
                 "To force this and drop data not shared between "
                 "outcomes use `force=True`."
             )
-        warnings.warn(
+        logger.debug(
             "Forcing conversion of data not complying to a block design "
             "to block design by dropping observations that are not shared "
-            "between outcomes.",
-            AxWarning,
-            stacklevel=3,
+            "between outcomes."
         )
         X_shared, idcs_shared = _get_shared_rows(Xs=Xs)
         Y = torch.cat([ds.Y[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)

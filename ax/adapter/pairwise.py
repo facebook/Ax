@@ -9,6 +9,8 @@
 from ax.adapter.torch import TorchAdapter
 
 
+# PairwiseAdapter was deprecated in Ax 1.1.0, so it should be reaped in Ax
+# 1.2.0+
 class PairwiseAdapter(TorchAdapter):
     # pyre-ignore[2]: Missing parameter annotations.
     def __init__(self, **kwargs) -> None:

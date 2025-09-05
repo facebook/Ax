@@ -83,6 +83,7 @@ class RandomGenerator(Generator):
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
         self.attempted_draws: int = 0
         if generated_points is not None:
+            # generated_points was deprecated in Ax 1.0.0, so it can now be reaped.
             warnings.warn(
                 "The `generated_points` argument is deprecated and will be removed "
                 "in a future version of Ax. It is being ignored in favor of "
@@ -208,7 +209,7 @@ class RandomGenerator(Generator):
                 )
                 points = polytope_sampler.draw(n=n).numpy()
                 if rounding_func is not None:
-                    points = rounding_func(points)
+                    points = np.array([rounding_func(point) for point in points])
                 # TODO: Deduplicate points (should refactor deduplication logic
                 # to cover both the rejection sampling and polytope sampling cases.
             else:

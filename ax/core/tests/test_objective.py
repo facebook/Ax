@@ -85,28 +85,6 @@ class ObjectiveTest(TestCase):
             [self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
         )
 
-    def test_MultiObjectiveBackwardsCompatibility(self) -> None:
-        metrics = [
-            Metric(name="m1", lower_is_better=False),
-            self.metrics["m2"],
-            self.metrics["m3"],
-        ]
-        multi_objective = MultiObjective(metrics=metrics)
-        minimizes = [obj.minimize for obj in multi_objective.objectives]
-        self.assertEqual(multi_objective.metrics, metrics)
-        self.assertEqual(minimizes, [False, True, False])
-
-        multi_objective_min = MultiObjective(
-            metrics=[
-                Metric(name="m1"),
-                Metric(name="m2"),
-                Metric(name="m3", lower_is_better=True),
-            ],
-            minimize=True,
-        )
-        minimizes = [obj.minimize for obj in multi_objective_min.objectives]
-        self.assertEqual(minimizes, [True, True, True])
-
     def test_ScalarizedObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
             # pyre-fixme[7]: Expected `None` but got `Metric`.

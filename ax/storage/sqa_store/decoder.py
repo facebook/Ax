@@ -11,7 +11,7 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import cast, Union
+from typing import Callable, cast, Union
 
 import pandas as pd
 from ax.analysis.analysis_card import (
@@ -42,7 +42,13 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    Parameter,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -72,6 +78,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from ax.storage.sqa_store.utils import are_relationships_loaded
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -420,6 +427,14 @@ class Decoder:
                 target_value=parameter_sqa.target_value,
                 dependents=parameter_sqa.dependents,
             )
+        elif parameter_sqa.domain_type == DomainType.DERIVED:
+            parameter = DerivedParameter(
+                name=parameter_sqa.name,
+                parameter_type=parameter_sqa.parameter_type,
+                expression_str=none_throws(parameter_sqa.expression_str),
+                is_fidelity=parameter_sqa.is_fidelity or False,
+                target_value=parameter_sqa.target_value,
+            )
         else:
             raise SQADecodeError(
                 f"Cannot decode SQAParameter because {parameter_sqa.domain_type} "
@@ -718,19 +733,31 @@ class Decoder:
             arms.append(self.arm_from_sqa(arm_sqa=arm_sqa))
             weights.append(arm_sqa.weight)
         if not reduced_state and not immutable_search_space_and_opt_config:
-            (
-                opt_config,
-                tracking_metrics,
-            ) = self.opt_config_and_tracking_metrics_from_sqa(
-                metrics_sqa=generator_run_sqa.metrics
-            )
-            if len(tracking_metrics) > 0:
-                raise SQADecodeError("GeneratorRun should not have tracking metrics.")
+            # Check if metrics, parameters, and parameter constraints are present
+            # on the generator run SQA object, since these attributes
+            # were potentially lazy loaded.
+            if are_relationships_loaded(
+                sqa_object=generator_run_sqa,
+                relationship_names=["metrics", "parameters", "parameter_constraints"],
+            ):
+                (
+                    opt_config,
+                    tracking_metrics,
+                ) = self.opt_config_and_tracking_metrics_from_sqa(
+                    metrics_sqa=generator_run_sqa.metrics
+                )
+                if len(tracking_metrics) > 0:
+                    raise SQADecodeError(
+                        "GeneratorRun should not have tracking metrics."
+                    )
 
-            search_space = self.search_space_from_sqa(
-                parameters_sqa=generator_run_sqa.parameters,
-                parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
-            )
+                search_space = self.search_space_from_sqa(
+                    parameters_sqa=generator_run_sqa.parameters,
+                    parameter_constraints_sqa=generator_run_sqa.parameter_constraints,
+                )
+            else:
+                opt_config = None
+                search_space = None
 
         best_arm_predictions = None
         model_predictions = None
@@ -836,7 +863,6 @@ class Decoder:
             value=generator_run_sqa.generator_run_type,
             enum=self.config.generator_run_type_enum,
         )
-        generator_run._index = generator_run_sqa.index
         generator_run.db_id = generator_run_sqa.id
         return generator_run
 
@@ -900,7 +926,11 @@ class Decoder:
                     self.generator_run_from_sqa(
                         generator_run_sqa=gs_sqa.generator_runs[-1],
                         reduced_state=False,
-                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                        # We set immutable_search_space_and_opt_config to reduced_state
+                        # to ensure that metrics and parameters are not loaded as part
+                        # of the generator run, as they are not required for a
+                        # generator run to be "fully" loaded.
+                        immutable_search_space_and_opt_config=reduced_state,
                     )
                 )
             except JSONDecodeError:
@@ -972,7 +1002,6 @@ class Decoder:
                 experiment=experiment,
                 ttl_seconds=trial_sqa.ttl_seconds,
                 index=trial_sqa.index,
-                lifecycle_stage=trial_sqa.lifecycle_stage,
             )
             generator_run_structs = [
                 GeneratorRunStruct(
@@ -981,7 +1010,6 @@ class Decoder:
                         reduced_state=reduced_state,
                         immutable_search_space_and_opt_config=immutable_ss_and_oc,
                     ),
-                    weight=float(generator_run_sqa.weight or 1.0),
                 )
                 for generator_run_sqa in trial_sqa.generator_runs
             ]
@@ -993,7 +1021,6 @@ class Decoder:
                         == GeneratorRunType.STATUS_QUO.name
                     ):
                         status_quo_weight = struct.generator_run.weights[0]
-                        trial._status_quo = struct.generator_run.arms[0]
                         trial._status_quo_weight_override = status_quo_weight
                         trial._status_quo_generator_run_db_id = (
                             struct.generator_run.db_id
@@ -1012,7 +1039,7 @@ class Decoder:
             trial._refresh_arms_by_name()  # Trigger cache build
 
             # Trial.arms_by_name only returns arms with weights
-            trial.add_status_quo_arm = (
+            trial.should_add_status_quo_arm = (
                 trial.status_quo is not None
                 and trial.status_quo.name in trial.arms_by_name
             )
@@ -1231,26 +1258,12 @@ class Decoder:
         return Objective(metric=metric, minimize=minimize)
 
     def _multi_objective_from_sqa(self, parent_metric_sqa: SQAMetric) -> Objective:
-        try:
-            metrics_sqa_children = (
-                parent_metric_sqa.scalarized_objective_children_metrics
-            )
-        except DetachedInstanceError:
-            metrics_sqa_children = _get_scalarized_objective_children_metrics(
-                metric_id=parent_metric_sqa.id, decoder=self
-            )
-
-        if metrics_sqa_children is None:
-            raise SQADecodeError(
-                "Cannot decode SQAMetric to MultiObjective \
-                because the parent metric has no children metrics."
-            )
-
-        if parent_metric_sqa.properties and parent_metric_sqa.properties.get(
-            "skip_runners_and_metrics"
-        ):
-            for child_metric in metrics_sqa_children:
-                child_metric.metric_type = self.config.metric_registry[Metric]
+        metrics_sqa_children = self._get_and_process_children_metrics(
+            parent_metric_sqa=parent_metric_sqa,
+            children_attribute_name="scalarized_objective_children_metrics",
+            fallback_function=_get_scalarized_objective_children_metrics,
+            metric_type_name="MultiObjective",
+        )
 
         # Extracting metric and weight for each child
         objectives = [
@@ -1272,20 +1285,12 @@ class Decoder:
                 "because minimize is None."
             )
 
-        try:
-            metrics_sqa_children = (
-                parent_metric_sqa.scalarized_objective_children_metrics
-            )
-        except DetachedInstanceError:
-            metrics_sqa_children = _get_scalarized_objective_children_metrics(
-                metric_id=parent_metric_sqa.id, decoder=self
-            )
-
-        if metrics_sqa_children is None:
-            raise SQADecodeError(
-                "Cannot decode SQAMetric to Scalarized Objective \
-                because the parent metric has no children metrics."
-            )
+        metrics_sqa_children = self._get_and_process_children_metrics(
+            parent_metric_sqa=parent_metric_sqa,
+            children_attribute_name="scalarized_objective_children_metrics",
+            fallback_function=_get_scalarized_objective_children_metrics,
+            metric_type_name="Scalarized Objective",
+        )
 
         # Extracting metric and weight for each child
         metrics, weights = zip(
@@ -1337,20 +1342,12 @@ class Decoder:
                 "bound, op, or relative is None."
             )
 
-        try:
-            metrics_sqa_children = (
-                metric_sqa.scalarized_outcome_constraint_children_metrics
-            )
-        except DetachedInstanceError:
-            metrics_sqa_children = _get_scalarized_outcome_constraint_children_metrics(
-                metric_id=metric_sqa.id, decoder=self
-            )
-
-        if metrics_sqa_children is None:
-            raise SQADecodeError(
-                "Cannot decode SQAMetric to Scalarized OutcomeConstraint \
-                because the parent metric has no children metrics."
-            )
+        metrics_sqa_children = self._get_and_process_children_metrics(
+            parent_metric_sqa=metric_sqa,
+            children_attribute_name="scalarized_outcome_constraint_children_metrics",
+            fallback_function=_get_scalarized_outcome_constraint_children_metrics,
+            metric_type_name="Scalarized OutcomeConstraint",
+        )
 
         # Extracting metric and weight for each child
         metrics, weights = zip(
@@ -1403,6 +1400,51 @@ class Decoder:
         )
         rm._db_id = metric.db_id
         return rm
+
+    def _get_and_process_children_metrics(
+        self,
+        parent_metric_sqa: SQAMetric,
+        children_attribute_name: str,
+        fallback_function: Callable[[int, "Decoder"], list[SQAMetric]],
+        metric_type_name: str,
+    ) -> list[SQAMetric]:
+        """Helper method to get children metrics and apply skip_runners_and_metrics.
+
+        This method consolidates the common pattern of:
+        1. Trying to access children metrics directly from the parent
+        2. Falling back to database query if DetachedInstanceError occurs
+        3. Checking if children is None and raising appropriate error
+        4. Applying skip_runners_and_metrics logic to children.
+            This step requires setting skip_runners_and_metrics in
+            `_set_sqa_metric_to_base_type` ahead of time.
+
+        Args:
+            parent_metric_sqa: The parent metric SQA object.
+            children_attribute_name: Name of the attribute containing children metrics.
+            fallback_function: Function to call if DetachedInstanceError occurs.
+            metric_type_name: Name of the metric type for error messages.
+
+        Returns:
+            List of processed children metrics.
+        """
+        try:
+            children_metrics_sqa = getattr(parent_metric_sqa, children_attribute_name)
+        except DetachedInstanceError:
+            children_metrics_sqa = fallback_function(parent_metric_sqa.id, self)
+
+        if children_metrics_sqa is None:
+            raise SQADecodeError(
+                f"Cannot decode SQAMetric to {metric_type_name} "
+                "because the parent metric has no children metrics."
+            )
+
+        if parent_metric_sqa.properties and parent_metric_sqa.properties.get(
+            "skip_runners_and_metrics"
+        ):
+            for child_metric in children_metrics_sqa:
+                child_metric.metric_type = self.config.metric_registry[Metric]
+
+        return children_metrics_sqa
 
 
 def _get_scalarized_objective_children_metrics(

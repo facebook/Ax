@@ -14,8 +14,8 @@ from ax.benchmark.problems.registry import (
     get_benchmark_problem,
 )
 from ax.benchmark.problems.runtime_funcs import int_from_params
+from ax.benchmark.testing.benchmark_stubs import get_mock_lcbench_data
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import get_mock_lcbench_data
 from sklearn.pipeline import Pipeline
 
 

@@ -48,6 +48,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     Parameter,
     ParameterType,
@@ -203,24 +204,61 @@ def get_experiment_with_custom_runner_and_metric(
     constrain_search_space: bool = True,
     immutable: bool = False,
     multi_objective: bool = False,
+    scalarized_objective: bool = False,
     num_trials: int = 3,
     has_outcome_constraint: bool = False,
 ) -> Experiment:
+    # Validate mutually exclusive parameters
+    if multi_objective and scalarized_objective:
+        raise ValueError("multi_objective and scalarized_objective cannot both be True")
+
+    # Create optimization config based on the requested type
+    if multi_objective:
+        optimization_config = get_multi_objective_optimization_config(
+            custom_metric=True,
+            outcome_constraint=has_outcome_constraint,
+            relative=False,
+        )
+    elif scalarized_objective:
+        # Create scalarized objective with custom metrics
+        custom_scalarized_objective = ScalarizedObjective(
+            metrics=[
+                CustomTestMetric(name="m1", test_attribute="test"),
+                CustomTestMetric(name="m3", test_attribute="test"),
+            ],
+            weights=[1.0, 2.0],
+            minimize=False,
+        )
+
+        outcome_constraints = []
+        if has_outcome_constraint:
+            # When both scalarized_objective and has_outcome_constraint are True,
+            # automatically use scalarized outcome constraint
+            custom_scalarized_constraint = ScalarizedOutcomeConstraint(
+                metrics=[
+                    CustomTestMetric(name="oc_m3", test_attribute="test"),
+                    CustomTestMetric(name="oc_m4", test_attribute="test"),
+                ],
+                weights=[0.2, 0.8],
+                op=ComparisonOp.GEQ,
+                bound=-0.25,
+            )
+            outcome_constraints.append(custom_scalarized_constraint)
+
+        optimization_config = OptimizationConfig(
+            objective=custom_scalarized_objective,
+            outcome_constraints=outcome_constraints,
+        )
+    else:
+        optimization_config = get_optimization_config(
+            outcome_constraint=has_outcome_constraint, relative=False
+        )
+
     # Create experiment with custom runner and metric
     experiment = Experiment(
         name="test",
         search_space=get_search_space(constrain_search_space=constrain_search_space),
-        optimization_config=(
-            get_multi_objective_optimization_config(
-                custom_metric=True,
-                outcome_constraint=has_outcome_constraint,
-                relative=False,
-            )
-            if multi_objective
-            else get_optimization_config(
-                outcome_constraint=has_outcome_constraint, relative=False
-            )
-        ),
+        optimization_config=optimization_config,
         description="test description",
         tracking_metrics=[
             CustomTestMetric(name="custom_test_metric", test_attribute="test")
@@ -326,7 +364,7 @@ def get_branin_experiment(
         for _ in range(num_batch_trial):
             sobol_generator = get_sobol(search_space=exp.search_space)
             sobol_run = sobol_generator.gen(n=num_arms_per_trial)
-            trial = exp.new_batch_trial(add_status_quo_arm=with_status_quo)
+            trial = exp.new_batch_trial(should_add_status_quo_arm=with_status_quo)
             trial.add_generator_run(sobol_run)
 
             if with_completed_batch:
@@ -368,7 +406,7 @@ def get_branin_experiment_with_status_quo_trials(
     for _ in range(num_sobol_trials):
         sobol_run = sobol.gen(n=1)
         t = exp.new_batch_trial().add_generator_run(sobol_run)
-        t.set_status_quo_with_weight(status_quo=exp.status_quo, weight=0.5)
+        t.add_status_quo_arm(weight=0.5)
         exp.attach_data(get_branin_data_batch(batch=t))
         t.run().mark_completed()
     return exp
@@ -450,6 +488,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     multi_objective: bool = False,
     has_objective_thresholds: bool = False,
     bounds: list[float] | None = None,
+    with_choice_parameter: bool = False,
 ) -> Experiment:
     """Returns an experiment with the search space including parameters
 
@@ -465,6 +504,9 @@ def get_branin_experiment_with_timestamp_map_metric(
             objective thresholds.
         bounds: For multi-objective experiments where has_objective_thresholds is True,
             bounds determines the precise objective thresholds.
+        with_choice_parameter: Whether to include a choice parameter.
+            If true, `x2` will be a ChoiceParameter.
+
 
     Returns:
         A Branin single or multi-objective experiment with map metrics.
@@ -529,7 +571,9 @@ def get_branin_experiment_with_timestamp_map_metric(
 
     exp = Experiment(
         name=experiment_name,
-        search_space=get_branin_search_space(),
+        search_space=get_branin_search_space(
+            with_choice_parameter=with_choice_parameter
+        ),
         optimization_config=optimization_config,
         tracking_metrics=cast(list[Metric], tracking_metrics),
         runner=SyntheticRunner(),
@@ -612,6 +656,7 @@ def get_multi_type_experiment(
         default_trial_type="type1",
         default_runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
+        status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}),
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.add_trial_type(
@@ -627,8 +672,8 @@ def get_multi_type_experiment(
         gr = generator.gen(num_arms)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.set_status_quo_with_weight(status_quo=t1.arms[0], weight=0.5)
-        t2.set_status_quo_with_weight(status_quo=t2.arms[0], weight=0.5)
+        t1.add_status_quo_arm(weight=0.5)
+        t2.add_status_quo_arm(weight=0.5)
         t1.run()
         t2.run()
 
@@ -656,8 +701,8 @@ def get_multi_type_experiment_with_multi_objective(
         gr = generator.gen(10)
         t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
         t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.set_status_quo_with_weight(status_quo=t1.arms[0], weight=0.5)
-        t2.set_status_quo_with_weight(status_quo=t2.arms[0], weight=0.5)
+        t1.add_status_quo_arm(weight=0.5)
+        t2.add_status_quo_arm(weight=0.5)
         t1.run()
         t2.run()
 
@@ -702,9 +747,9 @@ def get_factorial_experiment(
             for p in exp.search_space.parameters.values()
         )
         factorial_run = factorial_generator.gen(n=n)
-        exp.new_batch_trial(add_status_quo_arm=with_status_quo).add_generator_run(
-            factorial_run
-        )
+        exp.new_batch_trial(
+            should_add_status_quo_arm=with_status_quo
+        ).add_generator_run(factorial_run)
 
     return exp
 
@@ -732,6 +777,10 @@ def get_experiment_with_repeated_arms(with_data: bool = False) -> Experiment:
                         ("0_1", "b", 4.0, 4.0, 0),
                         ("0_1", "a", 2.0, 1.0, 1),
                         ("0_1", "b", 1.0, 5.0, 1),
+                        ("status_quo", "a", 2.0, 1.0, 0),
+                        ("status_quo", "b", 4.0, 4.0, 0),
+                        ("status_quo", "a", 2.0, 1.0, 1),
+                        ("status_quo", "b", 4.0, 4.0, 1),
                     )
                 ]
             )
@@ -754,8 +803,12 @@ def get_experiment_with_trial() -> Experiment:
     return trial.experiment
 
 
-def get_experiment_with_batch_trial(constrain_search_space: bool = True) -> Experiment:
-    batch_trial = get_batch_trial(constrain_search_space=constrain_search_space)
+def get_experiment_with_batch_trial(
+    constrain_search_space: bool = True, with_status_quo: bool = True
+) -> Experiment:
+    batch_trial = get_batch_trial(
+        constrain_search_space=constrain_search_space, with_status_quo=with_status_quo
+    )
     return batch_trial.experiment
 
 
@@ -883,7 +936,7 @@ def get_branin_experiment_with_multi_objective(
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
         sobol_run = sobol_generator.gen(n=5)
         trial = exp.new_batch_trial(
-            add_status_quo_arm=with_status_quo
+            should_add_status_quo_arm=with_status_quo
         ).add_generator_run(sobol_run)
 
         if with_completed_batch:
@@ -937,9 +990,9 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
 
     sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
     sobol_run = sobol_generator.gen(n=5)
-    exp.new_batch_trial(add_status_quo_arm=True).add_generator_run(sobol_run)
+    exp.new_batch_trial(should_add_status_quo_arm=True).add_generator_run(sobol_run)
     none_throws(exp.trials.get(0)).run()
-    exp.new_batch_trial(add_status_quo_arm=True).add_generator_run(sobol_run)
+    exp.new_batch_trial(should_add_status_quo_arm=True).add_generator_run(sobol_run)
     none_throws(exp.trials.get(1)).run()
 
     return exp
@@ -1030,7 +1083,9 @@ def get_experiment_with_observations(
                 raise NotImplementedError
         else:
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(metrics=metrics),
+                objective=MultiObjective(
+                    objectives=[Objective(metric=metric) for metric in metrics]
+                ),
                 objective_thresholds=[
                     ObjectiveThreshold(
                         metric=metrics[i],
@@ -1307,31 +1362,31 @@ def _configure_online_experiments(experiments: list[Experiment]) -> None:
 
         # Add a candidate to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
 
         # Add a RUNNING trial to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True)
 
         # Add a FAILED trial to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True)
         trial.mark_failed()
 
         # Add an ABANDONED trial to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         trial.add_generator_run(sobol_run)
         trial.mark_abandoned()
 
         # Add a custom arm to each Experiment
         sobol_run = sobol_generator.gen(n=len(experiment.trials[0].arms))
-        trial = experiment.new_batch_trial(add_status_quo_arm=True)
+        trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
         # Detatch the arms from the GeneratorRun so they appear as custom arms
         trial.add_arms_and_weights(arms=sobol_run.arms)
 
@@ -1488,6 +1543,7 @@ def get_search_space(constrain_search_space: bool = True) -> SearchSpace:
         get_range_parameter2(),
         get_choice_parameter(),
         get_fixed_parameter(),
+        get_derived_parameter(),
     ]
     parameter_constraints = []
     if constrain_search_space:
@@ -1732,7 +1788,13 @@ def get_robust_search_space(
         RangeParameter("x", ParameterType.FLOAT, lb, ub),
         RangeParameter("y", ParameterType.FLOAT, lb, ub),
         RangeParameter("z", ParameterType.INT, lb, ub),
-        ChoiceParameter("c", ParameterType.STRING, ["red", "blue", "green"]),
+        ChoiceParameter(
+            "c",
+            ParameterType.STRING,
+            ["red", "blue", "green"],
+            is_ordered=False,
+            sort_values=False,
+        ),
     ]
     if multivariate:
         if use_discrete:
@@ -1819,19 +1881,19 @@ def get_batch_trial(
     abandon_arm: bool = True,
     experiment: Experiment | None = None,
     constrain_search_space: bool = True,
+    with_status_quo: bool = True,
 ) -> BatchTrial:
     experiment = experiment or get_experiment(
-        constrain_search_space=constrain_search_space
+        constrain_search_space=constrain_search_space, with_status_quo=with_status_quo
     )
-    batch = experiment.new_batch_trial()
+    batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
     arms = get_arms_from_dict(get_arm_weights1())
     weights = get_weights_from_dict(get_arm_weights1())
-    batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=0.75)
+    batch.add_arms_and_weights(arms=arms, weights=weights)
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     batch.runner = SyntheticRunner()
-    batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
-    batch.add_status_quo_arm = True
+    batch.should_add_status_quo_arm = True
     batch._generation_step_index = 0
     return batch
 
@@ -1871,10 +1933,9 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
     # Add num_repeated_arms to the new trial.
     arms = prev_arms + next_arms
     weights = prev_weights + next_weights
-    batch = experiment.new_batch_trial()
-    batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=1)
+    batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
+    batch.add_arms_and_weights(arms=arms, weights=weights)
     batch.runner = SyntheticRunner()
-    batch.set_status_quo_with_weight(status_quo=arms[0], weight=0.5)
     return batch
 
 
@@ -2017,8 +2078,39 @@ def get_task_choice_parameter() -> ChoiceParameter:
     )
 
 
-def get_fixed_parameter() -> FixedParameter:
-    return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
+def get_hierarchical_choice_parameter(parameter_type: ParameterType) -> ChoiceParameter:
+    if parameter_type == ParameterType.BOOL:
+        values = [True, False]
+    elif parameter_type == ParameterType.INT:
+        values = [0, 1]
+    elif parameter_type == ParameterType.FLOAT:
+        values = [0.0, 1.0]
+    else:
+        values = ["yee", "haw"]
+
+    return ChoiceParameter(
+        name="x",
+        parameter_type=parameter_type,
+        values=values,  # pyre-ignore [6]
+        is_ordered=True,
+        sort_values=False,
+        dependents={values[0]: ["y"], values[1]: ["z"]},
+    )
+
+
+def get_fixed_parameter(with_dependents: bool = False) -> FixedParameter:
+    return FixedParameter(
+        name="z",
+        parameter_type=ParameterType.BOOL,
+        value=True,
+        dependents={True: ["y"]} if with_dependents else None,  # pyre-ignore [6]
+    )
+
+
+def get_derived_parameter() -> DerivedParameter:
+    return DerivedParameter(
+        name="d", parameter_type=ParameterType.FLOAT, expression_str="2.0 * w + 1.0"
+    )
 
 
 def get_model_parameter(with_fixed_parameter: bool = False) -> ChoiceParameter:
@@ -2387,7 +2479,7 @@ def get_arm() -> Arm:
     # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
     # parameter `parameters` to call `ax.core.arm.Arm.__init__` but got
     # `Dict[str, typing.Union[float, str]]`.
-    return Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True})
+    return Arm(parameters={"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5})
 
 
 def get_status_quo() -> Arm:
@@ -2395,30 +2487,30 @@ def get_status_quo() -> Arm:
         # Expected `Dict[str, typing.Optional[typing.Union[bool, float, str]]]` for 2nd
         # parameter `parameters` to call `ax.core.arm.Arm.__init__`
         # but got `Dict[str, typing.Union[float, str]]`.
-        parameters={"w": 0.2, "x": 1, "y": "bar", "z": False},
+        parameters={"w": 0.2, "x": 1, "y": "bar", "z": False, "d": 1.4},
         name="status_quo",
     )
 
 
 def get_arm_weights1() -> MutableMapping[Arm, float]:
     parameters_dicts: list[TParameterization] = [
-        {"w": 0.85, "x": 1, "y": "baz", "z": False},
-        {"w": 0.75, "x": 1, "y": "foo", "z": True},
-        {"w": 1.4, "x": 2, "y": "bar", "z": True},
+        {"w": 0.85, "x": 1, "y": "baz", "z": False, "d": 2.7},
+        {"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5},
+        {"w": 1.4, "x": 2, "y": "bar", "z": True, "d": 3.8},
     ]
     arms = [Arm(param_dict) for param_dict in parameters_dicts]
-    weights = [0.25, 0.5, 0.25]
+    weights = [0.25, 0.3, 0.25, 0.2]
     return OrderedDict(zip(arms, weights))
 
 
 def get_arm_weights2() -> MutableMapping[Arm, float]:  # update
     parameters_dicts: list[TParameterization] = [
-        {"w": 0.96, "x": 3, "y": "hello", "z": True},
-        {"w": 0.16, "x": 4, "y": "dear", "z": True},
-        {"w": 3.1, "x": 5, "y": "world", "z": False},
+        {"w": 0.96, "x": 3, "y": "hello", "z": True, "d": 2.92},
+        {"w": 0.16, "x": 4, "y": "dear", "z": True, "d": 1.32},
+        {"w": 3.1, "x": 5, "y": "world", "z": False, "d": 7.2},
     ]
     arms = [Arm(param_dict) for param_dict in parameters_dicts]
-    weights = [0.25, 0.5, 0.25]
+    weights = [0.25, 0.3, 0.25, 0.2]
     return OrderedDict(zip(arms, weights))
 
 
@@ -2508,7 +2600,6 @@ def get_data(
     num_non_sq_arms: int = 4,
     include_sq: bool = True,
 ) -> Data:
-    assert num_non_sq_arms < 5, "Only up to 4 arms currently handled."
     arm_names = ["status_quo"] if include_sq else []
     arm_names += [f"{trial_index}_{i}" for i in range(num_non_sq_arms)]
     num_arms = num_non_sq_arms + 1 if include_sq else num_non_sq_arms
@@ -2516,9 +2607,9 @@ def get_data(
         "trial_index": trial_index,
         "metric_name": metric_name,
         "arm_name": arm_names,
-        "mean": [1, 3, 2, 2.25, 1.75][:num_arms],
-        "sem": [0, 0.5, 0.25, 0.40, 0.15][:num_arms],
-        "n": [100, 100, 100, 100, 100][:num_arms],
+        "mean": ([1, 3, 2, 2.25, 1.75] * ((num_arms + 4) // 5))[:num_arms],
+        "sem": ([0, 0.5, 0.25, 0.40, 0.15] * ((num_arms + 4) // 5))[:num_arms],
+        "n": ([100, 100, 100, 100, 100] * ((num_arms + 4) // 5))[:num_arms],
     }
     return Data(df=pd.DataFrame.from_records(df_dict))
 
@@ -2572,28 +2663,26 @@ def get_non_monolithic_branin_moo_data() -> Data:
 def get_map_data(trial_index: int = 0) -> MapData:
     evaluations = {
         "status_quo": [
-            ({"epoch": 1}, {"ax_test_metric": (1.0, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (2.0, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (3.0, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+            (1, {"ax_test_metric": (1.0, 0.5)}),
+            (2, {"ax_test_metric": (2.0, 0.5)}),
+            (3, {"ax_test_metric": (3.0, 0.5)}),
+            (4, {"ax_test_metric": (4.0, 0.5)}),
         ],
         "0_0": [
-            ({"epoch": 1}, {"ax_test_metric": (3.7, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (3.8, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (3.9, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+            (1, {"ax_test_metric": (3.7, 0.5)}),
+            (2, {"ax_test_metric": (3.8, 0.5)}),
+            (3, {"ax_test_metric": (3.9, 0.5)}),
+            (4, {"ax_test_metric": (4.0, 0.5)}),
         ],
         "0_1": [
-            ({"epoch": 1}, {"ax_test_metric": (3.0, 0.5)}),
-            ({"epoch": 2}, {"ax_test_metric": (5.0, 0.5)}),
-            ({"epoch": 3}, {"ax_test_metric": (6.0, 0.5)}),
-            ({"epoch": 4}, {"ax_test_metric": (1.0, 0.5)}),
+            (1, {"ax_test_metric": (3.0, 0.5)}),
+            (2, {"ax_test_metric": (5.0, 0.5)}),
+            (3, {"ax_test_metric": (6.0, 0.5)}),
+            (4, {"ax_test_metric": (1.0, 0.5)}),
         ],
     }
     return MapData.from_map_evaluations(
-        evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
-        trial_index=trial_index,
-        map_key_infos=[get_map_key_info()],
+        evaluations=evaluations, trial_index=trial_index
     )
 
 
@@ -2609,8 +2698,8 @@ def get_observations_with_invalid_value(invalid_value: float) -> list[Observatio
     return observations
 
 
-def get_map_key_info() -> MapKeyInfo[float]:
-    return MapKeyInfo(key="epoch", default_value=0.0)
+def get_map_key_info() -> MapKeyInfo:
+    return MapKeyInfo(key="epoch")
 
 
 def get_branin_data(

@@ -106,9 +106,7 @@ class RegistryKwargs:
     class_decoder_registry: TClassDecoderRegistry
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
 def object_from_json(
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     object_json: Any,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
@@ -167,6 +165,9 @@ def object_from_json(
         # Used for decoding classes (not objects).
         elif _type in class_decoder_registry:
             return class_decoder_registry[_type](object_json)
+
+        elif _type == "GeneratorRunStruct":
+            object_json.pop("weight", None)  # Deprecated.
 
         elif _type not in decoder_registry:
             err = (
@@ -288,7 +289,6 @@ def object_from_json(
         raise JSONDecodeError(err)
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
 def ax_class_from_json_dict(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
@@ -320,7 +320,7 @@ def generator_run_from_json(
     """Load Ax GeneratorRun from JSON."""
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
-    index_json = object_json.pop("index")
+    object_json.pop("index", None)  # Deprecated.
     # Remove `objective_thresholds` to avoid issues with registries, since
     # `ObjectiveThreshold` depend on `Metric` objects.
     object_json.pop("objective_thresholds", None)
@@ -334,6 +334,17 @@ def generator_run_from_json(
             for k, v in object_json.items()
         }
     )
+    # NOTE: JSON converts all tuples to lists, and we need to convert them back. This is
+    # an ad hoc fix, though.
+    if isinstance(generator_run._best_arm_predictions, list):
+        arm, arm_prediction = generator_run._best_arm_predictions
+        if arm_prediction is not None and isinstance(arm_prediction, list):
+            arm_prediction = tuple(arm_prediction)
+        generator_run._best_arm_predictions = (arm, arm_prediction)
+
+    if isinstance(generator_run._model_predictions, list):
+        generator_run._model_predictions = tuple(generator_run._model_predictions)
+
     # Remove deprecated kwargs from model kwargs & adapter kwargs.
     if generator_run._model_kwargs is not None:
         generator_run._model_kwargs = {
@@ -354,11 +365,6 @@ def generator_run_from_json(
     )
     generator_run._generator_run_type = object_from_json(
         type_json,
-        decoder_registry=decoder_registry,
-        class_decoder_registry=class_decoder_registry,
-    )
-    generator_run._index = object_from_json(
-        index_json,
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )

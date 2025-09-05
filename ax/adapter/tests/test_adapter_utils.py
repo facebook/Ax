@@ -21,8 +21,9 @@ from ax.adapter.adapter_utils import (
 )
 from ax.adapter.registry import Cont_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -34,6 +35,7 @@ from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
+    get_hierarchical_search_space,
     get_robust_search_space,
     get_search_space,
     get_search_space_for_range_values,
@@ -161,7 +163,9 @@ class TestAdapterUtils(TestCase):
         mb = Metric(name="b", lower_is_better=True)
         mc = Metric(name="c", lower_is_better=False)
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(metrics=[ma, mb]),
+            objective=MultiObjective(
+                objectives=[Objective(metric=ma), Objective(metric=mb)]
+            ),
             outcome_constraints=[
                 OutcomeConstraint(
                     mc,
@@ -355,6 +359,15 @@ class TestAdapterUtils(TestCase):
             )
             with self.assertRaisesRegex(UserInputError, "Log and Logit"):
                 extract_search_space_digest(ss, list(ss.parameters))
+
+        hss = get_hierarchical_search_space()
+        # We need to at least convert non-numerical values to numerical values.
+        # Otherwise, the search space digest is not sensible.
+        t_instance = ChoiceToNumericChoice(search_space=hss.clone())
+        hss = t_instance.transform_search_space(hss)
+
+        ssd = extract_search_space_digest(hss, list(hss.parameters))
+        self.assertEqual(ssd.hierarchical_dependencies, {0: {0: [1, 2], 1: [3]}})
 
     def test_get_in_desing_adapter_training_data(self) -> None:
         def get_adapter(min: float, max: float) -> TorchAdapter:

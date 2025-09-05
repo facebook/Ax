@@ -546,9 +546,9 @@ class TestGenerationNodeInputConstructors(TestCase):
             generator_runs=grs,
         )
         if with_status_quo:
-            experiment.status_quo = Arm(parameters={"x1": 0, "x2": 0})
-            trial.set_status_quo_with_weight(
-                status_quo=self.experiment.status_quo,
+            if experiment.status_quo is None:
+                experiment.status_quo = Arm(parameters={"x1": 0, "x2": 0})
+            trial.add_status_quo_arm(
                 weight=1.0,
             )
         trial.run()

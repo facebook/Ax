@@ -28,10 +28,12 @@ TRefPoint = list[ObjectiveThreshold]
 
 # Sentinels for default arguments when None is a valid input
 _NO_OUTCOME_CONSTRAINTS = [
-    OutcomeConstraint(Metric("", lower_is_better=True), ComparisonOp.GEQ, 0)
+    OutcomeConstraint(Metric("placeholder", lower_is_better=True), ComparisonOp.GEQ, 0)
 ]
-_NO_OBJECTIVE_THRESHOLDS = [ObjectiveThreshold(Metric("", lower_is_better=True), 0)]
-_NO_RISK_MEASURE = RiskMeasure("", {})
+_NO_OBJECTIVE_THRESHOLDS = [
+    ObjectiveThreshold(Metric("placeholder", lower_is_better=True), 0)
+]
+_NO_RISK_MEASURE = RiskMeasure("placeholder", {})
 
 
 class OptimizationConfig(Base):
@@ -180,12 +182,6 @@ class OptimizationConfig(Base):
                 "Use MultiObjectiveOptimizationConfig instead."
             )
         outcome_constraints = outcome_constraints or []
-        # Only vaidate `outcome_constraints`
-        outcome_constraints = [
-            constraint
-            for constraint in outcome_constraints
-            if isinstance(constraint, ScalarizedOutcomeConstraint) is False
-        ]
         unconstrainable_metrics = objective.get_unconstrainable_metrics()
         OptimizationConfig._validate_outcome_constraints(
             unconstrainable_metrics=unconstrainable_metrics,
@@ -197,20 +193,26 @@ class OptimizationConfig(Base):
         unconstrainable_metrics: list[Metric],
         outcome_constraints: list[OutcomeConstraint],
     ) -> None:
-        constraint_metrics = [
-            constraint.metric.name for constraint in outcome_constraints
-        ]
+        constraint_metrics = []
+        for oc in outcome_constraints:
+            if isinstance(oc, ScalarizedOutcomeConstraint):
+                constraint_metrics.extend([m.name for m in oc.metrics])
+            else:
+                constraint_metrics.append(oc.metric.name)
+
         for metric in unconstrainable_metrics:
             if metric.name in constraint_metrics:
                 raise ValueError("Cannot constrain on objective metric.")
 
-        def get_metric_name(oc: OutcomeConstraint) -> str:
-            return oc.metric.name
+        def constraint_key(oc: OutcomeConstraint) -> str:
+            return (
+                str(oc)
+                if isinstance(oc, ScalarizedOutcomeConstraint)
+                else oc.metric.name
+            )
 
-        sorted_constraints = sorted(outcome_constraints, key=get_metric_name)
-        for metric_name, constraints_itr in groupby(
-            sorted_constraints, get_metric_name
-        ):
+        sorted_constraints = sorted(outcome_constraints, key=constraint_key)
+        for metric_name, constraints_itr in groupby(sorted_constraints, constraint_key):
             constraints: list[OutcomeConstraint] = list(constraints_itr)
             constraints_len = len(constraints)
             if constraints_len == 2:

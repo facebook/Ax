@@ -20,6 +20,7 @@ from logging import Logger
 from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data
+from ax.core.map_data import MapData
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
@@ -110,6 +111,10 @@ class Metric(SortableBase, SerializationMixin):
             lower_is_better: Flag for metrics which should be minimized.
             properties: Dictionary of this metric's properties
         """
+        if not isinstance(name, str):
+            raise ValueError(f"Metric name must be a string, got {type(name)}.")
+        if len(name) == 0:
+            raise ValueError("Metric name must be a non-empty string.")
         self._name = name
         self.lower_is_better = lower_is_better
         self.properties: dict[str, Any] = properties or {}
@@ -389,6 +394,10 @@ class Metric(SortableBase, SerializationMixin):
             for trial_index, results_by_metric_name in trials_results.items()
         }
         return results, contains_new_data
+
+    @property
+    def has_map_data(self) -> bool:
+        return issubclass(self.data_constructor, MapData)
 
     @property
     def _unique_id(self) -> str:

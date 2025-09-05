@@ -53,6 +53,7 @@ from botorch.acquisition.objective import (
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models.model import Model
+from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
@@ -532,6 +533,11 @@ def predict_from_model(
             # See https://github.com/pytorch/botorch/issues/2310.
             posterior = model.posterior(x_, observation_noise=use_posterior_predictive)
             if isinstance(posterior, GaussianMixturePosterior):
+                mean = posterior.mixture_mean.cpu().detach()
+                var = posterior.mixture_variance.cpu().detach().clamp_min(0)
+            elif isinstance(posterior, EnsemblePosterior):
+                # Always use mixture_mean and mixture_variance for ensemble
+                # predictions - provides prediction from mixture, not just average
                 mean = posterior.mixture_mean.cpu().detach()
                 var = posterior.mixture_variance.cpu().detach().clamp_min(0)
             else:

@@ -26,12 +26,7 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.batch_trial import (
-    AbandonedArm,
-    BatchTrial,
-    GeneratorRunStruct,
-    LifecycleStage,
-)
+from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
 from ax.core.experiment import DataType
 from ax.core.generator_run import GeneratorRun
@@ -48,6 +43,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     ParameterType,
     RangeParameter,
@@ -111,9 +107,12 @@ from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.storage.json_store.decoders import (
+    choice_parameter_from_json,
     class_from_json,
     default_from_json,
+    fixed_parameter_from_json,
     input_transform_type_from_json,
+    multi_objective_from_json,
     outcome_transform_type_from_json,
     pathlib_from_json,
     transform_type_from_json,
@@ -130,6 +129,7 @@ from ax.storage.json_store.encoders import (
     choice_parameter_to_dict,
     data_to_dict,
     default_to_dict,
+    derived_parameter_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
     generation_node_to_dict,
@@ -179,7 +179,13 @@ from ax.utils.testing.backend_simulator import (
 )
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
-from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
+from botorch.models.transforms.input import (
+    ChainedInputTransform,
+    FilterFeatures,
+    InputTransform,
+    Normalize,
+    Round,
+)
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
@@ -207,6 +213,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     ChainedInputTransform: botorch_component_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
+    DerivedParameter: derived_parameter_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
@@ -236,6 +243,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
     Normalize: botorch_component_to_dict,
+    FilterFeatures: botorch_component_to_dict,
     PercentileEarlyStoppingStrategy: percentile_early_stopping_strategy_to_dict,
     SklearnMetric: metric_to_dict,
     ChemistryMetric: metric_to_dict,
@@ -284,6 +292,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,  # Ax MBM component
     AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
+    InputTransform: botorch_modular_to_dict,  # BoTorch input transform component
     Likelihood: botorch_modular_to_dict,  # BoTorch component
     torch.nn.Module: botorch_modular_to_dict,  # BoTorch module
     MarginalLogLikelihood: botorch_modular_to_dict,  # BoTorch component
@@ -323,15 +332,17 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ChainedInputTransform": ChainedInputTransform,
     "ChemistryMetric": ChemistryMetric,
     "ChemistryProblemType": ChemistryProblemType,
-    "ChoiceParameter": ChoiceParameter,
+    "ChoiceParameter": choice_parameter_from_json,
     "ComparisonOp": ComparisonOp,
     "Data": Data,
     "DataLoaderConfig": DataLoaderConfig,
     "DataType": DataType,
+    "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
     "Experiment": Experiment,
     "FactorialMetric": FactorialMetric,
-    "FixedParameter": FixedParameter,
+    "FilterFeatures": FilterFeatures,
+    "FixedParameter": fixed_parameter_from_json,
     "GammaPrior": GammaPrior,
     "GenerationNode": GenerationNode,
     "GenerationStrategy": GenerationStrategy,
@@ -347,7 +358,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Interval": Interval,
     "IsSingleObjective": IsSingleObjective,
     "Keys": Keys,
-    "LifecycleStage": LifecycleStage,
     # DEPRECATED; remains here backward compatibility, with old class
     # name linked to the new corresponding class
     "ListSurrogate": Surrogate,
@@ -367,7 +377,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ModelConfig": ModelConfig,
     "Models": Generators,
     "ModelSpec": GeneratorSpec,
-    "MultiObjective": MultiObjective,
+    "MultiObjective": multi_objective_from_json,
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
     "MultiTypeExperiment": MultiTypeExperiment,
     "NegativeBraninMetric": NegativeBraninMetric,

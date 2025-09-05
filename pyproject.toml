@@ -2,6 +2,94 @@
 requires = ["setuptools>=34.4", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "ax-platform"
+description = "Adaptive Experimentation"
+authors = [{name = "Meta Platforms, Inc."}]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["Experimentation", "Optimization"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "botorch[pymoo]>=0.15.1",
+    "jinja2",  # also a Plotly dep
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "ipywidgets",
+    # Needed for compatibility with ipywidgets >= 8.0.0
+    "plotly>=5.12.0",
+    "pyre-extensions",
+    "sympy",
+    "markdown",
+]
+
+[project.optional-dependencies]
+dev = [
+    "beautifulsoup4",
+    "Jinja2",
+    "pyfakefs",
+    "pytest>=4.6",
+    "pytest-cov",
+    "sphinx",
+    "sphinx-autodoc-typehints",
+    "sphinx_rtd_theme",
+    "lxml",
+    "mdformat-myst",
+]
+
+mysql = [
+    "SQLAlchemy==1.4.17",
+]
+
+notebook = [
+    "jupyter",
+]
+
+unittest_minimal = [
+    # For tensorboard unit tests (min req: numpy 2.0 compatibility).
+    "tensorboard>=2.18.0",
+    "torchx",  # For torchx unit tests.
+    # Required for building RayTune tutorial notebook and
+    # deserializing data for benchmark suites.
+    "pyarrow",
+    "xgboost>=3.0.2",  # For XGBoost surrogate models.
+]
+
+unittest = [
+    "ax-platform[dev,mysql,notebook,unittest_minimal]",
+]
+
+tutorial = [
+    "ax-platform[unittest]",
+    "matplotlib",  # Required for building sklearn.ipynb tutorial notebook.
+    "papermill",  # For executing the tutorials.
+    "mdformat",
+]
+
+[project.urls]
+Homepage = "https://ax.dev/"
+Repository = "https://github.com/facebook/Ax"
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.package-data]
+"*" = ["*.js", "*.css", "*.html"]
+
+[tool.setuptools_scm]
+write_to = "ax/version.py"
+local_scheme = "no-local-version"
+
 [tool.usort]
 first_party_detection = false
 

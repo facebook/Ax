@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Sequence, Sized
+from collections.abc import Sized
 from contextlib import ExitStack
 from typing import Any
 from unittest import mock
@@ -18,7 +18,7 @@ from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate
 from ax.adapter.registry import MBM_X_trans
 from ax.adapter.torch import TorchAdapter
-from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
@@ -28,14 +28,9 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    recombine_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig, PreferenceOptimizationConfig
-from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
@@ -48,15 +43,14 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import MSE
 from ax.utils.testing.core_stubs import (
-    get_branin_data,
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
+    get_data,
     get_experiment_with_observations,
     get_search_space_for_range_value,
     get_search_space_for_range_values,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from ax.utils.testing.preference_stubs import get_pbo_experiment
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.preference import (
@@ -79,92 +73,100 @@ from pandas import DataFrame
 from pyre_extensions import assert_is_instance, none_throws
 
 
-def _get_adapter_from_experiment(
-    experiment: Experiment,
-    transforms: Sequence[type[Transform]] | None = None,
-    device: torch.device | None = None,
-    fit_on_init: bool = True,
-) -> TorchAdapter:
-    return TorchAdapter(
-        experiment=experiment,
-        generator=BoTorchGenerator(),
-        transforms=transforms or [],
-        torch_device=device,
-        fit_on_init=fit_on_init,
-    )
-
-
 class TorchAdapterTest(TestCase):
     @mock_botorch_optimize
     def test_TorchAdapter(self, device: torch.device | None = None) -> None:
+        tkwargs: dict[str, Any] = {"dtype": torch.double, "device": device}
+        # Construct an experiment with known data.
         feature_names = ["x1", "x2", "x3"]
         search_space = get_search_space_for_range_values(
             min=0.0, max=5.0, parameter_names=feature_names
         )
-        experiment = Experiment(search_space=search_space, name="test")
-        adapter = _get_adapter_from_experiment(
+        opt_config = OptimizationConfig(
+            objective=Objective(metric=Metric("y1"), minimize=True),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    metric=Metric("y2"), op=ComparisonOp.GEQ, bound=0.0, relative=False
+                )
+            ],
+        )
+        experiment = Experiment(
+            search_space=search_space, optimization_config=opt_config, name="test"
+        )
+        X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
+        for x in X.tolist():
+            experiment.new_trial().add_arm(
+                Arm(parameters=dict(zip(feature_names, x)))
+            ).mark_running(no_runner_required=True).mark_completed()
+        experiment.attach_data(
+            data=Data(
+                df=DataFrame.from_records(
+                    {
+                        "trial_index": [0, 0, 1, 1],
+                        "metric_name": ["y1", "y2", "y1", "y2"],
+                        "arm_name": ["0_0", "0_0", "1_0", "1_0"],
+                        "mean": [3.0, 2.0, 1.0, 0.0],
+                        "sem": [3.0, 1e-4, 2.0, 1e-3],
+                    }
+                )
+            )
+        )
+        # Construct the adapter and test key methods.
+        adapter = TorchAdapter(
             experiment=experiment,
-            device=device,
+            generator=BoTorchGenerator(),
+            torch_device=device,
             fit_on_init=False,
         )
         self.assertTrue(adapter.can_predict)
         self.assertTrue(adapter.can_model_in_sample)
         self.assertEqual(adapter.device, device)
-        self.assertIsNone(adapter._last_observations)
-        tkwargs: dict[str, Any] = {"dtype": torch.double, "device": device}
+        self.assertIsNone(adapter._last_experiment_data)
+        experiment_data = adapter.get_training_data()
         # Test `_fit`.
         X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
-        datasets = {
-            "y1": SupervisedDataset(
+        datasets = [
+            SupervisedDataset(
                 X=X,
                 Y=torch.tensor([[3.0], [1.0]], **tkwargs),
-                Yvar=torch.tensor([[4.0], [2.0]], **tkwargs),
+                Yvar=torch.tensor([[9.0], [4.0]], **tkwargs),
                 feature_names=feature_names,
                 outcome_names=["y1"],
+                group_indices=torch.tensor([0, 1], device=device),
             ),
-            "y2": SupervisedDataset(
+            SupervisedDataset(
                 X=X,
                 Y=torch.tensor([[2.0], [0.0]], **tkwargs),
-                Yvar=torch.tensor([[1e-8], [1e-9]], **tkwargs),
+                Yvar=torch.tensor([[1e-8], [1e-6]], **tkwargs),
                 feature_names=feature_names,
                 outcome_names=["y2"],
+                group_indices=torch.tensor([0, 1], device=device),
             ),
-        }
+        ]
         observation_features = [
             ObservationFeatures(parameters=dict(zip(feature_names, Xi.tolist())))
             for Xi in X
         ]
-        observation_data = [
-            ObservationData(
-                metric_names=["y1", "y2"],
-                means=np.array(y1 + y2),  # here y is already a list
-                covariance=np.diag(yvar1 + yvar2),  # here yvar is already a list
-            )
-            for y1, y2, yvar1, yvar2 in zip(
-                datasets["y1"].Y.tolist(),
-                datasets["y2"].Y.tolist(),
-                none_throws(datasets["y1"].Yvar).tolist(),
-                none_throws(datasets["y2"].Yvar).tolist(),
-            )
-        ]
-        observations = recombine_observations(observation_features, observation_data)
 
         generator = adapter.generator
         with mock.patch.object(generator, "fit", wraps=generator.fit) as mock_fit:
-            adapter._fit(search_space=search_space, observations=observations)
+            adapter._fit(search_space=search_space, experiment_data=experiment_data)
         generator_fit_args = mock_fit.call_args.kwargs
-        self.assertEqual(generator_fit_args["datasets"], list(datasets.values()))
+        self.assertEqual(generator_fit_args["datasets"], datasets)
         expected_ssd = SearchSpaceDigest(
             feature_names=feature_names, bounds=[(0, 5)] * 3
         )
         self.assertEqual(generator_fit_args["search_space_digest"], expected_ssd)
-        self.assertIsNone(generator_fit_args["candidate_metadata"])
-        self.assertEqual(adapter._last_observations, observations)
+        self.assertEqual(
+            generator_fit_args["candidate_metadata"],
+            [[{Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY}] * 2] * 2,
+        )
+        self.assertEqual(adapter._last_experiment_data, experiment_data)
 
         with mock.patch(f"{TorchAdapter.__module__}.logger.debug") as mock_logger:
-            adapter._fit(search_space=search_space, observations=observations)
+            adapter._fit(search_space=search_space, experiment_data=experiment_data)
         mock_logger.assert_called_once_with(
-            "The observations are identical to the last set of observations "
+            "The experiment data is identical to the last experiment data "
             "used to fit the generator. Skipping generator fitting."
         )
 
@@ -190,7 +192,6 @@ class TorchAdapterTest(TestCase):
         self.assertEqual(pr_obs_data, [pr_obs_data_expected])
 
         # Test `_gen`
-
         gen_return_value = TorchGenResults(
             points=torch.tensor([[1.0, 2.0, 3.0]], **tkwargs),
             weights=torch.tensor([1.0], **tkwargs),
@@ -277,11 +278,11 @@ class TorchAdapterTest(TestCase):
         ) as mock_cross_validate:
             cv_obs_data = adapter._cross_validate(
                 search_space=search_space,
-                cv_training_data=observations,
+                cv_training_data=experiment_data,
                 cv_test_points=cv_test_points,
             )
         generator_cv_args = mock_cross_validate.mock_calls[0][2]
-        self.assertEqual(generator_cv_args["datasets"], list(datasets.values()))
+        self.assertEqual(generator_cv_args["datasets"], datasets)
         self.assertTrue(torch.equal(generator_cv_args["X_test"], X_test))
         self.assertEqual(generator_cv_args["search_space_digest"], expected_ssd)
         self.assertEqual(cv_obs_data, [cv_obs_data_expected])
@@ -289,7 +290,11 @@ class TorchAdapterTest(TestCase):
         # Transform observations
         # This functionality is likely to be deprecated (T134940274)
         # so this is not a thorough test.
-        adapter.transform_observations(observations=observations)
+        adapter.transform_observations(
+            observations=[
+                Observation(features=cv_test_points[0], data=cv_obs_data_expected)
+            ]
+        )
 
         # Transform observation features
         obsf = [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
@@ -304,8 +309,10 @@ class TorchAdapterTest(TestCase):
     @mock_botorch_optimize
     def test_evaluate_acquisition_function(self) -> None:
         experiment = get_branin_experiment(with_completed_trial=True)
-        adapter = _get_adapter_from_experiment(
-            experiment=experiment, transforms=[UnitX, StandardizeY]
+        adapter = TorchAdapter(
+            experiment=experiment,
+            generator=BoTorchGenerator(),
+            transforms=[UnitX, StandardizeY],
         )
         obsf = ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0})
 
@@ -379,33 +386,29 @@ class TorchAdapterTest(TestCase):
 
     def test_best_point(self) -> None:
         search_space = get_search_space_for_range_value()
-        exp = Experiment(search_space=search_space, name="test")
         oc = OptimizationConfig(
             objective=Objective(metric=Metric("a"), minimize=False),
             outcome_constraints=[],
         )
+        exp = Experiment(search_space=search_space, optimization_config=oc, name="test")
+        exp.new_trial().add_arm(Arm(parameters={"x": 1.0})).mark_running(
+            no_runner_required=True
+        ).mark_completed()
+        exp.attach_data(get_data(metric_name="a", num_non_sq_arms=1, include_sq=False))
         adapter = TorchAdapter(
-            search_space=search_space,
-            generator=TorchGenerator(),
-            transforms=[transform_1, transform_2],
             experiment=exp,
-            data=Data(),
-            optimization_config=oc,
+            generator=TorchGenerator(),
+            transforms=[OneHot, UnitX],
         )
-
         self.assertEqual(
             list(adapter.transforms.keys()),
-            ["Cast", "transform_1", "transform_2"],
+            ["Cast", "OneHot", "UnitX"],
         )
-
-        # _fit is mocked, which sets these
-        adapter.parameters = list(search_space.parameters.keys())
-        adapter.outcomes = ["a"]
 
         mean = 1.0
         cov = 2.0
         predict_return_value = ({"m": [mean]}, {"m": {"m": [cov]}})
-        best_point_value = 25
+        best_point_value = 0.6
         gen_return_value = TorchGenResults(
             points=torch.tensor([[1.0]]), weights=torch.tensor([1.0])
         )
@@ -424,10 +427,13 @@ class TorchAdapterTest(TestCase):
         arm, predictions = none_throws(run.best_arm_predictions)
         predictions = none_throws(predictions)
         model_predictions = none_throws(model_predictions)
-        # The transforms add one and square, and need to be reversed
-        self.assertEqual(arm.parameters, {"x": (best_point_value**0.5) - 1})
-        # Gets clamped to the search space
-        self.assertEqual(run.arms[0].parameters, {"x": 3.0})
+        # UnitX removes 1 and divides by 5. Reversing here.
+        self.assertEqual(arm.parameters.keys(), {"x"})
+        self.assertAlmostEqual(
+            float(arm.parameters["x"]), (best_point_value * 5.0) + 1.0, places=5
+        )
+        # 1.0 in transformed space is 6.0 in original space.
+        self.assertEqual(run.arms[0].parameters, {"x": 6.0})
         self.assertEqual(predictions[0], {"m": mean})
         self.assertEqual(predictions[1], {"m": {"m": cov}})
         self.assertEqual(model_predictions[0], {"m": mean})
@@ -464,7 +470,7 @@ class TorchAdapterTest(TestCase):
         experiment = get_branin_experiment_with_multi_objective(
             with_completed_trial=True
         )
-        adapter = _get_adapter_from_experiment(experiment=experiment)
+        adapter = TorchAdapter(experiment=experiment, generator=BoTorchGenerator())
         # generator doesn't have enough data for training, so equal importances.
         self.assertEqual(
             adapter.feature_importances("branin_a"), {"x1": 0.5, "x2": 0.5}
@@ -474,7 +480,7 @@ class TorchAdapterTest(TestCase):
         )
 
     def test_candidate_metadata_propagation(self) -> None:
-        exp = get_branin_experiment(with_status_quo=True, with_batch=True)
+        exp = get_branin_experiment(with_status_quo=True, with_completed_batch=True)
         # Check that the metadata is correctly re-added to observation
         # features during `fit`.
         # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run_structs`.
@@ -488,25 +494,27 @@ class TorchAdapterTest(TestCase):
         with mock.patch.object(
             generator, "fit", wraps=generator.fit
         ) as mock_generator_fit:
-            adapter = TorchAdapter(
-                experiment=exp,
-                search_space=exp.search_space,
-                generator=generator,
-                transforms=[],
-                data=get_branin_data(),
-            )
+            adapter = TorchAdapter(experiment=exp, generator=generator)
 
-        datasets = mock_generator_fit.call_args[1].get("datasets")
+        datasets = mock_generator_fit.call_args.kwargs.get("datasets")
         X_expected = torch.tensor(
-            [list(exp.trials[0].arms[0].parameters.values())],
+            [list(arm.parameters.values()) for arm in exp.trials[0].arms],
             dtype=torch.double,
         )
         for dataset in datasets:
             self.assertTrue(torch.equal(dataset.X, X_expected))
 
+        candidate_metadata = mock_generator_fit.call_args.kwargs.get(
+            "candidate_metadata"
+        )
+        self.assertEqual(len(candidate_metadata), 1)
+        self.assertEqual(len(candidate_metadata[0]), len(exp.trials[0].arms))
         self.assertEqual(
-            mock_generator_fit.call_args[1].get("candidate_metadata"),
-            [[{"preexisting_batch_cand_metadata": "some_value"}]],
+            candidate_metadata[0][0],
+            {
+                "preexisting_batch_cand_metadata": "some_value",
+                Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY,
+            },
         )
 
         # Check that `gen` correctly propagates the metadata to the GR.
@@ -540,8 +548,7 @@ class TorchAdapterTest(TestCase):
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
 
         # Check that no candidate metadata is handled correctly.
-        exp = get_branin_experiment(with_status_quo=True)
-
+        exp = get_branin_experiment(with_status_quo=True, with_completed_trial=True)
         generator = TorchGenerator()
         with mock.patch(
             f"{TorchAdapter.__module__}." "TorchAdapter._validate_observation_data",
@@ -549,21 +556,10 @@ class TorchAdapterTest(TestCase):
         ), mock.patch.object(
             generator, "fit", wraps=generator.fit
         ) as mock_generator_fit:
-            adapter = TorchAdapter(
-                search_space=exp.search_space,
-                experiment=exp,
-                generator=generator,
-                data=Data(),
-                transforms=[],
-            )
-        # Hack in outcome names to bypass validation (since we did not pass any
-        # to the generator so _fit did not populate this)
-        metric_name = next(iter(exp.metrics))
-        adapter.outcomes = [metric_name]
-        adapter._metric_names = {metric_name}
+            adapter = TorchAdapter(experiment=exp, generator=generator)
         with mock.patch.object(generator, "gen", return_value=gen_results):
             gr = adapter.gen(n=1)
-        self.assertIsNone(mock_generator_fit.call_args[1].get("candidate_metadata"))
+        # This should be None since gen_results doesn't include any metadata.
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
 
     def test_fit_tracking_metrics(self) -> None:
@@ -593,29 +589,25 @@ class TorchAdapterTest(TestCase):
             self.assertEqual(adapter.outcomes, expected_outcomes)
             self.assertEqual(len(call_kwargs["datasets"]), len(expected_outcomes))
 
-    def test_convert_observations(self) -> None:
-        experiment = get_branin_experiment(with_completed_trial=True)
-        mb = _get_adapter_from_experiment(experiment=experiment)
+    def test_convert_experiment_data(self) -> None:
+        feature_names = ["x0", "x1", "x2"]
+        search_space = get_search_space_for_range_values(
+            min=0.0, max=5.0, parameter_names=feature_names
+        )
         raw_X = torch.rand(10, 3) * 5
         raw_X[:, -1].round_()  # Make sure last column is integer.
         raw_X[0, -1] = 0  # Make sure task value 0 exists.
-        raw_Y = torch.sin(raw_X).sum(-1)
-        feature_names = ["x0", "x1", "x2"]
-        metric_names = ["y"]
-        observation_features = [
-            ObservationFeatures(
-                parameters={feature_names[i]: x_[i].item() for i in range(3)}
-            )
-            for x_ in raw_X
-        ]
-        observation_data = [
-            ObservationData(
-                metric_names=metric_names,
-                means=np.asarray([y]),
-                covariance=np.array([[float("nan")]]),
-            )
-            for y in raw_Y
-        ]
+        raw_Y = torch.sin(raw_X).sum(-1, keepdim=True)
+        experiment = get_experiment_with_observations(
+            parameterizations=[
+                {f"x{i}": x_[i].item() for i in range(3)} for x_ in raw_X
+            ],
+            observations=raw_Y.tolist(),
+            search_space=search_space,
+        )
+        adapter = TorchAdapter(experiment=experiment, generator=BoTorchGenerator())
+        metric_names = ["m1"]
+        experiment_data = adapter.get_training_data()
         for use_task, expected_class in (
             (True, MultiTaskDataset),
             (False, SupervisedDataset),
@@ -628,9 +620,8 @@ class TorchAdapterTest(TestCase):
                 task_features=[2] if use_task else [],
                 target_values={2: 0} if use_task else {},  # pyre-ignore
             )
-            converted_datasets, ordered_outcomes, _ = mb._convert_observations(
-                observation_data=observation_data,
-                observation_features=observation_features,
+            converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
+                experiment_data=experiment_data,
                 outcomes=metric_names,
                 parameters=feature_names,
                 search_space_digest=search_space_digest,
@@ -641,10 +632,10 @@ class TorchAdapterTest(TestCase):
             if use_task:
                 sort_idx = torch.argsort(raw_X[:, -1])
                 expected_X = raw_X[sort_idx]
-                expected_Y = raw_Y[sort_idx].unsqueeze(-1)
+                expected_Y = raw_Y[sort_idx]
             else:
                 expected_X = raw_X
-                expected_Y = raw_Y.unsqueeze(-1)
+                expected_Y = raw_Y
             self.assertTrue(torch.equal(dataset.X, expected_X.to(torch.double)))
             self.assertTrue(torch.equal(dataset.Y, expected_Y))
             self.assertIsNone(dataset.Yvar)
@@ -652,20 +643,71 @@ class TorchAdapterTest(TestCase):
             self.assertEqual(dataset.outcome_names, metric_names)
             self.assertEqual(ordered_outcomes, metric_names)
 
-            with self.assertRaisesRegex(ValueError, "was not observed."):
-                mb._convert_observations(
-                    observation_data=observation_data,
-                    observation_features=observation_features,
+            with self.assertRaisesRegex(DataRequiredError, "no corresponding data"):
+                adapter._convert_experiment_data(
+                    experiment_data=experiment_data,
                     outcomes=metric_names + ["extra"],
                     parameters=feature_names,
                     search_space_digest=search_space_digest,
                 )
 
+    def test_convert_experiment_data_with_conflicting_names(self) -> None:
+        """Test that _convert_experiment_data handles parameter name
+        and metric name conflicts."""
+        feature_names = ["m1", "x0", "x1"]  # m1 is both a feature and metric
+        search_space = get_search_space_for_range_values(
+            min=0.0, max=5.0, parameter_names=feature_names
+        )
+        raw_X = torch.rand(5, 3) * 5
+
+        raw_m1_Y = torch.sin(raw_X).sum(-1, keepdim=True)
+        raw_Y = torch.cat([raw_m1_Y, raw_m1_Y + 1.0], dim=1)
+
+        experiment = get_experiment_with_observations(
+            parameterizations=[
+                {f"{feature_names[i]}": x_[i].item() for i in range(3)} for x_ in raw_X
+            ],
+            observations=raw_Y.tolist(),
+            search_space=search_space,
+        )
+        adapter = TorchAdapter(experiment=experiment, generator=TorchGenerator())
+
+        metric_names = ["m1", "m2"]
+        experiment_data = adapter.get_training_data()
+
+        search_space_digest = SearchSpaceDigest(
+            feature_names=feature_names,
+            bounds=[(0.0, 5.0)] * 3,
+        )
+
+        # This should work without errors despite the name conflict
+        converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
+            experiment_data=experiment_data,
+            outcomes=metric_names,
+            parameters=feature_names,
+            search_space_digest=search_space_digest,
+        )
+
+        # Verify the datasets were created correctly
+        self.assertEqual(len(converted_datasets), 2)
+        self.assertEqual(len(ordered_outcomes), 2)
+        self.assertIn("m1", ordered_outcomes)
+        self.assertIn("m2", ordered_outcomes)
+
+        # Check that all datasets have the correct feature names and shapes
+        for dataset in converted_datasets:
+            self.assertEqual(dataset.feature_names, feature_names)
+            self.assertEqual(dataset.X.shape[1], 3)
+            self.assertEqual(dataset.Y.shape[1], 1)
+            # Verify we have data for all 5 observations
+            self.assertEqual(dataset.X.shape[0], 5)
+            self.assertEqual(dataset.Y.shape[0], 5)
+
     def test_convert_contextual_observations(self) -> None:
         raw_X = torch.rand(10, 3) * 5
         raw_X[:, -1].round_()  # Make sure last column is integer.
         raw_X[0, -1] = 0  # Make sure task value 0 exists.
-        raw_Y = torch.sin(raw_X).sum(-1)
+        raw_Y = torch.sin(raw_X).sum(-1, keepdim=True).expand(-1, 4)
         feature_names = ["x0", "x1", "x2"]
         metric_names = ["y", "y:c0", "y:c1", "y:c2"]
         parameter_decomposition = {f"c{i}": [f"x{i}"] for i in range(3)}
@@ -674,36 +716,32 @@ class TorchAdapterTest(TestCase):
         search_space = get_search_space_for_range_values(
             min=0.0, max=5.0, parameter_names=feature_names
         )
-        experiment = Experiment(
-            search_space=search_space,
-            name="test",
-            properties={
-                "parameter_decomposition": parameter_decomposition,
-                "metric_decomposition": metric_decomposition,
-            },
+        # Make an optimization config that includes all metrics.
+        opt_config = OptimizationConfig(
+            objective=Objective(metric=Metric("y"), minimize=True),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    metric=Metric(f"y:c{i}"), op=ComparisonOp.GEQ, bound=0
+                )
+                for i in range(3)
+            ],
         )
-        mb = _get_adapter_from_experiment(experiment=experiment, fit_on_init=False)
-
-        observation_features = [
-            ObservationFeatures(
-                parameters={feature_names[i]: x_[i].item() for i in range(3)}
-            )
-            for x_ in raw_X
-        ]
-        num_m = len(metric_names)
-        observation_data = [
-            ObservationData(
-                metric_names=metric_names,
-                means=np.asarray([y for _ in range(num_m)]),
-                covariance=np.array(
-                    [float("nan") for _ in range(num_m * num_m)]
-                ).reshape([num_m, num_m]),
-            )
-            for y in raw_Y
-        ]
-        converted_datasets, ordered_outcomes, _ = mb._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
+        experiment = get_experiment_with_observations(
+            parameterizations=[
+                {f"x{i}": x_[i].item() for i in range(3)} for x_ in raw_X
+            ],
+            observations=raw_Y.tolist(),
+            search_space=search_space,
+            optimization_config=opt_config,
+        )
+        experiment._properties = {
+            "parameter_decomposition": parameter_decomposition,
+            "metric_decomposition": metric_decomposition,
+        }
+        adapter = TorchAdapter(experiment=experiment, generator=BoTorchGenerator())
+        experiment_data = adapter.get_training_data()
+        converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
+            experiment_data=experiment_data,
             outcomes=metric_names,
             parameters=feature_names,
             search_space_digest=SearchSpaceDigest(
@@ -711,8 +749,6 @@ class TorchAdapterTest(TestCase):
                 bounds=[(0.0, 5.0)] * 3,
                 ordinal_features=[2],
                 discrete_choices={2: list(range(0, 11))},
-                task_features=[],
-                target_values={},
             ),
         )
         self.assertEqual(len(converted_datasets), 2)
@@ -729,7 +765,7 @@ class TorchAdapterTest(TestCase):
             if len(dataset.outcome_names) == 1:
                 self.assertListEqual(dataset.outcome_names, ["y"])
                 self.assertTrue(torch.equal(dataset.X, raw_X))
-                self.assertTrue(torch.equal(dataset.Y, raw_Y.unsqueeze(-1)))
+                self.assertTrue(torch.equal(dataset.Y, raw_Y[:, :1]))
             else:
                 self.assertListEqual(dataset.outcome_names, ["y:c0", "y:c1", "y:c2"])
                 self.assertListEqual(
@@ -745,45 +781,24 @@ class TorchAdapterTest(TestCase):
                     metric_decomposition,
                 )
                 self.assertTrue(torch.equal(dataset.X, raw_X))
-                self.assertTrue(
-                    torch.equal(
-                        dataset.Y,
-                        torch.cat([raw_Y.unsqueeze(-1) for _ in range(3)], dim=-1),
-                    )
-                )
+                self.assertTrue(torch.equal(dataset.Y, raw_Y[:, 1:]))
         # Test _get_fit_args handling of outcome names
-        mb._fit_tracking_metrics = True
-        search_space = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    name=f"x{i}",
-                    lower=0.0,
-                    upper=5.0,
-                    parameter_type=ParameterType.FLOAT,
-                )
-                for i in range(3)
-            ]
-        )
-        observations = []
-        for i, od in enumerate(observation_data):
-            observations.append(Observation(data=od, features=observation_features[i]))
-        converted_datasets2, _, _ = mb._get_fit_args(
+        adapter._fit_tracking_metrics = True
+        converted_datasets2, _, _ = adapter._get_fit_args(
             search_space=search_space,
-            observations=observations,
-            parameters=feature_names,
+            experiment_data=experiment_data,
             update_outcomes_and_parameters=True,
         )
-        self.assertEqual(mb.outcomes, expected_outcomes)
+        self.assertEqual(adapter.outcomes, expected_outcomes)
         self.assertEqual(converted_datasets, converted_datasets2)
         # Check that outcomes are not updated when
         # `update_outcomes_and_parameters` is False
-        mb._get_fit_args(
+        adapter._get_fit_args(
             search_space=search_space,
-            observations=observations,
-            parameters=feature_names,
+            experiment_data=experiment_data,
             update_outcomes_and_parameters=False,
         )
-        self.assertEqual(mb.outcomes, expected_outcomes)
+        self.assertEqual(adapter.outcomes, expected_outcomes)
 
     @mock_botorch_optimize
     def test_gen_metadata_untransform(self) -> None:
@@ -791,13 +806,7 @@ class TorchAdapterTest(TestCase):
             observations=[[0.0, 1.0], [2.0, 3.0]]
         )
         generator = BoTorchGenerator()
-        mb = TorchAdapter(
-            experiment=experiment,
-            search_space=experiment.search_space,
-            data=experiment.lookup_data(),
-            generator=generator,
-            transforms=[],
-        )
+        adapter = TorchAdapter(experiment=experiment, generator=generator)
         for additional_metadata in (
             {},
             {"objective_thresholds": None},
@@ -809,15 +818,15 @@ class TorchAdapterTest(TestCase):
                 gen_metadata={Keys.EXPECTED_ACQF_VAL: [1.0], **additional_metadata},
             )
             with mock.patch.object(
-                mb,
+                adapter,
                 "_untransform_objective_thresholds",
-                wraps=mb._untransform_objective_thresholds,
+                wraps=adapter._untransform_objective_thresholds,
             ) as mock_untransform, mock.patch.object(
                 generator,
                 "gen",
                 return_value=gen_return_value,
             ):
-                mb.gen(n=1)
+                adapter.gen(n=1)
             if additional_metadata.get("objective_thresholds", None) is None:
                 mock_untransform.assert_not_called()
             else:
@@ -868,8 +877,8 @@ class TorchAdapterTest(TestCase):
         )
         experiment.attach_data(data)
         trial.run().complete()
-        adapter = _get_adapter_from_experiment(
-            experiment=experiment, transforms=MBM_X_trans
+        adapter = TorchAdapter(
+            experiment=experiment, generator=BoTorchGenerator(), transforms=MBM_X_trans
         )
         # Check the expanded model space. Range is expanded, Choice is not.
         model_space = adapter._model_space
@@ -1116,10 +1125,8 @@ class TorchAdapterTest(TestCase):
                 )
 
     @mock_botorch_optimize
-    def test_pairwise_preference_model(self) -> None:
+    def test_pairwise_preference_generator(self) -> None:
         experiment = get_pbo_experiment()
-        data = experiment.lookup_data()
-
         surrogate = Surrogate(
             surrogate_spec=SurrogateSpec(
                 model_configs=[
@@ -1148,13 +1155,10 @@ class TorchAdapterTest(TestCase):
         for botorch_acqf_class, model_gen_options, n in cases:
             pmb = TorchAdapter(
                 experiment=experiment,
-                search_space=experiment.search_space,
-                data=data,
                 generator=BoTorchGenerator(
                     botorch_acqf_class=botorch_acqf_class,
                     surrogate=surrogate,
                 ),
-                transforms=[],
                 optimization_config=OptimizationConfig(
                     Objective(
                         Metric(Keys.PAIRWISE_PREFERENCE_QUERY.value), minimize=False
@@ -1167,54 +1171,18 @@ class TorchAdapterTest(TestCase):
             generator_run = pmb.gen(n=n, model_gen_options=model_gen_options)
             self.assertEqual(len(generator_run.arms), n)
 
-        observation_data = [
-            ObservationData(
-                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY.value],
-                means=np.array([0]),
-                covariance=np.array([[np.nan]]),
-            ),
-            ObservationData(
-                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY.value],
-                means=np.array([1]),
-                covariance=np.array([[np.nan]]),
-            ),
-        ]
-        observation_features = [
-            ObservationFeatures(parameters={"x1": 0.1, "x2": 0.2}, trial_index=0),
-            ObservationFeatures(parameters={"x1": 0.3, "x2": 0.4}, trial_index=0),
-        ]
-        observation_features_with_metadata = [
-            ObservationFeatures(parameters={"x1": 0.1, "x2": 0.2}, trial_index=0),
-            ObservationFeatures(
-                parameters={"x1": 0.3, "x2": 0.4},
-                trial_index=0,
-                metadata={"metadata_key": "metadata_val"},
-            ),
-        ]
         parameter_names = list(experiment.parameters.keys())
         outcomes = [assert_is_instance(Keys.PAIRWISE_PREFERENCE_QUERY.value, str)]
 
-        datasets, _, candidate_metadata = pmb._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
+        datasets, _, candidate_metadata = pmb._convert_experiment_data(
+            experiment_data=pmb._training_data,
             outcomes=outcomes,
             parameters=parameter_names,
             search_space_digest=None,
         )
         self.assertTrue(len(datasets) == 1)
-        self.assertTrue(isinstance(datasets[0], RankingDataset))
-        self.assertTrue(candidate_metadata is None)
-
-        datasets, _, candidate_metadata = pmb._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features_with_metadata,
-            outcomes=outcomes,
-            parameters=parameter_names,
-            search_space_digest=None,
-        )
-        self.assertTrue(len(datasets) == 1)
-        self.assertTrue(isinstance(datasets[0], RankingDataset))
-        self.assertTrue(candidate_metadata is not None)
+        self.assertIsInstance(datasets[0], RankingDataset)
+        self.assertIsNotNone(candidate_metadata)
 
         # Test individual helper methods
         X = torch.tensor(

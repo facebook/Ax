@@ -34,6 +34,7 @@ from ax.core.utils import (
     get_pending_observation_features,
     get_pending_observation_features_based_on_trial_status as get_pending_status,
     get_target_trial_index,
+    is_bandit_experiment,
     MissingMetrics,
 )
 from ax.exceptions.core import AxError, UserInputError
@@ -54,11 +55,11 @@ class UtilsTest(TestCase):
         super().setUp()
         self.empty_experiment = get_experiment()
         self.experiment = get_experiment()
-        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
+        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         self.experiment_2 = get_experiment()
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
-        self.batch_trial.set_status_quo_with_weight(self.experiment_2.status_quo, 1)
+        self.batch_trial.add_status_quo_arm(weight=1)
         self.obs_feat = ObservationFeatures.from_arm(
             arm=self.trial.arm, trial_index=self.trial.index
         )
@@ -584,11 +585,11 @@ class UtilsTest(TestCase):
         exp = get_experiment(with_status_quo=False)
         in_design_status_quo = Arm(
             name="in_design_status_quo",
-            parameters={"w": 5.45, "x": 5, "y": "bar", "z": True},
+            parameters={"w": 5.45, "x": 5, "y": "bar", "z": True, "d": 11.9},
         )
         exp.status_quo = in_design_status_quo
         batch = exp.new_batch_trial().add_arm(self.arm)
-        batch.set_status_quo_with_weight(exp.status_quo, 1)
+        batch.add_status_quo_arm(weight=1)
         self.assertEqual(batch.status_quo, in_design_status_quo)
         self.assertTrue(
             exp.search_space.check_membership(
@@ -783,3 +784,18 @@ class UtilsTest(TestCase):
         decorated_func = batch_trial_only(msg=custom_message)(mock_func)
         with self.assertRaisesRegex(AxError, custom_message):
             decorated_func(trial="not a batch trial")
+
+    def test_is_bandit_experiment_util(self) -> None:
+        with self.subTest("non-bandit GS"):
+            self.assertFalse(
+                is_bandit_experiment(generation_strategy_name="non-bandit GS")
+            )
+
+        with self.subTest("bandit GS"):
+            self.assertTrue(
+                is_bandit_experiment(
+                    generation_strategy_name=(
+                        Keys.FACTORIAL_PLUS_EMPIRICAL_BAYES_THOMPSON_SAMPLING
+                    )
+                )
+            )

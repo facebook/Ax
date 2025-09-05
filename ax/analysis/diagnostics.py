@@ -10,6 +10,7 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.core.experiment import Experiment
+from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
@@ -43,14 +44,24 @@ class DiagnosticAnalysis(Analysis):
         # Extract all metric names from the OptimizationConfig.
         metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
 
-        return self._create_analysis_card_group(
-            title=DIAGNOSTICS_CARDGROUP_TITLE,
-            subtitle=DIAGNOSTICS_CARDGROUP_SUBTITLE,
-            children=[
+        is_bandit = generation_strategy and is_bandit_experiment(
+            generation_strategy_name=generation_strategy.name
+        )
+
+        cross_validation_plots = (
+            [
                 CrossValidationPlot(metric_names=metric_names).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,
                     adapter=adapter,
                 )
-            ],
+            ]
+            if not is_bandit
+            else []
+        )
+
+        return self._create_analysis_card_group(
+            title=DIAGNOSTICS_CARDGROUP_TITLE,
+            subtitle=DIAGNOSTICS_CARDGROUP_SUBTITLE,
+            children=[*cross_validation_plots],
         )

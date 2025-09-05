@@ -12,7 +12,6 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from ax.core.batch_trial import LifecycleStage
 from ax.core.parameter import ParameterType
 
 from ax.core.trial_status import TrialStatus
@@ -87,6 +86,9 @@ class SQAParameter(Base):
 
     # Attributes for Fixed Parameters
     fixed_value: Column[TParamValue | None] = Column(JSONEncodedObject)
+
+    # Attribute for Derived Parameters
+    expression_str: Column[str | None] = Column(String(LONGTEXT_BYTES))
 
 
 class SQAParameterConstraint(Base):
@@ -296,9 +298,6 @@ class SQATrial(Base):
     id: Column[int] = Column(Integer, primary_key=True)
     index: Column[int] = Column(Integer, index=True, nullable=False)
     is_batch: Column[bool] = Column("is_batched", Boolean, nullable=False, default=True)
-    lifecycle_stage: Column[LifecycleStage | None] = Column(
-        IntEnum(LifecycleStage), nullable=True
-    )
     num_arms_created: Column[int] = Column(Integer, nullable=False, default=0)
     ttl_seconds: Column[int | None] = Column(Integer)
     run_metadata: Column[dict[str, Any] | None] = Column(JSONEncodedLongTextDict)
@@ -451,15 +450,12 @@ class SQAAnalysisCard(Base):
     blob_annotation: Column[str | None] = Column(
         String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True
     )
-
-    # pyre-ignore[4] Using Any here because using SQAAnalysisCard causes Pyre to hang
     parent: Any = relationship(
         "SQAAnalysisCard",
         back_populates="children",
         remote_side=[id],
         lazy="selectin",
     )
-    # pyre-ignore[4] Using Any here because using SQAAnalysisCard causes Pyre to hang
     children: list[Any] = relationship(
         "SQAAnalysisCard",
         cascade="all, delete-orphan",

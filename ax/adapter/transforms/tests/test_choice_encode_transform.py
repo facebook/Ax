@@ -18,9 +18,15 @@ from ax.adapter.transforms.choice_encode import (
     OrderedChoiceToIntegerRange,
 )
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
@@ -74,25 +80,23 @@ class ChoiceEncodeTransformTest(TestCase):
             ],
         )
         self.t = self.t_class(search_space=self.search_space)
-        self.observation_features = [
-            ObservationFeatures(
-                parameters={"x": 2.2, "a": 2, "b": 10.0, "c": 10.0, "d": "r"}
-            )
-        ]
-        # expected parameters after transform
-        self.expected_transformed_params = {
+        input_params: TParameterization = {
             "x": 2.2,
             "a": 2,
-            # ordered float choice originally; transformed normalized value
-            "b": normalize_values([1.0, 10.0, 100.0])[1],
-            # ordered float choice originally; transformed normalized value
-            "c": normalize_values([10.0, 100.0, 1000.0])[0],
+            "b": 10.0,
+            "c": 10.0,
+            "d": "r",
+        }
+        self.observation_features = [ObservationFeatures(parameters=input_params)]
+        # expected parameters after transform
+        self.expected_transformed_params: TParameterization = {
+            **input_params,
             # string choice originally; transformed to int index.
-            "d": 1,
+            **{"d": 1},
         }
 
     def test_init(self) -> None:
-        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d", "e"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["d", "e"])
 
     def test_transform_observation_features(self) -> None:
         observation_features = self.observation_features
@@ -121,25 +125,27 @@ class ChoiceEncodeTransformTest(TestCase):
         ss2 = self.t.transform_search_space(ss2)
         for p in ("d", "e"):
             with self.subTest(p):
-                tranformed_param = assert_is_instance(
+                transformed_param = assert_is_instance(
                     ss2.parameters[p], ChoiceParameter
                 )
                 original_param = assert_is_instance(
                     self.search_space.parameters[p], ChoiceParameter
                 )
-                self.assertEqual(tranformed_param.is_ordered, original_param.is_ordered)
                 self.assertEqual(
-                    tranformed_param.sort_values,
+                    transformed_param.is_ordered, original_param.is_ordered
+                )
+                self.assertEqual(
+                    transformed_param.sort_values,
                     original_param.sort_values,
                 )
                 if self.t_class == ChoiceToNumericChoice:
                     self.assertEqual(
-                        tranformed_param.values,
+                        transformed_param.values,
                         [i for i, _ in enumerate(original_param.values)],
                     )
                 else:
                     self.assertEqual(
-                        tranformed_param.values,
+                        transformed_param.values,
                         original_param.values,
                     )
 
@@ -156,30 +162,98 @@ class ChoiceEncodeTransformTest(TestCase):
         for p in ("a", "d"):
             self.assertEqual(ss2.parameters[p].parameter_type, ParameterType.INT)
 
-        self.assertEqual(
-            ss2.parameters["b"].values, normalize_values([1.0, 10.0, 100.0])
-        )
-        self.assertEqual(
-            ss2.parameters["c"].values, normalize_values([10.0, 100.0, 1000.0])
-        )
+        for param_name in ["b", "c"]:
+            self.assertEqual(
+                ss2.parameters[param_name].values,
+                assert_is_instance(
+                    self.search_space[param_name], ChoiceParameter
+                ).values,
+            )
         self.assertEqual(ss2.parameters["d"].values, [0, 1, 2])
 
-        # Ensure we error if we try to transform a fidelity parameter
+        # Fidelity parameter is transformed correctly.
         ss3 = SearchSpace(
             parameters=[
                 ChoiceParameter(
                     "b",
-                    parameter_type=ParameterType.FLOAT,
-                    values=[1.0, 10.0, 100.0],
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
                     is_ordered=True,
                     is_fidelity=True,
-                    target_value=100.0,
+                    sort_values=False,
+                    target_value="c",
                 )
             ]
         )
-        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
-        with self.assertRaises(ValueError):
-            t.transform_search_space(ss3)
+        t = ChoiceToNumericChoice(search_space=ss3, observations=[])
+        self.assertEqual(
+            t.transform_search_space(ss3.clone()),
+            SearchSpace(
+                parameters=[
+                    ChoiceParameter(
+                        "b",
+                        parameter_type=ParameterType.INT,
+                        values=[0, 1, 2],
+                        is_ordered=True,
+                        is_fidelity=True,
+                        sort_values=False,
+                        target_value=2,
+                    )
+                ]
+            ),
+        )
+
+    def test_hss_dependents_are_preserved(self) -> None:
+        # x0
+        # ├── x1
+        # └── x2
+        #     ├── (False) EMPTY
+        #     └── (True) x3
+        hss = HierarchicalSearchSpace(
+            parameters=[
+                FixedParameter(
+                    "x0",
+                    parameter_type=ParameterType.BOOL,
+                    value=True,
+                    dependents={True: ["x1", "x2"]},
+                ),
+                RangeParameter(
+                    "x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                ChoiceParameter(
+                    "x2",
+                    parameter_type=ParameterType.STRING,
+                    values=["NO", "YES"],
+                    is_ordered=True,
+                    sort_values=True,
+                    dependents={"NO": [], "YES": ["x3"]},
+                ),
+                RangeParameter(
+                    "x3",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+        hss = self.t_class(search_space=hss).transform_search_space(hss)
+
+        # x0 should be untouched because it's a fixed parameter.
+        self.assertIsInstance(hss.parameters["x0"], FixedParameter)
+        self.assertEqual(hss.parameters["x0"].parameter_type, ParameterType.BOOL)
+        # pyre-ignore[16] # Pyre doesn't understand fixed parameters have `.value`
+        self.assertEqual(hss.parameters["x0"].value, True)
+        self.assertEqual(hss.parameters["x0"].dependents, {True: ["x1", "x2"]})
+
+        self.assertFalse(hss.parameters["x1"].is_hierarchical)
+        self.assertFalse(hss.parameters["x3"].is_hierarchical)
+
+        self.assertTrue(hss.parameters["x2"].is_hierarchical)
+        self.assertEqual(hss.parameters["x2"].parameter_type, ParameterType.INT)
+        self.assertEqual(hss.parameters["x2"].dependents, {0: [], 1: ["x3"]})
 
     def test_with_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
@@ -234,8 +308,8 @@ class ChoiceEncodeTransformTest(TestCase):
             expected_values = zip(
                 [2.2, 1.0, 1.2],
                 [2, 1, 2],
-                normalize_values([10.0, 1.0, 100.0]),
-                normalize_values([10.0, 100.0, 1000.0]),
+                [10.0, 1.0, 100.0],
+                [10.0, 100.0, 1000.0],
                 [1, 0, 2],
                 [1, 2, 0],
             )
@@ -390,6 +464,12 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
         t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
         t_deprecated = OrderedChoiceEncode(search_space=ss3, observations=[])
         self.assertEqual(t.__dict__, t_deprecated.__dict__)
+
+    def test_hss_dependents_are_preserved(self) -> None:
+        """
+        Skip the HSS test. `OrderedChoiceToIntegerRange` cannot support hierarchical
+        search spaces, because range parameters cannot have dependents.
+        """
 
 
 def normalize_values(values: Sized) -> list[float]:

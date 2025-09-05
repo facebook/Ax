@@ -17,13 +17,10 @@ from typing import Any, TypeVar, Union
 
 T = TypeVar("T")
 TDecoderRegistry = dict[str, Union[type[T], Callable[..., T]]]
-# pyre-fixme[33]: `TClassDecoderRegistry` cannot alias to a type containing `Any`.
 TClassDecoderRegistry = dict[str, Callable[[dict[str, Any]], Any]]
 
 
 # https://stackoverflow.com/a/39235373
-# pyre-fixme[3]: Return annotation cannot be `Any`.
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def named_tuple_to_dict(data: Any) -> Any:
     """Recursively convert NamedTuples to dictionaries."""
     if isinstance(data, dict):
@@ -41,7 +38,6 @@ def named_tuple_to_dict(data: Any) -> Any:
 
 
 # https://stackoverflow.com/a/2166841
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def _is_named_tuple(x: Any) -> bool:
     """Return True if x is an instance of NamedTuple."""
     t = type(x)
@@ -75,7 +71,6 @@ def callable_from_reference(path: str) -> Callable:
 
 
 def serialize_init_args(
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     obj: Any,
     exclude_fields: list[str] | None = None,
 ) -> dict[str, Any]:

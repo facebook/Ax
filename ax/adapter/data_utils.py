@@ -37,7 +37,7 @@ from pyre_extensions import none_throws
 @dataclass(frozen=True)
 class DataLoaderConfig:
     """This dataclass contains parameters that control the behavior
-    of `Adapter._set_training_data`.
+    of `Adapter._set_and_filter_training_data`.
 
     Args:
         fit_out_of_design: If specified, all training data are used.
@@ -189,6 +189,22 @@ class ExperimentData:
             ],
         )
 
+    def filter_by_trial_index(self, trial_indices: Iterable[int]) -> ExperimentData:
+        """
+        Returns a new ``ExperimentData`` object that is filtered to only include
+        the rows corresponding to trials in ``trial_indices``.
+        """
+        return ExperimentData(
+            arm_data=self.arm_data[
+                self.arm_data.index.get_level_values("trial_index").isin(trial_indices)
+            ],
+            observation_data=self.observation_data[
+                self.observation_data.index.get_level_values("trial_index").isin(
+                    trial_indices
+                )
+            ],
+        )
+
     def filter_latest_observations(self) -> ExperimentData:
         """
         Returns a new ``ExperimentData`` object, where the ``observation_data`` is
@@ -310,15 +326,15 @@ def extract_experiment_data(
     """
     data = data or experiment.lookup_data()
     arm_data = _extract_arm_data(experiment=experiment)
-    # Filter arm_data to only include arms with data.
-    arm_data = arm_data.loc[
-        arm_data.index.isin(
-            data.true_df[["trial_index", "arm_name"]].apply(tuple, axis=1)
-        )
-    ]
     observation_data = _extract_observation_data(
         experiment=experiment, data_loader_config=data_loader_config, data=data
     )
+    # Filter arm_data to only include the rows in observation_data.
+    index = observation_data.index
+    if (num_levels := len(index.names)) > 2:
+        # Keep only the first two levels: trial_index, arm_name.
+        index = index.droplevel(level=list(range(2, num_levels)))
+    arm_data = arm_data.loc[arm_data.index.isin(index)]
     return ExperimentData(arm_data=arm_data, observation_data=observation_data)
 
 
@@ -378,14 +394,8 @@ def _extract_observation_data(
     """
     data = data if data is not None else experiment.lookup_data()
     if isinstance(data, MapData):
-        map_keys = data.map_keys
-        if len(map_keys) > 1:
-            raise UnsupportedError(
-                f"Multiple map keys are not supported. The data has {map_keys=}."
-            )
         if data_loader_config.latest_rows_per_group is not None:
             data = data.latest(
-                map_keys=map_keys,
                 rows_per_group=data_loader_config.latest_rows_per_group,
             )
         elif (
@@ -393,23 +403,38 @@ def _extract_observation_data(
             or data_loader_config.limit_rows_per_group is not None
         ):
             data = data.subsample(
-                map_key=data.map_keys[0],
                 limit_rows_per_metric=data_loader_config.limit_rows_per_metric,
                 limit_rows_per_group=data_loader_config.limit_rows_per_group,
                 include_first_last=True,
             )
+
+        map_key = [data.map_key] if data.map_key is not None else []
     else:
-        map_keys = []
+        map_key = []
     df = data.true_df
     # Filter out rows for invalid statuses.
     to_keep = Series(index=df.index, data=False)
     trial_statuses = df["trial_index"].map(
         {trial_index: trial.status for trial_index, trial in experiment.trials.items()}
     )
+    # If there are abandoned arms, mark the corresponding rows as abandoned.
+    abandoned_arms = {
+        i: {arm.name for arm in trial.abandoned_arms}
+        for i, trial in experiment.trials.items()
+        if trial.abandoned_arms
+    }
+    if abandoned_arms:
+        is_abandoned = df[["trial_index", "arm_name"]].apply(
+            lambda row: row["trial_index"] in abandoned_arms
+            and row["arm_name"] in abandoned_arms[row["trial_index"]],
+            axis=1,
+        )
+        trial_statuses[is_abandoned] = TrialStatus.ABANDONED
+    # Check against valid statuses and filter the rows.
     for metric in experiment.metrics.values():
         valid_statuses = (
             data_loader_config.statuses_to_fit_map_metric
-            if isinstance(metric, MapMetric)
+            if isinstance(metric, MapMetric) and metric.has_map_data
             else data_loader_config.statuses_to_fit
         )
         to_keep |= (df["metric_name"] == metric.name) & trial_statuses.isin(
@@ -427,18 +452,18 @@ def _extract_observation_data(
         "metric_name",
         "mean",
         "sem",
-        *map_keys,
+        *map_key,
     }
     metadata_columns = [col for col in df.columns if col not in standard_columns]
 
-    # Pivot the df to be indexed by (trial_index, arm_name, *map_keys)
+    # Pivot the df to be indexed by (trial_index, arm_name, *map_key)
     # and to have columns "mean" & "sem" for each metric.
     observation_data = df.pivot(
         columns="metric_name",
         index=[
             "trial_index",
             "arm_name",
-            *map_keys,
+            *map_key,
         ],
         values=["mean", "sem"],
     )
@@ -446,12 +471,12 @@ def _extract_observation_data(
     # If metadata columns exist, add them to the pivoted dataframe.
     if metadata_columns:
         # Create a dataframe with just the index columns and metadata columns.
-        metadata_df = df[["trial_index", "arm_name", *map_keys, *metadata_columns]]
+        metadata_df = df[["trial_index", "arm_name", *map_key, *metadata_columns]]
         # Set the index to match the observation_data index.
         # All null rows are dropped to still capture the metadata in the next step
         # if it exists for only a subset of metrics.
         metadata_df = metadata_df.set_index(
-            ["trial_index", "arm_name", *map_keys]
+            ["trial_index", "arm_name", *map_key]
         ).dropna(how="all")
         # Drop duplicates to ensure we have only one row per unique index.
         # This is necessary when there are multiple metrics.

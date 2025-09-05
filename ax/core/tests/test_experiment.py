@@ -34,7 +34,12 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
+from ax.exceptions.core import (
+    AxError,
+    OptimizationNotConfiguredError,
+    RunnerNotFoundError,
+    UnsupportedError,
+)
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
@@ -59,6 +64,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_map_data_type,
     get_experiment_with_observations,
     get_optimization_config,
+    get_optimization_config_no_constraints,
     get_scalarized_outcome_constraint,
     get_search_space,
     get_sobol,
@@ -348,24 +354,31 @@ class ExperimentTest(TestCase):
 
     def test_StatusQuoSetter(self) -> None:
         sq_parameters = self.experiment.status_quo.parameters
-        self.experiment.status_quo = None
-        self.assertIsNone(self.experiment.status_quo)
 
-        # Verify normal update
+        # Verify normal update when no trials exist
         sq_parameters["w"] = 3.5
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
-        self.assertEqual(self.experiment.status_quo.name, "status_quo")
-        self.assertTrue("status_quo" in self.experiment.arms_by_name)
+        self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
+        self.assertTrue("status_quo" not in self.experiment.arms_by_name)
 
         # Verify all None values
         self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
         self.assertIsNone(self.experiment.status_quo.parameters["w"])
 
+        # Switch back to sq with values
+        self.experiment.status_quo = Arm(sq_parameters)
+
         # Try extra param
         sq_parameters["a"] = 4
         with self.assertRaises(ValueError):
             self.experiment.status_quo = Arm(sq_parameters)
+
+        # Try missing param - need to use a copy since we modified sq_parameters earlier
+        sq_parameters_copy = sq_parameters.copy()
+        sq_parameters_copy.pop("w", None)  # Use pop with default to avoid KeyError
+        with self.assertRaises(ValueError):
+            self.experiment.status_quo = Arm(sq_parameters_copy)
 
         # Try wrong type
         sq_parameters.pop("a")
@@ -377,48 +390,19 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
         self.assertEqual(len(self.experiment.arms_by_name), 1)
 
-        # Change status quo, verify still just 1 arm
-        with patch("ax.core.experiment.logger.warning") as mock_logger:
-            sq_parameters["w"] = 3.6
-            self.experiment.status_quo = Arm(sq_parameters)
-        mock_logger.assert_called_once()
-        self.assertIn("status_quo is updated", mock_logger.call_args.args[0])
-        self.assertEqual(len(self.experiment.arms_by_signature), 1)
-        self.assertEqual(len(self.experiment.arms_by_name), 1)
-
-        # Make a batch, add status quo to it, then change exp status quo, verify 2 arms
-        batch = self.experiment.new_batch_trial()
-        batch.set_status_quo_with_weight(self.experiment.status_quo, 1)
+        # Try to change status_quo after trials have been created
+        _ = self.experiment.new_batch_trial(should_add_status_quo_arm=True)
         sq_parameters["w"] = 3.7
-        self.experiment.status_quo = Arm(sq_parameters)
-        self.assertEqual(len(self.experiment.arms_by_signature), 2)
-        self.assertEqual(len(self.experiment.arms_by_name), 2)
-        self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
-        self.assertTrue("status_quo_e0" in self.experiment.arms_by_name)
-
-        # Try missing param
-        sq_parameters.pop("w")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UnsupportedError) as e:
             self.experiment.status_quo = Arm(sq_parameters)
-
-        # Actually name the status quo.
-        exp = Experiment(
-            name="test3",
-            search_space=get_branin_search_space(),
-            tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
-            runner=SyntheticRunner(),
+        self.assertIn(
+            "Modifications of status_quo are disabled after trials have been "
+            "created",
+            str(e.exception),
         )
-        batch = exp.new_batch_trial()
-        arms = get_branin_arms(n=1, seed=0)
-        batch.add_arms_and_weights(arms=arms)
-        self.assertIsNone(exp.status_quo)
-        exp.status_quo = arms[0]
-        # pyre-fixme[16]: Optional type has no attribute `name`.
-        self.assertEqual(exp.status_quo.name, "0_0")
 
-        # Try setting sq to existing arm with different name
-        with self.assertRaises(ValueError):
-            exp.status_quo = Arm(arms[0].parameters, name="new_name")
+        # Verify status_quo wasn't changed
+        self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
 
     def test_RegisterArm(self) -> None:
         # Create a new arm, register on experiment
@@ -769,9 +753,9 @@ class ExperimentTest(TestCase):
 
         attached_parameterizations, trial_index = self.experiment.attach_trial(
             parameterizations=[
-                {"w": 5.3, "x": 5, "y": "baz", "z": True},
-                {"w": 5.2, "x": 5, "y": "foo", "z": True},
-                {"w": 5.1, "x": 5, "y": "bar", "z": True},
+                {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
+                {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
+                {"w": 5.1, "x": 5, "y": "bar", "z": True, "d": 11.2},
             ],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
@@ -789,9 +773,9 @@ class ExperimentTest(TestCase):
 
         attached_parameterizations, trial_index = self.experiment.attach_trial(
             parameterizations=[
-                {"w": 5.3, "x": 5, "y": "baz", "z": True},
-                {"w": 5.2, "x": 5, "y": "foo", "z": True},
-                {"w": 5.1, "x": 5, "y": "bar", "z": True},
+                {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
+                {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
+                {"w": 5.1, "x": 5, "y": "bar", "z": True, "d": 11.2},
             ],
             arm_names=["arm1", "arm2", "arm3"],
             ttl_seconds=3600,
@@ -813,7 +797,7 @@ class ExperimentTest(TestCase):
         num_trials = len(self.experiment.trials)
 
         attached_parameterization, trial_index = self.experiment.attach_trial(
-            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
+            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
         )
@@ -825,7 +809,7 @@ class ExperimentTest(TestCase):
         num_trials = len(self.experiment.trials)
 
         attached_parameterization, trial_index = self.experiment.attach_trial(
-            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
+            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             arm_names=["arm1"],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
@@ -1034,12 +1018,8 @@ class ExperimentTest(TestCase):
                 ),
             ],
         )
-
-        new_status_quo = Arm({"x1": 1.0, "x2": 1.0})
-
         cloned_experiment = experiment.clone_with(
             search_space=larger_search_space,
-            status_quo=new_status_quo,
         )
         self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
         self.assertEqual(len(cloned_experiment.trials), 4)
@@ -1056,10 +1036,6 @@ class ExperimentTest(TestCase):
             cloned_experiment.search_space.parameters["x2"], ChoiceParameter
         )
         self.assertEqual(len(x2.values), 16)
-        self.assertEqual(
-            assert_is_instance(cloned_experiment.status_quo, Arm).parameters,
-            {"x1": 1.0, "x2": 1.0},
-        )
         # make sure the sq of the original experiment is unchanged
         self.assertEqual(
             assert_is_instance(experiment.status_quo, Arm).parameters,
@@ -1069,17 +1045,6 @@ class ExperimentTest(TestCase):
 
         self.assertEqual(
             cloned_experiment.lookup_data_for_trial(1)[0].df["trial_index"].iloc[0], 1
-        )
-
-        # make sure updating cloned experiment doesn't change the original experiment
-        cloned_experiment.status_quo = Arm({"x1": -1.0, "x2": 1.0})
-        self.assertEqual(
-            assert_is_instance(cloned_experiment.status_quo, Arm).parameters,
-            {"x1": -1.0, "x2": 1.0},
-        )
-        self.assertEqual(
-            assert_is_instance(experiment.status_quo, Arm).parameters,
-            {"x1": 0.0, "x2": 0.0},
         )
 
         # Save the cloned experiment to db and make sure the original
@@ -1123,7 +1088,6 @@ class ExperimentTest(TestCase):
         )
         cloned_experiment = experiment.clone_with(
             search_space=larger_search_space,
-            status_quo=new_status_quo,
         )
         new_data = cloned_experiment.lookup_data()
         self.assertNotEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
@@ -1170,7 +1134,6 @@ class ExperimentTest(TestCase):
 
         cloned_experiment_extra_properties = experiment_w_props.clone_with(
             search_space=larger_search_space,
-            status_quo=new_status_quo,
             properties_to_keep=["owners", "extra_field_keep"],
         )
         self.assertEqual(
@@ -1317,6 +1280,65 @@ class ExperimentTest(TestCase):
             unsafe=True
         )
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
+
+    def test_trial_indices_with_data(self) -> None:
+        exp = get_branin_experiment_with_multi_objective(
+            with_status_quo=True,
+            with_completed_batch=True,
+            has_optimization_config=True,
+        )
+        # attaches fake data for trials
+        exp.fetch_data()
+
+        with self.subTest("Opt config defined, has data"):
+            # first trial has data for opt config
+            trials = exp.trial_indices_with_data(critical_metrics_only=True)
+            self.assertEqual(trials, {0})
+        with self.subTest("Opt config defined, only some trials with data"):
+            # add new trial, this trial shouldn't have data for opt config
+            new_trial = exp.new_batch_trial(should_add_status_quo_arm=True)
+            new_trial.mark_running(no_runner_required=True)
+            trials = exp.trial_indices_with_data(critical_metrics_only=True)
+            self.assertEqual(trials, {0})
+        with self.subTest("all metrics, no data"):
+            # add tracking metric and require all metrics, should be empty set
+            exp.add_tracking_metric(metric=Metric("test", lower_is_better=True))
+            trials = exp.trial_indices_with_data(critical_metrics_only=False)
+            self.assertEqual(len(trials), 0)
+        with self.subTest(
+            "One trial with data for all metrics, one with data for some metrics"
+        ):
+            data = exp.fetch_data().df
+            trials = exp.trial_indices_with_data(critical_metrics_only=True)
+            self.assertEqual(trials, {0, 1})
+            # remove one of opt config metrics (branin_b) from one trial
+            data = data[
+                ~((data["trial_index"] == 1) & (data["metric_name"] == "branin_a"))
+            ]
+            exp.attach_data(Data(df=data))
+            with patch("ax.core.experiment.logger.debug") as mock_logger:
+                trials = exp.trial_indices_with_data(critical_metrics_only=True)
+                self.assertEqual(trials, {0})
+                mock_logger.assert_called_once()
+                self.assertIn(
+                    "Metrics present in trial data", mock_logger.call_args.args[0]
+                )
+        with self.subTest("changed opt config, no data for new config"):
+            exp.optimization_config = get_optimization_config_no_constraints()
+            trials = exp.trial_indices_with_data(critical_metrics_only=True)
+            self.assertEqual(len(trials), 0)
+        with self.subTest("Raise error if no opt config, but critical metrics only"):
+            exp2 = get_branin_experiment_with_multi_objective(
+                with_status_quo=True,
+                has_optimization_config=False,
+            )
+            new_trial2 = exp2.new_batch_trial(should_add_status_quo_arm=True)
+            new_trial2.mark_running(no_runner_required=True)
+            with self.assertRaisesRegex(
+                OptimizationNotConfiguredError,
+                "no optimization config has been defined",
+            ):
+                trials = exp2.trial_indices_with_data(critical_metrics_only=True)
 
     def test_stop_trial(self) -> None:
         self.experiment.new_trial()
@@ -1478,10 +1500,10 @@ class ExperimentWithMapDataTest(TestCase):
     def test_FetchDataWithMapData(self) -> None:
         evaluations = {
             "0_0": [
-                ({"epoch": 1}, {"no_fetch_impl_metric": (3.7, 0.5)}),
-                ({"epoch": 2}, {"no_fetch_impl_metric": (3.8, 0.5)}),
-                ({"epoch": 3}, {"no_fetch_impl_metric": (3.9, 0.5)}),
-                ({"epoch": 4}, {"no_fetch_impl_metric": (4.0, 0.5)}),
+                (1, {"no_fetch_impl_metric": (3.7, 0.5)}),
+                (2, {"no_fetch_impl_metric": (3.8, 0.5)}),
+                (3, {"no_fetch_impl_metric": (3.9, 0.5)}),
+                (4, {"no_fetch_impl_metric": (4.0, 0.5)}),
             ],
         }
 

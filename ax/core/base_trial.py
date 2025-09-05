@@ -26,7 +26,7 @@ from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import TrialMutationError, UnsupportedError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
@@ -51,10 +51,10 @@ def immutable_once_run(func: Callable) -> Callable:
     # pyre-fixme[2]: Parameter must be annotated.
     def _immutable_once_run(self, *args, **kwargs):
         if self._status != TrialStatus.CANDIDATE:
-            raise ValueError(
-                "Cannot modify a trial that is running or has ever run.",
+            raise TrialMutationError(
+                "Cannot modify a trial that is running or has ever run. "
                 "Create a new trial using `experiment.new_trial()` "
-                "or clone an existing trial using `trial.clone()`.",
+                "or clone an existing trial using `trial.clone()`."
             )
         return func(self, *args, **kwargs)
 
@@ -526,7 +526,7 @@ class BaseTrial(ABC, SortableBase):
             The trial instance.
         """
         if not unsafe and self._status != TrialStatus.CANDIDATE:
-            raise ValueError(
+            raise TrialMutationError(
                 f"Can only stage a candidate trial.  This trial is {self._status}"
             )
         self._status = TrialStatus.STAGED
@@ -556,7 +556,7 @@ class BaseTrial(ABC, SortableBase):
         )
         prev_step_str = "staged" if prev_step == TrialStatus.STAGED else "candidate"
         if not unsafe and self._status != prev_step:
-            raise ValueError(
+            raise TrialMutationError(
                 f"Can only mark this trial as running when {prev_step_str}."
             )
         self._status = TrialStatus.RUNNING
@@ -572,7 +572,9 @@ class BaseTrial(ABC, SortableBase):
             The trial instance.
         """
         if not unsafe and self._status != TrialStatus.RUNNING:
-            raise ValueError("Can only complete trial that is currently running.")
+            raise TrialMutationError(
+                "Can only complete trial that is currently running."
+            )
         self._status = TrialStatus.COMPLETED
         self._time_completed = datetime.now()
         return self
@@ -612,7 +614,9 @@ class BaseTrial(ABC, SortableBase):
             The trial instance.
         """
         if not unsafe and self._status != TrialStatus.RUNNING:
-            raise ValueError("Can only mark failed a trial that is currently running.")
+            raise TrialMutationError(
+                "Can only mark failed a trial that is currently running."
+            )
 
         self._failed_reason = reason
         self._status = TrialStatus.FAILED
@@ -629,7 +633,9 @@ class BaseTrial(ABC, SortableBase):
         """
         if not unsafe:
             if self._status != TrialStatus.RUNNING:
-                raise ValueError("Can only early stop trial that is currently running.")
+                raise TrialMutationError(
+                    "Can only early stop trial that is currently running."
+                )
 
             if self.lookup_data().df.empty:
                 raise UnsupportedError(
@@ -669,7 +675,7 @@ class BaseTrial(ABC, SortableBase):
         elif status == TrialStatus.EARLY_STOPPED:
             self.mark_early_stopped(unsafe=unsafe)
         else:
-            raise ValueError(f"Cannot mark trial as {status}.")
+            raise TrialMutationError(f"Cannot mark trial as {status}.")
         return self
 
     def mark_arm_abandoned(self, arm_name: str, reason: str | None = None) -> BaseTrial:

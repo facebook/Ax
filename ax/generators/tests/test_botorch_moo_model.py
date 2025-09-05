@@ -18,6 +18,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
 from ax.generators.torch.botorch_defaults import get_qLogNEI
+from ax.generators.torch.botorch_modular.optimizer_defaults import INIT_BATCH_LIMIT
 from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import (
     get_EHVI,
@@ -302,7 +303,8 @@ class BotorchMOOModelTest(TestCase):
         # get_chebyshev_scalarization should be called once for generated candidate.
         self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
         self.assertEqual(
-            mock_optimize.call_args.kwargs["options"]["init_batch_limit"], 32
+            mock_optimize.call_args.kwargs["options"]["init_batch_limit"],
+            INIT_BATCH_LIMIT,
         )
         self.assertEqual(mock_optimize.call_args.kwargs["options"]["batch_limit"], 1)
 
@@ -429,7 +431,8 @@ class BotorchMOOModelTest(TestCase):
             _mock_fit_model = es.enter_context(mock.patch(FIT_MODEL_MO_PATH))
             # Optimizer options correctly passed through.
             self.assertEqual(
-                mock_optimize.call_args.kwargs["options"]["init_batch_limit"], 32
+                mock_optimize.call_args.kwargs["options"]["init_batch_limit"],
+                INIT_BATCH_LIMIT,
             )
             self.assertEqual(
                 mock_optimize.call_args.kwargs["options"]["batch_limit"], 1

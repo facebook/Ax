@@ -388,7 +388,7 @@ class Client(WithDBSettingsBase):
                         decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
                     )
                 )
-                + f"using GenerationNode {generator_run[0]._generation_node_name}."
+                + f" using GenerationNode {generator_run[0]._generation_node_name}."
             )
 
             trial.mark_running(no_runner_required=True)
@@ -490,7 +490,7 @@ class Client(WithDBSettingsBase):
         # If no progression is provided assume the data is not timeseries-like and
         # set step=NaN
         data_with_progression = [
-            ({"step": progression if progression is not None else np.nan}, raw_data)
+            (progression if progression is not None else np.nan, raw_data)
         ]
 
         trial = assert_is_instance(self._experiment.trials[trial_index], Trial)
@@ -1166,8 +1166,7 @@ class Client(WithDBSettingsBase):
                     if metric.name == multi_objective.objectives[i].metric.name:
                         multi_objective._objectives[i]._metric = metric
                         return
-
-            if isinstance(
+            elif isinstance(
                 scalarized_objective := optimization_config.objective,
                 ScalarizedObjective,
             ):
@@ -1175,8 +1174,7 @@ class Client(WithDBSettingsBase):
                     if metric.name == scalarized_objective.metrics[i].name:
                         scalarized_objective._metrics[i] = metric
                         return
-
-            if (
+            elif (
                 isinstance(optimization_config.objective, Objective)
                 and metric.name == optimization_config.objective.metric.name
             ):

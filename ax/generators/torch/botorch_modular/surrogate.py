@@ -62,7 +62,8 @@ from ax.utils.stats.model_fit_stats import (
     RANK_CORRELATION,
 )
 from botorch.exceptions.errors import ModelFittingError
-from botorch.models.model import Model
+from botorch.models.gpytorch import GPyTorchModel
+from botorch.models.model import Model, ModelList
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
@@ -102,7 +103,7 @@ MODEL_SELECTION_METRIC_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
 
 def _extract_model_kwargs(
     search_space_digest: SearchSpaceDigest, botorch_model_class: type[Model]
-) -> dict[str, list[int] | int]:
+) -> dict[str, list[int] | dict[int, dict[int, list[int]]] | int]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
     method of a BoTorch `Model` class.
@@ -129,7 +130,7 @@ def _extract_model_kwargs(
         # skipped if there is no task feature.
         raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
-    kwargs: dict[str, list[int] | int] = {}
+    kwargs: dict[str, list[int] | dict[int, dict[int, list[int]]] | int] = {}
     if len(search_space_digest.categorical_features) > 0:
         kwargs["categorical_features"] = search_space_digest.categorical_features
     if len(fidelity_features) > 0:
@@ -140,6 +141,13 @@ def _extract_model_kwargs(
             # to support heterogeneous search spaces
             task_feature = -1
         kwargs["task_feature"] = task_feature
+    # Regular BoTorch models do not expect the argument `hierarchical_dependencies`.
+    # For now, it is the user's responsibility to make sure a hierarchical model is used
+    # when the HSS is not flattened.
+    if search_space_digest.hierarchical_dependencies:
+        kwargs["hierarchical_dependencies"] = (
+            search_space_digest.hierarchical_dependencies
+        )
     return kwargs
 
 
@@ -655,7 +663,15 @@ class Surrogate(Base):
         )
 
         if not should_use_model_list and len(datasets) > 1:
-            datasets = convert_to_block_design(datasets=datasets, force=True)
+            try:
+                datasets = convert_to_block_design(datasets=datasets, force=False)
+            except UnsupportedError as e:
+                # If the block design conversion fails, use model-list.
+                logger.warning(
+                    "Conversion to block design failed. Using model-list instead."
+                    f"Original error: {e}"
+                )
+                should_use_model_list = True
         self._training_data = list(datasets)  # So that it can be modified if needed.
 
         feature_names_set = set(search_space_digest.feature_names)
@@ -750,7 +766,10 @@ class Surrogate(Base):
             self._last_datasets[outcome_name_tuple] = dataset
 
         if should_use_model_list:
-            self._model = ModelListGP(*models)
+            if all(isinstance(model, GPyTorchModel) for model in models):
+                self._model = ModelListGP(*models)
+            else:
+                self._model = ModelList(*models)
         else:
             self._model = models[0]
         self._outcomes = outcome_names  # In the order of input datasets
@@ -1171,11 +1190,13 @@ class Surrogate(Base):
                 model_names_i[outcome] = model_name
             if isinstance(self._model, ModelListGP):
                 models.append(ModelListGP(*models_i))
+            elif isinstance(self._model, ModelList):
+                models.append(ModelList(*models_i))
             elif len(models_i) > 1:
                 # If MBM supports ModelList in the future, this will need to be
                 # updated here.
                 raise ValueError(
-                    "Got multiple models but not a ModelListGP"
+                    "Got multiple models but not a ModelListGP or ModelList."
                 )  # pragma: no cover
             else:
                 models.append(models_i[0])

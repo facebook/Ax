@@ -125,13 +125,15 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         ):
             # Update the data on the adapter and call `_fit`.
             # This will skip model fitting if the data has not changed.
-            observations, search_space = (
+            experiment_data, search_space = (
                 self.fitted_adapter._process_and_transform_data(
                     experiment=experiment, data=data
                 )
             )
             self.fitted_adapter._fit_if_implemented(
-                search_space=search_space, observations=observations, time_so_far=0.0
+                search_space=search_space,
+                experiment_data=experiment_data,
+                time_so_far=0.0,
             )
 
         else:

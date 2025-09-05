@@ -12,6 +12,7 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
+from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.analysis.plotly.objective_p_feasible_frontier import (
     OBJ_PFEAS_CARDGROUP_SUBTITLE,
     ObjectivePFeasibleFrontierPlot,
@@ -27,6 +28,8 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
@@ -74,10 +77,11 @@ class ResultsAnalysis(Analysis):
         constraint_names = []
         if (optimization_config := experiment.optimization_config) is not None:
             objective_names = optimization_config.objective.metric_names
-            constraint_names = [
-                constraint.metric.name
-                for constraint in optimization_config.outcome_constraints
-            ]
+            for oc in optimization_config.outcome_constraints:
+                if isinstance(oc, ScalarizedOutcomeConstraint):
+                    constraint_names.extend([m.name for m in oc.metrics])
+                else:
+                    constraint_names.append(oc.metric.name)
 
         # Relativize the effects if the status quo is set and there are BatchTrials
         # present.
@@ -189,6 +193,18 @@ class ResultsAnalysis(Analysis):
         #     else None
         # )
 
+        # Add BanditRollout for experiments with specific generation strategy
+        bandit_rollout_card = (
+            BanditRollout().compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            if generation_strategy
+            and is_bandit_experiment(generation_strategy_name=generation_strategy.name)
+            else None
+        )
+
         summary = Summary().compute_or_error_card(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -199,15 +215,16 @@ class ResultsAnalysis(Analysis):
             title=RESULTS_CARDGROUP_TITLE,
             subtitle=RESULTS_CARDGROUP_SUBTITLE,
             children=[
-                group
-                for group in (
+                child
+                for child in (
                     arm_effect_pair_group,
                     objective_p_feasible_group,
                     objective_scatter_group,
                     constraint_scatter_group,
+                    bandit_rollout_card,
                     summary,
                 )
-                if group is not None
+                if child is not None
             ],
         )
 

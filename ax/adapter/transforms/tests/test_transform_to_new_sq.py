@@ -143,13 +143,18 @@ class TransformToNewSQSpecificTest(TestCase):
             observations=[],
             adapter=self.adapter,
         )
-        obs = self.adapter._prepare_observations(experiment=self.exp, data=self.data)
-        obs2 = tf.transform_observations(obs)
+        obs = observations_from_data(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+        )[:1]
+        obs2 = tf.transform_observations(observations=deepcopy(obs))
         self.assertEqual(obs, obs2)
 
     def test_target_trial_index(self) -> None:
         sobol = get_sobol(search_space=self.exp.search_space)
-        self.exp.new_batch_trial(generator_run=sobol.gen(2), add_status_quo_arm=True)
+        self.exp.new_batch_trial(
+            generator_run=sobol.gen(2), should_add_status_quo_arm=True
+        )
         t = self.exp.trials[1]
         t = assert_is_instance(t, BatchTrial)
         t.mark_running(no_runner_required=True)
@@ -201,7 +206,7 @@ class TransformToNewSQSpecificTest(TestCase):
         sobol = get_sobol(search_space=self.exp.search_space)
         for sq_val in (2.0, 3.0):
             t = self.exp.new_batch_trial(
-                generator_run=sobol.gen(2), add_status_quo_arm=True
+                generator_run=sobol.gen(2), should_add_status_quo_arm=True
             ).mark_completed(unsafe=True)
             data = get_branin_data_batch(batch=t)
             data.df.loc[(data.df["arm_name"] == "status_quo"), "mean"] = sq_val

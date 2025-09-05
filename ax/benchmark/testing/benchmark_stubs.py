@@ -22,7 +22,6 @@ from ax.benchmark.benchmark_metric import (
 )
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
-    create_problem_from_botorch,
     get_moo_opt_config,
     get_soo_opt_config,
 )
@@ -33,6 +32,7 @@ from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunctio
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.problems.surrogate.lcbench.data import LCBenchData
 from ax.benchmark.problems.surrogate.lcbench.utils import get_lcbench_parameters
+from ax.benchmark.problems.synthetic.from_botorch import create_problem_from_botorch
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -46,14 +46,14 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
 )
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
-from pyre_extensions import assert_is_instance
-from torch.utils.data import Dataset
 
 
 def get_single_objective_benchmark_problem(
@@ -206,30 +206,6 @@ class DummyTestFunction(BenchmarkTestFunction):
     def evaluate_true(self, params: dict[str, float]) -> torch.Tensor:
         value = sum(elt**2 for elt in params.values())
         return value * torch.ones(self.num_outcomes, dtype=torch.double)
-
-
-class TestDataset(Dataset):
-    def __init__(
-        self,
-        root: str = "",
-        train: bool = True,
-        download: bool = True,
-        transform: Any = None,
-    ) -> None:
-        torch.manual_seed(0)
-        self.data: torch.Tensor = torch.randint(
-            low=0, high=256, size=(32, 1, 28, 28), dtype=torch.float32
-        )
-        self.targets: torch.Tensor = torch.randint(
-            low=0, high=10, size=(32,), dtype=torch.uint8
-        )
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
-        target = assert_is_instance(self.targets[idx].item(), int)
-        return self.data[idx], target
 
 
 def get_jenatton_arm(i: int) -> Arm:
@@ -396,4 +372,34 @@ def get_mock_lcbench_data() -> LCBenchData:
         parameter_df=parameter_df,
         metric_series=metric_series,
         timestamp_series=timestamp_series,
+    )
+
+
+def get_adapter(experiment: Experiment) -> TorchAdapter:
+    """Create a generic adapter for testing different surrogate model types."""
+    adapter = TorchAdapter(
+        experiment=experiment,
+        generator=BoTorchGenerator(),
+    )
+    return adapter
+
+
+def get_saas_adapter(experiment: Experiment) -> TorchAdapter:
+    """Create an adapter with SaasFullyBayesianSingleTaskGP model."""
+    return TorchAdapter(
+        experiment=experiment,
+        generator=BoTorchGenerator(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                        mll_options={
+                            "warmup_steps": 2,
+                            "num_samples": 4,
+                            "thinning": 1,
+                        },
+                    ),
+                ]
+            ),
+        ),
     )

@@ -29,7 +29,12 @@ from ax.core.optimization_config import (
     PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -129,7 +134,6 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
         "generation_step_index": batch._generation_step_index,
-        "lifecycle_stage": batch.lifecycle_stage,
         "properties": batch._properties,
     }
 
@@ -187,6 +191,18 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
         "sort_values": parameter.sort_values,
+    }
+
+
+def derived_parameter_to_dict(parameter: DerivedParameter) -> dict[str, Any]:
+    """Convert Ax fixed parameter to a dictionary."""
+    return {
+        "__type": parameter.__class__.__name__,
+        "name": parameter.name,
+        "parameter_type": parameter.parameter_type,
+        "expression_str": parameter.expression_str,
+        "is_fidelity": parameter.is_fidelity,
+        "target_value": parameter.target_value,
     }
 
 
@@ -377,7 +393,6 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> dict[str, Any]:
         "model_predictions": gr.model_predictions,
         "best_arm_predictions": gr.best_arm_predictions,
         "generator_run_type": gr.generator_run_type,
-        "index": gr.index,
         "fit_time": gr.fit_time,
         "gen_time": gr.gen_time,
         "model_key": gr._model_key,
@@ -412,7 +427,6 @@ def map_data_to_dict(map_data: MapData) -> dict[str, Any]:
     return properties
 
 
-# pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
 def map_key_info_to_dict(mki: MapKeyInfo) -> dict[str, Any]:
     """Convert Ax map data metadata to a dictionary."""
     properties = serialize_init_args(obj=mki)
@@ -571,7 +585,6 @@ def tensor_to_dict(obj: Tensor) -> dict[str, Any]:
     }
 
 
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
     """Convert any class to a dictionary."""
     for _class in CLASS_TO_REGISTRY:
@@ -595,7 +608,6 @@ def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
     )
 
 
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def botorch_component_to_dict(input_obj: Any) -> dict[str, Any]:
     class_type = input_obj.__class__
     if isinstance(input_obj, InputTransform):

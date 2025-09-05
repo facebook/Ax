@@ -4,9 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
 from ax.api.utils.instantiation.from_string import (
-    _sanitize_name,
     optimization_config_from_string,
     parse_objective,
     parse_outcome_constraint,
@@ -99,7 +97,7 @@ class TestFromString(TestCase):
             ),
         )
 
-    def test_parse_paramter_constraint(self) -> None:
+    def test_parse_parameter_constraint(self) -> None:
         constraint = parse_parameter_constraint(constraint_str="x1 + x2 <= 1")
         self.assertEqual(
             constraint,
@@ -130,6 +128,14 @@ class TestFromString(TestCase):
 
         with self.assertRaisesRegex(UserInputError, "Only linear"):
             parse_parameter_constraint(constraint_str="x1 * x2 <= 1")
+        # test with sanitization
+        constraint = parse_parameter_constraint(constraint_str="foo.bar + foo.baz <= 1")
+        self.assertEqual(
+            constraint,
+            ParameterConstraint(
+                constraint_dict={"foo.bar": 1, "foo.baz": 1}, bound=1.0
+            ),
+        )
 
     def test_parse_objective(self) -> None:
         single_objective = parse_objective(objective_str="ne")
@@ -237,20 +243,3 @@ class TestFromString(TestCase):
 
         with self.assertRaisesRegex(UserInputError, "Only linear"):
             parse_outcome_constraint(constraint_str="flops * flops <= 1000000")
-
-    def test_sanitize_name(self) -> None:
-        self.assertEqual(_sanitize_name("foo.bar.baz"), "foo__dot__bar__dot__baz")
-        self.assertEqual(
-            _sanitize_name("foo.bar/11:Baz"), "foo__dot__bar__slash__11__colon__Baz"
-        )
-        self.assertEqual(
-            _sanitize_name("foo.bar + 0.1 * baz"), "foo__dot__bar + 0.1 * baz"
-        )
-
-        constraint = parse_parameter_constraint(constraint_str="foo.bar + foo.baz <= 1")
-        self.assertEqual(
-            constraint,
-            ParameterConstraint(
-                constraint_dict={"foo.bar": 1, "foo.baz": 1}, bound=1.0
-            ),
-        )

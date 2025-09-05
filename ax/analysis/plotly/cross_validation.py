@@ -24,15 +24,6 @@ from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 
-TRANSPARENT_AX_BLUE: str = get_scatter_point_color(
-    hex_color=AX_BLUE,
-    ci_transparency=True,
-)
-FILLED_AX_BLUE: str = get_scatter_point_color(
-    hex_color=AX_BLUE,
-    ci_transparency=False,
-)
-
 CV_CARDGROUP_TITLE = "Cross Validation: Assessing model fit"
 
 CV_CARDGROUP_SUBTITLE = (
@@ -277,6 +268,14 @@ def _prepare_plot(
 ) -> go.Figure:
     # Create a scatter plot using Plotly Graph Objects for more control
     fig = go.Figure()
+    TRANSPARENT_AX_BLUE: str = get_scatter_point_color(
+        hex_color=AX_BLUE,
+        ci_transparency=True,
+    )
+    FILLED_AX_BLUE: str = get_scatter_point_color(
+        hex_color=AX_BLUE,
+        ci_transparency=False,
+    )
     fig.add_trace(
         go.Scatter(
             x=df["observed"],

@@ -18,15 +18,10 @@ from ax.adapter.cross_validation import (
     get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.adapter.registry import Generators
-from ax.core.experiment import Experiment
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.metrics.branin import BraninMetric
-from ax.runners.synthetic import SyntheticRunner
 from ax.service.orchestrator import (
     get_fitted_adapter,
     Orchestrator,
@@ -35,7 +30,7 @@ from ax.service.orchestrator import (
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
-from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_search_space
+from ax.utils.testing.core_stubs import get_branin_experiment
 
 NUM_SOBOL = 5
 
@@ -44,19 +39,7 @@ class TestAdapterFitMetrics(TestCase):
     def setUp(self) -> None:
         super().setUp()
         # setting up experiment and generation strategy
-        self.runner = SyntheticRunner()
-        self.branin_experiment = Experiment(
-            name="branin_test_experiment",
-            search_space=get_branin_search_space(),
-            runner=self.runner,
-            optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=BraninMetric(name="branin", param_names=["x1", "x2"]),
-                    minimize=True,
-                ),
-            ),
-            is_test=True,
-        )
+        self.branin_experiment = get_branin_experiment()
         self.branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
             True
         )
@@ -75,16 +58,18 @@ class TestAdapterFitMetrics(TestCase):
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,
             generation_strategy=self.generation_strategy,
-            options=OrchestratorOptions(),
+            options=OrchestratorOptions(max_pending_trials=NUM_SOBOL),
         )
         # need to run some trials to initialize the Adapter
         orchestrator.run_n_trials(max_trials=NUM_SOBOL + 1)
 
         adapter = get_fitted_adapter(orchestrator)
-        self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL)
+        self.assertEqual(len(adapter.get_training_data().observation_data), NUM_SOBOL)
 
         adapter = get_fitted_adapter(orchestrator, force_refit=True)
-        self.assertEqual(len(adapter.get_training_data()), NUM_SOBOL + 1)
+        self.assertEqual(
+            len(adapter.get_training_data().observation_data), NUM_SOBOL + 1
+        )
 
         # testing compute_model_fit_metrics_from_adapter with default metrics
         fit_metrics = compute_model_fit_metrics_from_adapter(

@@ -1394,6 +1394,73 @@ class TestClient(TestCase):
             str(client._generation_strategy), str(other_client._generation_strategy)
         )
 
+    def test_overwrite_metric(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(0, 1))
+            ],
+            name="foo_exp",
+        )
+
+        # Start with single-objective + outcome constraint
+        client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
+
+        # test 1: Replace the single-objective metric
+        foo_metric = DummyMetric(name="foo")
+        client.configure_metrics(metrics=[foo_metric])
+        objective = none_throws(client._experiment.optimization_config).objective
+        self.assertIsInstance(objective, Objective)
+        self.assertIs(objective.metric, foo_metric)
+
+        # test 2: Replace the outcome-constraint metric
+        bar_metric = DummyMetric(name="bar")
+        client.configure_metrics(metrics=[bar_metric])
+        oc = none_throws(client._experiment.optimization_config).outcome_constraints[0]
+        self.assertIs(oc.metric, bar_metric)
+
+        # test 3: Add a tracking metric, then replace it by name
+        baz_metric_1 = DummyMetric(name="baz")
+        client.configure_metrics(metrics=[baz_metric_1])
+        self.assertIn("baz", client._experiment._tracking_metrics)
+        self.assertIs(client._experiment._tracking_metrics["baz"], baz_metric_1)
+
+        baz_metric_2 = DummyMetric(name="baz")
+        client.configure_metrics(metrics=[baz_metric_2])
+        self.assertIs(client._experiment._tracking_metrics["baz"], baz_metric_2)
+
+        # test 4: Metric name not present anywhere, should be added as tracking + warn
+        quux_metric = DummyMetric(name="quux")
+        with self.assertLogs(logger="ax.api.client", level="WARNING") as logs:
+            client.configure_metrics(metrics=[quux_metric])
+        self.assertIn("quux", client._experiment._tracking_metrics)
+        self.assertIs(client._experiment._tracking_metrics["quux"], quux_metric)
+        self.assertTrue(
+            any("added as tracking metric" in msg for msg in logs.output),
+            "Expected a warning that the metric was added as a tracking metric.",
+        )
+
+        # test 5: Replace inside a MultiObjective
+        client.configure_optimization(objective="foo, qux")
+        qux_metric_moo = DummyMetric(name="qux")
+        client.configure_metrics(metrics=[qux_metric_moo])
+        moo = assert_is_instance(
+            none_throws(client._experiment.optimization_config).objective,
+            MultiObjective,
+        )
+        self.assertIn(qux_metric_moo, moo.metrics)
+
+        # test 6: Replace inside a ScalarizedObjective
+        client.configure_optimization(objective="foo + qux")
+        qux_metric_scalar = DummyMetric(name="qux")
+        client.configure_metrics(metrics=[qux_metric_scalar])
+        scalar = assert_is_instance(
+            none_throws(client._experiment.optimization_config).objective,
+            ScalarizedObjective,
+        )
+        self.assertIn(qux_metric_scalar, scalar.metrics)
+
 
 class DummyRunner(IRunner):
     @override

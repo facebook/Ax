@@ -41,7 +41,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: 'docusaurus-versions' # release branch
+        ref: 'gh-pages' # release branch
         fetch-depth: 0
     - name: Sync release branch with main
       run: |
@@ -63,7 +63,6 @@ jobs:
     - if: ${{ !inputs.pinned_botorch }}
       name: Install dependencies with latest BoTorch
       env:
-        ALLOW_BOTORCH_LATEST: true
         ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         uv pip install git+https://github.com/cornellius-gp/linear_operator.git
@@ -106,7 +105,7 @@ jobs:
 
         git add versioned_docs/ versioned_sidebars/ versions.json
         git commit -m "Create version ${{ inputs.new_version }} of site in Docusaurus"
-        git push --force origin HEAD:docusaurus-versions
+        git push --force origin HEAD:gh-pages
     - name: Build website
       run: |
         bash scripts/make_docs.sh -b

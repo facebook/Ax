@@ -392,7 +392,7 @@ class BestPointMixin(ABC):
         map_df = map_data.map_df
 
         # assume the first map_key is progression
-        map_key = map_data.map_keys[0]
+        map_key = none_throws(map_data.map_key)
 
         map_df = map_df[map_df["metric_name"] == objective]
         map_df = map_df.sort_values(by=["trial_index", map_key])

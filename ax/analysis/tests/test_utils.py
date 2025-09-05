@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from itertools import product
+
 import numpy as np
 import pandas as pd
 from ax.analysis.plotly.utils import truncate_label
@@ -12,9 +14,13 @@ from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
-from ax.core.trial_status import TrialStatus
+from ax.core.batch_trial import BatchTrial
+from ax.core.experiment import Experiment
+from ax.core.metric import Metric
+from ax.core.trial_status import TrialStatus  # noqa
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
@@ -254,6 +260,53 @@ class TestUtils(TestCase):
 
         # Check that all SEMs have the correct value
         self.assertTrue((only_completed_trials_df["foo_sem"] == 0.1).all())
+
+    def test_prepare_arm_data_use_model_predictions_with_abandoned_arms(self) -> None:
+        search_space = self.client._experiment.search_space.clone()
+
+        # Configure an experiment with batch trials
+        test_exp = Experiment(
+            name="test_exp_multifeed",
+            search_space=search_space,
+            description="test MF experiment",
+            tracking_metrics=[
+                Metric(name="foo"),
+                Metric(name="bar"),
+                Metric(name="baz"),
+                Metric(name="qux"),
+            ],
+            is_test=True,
+        )
+        trial = BatchTrial(test_exp)
+
+        # set 2 arms and abandon one
+        trial.add_arms_and_weights(
+            [
+                Arm(name="0_0", parameters={"x1": 0.5, "x2": 0.5}),
+                Arm(name="0_1", parameters={"x1": 1.5, "x2": 1.5}),
+            ]
+        )
+        trial.mark_arm_abandoned(arm_name="0_1")
+        trial.attach_batch_trial_data(
+            raw_data={
+                "0_0": {
+                    "foo": 1.0,
+                    "bar": 2.0,
+                    "baz": 3.0,
+                    "qux": 4.0,
+                }
+            }
+        )
+
+        df = prepare_arm_data(
+            experiment=test_exp,
+            metric_names=["foo", "bar", "baz", "qux"],
+            use_model_predictions=True,
+            adapter=self.client._generation_strategy.adapter,
+        )
+
+        self.assertIn("0_0", df["arm_name"].values)
+        self.assertNotIn("0_1", df["arm_name"].values)
 
     def test_prepare_arm_data_use_model_predictions(self) -> None:
         df = prepare_arm_data(
@@ -578,41 +631,63 @@ class TestUtils(TestCase):
     def test_online(self) -> None:
         # Test ArmEffectsPlot can be computed for a variety of experiments which
         # resemble those we see in an online setting.
-
-        for experiment in get_online_experiments():
-            for use_model_predictions in [True, False]:
-                for trial_index in [None, 0]:
-                    for with_additional_arms in [True, False]:
-                        if use_model_predictions and with_additional_arms:
-                            additional_arms = [
-                                Arm(
-                                    parameters={
-                                        parameter_name: 0
-                                        for parameter_name in (
-                                            experiment.search_space.parameters.keys()
-                                        )
-                                    }
+        for experiment in get_online_experiments()[:1]:
+            data = experiment.lookup_data()
+            rel_df = relativize_data(data).df
+            raw_df = data.df
+            raw_arm_value = raw_df[
+                (raw_df.arm_name == "0_0") & (raw_df.metric_name == "branin")
+            ]["mean"].values[0]
+            for (
+                use_model_predictions,
+                trial_index,
+                with_additional_arms,
+                relativize,
+            ) in product(
+                (True, False),
+                (None, 0),
+                (True, False),
+                (True, False),
+            ):
+                if use_model_predictions and with_additional_arms:
+                    additional_arms = [
+                        Arm(
+                            parameters={
+                                parameter_name: 0
+                                for parameter_name in (
+                                    experiment.search_space.parameters.keys()
                                 )
-                            ]
-                        else:
-                            additional_arms = None
-
-                        generation_strategy = (
-                            get_default_generation_strategy_at_MBM_node(
-                                experiment=experiment
-                            )
+                            }
                         )
-                        generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.adapter)
+                    ]
+                else:
+                    additional_arms = None
 
-                        _ = prepare_arm_data(
-                            experiment=experiment,
-                            metric_names=[*adapter.metric_names],
-                            use_model_predictions=use_model_predictions,
-                            adapter=adapter,
-                            trial_index=trial_index,
-                            additional_arms=additional_arms,
-                        )
+                generation_strategy = get_default_generation_strategy_at_MBM_node(
+                    experiment=experiment
+                )
+                generation_strategy.current_node._fit(experiment=experiment)
+                adapter = none_throws(generation_strategy.adapter)
+                df = prepare_arm_data(
+                    experiment=experiment,
+                    metric_names=[*adapter.metric_names],
+                    use_model_predictions=use_model_predictions,
+                    adapter=adapter,
+                    trial_index=trial_index,
+                    additional_arms=additional_arms,
+                    relativize=relativize,
+                )
+
+                arm_df = df[df.arm_name == "0_0"]
+                if relativize:
+                    # test that data is relativized
+                    expected_arm_value = rel_df[
+                        (rel_df.arm_name == "0_0") & (rel_df.metric_name == "branin")
+                    ]["mean"].values[0]
+                else:
+                    # test that data is not relativized
+                    expected_arm_value = raw_arm_value
+                self.assertAllClose(arm_df["branin_mean"].values[0], expected_arm_value)
 
     @TestCase.ax_long_test(
         reason=(

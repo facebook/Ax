@@ -300,10 +300,15 @@ class GenerationNode(SerializationMixin, SortableBase):
     def _fitted_adapter(self) -> Adapter | None:
         """Private property to return optional fitted_adapter from
         self.generator_spec_to_gen_from for convenience. If no model is fit,
-        will return None. If using the non-private `fitted_adapter` property,
-        and no model is fit, a UserInput error will be raised.
+        this will return None.
         """
-        return self.generator_spec_to_gen_from._fitted_adapter
+        try:
+            # Using the private attribute since using the non-private `fitted_adapter`
+            # property will raise a UserInputError if there is no fitted model.
+            return self.generator_spec_to_gen_from._fitted_adapter
+        except ModelError:
+            # ModelError is raised if there are no fitted adapters to select from.
+            return None
 
     def __repr__(self) -> str:
         """String representation of this ``GenerationNode`` (note that it

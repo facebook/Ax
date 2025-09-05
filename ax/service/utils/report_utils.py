@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import itertools
 import logging
-from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import timedelta
 from logging import Logger
@@ -83,7 +82,6 @@ CROSS_VALIDATION_CAPTION = (
     "This may hide outliers. You can autoscale the axes to see all trials."
 )
 FEASIBLE_COL_NAME = "is_feasible"
-BASELINE_ARM_NAME = "baseline_arm"
 UNPREDICTABLE_METRICS_MESSAGE = (
     "The following metric(s) are behaving unpredictably and may be noisy or "
     "misconfigured: {}. Please check that they are measuring the intended quantity, "
@@ -101,9 +99,7 @@ def _get_cross_validation_plots(model: Adapter) -> list[go.Figure]:
 
 
 def _get_objective_trace_plot(
-    experiment: Experiment,
-    data: Data,
-    true_objective_metric_name: str | None = None,
+    experiment: Experiment, true_objective_metric_name: str | None = None
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
         return [
@@ -249,71 +245,6 @@ def _get_objective_v_param_plots(
     return output_plots
 
 
-def _get_suffix(input_str: str, delim: str = ".", n_chunks: int = 1) -> str:
-    return delim.join(input_str.split(delim)[-n_chunks:])
-
-
-def _get_shortest_unique_suffix_dict(
-    input_str_list: list[str], delim: str = "."
-) -> dict[str, str]:
-    """Maps a list of strings to their shortest unique suffixes
-
-    Maps all original strings to the smallest number of chunks, as specified by
-    delim, that are not a suffix of any other original string. If the original
-    string was a suffix of another string, map it to its unaltered self.
-
-    Args:
-        input_str_list: a list of strings to create the suffix mapping for
-        delim: the delimiter used to split up the strings into meaningful chunks
-
-    Returns:
-        dict: A dict with the original strings as keys and their abbreviations as
-            values
-    """
-
-    # all input strings must be unique
-    assert len(input_str_list) == len(set(input_str_list))
-    if delim == "":
-        raise ValueError("delim must be a non-empty string.")
-    suffix_dict = defaultdict(list)
-    # initialize suffix_dict with last chunk
-    for istr in input_str_list:
-        suffix_dict[_get_suffix(istr, delim=delim, n_chunks=1)].append(istr)
-    max_chunks = max(len(istr.split(delim)) for istr in input_str_list)
-    if max_chunks == 1:
-        return {istr: istr for istr in input_str_list}
-    # the upper range of this loop is `max_chunks + 2` because:
-    #     - `i` needs to take the value of `max_chunks`, hence one +1
-    #     - the contents of the loop are run one more time to check if `all_unique`,
-    #           hence the other +1
-    for i in range(2, max_chunks + 2):
-        new_dict = defaultdict(list)
-        all_unique = True
-        for suffix, suffix_str_list in suffix_dict.items():
-            if len(suffix_str_list) > 1:
-                all_unique = False
-                for istr in suffix_str_list:
-                    new_dict[_get_suffix(istr, delim=delim, n_chunks=i)].append(istr)
-            else:
-                new_dict[suffix] = suffix_str_list
-        if all_unique:
-            if len(set(input_str_list)) != len(suffix_dict.keys()):
-                break
-            return {
-                suffix_str_list[0]: suffix
-                for suffix, suffix_str_list in suffix_dict.items()
-            }
-        suffix_dict = new_dict
-    # If this function has not yet exited, some input strings still share a suffix.
-    # This is not expected, but in this case, the function will return the identity
-    # mapping, i.e., a dict with the original strings as both keys and values.
-    logger.warning(
-        "Something went wrong. Returning dictionary with original strings as keys and "
-        "values."
-    )
-    return {istr: istr for istr in input_str_list}
-
-
 def get_standard_plots(
     experiment: Experiment,
     model: Adapter | None,
@@ -383,7 +314,6 @@ def get_standard_plots(
         output_plot_list.extend(
             _get_objective_trace_plot(
                 experiment=experiment,
-                data=data,
                 true_objective_metric_name=true_objective_metric_name,
             )
         )
@@ -495,7 +425,9 @@ def get_standard_plots(
     try:
         logger.debug("Starting MapMetric plots.")
         map_metrics = [
-            m for m in experiment.metrics.values() if isinstance(m, MapMetric)
+            m
+            for m in experiment.metrics.values()
+            if isinstance(m, MapMetric) and m.has_map_data
         ]
         if map_metrics:
             # Sort so that objective metrics appear first
@@ -585,9 +517,7 @@ def _get_curve_plot_dropdown(
         subsampled_data = (
             data
             if limit_points_per_plot is None
-            else data.subsample(
-                limit_rows_per_metric=limit_points_per_plot, map_key=map_key
-            )
+            else data.subsample(limit_rows_per_metric=limit_points_per_plot)
         )
         map_df = subsampled_data.map_df
         metric_df = map_df[map_df["metric_name"] == m.name]
@@ -1042,40 +972,7 @@ def exp_to_df(
     return exp_df.reset_index(drop=True)
 
 
-def compute_maximum_map_values(
-    experiment: Experiment, map_key: str | None = None
-) -> dict[int, float]:
-    """A function that returns a map from trial_index to the maximum map value
-    reached. If map_key is not specified, it uses the first map_key."""
-    data = experiment.lookup_data()
-    if not isinstance(data, MapData):
-        raise ValueError("`compute_maximum_map_values` requires `MapData`.")
-    if map_key is None:
-        map_key = data.map_keys[0]
-    map_df = data.map_df
-    maximum_map_value_df = (
-        map_df[["trial_index"] + data.map_keys]
-        .groupby("trial_index")
-        .max()
-        .reset_index()
-    )
-    trials_dict = {}
-    for trial_index in experiment.trials:
-        value = None
-        if trial_index in maximum_map_value_df["trial_index"].values:
-            value = maximum_map_value_df[
-                maximum_map_value_df["trial_index"] == trial_index
-            ][map_key].iloc[0]
-        trials_dict[trial_index] = value
-    return trials_dict
-
-
-def _pairwise_pareto_plotly_scatter(
-    experiment: Experiment,
-    metric_names: tuple[str, str] | None = None,
-    reference_point: tuple[float, float] | None = None,
-    minimize: bool | tuple[bool, bool] | None = None,
-) -> Iterable[go.Figure]:
+def _pairwise_pareto_plotly_scatter(experiment: Experiment) -> Iterable[go.Figure]:
     metric_name_pairs = _get_metric_name_pairs(experiment=experiment)
     return [
         _pareto_frontier_scatter_2d_plotly(
@@ -1487,27 +1384,6 @@ def compare_to_baseline_impl(
             )
 
     return result_message if result_message else None
-
-
-def compare_to_baseline(
-    experiment: Experiment,
-    optimization_config: OptimizationConfig | None,
-    comparison_arm_names: list[str] | None,
-    baseline_arm_name: str | None = None,
-) -> str | None:
-    """Calculate metric improvement of the experiment against baseline.
-    Returns the message(s) added to markdown_messages."""
-
-    comparison_list = maybe_extract_baseline_comparison_values(
-        experiment=experiment,
-        optimization_config=optimization_config,
-        comparison_arm_names=comparison_arm_names,
-        baseline_arm_name=baseline_arm_name,
-    )
-    if not comparison_list:
-        return None
-    comparison_list = none_throws(comparison_list)
-    return compare_to_baseline_impl(comparison_list)
 
 
 def warn_if_unpredictable_metrics(

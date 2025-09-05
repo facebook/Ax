@@ -38,7 +38,13 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    Parameter,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
@@ -297,6 +303,17 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+            )
+        elif isinstance(parameter, DerivedParameter):
+            # pyre-fixme[29]: `SQAParameter` is not a function.
+            return parameter_class(
+                id=parameter.db_id,
+                name=parameter.name,
+                domain_type=DomainType.DERIVED,
+                parameter_type=parameter.parameter_type,
+                expression_str=parameter.expression_str,
+                is_fidelity=parameter.is_fidelity,
+                target_value=parameter.target_value,
             )
         else:
             raise SQAEncodeError(
@@ -830,7 +847,6 @@ class Encoder:
             time_created=generator_run.time_created,
             generator_run_type=generator_run_type,
             weight=weight,
-            index=generator_run.index,
             fit_time=generator_run.fit_time,
             gen_time=generator_run.gen_time,
             best_arm_name=best_arm_name,
@@ -980,7 +996,6 @@ class Encoder:
         abandoned_arms = []
         generator_runs = []
         status_quo_name = None
-        lifecycle_stage = None
 
         if isinstance(trial, Trial) and trial.generator_run:
             gr_sqa = self.generator_run_to_sqa(
@@ -996,13 +1011,12 @@ class Encoder:
                 )
             for struct in trial.generator_run_structs:
                 gr_sqa = self.generator_run_to_sqa(
-                    generator_run=struct.generator_run, weight=struct.weight
+                    generator_run=struct.generator_run, weight=1.0
                 )
                 generator_runs.append(gr_sqa)
 
             trial_status_quo = trial.status_quo
             trial_status_quo_weight_override = trial._status_quo_weight_override
-            lifecycle_stage = trial.lifecycle_stage
 
             if (
                 trial_status_quo is not None
@@ -1055,7 +1069,6 @@ class Encoder:
             runner=runner,
             generation_step_index=trial._generation_step_index,
             properties=trial._properties,
-            lifecycle_stage=lifecycle_stage,
         )
         return trial_sqa
 
@@ -1079,7 +1092,6 @@ class Encoder:
         return data_class(
             id=data.db_id,
             data_json=data.true_df.to_json(),
-            description=data.description,
             time_created=timestamp,
             trial_index=trial_index,
             structure_metadata_json=json.dumps(

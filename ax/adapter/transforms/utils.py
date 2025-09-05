@@ -19,7 +19,7 @@ from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from numpy import typing as npt
 from pyre_extensions import none_throws
@@ -183,6 +183,11 @@ def construct_new_search_space(
         "parameters": parameters,
         "parameter_constraints": parameter_constraints,
     }
+    if isinstance(search_space, HierarchicalSearchSpace):
+        # Temporarily relax the `requires_root` flag for the new search space. This is
+        # fine because this function is typically called during transforms.
+        new_kwargs["requires_root"] = False
+
     if isinstance(search_space, RobustSearchSpace):
         env_vars = list(search_space._environmental_variables.values())
         if env_vars:

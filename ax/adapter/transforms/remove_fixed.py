@@ -12,7 +12,12 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import construct_new_search_space
 from ax.core.observation import Observation, ObservationFeatures
-from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
 
@@ -22,9 +27,9 @@ if TYPE_CHECKING:
 
 
 class RemoveFixed(Transform):
-    """Remove fixed parameters.
+    """Remove fixed and derived parameters.
 
-    Fixed parameters should not be included in the SearchSpace.
+    Fixed and derived parameters should not be included in the SearchSpace.
     This transform removes these parameters, leaving only tunable parameters.
 
     Transform is done in-place for observation features.
@@ -47,25 +52,28 @@ class RemoveFixed(Transform):
             config=config,
         )
         # Identify parameters that should be transformed
-        self.fixed_parameters: dict[str, FixedParameter] = {
+        self.fixed_or_derived_parameters: dict[
+            str, FixedParameter | DerivedParameter
+        ] = {
             p_name: p
             for p_name, p in search_space.parameters.items()
-            if isinstance(p, FixedParameter)
+            if isinstance(p, (DerivedParameter, FixedParameter))
         }
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.fixed_parameters:
+            for p_name in self.fixed_or_derived_parameters:
                 obsf.parameters.pop(p_name, None)
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         tunable_parameters: list[ChoiceParameter | RangeParameter] = []
         for p in search_space.parameters.values():
-            if p.name not in self.fixed_parameters:
-                # If it's not in fixed_parameters, it must be a tunable param.
+            if p.name not in self.fixed_or_derived_parameters:
+                # If it's not in fixed_or_derived_parameters, it must be a
+                # tunable param.
                 # pyre: p_ is declared to have type `Union[ChoiceParameter,
                 # pyre: RangeParameter]` but is used as type `ax.core.
                 # pyre-fixme[9]: parameter.Parameter`.
@@ -84,14 +92,19 @@ class RemoveFixed(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name, p in self.fixed_parameters.items():
-                obsf.parameters[p_name] = p.value
+            for p_name, p in self.fixed_or_derived_parameters.items():
+                if isinstance(p, DerivedParameter):
+                    obsf.parameters[p_name] = p.compute(parameters=obsf.parameters)
+                else:
+                    obsf.parameters[p_name] = p.value
         return observation_features
 
     def transform_experiment_data(
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         return ExperimentData(
-            arm_data=experiment_data.arm_data.drop(columns=list(self.fixed_parameters)),
+            arm_data=experiment_data.arm_data.drop(
+                columns=list(self.fixed_or_derived_parameters)
+            ),
             observation_data=experiment_data.observation_data,
         )

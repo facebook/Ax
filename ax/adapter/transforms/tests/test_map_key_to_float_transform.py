@@ -7,11 +7,13 @@
 # pyre-strict
 
 from copy import deepcopy
+from math import isnan, nan
 from typing import cast
 
 import numpy as np
 from ax.adapter import Adapter
 from ax.adapter.base import DataLoaderConfig
+from ax.adapter.cross_validation import cross_validate
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
@@ -197,6 +199,9 @@ class ClientTest(TestCase):
         # progression information is omitted from data propagated to the model
         self.assertListEqual(dataset.feature_names, ["width", "height"])
 
+        # Check that cross validation works.
+        cross_validate(model=adapter)
+
     def _test_early_stopping(self, complete_with_progression: bool) -> None:
         self._simulate(
             with_early_stopping=True,
@@ -240,6 +245,9 @@ class ClientTest(TestCase):
 
         # check that candidate is generated at the target progression
         self.assertEqual(int(candidate_metadata["step"]), self.max_steps)
+
+        # Check that cross validation works.
+        cross_validate(model=adapter)
 
     def test_no_early_stopping_with_progression(self) -> None:
         self._test_no_early_stopping(with_progression=True)
@@ -326,19 +334,56 @@ class MapKeyToFloatTransformTest(TestCase):
         self.assertFalse(p.log_scale)
 
     def test_TransformObservationFeatures(self) -> None:
-        observation_features = [obs.features for obs in self.observations]
-        obs_ft2 = deepcopy(observation_features)
-        obs_ft2 = self.t.transform_observation_features(obs_ft2)
+        # NaN progressions get filled in with the upper bound,
+        # and then upon untransforming, the value remains non-NaN and won't
+        # match its original value.
+        with self.subTest("Non-NaN observation features"):
+            keep_indices = [
+                i
+                for i, obs in enumerate(self.observations)
+                if not isnan(obs.features.metadata["timestamp"])
+            ]
+            observation_features = [self.observations[i].features for i in keep_indices]
+            obs_ft2 = deepcopy(observation_features)
+            obs_ft2 = self.t.transform_observation_features(obs_ft2)
 
-        expected = []
-        for obs in self.observations:
-            obsf = obs.features.clone()
-            obsf.parameters[self.map_key] = obsf.metadata.pop(self.map_key)
-            expected.append(obsf)
+            expected = []
+            for i in keep_indices:
+                obs = self.observations[i]
+                obsf = obs.features.clone()
+                obsf.parameters[self.map_key] = obsf.metadata.pop(self.map_key)
+                expected.append(obsf)
 
-        self.assertEqual(obs_ft2, expected)
-        obs_ft2 = self.t.untransform_observation_features(obs_ft2)
-        self.assertEqual(obs_ft2, observation_features)
+            self.assertEqual(obs_ft2, expected)
+            obs_ft2 = self.t.untransform_observation_features(obs_ft2)
+            self.assertEqual(obs_ft2, observation_features)
+
+        with self.subTest("NaN observation features"):
+            keep_indices = [
+                i
+                for i, obs in enumerate(self.observations)
+                if isnan(obs.features.metadata["timestamp"])
+            ]
+            observation_features = [self.observations[i].features for i in keep_indices]
+            obs_ft2 = deepcopy(observation_features)
+            obs_ft2 = self.t.transform_observation_features(obs_ft2)
+
+            # upper bound
+            expected = []
+            for i in keep_indices:
+                obs = self.observations[i]
+                obsf = obs.features.clone()
+                obsf.parameters[self.map_key] = 4.0
+                obsf.metadata = {}
+                expected.append(obsf)
+
+            self.assertEqual(obs_ft2, expected)
+            untransformed = self.t.untransform_observation_features(obs_ft2)
+            expected = observation_features
+            for obs in expected:
+                obs.metadata["timestamp"] = 4
+
+            self.assertEqual(untransformed, observation_features)
 
     def test_mixed_nan_progression(self) -> None:
         observations = [
@@ -419,8 +464,11 @@ class MapKeyToFloatTransformTest(TestCase):
             obsf.metadata["dummy"] = 1.0
         # should be exactly one parameter
         (p,) = self.t._parameter_list
-        with self.assertRaisesRegex(KeyError, f"'{p.name}'"):
-            self.t.transform_observation_features(obs_ft2)
+        # Transform fills missing values with the upper bound.
+        tf_obs_ft = self.t.transform_observation_features(obs_ft2)
+        for obs in tf_obs_ft:
+            self.assertEqual(obs.parameters[p.name], p.upper)
+            self.assertEqual(obs.metadata, {"dummy": 1.0})
 
     def test_constant_progression(self) -> None:
         for constant in (23, np.nan):
@@ -514,8 +562,12 @@ class MapKeyToFloatTransformTest(TestCase):
         )
 
     def test_transform_experiment_data(self) -> None:
+        # First, set up a case with no NaNs.
+        data = self.experiment.lookup_data()
+        data.map_df["timestamp"] = data.map_df["timestamp"].fillna(0)
         experiment_data = extract_experiment_data(
             experiment=self.experiment,
+            data=data,
             data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
         )
         transformed_data = self.t.transform_experiment_data(
@@ -523,35 +575,31 @@ class MapKeyToFloatTransformTest(TestCase):
         )
         # Check that arm_data is not modified.
         assert_frame_equal(experiment_data.arm_data, transformed_data.arm_data)
+
         # Since there are no NaNs, observation data is also not modified.
         assert_frame_equal(
             experiment_data.observation_data, transformed_data.observation_data
         )
         # Test with NaNs.
-        data = self.experiment.lookup_data()
-        data.map_df.loc[0, "timestamp"] = float("nan")
         experiment_data = extract_experiment_data(
             experiment=self.experiment,
-            data=data,
             data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
         )
-        # Check that the index includes NaN.
-        self.assertTrue(
-            np.array_equal(
-                experiment_data.observation_data.index.get_level_values(
-                    "timestamp"
-                ).to_numpy(),
-                np.array([float("nan"), 0.0, 0.0, 2.0, 0.0]),
-                equal_nan=True,
-            )
-        )
+        # The timestamp is always NaN for 'branin'
+        actual = experiment_data.observation_data.index.get_level_values(
+            "timestamp"
+        ).to_numpy()
+        expected_timestamp = np.array([nan, 4.0, nan, 2.0, nan, 0.0])
+        self.assertTrue(np.array_equal(actual, expected_timestamp, equal_nan=True))
         # Transform and check that the index is filled with the upper bound.
         transformed_data = self.t.transform_experiment_data(
             experiment_data=deepcopy(experiment_data)
         )
-        self.assertEqual(
+        transformed_timestamp = (
             transformed_data.observation_data.index.get_level_values(
                 "timestamp"
-            ).tolist(),
-            [self.t._parameter_list[0].upper, 0.0, 0.0, 2.0, 0.0],
+            ).tolist()
         )
+        upper = self.t._parameter_list[0].upper
+        expected_trans_timestamp = [upper, 4.0, upper, 2.0, upper, 0.0]
+        self.assertEqual(transformed_timestamp, expected_trans_timestamp)

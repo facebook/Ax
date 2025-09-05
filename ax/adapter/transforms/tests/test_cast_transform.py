@@ -405,6 +405,48 @@ class CastTransformTest(TestCase):
         expected_arm_data.index.names = ["trial_index", "arm_name"]
         assert_frame_equal(transformed.arm_data, expected_arm_data)
 
+    def test_transform_experiment_data_flatten_with_missing_columns(self) -> None:
+        columns = ["model", "learning_rate", "l2_reg_weight", "metadata"]
+        arm_data = (
+            DataFrame.from_dict(  # Data intentionally missing `num_boost_rounds`.
+                {
+                    (0, "0_0"): {
+                        "model": "Linear",
+                        "learning_rate": 0.01,
+                        "l2_reg_weight": 0.0001,
+                        "metadata": {
+                            Keys.FULL_PARAMETERIZATION: {
+                                "model": "Linear",
+                                "learning_rate": 0.01,
+                                "l2_reg_weight": 0.0001,
+                            }
+                        },
+                    }
+                },
+                orient="index",
+                columns=columns,
+            )
+        )
+        arm_data.index.names = ["trial_index", "arm_name"]
+        experiment_data = ExperimentData(
+            arm_data=arm_data, observation_data=DataFrame()
+        )
+        transformed = self.t_hss.transform_experiment_data(
+            experiment_data=experiment_data
+        )
+        expected_columns = set(columns + ["num_boost_rounds"])
+        self.assertEqual(set(transformed.arm_data.columns), expected_columns)
+        # Test with empty DF w/ missing columns.
+        arm_data = arm_data.iloc[:0]
+        arm_data.index.names = ["trial_index", "arm_name"]
+        experiment_data = ExperimentData(
+            arm_data=arm_data, observation_data=DataFrame()
+        )
+        transformed = self.t_hss.transform_experiment_data(
+            experiment_data=experiment_data
+        )
+        self.assertEqual(set(transformed.arm_data.columns), expected_columns)
+
     def test_transform_experiment_data_cast(self) -> None:
         # Test for casting to the correct data type and dropping of Nones.
         experiment = get_experiment_with_observations(
@@ -456,8 +498,8 @@ class CastTransformTest(TestCase):
         ).transform_experiment_data(experiment_data=deepcopy(experiment_data))
         # Arm data should only include first three rows.
         assert_frame_equal(transformed_data.arm_data, experiment_data.arm_data.iloc[:2])
-        # Observation data should include all but last row for last trial.
+        # Observation data should include all but rows for last trial.
         assert_frame_equal(
             transformed_data.observation_data,
-            experiment_data.observation_data.iloc[:-1],
+            experiment_data.observation_data.iloc[:-2],
         )

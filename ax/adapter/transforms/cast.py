@@ -37,7 +37,7 @@ class Cast(Transform):
       * All calls to `Cast.untransform_...` cast Ax objects back to a
         hierarchical search space.
       * The hierarchical search space is seen as the "original" search space,
-        and the flattened search space –– as "transformed".
+        and the flattened search space---as "transformed".
 
     Transform is done in-place for casting types, but objects are copied
     during flattening of- and casting to the hierarchical search space.
@@ -60,6 +60,20 @@ class Cast(Transform):
             config=config,
         )
         config = (config or {}).copy()
+
+        # 1. The default behavior for non-hierarchical search spaces: The flag
+        # `flatten_hss` is irrelevant. It's simply ignored.
+        #
+        # 2. The default behavior for hierarchical search spaces: `flatten_hss=True`.
+        # The search space is flattened, and the inactive parameters are filled with
+        # dummy values.
+        #
+        # 3. To exploit the hierarchical structure, one need set `flatten_hss=False`.
+        # The search space will be kept as `HierarchicalSearchSpace`. The observations
+        # features are still flattened so that the resulting tensors received by BoTorch
+        # have the same dimensionality. If the underlying BoTorch model is designed to
+        # exploit the hierarchical structure, it infers which parameter is active based
+        # on `search_space_digest.hierarchical_dependencies`.
         self.flatten_hss: bool = assert_is_instance(
             config.pop(
                 "flatten_hss", isinstance(search_space, HierarchicalSearchSpace)
@@ -97,9 +111,10 @@ class Cast(Transform):
 
         Returns: transformed search space.
         """
-        if not self.flatten_hss:
+        if isinstance(search_space, HierarchicalSearchSpace):
+            return search_space.flatten() if self.flatten_hss else search_space
+        else:
             return search_space
-        return assert_is_instance(search_space, HierarchicalSearchSpace).flatten()
 
     def transform_observations(
         self, observations: list[Observation]
@@ -153,23 +168,24 @@ class Cast(Transform):
             observation_features=observation_features
         )
 
-        if not self.flatten_hss:
+        if isinstance(self.search_space, HierarchicalSearchSpace):
+            # Inject the parameters model suggested in the flat search space, which then
+            # got removed during casting to HSS as they were not applicable under the
+            # hierarchical structure of the search space.
+            return [
+                # pyre-ignore[16]: The search space in this if-branch is a HSS, and
+                # does have `flatten_observation_features`.
+                self.search_space.flatten_observation_features(
+                    observation_features=obs_feats,
+                    inject_dummy_values_to_complete_flat_parameterization=(
+                        self.inject_dummy_values_to_complete_flat_parameterization
+                    ),
+                    use_random_dummy_values=self.use_random_dummy_values,
+                )
+                for obs_feats in observation_features
+            ]
+        else:
             return observation_features
-        # Inject the parameters model suggested in the flat search space, which then
-        # got removed during casting to HSS as they were not applicable under the
-        # hierarchical structure of the search space.
-        return [
-            assert_is_instance(
-                self.search_space, HierarchicalSearchSpace
-            ).flatten_observation_features(
-                observation_features=obs_feats,
-                inject_dummy_values_to_complete_flat_parameterization=(
-                    self.inject_dummy_values_to_complete_flat_parameterization
-                ),
-                use_random_dummy_values=self.use_random_dummy_values,
-            )
-            for obs_feats in observation_features
-        ]
 
     def untransform_observation_features(
         self, observation_features: list[ObservationFeatures]
@@ -188,15 +204,19 @@ class Cast(Transform):
             observation_features=observation_features
         )
 
-        if not self.flatten_hss:
+        if isinstance(self.search_space, HierarchicalSearchSpace):
+            # The inactive parameters in the HSS have been filled with dummy values,
+            # which should be removed from the observations.
+            return [
+                # pyre-ignore[16]: The search space in this if-branch is a HSS, and
+                # does have `case_observation_features`.
+                self.search_space.cast_observation_features(
+                    observation_features=obs_feats
+                )
+                for obs_feats in observation_features
+            ]
+        else:
             return observation_features
-
-        return [
-            assert_is_instance(
-                self.search_space, HierarchicalSearchSpace
-            ).cast_observation_features(observation_features=obs_feats)
-            for obs_feats in observation_features
-        ]
 
     def _cast_parameter_values(
         self, observation_features: list[ObservationFeatures]
@@ -245,7 +265,7 @@ class Cast(Transform):
         # If the metadata does not include the full parameterization, a dummy
         # value is constructed, either randomly or by using the middle of the
         # parameter domain, depending on the `use_random_dummy_values` flag.
-        if self.flatten_hss:
+        if isinstance(self.search_space, HierarchicalSearchSpace):
             # NOTE: This could probably be vectorized to operate more efficiently,
             # however it is non-trivial since we need to extract values from the
             # metadata of each row and fill any missing values after.
@@ -289,11 +309,14 @@ class Cast(Transform):
                     arm_data.index
                 )
             ]
-
+        # Add any missing columns to the arm_data to complete it.
+        arm_data = arm_data.reindex(
+            columns=list(self.search_space.parameters) + ["metadata"], fill_value=None
+        )
         # Cast columns to the correct datatype & round RangeParameters, if applicable.
         column_to_type = {
-            p: PARAMETER_PYTHON_TYPE_MAP[self.search_space.parameters[p].parameter_type]
-            for p in parameter_names
+            p: PARAMETER_PYTHON_TYPE_MAP[param.parameter_type]
+            for p, param in self.search_space.parameters.items()
         }
         arm_data = arm_data.astype(dtype=column_to_type, copy=False)
         # Round to digits if any parameter specifies it.

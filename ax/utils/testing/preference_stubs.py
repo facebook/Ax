@@ -103,7 +103,7 @@ def get_pbo_experiment(
     param_bounds = [10.0, 30.0] if not unbounded_search_space else [-1e9, 1e9]
     if include_sq:
         sq = {param_name: np.mean(param_bounds) for param_name in parameter_names}
-        sq_arm = Arm(parameters=sq)
+        sq_arm = Arm(parameters=sq, name="status_quo")
     else:
         sq = None
         sq_arm = None

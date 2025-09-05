@@ -24,6 +24,10 @@ from ax.generators.torch.botorch_defaults import (
     get_and_fit_model,
     get_chebyshev_scalarization,
 )
+from ax.generators.torch.botorch_modular.optimizer_argparse import (
+    BATCH_LIMIT,
+    INIT_BATCH_LIMIT,
+)
 from ax.generators.torch.utils import sample_simplex
 from ax.generators.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
@@ -441,10 +445,12 @@ class LegacyBoTorchGeneratorTest(TestCase):
                 torch.equal(gen_results.weights, torch.ones(n, dtype=dtype))
             )
             self.assertEqual(
-                mock_optimize_acqf.call_args.kwargs["options"]["init_batch_limit"], 32
+                mock_optimize_acqf.call_args.kwargs["options"]["init_batch_limit"],
+                INIT_BATCH_LIMIT,
             )
             self.assertEqual(
-                mock_optimize_acqf.call_args.kwargs["options"]["batch_limit"], 5
+                mock_optimize_acqf.call_args.kwargs["options"]["batch_limit"],
+                BATCH_LIMIT,
             )
 
             # Repeat without mocking optimize_acqf to make sure it runs

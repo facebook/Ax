@@ -39,6 +39,7 @@ from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangePa
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import (
+    HierarchicalSearchSpace,
     RobustSearchSpace,
     RobustSearchSpaceDigest,
     SearchSpace,
@@ -211,6 +212,7 @@ def extract_search_space_digest(
     task_features: list[int] = []
     fidelity_features: list[int] = []
     target_values: dict[int, int | float] = {}
+    hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
 
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
@@ -246,6 +248,27 @@ def extract_search_space_digest(
             fidelity_features.append(i)
             target_values[i] = assert_is_instance_of_tuple(p.target_value, (int, float))
 
+    if isinstance(search_space, HierarchicalSearchSpace):
+        hierarchical_dependencies = {}
+
+        for p_name, p in search_space.parameters.items():
+            if p.is_hierarchical:
+                for parent_value in p.dependents.keys():
+                    if not isinstance(parent_value, int):
+                        raise ValueError(
+                            f"{parent_value=} must be an integer. Received"
+                            f"{type(parent_value)} instead."
+                        )
+
+                # pyre-ignore [6]: We already checked that `parent_value` is int.
+                hierarchical_dependencies[param_names.index(p_name)] = {
+                    parent_value: [
+                        param_names.index(activated_param)
+                        for activated_param in activated_params
+                    ]
+                    for parent_value, activated_params in p.dependents.items()
+                }
+
     return SearchSpaceDigest(
         feature_names=param_names,
         bounds=bounds,
@@ -258,6 +281,7 @@ def extract_search_space_digest(
         robust_digest=extract_robust_digest(
             search_space=search_space, param_names=param_names
         ),
+        hierarchical_dependencies=hierarchical_dependencies,
     )
 
 
@@ -1281,12 +1305,9 @@ def _get_adapter_training_data(
     """
     Get training data for adapter, optionally filtering out out-of-design points.
     """
-    obs = adapter.get_training_data()
-
-    if in_design_only:
-        obs = [obs[i] for i in range(len(obs)) if adapter.training_in_design[i]]
-
-    return _unpack_observations(obs=obs)
+    experiment_data = adapter.get_training_data(filter_in_design=in_design_only)
+    observations = experiment_data.convert_to_list_of_observations()
+    return _unpack_observations(obs=observations)
 
 
 def _unpack_observations(

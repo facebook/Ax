@@ -92,7 +92,7 @@ class TestBoTorchTestFunction(TestCase):
         for name, result in evaluate_true_results.items():
             with self.subTest(name=name):
                 self.assertEqual(result.dtype, torch.double)
-                self.assertEqual(result.shape, torch.Size([expected_len[name]]))
+                self.assertEqual(result.shape, torch.Size([expected_len[name], 1]))
 
     def test_input_dimensions(self) -> None:
         test_function = self.botorch_test_functions["base Hartmann"]
@@ -115,3 +115,27 @@ class TestBoTorchTestFunction(TestCase):
             test_function.evaluate_true(params=params),
             embedded_test_function.evaluate_true(params=embedded_params),
         )
+
+    def test_with_steps(self) -> None:
+        ha_params = {f"x{i}": 0.5 for i in range(6)}
+        br_params = {"x0": 0.0, "x1": 0.0}
+        for name, botorch_problem, outcome_names, params in [
+            ("Unconstrained", Hartmann(dim=6), ["y"], ha_params),
+            ("Constrained", ConstrainedHartmann(dim=6), ["y", "c"], ha_params),
+            ("Moo", BraninCurrin(), ["y1", "y2"], br_params),
+        ]:
+            for n_steps in [1, 3]:
+                with self.subTest(name=name):
+                    test_function = BoTorchTestFunction(
+                        outcome_names=outcome_names,
+                        botorch_problem=botorch_problem,
+                        n_steps=n_steps,
+                    )
+                    self.assertEqual(test_function.n_steps, n_steps)
+                    result = test_function.evaluate_true(params=params)
+                    self.assertEqual(
+                        result.shape, torch.Size([len(outcome_names), n_steps])
+                    )
+                    if n_steps == 2:
+                        # data is simply repeated down the step dimension
+                        self.assertEqual(result[0, 0].item(), result[0, 1].item())

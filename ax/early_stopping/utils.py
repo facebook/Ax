@@ -170,8 +170,8 @@ def estimate_early_stopping_savings(
     # If no map_key is provided, use some arbitrary map_key in the experiment's MapData
     if map_key is not None:
         step_key = map_key
-    elif len(map_data.map_key_infos) > 0:
-        step_key = map_data.map_key_infos[0].key
+    elif map_data.map_key is not None:
+        step_key = map_data.map_key
     else:
         return 0
 

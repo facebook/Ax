@@ -7,17 +7,20 @@
 
 from __future__ import annotations
 
+import warnings
+
 from bisect import bisect_right
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Generic, TypeVar
+from math import isnan, nan
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.data import _filter_df, Data
-from ax.core.types import TMapTrialEvaluation
+from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
@@ -31,55 +34,49 @@ from ax.utils.common.serialization import (
 from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
+MAP_KEY = "step"
 
 
-T = TypeVar("T")
+class MapKeyInfo(SortableBase):
+    """
+    Helper class storing map keys and auxilary info for use in MapData.
 
+    Args:
+        key: A string. This will correspond to a column in MapData's DataFrames.
+        default_value: Provided only for deserialization backwards
+            compatibility.
+    """
 
-class MapKeyInfo(Generic[T], SortableBase):
-    """Helper class storing map keys and auxilary info for use in MapData"""
-
-    def __init__(
-        self,
-        key: str,
-        default_value: T,
-    ) -> None:
-        self._key = key
-        self._default_value = default_value
+    def __init__(self, key: str, default_value: float = nan) -> None:
+        self.key = key
+        if not isnan(default_value):
+            warnings.warn(
+                f"default_value will be treated as NaN even "
+                f"though {default_value} was passed.",
+                stacklevel=2,
+            )
+        self.default_value: float = nan
 
     def __str__(self) -> str:
-        return f"MapKeyInfo({self.key}, {self.default_value})"
+        return f"MapKeyInfo({self.key})"
 
     def __hash__(self) -> int:
-        return hash((self.key, self.default_value))
+        return hash(self.key)
 
     def _unique_id(self) -> str:
         return str(self.__hash__())
 
-    @property
-    def key(self) -> str:
-        return self._key
-
-    @property
-    def default_value(self) -> T:
-        return self._default_value
-
-    @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def value_type(self) -> type:
-        return type(self._default_value)
-
-    def clone(self) -> MapKeyInfo[T]:
+    def clone(self) -> MapKeyInfo:
         """Return a copy of this MapKeyInfo."""
-        return MapKeyInfo(key=self.key, default_value=deepcopy(self.default_value))
+        return MapKeyInfo(key=self.key)
 
 
 class MapData(Data):
     """Class storing mapping-like results for an experiment.
 
-    Data is stored in a dataframe, and auxiliary information ((key name,
-    default value) pairs) are stored in a collection of MapKeyInfo objects.
+    Data is stored in a dataframe, and auxiliary information is stored in
+    DataFrame with column names given by the keys in the passed ``MapKeyInfo``
+    objects.
 
     Mapping-like results occur whenever a metric is reported as a collection
     of results, each element corresponding to a tuple of values.
@@ -100,25 +97,26 @@ class MapData(Data):
     _map_df: pd.DataFrame
     _memo_df: pd.DataFrame | None
 
-    # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
     _map_key_infos: list[MapKeyInfo]
 
     def __init__(
         self,
         df: pd.DataFrame | None = None,
-        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Iterable[MapKeyInfo] | None = None,
-        description: str | None = None,
         _skip_ordering_and_validation: bool = False,
     ) -> None:
         """Initialize a ``MapData`` object from the given DataFrame and MapKeyInfos.
 
+        Note: ``MapData`` may also be initialized more simply using
+        ``MapData.from_df``, which allows for simpler semantics but may be
+        unstable.
+
         Args:
             df: DataFrame with underlying data, and required columns.
-            map_key_infos: A list of MapKeyInfo objects, each of which contains
-                information about the mapping-like structure of the data.
-                See the class docstring for additional information.
-            description: Human-readable description of data.
+            map_key_infos: A list of zero or one ``MapKeyInfo`` objects. The
+                ``MapKeyInfo`` contains information about the mapping-like
+                structure of the data. See the ``MapData`` class docstring for
+                additional information.
             _skip_ordering_and_validation: If True, uses the given DataFrame
                 as is, without ordering its columns or validating its contents.
                 Intended only for use in `MapData.filter`, where the contents
@@ -127,14 +125,30 @@ class MapData(Data):
         if map_key_infos is None and df is not None:
             raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
+        # _map_key_infos should not be referenced, since it might go away, but
+        # is being kept around to allow for serialization (see
+        # `serialize_init_args`). Reason: `MapData` is currently under heavy
+        # development; we will only update the init method and serialization
+        # once, once it is stable.
         self._map_key_infos = list(map_key_infos) if map_key_infos is not None else []
+        if len(self._map_key_infos) > 1:
+            raise ValueError(
+                "Received multiple map keys: "
+                f"{[mki.key for mki in self._map_key_infos]}. `map_key_infos` "
+                "must have zero or one elements."
+            )
+
+        self.map_key: str | None = (
+            None if len(self._map_key_infos) == 0 else self._map_key_infos[0].key
+        )
+        map_keys = [self.map_key] if self.map_key is not None else []
+        map_key_to_type = {col: float for col in map_keys}
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
-            columns = list(self.required_columns().union(self.map_keys))
+            columns = list(self.required_columns().union(map_keys))
             # Create columns with expected dtypes
+            dtype_dict = {**self.COLUMN_DATA_TYPES, **map_key_to_type}
 
-            # dtype_dict = self.column_data_types(extra)
-            dtype_dict = {**self.COLUMN_DATA_TYPES, **self.map_key_to_type}
             self._map_df = pd.DataFrame.from_dict(
                 {col: pd.Series([], dtype=dtype_dict[col]) for col in columns}
             )
@@ -144,16 +158,13 @@ class MapData(Data):
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
             if missing_columns:
-                raise UnsupportedError(
+                raise ValueError(
                     f"Dataframe must contain required columns {missing_columns}."
                 )
-            extra_columns = columns - self.supported_columns(
-                extra_column_names=self.map_keys
-            )
+            supported_columns = self.supported_columns(extra_column_names=map_keys)
+            extra_columns = columns - supported_columns
             if extra_columns:
-                raise UnsupportedError(
-                    f"Columns {[mki.key for mki in extra_columns]} are not supported."
-                )
+                raise UnsupportedError(f"Columns {extra_columns} are not supported.")
 
             if df["trial_index"].isnull().any():
                 df = df.dropna(axis=0, how="all", ignore_index=True)
@@ -162,24 +173,44 @@ class MapData(Data):
                 # mutate the original df
                 df = df.reset_index(drop=True)
 
-            self._map_df = self._safecast_df(
-                df=df, extra_column_types=self.map_key_to_type
-            )
+            self._map_df = self._safecast_df(df=df, extra_column_types=map_key_to_type)
 
             col_order = [
                 c
-                for c in self.column_data_types(extra_column_types=self.map_key_to_type)
+                for c in self.column_data_types(extra_column_types=map_key_to_type)
                 if c in df.columns
             ]
             if not (self._map_df.columns == col_order).all():
                 self._map_df = self._map_df.reindex(columns=col_order)
 
-        self.description = description
-
         self._memo_df = None
 
+    @classmethod
+    def from_df(
+        cls,
+        df: pd.DataFrame | None = None,
+        map_key: str | None = None,
+        _skip_ordering_and_validation: bool = False,
+    ) -> MapData:
+        """
+        This is a preferred way to construct `MapData` without reference to
+        `MapKeyInfo`. `MapKeyInfo` may soon be deprecated. However, this
+        initializer should be considered unstable.
+
+        Args:
+            df: Passed to MapData.__init__.
+            map_key: Used to construct a MapKeyInfo object, which will be passed
+                to MapData.__init__.
+            _skip_ordering_and_validation: Passed to MapData.__init__.
+        """
+        return MapData(
+            df=df,
+            map_key_infos=[MapKeyInfo(key=map_key)] if map_key is not None else [],
+            _skip_ordering_and_validation=_skip_ordering_and_validation,
+        )
+
     def __eq__(self, o: MapData) -> bool:
-        mkis_match = set(self.map_key_infos) == set(o.map_key_infos)
+        mkis_match = self.map_key == o.map_key
         dfs_match = dataframe_equals(self.map_df, o.map_df)
 
         return mkis_match and dfs_match
@@ -189,76 +220,51 @@ class MapData(Data):
         return self.map_df
 
     @property
-    # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
     def map_key_infos(self) -> list[MapKeyInfo]:
         return self._map_key_infos
 
-    @property
-    def map_keys(self) -> list[str]:
-        return [mki.key for mki in self.map_key_infos]
-
     def required_columns(self) -> set[str]:
-        return super().required_columns().union(self.map_keys)
-
-    @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def map_key_to_type(self) -> dict[str, type]:
-        return {mki.key: mki.value_type for mki in self.map_key_infos}
+        return (
+            super().required_columns().union({self.map_key} if self.map_key else set())
+        )
 
     @staticmethod
-    def from_multiple_map_data(
-        data: Sequence[MapData],
-        subset_metrics: Iterable[str] | None = None,
-    ) -> MapData:
+    def from_multiple_map_data(data: Sequence[MapData]) -> MapData:
         if len(data) == 0:
             return MapData()
 
-        unique_map_key_infos = []
-        for mki in (mki for datum in data for mki in datum.map_key_infos):
-            if any(
-                mki.key == unique.key
-                and not np.isclose(
-                    mki.default_value, unique.default_value, equal_nan=True
+        map_key = None
+        for datum in data:
+            current_map_key = datum.map_key
+            if current_map_key is None:
+                continue
+            if map_key is not None and map_key != current_map_key:
+                raise ValueError(
+                    f"Received MapData with different map keys: "
+                    f"{map_key} and {current_map_key}. "
+                    f"Different map keys are not supported."
                 )
-                for unique in unique_map_key_infos
-            ):
-                logger.warning(f"MapKeyInfo conflict for {mki.key}, eliding {mki}.")
-            else:
-                if not any(mki.key == unique.key for unique in unique_map_key_infos):
-                    # If there is a key conflict but the mkis are equal, silently do
-                    # not add the duplicate.
-                    unique_map_key_infos.append(mki)
+            map_key = current_map_key
 
         # Avoid concatenating empty dataframes which logs a warning.
         non_empty_dfs = [datum.map_df for datum in data if not datum.map_df.empty]
         df = (
-            pd.concat(non_empty_dfs).fillna(
-                value={mki.key: mki.default_value for mki in unique_map_key_infos}
-            )
+            pd.concat(non_empty_dfs)
             if len(non_empty_dfs) > 0
             else pd.DataFrame(
                 columns=[*{col for datum in data for col in datum.required_columns()}]
             )
         )
 
-        # Esnure that all map keys are present in the dataframe.
-        for mki in unique_map_key_infos:
-            if mki.key not in df.columns:
-                df[mki.key] = mki.default_value
+        # Ensure that all map keys are present in the dataframe.
+        if map_key is not None and map_key not in df.columns:
+            df[map_key] = nan
 
-        if subset_metrics:
-            subset_metrics_mask = df["metric_name"].isin(subset_metrics)
-            df = df[subset_metrics_mask]
-
-        return MapData(df=df, map_key_infos=unique_map_key_infos)
+        return MapData.from_df(df=df, map_key=map_key)
 
     @staticmethod
     def from_map_evaluations(
-        evaluations: dict[str, TMapTrialEvaluation],
-        trial_index: int,
-        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-        map_key_infos: Iterable[MapKeyInfo] | None = None,
+        evaluations: Mapping[str, TMapTrialEvaluation], trial_index: int
     ) -> MapData:
         records = [
             {
@@ -267,26 +273,13 @@ class MapData(Data):
                 "mean": value[0] if isinstance(value, tuple) else value,
                 "sem": value[1] if isinstance(value, tuple) else None,
                 "trial_index": trial_index,
-                **map_dict,
+                MAP_KEY: step,
             }
             for name, map_dict_and_metrics_list in evaluations.items()
-            for map_dict, evaluation in map_dict_and_metrics_list
+            for step, evaluation in map_dict_and_metrics_list
             for metric_name, value in evaluation.items()
         ]
-        map_keys = {
-            key
-            for name, map_dict_and_metrics_list in evaluations.items()
-            for map_dict, evaluation in map_dict_and_metrics_list
-            for key in map_dict.keys()
-        }
-        map_key_infos = map_key_infos or [
-            MapKeyInfo(key=key, default_value=np.nan) for key in map_keys
-        ]
-
-        if {mki.key for mki in map_key_infos} != map_keys:
-            raise ValueError("Inconsistent map_key sets in evaluations.")
-
-        return MapData(df=pd.DataFrame(records), map_key_infos=map_key_infos)
+        return MapData.from_df(df=pd.DataFrame(records), map_key=MAP_KEY)
 
     @property
     def map_df(self) -> pd.DataFrame:
@@ -301,11 +294,7 @@ class MapData(Data):
         )
 
     @classmethod
-    def from_multiple_data(
-        cls,
-        data: Iterable[Data],
-        subset_metrics: Iterable[str] | None = None,
-    ) -> MapData:
+    def from_multiple_data(cls, data: Iterable[Data]) -> MapData:
         """Downcast instances of Data into instances of MapData with empty
         map_key_infos if necessary then combine as usual (filling in empty cells with
         default values).
@@ -319,7 +308,7 @@ class MapData(Data):
             for datum in data
         ]
 
-        return cls.from_multiple_map_data(data=map_datas, subset_metrics=subset_metrics)
+        return cls.from_multiple_map_data(data=map_datas)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -330,12 +319,10 @@ class MapData(Data):
             return self._memo_df
 
         # If map_keys is empty just return the df
-        if len(self.map_keys) == 0:
+        if self.map_key is None:
             return self.map_df
 
-        self._memo_df = _tail(
-            map_df=self.map_df, map_keys=self.map_keys, n=1, sort=True
-        )
+        self._memo_df = _tail(map_df=self.map_df, map_key=self.map_key, n=1, sort=True)
 
         return self._memo_df
 
@@ -345,11 +332,11 @@ class MapData(Data):
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
     ) -> MapData:
-        return self.__class__(
+        return MapData.from_df(
             df=_filter_df(
                 df=self.map_df, trial_indices=trial_indices, metric_names=metric_names
             ),
-            map_key_infos=self.map_key_infos,
+            map_key=self.map_key,
             _skip_ordering_and_validation=True,
         )
 
@@ -375,18 +362,27 @@ class MapData(Data):
         """Given a dictionary, extract the properties needed to initialize the metric.
         Used for storage.
         """
+        # .get for when map_key_infos were not passed
         args["map_key_infos"] = [
-            MapKeyInfo(d["key"], d["default_value"])
-            # Using .get() with a default empty list to handle cases where
-            # map_key_infos might not exist. This is important when decoding experiments
-            # that were originally not using MapData but were encoded as if they were
-            # using MapData due to some underlying method call's side effects.
-            # example: when when configure_optimization is called, it overrights metric
-            # to mapmetric even if no mapkeyinfo is provided. This would inturn change
-            # Experiment.default_data_type to MapData when this opt_config is being set.
-            for d in args.get("map_key_infos", [])
+            MapKeyInfo(d["key"]) for d in args.get("map_key_infos", [])
         ]
-        return super().deserialize_init_args(args=args)
+
+        deserialized = super().deserialize_init_args(args=args)
+        map_key_infos = deserialized["map_key_infos"]
+
+        if len(map_key_infos) > 0:
+            keys = [d.key for d in map_key_infos]
+            if len(map_key_infos) > 1:
+                warnings.warn(
+                    "Received multiple map keys. All but the first will be "
+                    f"dropped. Keys are {keys}",
+                    stacklevel=2,
+                )
+                if deserialized["df"] is not None:
+                    deserialized["df"].drop(columns=keys[1:], inplace=True)
+            deserialized["map_key_infos"] = [map_key_infos[0]]
+
+        return deserialized
 
     def clone(self) -> MapData:
         """Returns a new ``MapData`` object with the same underlying dataframe
@@ -395,14 +391,9 @@ class MapData(Data):
         return MapData(
             df=deepcopy(self.map_df),
             map_key_infos=[mki.clone() for mki in self.map_key_infos],
-            description=self.description,
         )
 
-    def latest(
-        self,
-        map_keys: list[str] | None = None,
-        rows_per_group: int = 1,
-    ) -> MapData:
+    def latest(self, rows_per_group: int = 1) -> MapData:
         """Return a new MapData with the most recently observed `rows_per_group`
         rows for each (arm, metric) group, determined by the `map_key` values,
         where higher implies more recent.
@@ -413,20 +404,15 @@ class MapData(Data):
         If `rows_per_group` is greater than the number of rows in a given
         (arm, metric) group, then all rows are returned.
         """
-        if map_keys is None:
-            map_keys = self.map_keys
-
-        return MapData(
+        return MapData.from_df(
             df=_tail(
-                map_df=self.map_df, map_keys=map_keys, n=rows_per_group, sort=True
+                map_df=self.map_df, map_key=self.map_key, n=rows_per_group, sort=True
             ),
-            map_key_infos=self.map_key_infos,
-            description=self.description,
+            map_key=self.map_key,
         )
 
     def subsample(
         self,
-        map_key: str | None = None,
         keep_every: int | None = None,
         limit_rows_per_group: int | None = None,
         limit_rows_per_metric: int | None = None,
@@ -473,12 +459,7 @@ class MapData(Data):
                 "without subsampling."
             )
             return self
-        if map_key is None:
-            if len(self.map_keys) > 1:
-                raise ValueError(
-                    "More than one `map_key` found, cannot decide target to subsample."
-                )
-            map_key = self.map_keys[0]
+        map_key = self.map_key
         subsampled_metric_dfs = []
         for metric_name in self.map_df["metric_name"].unique():
             metric_map_df = _filter_df(self.map_df, metric_names=[metric_name])
@@ -493,10 +474,21 @@ class MapData(Data):
                 )
             )
         subsampled_df: pd.DataFrame = pd.concat(subsampled_metric_dfs)
-        return MapData(
-            df=subsampled_df,
-            map_key_infos=self.map_key_infos,
-            description=self.description,
+        return MapData.from_df(df=subsampled_df, map_key=self.map_key)
+
+    @classmethod
+    def from_evaluations(
+        cls,
+        evaluations: Mapping[str, TTrialEvaluation],
+        trial_index: int,
+        sample_sizes: Mapping[str, int] | None = None,
+        start_time: int | str | None = None,
+        end_time: int | str | None = None,
+    ) -> MapData:
+        """Not supported for MapData."""
+        raise UnsupportedError(
+            "MapData.from_evaluations is not supported. "
+            "Please use MapData.from_map_evaluations instead."
         )
 
 
@@ -544,7 +536,7 @@ def _subsample_rate(
 
 def _tail(
     map_df: pd.DataFrame,
-    map_keys: list[str],
+    map_key: str | None,
     n: int = 1,
     sort: bool = True,
 ) -> pd.DataFrame:
@@ -558,7 +550,11 @@ def _tail(
     sorting can take ~40% of the time. If you find this to be a bottleneck, it
     may be better to avoid unnecessary calls to `.df`.
     """
-    df = map_df.sort_values(map_keys).groupby(MapData.DEDUPLICATE_BY_COLUMNS).tail(n)
+    if map_key is None:
+        if len(map_df) > 0:
+            raise ValueError("`map_key` can only be None when `map_df` is empty.")
+        return map_df
+    df = map_df.sort_values(map_key).groupby(MapData.DEDUPLICATE_BY_COLUMNS).tail(n)
     if sort:
         df.sort_values(MapData.DEDUPLICATE_BY_COLUMNS, inplace=True)
     return df

@@ -7,9 +7,12 @@
 # pyre-strict
 
 import dataclasses
+import json
 import os
 import tempfile
+import warnings
 from functools import partial
+from math import nan
 
 import numpy as np
 import torch
@@ -18,10 +21,21 @@ from ax.adapter.registry import Generators
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.one_hot import OneHot
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.benchmark.testing.benchmark_stubs import (
+    get_aggregated_benchmark_result,
+    get_benchmark_map_metric,
+    get_benchmark_map_unavailable_while_running_metric,
+    get_benchmark_metric,
+    get_benchmark_result,
+    get_benchmark_time_varying_metric,
+)
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
+from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
+from ax.core.parameter import ParameterType
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -37,7 +51,11 @@ from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
 )
-from ax.storage.json_store.decoders import botorch_component_from_json, class_from_json
+from ax.storage.json_store.decoders import (
+    botorch_component_from_json,
+    class_from_json,
+    multi_objective_from_json,
+)
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.encoders import (
     botorch_component_to_dict,
@@ -55,14 +73,6 @@ from ax.storage.json_store.registry import (
 from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.benchmark_stubs import (
-    get_aggregated_benchmark_result,
-    get_benchmark_map_metric,
-    get_benchmark_map_unavailable_while_running_metric,
-    get_benchmark_metric,
-    get_benchmark_result,
-    get_benchmark_time_varying_metric,
-)
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
     get_acquisition_function_type,
@@ -81,6 +91,7 @@ from ax.utils.testing.core_stubs import (
     get_chained_input_transform,
     get_choice_parameter,
     get_default_orchestrator_options,
+    get_derived_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
     get_experiment_with_map_data,
@@ -91,6 +102,7 @@ from ax.utils.testing.core_stubs import (
     get_gamma_prior,
     get_generator_run,
     get_hartmann_metric,
+    get_hierarchical_choice_parameter,
     get_hierarchical_search_space,
     get_improvement_global_stopping_strategy,
     get_interval,
@@ -185,8 +197,25 @@ TEST_CASES = [
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
     ("ChoiceParameter", get_sorted_choice_parameter),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.BOOL),
+    ),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.INT),
+    ),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.FLOAT),
+    ),
+    (
+        "ChoiceParameter",
+        partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.STRING),
+    ),
     # testing with non-default argument
     ("DataLoaderConfig", partial(DataLoaderConfig, fit_out_of_design=True)),
+    ("DerivedParameter", get_derived_parameter),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),
@@ -195,6 +224,7 @@ TEST_CASES = [
     ("Experiment", get_experiment_with_map_data),
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
+    ("FixedParameter", partial(get_fixed_parameter, with_dependents=True)),
     ("GammaPrior", get_gamma_prior),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     (
@@ -261,7 +291,6 @@ TEST_CASES = [
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
-    ("MapData", get_map_data),
     ("MapData", get_map_data),
     ("MapKeyInfo", get_map_key_info),
     ("Metric", get_metric),
@@ -395,6 +424,10 @@ class JSONStoreTest(TestCase):
                 encoder_registry=CORE_ENCODER_REGISTRY,
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
+
+            # Dump and reload the json_object to simulate serialization round-trip.
+            json_str = json.dumps(json_object)
+            json_object = json.loads(json_str)
 
             converted_object = object_from_json(
                 json_object,
@@ -585,6 +618,108 @@ class JSONStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+
+    def test_decode_map_data_backward_compatible(self) -> None:
+        with self.subTest("Multiple map keys"):
+            data_with_two_map_keys_json = {
+                "df": {
+                    "__type": "DataFrame",
+                    "value": (
+                        '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},'
+                        '"metric_name":{"0":"a","1":"a"},"mean":{"0":0.0,"1":0.0},'
+                        '"sem":{"0":0.0,"1":0.0},"epoch":{"0":0.0,"1":1.0},'
+                        '"timestamps":{"0":3.0,"1":4.0}}'
+                    ),
+                },
+                "map_key_infos": [
+                    {"key": "epoch", "default_value": nan},
+                    {"key": "timestamps", "default_value": nan},
+                ],
+                "__type": "MapData",
+            }
+            with self.assertWarnsRegex(Warning, "Received multiple"):
+                map_data = object_from_json(
+                    data_with_two_map_keys_json,
+                    decoder_registry=CORE_DECODER_REGISTRY,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+            # The "timestamp" map key will be silently dropped.
+            self.assertEqual(map_data.map_key, "epoch")
+            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
+
+        with self.subTest("Single map key"):
+            data_json = {
+                "df": {
+                    "__type": "DataFrame",
+                    "value": (
+                        '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},'
+                        '"metric_name":{"0":"a","1":"a"},"mean":{"0":0.0,"1":0.0},'
+                        '"sem":{"0":0.0,"1":0.0},"epoch":{"0":0.0,"1":1.0}}'
+                    ),
+                },
+                "map_key_infos": [{"key": "epoch", "default_value": nan}],
+                "__type": "MapData",
+            }
+            with warnings.catch_warnings(record=True) as ws:
+                map_data = object_from_json(
+                    data_json,
+                    decoder_registry=CORE_DECODER_REGISTRY,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+            # No warning about multiple map keys
+            self.assertFalse(any("Received multiple" in str(w) for w in ws))
+            self.assertEqual(map_data.map_key, "epoch")
+            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
+
+        with self.subTest("No map key"):
+            data_json = {
+                "df": {
+                    "__type": "DataFrame",
+                    "value": (
+                        '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{}'
+                        ',"sem":{}}'
+                    ),
+                },
+                "map_key_infos": [],
+                "__type": "MapData",
+            }
+            map_data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertIsInstance(map_data, MapData)
+            self.assertEqual(len(map_data.df), 0)
+
+    def test_decode_data_backward_compatible(self) -> None:
+        empty_df_json = {
+            "__type": "DataFrame",
+            "value": (
+                '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{}'
+                ',"sem":{}}'
+            ),
+        }
+        with self.subTest("Description is None"):
+            data_json = {"df": empty_df_json, "description": None, "__type": "Data"}
+            data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertIsInstance(data, Data)
+
+        with self.subTest("Description is not None"):
+            data_json = {
+                "df": empty_df_json,
+                "description": "description",
+                "__type": "Data",
+            }
+            data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertIsInstance(data, Data)
 
     def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
@@ -1148,6 +1283,23 @@ class JSONStoreTest(TestCase):
         deserialized_object = object_from_json(object_json)
         expected_object = get_multi_objective()
         self.assertEqual(deserialized_object, expected_object)
+
+    def test_multi_objective_from_json_warning(self) -> None:
+        objectives = [get_objective()]
+
+        # Test that warning is logged when deprecated kwargs are passed
+        with self.assertLogs("ax.utils.common.kwargs", level="WARNING") as cm:
+            multi_objective_from_json(
+                objectives=objectives,
+                weights=[1.0],
+                metrics=["test_metric"],
+                minimize=True,
+            )
+
+        # Verify the warning message
+        self.assertTrue(
+            any("Found unexpected kwargs" in warning for warning in cm.output)
+        )
 
     def test_surrogate_spec_backwards_compatibility(self) -> None:
         # This is an invalid example that has both deprecated args

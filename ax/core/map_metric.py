@@ -8,12 +8,13 @@
 
 from __future__ import annotations
 
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.data import Data
+
+from ax.core.map_data import MAP_KEY, MapData, MapKeyInfo
 from ax.core.metric import Metric, MetricFetchE
 from ax.utils.common.result import Result
 
 MapMetricFetchResult = Result[MapData, MetricFetchE]
-DEFAULT_MAP_KEY = "step"
 
 
 class MapMetric(Metric):
@@ -30,5 +31,5 @@ class MapMetric(Metric):
         properties: Properties specific to a particular metric.
     """
 
-    data_constructor: type[MapData] = MapData
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key=DEFAULT_MAP_KEY, default_value=0.0)
+    data_constructor: type[Data] = MapData
+    map_key_info: MapKeyInfo = MapKeyInfo(key=MAP_KEY)

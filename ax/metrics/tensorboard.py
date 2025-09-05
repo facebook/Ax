@@ -41,7 +41,7 @@ try:
     class TensorboardMetric(MapMetric):
         """A *new* `MapMetric` for getting Tensorboard metrics."""
 
-        map_key_info: MapKeyInfo[float] = MapKeyInfo(key="step", default_value=0.0)
+        map_key_info: MapKeyInfo = MapKeyInfo(key="step")
 
         def __init__(
             self,

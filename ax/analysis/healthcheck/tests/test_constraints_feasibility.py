@@ -77,9 +77,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         batch_trial = assert_is_instance(experiment.trials[0], BatchTrial)
 
         batch_trial.add_arm(experiment.status_quo)
-        batch_trial.set_status_quo_with_weight(
-            status_quo=experiment.status_quo, weight=1.0
-        )
+        batch_trial.add_status_quo_arm(weight=1.0)
         experiment.trials[0].mark_running(no_runner_required=True)
         experiment.trials[0].mark_completed()
 

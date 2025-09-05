@@ -11,22 +11,19 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
-from random import random
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.result import Err, Ok
 from ax.utils.measurement.synthetic_functions import branin
 from pyre_extensions import assert_is_instance
-
-FIDELITY = [0.1, 0.4, 0.7, 1.0]
 
 
 class BraninTimestampMapMetric(NoisyFunctionMapMetric):
@@ -153,46 +150,3 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         mean = assert_is_instance(branin(x1=x1, x2=x2), float) * weight
 
         return {"mean": mean, "timestamp": timestamp}
-
-
-class BraninFidelityMapMetric(NoisyFunctionMapMetric):
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="fidelity", default_value=0.0)
-
-    def __init__(
-        self,
-        name: str,
-        param_names: Iterable[str],
-        noise_sd: float = 0.0,
-        lower_is_better: bool | None = None,
-    ) -> None:
-        super().__init__(
-            name=name,
-            param_names=param_names,
-            noise_sd=noise_sd,
-            lower_is_better=lower_is_better,
-        )
-
-        self.index = -1
-
-    def fetch_trial_data(
-        self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapMetricFetchResult:
-        self.index = -1
-
-        return super().fetch_trial_data(
-            trial=trial,
-            noisy=noisy,
-            **kwargs,
-        )
-
-    def f(self, x: npt.NDArray) -> Mapping[str, Any]:
-        if self.index < len(FIDELITY):
-            self.index += 1
-
-        x1, x2 = x
-        fidelity = FIDELITY[self.index]
-
-        fidelity_penalty = random() * math.pow(1.0 - fidelity, 2.0)
-        mean = assert_is_instance(branin(x1=x1, x2=x2), float) - fidelity_penalty
-
-        return {"mean": mean, "fidelity": fidelity}

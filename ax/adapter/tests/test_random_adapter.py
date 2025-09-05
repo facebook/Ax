@@ -61,7 +61,8 @@ class RandomAdapterTest(TestCase):
     def test_cross_validate(self) -> None:
         adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
         with self.assertRaises(NotImplementedError):
-            adapter._cross_validate(self.search_space, [], [])
+            # pyre-ignore[6]: None input for testing.
+            adapter._cross_validate(self.search_space, None, None)
 
     def test_gen_w_constraints(self) -> None:
         adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
@@ -223,3 +224,66 @@ class RandomAdapterTest(TestCase):
         with mock.patch.object(generator, "gen", return_value=gen_res) as mock_gen:
             adapter.gen(n=1, pending_observations=pending_observations)
         self.assertIsNone(mock_gen.call_args.kwargs["generated_points"])
+
+        # Test filtering out-of-design arms during deduplication
+        # Create experiment with in-design and out-of-design arms
+        exp_with_ood_arms = Experiment(
+            search_space=get_search_space_for_range_values(min=0.0, max=5.0)
+        )
+        in_design_arm = Arm(
+            name="in_design", parameters={"x": 2.0, "y": 3.0}
+        )  # Within [0, 5]
+        out_of_design_arm = Arm(
+            name="out_of_design", parameters={"x": 6.0, "y": 7.0}
+        )  # Outside [0, 5]
+
+        exp_with_ood_arms.new_trial().add_arm(in_design_arm).mark_running(
+            no_runner_required=True
+        )
+        exp_with_ood_arms.new_trial().add_arm(out_of_design_arm).mark_running(
+            no_runner_required=True
+        )
+
+        generator = SobolGenerator(deduplicate=True)
+        adapter_mixed = RandomAdapter(
+            experiment=exp_with_ood_arms,
+            generator=generator,
+            transforms=Cont_X_trans,
+        )
+
+        # Only the in-design arm should be included in generated_points
+        with mock.patch.object(generator, "gen", return_value=gen_res) as mock_gen:
+            adapter_mixed.gen(n=1)
+
+        generated_points = mock_gen.call_args.kwargs["generated_points"]
+        self.assertEqual(len(generated_points), 1)
+
+        # Test case where all arms are out-of-design
+        exp_all_out_of_design = Experiment(
+            search_space=get_search_space_for_range_values(min=0.0, max=5.0)
+        )
+        out_of_design_arm1 = Arm(name="out1", parameters={"x": 6.0, "y": 7.0})
+        out_of_design_arm2 = Arm(name="out2", parameters={"x": -1.0, "y": 8.0})
+
+        exp_all_out_of_design.new_trial().add_arm(out_of_design_arm1).mark_running(
+            no_runner_required=True
+        )
+        exp_all_out_of_design.new_trial().add_arm(out_of_design_arm2).mark_running(
+            no_runner_required=True
+        )
+
+        generator_all_out = SobolGenerator(deduplicate=True)
+        adapter_all_out = RandomAdapter(
+            experiment=exp_all_out_of_design,
+            generator=generator_all_out,
+            transforms=Cont_X_trans,
+        )
+
+        # When all arms are out-of-design, generated_points should be empty
+        with mock.patch.object(
+            generator_all_out, "gen", return_value=gen_res
+        ) as mock_gen:
+            adapter_all_out.gen(n=1)
+
+        generated_points_all_out = mock_gen.call_args.kwargs["generated_points"]
+        self.assertIsNone(generated_points_all_out)

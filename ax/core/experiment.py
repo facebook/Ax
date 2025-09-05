@@ -22,7 +22,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
-from ax.core.batch_trial import BatchTrial, LifecycleStage
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
@@ -43,6 +43,7 @@ from ax.core.trial_status import (
 from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import (
     AxError,
+    OptimizationNotConfiguredError,
     RunnerNotFoundError,
     UnsupportedError,
     UserInputError,
@@ -283,6 +284,12 @@ class Experiment(Base):
 
     @status_quo.setter
     def status_quo(self, status_quo: Arm | None) -> None:
+        # Make status_quo immutable once any trial has been created.
+        if self._status_quo is not None and len(self.trials) > 0:
+            raise UnsupportedError(
+                "Modifications of status_quo are disabled after trials have been "
+                "created."
+            )
         if status_quo is not None:
             self.search_space.check_types(
                 parameterization=status_quo.parameters,
@@ -403,10 +410,7 @@ class Experiment(Base):
             for metric_name in metrics_to_track:
                 self.add_tracking_metric(prev_optimization_config.metrics[metric_name])
 
-        if any(
-            isinstance(metric, MapMetric)
-            for metric in optimization_config.metrics.values()
-        ):
+        if any(metric.has_map_data for metric in optimization_config.metrics.values()):
             self._default_data_type = DataType.MAP_DATA
 
     @property
@@ -463,7 +467,7 @@ class Experiment(Base):
                 "before adding it to tracking metrics."
             )
 
-        if isinstance(metric, MapMetric):
+        if metric.has_map_data:
             self._default_data_type = DataType.MAP_DATA
 
         self._tracking_metrics[metric.name] = metric
@@ -890,10 +894,10 @@ class Experiment(Base):
         del last_data_init_args["df"]
 
         last_data_type = type(last_data)
-        merge_keys = ["trial_index", "metric_name", "arm_name"] + (
-            # pyre-ignore[16]
-            last_data.map_keys if issubclass(last_data_type, MapData) else []
-        )
+        merge_keys = ["trial_index", "metric_name", "arm_name"]
+        if isinstance(last_data, MapData) and last_data.map_key is not None:
+            merge_keys += [last_data.map_key]
+
         # this merge is like a SQL left join on merge keys
         # it will return a dataframe with the columns in merge_keys
         # plus "_merge" and any other columns in last_data.true_df with _left appended
@@ -1123,6 +1127,49 @@ class Experiment(Base):
             )
         )
 
+    def trial_indices_with_data(
+        self, critical_metrics_only: bool | None = True
+    ) -> set[int]:
+        """Set of indices of trials for which we have data for either all metrics on
+        the experiment, or all metrics in the optimization config. Helpful for
+        determining which trials currently have data for modeling.
+
+        Args:
+            critical_metrics_only: If True, only return trials for which we have
+            metrics for the optimization config. If False, return trials for which
+            we have data for all metrics on the experiment, including tracking metrics
+        """
+        if critical_metrics_only:
+            if self.optimization_config is None:
+                raise OptimizationNotConfiguredError(
+                    "Cannot find trials with data for optimization config metrics "
+                    "because no optimization config has been defined."
+                )
+            metric_names = set(self.optimization_config.metrics.keys())
+        else:
+            metric_names = set(self.metrics.keys())
+            if len(metric_names) == 0:
+                return set()
+
+        exp_data = self.lookup_data().filter(metric_names=metric_names)
+        trials_with_data = set()
+        for trial_idx in self.trials.keys():
+            metrics_in_trial_data = set(
+                exp_data.df[exp_data.df["trial_index"] == trial_idx][
+                    "metric_name"
+                ].unique()
+            )
+            if metrics_in_trial_data == metric_names:
+                trials_with_data.add(trial_idx)
+            else:
+                logger.debug(
+                    f"Trial {trial_idx} does not have data for required metrics "
+                    f"({metric_names}) on the experiment. "
+                    f"Metrics present in trial data: {metrics_in_trial_data}"
+                )
+
+        return trials_with_data
+
     @property
     def default_data_type(self) -> DataType:
         return self._default_data_type
@@ -1166,10 +1213,9 @@ class Experiment(Base):
         self,
         generator_run: GeneratorRun | None = None,
         generator_runs: list[GeneratorRun] | None = None,
-        add_status_quo_arm: bool | None = False,
+        should_add_status_quo_arm: bool | None = False,
         trial_type: str | None = None,
         ttl_seconds: int | None = None,
-        lifecycle_stage: LifecycleStage | None = None,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment.
 
@@ -1181,10 +1227,10 @@ class Experiment(Base):
                 also be set later through `add_arm` or `add_generator_run`, but a
                 trial's associated generator run is immutable once set.  This cannot
                 be combined with the `generator_run` argument.
-            add_status_quo_arm: If True, adds the status quo arm to the trial with a
-            weight of 1.0. If False, the _status_quo is still set on the trial for
-            tracking purposes, but without a weight it will not be an Arm present on
-            the trial
+            should_add_status_quo_arm: If True, adds the status quo arm to the trial
+                with a weight of 1.0. If False, the _status_quo is still set on the
+                trial for tracking purposes, but without a weight it will not be an
+                Arm present on the trial
             trial_type: Type of this trial, if used in MultiTypeExperiment.
             ttl_seconds: If specified, trials will be considered failed after
                 this many seconds since the time the trial was ran, unless the
@@ -1192,8 +1238,6 @@ class Experiment(Base):
                 'dead' trials, for which the evaluation process might have
                 crashed etc., and which should be considered failed after
                 their 'time to live' has passed.
-            lifecycle_stage: The stage of the experiment lifecycle that this
-                trial represents
         """
         if ttl_seconds is not None:
             self._trials_have_ttl = True
@@ -1202,9 +1246,8 @@ class Experiment(Base):
             trial_type=trial_type,
             generator_run=generator_run,
             generator_runs=generator_runs,
-            add_status_quo_arm=add_status_quo_arm,
+            should_add_status_quo_arm=should_add_status_quo_arm,
             ttl_seconds=ttl_seconds,
-            lifecycle_stage=lifecycle_stage,
         )
 
     def get_batch_trial(self, trial_index: int) -> BatchTrial:
@@ -1432,11 +1475,11 @@ class Experiment(Base):
                 # Attach updated data to new trial on experiment.
                 data_constructor = old_experiment.default_data_constructor
                 old_data = (
-                    cast(type[MapData], data_constructor)(
+                    MapData.from_df(
                         df=new_df,
-                        map_key_infos=assert_is_instance(
+                        map_key=assert_is_instance(
                             old_experiment.lookup_data(), MapData
-                        ).map_key_infos,
+                        ).map_key,
                     )
                     if data_constructor == MapData
                     else data_constructor(df=new_df)
@@ -1614,7 +1657,7 @@ class Experiment(Base):
         self,
         parameterizations: list[TParameterization],
         arm_names: list[str] | None = None,
-        add_status_quo_arm: bool = False,
+        should_add_status_quo_arm: bool = False,
         ttl_seconds: int | None = None,
         run_metadata: dict[str, Any] | None = None,
     ) -> tuple[dict[str, TParameterization], int]:
@@ -1625,10 +1668,10 @@ class Experiment(Base):
                 only one is provided a single-arm Trial is created. If multiple
                 arms are provided a BatchTrial is created.
             arm_names: Names of arm(s) in the new trial.
-            add_status_quo_arm: If True, adds the status quo arm to the trial with a
-            weight of 1.0. If False, the _status_quo is still set on the trial for
-            tracking purposes, but without a weight it will not be an Arm present on
-            the trial
+            should_add_status_quo_arm: If True, adds the status quo arm to the trial
+                with a weight of 1.0. If False, the _status_quo is still set on the
+                trial for tracking purposes, but without a weight it will not be an
+                Arm present on the trial
             ttl_seconds: If specified, will consider the trial failed after this
                 many seconds. Used to detect dead trials that were not marked
                 failed properly.
@@ -1685,7 +1728,8 @@ class Experiment(Base):
         trial = None
         if is_batch:
             trial = self.new_batch_trial(
-                ttl_seconds=ttl_seconds, add_status_quo_arm=add_status_quo_arm
+                ttl_seconds=ttl_seconds,
+                should_add_status_quo_arm=should_add_status_quo_arm,
             ).add_arms_and_weights(arms=arms)
 
         else:

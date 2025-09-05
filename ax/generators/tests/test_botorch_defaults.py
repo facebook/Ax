@@ -77,7 +77,6 @@ class BotorchDefaultsTest(TestCase):
         self.assertEqual(model.covar_module.lengthscale_prior.scale, 3**0.5)
         model = _get_model(X=x, Y=y, Yvar=unknown_var, task_feature=1)
         self.assertIs(type(model), MultiTaskGP)  # Don't accept subclasses.
-        self.assertIsInstance(model.likelihood, GaussianLikelihood)
         model = _get_model(X=x, Y=y, Yvar=var, task_feature=1)
         self.assertIsInstance(model, MultiTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
@@ -175,7 +174,6 @@ class BotorchDefaultsTest(TestCase):
             prior=deepcopy(prior),
         )
         self.assertIs(type(model), MultiTaskGP)
-        self.assertIsInstance(model.likelihood, GaussianLikelihood)
         # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
         #  `kernels`.
         data_covar_module, task_covar_module = model.covar_module.kernels

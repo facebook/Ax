@@ -1638,8 +1638,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
                     trial_type=self.trial_type,
                 )
                 if self.options.status_quo_weight > 0:
-                    trial.set_status_quo_with_weight(
-                        status_quo=self.experiment.status_quo,
+                    trial.add_status_quo_arm(
                         weight=self.options.status_quo_weight,
                     )
             else:

@@ -244,7 +244,8 @@ class UnitX(Transform):
         if arm_data.empty:
             return experiment_data
         for p_name, (l, u) in self.bounds.items():
-            arm_data[p_name] = (arm_data[p_name] - l) / (u - l)
+            if p_name in arm_data.columns:
+                arm_data[p_name] = (arm_data[p_name] - l) / (u - l)
         return ExperimentData(
             arm_data=arm_data, observation_data=experiment_data.observation_data
         )

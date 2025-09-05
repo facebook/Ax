@@ -37,7 +37,7 @@ class _APIMetric(MapMetric, ABC):
     structure of ax.core.Metric to be more in line with our long term vision for Ax.
     """
 
-    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="step", default_value=0.0)
+    map_key_info: MapKeyInfo = MapKeyInfo(key="step")
 
     def __init__(self, name: str) -> None:
         super().__init__(name=name)

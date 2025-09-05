@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import warnings
-from collections.abc import Iterable
 from copy import deepcopy
 from logging import Logger
 
@@ -269,7 +268,7 @@ def _observations_from_dataframe(
     experiment: experiment.Experiment,
     df: pd.DataFrame,
     cols: list[str],
-    map_keys: Iterable[str],
+    map_key: str | None,
     statuses_to_include: set[TrialStatus],
     statuses_to_include_map_metric: set[TrialStatus],
 ) -> list[Observation]:
@@ -280,7 +279,7 @@ def _observations_from_dataframe(
         df: DataFrame derived from experiment Data.
         cols: columns used to group data into different observations.
             `cols` must always include `arm_name`.
-        map_keys: columns that map dict-like Data
+        map_key: column that maps dict-like Data
             e.g. `timestamp` in timeseries data, `epoch` in ML training traces.
         statuses_to_include: data from non-MapMetrics will only be included for trials
             with statuses in this set.
@@ -342,7 +341,7 @@ def _observations_from_dataframe(
         if fidelities is not None:
             obs_parameters.update(json.loads(fidelities))
 
-        for map_key in map_keys:
+        if map_key is not None:
             obs_kwargs[Keys.METADATA][map_key] = features[map_key]
         d = _filter_data_on_status(
             df=d,
@@ -415,7 +414,7 @@ def _filter_data_on_status(
         metric = experiment.metrics[metric_name]
         statuses_to_include_metric = (
             statuses_to_include_map_metric
-            if isinstance(metric, MapMetric)
+            if isinstance(metric, MapMetric) and metric.has_map_data
             else statuses_to_include
         )
         if trial_status is not None and trial_status not in statuses_to_include_metric:
@@ -442,7 +441,8 @@ def get_feature_cols(data: Data) -> list[str]:
     """
     feature_cols = OBS_COLS.intersection(data.true_df.columns)
     if isinstance(data, MapData):
-        feature_cols = feature_cols.union(data.map_keys)
+        if data.map_key is not None:
+            feature_cols.add(data.map_key)
 
     for column in TIME_COLS:
         if column in feature_cols and len(data.df[column].unique()) > 1:
@@ -489,13 +489,13 @@ def observations_from_data(
             number of Observation objects. Overrides `limit_rows_per_metric`
             and `limit_rows_per_group`.
         limit_rows_per_metric: If specified and data is an instance of MapData,
-            uses MapData.subsample() with `limit_rows_per_metric` on the first
-            map_key (map_data.map_keys[0]) to subsample the MapData. Useful for
+            uses MapData.subsample() with `limit_rows_per_metric` on the
+            map_key (map_data.map_key) to subsample the MapData. Useful for
             managing the number of Observation objects when learning curves are
             frequently updated. Ignored if `latest_rows_per_group` is specified.
         limit_rows_per_group: If specified and data is an instance of MapData,
-            uses MapData.subsample() with `limit_rows_per_group` on the first
-            map_key (map_data.map_keys[0]) to subsample the MapData. Ignored if
+            uses MapData.subsample() with `limit_rows_per_group` on the
+            map_key (map_data.map_key) to subsample the MapData. Ignored if
             `latest_rows_per_group` is specified.
 
     Returns:
@@ -506,25 +506,24 @@ def observations_from_data(
     if statuses_to_include_map_metric is None:
         statuses_to_include_map_metric = NON_ABANDONED_STATUSES
     if isinstance(data, MapData):
-        map_keys = data.map_keys
         if latest_rows_per_group is not None:
-            data = data.latest(map_keys=map_keys, rows_per_group=latest_rows_per_group)
+            data = data.latest(rows_per_group=latest_rows_per_group)
         elif limit_rows_per_metric is not None or limit_rows_per_group is not None:
             data = data.subsample(
-                map_key=data.map_keys[0],
                 limit_rows_per_metric=limit_rows_per_metric,
                 limit_rows_per_group=limit_rows_per_group,
                 include_first_last=True,
             )
+        map_key = data.map_key
         df = data.map_df
     else:
-        map_keys = []
+        map_key = None
         df = data.df
     return _observations_from_dataframe(
         experiment=experiment,
         df=df,
         cols=get_feature_cols(data=data),
-        map_keys=map_keys,
+        map_key=map_key,
         statuses_to_include=statuses_to_include,
         statuses_to_include_map_metric=statuses_to_include_map_metric,
     )
