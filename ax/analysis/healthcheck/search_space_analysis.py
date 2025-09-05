@@ -104,20 +104,20 @@ def search_space_boundary_proportions(
     tol: float = 1e-6,
 ) -> pd.DataFrame:
     r"""
-    Compute the fractions of parametrizations that landed at the parameter and
+    Compute the fractions of parameterizations that landed at the parameter and
     parameter constraint boundaries of the search space.
 
     Args:
         search_space: Search space.
-        parametrizations: A list of suggested parametrizations (parameter values).
+        parameterizations: A list of suggested parameterizations (parameter values).
         tol: Relative tolerance for the difference between parameters and the
             boundary bounds.
 
     Returns:
-        A dataframe containing parameters along with the fractions of parametrizations
+        A dataframe containing parameters along with the fractions of parameterizations
         that landed at the parameter lower and upper limit in case of range and ordered
         choice parameters and containing parameter constraints along with the fractions
-        of parametrizations that landed at the constraint boundary.
+        of parameterizations that landed at the constraint boundary.
     """
 
     parameters_and_constraints = []
@@ -130,7 +130,7 @@ def search_space_boundary_proportions(
         for parameterization in parameterizations
         if search_space.check_membership(parameterization)
     ]
-    num_parametrizations = len(parameterizations)
+    num_parameterizations = len(parameterizations)
 
     for parameter_name, parameter in search_space.parameters.items():
         if isinstance(parameter, RangeParameter):
@@ -160,8 +160,12 @@ def search_space_boundary_proportions(
                     num_lb += 1
                 elif abs(value - float(upper)) < tol * (float(upper) - float(lower)):
                     num_ub += 1
-        prop_lower = num_lb / float(num_parametrizations)
-        prop_upper = num_ub / float(num_parametrizations)
+        if num_parameterizations != 0:
+            prop_lower = num_lb / float(num_parameterizations)
+            prop_upper = num_ub / float(num_parameterizations)
+        else:
+            prop_lower = 0.0
+            prop_upper = 0.0
         parameters_and_constraints.extend([parameter] * 2)
         boundaries.extend(
             [f"{parameter_name} = {lower}", f"{parameter_name} = {upper}"]
@@ -177,12 +181,18 @@ def search_space_boundary_proportions(
             )
             for parameterization in parameterizations
         ]
-        prop = (
-            np.sum(
-                [abs(weighted_sum - pc.bound) < tol for weighted_sum in weighted_sums]
+        if num_parameterizations != 0:
+            prop = (
+                np.sum(
+                    [
+                        abs(weighted_sum - pc.bound) < tol
+                        for weighted_sum in weighted_sums
+                    ]
+                )
+                / num_parameterizations
             )
-            / num_parametrizations
-        )
+        else:
+            prop = 0.0
         boundaries.append(
             " + ".join(f"{v}*{k}" for k, v in sorted(pc.constraint_dict.items()))
             + f" = {pc.bound}"
