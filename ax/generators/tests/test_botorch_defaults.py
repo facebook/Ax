@@ -96,8 +96,6 @@ class BotorchDefaultsTest(TestCase):
             "sd_prior": GammaPrior(2.0, 0.44),
             "eta": 0.6,
         }
-        x[0, 1] = 0
-        x[1, 1] = 1
         model = _get_model(
             X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, prior=prior
         )
@@ -117,6 +115,7 @@ class BotorchDefaultsTest(TestCase):
             task_covar_module.IndexKernelPrior.correlation_prior.eta,
             0.6,
         )
+
         model = _get_model(
             X=x,
             Y=y,

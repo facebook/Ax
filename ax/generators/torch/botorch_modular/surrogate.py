@@ -36,7 +36,6 @@ from ax.generators.torch.botorch_modular.utils import (
     convert_to_block_design,
     copy_model_config_with_default_values,
     fit_botorch_model,
-    get_all_task_values_from_ssd,
     get_cv_fold,
     ModelConfig,
     subset_state_dict,
@@ -272,7 +271,6 @@ def _make_botorch_outcome_transform(
     outcome_transform_classes: list[type[OutcomeTransform]],
     outcome_transform_options: dict[str, dict[str, Any]],
     dataset: SupervisedDataset,
-    search_space_digest: SearchSpaceDigest,
 ) -> OutcomeTransform | None:
     """
     Makes a BoTorch outcome transform from the provided classes and options.
@@ -292,7 +290,6 @@ def _make_botorch_outcome_transform(
                 outcome_transform_options.get(transform_class.__name__, {})
             ),
             dataset=dataset,
-            search_space_digest=search_space_digest,
         )
         for transform_class in outcome_transform_classes
     ]
@@ -376,7 +373,6 @@ def _construct_submodules(
             outcome_transform_classes=outcome_transform_classes,
             outcome_transform_options=model_config.outcome_transform_options or {},
             dataset=dataset,
-            search_space_digest=search_space_digest,
         )
     elif "outcome_transform" in botorch_model_class_args:
         # This is a temporary solution until all BoTorch models use
@@ -1295,14 +1291,6 @@ def _submodel_input_constructor_mtgp(
             target_value := search_space_digest.target_values.get(task_feature)
         ) is not None:
             formatted_model_inputs["output_tasks"] = [int(target_value)]
-            # This enables making predictions for inputs at unobserved task values,
-            # by making predictions for the target task.
-            # This is important for MTGP models that are used in ModelListGPs where
-            # some metrics have only been observed for some tasks and not others.
-            formatted_model_inputs["validate_task_values"] = False
-            formatted_model_inputs["all_tasks"] = get_all_task_values_from_ssd(
-                search_space_digest=search_space_digest
-            )
         else:
             raise UserInputError(
                 "output_tasks or target task value must be provided for MultiTaskGP."
