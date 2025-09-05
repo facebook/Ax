@@ -15,13 +15,13 @@ from ax.analysis.plotly.plotly_analysis import (
 )
 from ax.analysis.plotly.utils import select_metric
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 
 from plotly import graph_objects as go
-from pyre_extensions import assert_is_instance, none_throws, override
+from pyre_extensions import assert_is_instance, override
 
 
 class ProgressionPlot(Analysis):
@@ -67,9 +67,6 @@ class ProgressionPlot(Analysis):
         data = experiment.lookup_data()
         if not isinstance(data, MapData):
             raise UserInputError("ProgressionPlot requires MapData")
-        if data.map_key is None:
-            raise UserInputError("ProgressionPlot requires a map key on MapData")
-        map_key = data.map_key
 
         metric_name = self._metric_name or select_metric(experiment=experiment)
 
@@ -77,8 +74,8 @@ class ProgressionPlot(Analysis):
         map_df = data.map_df
         df = map_df.loc[
             map_df["metric_name"] == metric_name,
-            ["trial_index", "arm_name", "mean", map_key],
-        ].rename(columns={map_key: "progression", "mean": metric_name})
+            ["trial_index", "arm_name", "mean", MAP_KEY],
+        ].rename(columns={MAP_KEY: "progression", "mean": metric_name})
 
         # Get the terminal step of each trial that was early stopped so we can place a
         # marker to inform the user.
@@ -90,8 +87,8 @@ class ProgressionPlot(Analysis):
                     for trial in experiment.trials_by_status[TrialStatus.EARLY_STOPPED]
                 ]
             ),
-            ["trial_index", "mean", map_key],
-        ].rename(columns={map_key: "progression", "mean": metric_name})
+            ["trial_index", "mean", MAP_KEY],
+        ].rename(columns={MAP_KEY: "progression", "mean": metric_name})
 
         # Add the wallclock time column
         wallclock_series = _calculate_wallclock_timeseries(
@@ -188,12 +185,11 @@ def _calculate_wallclock_timeseries(
 
     data = assert_is_instance(experiment.lookup_data(), MapData)
     df = data.map_df[data.map_df["metric_name"] == metric_name]
-    map_key = none_throws(data.map_key)
 
     return {
         trial_index: dict(
             zip(
-                df[df["trial_index"] == trial_index][map_key].to_numpy(),
+                df[df["trial_index"] == trial_index][MAP_KEY].to_numpy(),
                 # Map the progressions to linspace if the start and completion times
                 # are both available, otherwise map to nans
                 np.linspace(

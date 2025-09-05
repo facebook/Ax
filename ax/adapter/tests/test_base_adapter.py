@@ -34,7 +34,7 @@ from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -647,7 +647,6 @@ class BaseAdapterTest(TestCase):
                     set(call_kwargs["status_quo_observations"][-1].data.metric_names),
                     {"branin_map_constraint"},
                 )
-            self.assertEqual(call_kwargs["map_key"], MAP_KEY)
             opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
             self.assertEqual(call_kwargs["metrics"], opt_config_metrics)
             adapter_sq = none_throws(adapter.status_quo)
@@ -661,27 +660,23 @@ class BaseAdapterTest(TestCase):
                 set(adapter_sq.data.metric_names).issuperset(opt_config_metrics)
             )
 
-        # Case 2: Experiment has an optimization config with !=1 map keys.
-        for num_map_keys in (0, 2):
-            with mock.patch(
-                "ax.adapter.base.extract_map_keys_from_opt_config",
-                return_value=set(["timestamp", "step"][:num_map_keys]),
-            ) as mock_extract, self.assertLogs(
-                logger=logger, level="WARN"
-            ) as mock_logs:
-                adapter = Adapter(
-                    experiment=exp,
-                    generator=Generator(),
-                    data_loader_config=data_loader_config,
-                )
-            mock_extract.assert_called_once()
-            self.assertIsNone(adapter.status_quo)
-            self.assertTrue(
-                any(
-                    f"optimization config includes {num_map_keys} map keys" in log
-                    for log in mock_logs.output
-                )
+        # Case 2: Experiment has an optimization config with no map metrics
+        with mock.patch(
+            "ax.adapter.base.has_map_metrics", return_value=False
+        ) as mock_extract, self.assertLogs(logger=logger, level="WARN") as mock_logs:
+            adapter = Adapter(
+                experiment=exp,
+                generator=Generator(),
+                data_loader_config=data_loader_config,
             )
+        mock_extract.assert_called_once()
+        self.assertIsNone(adapter.status_quo)
+        self.assertTrue(
+            any(
+                "optimization config does not include any MapMetrics" in log
+                for log in mock_logs.output
+            )
+        )
 
         # Case 3: Experiment doesn't have an optimization config.
         metrics = none_throws(exp.optimization_config).metrics.values()

@@ -28,6 +28,7 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
+from ax.core.map_data import MAP_KEY
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -44,7 +45,7 @@ from ax.core.types import (
     TModelPredict,
     TParameterization,
 )
-from ax.core.utils import extract_map_keys_from_opt_config, get_target_trial_index
+from ax.core.utils import get_target_trial_index, has_map_metrics
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
 from ax.generators.base import Generator
@@ -482,20 +483,18 @@ class Adapter:
                     "optimization config. `Adapter.status_quo` will not be set."
                 )
                 return
-            map_keys = extract_map_keys_from_opt_config(
-                optimization_config=self._optimization_config
-            )
-            if len(map_keys) == 1:
+
+            if has_map_metrics(optimization_config=self._optimization_config):
                 self._status_quo = _combine_multiple_status_quo_observations(
                     status_quo_observations=status_quo_observations,
-                    map_key=map_keys.pop(),
                     metrics=set(none_throws(self._optimization_config).metrics),
                 )
             else:
                 logger.warning(
                     f"Status quo {self._status_quo_name} was found in the data with "
-                    "multiple observations, and the optimization config includes "
-                    f"{len(map_keys)} map keys. `Adapter.status_quo` will not be set."
+                    "multiple observations, and the optimization config does not "
+                    "include any MapMetrics. `Adapter.status_quo` will not be "
+                    "set."
                 )
         else:
             self._status_quo = status_quo_observations[-1]
@@ -1240,7 +1239,6 @@ def _legacy_overwrite_data_loader_config(
 
 def _combine_multiple_status_quo_observations(
     status_quo_observations: list[Observation],
-    map_key: str,
     metrics: set[str],
 ) -> Observation | None:
     """Finds the maximal (in terms of map key value) observation for each metric
@@ -1255,7 +1253,6 @@ def _combine_multiple_status_quo_observations(
     Args:
         status_quo_observations: List of observations for the status quo
             arm at target trial index. Extracted in ``Adapter._set_status_quo``.
-        map_key: The map key to use for finding the maximal observation.
         metrics: The metrics to include in the combined observation.
             This should include all metrics in the optimization config.
 
@@ -1267,7 +1264,7 @@ def _combine_multiple_status_quo_observations(
     partial_obs = [
         max(
             status_quo_observations,
-            key=lambda obs: obs.features.metadata[map_key],
+            key=lambda obs: obs.features.metadata[MAP_KEY],
         )
     ]
     # Check if the it includes all metrics in the opt config.
@@ -1293,7 +1290,7 @@ def _combine_multiple_status_quo_observations(
         partial_obs.append(
             max(
                 obs_w_lookup_metric,
-                key=lambda obs: obs.features.metadata[map_key],
+                key=lambda obs: obs.features.metadata[MAP_KEY],
             )
         )
     # Combine into a single Observation object.
