@@ -6,6 +6,7 @@
 # pyre-strict
 
 
+import numpy as np
 import pandas as pd
 
 from ax.analysis.healthcheck.search_space_analysis import (
@@ -162,6 +163,22 @@ class TestSearchSpaceAnalysis(TestCase):
             }
         )
         self.assertTrue(dff.equals(df))
+
+        # test with no parameterizations
+        df = search_space_boundary_proportions(search_space=ss, parameterizations=[])
+        self.assertTrue(np.all(np.equal(df.proportion.values, np.zeros(7))))
+        # test with no parameterizations in SS
+        df = search_space_boundary_proportions(
+            search_space=ss,
+            parameterizations=[
+                {
+                    "float_range_1": 0.0,
+                    "float_range_2": 1.0,
+                    "choice_ordered": 1,
+                },
+            ],
+        )
+        self.assertTrue(np.all(np.equal(df.proportion.values, np.zeros(7))))
 
     def test_boundary_proportions_message(self) -> None:
         float_range_1 = RangeParameter(
