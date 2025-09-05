@@ -19,7 +19,7 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -424,13 +424,6 @@ def map_data_to_dict(map_data: MapData) -> dict[str, Any]:
     """Convert Ax map data to a dictionary."""
     properties = map_data.serialize_init_args(obj=map_data)
     properties["__type"] = map_data.__class__.__name__
-    return properties
-
-
-def map_key_info_to_dict(mki: MapKeyInfo) -> dict[str, Any]:
-    """Convert Ax map data metadata to a dictionary."""
-    properties = serialize_init_args(obj=mki)
-    properties["__type"] = mki.__class__.__name__
     return properties
 
 

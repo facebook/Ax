@@ -30,7 +30,7 @@ from ax.adapter.torch import TorchAdapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -513,7 +513,6 @@ def _get_curve_plot_dropdown(
             always_include_field_columns=True,
         )
     for m in map_metrics:
-        map_key = m.map_key_info.key
         subsampled_data = (
             data
             if limit_points_per_plot is None
@@ -531,14 +530,14 @@ def _get_curve_plot_dropdown(
                 continue
             if by_walltime:
                 x = _transform_progression_to_walltime(
-                    progressions=df_g[map_key].to_numpy(),
+                    progressions=df_g[MAP_KEY].to_numpy(),
                     exp_df=exp_df,
                     trial_idx=trial_idx,
                 )
                 if x is None:
                     continue
             else:
-                x = df_g[map_key].to_numpy()
+                x = df_g[MAP_KEY].to_numpy()
             xs.append(x)
             ys.append(df_g["mean"].to_numpy())
             legend_labels.append(f"Trial {trial_idx}")
@@ -569,8 +568,7 @@ def _get_curve_plot_dropdown(
         stopping_markers_by_metric=stopping_markers_by_metric,
         title=title,
         xlabels_by_metric={
-            m.name: "wall time" if by_walltime else m.map_key_info.key
-            for m in map_metrics
+            m.name: "wall time" if by_walltime else MAP_KEY for m in map_metrics
         },
         lower_is_better_by_metric={m.name: m.lower_is_better for m in map_metrics},
     )

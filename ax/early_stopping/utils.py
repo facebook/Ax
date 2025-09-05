@@ -11,7 +11,7 @@ from logging import Logger
 
 import pandas as pd
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
@@ -143,10 +143,7 @@ def align_partial_results(
     return dfs_mean, dfs_sem
 
 
-def estimate_early_stopping_savings(
-    experiment: Experiment,
-    map_key: str | None = None,
-) -> float:
+def estimate_early_stopping_savings(experiment: Experiment) -> float:
     """Estimate resource savings due to early stopping by considering
     COMPLETED and EARLY_STOPPED trials. First, use the mean of final
     progressions of the set completed trials as a benchmark for the
@@ -157,7 +154,6 @@ def estimate_early_stopping_savings(
 
     Args:
         experiment: The experiment.
-        map_key: The map_key to use when computing resource savings.
 
     Returns:
         The estimated resource savings as a fraction of total resource usage (i.e.
@@ -166,18 +162,11 @@ def estimate_early_stopping_savings(
     """
 
     map_data = assert_is_instance(experiment.lookup_data(), MapData)
-
-    # If no map_key is provided, use some arbitrary map_key in the experiment's MapData
-    if map_key is not None:
-        step_key = map_key
-    elif map_data.map_key is not None:
-        step_key = map_data.map_key
-    else:
+    if len(map_data.df) == 0:
         return 0
-
     # Get final number of steps of each trial
     trial_resources = (
-        map_data.map_df[["trial_index", step_key]]
+        map_data.map_df[["trial_index", MAP_KEY]]
         .groupby("trial_index")
         .max()
         .reset_index()
@@ -192,17 +181,17 @@ def estimate_early_stopping_savings(
     # the completed trials
     mean_completed_trial_resources = trial_resources[
         trial_resources["trial_index"].isin(completed_trial_idcs)
-    ][step_key].mean()
+    ][MAP_KEY].mean()
 
     # Calculate the steps saved per early stopped trial. If savings are estimated to be
     # negative assume no savings
     stopped_trial_resources = trial_resources[
         trial_resources["trial_index"].isin(early_stopped_trial_idcs)
-    ][step_key]
+    ][MAP_KEY]
     saved_trial_resources = (
         mean_completed_trial_resources - stopped_trial_resources
     ).clip(0)
 
     # Return the ratio of the total saved resources over the total resources used plus
     # the total saved resources
-    return saved_trial_resources.sum() / trial_resources[step_key].sum()
+    return saved_trial_resources.sum() / trial_resources[MAP_KEY].sum()
