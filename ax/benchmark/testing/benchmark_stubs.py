@@ -312,6 +312,7 @@ def get_async_benchmark_problem(
     step_runtime_fn: TBenchmarkStepRuntimeFunction | None = None,
     n_steps: int = 1,
     lower_is_better: bool = False,
+    report_inference_value_as_trace: bool = False,
 ) -> BenchmarkProblem:
     search_space = get_discrete_search_space()
     test_function = IdentityTestFunction(n_steps=n_steps)
@@ -331,6 +332,7 @@ def get_async_benchmark_problem(
         baseline_value=19 if lower_is_better else 0,
         optimal_value=0 if lower_is_better else 19,
         step_runtime_function=step_runtime_fn,
+        report_inference_value_as_trace=report_inference_value_as_trace,
     )
 
 

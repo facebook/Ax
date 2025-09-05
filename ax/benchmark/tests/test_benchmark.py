@@ -350,6 +350,7 @@ class TestBenchmark(TestCase):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
                     step_runtime_fn=step_runtime_fn,
+                    report_inference_value_as_trace=True,
                 )
 
                 with mock_patch_method_original(
@@ -684,7 +685,8 @@ class TestBenchmark(TestCase):
         )
 
         self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
-        self.assertTrue((res.inference_trace >= res.oracle_trace).all())
+        if report_inference_value_as_trace:
+            self.assertTrue((res.inference_trace >= res.oracle_trace).all())
 
     def test_replication_with_inference_value(self) -> None:
         for batch_size, report_inference_value_as_trace in product(
@@ -1311,12 +1313,34 @@ class TestBenchmark(TestCase):
         # Runner not stripped
         self.assertIsNotNone(none_throws(result2.experiment).runner)
         self.assertEqual(result2.seed, seed)
+        # With report_inference_value_as_trace=False, inference trace is all null
+        self.assertTrue(np.isnan(result.inference_trace).all())
+        self.assertFalse(np.isnan(result.optimization_trace).any())
+        self.assertTrue(np.array_equal(result.oracle_trace, result.optimization_trace))
 
         with self.subTest("runner stripped"):
-            result = get_benchmark_result_from_experiment_and_gs(
+            result_no_runner = get_benchmark_result_from_experiment_and_gs(
                 experiment=none_throws(result.experiment),
                 generation_strategy=method.generation_strategy,
                 problem=problem,
                 seed=3,
             )
-            self.assertIsNone(none_throws(result.experiment).runner)
+            self.assertIsNone(none_throws(result_no_runner.experiment).runner)
+
+        with self.subTest("inference value as trace"):
+            problem.report_inference_value_as_trace = True
+            experiment = run_optimization_with_orchestrator(
+                problem=problem, method=method, seed=seed
+            )
+            result_inf = get_benchmark_result_from_experiment_and_gs(
+                experiment=experiment,
+                generation_strategy=method.generation_strategy,
+                problem=problem,
+                seed=seed,
+            )
+            self.assertFalse(np.isnan(result_inf.inference_trace).any())
+            self.assertTrue(
+                np.array_equal(
+                    result_inf.inference_trace, result_inf.optimization_trace
+                )
+            )
