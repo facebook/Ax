@@ -9,6 +9,7 @@ import itertools
 from typing import Mapping, Sequence
 
 from ax.adapter.base import Adapter
+from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
@@ -32,6 +33,7 @@ from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from pyre_extensions import override
 
 RESULTS_CARDGROUP_TITLE = "Results Analysis"
@@ -82,6 +84,12 @@ class ResultsAnalysis(Analysis):
                     constraint_names.extend([m.name for m in oc.metrics])
                 else:
                     constraint_names.append(oc.metric.name)
+
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
 
         # Relativize the effects if the status quo is set and there are BatchTrials
         # present.
@@ -151,8 +159,19 @@ class ResultsAnalysis(Analysis):
             if len(objective_names) > 0 and len(constraint_names) > 0
             else None
         )
-        objective_p_feasible_group = (
-            AnalysisCardGroup(
+
+        objective_p_feasible_group = None
+        if (
+            len(objective_names) == 1
+            and len(constraint_names) > 0
+            # check that the adapter has a BoTorchGenerator
+            and (
+                relevant_adapter is not None
+                and isinstance(relevant_adapter, TorchAdapter)
+                and isinstance(relevant_adapter.generator, BoTorchGenerator)
+            )
+        ):
+            objective_p_feasible_group = AnalysisCardGroup(
                 name="Objective vs P(feasible)",
                 title=(
                     "Model-Estimated Pareto-Frontier Between the Objective"
@@ -169,9 +188,6 @@ class ResultsAnalysis(Analysis):
                     )
                 ],
             )
-            if len(objective_names) == 1 and len(constraint_names) > 0
-            else None
-        )
 
         # Produce a parallel coordinates plot for each objective.
         # TODO: mpolson mgarrard bring back parallel coordinates after fixing
