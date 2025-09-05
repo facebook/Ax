@@ -510,8 +510,6 @@ class BotorchMOOModelTest(TestCase):
                 [
                     [11.0, 2.0],
                     [9.0, 3.0],
-                    [12.0, 0.0],
-                    [13.0, 0.0],
                 ],
                 **tkwargs,
             )
@@ -561,8 +559,16 @@ class BotorchMOOModelTest(TestCase):
             ckwargs = _mock_model_infer_objective_thresholds.call_args[1]
             X_observed = ckwargs["X_observed"]
             sorted_idcs = X_observed[:, 0].argsort()
-            sorted_idcs2 = Xs[:, 0].argsort()
-            self.assertTrue(torch.equal(X_observed[sorted_idcs], Xs[sorted_idcs2]))
+            expected_X_observed = torch.tensor(
+                [[1.0, 2.0, 3.0], [0.9, 1.9, 2.9]], **tkwargs
+            )
+            sorted_idcs2 = expected_X_observed[:, 0].argsort()
+            self.assertTrue(
+                torch.equal(
+                    X_observed[sorted_idcs],
+                    expected_X_observed[sorted_idcs2],
+                )
+            )
             self.assertTrue(
                 torch.equal(
                     ckwargs["objective_weights"],
@@ -782,7 +788,6 @@ class BotorchMOOModelTest(TestCase):
             feature_names,
             _,
         ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
-        bounds[0] = (0.0, 1.0)  # make one data point out of bounds
         training_data = [
             SupervisedDataset(
                 X=Xs,
