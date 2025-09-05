@@ -1,0 +1,3080 @@
+{
+  "config": {
+    "plotlyServerURL": "https://plot.ly"
+  },
+  "data": [
+    {
+      "error_x": {
+        "array": {
+          "bdata": "mCtfvAJKEUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(247, 147, 30, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(247, 147, 30, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 0",
+      "showlegend": false,
+      "text": [
+        "Trial: 0<br />Arm: 0_0<br />Status: COMPLETED<br />Generation Node: unknown_gen_node<br />compressive_strength: 1.85847\u00b14.32228<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "WPw7w0i8/T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "Wj7/////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "HSJTs3ZtEUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(235, 136, 45, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(235, 136, 45, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 1",
+      "showlegend": false,
+      "text": [
+        "Trial: 1<br />Arm: 1_0<br />Status: COMPLETED<br />Generation Node: unknown_gen_node<br />compressive_strength: 4.71462\u00b14.35690<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "fl8vKMbbEkA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "Hf/9////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "I7t65S6bEUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(223, 125, 60, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(223, 125, 60, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 2",
+      "showlegend": false,
+      "text": [
+        "Trial: 2<br />Arm: 2_0<br />Status: COMPLETED<br />Generation Node: unknown_gen_node<br />compressive_strength: 5.81770\u00b14.40155<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "rOWPm1NFF0A=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "tsD8////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "+hmFVBmbEUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(199, 104, 90, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(199, 104, 90, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 3",
+      "showlegend": false,
+      "text": [
+        "Trial: 3<br />Arm: 3_0<br />Status: COMPLETED<br />Generation Node: unknown_gen_node<br />compressive_strength: 4.14221\u00b14.40146<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "BNl9GaCREEA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "BLH+////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "kOIjfDY/EUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(187, 93, 105, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(187, 93, 105, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 4",
+      "showlegend": false,
+      "text": [
+        "Trial: 4<br />Arm: 4_0<br />Status: COMPLETED<br />Generation Node: unknown_gen_node<br />compressive_strength: 7.30477\u00b14.31173<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "jmbgqhY4HUA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "+Vn8////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "pvYJxzkxD0A=",
+          "dtype": "f8"
+        },
+        "color": "rgba(175, 82, 120, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(175, 82, 120, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 5",
+      "showlegend": false,
+      "text": [
+        "Trial: 5<br />Arm: 5_0<br />Status: COMPLETED<br />Generation Node: unknown_gen_node<br />compressive_strength: 14.17992\u00b13.89904<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "ZGhIuB5cLEA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "nMN6////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "6igi6nFtEUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(151, 61, 150, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(151, 61, 150, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 6",
+      "showlegend": false,
+      "text": [
+        "Trial: 6<br />Arm: 6_0<br />Status: COMPLETED<br />Generation Node: CenterOfSearchSpace<br />compressive_strength: 2.22793\u00b14.35688<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "wB1+8M7SAUA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "S0f/////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "xFlgtrJEEUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(139, 50, 165, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(139, 50, 165, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 7",
+      "showlegend": false,
+      "text": [
+        "Trial: 7<br />Arm: 7_0<br />Status: COMPLETED<br />Generation Node: Sobol<br />compressive_strength: 9.90074\u00b14.31709<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "flyayC3NI0A=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "P9H9////7z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "XU5RQJuYB0A=",
+          "dtype": "f8"
+        },
+        "color": "rgba(127, 40, 181, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(127, 40, 181, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "Ag==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 8",
+      "showlegend": false,
+      "text": [
+        "Trial: 8<br />Arm: 8_0<br />Status: COMPLETED<br />Generation Node: MBM<br />compressive_strength: 27.95747\u00b12.94951<br /><br />[Warning] This arm is likely infeasible"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "cP4Imhz1O0A=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "5xTd6ZvpUD4=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "ZilluPnUB0A=",
+          "dtype": "f8"
+        },
+        "color": "rgba(116, 54, 193, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(116, 54, 193, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "Ag==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 9",
+      "showlegend": false,
+      "text": [
+        "Trial: 9<br />Arm: 9_0<br />Status: COMPLETED<br />Generation Node: MBM<br />compressive_strength: 35.74251\u00b12.97899<br /><br />[Warning] This arm is likely infeasible"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "oAe0hgrfQUA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "brK6IHn+KT0=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "TOpoHZrQD0A=",
+          "dtype": "f8"
+        },
+        "color": "rgba(111, 61, 199, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(111, 61, 199, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "Ag==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 10",
+      "showlegend": false,
+      "text": [
+        "Trial: 10<br />Arm: 10_0<br />Status: COMPLETED<br />Generation Node: MBM<br />compressive_strength: 30.53696\u00b13.97686<br /><br />[Warning] This arm is likely infeasible"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "Vk3iV3aJPkA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "DculPvmG8D0=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "ZnaPG+9sDEA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(106, 68, 205, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(106, 68, 205, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "Ag==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 11",
+      "showlegend": false,
+      "text": [
+        "Trial: 11<br />Arm: 11_0<br />Status: COMPLETED<br />Generation Node: MBM<br />compressive_strength: 41.23091\u00b13.55319<br /><br />[Warning] This arm is likely infeasible"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "yCSQaI6dREA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "+MASmlVnED0=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "GuWUJzH2OUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(96, 82, 218, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(96, 82, 218, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 12",
+      "showlegend": false,
+      "text": [
+        "Trial: 12<br />Arm: 12_0<br />Status: COMPLETED<br />Generation Node: MBM<br />compressive_strength: 8.97887\u00b125.96169<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "+iRa6S71IUA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "Bf7OIlv04j8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "Q8npaSqjOUA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(91, 89, 224, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(91, 89, 224, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 13",
+      "showlegend": false,
+      "text": [
+        "Trial: 13<br />Arm: 13_0<br />Status: COMPLETED<br />Generation Node: MBM<br />compressive_strength: 15.85801\u00b125.63737<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "Wnf9nky3L0A=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "gn9/kVIw5D8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "AyZfSOfAJEA=",
+          "dtype": "f8"
+        },
+        "color": "rgba(86, 96, 230, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(86, 96, 230, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 14",
+      "showlegend": false,
+      "text": [
+        "Trial: 14<br />Arm: 14_0<br />Status: COMPLETED<br />Generation Node: MBM<br />compressive_strength: 26.57321\u00b110.37676<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "MP6Qz72SOkA=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "DFhfryl44T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "TPtBJUamKEB743jHklcpQK3Es1gvTiBAQRlyvcDDK0COHZsc9gYpQM7CW1qYGCZAuEnkemmQKUDWFO/HDccVQMLqzHyvGSlAHV321nd6KUAOt4YPNdYpQNRV1j4tyidA5T8dr+Q0JUDXNvOKcRQqQLvWmR56FilACraGWCv+J0CAYgUF7uIpQOtJ0aEXYSlAT0PtDQltKUBa0Qg6smMoQHmwKoq/wShA0S/y5PICKUAtn03PveMqQHzIaw9mQyZAkjhWFyUxI0A5CbBVfNceQIpVcHsPWSlAQzRCzGoeEkBEO5Vrr5wpQFCHKTBtWClAM1vAu55FKUC4ArT7RcApQIe2rMd6ECpAWIwdKzT9KEBHlm+RdTYpQGzrggjnnihAsOtCeTaqKUC1acBYN0UqQK3gxHFwJiVAG5W8cus1JUAdiqvChUwsQMOildYAhylAtiGIWfU/KEBKV7TgT3QpQJjK7p8hUytA9K85YgKpKUC/u8RL8vspQLnzP1RbOylAg/1Arh7+J0B9oHpCX6YpQO4OYVUvTiBA7rcXSZt8J0DUEnDwENIoQHdPnOtGwClAWkkfFie2KUDzqUfa/HEpQOZFj59mvilA212FhCU0KUAGxgrWHgcqQBY9pCmpUSlAujSZ1uJVKUAUdpOhMyMoQDaLtIF5cR5ACfapXSHuKUBj20Im6kUpQLyJnDX37CFAuN605YSnKkD/Quvv/wAsQBtUzL/2NSVAyqYFffwcKUCuDoMlBG0oQPZfqlitNihAMBsjusBRFEDb/pl0JcgnQH75ZAd3zidACzSWznMUKkBSIWbQ70slQLgCYWn0ECZAdTtZsiHuKUDG8gpqnGwpQJEmz8feMylA9ZIjB6jaKEA8ymZwelYpQHBLlpFeWCdAUnz8T7+dK0DlETNecL0qQL4tVJhABytAAby415RBKUDJhPVYqX8oQHN7KaHO+ClAlkzLpQQeKUD9h8op+kciQOiAynmFDiRAwRBRahyLEUDKyjU5VmkpQA==",
+          "dtype": "f8"
+        },
+        "color": "rgba(76, 110, 243, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 14,
+        "cmin": -1,
+        "color": "rgba(76, 110, 243, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Additional Arms",
+      "showlegend": false,
+      "text": [
+        "Arm: frontier_0<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.86725\u00b112.32475<br /><br />",
+        "Arm: frontier_1<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82631\u00b112.67104<br /><br />",
+        "Arm: frontier_2<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.08539\u00b18.15270<br /><br />",
+        "Arm: frontier_3<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.55035\u00b113.88233<br /><br />",
+        "Arm: frontier_4<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.84695\u00b112.51360<br /><br />",
+        "Arm: frontier_5<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.87513\u00b111.04804<br /><br />",
+        "Arm: frontier_6<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.80965\u00b112.78205<br /><br />",
+        "Arm: frontier_7<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 5.61316\u00b15.44439<br /><br />",
+        "Arm: frontier_8<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.84227\u00b112.55017<br /><br />",
+        "Arm: frontier_9<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.81636\u00b112.73920<br /><br />",
+        "Arm: frontier_10<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.78684\u00b112.91837<br /><br />",
+        "Arm: frontier_11<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.89457\u00b111.89488<br /><br />",
+        "Arm: frontier_12<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82122\u00b110.60331<br /><br />",
+        "Arm: frontier_13<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.76426\u00b113.03993<br /><br />",
+        "Arm: frontier_14<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.84330\u00b112.54390<br /><br />",
+        "Arm: frontier_15<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.89063\u00b111.99642<br /><br />",
+        "Arm: frontier_16<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.78240\u00b112.94322<br /><br />",
+        "Arm: frontier_17<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82365\u00b112.68963<br /><br />",
+        "Arm: frontier_18<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82024\u00b112.71296<br /><br />",
+        "Arm: frontier_19<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.87825\u00b112.19472<br /><br />",
+        "Arm: frontier_20<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.86199\u00b112.37841<br /><br />",
+        "Arm: frontier_21<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.84769\u00b112.50576<br /><br />",
+        "Arm: frontier_22<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.67409\u00b113.44481<br /><br />",
+        "Arm: frontier_23<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.88135\u00b111.13164<br /><br />",
+        "Arm: frontier_24<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.61720\u00b19.59599<br /><br />",
+        "Arm: frontier_25<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 45.86712\u00b17.71044<br /><br />",
+        "Arm: frontier_26<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82585\u00b112.67395<br /><br />",
+        "Arm: frontier_27<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 4.95856\u00b14.52970<br /><br />",
+        "Arm: frontier_28<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.80586\u00b112.80603<br /><br />",
+        "Arm: frontier_29<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82607\u00b112.67271<br /><br />",
+        "Arm: frontier_30<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83122\u00b112.63598<br /><br />",
+        "Arm: frontier_31<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.79435\u00b112.87553<br /><br />",
+        "Arm: frontier_32<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.76584\u00b113.03219<br /><br />",
+        "Arm: frontier_33<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.84924\u00b112.49454<br /><br />",
+        "Arm: frontier_34<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83524\u00b112.60637<br /><br />",
+        "Arm: frontier_35<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.86853\u00b112.31036<br /><br />",
+        "Arm: frontier_36<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.80078\u00b112.83245<br /><br />",
+        "Arm: frontier_37<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.74503\u00b113.13519<br /><br />",
+        "Arm: frontier_38<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82192\u00b110.57508<br /><br />",
+        "Arm: frontier_39<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82624\u00b110.60531<br /><br />",
+        "Arm: frontier_40<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.46125\u00b114.14946<br /><br />",
+        "Arm: frontier_41<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.81253\u00b112.76368<br /><br />",
+        "Arm: frontier_42<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.88321\u00b112.12492<br /><br />",
+        "Arm: frontier_43<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.81817\u00b112.72717<br /><br />",
+        "Arm: frontier_44<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.61603\u00b113.66237<br /><br />",
+        "Arm: frontier_45<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.80195\u00b112.83010<br /><br />",
+        "Arm: frontier_46<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.77320\u00b112.99208<br /><br />",
+        "Arm: frontier_47<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83397\u00b112.61593<br /><br />",
+        "Arm: frontier_48<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.89051\u00b111.99633<br /><br />",
+        "Arm: frontier_49<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.80273\u00b112.82495<br /><br />",
+        "Arm: frontier_50<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.08539\u00b18.15270<br /><br />",
+        "Arm: frontier_51<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.89823\u00b111.74337<br /><br />",
+        "Arm: frontier_52<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.85871\u00b112.41029<br /><br />",
+        "Arm: frontier_53<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.79436\u00b112.87554<br /><br />",
+        "Arm: frontier_54<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.79770\u00b112.85577<br /><br />",
+        "Arm: frontier_55<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.81881\u00b112.72263<br /><br />",
+        "Arm: frontier_56<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.79491\u00b112.87188<br /><br />",
+        "Arm: frontier_57<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83584\u00b112.60185<br /><br />",
+        "Arm: frontier_58<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.76936\u00b113.01391<br /><br />",
+        "Arm: frontier_59<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82801\u00b112.65949<br /><br />",
+        "Arm: frontier_60<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82680\u00b112.66775<br /><br />",
+        "Arm: frontier_61<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.88674\u00b112.06875<br /><br />",
+        "Arm: frontier_62<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 45.81426\u00b17.61082<br /><br />",
+        "Arm: frontier_63<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.77842\u00b112.96510<br /><br />",
+        "Arm: frontier_64<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83114\u00b112.63655<br /><br />",
+        "Arm: frontier_65<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.41766\u00b18.96282<br /><br />",
+        "Arm: frontier_66<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.70274\u00b113.32719<br /><br />",
+        "Arm: frontier_67<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.51174\u00b114.00195<br /><br />",
+        "Arm: frontier_68<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82389\u00b110.60540<br /><br />",
+        "Arm: frontier_69<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.84166\u00b112.55661<br /><br />",
+        "Arm: frontier_70<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.87689\u00b112.21292<br /><br />",
+        "Arm: frontier_71<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.88441\u00b112.10679<br /><br />",
+        "Arm: frontier_72<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 5.44420\u00b15.07984<br /><br />",
+        "Arm: frontier_73<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.89471\u00b111.89091<br /><br />",
+        "Arm: frontier_74<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.89454\u00b111.90325<br /><br />",
+        "Arm: frontier_75<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.76428\u00b113.03995<br /><br />",
+        "Arm: frontier_76<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83214\u00b110.64831<br /><br />",
+        "Arm: frontier_77<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.87323\u00b111.03311<br /><br />",
+        "Arm: frontier_78<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.77842\u00b112.96510<br /><br />",
+        "Arm: frontier_79<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82034\u00b112.71213<br /><br />",
+        "Arm: frontier_80<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83518\u00b112.60131<br /><br />",
+        "Arm: frontier_81<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.85692\u00b112.42706<br /><br />",
+        "Arm: frontier_82<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82662\u00b112.66890<br /><br />",
+        "Arm: frontier_83<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.89815\u00b111.67260<br /><br />",
+        "Arm: frontier_84<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.57328\u00b113.80810<br /><br />",
+        "Arm: frontier_85<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.66518\u00b113.37000<br /><br />",
+        "Arm: frontier_86<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.65623\u00b113.51416<br /><br />",
+        "Arm: frontier_87<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.83236\u00b112.62809<br /><br />",
+        "Arm: frontier_88<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.81518\u00b112.24934<br /><br />",
+        "Arm: frontier_89<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.77461\u00b112.98595<br /><br />",
+        "Arm: frontier_90<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.84144\u00b112.55863<br /><br />",
+        "Arm: frontier_91<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.47873\u00b19.14058<br /><br />",
+        "Arm: frontier_92<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.71853\u00b110.02836<br /><br />",
+        "Arm: frontier_93<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 4.57667\u00b14.38585<br /><br />",
+        "Arm: frontier_94<br />Status: Additional Arm<br />Generation Node: unknown_gen_node<br />compressive_strength: 46.82115\u00b112.70574<br /><br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "cDWb/QFvR0DOMKJvxGlHQCSfxvXtCkdABAvIwHFGR0C5cX3raGxHQDfccmQEcEdAQQZEu6JnR0AO0/KI4HMWQAt+eJfPa0dALUEWaX5oR0CeSuEbt2RHQOLrUU2BckdACLxxrh1pR0C/2TZY02FHQKuJJV3xa0dANL1/TwByR0BS4gvDJWRHQPLWvTNtaUdAX292hf1oR0B9GY1xanBHQDE2XMBVbkdAhPZ4DYFsR0CpQ6x+SFZHQDyfAibQcEdA77UviQBPR0AnmlO1/e5GQJlWfl21aUdAenr0f4/VE0B+2A9ZJmdHQL5WIbC8aUdA2YK1bWVqR0BrMu9YrWVHQAESsDAHYkdAeEgw17NsR0By3JNL6WpHQOdVRRssb0dAvZhSGYBmR0CWAfUcXV9HQNt5iak0aUdAh2vMVcJpR0BC+htSCjtHQJ3IkAgBaEdAq9746gxxR0CknaXNuWhHQCFDKRvaTkdAUhP8bqZmR0B2d74Y+GJHQCtQO16/akdAI45dJ/xxR0CtUKP3v2ZHQGcDBvTtCkdAu9dFTflyR0DaY2hG6m1HQH8WX5+tZUdAwa7f5xpmR0AI7xnSzmhHQDadAsG/ZUdAsvgnt/xqR0Bb57B9emJHQEk9xDD8aUdAAvnZpdRpR0Dl4oeugHFHQDhlg6A56EZAgDSAIqNjR0C7ioLRYmpHQMXjDdp1NUdAAi5USvNZR0CYhIqPgEFHQOKDKDp1aUdAo3G5grtrR0Aa95sTPnBHQMTdeWY0cUdAWIGDS9vGFUBvDnnqhXJHQH1py0KAckdAuTrb/tNhR0CECL1ug2pHQHLnQyjGb0dACtsUO6NjR0Dt650NAWlHQMgGfzXnakdAvQBio69tR0CSPYnYzmlHQPoNr232ckdAVTSqJWFJR0DnWQemJFVHQCTizDr/U0dAN8wg4opqR0CJOWDqV2hHQKsk500mY0dAP7ZoZbRrR0DgDiUtRz1HQP+LD9D4W0dAzkkyDINOEkByWPGNG2lHQA==",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "i23Iglkz0z+ejwb2jufTPwp2lm6+zr0//M85gIcQ1j+OQ+LD7JbTP/cUfMADPNA/pSR0SCMf1D+r3hn1K/zvP93FJLzcqdM/1OVmSswJ1D+MOkog+GHUP+Ryc7XFRNI/ve0hqy8fzj/r5CfpRJzUP0ZXCzWbptM/ui2x2aF+0j8U6vod/G3UPwIrwV3w8NM/N7u1pKr80z8YpTTu8uzSP2zKatL2T9M/ulgDjN+S0z+QL3Px61XVP9uCkb59ctA/JmX653ZByD8Lwsj4W/q3Px2kdakH6dM/eNmi////7z95z9kJACvUP5YVQX9m6NM/1VZEqMjV0z+N2GnhIE3UP8caOOuVmNQ/evltUwSN0z+13XHfsMbTP5qS6U2iK9M/9xmfkRU41D/4SKXEH8nUP5dBTF9M9s0/BHE3SJogzj8zDNuwvXvWP+SE12oCFtQ/L65LPIfG0j/egjQKyQPUP5e3f6J3tNU/a9WLMt021D9+KDJDe4XUP/ivEPmSy9M/Ri2HXpd+0j+RBlWmVTTUP5cTSmG+zr0/G8MjoJ7s0T9f4Szr1WDTP9OfJZMhTdQ/aI75tXZD1D+GmVLggwHUPygNXwJZS9Q/aTVuAmLE0z8QNmQY4o/UP/8SPfa14dM/gUF95uPl0z8WKXKiSafSPx7nVtdpr7Y/hMWFkIV41D8LvMiME9bTP2AgyBLzPsQ/BbRWqU4h1T86XMoJJkHWP2gLwLppIc4/S2JAACut0z8JOHgl5PbSP3k7n515vNI/1PSUr+H/7z/pFFHefULSPy0bixWOSdI/lZBhjUac1D/s7q9ye1zOPyFmkKBPMtA/g/CGzoV41D8WoNV7QPzTPwavxLUrxNM/44Wwha5p0z/ZvQXleebTP707/yXIwtE/RZevCtrx1T/MZ0s+eDbVP7txGS10dNU/AfiD98PR0z/NMT5BUxDTPyIan3KGgtQ/dYV07DOu0z+AnurkemTFP1sYCxgq3co/MAMm/v//7z9ySjZcDfnTPw==",
+        "dtype": "f8"
+      }
+    },
+    {
+      "marker": {
+        "color": "rgba(0, 0, 0, 0)",
+        "line": {
+          "color": "red",
+          "width": 2
+        }
+      },
+      "mode": "markers",
+      "name": "Possible Constraint Violation",
+      "type": "scatter",
+      "x": [
+        null
+      ],
+      "y": [
+        null
+      ]
+    }
+  ],
+  "layout": {
+    "legend": {
+      "orientation": "v",
+      "title": {
+        "text": ""
+      },
+      "x": 0.9,
+      "xanchor": "left",
+      "y": -0.33,
+      "yanchor": "top"
+    },
+    "margin": {
+      "t": 50
+    },
+    "template": {
+      "data": {
+        "bar": [
+          {
+            "error_x": {
+              "color": "#2a3f5f"
+            },
+            "error_y": {
+              "color": "#2a3f5f"
+            },
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "bar"
+          }
+        ],
+        "barpolar": [
+          {
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "barpolar"
+          }
+        ],
+        "carpet": [
+          {
+            "aaxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "baxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "type": "carpet"
+          }
+        ],
+        "choropleth": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "choropleth"
+          }
+        ],
+        "contour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "contour"
+          }
+        ],
+        "contourcarpet": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "contourcarpet"
+          }
+        ],
+        "heatmap": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmap"
+          }
+        ],
+        "histogram": [
+          {
+            "marker": {
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "histogram"
+          }
+        ],
+        "histogram2d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2d"
+          }
+        ],
+        "histogram2dcontour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2dcontour"
+          }
+        ],
+        "mesh3d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "mesh3d"
+          }
+        ],
+        "parcoords": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "parcoords"
+          }
+        ],
+        "pie": [
+          {
+            "automargin": true,
+            "type": "pie"
+          }
+        ],
+        "scatter": [
+          {
+            "fillpattern": {
+              "fillmode": "overlay",
+              "size": 10,
+              "solidity": 0.2
+            },
+            "type": "scatter"
+          }
+        ],
+        "scatter3d": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatter3d"
+          }
+        ],
+        "scattercarpet": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattercarpet"
+          }
+        ],
+        "scattergeo": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergeo"
+          }
+        ],
+        "scattergl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergl"
+          }
+        ],
+        "scattermap": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermap"
+          }
+        ],
+        "scattermapbox": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermapbox"
+          }
+        ],
+        "scatterpolar": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolar"
+          }
+        ],
+        "scatterpolargl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolargl"
+          }
+        ],
+        "scatterternary": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterternary"
+          }
+        ],
+        "surface": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "surface"
+          }
+        ],
+        "table": [
+          {
+            "cells": {
+              "fill": {
+                "color": "#EBF0F8"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "header": {
+              "fill": {
+                "color": "#C8D4E3"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "type": "table"
+          }
+        ]
+      },
+      "layout": {
+        "annotationdefaults": {
+          "arrowcolor": "#2a3f5f",
+          "arrowhead": 0,
+          "arrowwidth": 1
+        },
+        "autotypenumbers": "strict",
+        "coloraxis": {
+          "colorbar": {
+            "outlinewidth": 0,
+            "ticks": ""
+          }
+        },
+        "colorscale": {
+          "diverging": [
+            [
+              0,
+              "#8e0152"
+            ],
+            [
+              0.1,
+              "#c51b7d"
+            ],
+            [
+              0.2,
+              "#de77ae"
+            ],
+            [
+              0.3,
+              "#f1b6da"
+            ],
+            [
+              0.4,
+              "#fde0ef"
+            ],
+            [
+              0.5,
+              "#f7f7f7"
+            ],
+            [
+              0.6,
+              "#e6f5d0"
+            ],
+            [
+              0.7,
+              "#b8e186"
+            ],
+            [
+              0.8,
+              "#7fbc41"
+            ],
+            [
+              0.9,
+              "#4d9221"
+            ],
+            [
+              1,
+              "#276419"
+            ]
+          ],
+          "sequential": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ],
+          "sequentialminus": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ]
+        },
+        "colorway": [
+          "#636efa",
+          "#EF553B",
+          "#00cc96",
+          "#ab63fa",
+          "#FFA15A",
+          "#19d3f3",
+          "#FF6692",
+          "#B6E880",
+          "#FF97FF",
+          "#FECB52"
+        ],
+        "font": {
+          "color": "#2a3f5f"
+        },
+        "geo": {
+          "bgcolor": "white",
+          "lakecolor": "white",
+          "landcolor": "#E5ECF6",
+          "showlakes": true,
+          "showland": true,
+          "subunitcolor": "white"
+        },
+        "hoverlabel": {
+          "align": "left"
+        },
+        "hovermode": "closest",
+        "mapbox": {
+          "style": "light"
+        },
+        "paper_bgcolor": "white",
+        "plot_bgcolor": "#E5ECF6",
+        "polar": {
+          "angularaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "radialaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "scene": {
+          "xaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "yaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "zaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          }
+        },
+        "shapedefaults": {
+          "line": {
+            "color": "#2a3f5f"
+          }
+        },
+        "ternary": {
+          "aaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "baxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "caxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "title": {
+          "x": 0.05
+        },
+        "xaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        },
+        "yaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        }
+      }
+    },
+    "xaxis": {
+      "title": {
+        "text": "compressive_strength"
+      }
+    },
+    "yaxis": {
+      "title": {
+        "text": "% Chance of Satisfying the Constraints"
+      }
+    }
+  }
+}

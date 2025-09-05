@@ -1,0 +1,3811 @@
+{
+  "config": {
+    "plotlyServerURL": "https://plot.ly"
+  },
+  "data": [
+    {
+      "error_x": {
+        "array": {
+          "bdata": "TEPYeYJ9sD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(247, 147, 30, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "MfS4ttZZoT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(247, 147, 30, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(247, 147, 30, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 0",
+      "showlegend": false,
+      "text": [
+        "Trial: 0<br />Arm: baseline<br />Status: COMPLETED<br />Generation Node: unknown_gen_node<br />score: 0.92710\u00b10.06442<br />training_time: 0.66268\u00b10.03389<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "wf7Yis6q7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "eX22rLY05T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "7TcXSHolwz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(235, 136, 45, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "pH19v4ZV0D8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(235, 136, 45, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(235, 136, 45, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 1",
+      "showlegend": false,
+      "text": [
+        "Trial: 1<br />Arm: 1_0<br />Status: COMPLETED<br />Generation Node: CenterOfSearchSpace<br />score: 0.88454\u00b10.14958<br />training_time: 1.94630\u00b10.25522<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "3oYydCFO7D8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "hQ5UQAsk/z8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "POSXRf85wz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(223, 125, 60, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "zcoN716T5T8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(223, 125, 60, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(223, 125, 60, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 2",
+      "showlegend": false,
+      "text": [
+        "Trial: 2<br />Arm: 2_0<br />Status: COMPLETED<br />Generation Node: Sobol<br />score: 0.87961\u00b10.15021<br />training_time: 7.68520\u00b10.67424<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "8uSaQMAl7D8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "bnu6e6W9HkA=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "KaahP+GxwT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(211, 114, 75, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "wLi1z7J8xT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(211, 114, 75, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(211, 114, 75, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 3",
+      "showlegend": false,
+      "text": [
+        "Trial: 3<br />Arm: 3_0<br />Status: COMPLETED<br />Generation Node: Sobol<br />score: 0.90326\u00b10.13824<br />training_time: 2.00674\u00b10.16787<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "VLHYMH/n7D8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "P0R6j80NAEA=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "QLd62Sh7sD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(199, 104, 90, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "9BTEz0FooT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(199, 104, 90, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(199, 104, 90, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 4",
+      "showlegend": false,
+      "text": [
+        "Trial: 4<br />Arm: 4_0<br />Status: COMPLETED<br />Generation Node: Sobol<br />score: 0.92172\u00b10.06438<br />training_time: 1.11681\u00b10.03400<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "hv44DLt+7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "RN/qAHPe8T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "RoCpv/+7sz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(187, 93, 105, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "K1zmt2gWrz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(187, 93, 105, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(187, 93, 105, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 5",
+      "showlegend": false,
+      "text": [
+        "Trial: 5<br />Arm: 5_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92626\u00b10.07709<br />training_time: 0.64374\u00b10.06072<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "ACtF3/Gj7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "uv/AWHqZ5D8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "DooWkqlFuT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(175, 82, 120, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "grdK9UwKuT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(175, 82, 120, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(175, 82, 120, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 6",
+      "showlegend": false,
+      "text": [
+        "Trial: 6<br />Arm: 6_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92153\u00b10.09872<br />training_time: 0.63242\u00b10.09781<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "6ACnxyd97T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "p/kMyMM85D8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "8KF8+9RDuD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(163, 72, 135, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "4AfhawARtz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(163, 72, 135, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(163, 72, 135, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 7",
+      "showlegend": false,
+      "text": [
+        "Trial: 7<br />Arm: 7_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92260\u00b10.09479<br />training_time: 0.63471\u00b10.09010<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "ydqHe/mF7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "2dszKZFP5D8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "EjZDRscNtT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(151, 61, 150, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "Z9IDJQtUuT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(151, 61, 150, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(151, 61, 150, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 8",
+      "showlegend": false,
+      "text": [
+        "Trial: 8<br />Arm: 8_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92509\u00b10.08224<br />training_time: 0.62706\u00b10.09894<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "VsM3alma7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "v3uArd8Q5D8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "0iWd/mwxuT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(139, 50, 165, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "ntKRgvN0yz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(139, 50, 165, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(139, 50, 165, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 9",
+      "showlegend": false,
+      "text": [
+        "Trial: 9<br />Arm: 9_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92241\u00b10.09841<br />training_time: 0.66655\u00b10.21451<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "yOfLil+E7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "AnY5R1hU5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "jCCxNuY4uz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(127, 40, 181, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "WNJNik/Nyz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(127, 40, 181, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(127, 40, 181, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 10",
+      "showlegend": false,
+      "text": [
+        "Trial: 10<br />Arm: 10_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.91974\u00b10.10634<br />training_time: 0.66187\u00b10.21720<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "yweHpYRu7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "t34Zewgu5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "2YYBtKyKuD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(121, 47, 187, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "EDRsXWOXyz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(121, 47, 187, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(121, 47, 187, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 11",
+      "showlegend": false,
+      "text": [
+        "Trial: 11<br />Arm: 11_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92298\u00b10.09587<br />training_time: 0.66464\u00b10.21556<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "irkAYwSJ7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "4+CxpLBE5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "UofQn8BKuj8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(116, 54, 193, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "8tRD+km8zD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(116, 54, 193, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(116, 54, 193, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 12",
+      "showlegend": false,
+      "text": [
+        "Trial: 12<br />Arm: 12_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.91973\u00b10.10270<br />training_time: 0.65675\u00b10.22450<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "qTbuT2lu7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "kVz5ICIE5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "MXCHelD2uT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(111, 61, 199, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "RySXRg2wyz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(111, 61, 199, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(111, 61, 199, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 13",
+      "showlegend": false,
+      "text": [
+        "Trial: 13<br />Arm: 13_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92149\u00b10.10141<br />training_time: 0.66091\u00b10.21631<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "AaJhC9Z87T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "d8XpIjAm5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "a+gm1s10wT8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(106, 68, 205, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "NYygjDPmzj8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(106, 68, 205, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(106, 68, 205, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 14",
+      "showlegend": false,
+      "text": [
+        "Trial: 14<br />Arm: 14_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.90350\u00b10.13638<br />training_time: 0.65523\u00b10.24140<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "dO2rdHDp7D8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "1USplKn35D8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "Nh6FAFavvz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(101, 75, 212, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "iKPLABLizD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(101, 75, 212, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(101, 75, 212, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 15",
+      "showlegend": false,
+      "text": [
+        "Trial: 15<br />Arm: 15_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.91179\u00b10.12377<br />training_time: 0.66000\u00b10.22565<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "bO0h7mkt7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "Whrfc7ge5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "AY1xkbNqvz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(96, 82, 218, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "r1dTb3XTzD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(96, 82, 218, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(96, 82, 218, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 16",
+      "showlegend": false,
+      "text": [
+        "Trial: 16<br />Arm: 16_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.91247\u00b10.12272<br />training_time: 0.65858\u00b10.22520<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "PvnkAu0y7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "/S2UUBUT5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "7Qyy0MBhvz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(91, 89, 224, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "pHwqhn/QzD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(91, 89, 224, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(91, 89, 224, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 17",
+      "showlegend": false,
+      "text": [
+        "Trial: 17<br />Arm: 17_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.91252\u00b10.12259<br />training_time: 0.65879\u00b10.22511<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "LLTN9GUz7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "ptldT9YU5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "sICFo1Pfuj8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(86, 96, 230, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "oyI4GDArzD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(86, 96, 230, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(86, 96, 230, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 18",
+      "showlegend": false,
+      "text": [
+        "Trial: 18<br />Arm: 18_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92026\u00b10.10497<br />training_time: 0.65498\u00b10.22007<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "X3haos5y7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "PwTE7aH15D8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "z5wj4kKeuj8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(81, 103, 236, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "Hec3mYneyz8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(81, 103, 236, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(81, 103, 236, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 19",
+      "showlegend": false,
+      "text": [
+        "Trial: 19<br />Arm: 19_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.92069\u00b10.10398<br />training_time: 0.66145\u00b10.21773<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "LHRB/1J27T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "7Pc5KKAq5T8=",
+        "dtype": "f8"
+      }
+    },
+    {
+      "error_x": {
+        "array": {
+          "bdata": "G7F3Ev4dvj8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(76, 110, 243, 0.5)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": {
+          "bdata": "HuM8T2HPzD8=",
+          "dtype": "f8"
+        },
+        "color": "rgba(76, 110, 243, 0.5)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "cmax": 20,
+        "cmin": 0,
+        "color": "rgba(76, 110, 243, 1)",
+        "colorbar": {
+          "orientation": "h",
+          "title": {
+            "text": "Trial Index"
+          },
+          "x": 0.4,
+          "xanchor": "center",
+          "y": -0.3,
+          "yanchor": "top"
+        },
+        "colorscale": [
+          [
+            0.0,
+            "#f7931e"
+          ],
+          [
+            0.05,
+            "#eb882d"
+          ],
+          [
+            0.1,
+            "#df7d3c"
+          ],
+          [
+            0.15,
+            "#d3724b"
+          ],
+          [
+            0.2,
+            "#c7685a"
+          ],
+          [
+            0.25,
+            "#bb5d69"
+          ],
+          [
+            0.3,
+            "#af5278"
+          ],
+          [
+            0.35,
+            "#a34887"
+          ],
+          [
+            0.4,
+            "#973d96"
+          ],
+          [
+            0.45,
+            "#8b32a5"
+          ],
+          [
+            0.5,
+            "#7f28b5"
+          ],
+          [
+            0.55,
+            "#792fbb"
+          ],
+          [
+            0.6,
+            "#7436c1"
+          ],
+          [
+            0.65,
+            "#6f3dc7"
+          ],
+          [
+            0.7,
+            "#6a44cd"
+          ],
+          [
+            0.75,
+            "#654bd4"
+          ],
+          [
+            0.8,
+            "#6052da"
+          ],
+          [
+            0.85,
+            "#5b59e0"
+          ],
+          [
+            0.9,
+            "#5660e6"
+          ],
+          [
+            0.95,
+            "#5167ec"
+          ],
+          [
+            1.0,
+            "#4c6ef3"
+          ]
+        ],
+        "line": {
+          "color": "red",
+          "width": {
+            "bdata": "AA==",
+            "dtype": "i1"
+          }
+        },
+        "showscale": true
+      },
+      "mode": "markers",
+      "name": "Trial 20",
+      "showlegend": false,
+      "text": [
+        "Trial: 20<br />Arm: 20_0<br />Status: EARLY_STOPPED<br />Generation Node: MBM<br />score: 0.91531\u00b10.11765<br />training_time: 0.65305\u00b10.22508<br />"
+      ],
+      "type": "scatter",
+      "x": {
+        "bdata": "ql03bjtK7T8=",
+        "dtype": "f8"
+      },
+      "y": {
+        "bdata": "ghs9Ycnl5D8=",
+        "dtype": "f8"
+      }
+    }
+  ],
+  "layout": {
+    "legend": {
+      "orientation": "v",
+      "title": {
+        "text": ""
+      },
+      "x": 0.9,
+      "xanchor": "left",
+      "y": -0.33,
+      "yanchor": "top"
+    },
+    "margin": {
+      "t": 50
+    },
+    "template": {
+      "data": {
+        "bar": [
+          {
+            "error_x": {
+              "color": "#2a3f5f"
+            },
+            "error_y": {
+              "color": "#2a3f5f"
+            },
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "bar"
+          }
+        ],
+        "barpolar": [
+          {
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "barpolar"
+          }
+        ],
+        "carpet": [
+          {
+            "aaxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "baxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "type": "carpet"
+          }
+        ],
+        "choropleth": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "choropleth"
+          }
+        ],
+        "contour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "contour"
+          }
+        ],
+        "contourcarpet": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "contourcarpet"
+          }
+        ],
+        "heatmap": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmap"
+          }
+        ],
+        "histogram": [
+          {
+            "marker": {
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "histogram"
+          }
+        ],
+        "histogram2d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2d"
+          }
+        ],
+        "histogram2dcontour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2dcontour"
+          }
+        ],
+        "mesh3d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "mesh3d"
+          }
+        ],
+        "parcoords": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "parcoords"
+          }
+        ],
+        "pie": [
+          {
+            "automargin": true,
+            "type": "pie"
+          }
+        ],
+        "scatter": [
+          {
+            "fillpattern": {
+              "fillmode": "overlay",
+              "size": 10,
+              "solidity": 0.2
+            },
+            "type": "scatter"
+          }
+        ],
+        "scatter3d": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatter3d"
+          }
+        ],
+        "scattercarpet": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattercarpet"
+          }
+        ],
+        "scattergeo": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergeo"
+          }
+        ],
+        "scattergl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergl"
+          }
+        ],
+        "scattermap": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermap"
+          }
+        ],
+        "scattermapbox": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermapbox"
+          }
+        ],
+        "scatterpolar": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolar"
+          }
+        ],
+        "scatterpolargl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolargl"
+          }
+        ],
+        "scatterternary": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterternary"
+          }
+        ],
+        "surface": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "surface"
+          }
+        ],
+        "table": [
+          {
+            "cells": {
+              "fill": {
+                "color": "#EBF0F8"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "header": {
+              "fill": {
+                "color": "#C8D4E3"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "type": "table"
+          }
+        ]
+      },
+      "layout": {
+        "annotationdefaults": {
+          "arrowcolor": "#2a3f5f",
+          "arrowhead": 0,
+          "arrowwidth": 1
+        },
+        "autotypenumbers": "strict",
+        "coloraxis": {
+          "colorbar": {
+            "outlinewidth": 0,
+            "ticks": ""
+          }
+        },
+        "colorscale": {
+          "diverging": [
+            [
+              0,
+              "#8e0152"
+            ],
+            [
+              0.1,
+              "#c51b7d"
+            ],
+            [
+              0.2,
+              "#de77ae"
+            ],
+            [
+              0.3,
+              "#f1b6da"
+            ],
+            [
+              0.4,
+              "#fde0ef"
+            ],
+            [
+              0.5,
+              "#f7f7f7"
+            ],
+            [
+              0.6,
+              "#e6f5d0"
+            ],
+            [
+              0.7,
+              "#b8e186"
+            ],
+            [
+              0.8,
+              "#7fbc41"
+            ],
+            [
+              0.9,
+              "#4d9221"
+            ],
+            [
+              1,
+              "#276419"
+            ]
+          ],
+          "sequential": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ],
+          "sequentialminus": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ]
+        },
+        "colorway": [
+          "#636efa",
+          "#EF553B",
+          "#00cc96",
+          "#ab63fa",
+          "#FFA15A",
+          "#19d3f3",
+          "#FF6692",
+          "#B6E880",
+          "#FF97FF",
+          "#FECB52"
+        ],
+        "font": {
+          "color": "#2a3f5f"
+        },
+        "geo": {
+          "bgcolor": "white",
+          "lakecolor": "white",
+          "landcolor": "#E5ECF6",
+          "showlakes": true,
+          "showland": true,
+          "subunitcolor": "white"
+        },
+        "hoverlabel": {
+          "align": "left"
+        },
+        "hovermode": "closest",
+        "mapbox": {
+          "style": "light"
+        },
+        "paper_bgcolor": "white",
+        "plot_bgcolor": "#E5ECF6",
+        "polar": {
+          "angularaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "radialaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "scene": {
+          "xaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "yaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "zaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          }
+        },
+        "shapedefaults": {
+          "line": {
+            "color": "#2a3f5f"
+          }
+        },
+        "ternary": {
+          "aaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "baxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "caxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "title": {
+          "x": 0.05
+        },
+        "xaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        },
+        "yaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        }
+      }
+    },
+    "xaxis": {
+      "title": {
+        "text": "score"
+      }
+    },
+    "yaxis": {
+      "title": {
+        "text": "training_time"
+      }
+    }
+  }
+}
