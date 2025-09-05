@@ -216,342 +216,345 @@ for _ in range(30):  # Run 30 rounds of trials
 
 <CellOutput>
 {
-`[INFO 09-05 18:05:42] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
-[INFO 09-05 18:05:42] ax.api.client: Generated new trial 0 with parameters {'x1': 0.5, 'x2': 0.5, 'x3': 0.5, 'x4': 0.5, 'x5': 0.5, 'x6': 0.5} using GenerationNode CenterOfSearchSpace.
-[INFO 09-05 18:05:42] ax.api.client: Generated new trial 1 with parameters {'x1': 0.609462, 'x2': 0.544246, 'x3': 0.682442, 'x4': 0.636599, 'x5': 0.555102, 'x6': 0.318981} using GenerationNode Sobol.
-[INFO 09-05 18:05:42] ax.api.client: Generated new trial 2 with parameters {'x1': 0.074393, 'x2': 0.267562, 'x3': 0.090851, 'x4': 0.148223, 'x5': 0.033599, 'x6': 0.598113} using GenerationNode Sobol.
-[INFO 09-05 18:05:43] ax.api.client: Trial 0 marked COMPLETED.
-[INFO 09-05 18:05:45] ax.api.client: Trial 1 marked COMPLETED.
-[INFO 09-05 18:05:46] ax.api.client: Trial 2 marked COMPLETED.
-[INFO 09-05 18:05:46] ax.api.client: Generated new trial 3 with parameters {'x1': 0.343109, 'x2': 0.872151, 'x3': 0.883883, 'x4': 0.874278, 'x5': 0.355764, 'x6': 0.981265} using GenerationNode Sobol.
-[INFO 09-05 18:05:46] ax.api.client: Generated new trial 4 with parameters {'x1': 0.847058, 'x2': 0.064087, 'x3': 0.358205, 'x4': 0.347065, 'x5': 0.865503, 'x6': 0.201193} using GenerationNode Sobol.
-[WARNING 09-05 18:05:46] ax.api.client: 3 trials requested but only 2 could be generated.
-[INFO 09-05 18:05:48] ax.api.client: Trial 3 marked COMPLETED.
-[INFO 09-05 18:05:49] ax.api.client: Trial 4 marked COMPLETED.
-[INFO 09-05 18:05:50] ax.api.client: Generated new trial 5 with parameters {'x1': 0.086451, 'x2': 0.830646, 'x3': 0.334765, 'x4': 0.368886, 'x5': 0.055774, 'x6': 0.550202} using GenerationNode MBM.
-[WARNING 09-05 18:05:50] ax.api.client: 3 trials requested but only 1 could be generated.
-[INFO 09-05 18:05:50] ax.early_stopping.strategies.percentile: Early stoppinging trial 5: Trial objective value 3.1269533318184037 is worse than 50.0-th percentile (3.10492496403148) across comparable trials..
-[INFO 09-05 18:05:50] ax.api.client: Trial 5 should be stopped early: Trial objective value 3.1269533318184037 is worse than 50.0-th percentile (3.10492496403148) across comparable trials.
-[INFO 09-05 18:05:50] ax.api.client: Trial 5 marked EARLY_STOPPED.
-[INFO 09-05 18:05:51] ax.api.client: Generated new trial 6 with parameters {'x1': 0.005635, 'x2': 1.0, 'x3': 0.0, 'x4': 0.096854, 'x5': 0.701196, 'x6': 0.5747} using GenerationNode MBM.
-[INFO 09-05 18:05:51] ax.api.client: Generated new trial 7 with parameters {'x1': 0.873042, 'x2': 0.740674, 'x3': 0.0, 'x4': 0.262813, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:05:51] ax.api.client: Generated new trial 8 with parameters {'x1': 0.0, 'x2': 0.024295, 'x3': 0.981783, 'x4': 0.0, 'x5': 0.388181, 'x6': 0.905892} using GenerationNode MBM.
-[INFO 09-05 18:05:51] ax.early_stopping.strategies.percentile: Early stoppinging trial 6: Trial objective value 3.313869082561639 is worse than 50.0-th percentile (3.1269533318184037) across comparable trials..
-[INFO 09-05 18:05:51] ax.api.client: Trial 6 should be stopped early: Trial objective value 3.313869082561639 is worse than 50.0-th percentile (3.1269533318184037) across comparable trials.
-[INFO 09-05 18:05:51] ax.api.client: Trial 6 marked EARLY_STOPPED.
-[INFO 09-05 18:05:52] ax.early_stopping.strategies.percentile: Early stoppinging trial 7: Trial objective value 3.30464810023852 is worse than 50.0-th percentile (3.1821290220234815) across comparable trials..
-[INFO 09-05 18:05:52] ax.api.client: Trial 7 should be stopped early: Trial objective value 3.30464810023852 is worse than 50.0-th percentile (3.1821290220234815) across comparable trials.
-[INFO 09-05 18:05:52] ax.api.client: Trial 7 marked EARLY_STOPPED.
-[INFO 09-05 18:05:55] ax.api.client: Trial 8 marked COMPLETED.
-[INFO 09-05 18:05:56] ax.api.client: Generated new trial 9 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.0, 'x5': 0.998216, 'x6': 0.990139} using GenerationNode MBM.
-[INFO 09-05 18:05:56] ax.api.client: Generated new trial 10 with parameters {'x1': 1.0, 'x2': 0.855264, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:05:56] ax.api.client: Generated new trial 11 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.935195, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:05:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 9: Trial objective value 3.3217766885044306 is worse than 50.0-th percentile (3.1821290220234815) across comparable trials..
-[INFO 09-05 18:05:56] ax.api.client: Trial 9 should be stopped early: Trial objective value 3.3217766885044306 is worse than 50.0-th percentile (3.1821290220234815) across comparable trials.
-[INFO 09-05 18:05:56] ax.api.client: Trial 9 marked EARLY_STOPPED.
-[INFO 09-05 18:05:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 10: Trial objective value 3.0903320292124987 is worse than 50.0-th percentile (2.945393072494621) across comparable trials..
-[INFO 09-05 18:05:56] ax.api.client: Trial 10 should be stopped early: Trial objective value 3.0903320292124987 is worse than 50.0-th percentile (2.945393072494621) across comparable trials.
-[INFO 09-05 18:05:56] ax.api.client: Trial 10 marked EARLY_STOPPED.
-[INFO 09-05 18:05:57] ax.early_stopping.strategies.percentile: Early stoppinging trial 11: Trial objective value 3.31946165485316 is worse than 50.0-th percentile (3.2325701325954963) across comparable trials..
-[INFO 09-05 18:05:57] ax.api.client: Trial 11 should be stopped early: Trial objective value 3.31946165485316 is worse than 50.0-th percentile (3.2325701325954963) across comparable trials.
-[INFO 09-05 18:05:57] ax.api.client: Trial 11 marked EARLY_STOPPED.
-[INFO 09-05 18:05:59] ax.api.client: Generated new trial 12 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.72891, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:05:59] ax.api.client: Generated new trial 13 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.0, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:05:59] ax.api.client: Generated new trial 14 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:05:59] ax.early_stopping.strategies.percentile: Early stoppinging trial 12: Trial objective value 3.313872969760628 is worse than 50.0-th percentile (3.2373047122285596) across comparable trials..
-[INFO 09-05 18:05:59] ax.api.client: Trial 12 should be stopped early: Trial objective value 3.313872969760628 is worse than 50.0-th percentile (3.2373047122285596) across comparable trials.
-[INFO 09-05 18:05:59] ax.api.client: Trial 12 marked EARLY_STOPPED.
-[INFO 09-05 18:05:59] ax.early_stopping.strategies.percentile: Early stoppinging trial 13: Trial objective value 3.321786468622737 is worse than 50.0-th percentile (3.27097640623354) across comparable trials..
-[INFO 09-05 18:05:59] ax.api.client: Trial 13 should be stopped early: Trial objective value 3.321786468622737 is worse than 50.0-th percentile (3.27097640623354) across comparable trials.
-[INFO 09-05 18:05:59] ax.api.client: Trial 13 marked EARLY_STOPPED.
-[INFO 09-05 18:05:59] ax.early_stopping.strategies.percentile: Early stoppinging trial 14: Trial objective value 3.3207381844163524 is worse than 50.0-th percentile (3.30464810023852) across comparable trials..
-[INFO 09-05 18:05:59] ax.api.client: Trial 14 should be stopped early: Trial objective value 3.3207381844163524 is worse than 50.0-th percentile (3.30464810023852) across comparable trials.
-[INFO 09-05 18:05:59] ax.api.client: Trial 14 marked EARLY_STOPPED.
-[INFO 09-05 18:06:02] ax.api.client: Generated new trial 15 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.896009, 'x4': 0.0, 'x5': 0.281603, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:02] ax.api.client: Generated new trial 16 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:06:02] ax.api.client: Generated new trial 17 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 15: Trial objective value 3.1340659221449907 is worse than 50.0-th percentile (3.01786255085356) across comparable trials..
-[INFO 09-05 18:06:02] ax.api.client: Trial 15 should be stopped early: Trial objective value 3.1340659221449907 is worse than 50.0-th percentile (3.01786255085356) across comparable trials.
-[INFO 09-05 18:06:02] ax.api.client: Trial 15 marked EARLY_STOPPED.
-[INFO 09-05 18:06:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 16: Trial objective value 3.3161937420969143 is worse than 50.0-th percentile (3.30464810023852) across comparable trials..
-[INFO 09-05 18:06:02] ax.api.client: Trial 16 should be stopped early: Trial objective value 3.3161937420969143 is worse than 50.0-th percentile (3.30464810023852) across comparable trials.
-[INFO 09-05 18:06:02] ax.api.client: Trial 16 marked EARLY_STOPPED.
-[INFO 09-05 18:06:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 17: Trial objective value 3.1628211578844403 is worse than 50.0-th percentile (3.0903320292124987) across comparable trials..
-[INFO 09-05 18:06:02] ax.api.client: Trial 17 should be stopped early: Trial objective value 3.1628211578844403 is worse than 50.0-th percentile (3.0903320292124987) across comparable trials.
-[INFO 09-05 18:06:02] ax.api.client: Trial 17 marked EARLY_STOPPED.
-[WARNING 09-05 18:06:07] ax.generation_strategy.generation_node: gen failed with error GenerationStrategy exceeded MAX_GEN_ATTEMPTS of 5 while trying to generate a unique parameterization. This indicates that the search space has likely been fully explored, or that the sweep has converged., switching to fallback model with generator_enum Generators.SOBOL
-[INFO 09-05 18:06:07] ax.api.client: Generated new trial 18 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.105183, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:07] ax.api.client: Generated new trial 19 with parameters {'x1': 0.827059, 'x2': 0.239657, 'x3': 0.742998, 'x4': 0.636163, 'x5': 0.291761, 'x6': 0.450915} using GenerationNode MBM.
-[INFO 09-05 18:06:07] ax.api.client: Generated new trial 20 with parameters {'x1': 0.121709, 'x2': 0.932243, 'x3': 0.27909, 'x4': 0.224411, 'x5': 0.551922, 'x6': 0.833053} using GenerationNode MBM.
-[INFO 09-05 18:06:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 18: Trial objective value 3.1520728389048283 is worse than 50.0-th percentile (3.0950666088455616) across comparable trials..
-[INFO 09-05 18:06:07] ax.api.client: Trial 18 should be stopped early: Trial objective value 3.1520728389048283 is worse than 50.0-th percentile (3.0950666088455616) across comparable trials.
-[INFO 09-05 18:06:07] ax.api.client: Trial 18 marked EARLY_STOPPED.
-[INFO 09-05 18:06:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 19: Trial objective value 2.888033685532198 is worse than 50.0-th percentile (2.8198621904107624) across comparable trials..
-[INFO 09-05 18:06:07] ax.api.client: Trial 19 should be stopped early: Trial objective value 2.888033685532198 is worse than 50.0-th percentile (2.8198621904107624) across comparable trials.
-[INFO 09-05 18:06:07] ax.api.client: Trial 19 marked EARLY_STOPPED.
-[INFO 09-05 18:06:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 20: Trial objective value 2.9483004142530898 is worse than 50.0-th percentile (2.8539479379714803) across comparable trials..
-[INFO 09-05 18:06:07] ax.api.client: Trial 20 should be stopped early: Trial objective value 2.9483004142530898 is worse than 50.0-th percentile (2.8539479379714803) across comparable trials.
-[INFO 09-05 18:06:07] ax.api.client: Trial 20 marked EARLY_STOPPED.
-[WARNING 09-05 18:06:12] ax.generation_strategy.generation_node: gen failed with error GenerationStrategy exceeded MAX_GEN_ATTEMPTS of 5 while trying to generate a unique parameterization. This indicates that the search space has likely been fully explored, or that the sweep has converged., switching to fallback model with generator_enum Generators.SOBOL
-[INFO 09-05 18:06:12] ax.api.client: Generated new trial 21 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.608766, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:12] ax.api.client: Generated new trial 22 with parameters {'x1': 0.342962, 'x2': 0.348694, 'x3': 0.880902, 'x4': 0.94004, 'x5': 0.957152, 'x6': 0.741367} using GenerationNode MBM.
-[INFO 09-05 18:06:12] ax.api.client: Generated new trial 23 with parameters {'x1': 0.606906, 'x2': 0.54189, 'x3': 0.096767, 'x4': 0.418199, 'x5': 0.199181, 'x6': 0.109008} using GenerationNode MBM.
-[INFO 09-05 18:06:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 21: Trial objective value 3.3145317569625514 is worse than 50.0-th percentile (3.294950522144569) across comparable trials..
-[INFO 09-05 18:06:12] ax.api.client: Trial 21 should be stopped early: Trial objective value 3.3145317569625514 is worse than 50.0-th percentile (3.294950522144569) across comparable trials.
-[INFO 09-05 18:06:12] ax.api.client: Trial 21 marked EARLY_STOPPED.
-[INFO 09-05 18:06:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 22: Trial objective value 3.3167892910211245 is worse than 50.0-th percentile (3.300324681634375) across comparable trials..
-[INFO 09-05 18:06:12] ax.api.client: Trial 22 should be stopped early: Trial objective value 3.3167892910211245 is worse than 50.0-th percentile (3.300324681634375) across comparable trials.
-[INFO 09-05 18:06:12] ax.api.client: Trial 22 marked EARLY_STOPPED.
-[INFO 09-05 18:06:17] ax.api.client: Trial 23 marked COMPLETED.
-[INFO 09-05 18:06:20] ax.api.client: Generated new trial 24 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.781593, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:20] ax.api.client: Generated new trial 25 with parameters {'x1': 1.0, 'x2': 0.983465, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:20] ax.api.client: Generated new trial 26 with parameters {'x1': 0.0, 'x2': 0.832683, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:06:20] ax.early_stopping.strategies.percentile: Early stoppinging trial 24: Trial objective value 3.3200302947570735 is worse than 50.0-th percentile (3.300324681634375) across comparable trials..
-[INFO 09-05 18:06:20] ax.api.client: Trial 24 should be stopped early: Trial objective value 3.3200302947570735 is worse than 50.0-th percentile (3.300324681634375) across comparable trials.
-[INFO 09-05 18:06:20] ax.api.client: Trial 24 marked EARLY_STOPPED.
-[INFO 09-05 18:06:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 25: Trial objective value 3.1583463938904455 is worse than 50.0-th percentile (3.0820816627747236) across comparable trials..
-[INFO 09-05 18:06:21] ax.api.client: Trial 25 should be stopped early: Trial objective value 3.1583463938904455 is worse than 50.0-th percentile (3.0820816627747236) across comparable trials.
-[INFO 09-05 18:06:21] ax.api.client: Trial 25 marked EARLY_STOPPED.
-[INFO 09-05 18:06:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 26: Trial objective value 3.3141494134420704 is worse than 50.0-th percentile (3.300324681634375) across comparable trials..
-[INFO 09-05 18:06:21] ax.api.client: Trial 26 should be stopped early: Trial objective value 3.3141494134420704 is worse than 50.0-th percentile (3.300324681634375) across comparable trials.
-[INFO 09-05 18:06:21] ax.api.client: Trial 26 marked EARLY_STOPPED.
-[WARNING 09-05 18:06:26] ax.generation_strategy.generation_node: gen failed with error GenerationStrategy exceeded MAX_GEN_ATTEMPTS of 5 while trying to generate a unique parameterization. This indicates that the search space has likely been fully explored, or that the sweep has converged., switching to fallback model with generator_enum Generators.SOBOL
-[INFO 09-05 18:06:26] ax.api.client: Generated new trial 27 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.945506, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:26] ax.api.client: Generated new trial 28 with parameters {'x1': 0.654467, 'x2': 0.436068, 'x3': 0.458329, 'x4': 0.292275, 'x5': 0.087947, 'x6': 0.283393} using GenerationNode MBM.
-[INFO 09-05 18:06:26] ax.api.client: Generated new trial 29 with parameters {'x1': 0.418355, 'x2': 0.735832, 'x3': 0.547157, 'x4': 0.818297, 'x5': 0.818266, 'x6': 0.932156} using GenerationNode MBM.
-[INFO 09-05 18:06:26] ax.early_stopping.strategies.percentile: Early stoppinging trial 27: Trial objective value 3.320882954128496 is worse than 50.0-th percentile (3.3024863909364477) across comparable trials..
-[INFO 09-05 18:06:26] ax.api.client: Trial 27 should be stopped early: Trial objective value 3.320882954128496 is worse than 50.0-th percentile (3.3024863909364477) across comparable trials.
-[INFO 09-05 18:06:26] ax.api.client: Trial 27 marked EARLY_STOPPED.
-[INFO 09-05 18:06:26] ax.early_stopping.strategies.percentile: Early stoppinging trial 28: Trial objective value 2.8282036608728722 is worse than 50.0-th percentile (2.8240329256418173) across comparable trials..
-[INFO 09-05 18:06:26] ax.api.client: Trial 28 should be stopped early: Trial objective value 2.8282036608728722 is worse than 50.0-th percentile (2.8240329256418173) across comparable trials.
-[INFO 09-05 18:06:26] ax.api.client: Trial 28 marked EARLY_STOPPED.
-[INFO 09-05 18:06:27] ax.early_stopping.strategies.percentile: Early stoppinging trial 29: Trial objective value 3.3133083810436452 is worse than 50.0-th percentile (3.3024863909364477) across comparable trials..
-[INFO 09-05 18:06:27] ax.api.client: Trial 29 should be stopped early: Trial objective value 3.3133083810436452 is worse than 50.0-th percentile (3.3024863909364477) across comparable trials.
-[INFO 09-05 18:06:27] ax.api.client: Trial 29 marked EARLY_STOPPED.
-[INFO 09-05 18:06:31] ax.api.client: Generated new trial 30 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.077979, 'x5': 0.562443, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:31] ax.api.client: Generated new trial 31 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.189629, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:31] ax.api.client: Generated new trial 32 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:31] ax.early_stopping.strategies.percentile: Early stoppinging trial 30: Trial objective value 3.308672721198281 is worse than 50.0-th percentile (3.30464810023852) across comparable trials..
-[INFO 09-05 18:06:31] ax.api.client: Trial 30 should be stopped early: Trial objective value 3.308672721198281 is worse than 50.0-th percentile (3.30464810023852) across comparable trials.
-[INFO 09-05 18:06:31] ax.api.client: Trial 30 marked EARLY_STOPPED.
-[INFO 09-05 18:06:32] ax.early_stopping.strategies.percentile: Early stoppinging trial 31: Trial objective value 3.15511503963639 is worse than 50.0-th percentile (3.0820816627747236) across comparable trials..
-[INFO 09-05 18:06:32] ax.api.client: Trial 31 should be stopped early: Trial objective value 3.15511503963639 is worse than 50.0-th percentile (3.0820816627747236) across comparable trials.
-[INFO 09-05 18:06:32] ax.api.client: Trial 31 marked EARLY_STOPPED.
-[INFO 09-05 18:06:32] ax.early_stopping.strategies.percentile: Early stoppinging trial 32: Trial objective value 3.320960284839637 is worse than 50.0-th percentile (3.30464810023852) across comparable trials..
-[INFO 09-05 18:06:32] ax.api.client: Trial 32 should be stopped early: Trial objective value 3.320960284839637 is worse than 50.0-th percentile (3.30464810023852) across comparable trials.
-[INFO 09-05 18:06:32] ax.api.client: Trial 32 marked EARLY_STOPPED.
-[INFO 09-05 18:06:36] ax.api.client: Generated new trial 33 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.161682, 'x5': 0.084132, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:36] ax.api.client: Generated new trial 34 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.06363, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:36] ax.api.client: Generated new trial 35 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.256588, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:36] ax.early_stopping.strategies.percentile: Early stoppinging trial 33: Trial objective value 3.146001261176301 is worse than 50.0-th percentile (3.0903320292124987) across comparable trials..
-[INFO 09-05 18:06:36] ax.api.client: Trial 33 should be stopped early: Trial objective value 3.146001261176301 is worse than 50.0-th percentile (3.0903320292124987) across comparable trials.
-[INFO 09-05 18:06:36] ax.api.client: Trial 33 marked EARLY_STOPPED.
-[INFO 09-05 18:06:36] ax.early_stopping.strategies.percentile: Early stoppinging trial 34: Trial objective value 3.321891140517965 is worse than 50.0-th percentile (3.30464810023852) across comparable trials..
-[INFO 09-05 18:06:36] ax.api.client: Trial 34 should be stopped early: Trial objective value 3.321891140517965 is worse than 50.0-th percentile (3.30464810023852) across comparable trials.
-[INFO 09-05 18:06:36] ax.api.client: Trial 34 marked EARLY_STOPPED.
-[INFO 09-05 18:06:37] ax.early_stopping.strategies.percentile: Early stoppinging trial 35: Trial objective value 3.3218018081941794 is worse than 50.0-th percentile (3.3066604107184006) across comparable trials..
-[INFO 09-05 18:06:37] ax.api.client: Trial 35 should be stopped early: Trial objective value 3.3218018081941794 is worse than 50.0-th percentile (3.3066604107184006) across comparable trials.
-[INFO 09-05 18:06:37] ax.api.client: Trial 35 marked EARLY_STOPPED.
-[INFO 09-05 18:06:40] ax.api.client: Generated new trial 36 with parameters {'x1': 0.383942, 'x2': 1.0, 'x3': 1.0, 'x4': 0.172444, 'x5': 0.683016, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:40] ax.api.client: Generated new trial 37 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.084109, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:40] ax.api.client: Generated new trial 38 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.270246, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 36: Trial objective value 3.316500444939452 is worse than 50.0-th percentile (3.308672721198281) across comparable trials..
-[INFO 09-05 18:06:41] ax.api.client: Trial 36 should be stopped early: Trial objective value 3.316500444939452 is worse than 50.0-th percentile (3.308672721198281) across comparable trials.
-[INFO 09-05 18:06:41] ax.api.client: Trial 36 marked EARLY_STOPPED.
-[INFO 09-05 18:06:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 37: Trial objective value 3.162335000885876 is worse than 50.0-th percentile (3.0950666088455616) across comparable trials..
-[INFO 09-05 18:06:41] ax.api.client: Trial 37 should be stopped early: Trial objective value 3.162335000885876 is worse than 50.0-th percentile (3.0950666088455616) across comparable trials.
-[INFO 09-05 18:06:41] ax.api.client: Trial 37 marked EARLY_STOPPED.
-[INFO 09-05 18:06:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 38: Trial objective value 3.154369899536861 is worse than 50.0-th percentile (3.099801188478625) across comparable trials..
-[INFO 09-05 18:06:41] ax.api.client: Trial 38 should be stopped early: Trial objective value 3.154369899536861 is worse than 50.0-th percentile (3.099801188478625) across comparable trials.
-[INFO 09-05 18:06:41] ax.api.client: Trial 38 marked EARLY_STOPPED.
-[INFO 09-05 18:06:45] ax.api.client: Generated new trial 39 with parameters {'x1': 0.0, 'x2': 0.940283, 'x3': 0.236851, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:45] ax.api.client: Generated new trial 40 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.078676, 'x4': 0.0, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:45] ax.api.client: Generated new trial 41 with parameters {'x1': 1.0, 'x2': 0.856641, 'x3': 0.304096, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:45] ax.early_stopping.strategies.percentile: Early stoppinging trial 39: Trial objective value 3.3098082689052934 is worse than 50.0-th percentile (3.3066604107184006) across comparable trials..
-[INFO 09-05 18:06:45] ax.api.client: Trial 39 should be stopped early: Trial objective value 3.3098082689052934 is worse than 50.0-th percentile (3.3066604107184006) across comparable trials.
-[INFO 09-05 18:06:45] ax.api.client: Trial 39 marked EARLY_STOPPED.
-[INFO 09-05 18:06:45] ax.early_stopping.strategies.percentile: Early stoppinging trial 40: Trial objective value 3.3213848388005784 is worse than 50.0-th percentile (3.308672721198281) across comparable trials..
-[INFO 09-05 18:06:45] ax.api.client: Trial 40 should be stopped early: Trial objective value 3.3213848388005784 is worse than 50.0-th percentile (3.308672721198281) across comparable trials.
-[INFO 09-05 18:06:45] ax.api.client: Trial 40 marked EARLY_STOPPED.
-[INFO 09-05 18:06:46] ax.early_stopping.strategies.percentile: Early stoppinging trial 41: Trial objective value 3.317380018819035 is worse than 50.0-th percentile (3.309240495051787) across comparable trials..
-[INFO 09-05 18:06:46] ax.api.client: Trial 41 should be stopped early: Trial objective value 3.317380018819035 is worse than 50.0-th percentile (3.309240495051787) across comparable trials.
-[INFO 09-05 18:06:46] ax.api.client: Trial 41 marked EARLY_STOPPED.
-[INFO 09-05 18:06:50] ax.api.client: Generated new trial 42 with parameters {'x1': 0.161656, 'x2': 1.0, 'x3': 1.0, 'x4': 0.182191, 'x5': 0.192467, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:50] ax.api.client: Generated new trial 43 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.182567, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:50] ax.api.client: Generated new trial 44 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.004209, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:50] ax.early_stopping.strategies.percentile: Early stoppinging trial 42: Trial objective value 3.128966763555105 is worse than 50.0-th percentile (3.114383976016865) across comparable trials..
-[INFO 09-05 18:06:50] ax.api.client: Trial 42 should be stopped early: Trial objective value 3.128966763555105 is worse than 50.0-th percentile (3.114383976016865) across comparable trials.
-[INFO 09-05 18:06:50] ax.api.client: Trial 42 marked EARLY_STOPPED.
-[INFO 09-05 18:06:50] ax.early_stopping.strategies.percentile: Early stoppinging trial 43: Trial objective value 3.32192482373484 is worse than 50.0-th percentile (3.309240495051787) across comparable trials..
-[INFO 09-05 18:06:50] ax.api.client: Trial 43 should be stopped early: Trial objective value 3.32192482373484 is worse than 50.0-th percentile (3.309240495051787) across comparable trials.
-[INFO 09-05 18:06:50] ax.api.client: Trial 43 marked EARLY_STOPPED.
-[INFO 09-05 18:06:51] ax.early_stopping.strategies.percentile: Early stoppinging trial 44: Trial objective value 3.321891617249821 is worse than 50.0-th percentile (3.3098082689052934) across comparable trials..
-[INFO 09-05 18:06:51] ax.api.client: Trial 44 should be stopped early: Trial objective value 3.321891617249821 is worse than 50.0-th percentile (3.3098082689052934) across comparable trials.
-[INFO 09-05 18:06:51] ax.api.client: Trial 44 marked EARLY_STOPPED.
-[INFO 09-05 18:06:55] ax.api.client: Generated new trial 45 with parameters {'x1': 0.619755, 'x2': 1.0, 'x3': 1.0, 'x4': 0.193411, 'x5': 0.704509, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:55] ax.api.client: Generated new trial 46 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.269319, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:55] ax.api.client: Generated new trial 47 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.013422, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:06:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 45: Trial objective value 3.3187776278927945 is worse than 50.0-th percentile (3.3115583249744693) across comparable trials..
-[INFO 09-05 18:06:56] ax.api.client: Trial 45 should be stopped early: Trial objective value 3.3187776278927945 is worse than 50.0-th percentile (3.3115583249744693) across comparable trials.
-[INFO 09-05 18:06:56] ax.api.client: Trial 45 marked EARLY_STOPPED.
-[INFO 09-05 18:06:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 46: Trial objective value 3.1710276008239986 is worse than 50.0-th percentile (3.128966763555105) across comparable trials..
-[INFO 09-05 18:06:56] ax.api.client: Trial 46 should be stopped early: Trial objective value 3.1710276008239986 is worse than 50.0-th percentile (3.128966763555105) across comparable trials.
-[INFO 09-05 18:06:56] ax.api.client: Trial 46 marked EARLY_STOPPED.
-[INFO 09-05 18:06:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 47: Trial objective value 3.321891542651561 is worse than 50.0-th percentile (3.3115583249744693) across comparable trials..
-[INFO 09-05 18:06:56] ax.api.client: Trial 47 should be stopped early: Trial objective value 3.321891542651561 is worse than 50.0-th percentile (3.3115583249744693) across comparable trials.
-[INFO 09-05 18:06:56] ax.api.client: Trial 47 marked EARLY_STOPPED.
-[INFO 09-05 18:07:01] ax.api.client: Generated new trial 48 with parameters {'x1': 0.867559, 'x2': 1.0, 'x3': 1.0, 'x4': 0.207674, 'x5': 0.858508, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:01] ax.api.client: Generated new trial 49 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.277398, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:01] ax.api.client: Generated new trial 50 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.023224, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:01] ax.early_stopping.strategies.percentile: Early stoppinging trial 48: Trial objective value 3.3216196650642975 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials..
-[INFO 09-05 18:07:01] ax.api.client: Trial 48 should be stopped early: Trial objective value 3.3216196650642975 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials.
-[INFO 09-05 18:07:01] ax.api.client: Trial 48 marked EARLY_STOPPED.
-[INFO 09-05 18:07:01] ax.early_stopping.strategies.percentile: Early stoppinging trial 49: Trial objective value 3.170995805055301 is worse than 50.0-th percentile (3.131516342850048) across comparable trials..
-[INFO 09-05 18:07:01] ax.api.client: Trial 49 should be stopped early: Trial objective value 3.170995805055301 is worse than 50.0-th percentile (3.131516342850048) across comparable trials.
-[INFO 09-05 18:07:01] ax.api.client: Trial 49 marked EARLY_STOPPED.
-[INFO 09-05 18:07:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 50: Trial objective value 3.321891463319722 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials..
-[INFO 09-05 18:07:02] ax.api.client: Trial 50 should be stopped early: Trial objective value 3.321891463319722 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials.
-[INFO 09-05 18:07:02] ax.api.client: Trial 50 marked EARLY_STOPPED.
-[INFO 09-05 18:07:07] ax.api.client: Generated new trial 51 with parameters {'x1': 0.107583, 'x2': 1.0, 'x3': 1.0, 'x4': 0.158459, 'x5': 0.107704, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:07] ax.api.client: Generated new trial 52 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.13094, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:07] ax.api.client: Generated new trial 53 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.002017, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 51: Trial objective value 3.1411745246629588 is worse than 50.0-th percentile (3.1340659221449907) across comparable trials..
-[INFO 09-05 18:07:07] ax.api.client: Trial 51 should be stopped early: Trial objective value 3.1411745246629588 is worse than 50.0-th percentile (3.1340659221449907) across comparable trials.
-[INFO 09-05 18:07:07] ax.api.client: Trial 51 marked EARLY_STOPPED.
-[INFO 09-05 18:07:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 52: Trial objective value 3.321925226146536 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials..
-[INFO 09-05 18:07:07] ax.api.client: Trial 52 should be stopped early: Trial objective value 3.321925226146536 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials.
-[INFO 09-05 18:07:07] ax.api.client: Trial 52 marked EARLY_STOPPED.
-[INFO 09-05 18:07:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 53: Trial objective value 3.3209600761733555 is worse than 50.0-th percentile (3.313588731802642) across comparable trials..
-[INFO 09-05 18:07:07] ax.api.client: Trial 53 should be stopped early: Trial objective value 3.3209600761733555 is worse than 50.0-th percentile (3.313588731802642) across comparable trials.
-[INFO 09-05 18:07:07] ax.api.client: Trial 53 marked EARLY_STOPPED.
-[INFO 09-05 18:07:13] ax.api.client: Generated new trial 54 with parameters {'x1': 0.940881, 'x2': 1.0, 'x3': 1.0, 'x4': 0.193955, 'x5': 0.913159, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:13] ax.api.client: Generated new trial 55 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.286046, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:13] ax.api.client: Generated new trial 56 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.067543, 'x5': 1.0, 'x6': 0.427965} using GenerationNode MBM.
-[INFO 09-05 18:07:13] ax.early_stopping.strategies.percentile: Early stoppinging trial 54: Trial objective value 3.3217925656925895 is worse than 50.0-th percentile (3.313869082561639) across comparable trials..
-[INFO 09-05 18:07:13] ax.api.client: Trial 54 should be stopped early: Trial objective value 3.3217925656925895 is worse than 50.0-th percentile (3.313869082561639) across comparable trials.
-[INFO 09-05 18:07:13] ax.api.client: Trial 54 marked EARLY_STOPPED.
-[INFO 09-05 18:07:14] ax.early_stopping.strategies.percentile: Early stoppinging trial 55: Trial objective value 3.17098110502637 is worse than 50.0-th percentile (3.1376202234039745) across comparable trials..
-[INFO 09-05 18:07:14] ax.api.client: Trial 55 should be stopped early: Trial objective value 3.17098110502637 is worse than 50.0-th percentile (3.1376202234039745) across comparable trials.
-[INFO 09-05 18:07:14] ax.api.client: Trial 55 marked EARLY_STOPPED.
-[INFO 09-05 18:07:14] ax.early_stopping.strategies.percentile: Early stoppinging trial 56: Trial objective value 3.3175326591116514 is worse than 50.0-th percentile (3.313869082561639) across comparable trials..
-[INFO 09-05 18:07:14] ax.api.client: Trial 56 should be stopped early: Trial objective value 3.3175326591116514 is worse than 50.0-th percentile (3.313869082561639) across comparable trials.
-[INFO 09-05 18:07:14] ax.api.client: Trial 56 marked EARLY_STOPPED.
-[INFO 09-05 18:07:19] ax.api.client: Generated new trial 57 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.204034, 'x5': 1.0, 'x6': 0.90111} using GenerationNode MBM.
-[INFO 09-05 18:07:19] ax.api.client: Generated new trial 58 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.285767, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:19] ax.api.client: Generated new trial 59 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.126843, 'x5': 1.0, 'x6': 0.327633} using GenerationNode MBM.
-[INFO 09-05 18:07:20] ax.early_stopping.strategies.percentile: Early stoppinging trial 57: Trial objective value 3.321893110961321 is worse than 50.0-th percentile (3.3138710261611335) across comparable trials..
-[INFO 09-05 18:07:20] ax.api.client: Trial 57 should be stopped early: Trial objective value 3.321893110961321 is worse than 50.0-th percentile (3.3138710261611335) across comparable trials.
-[INFO 09-05 18:07:20] ax.api.client: Trial 57 marked EARLY_STOPPED.
-[INFO 09-05 18:07:20] ax.early_stopping.strategies.percentile: Early stoppinging trial 58: Trial objective value 3.1709812662140116 is worse than 50.0-th percentile (3.1411745246629588) across comparable trials..
-[INFO 09-05 18:07:20] ax.api.client: Trial 58 should be stopped early: Trial objective value 3.1709812662140116 is worse than 50.0-th percentile (3.1411745246629588) across comparable trials.
-[INFO 09-05 18:07:20] ax.api.client: Trial 58 marked EARLY_STOPPED.
-[INFO 09-05 18:07:20] ax.early_stopping.strategies.percentile: Early stoppinging trial 59: Trial objective value 3.1755997816234194 is worse than 50.0-th percentile (3.14358789291963) across comparable trials..
-[INFO 09-05 18:07:20] ax.api.client: Trial 59 should be stopped early: Trial objective value 3.1755997816234194 is worse than 50.0-th percentile (3.14358789291963) across comparable trials.
-[INFO 09-05 18:07:20] ax.api.client: Trial 59 marked EARLY_STOPPED.
-[INFO 09-05 18:07:27] ax.api.client: Generated new trial 60 with parameters {'x1': 0.894753, 'x2': 1.0, 'x3': 1.0, 'x4': 0.211956, 'x5': 0.515618, 'x6': 0.908102} using GenerationNode MBM.
-[INFO 09-05 18:07:27] ax.api.client: Generated new trial 61 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.266426, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:27] ax.api.client: Generated new trial 62 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.182165, 'x5': 1.0, 'x6': 0.513327} using GenerationNode MBM.
-[INFO 09-05 18:07:27] ax.early_stopping.strategies.percentile: Early stoppinging trial 60: Trial objective value 3.1707395566515575 is worse than 50.0-th percentile (3.146001261176301) across comparable trials..
-[INFO 09-05 18:07:27] ax.api.client: Trial 60 should be stopped early: Trial objective value 3.1707395566515575 is worse than 50.0-th percentile (3.146001261176301) across comparable trials.
-[INFO 09-05 18:07:27] ax.api.client: Trial 60 marked EARLY_STOPPED.
-[INFO 09-05 18:07:27] ax.early_stopping.strategies.percentile: Early stoppinging trial 61: Trial objective value 3.1710432046710335 is worse than 50.0-th percentile (3.1490370500405644) across comparable trials..
-[INFO 09-05 18:07:27] ax.api.client: Trial 61 should be stopped early: Trial objective value 3.1710432046710335 is worse than 50.0-th percentile (3.1490370500405644) across comparable trials.
-[INFO 09-05 18:07:27] ax.api.client: Trial 61 marked EARLY_STOPPED.
-[INFO 09-05 18:07:28] ax.early_stopping.strategies.percentile: Early stoppinging trial 62: Trial objective value 3.3173153939920708 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials..
-[INFO 09-05 18:07:28] ax.api.client: Trial 62 should be stopped early: Trial objective value 3.3173153939920708 is worse than 50.0-th percentile (3.3133083810436452) across comparable trials.
-[INFO 09-05 18:07:28] ax.api.client: Trial 62 marked EARLY_STOPPED.
-[INFO 09-05 18:07:33] ax.api.client: Generated new trial 63 with parameters {'x1': 0.813339, 'x2': 0.680901, 'x3': 0.069576, 'x4': 0.0, 'x5': 0.249018, 'x6': 0.736647} using GenerationNode MBM.
-[INFO 09-05 18:07:33] ax.api.client: Generated new trial 64 with parameters {'x1': 0.0, 'x2': 0.730982, 'x3': 0.0, 'x4': 0.0, 'x5': 0.704499, 'x6': 0.641728} using GenerationNode MBM.
-[INFO 09-05 18:07:33] ax.api.client: Generated new trial 65 with parameters {'x1': 1.0, 'x2': 0.51675, 'x3': 0.435665, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:07:33] ax.early_stopping.strategies.percentile: Early stoppinging trial 63: Trial objective value 2.9195294369490257 is worse than 50.0-th percentile (2.8282036608728722) across comparable trials..
-[INFO 09-05 18:07:33] ax.api.client: Trial 63 should be stopped early: Trial objective value 2.9195294369490257 is worse than 50.0-th percentile (2.8282036608728722) across comparable trials.
-[INFO 09-05 18:07:33] ax.api.client: Trial 63 marked EARLY_STOPPED.
-[INFO 09-05 18:07:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 64: Trial objective value 3.1650503327175707 is worse than 50.0-th percentile (3.1490370500405644) across comparable trials..
-[INFO 09-05 18:07:34] ax.api.client: Trial 64 should be stopped early: Trial objective value 3.1650503327175707 is worse than 50.0-th percentile (3.1490370500405644) across comparable trials.
-[INFO 09-05 18:07:34] ax.api.client: Trial 64 marked EARLY_STOPPED.
-[INFO 09-05 18:07:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 65: Trial objective value 2.980190554045273 is worse than 50.0-th percentile (2.858118673202535) across comparable trials..
-[INFO 09-05 18:07:34] ax.api.client: Trial 65 should be stopped early: Trial objective value 2.980190554045273 is worse than 50.0-th percentile (2.858118673202535) across comparable trials.
-[INFO 09-05 18:07:34] ax.api.client: Trial 65 marked EARLY_STOPPED.
-[INFO 09-05 18:07:40] ax.api.client: Generated new trial 66 with parameters {'x1': 0.717016, 'x2': 0.720299, 'x3': 0.0, 'x4': 0.0, 'x5': 0.314474, 'x6': 0.625434} using GenerationNode MBM.
-[INFO 09-05 18:07:40] ax.api.client: Generated new trial 67 with parameters {'x1': 0.0, 'x2': 0.79779, 'x3': 0.0, 'x4': 0.0, 'x5': 0.585266, 'x6': 0.524918} using GenerationNode MBM.
-[INFO 09-05 18:07:40] ax.api.client: Generated new trial 68 with parameters {'x1': 1.0, 'x2': 0.517316, 'x3': 0.243155, 'x4': 0.0, 'x5': 0.04646, 'x6': 0.756724} using GenerationNode MBM.
-[INFO 09-05 18:07:40] ax.early_stopping.strategies.percentile: Early stoppinging trial 66: Trial objective value 2.8955748574724187 is worse than 50.0-th percentile (2.888033685532198) across comparable trials..
-[INFO 09-05 18:07:40] ax.api.client: Trial 66 should be stopped early: Trial objective value 2.8955748574724187 is worse than 50.0-th percentile (2.888033685532198) across comparable trials.
-[INFO 09-05 18:07:40] ax.api.client: Trial 66 marked EARLY_STOPPED.
-[INFO 09-05 18:07:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 67: Trial objective value 3.012227426851908 is worse than 50.0-th percentile (2.8918042715023082) across comparable trials..
-[INFO 09-05 18:07:41] ax.api.client: Trial 67 should be stopped early: Trial objective value 3.012227426851908 is worse than 50.0-th percentile (2.8918042715023082) across comparable trials.
-[INFO 09-05 18:07:41] ax.api.client: Trial 67 marked EARLY_STOPPED.
-[INFO 09-05 18:07:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 68: Trial objective value 3.142197772628294 is worse than 50.0-th percentile (3.1416861486456265) across comparable trials..
-[INFO 09-05 18:07:41] ax.api.client: Trial 68 should be stopped early: Trial objective value 3.142197772628294 is worse than 50.0-th percentile (3.1416861486456265) across comparable trials.
-[INFO 09-05 18:07:41] ax.api.client: Trial 68 marked EARLY_STOPPED.
-[INFO 09-05 18:07:47] ax.api.client: Generated new trial 69 with parameters {'x1': 0.577799, 'x2': 0.628317, 'x3': 0.119975, 'x4': 0.0, 'x5': 0.316478, 'x6': 0.762517} using GenerationNode MBM.
-[INFO 09-05 18:07:47] ax.api.client: Generated new trial 70 with parameters {'x1': 0.0, 'x2': 0.730018, 'x3': 0.0, 'x4': 0.0, 'x5': 0.577236, 'x6': 0.551776} using GenerationNode MBM.
-[INFO 09-05 18:07:47] ax.api.client: Generated new trial 71 with parameters {'x1': 1.0, 'x2': 0.472514, 'x3': 0.280521, 'x4': 0.0, 'x5': 0.066351, 'x6': 0.945613} using GenerationNode MBM.
-[INFO 09-05 18:07:47] ax.early_stopping.strategies.percentile: Early stoppinging trial 69: Trial objective value 2.599900603807588 is worse than 50.0-th percentile (2.575822805224725) across comparable trials..
-[INFO 09-05 18:07:47] ax.api.client: Trial 69 should be stopped early: Trial objective value 2.599900603807588 is worse than 50.0-th percentile (2.575822805224725) across comparable trials.
-[INFO 09-05 18:07:47] ax.api.client: Trial 69 marked EARLY_STOPPED.
-[INFO 09-05 18:07:48] ax.early_stopping.strategies.percentile: Early stoppinging trial 70: Trial objective value 2.9881094621523894 is worse than 50.0-th percentile (2.8918042715023082) across comparable trials..
-[INFO 09-05 18:07:48] ax.api.client: Trial 70 should be stopped early: Trial objective value 2.9881094621523894 is worse than 50.0-th percentile (2.8918042715023082) across comparable trials.
-[INFO 09-05 18:07:48] ax.api.client: Trial 70 marked EARLY_STOPPED.
-[INFO 09-05 18:07:48] ax.early_stopping.strategies.percentile: Early stoppinging trial 71: Trial objective value 3.147104212439015 is worse than 50.0-th percentile (3.1411745246629588) across comparable trials..
-[INFO 09-05 18:07:48] ax.api.client: Trial 71 should be stopped early: Trial objective value 3.147104212439015 is worse than 50.0-th percentile (3.1411745246629588) across comparable trials.
-[INFO 09-05 18:07:48] ax.api.client: Trial 71 marked EARLY_STOPPED.
-[INFO 09-05 18:07:54] ax.api.client: Generated new trial 72 with parameters {'x1': 0.480114, 'x2': 0.758399, 'x3': 0.196127, 'x4': 0.0, 'x5': 0.301143, 'x6': 0.689261} using GenerationNode MBM.
-[INFO 09-05 18:07:54] ax.api.client: Generated new trial 73 with parameters {'x1': 0.0, 'x2': 0.887134, 'x3': 0.061474, 'x4': 0.0, 'x5': 0.667439, 'x6': 0.471255} using GenerationNode MBM.
-[INFO 09-05 18:07:54] ax.api.client: Generated new trial 74 with parameters {'x1': 1.0, 'x2': 0.504874, 'x3': 0.312038, 'x4': 0.0, 'x5': 0.0, 'x6': 0.911149} using GenerationNode MBM.
-[INFO 09-05 18:07:54] ax.early_stopping.strategies.percentile: Early stoppinging trial 72: Trial objective value 2.6573445274752463 is worse than 50.0-th percentile (2.599900603807588) across comparable trials..
-[INFO 09-05 18:07:55] ax.api.client: Trial 72 should be stopped early: Trial objective value 2.6573445274752463 is worse than 50.0-th percentile (2.599900603807588) across comparable trials.
-[INFO 09-05 18:07:55] ax.api.client: Trial 72 marked EARLY_STOPPED.
-[INFO 09-05 18:07:55] ax.early_stopping.strategies.percentile: Early stoppinging trial 73: Trial objective value 3.170513844397607 is worse than 50.0-th percentile (3.1411745246629588) across comparable trials..
-[INFO 09-05 18:07:55] ax.api.client: Trial 73 should be stopped early: Trial objective value 3.170513844397607 is worse than 50.0-th percentile (3.1411745246629588) across comparable trials.
-[INFO 09-05 18:07:55] ax.api.client: Trial 73 marked EARLY_STOPPED.
-[INFO 09-05 18:07:55] ax.early_stopping.strategies.percentile: Early stoppinging trial 74: Trial objective value 3.1572007794028867 is worse than 50.0-th percentile (3.1416861486456265) across comparable trials..
-[INFO 09-05 18:07:55] ax.api.client: Trial 74 should be stopped early: Trial objective value 3.1572007794028867 is worse than 50.0-th percentile (3.1416861486456265) across comparable trials.
-[INFO 09-05 18:07:55] ax.api.client: Trial 74 marked EARLY_STOPPED.
-[INFO 09-05 18:08:01] ax.api.client: Generated new trial 75 with parameters {'x1': 0.482718, 'x2': 0.7205, 'x3': 0.2195, 'x4': 0.0, 'x5': 0.284805, 'x6': 0.712092} using GenerationNode MBM.
-[INFO 09-05 18:08:01] ax.api.client: Generated new trial 76 with parameters {'x1': 0.0, 'x2': 0.829122, 'x3': 0.092027, 'x4': 0.0, 'x5': 0.644344, 'x6': 0.48605} using GenerationNode MBM.
-[INFO 09-05 18:08:01] ax.api.client: Generated new trial 77 with parameters {'x1': 1.0, 'x2': 0.505054, 'x3': 0.316369, 'x4': 0.0, 'x5': 0.0, 'x6': 0.925592} using GenerationNode MBM.
-[INFO 09-05 18:08:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 75: Trial objective value 2.6110519831089394 is worse than 50.0-th percentile (2.6054762934582634) across comparable trials..
-[INFO 09-05 18:08:02] ax.api.client: Trial 75 should be stopped early: Trial objective value 2.6110519831089394 is worse than 50.0-th percentile (2.6054762934582634) across comparable trials.
-[INFO 09-05 18:08:02] ax.api.client: Trial 75 marked EARLY_STOPPED.
-[INFO 09-05 18:08:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 76: Trial objective value 3.158090615401054 is worse than 50.0-th percentile (3.1416861486456265) across comparable trials..
-[INFO 09-05 18:08:02] ax.api.client: Trial 76 should be stopped early: Trial objective value 3.158090615401054 is worse than 50.0-th percentile (3.1416861486456265) across comparable trials.
-[INFO 09-05 18:08:02] ax.api.client: Trial 76 marked EARLY_STOPPED.
-[INFO 09-05 18:08:03] ax.early_stopping.strategies.percentile: Early stoppinging trial 77: Trial objective value 3.157198732002286 is worse than 50.0-th percentile (3.142197772628294) across comparable trials..
-[INFO 09-05 18:08:03] ax.api.client: Trial 77 should be stopped early: Trial objective value 3.157198732002286 is worse than 50.0-th percentile (3.142197772628294) across comparable trials.
-[INFO 09-05 18:08:03] ax.api.client: Trial 77 marked EARLY_STOPPED.
-[INFO 09-05 18:08:09] ax.api.client: Generated new trial 78 with parameters {'x1': 0.418542, 'x2': 0.50293, 'x3': 0.043221, 'x4': 0.0, 'x5': 0.29006, 'x6': 0.754229} using GenerationNode MBM.
-[INFO 09-05 18:08:09] ax.api.client: Generated new trial 79 with parameters {'x1': 0.23438, 'x2': 0.654227, 'x3': 0.0, 'x4': 0.0, 'x5': 0.864773, 'x6': 0.334123} using GenerationNode MBM.
-[INFO 09-05 18:08:09] ax.api.client: Generated new trial 80 with parameters {'x1': 0.530917, 'x2': 0.28381, 'x3': 0.225445, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:08:20] ax.api.client: Trial 78 marked COMPLETED.
-[INFO 09-05 18:08:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 79: Trial objective value 3.1695365468013614 is worse than 50.0-th percentile (3.142197772628294) across comparable trials..
-[INFO 09-05 18:08:21] ax.api.client: Trial 79 should be stopped early: Trial objective value 3.1695365468013614 is worse than 50.0-th percentile (3.142197772628294) across comparable trials.
-[INFO 09-05 18:08:21] ax.api.client: Trial 79 marked EARLY_STOPPED.
-[INFO 09-05 18:08:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 80: Trial objective value 2.9778508580028253 is worse than 50.0-th percentile (2.858118673202535) across comparable trials..
-[INFO 09-05 18:08:21] ax.api.client: Trial 80 should be stopped early: Trial objective value 2.9778508580028253 is worse than 50.0-th percentile (2.858118673202535) across comparable trials.
-[INFO 09-05 18:08:21] ax.api.client: Trial 80 marked EARLY_STOPPED.
-[INFO 09-05 18:08:28] ax.api.client: Generated new trial 81 with parameters {'x1': 0.0, 'x2': 0.709448, 'x3': 0.186674, 'x4': 0.148889, 'x5': 0.501802, 'x6': 0.506896} using GenerationNode MBM.
-[INFO 09-05 18:08:28] ax.api.client: Generated new trial 82 with parameters {'x1': 0.708182, 'x2': 0.414543, 'x3': 0.283681, 'x4': 0.377376, 'x5': 0.0, 'x6': 0.865415} using GenerationNode MBM.
-[INFO 09-05 18:08:28] ax.api.client: Generated new trial 83 with parameters {'x1': 0.0, 'x2': 0.542609, 'x3': 0.0, 'x4': 0.608756, 'x5': 0.588857, 'x6': 0.806187} using GenerationNode MBM.
-[INFO 09-05 18:08:28] ax.early_stopping.strategies.percentile: Early stoppinging trial 81: Trial objective value 2.639719559049041 is worse than 50.0-th percentile (2.6054762934582634) across comparable trials..
-[INFO 09-05 18:08:28] ax.api.client: Trial 81 should be stopped early: Trial objective value 2.639719559049041 is worse than 50.0-th percentile (2.6054762934582634) across comparable trials.
-[INFO 09-05 18:08:28] ax.api.client: Trial 81 marked EARLY_STOPPED.
-[INFO 09-05 18:08:29] ax.early_stopping.strategies.percentile: Early stoppinging trial 82: Trial objective value 2.889851206238928 is worse than 50.0-th percentile (2.858118673202535) across comparable trials..
-[INFO 09-05 18:08:29] ax.api.client: Trial 82 should be stopped early: Trial objective value 2.889851206238928 is worse than 50.0-th percentile (2.858118673202535) across comparable trials.
-[INFO 09-05 18:08:29] ax.api.client: Trial 82 marked EARLY_STOPPED.
-[INFO 09-05 18:08:29] ax.early_stopping.strategies.percentile: Early stoppinging trial 83: Trial objective value 2.96671352938702 is worse than 50.0-th percentile (2.888033685532198) across comparable trials..
-[INFO 09-05 18:08:29] ax.api.client: Trial 83 should be stopped early: Trial objective value 2.96671352938702 is worse than 50.0-th percentile (2.888033685532198) across comparable trials.
-[INFO 09-05 18:08:29] ax.api.client: Trial 83 marked EARLY_STOPPED.
-[INFO 09-05 18:08:36] ax.api.client: Generated new trial 84 with parameters {'x1': 0.078017, 'x2': 0.682707, 'x3': 0.389267, 'x4': 0.123871, 'x5': 0.183357, 'x6': 0.721999} using GenerationNode MBM.
-[INFO 09-05 18:08:36] ax.api.client: Generated new trial 85 with parameters {'x1': 0.695375, 'x2': 0.494708, 'x3': 0.372524, 'x4': 0.252494, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
-[INFO 09-05 18:08:36] ax.api.client: Generated new trial 86 with parameters {'x1': 0.0, 'x2': 0.83933, 'x3': 0.107457, 'x4': 0.227719, 'x5': 0.616622, 'x6': 0.521353} using GenerationNode MBM.
-[INFO 09-05 18:08:48] ax.api.client: Trial 84 marked COMPLETED.
-[INFO 09-05 18:08:49] ax.early_stopping.strategies.percentile: Early stoppinging trial 85: Trial objective value 2.9430704820288347 is worse than 50.0-th percentile (2.888033685532198) across comparable trials..
-[INFO 09-05 18:08:49] ax.api.client: Trial 85 should be stopped early: Trial objective value 2.9430704820288347 is worse than 50.0-th percentile (2.888033685532198) across comparable trials.
-[INFO 09-05 18:08:49] ax.api.client: Trial 85 marked EARLY_STOPPED.
-[INFO 09-05 18:08:49] ax.early_stopping.strategies.percentile: Early stoppinging trial 86: Trial objective value 2.9849587783959812 is worse than 50.0-th percentile (2.8889424458855633) across comparable trials..
-[INFO 09-05 18:08:49] ax.api.client: Trial 86 should be stopped early: Trial objective value 2.9849587783959812 is worse than 50.0-th percentile (2.8889424458855633) across comparable trials.
-[INFO 09-05 18:08:49] ax.api.client: Trial 86 marked EARLY_STOPPED.`
+`[INFO 09-05 19:21:50] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
+[INFO 09-05 19:21:50] ax.api.client: Generated new trial 0 with parameters {'x1': 0.5, 'x2': 0.5, 'x3': 0.5, 'x4': 0.5, 'x5': 0.5, 'x6': 0.5} using GenerationNode CenterOfSearchSpace.
+[INFO 09-05 19:21:50] ax.api.client: Generated new trial 1 with parameters {'x1': 0.562496, 'x2': 0.695582, 'x3': 0.895957, 'x4': 0.809559, 'x5': 0.233774, 'x6': 0.551403} using GenerationNode Sobol.
+[INFO 09-05 19:21:50] ax.api.client: Generated new trial 2 with parameters {'x1': 0.334641, 'x2': 0.205181, 'x3': 0.183915, 'x4': 0.062576, 'x5': 0.855399, 'x6': 0.414853} using GenerationNode Sobol.
+[INFO 09-05 19:21:51] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 09-05 19:21:53] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 09-05 19:21:54] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 09-05 19:21:54] ax.api.client: Generated new trial 3 with parameters {'x1': 0.153757, 'x2': 0.958118, 'x3': 0.659457, 'x4': 0.721615, 'x5': 0.745219, 'x6': 0.012285} using GenerationNode Sobol.
+[INFO 09-05 19:21:54] ax.api.client: Generated new trial 4 with parameters {'x1': 0.988406, 'x2': 0.452395, 'x3': 0.385167, 'x4': 0.404304, 'x5': 0.374593, 'x6': 0.891573} using GenerationNode Sobol.
+[WARNING 09-05 19:21:54] ax.api.client: 3 trials requested but only 2 could be generated.
+[INFO 09-05 19:21:56] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 09-05 19:21:57] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 09-05 19:21:58] ax.api.client: Generated new trial 5 with parameters {'x1': 0.0, 'x2': 0.890423, 'x3': 0.526328, 'x4': 0.794496, 'x5': 0.713512, 'x6': 0.0} using GenerationNode MBM.
+[WARNING 09-05 19:21:58] ax.api.client: 3 trials requested but only 1 could be generated.
+[INFO 09-05 19:21:58] ax.early_stopping.strategies.percentile: Early stoppinging trial 5: Trial objective value 3.2063766078611824 is worse than 50.0-th percentile (3.150497326997369) across comparable trials..
+[INFO 09-05 19:21:58] ax.api.client: Trial 5 should be stopped early: Trial objective value 3.2063766078611824 is worse than 50.0-th percentile (3.150497326997369) across comparable trials.
+[INFO 09-05 19:21:58] ax.api.client: Trial 5 marked EARLY_STOPPED.
+[INFO 09-05 19:21:59] ax.api.client: Generated new trial 6 with parameters {'x1': 0.336003, 'x2': 1.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.811345, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:21:59] ax.api.client: Generated new trial 7 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.905589, 'x4': 0.264942, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:21:59] ax.api.client: Generated new trial 8 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.486282, 'x4': 0.878655, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:22:02] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 09-05 19:22:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 7: Trial objective value 3.3195172057527005 is worse than 50.0-th percentile (3.150497326997369) across comparable trials..
+[INFO 09-05 19:22:02] ax.api.client: Trial 7 should be stopped early: Trial objective value 3.3195172057527005 is worse than 50.0-th percentile (3.150497326997369) across comparable trials.
+[INFO 09-05 19:22:02] ax.api.client: Trial 7 marked EARLY_STOPPED.
+[INFO 09-05 19:22:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 8: Trial objective value 3.3201835198253433 is worse than 50.0-th percentile (3.2063766078611824) across comparable trials..
+[INFO 09-05 19:22:02] ax.api.client: Trial 8 should be stopped early: Trial objective value 3.3201835198253433 is worse than 50.0-th percentile (3.2063766078611824) across comparable trials.
+[INFO 09-05 19:22:02] ax.api.client: Trial 8 marked EARLY_STOPPED.
+[INFO 09-05 19:22:04] ax.api.client: Generated new trial 9 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.57993, 'x4': 1.0, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:22:04] ax.api.client: Generated new trial 10 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.428294, 'x4': 0.0, 'x5': 0.32349, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:04] ax.api.client: Generated new trial 11 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.725775, 'x4': 0.182266, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:05] ax.early_stopping.strategies.percentile: Early stoppinging trial 9: Trial objective value 3.3210561694535645 is worse than 50.0-th percentile (3.2271706933612223) across comparable trials..
+[INFO 09-05 19:22:05] ax.api.client: Trial 9 should be stopped early: Trial objective value 3.3210561694535645 is worse than 50.0-th percentile (3.2271706933612223) across comparable trials.
+[INFO 09-05 19:22:05] ax.api.client: Trial 9 marked EARLY_STOPPED.
+[INFO 09-05 19:22:05] ax.early_stopping.strategies.percentile: Early stoppinging trial 10: Trial objective value 3.309897404303067 is worse than 50.0-th percentile (3.2479647788612622) across comparable trials..
+[INFO 09-05 19:22:05] ax.api.client: Trial 10 should be stopped early: Trial objective value 3.309897404303067 is worse than 50.0-th percentile (3.2479647788612622) across comparable trials.
+[INFO 09-05 19:22:05] ax.api.client: Trial 10 marked EARLY_STOPPED.
+[INFO 09-05 19:22:05] ax.early_stopping.strategies.percentile: Early stoppinging trial 11: Trial objective value 3.3205773724328966 is worse than 50.0-th percentile (3.25766881059654) across comparable trials..
+[INFO 09-05 19:22:05] ax.api.client: Trial 11 should be stopped early: Trial objective value 3.3205773724328966 is worse than 50.0-th percentile (3.25766881059654) across comparable trials.
+[INFO 09-05 19:22:05] ax.api.client: Trial 11 marked EARLY_STOPPED.
+[INFO 09-05 19:22:07] ax.api.client: Generated new trial 12 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.713416, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:22:07] ax.api.client: Generated new trial 13 with parameters {'x1': 1.0, 'x2': 0.950261, 'x3': 1.0, 'x4': 1.0, 'x5': 0.77288, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:07] ax.api.client: Generated new trial 14 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.72702, 'x4': 0.0, 'x5': 0.578133, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 12: Trial objective value 3.3188236626201126 is worse than 50.0-th percentile (3.2673728423318176) across comparable trials..
+[INFO 09-05 19:22:07] ax.api.client: Trial 12 should be stopped early: Trial objective value 3.3188236626201126 is worse than 50.0-th percentile (3.2673728423318176) across comparable trials.
+[INFO 09-05 19:22:07] ax.api.client: Trial 12 marked EARLY_STOPPED.
+[INFO 09-05 19:22:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 13: Trial objective value 3.3207861659805324 is worse than 50.0-th percentile (3.2886351233174422) across comparable trials..
+[INFO 09-05 19:22:07] ax.api.client: Trial 13 should be stopped early: Trial objective value 3.3207861659805324 is worse than 50.0-th percentile (3.2886351233174422) across comparable trials.
+[INFO 09-05 19:22:07] ax.api.client: Trial 13 marked EARLY_STOPPED.
+[INFO 09-05 19:22:08] ax.early_stopping.strategies.percentile: Early stoppinging trial 14: Trial objective value 3.311454921493261 is worse than 50.0-th percentile (3.309897404303067) across comparable trials..
+[INFO 09-05 19:22:08] ax.api.client: Trial 14 should be stopped early: Trial objective value 3.311454921493261 is worse than 50.0-th percentile (3.309897404303067) across comparable trials.
+[INFO 09-05 19:22:08] ax.api.client: Trial 14 marked EARLY_STOPPED.
+[INFO 09-05 19:22:10] ax.api.client: Generated new trial 15 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.678637, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:22:10] ax.api.client: Generated new trial 16 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.694724, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:10] ax.api.client: Generated new trial 17 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.63735, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:10] ax.early_stopping.strategies.percentile: Early stoppinging trial 15: Trial objective value 3.317797556418361 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials..
+[INFO 09-05 19:22:10] ax.api.client: Trial 15 should be stopped early: Trial objective value 3.317797556418361 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials.
+[INFO 09-05 19:22:10] ax.api.client: Trial 15 marked EARLY_STOPPED.
+[INFO 09-05 19:22:11] ax.early_stopping.strategies.percentile: Early stoppinging trial 16: Trial objective value 3.320856491439968 is worse than 50.0-th percentile (3.311454921493261) across comparable trials..
+[INFO 09-05 19:22:11] ax.api.client: Trial 16 should be stopped early: Trial objective value 3.320856491439968 is worse than 50.0-th percentile (3.311454921493261) across comparable trials.
+[INFO 09-05 19:22:11] ax.api.client: Trial 16 marked EARLY_STOPPED.
+[INFO 09-05 19:22:11] ax.early_stopping.strategies.percentile: Early stoppinging trial 17: Trial objective value 3.3152890930135355 is worse than 50.0-th percentile (3.313372007253398) across comparable trials..
+[INFO 09-05 19:22:11] ax.api.client: Trial 17 should be stopped early: Trial objective value 3.3152890930135355 is worse than 50.0-th percentile (3.313372007253398) across comparable trials.
+[INFO 09-05 19:22:11] ax.api.client: Trial 17 marked EARLY_STOPPED.
+[INFO 09-05 19:22:13] ax.api.client: Generated new trial 18 with parameters {'x1': 0.0, 'x2': 0.908952, 'x3': 1.0, 'x4': 0.056806, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:13] ax.api.client: Generated new trial 19 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:13] ax.api.client: Generated new trial 20 with parameters {'x1': 0.0, 'x2': 0.796204, 'x3': 1.0, 'x4': 0.389871, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:22:13] ax.early_stopping.strategies.percentile: Early stoppinging trial 18: Trial objective value 3.1718663767975412 is worse than 50.0-th percentile (2.9571145223836206) across comparable trials..
+[INFO 09-05 19:22:13] ax.api.client: Trial 18 should be stopped early: Trial objective value 3.1718663767975412 is worse than 50.0-th percentile (2.9571145223836206) across comparable trials.
+[INFO 09-05 19:22:13] ax.api.client: Trial 18 marked EARLY_STOPPED.
+[INFO 09-05 19:22:14] ax.early_stopping.strategies.percentile: Early stoppinging trial 19: Trial objective value 3.3161937420969143 is worse than 50.0-th percentile (3.313372007253398) across comparable trials..
+[INFO 09-05 19:22:14] ax.api.client: Trial 19 should be stopped early: Trial objective value 3.3161937420969143 is worse than 50.0-th percentile (3.313372007253398) across comparable trials.
+[INFO 09-05 19:22:14] ax.api.client: Trial 19 marked EARLY_STOPPED.
+[INFO 09-05 19:22:14] ax.early_stopping.strategies.percentile: Early stoppinging trial 20: Trial objective value 3.320264409408581 is worse than 50.0-th percentile (3.3152890930135355) across comparable trials..
+[INFO 09-05 19:22:14] ax.api.client: Trial 20 should be stopped early: Trial objective value 3.320264409408581 is worse than 50.0-th percentile (3.3152890930135355) across comparable trials.
+[INFO 09-05 19:22:14] ax.api.client: Trial 20 marked EARLY_STOPPED.
+[INFO 09-05 19:22:17] ax.api.client: Generated new trial 21 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.561396, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:17] ax.api.client: Generated new trial 22 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.544872, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:17] ax.api.client: Generated new trial 23 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.65054, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:17] ax.early_stopping.strategies.percentile: Early stoppinging trial 21: Trial objective value 3.0244437944184326 is worse than 50.0-th percentile (2.9907791584010264) across comparable trials..
+[INFO 09-05 19:22:17] ax.api.client: Trial 21 should be stopped early: Trial objective value 3.0244437944184326 is worse than 50.0-th percentile (2.9907791584010264) across comparable trials.
+[INFO 09-05 19:22:17] ax.api.client: Trial 21 marked EARLY_STOPPED.
+[INFO 09-05 19:22:17] ax.early_stopping.strategies.percentile: Early stoppinging trial 22: Trial objective value 3.031441114414931 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials..
+[INFO 09-05 19:22:17] ax.api.client: Trial 22 should be stopped early: Trial objective value 3.031441114414931 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials.
+[INFO 09-05 19:22:17] ax.api.client: Trial 22 marked EARLY_STOPPED.
+[INFO 09-05 19:22:17] ax.early_stopping.strategies.percentile: Early stoppinging trial 23: Trial objective value 3.32120257781949 is worse than 50.0-th percentile (3.313372007253398) across comparable trials..
+[INFO 09-05 19:22:17] ax.api.client: Trial 23 should be stopped early: Trial objective value 3.32120257781949 is worse than 50.0-th percentile (3.313372007253398) across comparable trials.
+[INFO 09-05 19:22:17] ax.api.client: Trial 23 marked EARLY_STOPPED.
+[INFO 09-05 19:22:21] ax.api.client: Generated new trial 24 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.999515, 'x4': 0.576218, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:21] ax.api.client: Generated new trial 25 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.562781, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:21] ax.api.client: Generated new trial 26 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.627665, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 24: Trial objective value 2.8986552171366675 is worse than 50.0-th percentile (2.831583640299762) across comparable trials..
+[INFO 09-05 19:22:21] ax.api.client: Trial 24 should be stopped early: Trial objective value 2.8986552171366675 is worse than 50.0-th percentile (2.831583640299762) across comparable trials.
+[INFO 09-05 19:22:21] ax.api.client: Trial 24 marked EARLY_STOPPED.
+[INFO 09-05 19:22:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 25: Trial objective value 3.030316034257812 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials..
+[INFO 09-05 19:22:21] ax.api.client: Trial 25 should be stopped early: Trial objective value 3.030316034257812 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials.
+[INFO 09-05 19:22:21] ax.api.client: Trial 25 marked EARLY_STOPPED.
+[INFO 09-05 19:22:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 26: Trial objective value 3.3211507782267864 is worse than 50.0-th percentile (3.311454921493261) across comparable trials..
+[INFO 09-05 19:22:21] ax.api.client: Trial 26 should be stopped early: Trial objective value 3.3211507782267864 is worse than 50.0-th percentile (3.311454921493261) across comparable trials.
+[INFO 09-05 19:22:21] ax.api.client: Trial 26 marked EARLY_STOPPED.
+[INFO 09-05 19:22:25] ax.api.client: Generated new trial 27 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.572519, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:25] ax.api.client: Generated new trial 28 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.557817, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:25] ax.api.client: Generated new trial 29 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.590416, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:22:25] ax.early_stopping.strategies.percentile: Early stoppinging trial 27: Trial objective value 2.8986548422490657 is worse than 50.0-th percentile (2.8651192412744138) across comparable trials..
+[INFO 09-05 19:22:25] ax.api.client: Trial 27 should be stopped early: Trial objective value 2.8986548422490657 is worse than 50.0-th percentile (2.8651192412744138) across comparable trials.
+[INFO 09-05 19:22:25] ax.api.client: Trial 27 marked EARLY_STOPPED.
+[INFO 09-05 19:22:25] ax.early_stopping.strategies.percentile: Early stoppinging trial 28: Trial objective value 3.030529846537207 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials..
+[INFO 09-05 19:22:25] ax.api.client: Trial 28 should be stopped early: Trial objective value 3.030529846537207 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials.
+[INFO 09-05 19:22:25] ax.api.client: Trial 28 marked EARLY_STOPPED.
+[INFO 09-05 19:22:25] ax.early_stopping.strategies.percentile: Early stoppinging trial 29: Trial objective value 3.3215991054648404 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials..
+[INFO 09-05 19:22:25] ax.api.client: Trial 29 should be stopped early: Trial objective value 3.3215991054648404 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials.
+[INFO 09-05 19:22:25] ax.api.client: Trial 29 marked EARLY_STOPPED.
+[INFO 09-05 19:22:29] ax.api.client: Generated new trial 30 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.632339, 'x4': 0.570626, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:29] ax.api.client: Generated new trial 31 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.557164, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:29] ax.api.client: Generated new trial 32 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.616389, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:29] ax.early_stopping.strategies.percentile: Early stoppinging trial 30: Trial objective value 2.781673756007556 is worse than 50.0-th percentile (2.7161064228798257) across comparable trials..
+[INFO 09-05 19:22:29] ax.api.client: Trial 30 should be stopped early: Trial objective value 2.781673756007556 is worse than 50.0-th percentile (2.7161064228798257) across comparable trials.
+[INFO 09-05 19:22:29] ax.api.client: Trial 30 marked EARLY_STOPPED.
+[INFO 09-05 19:22:29] ax.early_stopping.strategies.percentile: Early stoppinging trial 31: Trial objective value 3.315903848228306 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials..
+[INFO 09-05 19:22:29] ax.api.client: Trial 31 should be stopped early: Trial objective value 3.315903848228306 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials.
+[INFO 09-05 19:22:29] ax.api.client: Trial 31 marked EARLY_STOPPED.
+[INFO 09-05 19:22:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 32: Trial objective value 3.321913699036027 is worse than 50.0-th percentile (3.311454921493261) across comparable trials..
+[INFO 09-05 19:22:30] ax.api.client: Trial 32 should be stopped early: Trial objective value 3.321913699036027 is worse than 50.0-th percentile (3.311454921493261) across comparable trials.
+[INFO 09-05 19:22:30] ax.api.client: Trial 32 marked EARLY_STOPPED.
+[INFO 09-05 19:22:33] ax.api.client: Generated new trial 33 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.056599, 'x5': 0.612103, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:33] ax.api.client: Generated new trial 34 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.305752, 'x5': 0.669313, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:22:33] ax.api.client: Generated new trial 35 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.183648, 'x5': 0.643912, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:33] ax.early_stopping.strategies.percentile: Early stoppinging trial 33: Trial objective value 3.172288553376785 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials..
+[INFO 09-05 19:22:33] ax.api.client: Trial 33 should be stopped early: Trial objective value 3.172288553376785 is worse than 50.0-th percentile (3.0244437944184326) across comparable trials.
+[INFO 09-05 19:22:33] ax.api.client: Trial 33 marked EARLY_STOPPED.
+[INFO 09-05 19:22:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 34: Trial objective value 3.315376581690305 is worse than 50.0-th percentile (3.311454921493261) across comparable trials..
+[INFO 09-05 19:22:34] ax.api.client: Trial 34 should be stopped early: Trial objective value 3.315376581690305 is worse than 50.0-th percentile (3.311454921493261) across comparable trials.
+[INFO 09-05 19:22:34] ax.api.client: Trial 34 marked EARLY_STOPPED.
+[INFO 09-05 19:22:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 35: Trial objective value 3.3204211848381955 is worse than 50.0-th percentile (3.313372007253398) across comparable trials..
+[INFO 09-05 19:22:34] ax.api.client: Trial 35 should be stopped early: Trial objective value 3.3204211848381955 is worse than 50.0-th percentile (3.313372007253398) across comparable trials.
+[INFO 09-05 19:22:34] ax.api.client: Trial 35 marked EARLY_STOPPED.
+[INFO 09-05 19:22:38] ax.api.client: Generated new trial 36 with parameters {'x1': 0.0, 'x2': 0.760328, 'x3': 0.350772, 'x4': 0.0, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:38] ax.api.client: Generated new trial 37 with parameters {'x1': 0.0, 'x2': 0.735005, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:38] ax.api.client: Generated new trial 38 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:39] ax.early_stopping.strategies.percentile: Early stoppinging trial 36: Trial objective value 3.170103408910957 is worse than 50.0-th percentile (3.0273799143381224) across comparable trials..
+[INFO 09-05 19:22:39] ax.api.client: Trial 36 should be stopped early: Trial objective value 3.170103408910957 is worse than 50.0-th percentile (3.0273799143381224) across comparable trials.
+[INFO 09-05 19:22:39] ax.api.client: Trial 36 marked EARLY_STOPPED.
+[INFO 09-05 19:22:39] ax.early_stopping.strategies.percentile: Early stoppinging trial 37: Trial objective value 3.1578978172034584 is worse than 50.0-th percentile (3.030316034257812) across comparable trials..
+[INFO 09-05 19:22:39] ax.api.client: Trial 37 should be stopped early: Trial objective value 3.1578978172034584 is worse than 50.0-th percentile (3.030316034257812) across comparable trials.
+[INFO 09-05 19:22:39] ax.api.client: Trial 37 marked EARLY_STOPPED.
+[INFO 09-05 19:22:39] ax.early_stopping.strategies.percentile: Early stoppinging trial 38: Trial objective value 3.3157849427224875 is worse than 50.0-th percentile (3.311454921493261) across comparable trials..
+[INFO 09-05 19:22:39] ax.api.client: Trial 38 should be stopped early: Trial objective value 3.3157849427224875 is worse than 50.0-th percentile (3.311454921493261) across comparable trials.
+[INFO 09-05 19:22:39] ax.api.client: Trial 38 marked EARLY_STOPPED.
+[INFO 09-05 19:22:43] ax.api.client: Generated new trial 39 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.52404, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:43] ax.api.client: Generated new trial 40 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.542157, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:43] ax.api.client: Generated new trial 41 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.515785, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:43] ax.early_stopping.strategies.percentile: Early stoppinging trial 39: Trial objective value 3.0339584818517102 is worse than 50.0-th percentile (3.03042294039751) across comparable trials..
+[INFO 09-05 19:22:43] ax.api.client: Trial 39 should be stopped early: Trial objective value 3.0339584818517102 is worse than 50.0-th percentile (3.03042294039751) across comparable trials.
+[INFO 09-05 19:22:43] ax.api.client: Trial 39 marked EARLY_STOPPED.
+[INFO 09-05 19:22:44] ax.early_stopping.strategies.percentile: Early stoppinging trial 40: Trial objective value 2.9002868431654147 is worse than 50.0-th percentile (2.897902907838279) across comparable trials..
+[INFO 09-05 19:22:44] ax.api.client: Trial 40 should be stopped early: Trial objective value 2.9002868431654147 is worse than 50.0-th percentile (2.897902907838279) across comparable trials.
+[INFO 09-05 19:22:44] ax.api.client: Trial 40 marked EARLY_STOPPED.
+[INFO 09-05 19:22:44] ax.early_stopping.strategies.percentile: Early stoppinging trial 41: Trial objective value 3.3160894723247325 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials..
+[INFO 09-05 19:22:44] ax.api.client: Trial 41 should be stopped early: Trial objective value 3.3160894723247325 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials.
+[INFO 09-05 19:22:44] ax.api.client: Trial 41 marked EARLY_STOPPED.
+[INFO 09-05 19:22:48] ax.api.client: Generated new trial 42 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.482344, 'x4': 1.0, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:48] ax.api.client: Generated new trial 43 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.514267, 'x4': 0.62323, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:48] ax.api.client: Generated new trial 44 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.490817, 'x4': 1.0, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:48] ax.early_stopping.strategies.percentile: Early stoppinging trial 42: Trial objective value 3.1582586161404813 is worse than 50.0-th percentile (3.03042294039751) across comparable trials..
+[INFO 09-05 19:22:48] ax.api.client: Trial 42 should be stopped early: Trial objective value 3.1582586161404813 is worse than 50.0-th percentile (3.03042294039751) across comparable trials.
+[INFO 09-05 19:22:48] ax.api.client: Trial 42 marked EARLY_STOPPED.
+[INFO 09-05 19:22:48] ax.early_stopping.strategies.percentile: Early stoppinging trial 43: Trial objective value 2.9017301433102225 is worse than 50.0-th percentile (2.8986548422490657) across comparable trials..
+[INFO 09-05 19:22:48] ax.api.client: Trial 43 should be stopped early: Trial objective value 2.9017301433102225 is worse than 50.0-th percentile (2.8986548422490657) across comparable trials.
+[INFO 09-05 19:22:48] ax.api.client: Trial 43 marked EARLY_STOPPED.
+[INFO 09-05 19:22:49] ax.early_stopping.strategies.percentile: Early stoppinging trial 44: Trial objective value 3.32091050579055 is worse than 50.0-th percentile (3.309897404303067) across comparable trials..
+[INFO 09-05 19:22:49] ax.api.client: Trial 44 should be stopped early: Trial objective value 3.32091050579055 is worse than 50.0-th percentile (3.309897404303067) across comparable trials.
+[INFO 09-05 19:22:49] ax.api.client: Trial 44 marked EARLY_STOPPED.
+[INFO 09-05 19:22:54] ax.api.client: Generated new trial 45 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.50426, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:54] ax.api.client: Generated new trial 46 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.566173, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:54] ax.api.client: Generated new trial 47 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.543728, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:22:54] ax.early_stopping.strategies.percentile: Early stoppinging trial 45: Trial objective value 3.316175332062401 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials..
+[INFO 09-05 19:22:54] ax.api.client: Trial 45 should be stopped early: Trial objective value 3.316175332062401 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials.
+[INFO 09-05 19:22:54] ax.api.client: Trial 45 marked EARLY_STOPPED.
+[INFO 09-05 19:22:55] ax.early_stopping.strategies.percentile: Early stoppinging trial 46: Trial objective value 2.904682597024659 is worse than 50.0-th percentile (2.8986550296928666) across comparable trials..
+[INFO 09-05 19:22:55] ax.api.client: Trial 46 should be stopped early: Trial objective value 2.904682597024659 is worse than 50.0-th percentile (2.8986550296928666) across comparable trials.
+[INFO 09-05 19:22:55] ax.api.client: Trial 46 marked EARLY_STOPPED.
+[INFO 09-05 19:22:55] ax.early_stopping.strategies.percentile: Early stoppinging trial 47: Trial objective value 3.321913353039428 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials..
+[INFO 09-05 19:22:55] ax.api.client: Trial 47 should be stopped early: Trial objective value 3.321913353039428 is worse than 50.0-th percentile (3.3106761628981642) across comparable trials.
+[INFO 09-05 19:22:55] ax.api.client: Trial 47 marked EARLY_STOPPED.
+[INFO 09-05 19:23:01] ax.api.client: Generated new trial 48 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.498826, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:01] ax.api.client: Generated new trial 49 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.579209, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:01] ax.api.client: Generated new trial 50 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.535968, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:01] ax.early_stopping.strategies.percentile: Early stoppinging trial 48: Trial objective value 3.3162206368678606 is worse than 50.0-th percentile (3.311454921493261) across comparable trials..
+[INFO 09-05 19:23:01] ax.api.client: Trial 48 should be stopped early: Trial objective value 3.3162206368678606 is worse than 50.0-th percentile (3.311454921493261) across comparable trials.
+[INFO 09-05 19:23:01] ax.api.client: Trial 48 marked EARLY_STOPPED.
+[INFO 09-05 19:23:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 49: Trial objective value 2.904618490827908 is worse than 50.0-th percentile (2.8986552171366675) across comparable trials..
+[INFO 09-05 19:23:02] ax.api.client: Trial 49 should be stopped early: Trial objective value 2.904618490827908 is worse than 50.0-th percentile (2.8986552171366675) across comparable trials.
+[INFO 09-05 19:23:02] ax.api.client: Trial 49 marked EARLY_STOPPED.
+[INFO 09-05 19:23:02] ax.early_stopping.strategies.percentile: Early stoppinging trial 50: Trial objective value 3.3219133579478326 is worse than 50.0-th percentile (3.311454921493261) across comparable trials..
+[INFO 09-05 19:23:02] ax.api.client: Trial 50 should be stopped early: Trial objective value 3.3219133579478326 is worse than 50.0-th percentile (3.311454921493261) across comparable trials.
+[INFO 09-05 19:23:02] ax.api.client: Trial 50 marked EARLY_STOPPED.
+[INFO 09-05 19:23:09] ax.api.client: Generated new trial 51 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.498896, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:09] ax.api.client: Generated new trial 52 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.577078, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:09] ax.api.client: Generated new trial 53 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.537185, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:09] ax.early_stopping.strategies.percentile: Early stoppinging trial 51: Trial objective value 3.3162200286582992 is worse than 50.0-th percentile (3.313372007253398) across comparable trials..
+[INFO 09-05 19:23:09] ax.api.client: Trial 51 should be stopped early: Trial objective value 3.3162200286582992 is worse than 50.0-th percentile (3.313372007253398) across comparable trials.
+[INFO 09-05 19:23:09] ax.api.client: Trial 51 marked EARLY_STOPPED.
+[INFO 09-05 19:23:09] ax.early_stopping.strategies.percentile: Early stoppinging trial 52: Trial objective value 2.9045931215214225 is worse than 50.0-th percentile (2.899471030151041) across comparable trials..
+[INFO 09-05 19:23:09] ax.api.client: Trial 52 should be stopped early: Trial objective value 2.9045931215214225 is worse than 50.0-th percentile (2.899471030151041) across comparable trials.
+[INFO 09-05 19:23:09] ax.api.client: Trial 52 marked EARLY_STOPPED.
+[INFO 09-05 19:23:09] ax.early_stopping.strategies.percentile: Early stoppinging trial 53: Trial objective value 3.3219133561993544 is worse than 50.0-th percentile (3.313372007253398) across comparable trials..
+[INFO 09-05 19:23:09] ax.api.client: Trial 53 should be stopped early: Trial objective value 3.3219133561993544 is worse than 50.0-th percentile (3.313372007253398) across comparable trials.
+[INFO 09-05 19:23:09] ax.api.client: Trial 53 marked EARLY_STOPPED.
+[INFO 09-05 19:23:15] ax.api.client: Generated new trial 54 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.500121, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:15] ax.api.client: Generated new trial 55 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.584682, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:15] ax.api.client: Generated new trial 56 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.534763, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:15] ax.early_stopping.strategies.percentile: Early stoppinging trial 54: Trial objective value 3.3162095669923457 is worse than 50.0-th percentile (3.3152890930135355) across comparable trials..
+[INFO 09-05 19:23:15] ax.api.client: Trial 54 should be stopped early: Trial objective value 3.3162095669923457 is worse than 50.0-th percentile (3.3152890930135355) across comparable trials.
+[INFO 09-05 19:23:15] ax.api.client: Trial 54 marked EARLY_STOPPED.
+[INFO 09-05 19:23:16] ax.early_stopping.strategies.percentile: Early stoppinging trial 55: Trial objective value 3.0302786789765026 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials..
+[INFO 09-05 19:23:16] ax.api.client: Trial 55 should be stopped early: Trial objective value 3.0302786789765026 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials.
+[INFO 09-05 19:23:16] ax.api.client: Trial 55 marked EARLY_STOPPED.
+[INFO 09-05 19:23:16] ax.early_stopping.strategies.percentile: Early stoppinging trial 56: Trial objective value 3.3219133600355235 is worse than 50.0-th percentile (3.3152890930135355) across comparable trials..
+[INFO 09-05 19:23:16] ax.api.client: Trial 56 should be stopped early: Trial objective value 3.3219133600355235 is worse than 50.0-th percentile (3.3152890930135355) across comparable trials.
+[INFO 09-05 19:23:16] ax.api.client: Trial 56 marked EARLY_STOPPED.
+[INFO 09-05 19:23:22] ax.api.client: Generated new trial 57 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.492344, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:22] ax.api.client: Generated new trial 58 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.570229, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:22] ax.api.client: Generated new trial 59 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.526952, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:22] ax.early_stopping.strategies.percentile: Early stoppinging trial 57: Trial objective value 3.316278573355772 is worse than 50.0-th percentile (3.31533283735192) across comparable trials..
+[INFO 09-05 19:23:22] ax.api.client: Trial 57 should be stopped early: Trial objective value 3.316278573355772 is worse than 50.0-th percentile (3.31533283735192) across comparable trials.
+[INFO 09-05 19:23:22] ax.api.client: Trial 57 marked EARLY_STOPPED.
+[INFO 09-05 19:23:23] ax.early_stopping.strategies.percentile: Early stoppinging trial 58: Trial objective value 2.90460647335747 is worse than 50.0-th percentile (2.9002868431654147) across comparable trials..
+[INFO 09-05 19:23:23] ax.api.client: Trial 58 should be stopped early: Trial objective value 2.90460647335747 is worse than 50.0-th percentile (2.9002868431654147) across comparable trials.
+[INFO 09-05 19:23:23] ax.api.client: Trial 58 marked EARLY_STOPPED.
+[INFO 09-05 19:23:23] ax.early_stopping.strategies.percentile: Early stoppinging trial 59: Trial objective value 3.3219133821633915 is worse than 50.0-th percentile (3.31533283735192) across comparable trials..
+[INFO 09-05 19:23:23] ax.api.client: Trial 59 should be stopped early: Trial objective value 3.3219133821633915 is worse than 50.0-th percentile (3.31533283735192) across comparable trials.
+[INFO 09-05 19:23:23] ax.api.client: Trial 59 marked EARLY_STOPPED.
+[INFO 09-05 19:23:30] ax.api.client: Generated new trial 60 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.492869, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:30] ax.api.client: Generated new trial 61 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.593572, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:30] ax.api.client: Generated new trial 62 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.520127, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 60: Trial objective value 3.3162737292323774 is worse than 50.0-th percentile (3.315376581690305) across comparable trials..
+[INFO 09-05 19:23:30] ax.api.client: Trial 60 should be stopped early: Trial objective value 3.3162737292323774 is worse than 50.0-th percentile (3.315376581690305) across comparable trials.
+[INFO 09-05 19:23:30] ax.api.client: Trial 60 marked EARLY_STOPPED.
+[INFO 09-05 19:23:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 61: Trial objective value 3.030684862657426 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials..
+[INFO 09-05 19:23:30] ax.api.client: Trial 61 should be stopped early: Trial objective value 3.030684862657426 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials.
+[INFO 09-05 19:23:30] ax.api.client: Trial 61 marked EARLY_STOPPED.
+[INFO 09-05 19:23:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 62: Trial objective value 3.321913413577188 is worse than 50.0-th percentile (3.315376581690305) across comparable trials..
+[INFO 09-05 19:23:30] ax.api.client: Trial 62 should be stopped early: Trial objective value 3.321913413577188 is worse than 50.0-th percentile (3.315376581690305) across comparable trials.
+[INFO 09-05 19:23:30] ax.api.client: Trial 62 marked EARLY_STOPPED.
+[INFO 09-05 19:23:37] ax.api.client: Generated new trial 63 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.501126, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:37] ax.api.client: Generated new trial 64 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.583064, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:37] ax.api.client: Generated new trial 65 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.536265, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:37] ax.early_stopping.strategies.percentile: Early stoppinging trial 63: Trial objective value 3.316201092620497 is worse than 50.0-th percentile (3.3155807622063964) across comparable trials..
+[INFO 09-05 19:23:37] ax.api.client: Trial 63 should be stopped early: Trial objective value 3.316201092620497 is worse than 50.0-th percentile (3.3155807622063964) across comparable trials.
+[INFO 09-05 19:23:37] ax.api.client: Trial 63 marked EARLY_STOPPED.
+[INFO 09-05 19:23:37] ax.early_stopping.strategies.percentile: Early stoppinging trial 64: Trial objective value 3.0302308268781517 is worse than 50.0-th percentile (3.0302221529933346) across comparable trials..
+[INFO 09-05 19:23:37] ax.api.client: Trial 64 should be stopped early: Trial objective value 3.0302308268781517 is worse than 50.0-th percentile (3.0302221529933346) across comparable trials.
+[INFO 09-05 19:23:37] ax.api.client: Trial 64 marked EARLY_STOPPED.
+[INFO 09-05 19:23:38] ax.early_stopping.strategies.percentile: Early stoppinging trial 65: Trial objective value 3.3219133574865216 is worse than 50.0-th percentile (3.3155807622063964) across comparable trials..
+[INFO 09-05 19:23:38] ax.api.client: Trial 65 should be stopped early: Trial objective value 3.3219133574865216 is worse than 50.0-th percentile (3.3155807622063964) across comparable trials.
+[INFO 09-05 19:23:38] ax.api.client: Trial 65 marked EARLY_STOPPED.
+[INFO 09-05 19:23:46] ax.api.client: Generated new trial 66 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.500865, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:46] ax.api.client: Generated new trial 67 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.576398, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:46] ax.api.client: Generated new trial 68 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.542577, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:46] ax.early_stopping.strategies.percentile: Early stoppinging trial 66: Trial objective value 3.316203280029835 is worse than 50.0-th percentile (3.3157849427224875) across comparable trials..
+[INFO 09-05 19:23:46] ax.api.client: Trial 66 should be stopped early: Trial objective value 3.316203280029835 is worse than 50.0-th percentile (3.3157849427224875) across comparable trials.
+[INFO 09-05 19:23:46] ax.api.client: Trial 66 marked EARLY_STOPPED.
+[INFO 09-05 19:23:46] ax.early_stopping.strategies.percentile: Early stoppinging trial 67: Trial objective value 2.904587980997417 is worse than 50.0-th percentile (2.9010084932378186) across comparable trials..
+[INFO 09-05 19:23:46] ax.api.client: Trial 67 should be stopped early: Trial objective value 2.904587980997417 is worse than 50.0-th percentile (2.9010084932378186) across comparable trials.
+[INFO 09-05 19:23:46] ax.api.client: Trial 67 marked EARLY_STOPPED.
+[INFO 09-05 19:23:47] ax.early_stopping.strategies.percentile: Early stoppinging trial 68: Trial objective value 3.321913352830798 is worse than 50.0-th percentile (3.3157849427224875) across comparable trials..
+[INFO 09-05 19:23:47] ax.api.client: Trial 68 should be stopped early: Trial objective value 3.321913352830798 is worse than 50.0-th percentile (3.3157849427224875) across comparable trials.
+[INFO 09-05 19:23:47] ax.api.client: Trial 68 marked EARLY_STOPPED.
+[INFO 09-05 19:23:55] ax.api.client: Generated new trial 69 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.495714, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:55] ax.api.client: Generated new trial 70 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.578584, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:55] ax.api.client: Generated new trial 71 with parameters {'x1': 1.0, 'x2': 0.096087, 'x3': 0.0, 'x4': 0.537724, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:23:55] ax.early_stopping.strategies.percentile: Early stoppinging trial 69: Trial objective value 3.3162479313344173 is worse than 50.0-th percentile (3.3158443954753967) across comparable trials..
+[INFO 09-05 19:23:55] ax.api.client: Trial 69 should be stopped early: Trial objective value 3.3162479313344173 is worse than 50.0-th percentile (3.3158443954753967) across comparable trials.
+[INFO 09-05 19:23:55] ax.api.client: Trial 69 marked EARLY_STOPPED.
+[INFO 09-05 19:23:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 70: Trial objective value 2.904609604167516 is worse than 50.0-th percentile (2.9017301433102225) across comparable trials..
+[INFO 09-05 19:23:56] ax.api.client: Trial 70 should be stopped early: Trial objective value 2.904609604167516 is worse than 50.0-th percentile (2.9017301433102225) across comparable trials.
+[INFO 09-05 19:23:56] ax.api.client: Trial 70 marked EARLY_STOPPED.
+[INFO 09-05 19:23:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 71: Trial objective value 3.3218792147135794 is worse than 50.0-th percentile (3.3158443954753967) across comparable trials..
+[INFO 09-05 19:23:56] ax.api.client: Trial 71 should be stopped early: Trial objective value 3.3218792147135794 is worse than 50.0-th percentile (3.3158443954753967) across comparable trials.
+[INFO 09-05 19:23:56] ax.api.client: Trial 71 marked EARLY_STOPPED.
+[INFO 09-05 19:24:04] ax.api.client: Generated new trial 72 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.502364, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:04] ax.api.client: Generated new trial 73 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.582414, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:04] ax.api.client: Generated new trial 74 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.537548, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:04] ax.early_stopping.strategies.percentile: Early stoppinging trial 72: Trial objective value 3.3161907930397785 is worse than 50.0-th percentile (3.315903848228306) across comparable trials..
+[INFO 09-05 19:24:04] ax.api.client: Trial 72 should be stopped early: Trial objective value 3.3161907930397785 is worse than 50.0-th percentile (3.315903848228306) across comparable trials.
+[INFO 09-05 19:24:04] ax.api.client: Trial 72 marked EARLY_STOPPED.
+[INFO 09-05 19:24:04] ax.early_stopping.strategies.percentile: Early stoppinging trial 73: Trial objective value 3.0302138937545746 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials..
+[INFO 09-05 19:24:04] ax.api.client: Trial 73 should be stopped early: Trial objective value 3.0302138937545746 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials.
+[INFO 09-05 19:24:04] ax.api.client: Trial 73 marked EARLY_STOPPED.
+[INFO 09-05 19:24:05] ax.early_stopping.strategies.percentile: Early stoppinging trial 74: Trial objective value 3.321913355748066 is worse than 50.0-th percentile (3.315903848228306) across comparable trials..
+[INFO 09-05 19:24:05] ax.api.client: Trial 74 should be stopped early: Trial objective value 3.321913355748066 is worse than 50.0-th percentile (3.315903848228306) across comparable trials.
+[INFO 09-05 19:24:05] ax.api.client: Trial 74 marked EARLY_STOPPED.
+[INFO 09-05 19:24:12] ax.api.client: Generated new trial 75 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.500229, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:12] ax.api.client: Generated new trial 76 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.581326, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:12] ax.api.client: Generated new trial 77 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.533319, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:12] ax.early_stopping.strategies.percentile: Early stoppinging trial 75: Trial objective value 3.3162086529269805 is worse than 50.0-th percentile (3.315996660276519) across comparable trials..
+[INFO 09-05 19:24:12] ax.api.client: Trial 75 should be stopped early: Trial objective value 3.3162086529269805 is worse than 50.0-th percentile (3.315996660276519) across comparable trials.
+[INFO 09-05 19:24:12] ax.api.client: Trial 75 marked EARLY_STOPPED.
+[INFO 09-05 19:24:13] ax.early_stopping.strategies.percentile: Early stoppinging trial 76: Trial objective value 2.9046575665317613 is worse than 50.0-th percentile (2.9031590621538195) across comparable trials..
+[INFO 09-05 19:24:13] ax.api.client: Trial 76 should be stopped early: Trial objective value 2.9046575665317613 is worse than 50.0-th percentile (2.9031590621538195) across comparable trials.
+[INFO 09-05 19:24:13] ax.api.client: Trial 76 marked EARLY_STOPPED.
+[INFO 09-05 19:24:13] ax.early_stopping.strategies.percentile: Early stoppinging trial 77: Trial objective value 3.3219133630065802 is worse than 50.0-th percentile (3.315996660276519) across comparable trials..
+[INFO 09-05 19:24:13] ax.api.client: Trial 77 should be stopped early: Trial objective value 3.3219133630065802 is worse than 50.0-th percentile (3.315996660276519) across comparable trials.
+[INFO 09-05 19:24:13] ax.api.client: Trial 77 marked EARLY_STOPPED.
+[INFO 09-05 19:24:21] ax.api.client: Generated new trial 78 with parameters {'x1': 0.995131, 'x2': 1.0, 'x3': 0.0, 'x4': 0.499866, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:21] ax.api.client: Generated new trial 79 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.586782, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:21] ax.api.client: Generated new trial 80 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.533872, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 78: Trial objective value 3.178118765499205 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials..
+[INFO 09-05 19:24:21] ax.api.client: Trial 78 should be stopped early: Trial objective value 3.178118765499205 is worse than 50.0-th percentile (3.0302134791085176) across comparable trials.
+[INFO 09-05 19:24:21] ax.api.client: Trial 78 marked EARLY_STOPPED.
+[INFO 09-05 19:24:22] ax.early_stopping.strategies.percentile: Early stoppinging trial 79: Trial objective value 3.0303527585317838 is worse than 50.0-th percentile (3.030213686431546) across comparable trials..
+[INFO 09-05 19:24:22] ax.api.client: Trial 79 should be stopped early: Trial objective value 3.0303527585317838 is worse than 50.0-th percentile (3.030213686431546) across comparable trials.
+[INFO 09-05 19:24:22] ax.api.client: Trial 79 marked EARLY_STOPPED.
+[INFO 09-05 19:24:22] ax.early_stopping.strategies.percentile: Early stoppinging trial 80: Trial objective value 3.3219133618100134 is worse than 50.0-th percentile (3.315903848228306) across comparable trials..
+[INFO 09-05 19:24:22] ax.api.client: Trial 80 should be stopped early: Trial objective value 3.3219133618100134 is worse than 50.0-th percentile (3.315903848228306) across comparable trials.
+[INFO 09-05 19:24:22] ax.api.client: Trial 80 marked EARLY_STOPPED.
+[INFO 09-05 19:24:30] ax.api.client: Generated new trial 81 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.50867, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:30] ax.api.client: Generated new trial 82 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.572686, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:30] ax.api.client: Generated new trial 83 with parameters {'x1': 1.0, 'x2': 0.269704, 'x3': 1.0, 'x4': 0.549015, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 81: Trial objective value 3.3161408094103404 is worse than 50.0-th percentile (3.315996660276519) across comparable trials..
+[INFO 09-05 19:24:30] ax.api.client: Trial 81 should be stopped early: Trial objective value 3.3161408094103404 is worse than 50.0-th percentile (3.315996660276519) across comparable trials.
+[INFO 09-05 19:24:30] ax.api.client: Trial 81 marked EARLY_STOPPED.
+[INFO 09-05 19:24:31] ax.early_stopping.strategies.percentile: Early stoppinging trial 82: Trial objective value 2.7891078221915184 is worse than 50.0-th percentile (2.748890089443691) across comparable trials..
+[INFO 09-05 19:24:31] ax.api.client: Trial 82 should be stopped early: Trial objective value 2.7891078221915184 is worse than 50.0-th percentile (2.748890089443691) across comparable trials.
+[INFO 09-05 19:24:31] ax.api.client: Trial 82 marked EARLY_STOPPED.
+[INFO 09-05 19:24:31] ax.early_stopping.strategies.percentile: Early stoppinging trial 83: Trial objective value 3.3215829011921603 is worse than 50.0-th percentile (3.315996660276519) across comparable trials..
+[INFO 09-05 19:24:31] ax.api.client: Trial 83 should be stopped early: Trial objective value 3.3215829011921603 is worse than 50.0-th percentile (3.315996660276519) across comparable trials.
+[INFO 09-05 19:24:31] ax.api.client: Trial 83 marked EARLY_STOPPED.
+[INFO 09-05 19:24:40] ax.api.client: Generated new trial 84 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.508866, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:40] ax.api.client: Generated new trial 85 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.571569, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:40] ax.api.client: Generated new trial 86 with parameters {'x1': 1.0, 'x2': 0.190374, 'x3': 0.0, 'x4': 0.547508, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 09-05 19:24:40] ax.early_stopping.strategies.percentile: Early stoppinging trial 84: Trial objective value 3.31613932323918 is worse than 50.0-th percentile (3.3160894723247325) across comparable trials..
+[INFO 09-05 19:24:40] ax.api.client: Trial 84 should be stopped early: Trial objective value 3.31613932323918 is worse than 50.0-th percentile (3.3160894723247325) across comparable trials.
+[INFO 09-05 19:24:40] ax.api.client: Trial 84 marked EARLY_STOPPED.
+[INFO 09-05 19:24:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 85: Trial objective value 2.9045924765006363 is worse than 50.0-th percentile (2.9045865103044357) across comparable trials..
+[INFO 09-05 19:24:41] ax.api.client: Trial 85 should be stopped early: Trial objective value 2.9045924765006363 is worse than 50.0-th percentile (2.9045865103044357) across comparable trials.
+[INFO 09-05 19:24:41] ax.api.client: Trial 85 marked EARLY_STOPPED.
+[INFO 09-05 19:24:41] ax.early_stopping.strategies.percentile: Early stoppinging trial 86: Trial objective value 3.321781830315793 is worse than 50.0-th percentile (3.3160894723247325) across comparable trials..
+[INFO 09-05 19:24:41] ax.api.client: Trial 86 should be stopped early: Trial objective value 3.321781830315793 is worse than 50.0-th percentile (3.3160894723247325) across comparable trials.
+[INFO 09-05 19:24:41] ax.api.client: Trial 86 marked EARLY_STOPPED.`
 }
 </CellOutput>
 
@@ -568,8 +571,8 @@ print("Prediction (mean, variance):", prediction)
 
 <CellOutput>
 {
-`Best Parameters: {'x1': 0.4185423114413097, 'x2': 0.5029296015821985, 'x3': 0.043220775486607306, 'x4': 0.0, 'x5': 0.2900601857485205, 'x6': 0.7542293644605413}
-Prediction (mean, variance): {'hartmann6': (np.float64(-0.6017582498516068), np.float64(0.00011158186432944668))}`
+`Best Parameters: {'x1': 0.15375679545104504, 'x2': 0.9581175744533539, 'x3': 0.6594572616741061, 'x4': 0.7216152679175138, 'x5': 0.7452193778008223, 'x6': 0.012284706346690655}
+Prediction (mean, variance): {'hartmann6': (np.float64(-0.8023172732687329), np.float64(8.654953344340272e-05))}`
 }
 </CellOutput>
 
@@ -613,7 +616,7 @@ interval indicated in the plot.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/106bb68c-64f3-4869-9dfc-0fe4c28ec67a.json')} />
+<PlotlyFigure data={require('./assets/plot_data/3e79d99d-3d43-4e2b-8055-e3a1c027b083.json')} />
 
 
 **Observed Arm Effects on hartmann6**
@@ -625,7 +628,7 @@ configurations have yielded the most favorable outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/1a12d764-bd41-4fe5-8b56-b578b0408b55.json')} />
+<PlotlyFigure data={require('./assets/plot_data/cbf4e579-419a-4ff6-8e89-38bb7339a20e.json')} />
 
 
 **Summary for Experiment**
@@ -638,16 +641,16 @@ High-level summary of the `Trial`-s in this `Experiment`
 |     | trial_index   | arm_name   | trial_status   | generation_node     | hartmann6   | x1       | x2       | x3       | x4       | x5       | x6       |
 |:----|:--------------|:-----------|:---------------|:--------------------|:------------|:---------|:---------|:---------|:---------|:---------|:---------|
 | 0   | 0             | 0_0        | COMPLETED      | CenterOfSearchSpace | -0.505315   | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 |
-| 1   | 1             | 1_0        | COMPLETED      | Sobol               | -0.239031   | 0.609462 | 0.544246 | 0.682442 | 0.636599 | 0.555102 | 0.318981 |
-| 2   | 2             | 2_0        | COMPLETED      | Sobol               | -0.540887   | 0.074393 | 0.267562 | 0.090851 | 0.148223 | 0.033599 | 0.598113 |
-| 3   | 3             | 3_0        | COMPLETED      | Sobol               | -0.084623   | 0.343109 | 0.872151 | 0.883883 | 0.874278 | 0.355764 | 0.981265 |
-| 4   | 4             | 4_0        | COMPLETED      | Sobol               | -0.001587   | 0.847058 | 0.064087 | 0.358205 | 0.347065 | 0.865503 | 0.201193 |
+| 1   | 1             | 1_0        | COMPLETED      | Sobol               | -0.073963   | 0.562496 | 0.695582 | 0.895957 | 0.809559 | 0.233774 | 0.551403 |
+| 2   | 2             | 2_0        | COMPLETED      | Sobol               | -0.054555   | 0.334641 | 0.205181 | 0.183915 | 0.062576 | 0.855399 | 0.414853 |
+| 3   | 3             | 3_0        | COMPLETED      | Sobol               | -0.802610   | 0.153757 | 0.958118 | 0.659457 | 0.721615 | 0.745219 | 0.012285 |
+| 4   | 4             | 4_0        | COMPLETED      | Sobol               | -0.227310   | 0.988406 | 0.452395 | 0.385167 | 0.404304 | 0.374593 | 0.891573 |
 | ... | ...           | ...        | ...            | ...                 | ...         | ...      | ...      | ...      | ...      | ...      | ...      |
-| 82  | 82            | 82_0       | EARLY_STOPPED  | MBM                 | 2.889851    | 0.708182 | 0.414543 | 0.283681 | 0.377376 | 0.000000 | 0.865415 |
-| 83  | 83            | 83_0       | EARLY_STOPPED  | MBM                 | 2.966714    | 0.000000 | 0.542609 | 0.000000 | 0.608756 | 0.588857 | 0.806187 |
-| 84  | 84            | 84_0       | COMPLETED      | MBM                 | -0.704162   | 0.078017 | 0.682707 | 0.389267 | 0.123871 | 0.183357 | 0.721999 |
-| 85  | 85            | 85_0       | EARLY_STOPPED  | MBM                 | 2.943070    | 0.695375 | 0.494708 | 0.372524 | 0.252494 | 0.000000 | 1.000000 |
-| 86  | 86            | 86_0       | EARLY_STOPPED  | MBM                 | 2.984959    | 0.000000 | 0.839330 | 0.107457 | 0.227719 | 0.616622 | 0.521353 |
+| 82  | 82            | 82_0       | EARLY_STOPPED  | MBM                 | 2.789108    | 0.000000 | 1.000000 | 0.000000 | 0.572686 | 1.000000 | 0.000000 |
+| 83  | 83            | 83_0       | EARLY_STOPPED  | MBM                 | 3.321583    | 1.000000 | 0.269704 | 1.000000 | 0.549015 | 1.000000 | 0.000000 |
+| 84  | 84            | 84_0       | EARLY_STOPPED  | MBM                 | 3.316139    | 1.000000 | 1.000000 | 0.000000 | 0.508866 | 1.000000 | 0.000000 |
+| 85  | 85            | 85_0       | EARLY_STOPPED  | MBM                 | 2.904592    | 0.000000 | 1.000000 | 0.000000 | 0.571569 | 1.000000 | 0.000000 |
+| 86  | 86            | 86_0       | EARLY_STOPPED  | MBM                 | 3.321782    | 1.000000 | 0.190374 | 0.000000 | 0.547508 | 1.000000 | 0.000000 |
 
 
 **Sensitivity Analysis for hartmann6**
@@ -657,25 +660,23 @@ analysis.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/2845854d-bac5-4c1c-b88e-41475f052fb3.json')} />
+<PlotlyFigure data={require('./assets/plot_data/2df2939e-2c3f-4139-a619-714b04cd8b85.json')} />
 
 
-**x3, x6 vs. hartmann6**
+**x4 vs. hartmann6**
 
-The contour plot visualizes the predicted outcomes for hartmann6 across a
-two-dimensional parameter space, with other parameters held fixed at their status_quo
-value (or mean value if status_quo is unavailable). This plot helps in identifying
-regions of optimal performance and understanding how changes in the selected parameters
-influence the predicted outcomes. Contour lines represent levels of constant predicted
-values, providing insights into the gradient and potential optima within the parameter
-space.
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/b35ce874-44eb-43bd-8890-fbd455fa7361.json')} />
+<PlotlyFigure data={require('./assets/plot_data/8cb7a413-c3d1-4c2f-9048-d314c639cec7.json')} />
 
 
-**x3, x4 vs. hartmann6**
+**x4, x6 vs. hartmann6**
 
 The contour plot visualizes the predicted outcomes for hartmann6 across a
 two-dimensional parameter space, with other parameters held fixed at their status_quo
@@ -687,10 +688,10 @@ space.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/6c29640b-3deb-411b-800b-684c4a3d54e1.json')} />
+<PlotlyFigure data={require('./assets/plot_data/832b6a1a-7f54-4d8d-a881-370d89fc941f.json')} />
 
 
-**x3, x5 vs. hartmann6**
+**x4, x5 vs. hartmann6**
 
 The contour plot visualizes the predicted outcomes for hartmann6 across a
 two-dimensional parameter space, with other parameters held fixed at their status_quo
@@ -702,7 +703,7 @@ space.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/1d6bb92b-9d5d-4702-b577-4e7047e8ebf5.json')} />
+<PlotlyFigure data={require('./assets/plot_data/015bb680-1339-499e-a8ae-ec8152194e4f.json')} />
 
 
 **Cross Validation for hartmann6**
@@ -719,7 +720,7 @@ sufficient signal in the data, and instead is just predicting the mean.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/93b167d7-0cf0-416c-9598-0bbc95dc76b3.json')} />
+<PlotlyFigure data={require('./assets/plot_data/5c7c84cb-30f6-4b91-95f8-f29b501e90ac.json')} />
 
 ## Conclusion
 

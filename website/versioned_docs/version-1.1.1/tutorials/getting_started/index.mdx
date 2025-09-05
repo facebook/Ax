@@ -211,63 +211,63 @@ for _ in range(10): # Run 10 rounds of trials
 
 <CellOutput>
 {
-`[INFO 09-05 18:04:10] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
-[INFO 09-05 18:04:10] ax.api.client: Generated new trial 0 with parameters {'x1': 0.5, 'x2': 0.5, 'x3': 0.5, 'x4': 0.5, 'x5': 0.5, 'x6': 0.5} using GenerationNode CenterOfSearchSpace.
-[INFO 09-05 18:04:10] ax.api.client: Generated new trial 1 with parameters {'x1': 0.451786, 'x2': 0.010206, 'x3': 0.232599, 'x4': 0.787996, 'x5': 0.409147, 'x6': 0.338929} using GenerationNode Sobol.
-[INFO 09-05 18:04:10] ax.api.client: Generated new trial 2 with parameters {'x1': 0.960501, 'x2': 0.903653, 'x3': 0.942044, 'x4': 0.027124, 'x5': 0.868936, 'x6': 0.832959} using GenerationNode Sobol.
-[INFO 09-05 18:04:10] ax.api.client: Trial 0 marked COMPLETED.
-[INFO 09-05 18:04:10] ax.api.client: Trial 1 marked COMPLETED.
-[INFO 09-05 18:04:10] ax.api.client: Trial 2 marked COMPLETED.
-[INFO 09-05 18:04:11] ax.api.client: Generated new trial 3 with parameters {'x1': 0.537996, 'x2': 0.336122, 'x3': 0.429307, 'x4': 0.571709, 'x5': 0.664401, 'x6': 0.667343} using GenerationNode Sobol.
-[INFO 09-05 18:04:11] ax.api.client: Generated new trial 4 with parameters {'x1': 0.062275, 'x2': 0.702228, 'x3': 0.653404, 'x4': 0.363537, 'x5': 0.112693, 'x6': 0.160885} using GenerationNode Sobol.
-[WARNING 09-05 18:04:11] ax.api.client: 3 trials requested but only 2 could be generated.
-[INFO 09-05 18:04:11] ax.api.client: Trial 3 marked COMPLETED.
-[INFO 09-05 18:04:11] ax.api.client: Trial 4 marked COMPLETED.
-[INFO 09-05 18:04:11] ax.api.client: Generated new trial 5 with parameters {'x1': 0.5065, 'x2': 0.561923, 'x3': 0.517528, 'x4': 0.481156, 'x5': 0.439717, 'x6': 0.435146} using GenerationNode MBM.
-[WARNING 09-05 18:04:11] ax.api.client: 3 trials requested but only 1 could be generated.
-[INFO 09-05 18:04:11] ax.api.client: Trial 5 marked COMPLETED.
-[INFO 09-05 18:04:13] ax.api.client: Generated new trial 6 with parameters {'x1': 0.438719, 'x2': 0.669029, 'x3': 0.412246, 'x4': 0.580589, 'x5': 0.430435, 'x6': 0.48923} using GenerationNode MBM.
-[INFO 09-05 18:04:13] ax.api.client: Generated new trial 7 with parameters {'x1': 0.637242, 'x2': 0.532795, 'x3': 0.625694, 'x4': 0.374649, 'x5': 0.386975, 'x6': 0.30531} using GenerationNode MBM.
-[INFO 09-05 18:04:13] ax.api.client: Generated new trial 8 with parameters {'x1': 0.401313, 'x2': 0.610131, 'x3': 0.569333, 'x4': 0.481635, 'x5': 0.574634, 'x6': 0.226391} using GenerationNode MBM.
-[INFO 09-05 18:04:13] ax.api.client: Trial 6 marked COMPLETED.
-[INFO 09-05 18:04:13] ax.api.client: Trial 7 marked COMPLETED.
-[INFO 09-05 18:04:13] ax.api.client: Trial 8 marked COMPLETED.
-[INFO 09-05 18:04:15] ax.api.client: Generated new trial 9 with parameters {'x1': 0.379687, 'x2': 0.6861, 'x3': 0.629983, 'x4': 0.445402, 'x5': 0.663666, 'x6': 0.135007} using GenerationNode MBM.
-[INFO 09-05 18:04:15] ax.api.client: Generated new trial 10 with parameters {'x1': 0.375493, 'x2': 0.172172, 'x3': 0.591914, 'x4': 0.473569, 'x5': 0.468865, 'x6': 0.078563} using GenerationNode MBM.
-[INFO 09-05 18:04:15] ax.api.client: Generated new trial 11 with parameters {'x1': 0.37836, 'x2': 0.921201, 'x3': 0.568772, 'x4': 0.273044, 'x5': 0.825244, 'x6': 0.135034} using GenerationNode MBM.
-[INFO 09-05 18:04:15] ax.api.client: Trial 9 marked COMPLETED.
-[INFO 09-05 18:04:15] ax.api.client: Trial 10 marked COMPLETED.
-[INFO 09-05 18:04:15] ax.api.client: Trial 11 marked COMPLETED.
-[INFO 09-05 18:04:17] ax.api.client: Generated new trial 12 with parameters {'x1': 0.34327, 'x2': 0.747705, 'x3': 0.676657, 'x4': 0.449193, 'x5': 0.708529, 'x6': 0.065072} using GenerationNode MBM.
-[INFO 09-05 18:04:17] ax.api.client: Generated new trial 13 with parameters {'x1': 0.542791, 'x2': 0.673862, 'x3': 0.662588, 'x4': 0.364075, 'x5': 0.720585, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:17] ax.api.client: Generated new trial 14 with parameters {'x1': 0.147802, 'x2': 0.765616, 'x3': 0.674693, 'x4': 0.432995, 'x5': 0.695159, 'x6': 0.34678} using GenerationNode MBM.
-[INFO 09-05 18:04:17] ax.api.client: Trial 12 marked COMPLETED.
-[INFO 09-05 18:04:17] ax.api.client: Trial 13 marked COMPLETED.
-[INFO 09-05 18:04:17] ax.api.client: Trial 14 marked COMPLETED.
-[INFO 09-05 18:04:19] ax.api.client: Generated new trial 15 with parameters {'x1': 0.361414, 'x2': 0.782061, 'x3': 0.736703, 'x4': 0.48213, 'x5': 0.738145, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:19] ax.api.client: Generated new trial 16 with parameters {'x1': 0.352128, 'x2': 0.768235, 'x3': 0.734031, 'x4': 0.30743, 'x5': 0.436042, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:19] ax.api.client: Generated new trial 17 with parameters {'x1': 0.356657, 'x2': 0.785277, 'x3': 0.716697, 'x4': 0.65061, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:19] ax.api.client: Trial 15 marked COMPLETED.
-[INFO 09-05 18:04:19] ax.api.client: Trial 16 marked COMPLETED.
-[INFO 09-05 18:04:19] ax.api.client: Trial 17 marked COMPLETED.
-[INFO 09-05 18:04:21] ax.api.client: Generated new trial 18 with parameters {'x1': 0.345709, 'x2': 0.83814, 'x3': 0.798793, 'x4': 0.548356, 'x5': 0.931768, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:21] ax.api.client: Generated new trial 19 with parameters {'x1': 0.352941, 'x2': 0.91241, 'x3': 0.683746, 'x4': 0.580091, 'x5': 0.733472, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:21] ax.api.client: Generated new trial 20 with parameters {'x1': 0.337154, 'x2': 0.73181, 'x3': 0.913537, 'x4': 0.536887, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:21] ax.api.client: Trial 18 marked COMPLETED.
-[INFO 09-05 18:04:21] ax.api.client: Trial 19 marked COMPLETED.
-[INFO 09-05 18:04:21] ax.api.client: Trial 20 marked COMPLETED.
-[INFO 09-05 18:04:24] ax.api.client: Generated new trial 21 with parameters {'x1': 0.341671, 'x2': 1.0, 'x3': 0.667461, 'x4': 0.551213, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:24] ax.api.client: Generated new trial 22 with parameters {'x1': 0.364355, 'x2': 1.0, 'x3': 0.771647, 'x4': 0.572106, 'x5': 0.365553, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:24] ax.api.client: Generated new trial 23 with parameters {'x1': 0.265341, 'x2': 1.0, 'x3': 0.629914, 'x4': 0.562565, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:24] ax.api.client: Trial 21 marked COMPLETED.
-[INFO 09-05 18:04:24] ax.api.client: Trial 22 marked COMPLETED.
-[INFO 09-05 18:04:24] ax.api.client: Trial 23 marked COMPLETED.
-[INFO 09-05 18:04:27] ax.api.client: Generated new trial 24 with parameters {'x1': 0.423841, 'x2': 0.905984, 'x3': 0.656219, 'x4': 0.586585, 'x5': 0.227239, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:27] ax.api.client: Generated new trial 25 with parameters {'x1': 0.420332, 'x2': 0.911996, 'x3': 0.0, 'x4': 0.581397, 'x5': 0.118944, 'x6': 0.0} using GenerationNode MBM.
-[INFO 09-05 18:04:27] ax.api.client: Generated new trial 26 with parameters {'x1': 0.431175, 'x2': 0.910661, 'x3': 1.0, 'x4': 0.592655, 'x5': 0.370647, 'x6': 0.024401} using GenerationNode MBM.
-[INFO 09-05 18:04:27] ax.api.client: Trial 24 marked COMPLETED.
-[INFO 09-05 18:04:27] ax.api.client: Trial 25 marked COMPLETED.
-[INFO 09-05 18:04:27] ax.api.client: Trial 26 marked COMPLETED.`
+`[INFO 09-05 19:20:20] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
+[INFO 09-05 19:20:20] ax.api.client: Generated new trial 0 with parameters {'x1': 0.5, 'x2': 0.5, 'x3': 0.5, 'x4': 0.5, 'x5': 0.5, 'x6': 0.5} using GenerationNode CenterOfSearchSpace.
+[INFO 09-05 19:20:20] ax.api.client: Generated new trial 1 with parameters {'x1': 0.40395, 'x2': 0.137831, 'x3': 0.802264, 'x4': 0.196463, 'x5': 0.724711, 'x6': 0.199328} using GenerationNode Sobol.
+[INFO 09-05 19:20:20] ax.api.client: Generated new trial 2 with parameters {'x1': 0.784047, 'x2': 0.636934, 'x3': 0.104538, 'x4': 0.803026, 'x5': 0.18024, 'x6': 0.512067} using GenerationNode Sobol.
+[INFO 09-05 19:20:20] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 09-05 19:20:20] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 09-05 19:20:20] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 09-05 19:20:20] ax.api.client: Generated new trial 3 with parameters {'x1': 0.672605, 'x2': 0.3706, 'x3': 0.5623, 'x4': 0.436044, 'x5': 0.397945, 'x6': 0.923445} using GenerationNode Sobol.
+[INFO 09-05 19:20:20] ax.api.client: Generated new trial 4 with parameters {'x1': 0.015407, 'x2': 0.869527, 'x3': 0.344985, 'x4': 0.564344, 'x5': 0.947223, 'x6': 0.361192} using GenerationNode Sobol.
+[WARNING 09-05 19:20:20] ax.api.client: 3 trials requested but only 2 could be generated.
+[INFO 09-05 19:20:20] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 09-05 19:20:20] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 09-05 19:20:21] ax.api.client: Generated new trial 5 with parameters {'x1': 0.759257, 'x2': 0.532213, 'x3': 0.573802, 'x4': 0.547449, 'x5': 0.179245, 'x6': 1.0} using GenerationNode MBM.
+[WARNING 09-05 19:20:21] ax.api.client: 3 trials requested but only 1 could be generated.
+[INFO 09-05 19:20:21] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 09-05 19:20:23] ax.api.client: Generated new trial 6 with parameters {'x1': 0.839669, 'x2': 0.55821, 'x3': 0.490056, 'x4': 0.373773, 'x5': 0.460341, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:23] ax.api.client: Generated new trial 7 with parameters {'x1': 0.511432, 'x2': 0.099195, 'x3': 0.589431, 'x4': 0.472387, 'x5': 0.3956, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:23] ax.api.client: Generated new trial 8 with parameters {'x1': 0.45418, 'x2': 0.505809, 'x3': 0.616642, 'x4': 0.344733, 'x5': 0.339837, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:23] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 09-05 19:20:23] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 09-05 19:20:23] ax.api.client: Trial 8 marked COMPLETED.
+[INFO 09-05 19:20:24] ax.api.client: Generated new trial 9 with parameters {'x1': 0.516072, 'x2': 0.471822, 'x3': 0.830447, 'x4': 0.386036, 'x5': 0.32503, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:24] ax.api.client: Generated new trial 10 with parameters {'x1': 0.49601, 'x2': 0.457041, 'x3': 0.463107, 'x4': 0.123791, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:24] ax.api.client: Generated new trial 11 with parameters {'x1': 0.489777, 'x2': 0.490433, 'x3': 0.568333, 'x4': 0.791405, 'x5': 0.710448, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:24] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 09-05 19:20:24] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 09-05 19:20:24] ax.api.client: Trial 11 marked COMPLETED.
+[INFO 09-05 19:20:26] ax.api.client: Generated new trial 12 with parameters {'x1': 0.53929, 'x2': 0.476351, 'x3': 0.981013, 'x4': 0.18383, 'x5': 0.318813, 'x6': 0.733111} using GenerationNode MBM.
+[INFO 09-05 19:20:26] ax.api.client: Generated new trial 13 with parameters {'x1': 0.520233, 'x2': 0.498648, 'x3': 0.955484, 'x4': 0.783198, 'x5': 0.318345, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:26] ax.api.client: Generated new trial 14 with parameters {'x1': 0.520615, 'x2': 0.447412, 'x3': 0.920566, 'x4': 0.453014, 'x5': 0.29899, 'x6': 0.10364} using GenerationNode MBM.
+[INFO 09-05 19:20:26] ax.api.client: Trial 12 marked COMPLETED.
+[INFO 09-05 19:20:27] ax.api.client: Trial 13 marked COMPLETED.
+[INFO 09-05 19:20:27] ax.api.client: Trial 14 marked COMPLETED.
+[INFO 09-05 19:20:29] ax.api.client: Generated new trial 15 with parameters {'x1': 0.541594, 'x2': 0.591864, 'x3': 0.927585, 'x4': 0.39447, 'x5': 0.338341, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:29] ax.api.client: Generated new trial 16 with parameters {'x1': 0.530955, 'x2': 0.397402, 'x3': 0.92494, 'x4': 0.395615, 'x5': 0.255952, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:29] ax.api.client: Generated new trial 17 with parameters {'x1': 0.526311, 'x2': 0.436706, 'x3': 0.938202, 'x4': 0.381419, 'x5': 0.40476, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:29] ax.api.client: Trial 15 marked COMPLETED.
+[INFO 09-05 19:20:29] ax.api.client: Trial 16 marked COMPLETED.
+[INFO 09-05 19:20:29] ax.api.client: Trial 17 marked COMPLETED.
+[INFO 09-05 19:20:31] ax.api.client: Generated new trial 18 with parameters {'x1': 0.47119, 'x2': 0.355581, 'x3': 0.814725, 'x4': 0.231138, 'x5': 0.258672, 'x6': 0.999629} using GenerationNode MBM.
+[INFO 09-05 19:20:31] ax.api.client: Generated new trial 19 with parameters {'x1': 0.635528, 'x2': 0.34123, 'x3': 0.826237, 'x4': 0.182499, 'x5': 0.259004, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:31] ax.api.client: Generated new trial 20 with parameters {'x1': 0.313152, 'x2': 0.367939, 'x3': 0.821504, 'x4': 0.272496, 'x5': 0.252217, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:31] ax.api.client: Trial 18 marked COMPLETED.
+[INFO 09-05 19:20:31] ax.api.client: Trial 19 marked COMPLETED.
+[INFO 09-05 19:20:31] ax.api.client: Trial 20 marked COMPLETED.
+[INFO 09-05 19:20:34] ax.api.client: Generated new trial 21 with parameters {'x1': 0.15968, 'x2': 0.353097, 'x3': 0.826282, 'x4': 0.092073, 'x5': 0.203765, 'x6': 0.990366} using GenerationNode MBM.
+[INFO 09-05 19:20:34] ax.api.client: Generated new trial 22 with parameters {'x1': 0.159074, 'x2': 0.314995, 'x3': 0.803407, 'x4': 0.30728, 'x5': 0.193428, 'x6': 0.874723} using GenerationNode MBM.
+[INFO 09-05 19:20:34] ax.api.client: Generated new trial 23 with parameters {'x1': 0.126651, 'x2': 0.347943, 'x3': 0.826009, 'x4': 0.0, 'x5': 0.261907, 'x6': 1.0} using GenerationNode MBM.
+[INFO 09-05 19:20:34] ax.api.client: Trial 21 marked COMPLETED.
+[INFO 09-05 19:20:34] ax.api.client: Trial 22 marked COMPLETED.
+[INFO 09-05 19:20:34] ax.api.client: Trial 23 marked COMPLETED.
+[INFO 09-05 19:20:37] ax.api.client: Generated new trial 24 with parameters {'x1': 0.102128, 'x2': 0.292002, 'x3': 0.800788, 'x4': 0.393692, 'x5': 0.128374, 'x6': 0.809593} using GenerationNode MBM.
+[INFO 09-05 19:20:37] ax.api.client: Generated new trial 25 with parameters {'x1': 0.171739, 'x2': 0.298399, 'x3': 0.78688, 'x4': 0.318218, 'x5': 0.169685, 'x6': 0.714676} using GenerationNode MBM.
+[INFO 09-05 19:20:37] ax.api.client: Generated new trial 26 with parameters {'x1': 0.0, 'x2': 0.245296, 'x3': 0.804386, 'x4': 0.430296, 'x5': 0.120303, 'x6': 0.94272} using GenerationNode MBM.
+[INFO 09-05 19:20:37] ax.api.client: Trial 24 marked COMPLETED.
+[INFO 09-05 19:20:37] ax.api.client: Trial 25 marked COMPLETED.
+[INFO 09-05 19:20:37] ax.api.client: Trial 26 marked COMPLETED.`
 }
 </CellOutput>
 
@@ -290,8 +290,8 @@ print("Prediction (mean, variance):", prediction)
 
 <CellOutput>
 {
-`Best Parameters: {'x1': 0.3529405746594235, 'x2': 0.912410192436556, 'x3': 0.6837462783978993, 'x4': 0.5800910466574406, 'x5': 0.7334720247487982, 'x6': 0.0}
-Prediction (mean, variance): {'hartmann6': (np.float64(-2.844120549092117), np.float64(0.0014974001280137325))}`
+`Best Parameters: {'x1': 0.1590741819367294, 'x2': 0.31499549684748757, 'x3': 0.8034070923023935, 'x4': 0.30728037493407756, 'x5': 0.1934276223267281, 'x6': 0.8747227254156362}
+Prediction (mean, variance): {'hartmann6': (np.float64(-1.9339762477661333), np.float64(0.000889850378312853))}`
 }
 </CellOutput>
 
@@ -335,7 +335,7 @@ interval indicated in the plot.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/7d77d60d-0a5e-4091-a001-ace8065c224c.json')} />
+<PlotlyFigure data={require('./assets/plot_data/3b731e80-05f6-407a-8618-93a9d873be43.json')} />
 
 
 **Observed Arm Effects on hartmann6**
@@ -347,7 +347,7 @@ configurations have yielded the most favorable outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/56015bee-b267-4d71-a2d1-c4c3968f3e21.json')} />
+<PlotlyFigure data={require('./assets/plot_data/b1f8f21b-0e50-4142-82ac-3f612037ace0.json')} />
 
 
 **Summary for Experiment**
@@ -360,32 +360,32 @@ High-level summary of the `Trial`-s in this `Experiment`
 |    |   trial_index |   arm_name | trial_status   | generation_node     |   hartmann6 |       x1 |       x2 |       x3 |       x4 |       x5 |       x6 |
 |---:|--------------:|-----------:|:---------------|:--------------------|------------:|---------:|---------:|---------:|---------:|---------:|---------:|
 |  0 |             0 |        0_0 | COMPLETED      | CenterOfSearchSpace |   -0.505315 | 0.5      | 0.5      | 0.5      | 0.5      | 0.5      | 0.5      |
-|  1 |             1 |        1_0 | COMPLETED      | Sobol               |   -0.073946 | 0.451786 | 0.010206 | 0.232599 | 0.787996 | 0.409147 | 0.338929 |
-|  2 |             2 |        2_0 | COMPLETED      | Sobol               |   -0.000602 | 0.960501 | 0.903653 | 0.942044 | 0.027124 | 0.868936 | 0.832959 |
-|  3 |             3 |        3_0 | COMPLETED      | Sobol               |   -0.141085 | 0.537996 | 0.336122 | 0.429307 | 0.571709 | 0.664401 | 0.667343 |
-|  4 |             4 |        4_0 | COMPLETED      | Sobol               |   -0.248346 | 0.062275 | 0.702228 | 0.653404 | 0.363537 | 0.112693 | 0.160885 |
-|  5 |             5 |        5_0 | COMPLETED      | MBM                 |   -0.57614  | 0.5065   | 0.561923 | 0.517528 | 0.481156 | 0.439717 | 0.435146 |
-|  6 |             6 |        6_0 | COMPLETED      | MBM                 |   -0.408895 | 0.438719 | 0.669029 | 0.412246 | 0.580589 | 0.430435 | 0.48923  |
-|  7 |             7 |        7_0 | COMPLETED      | MBM                 |   -0.411008 | 0.637242 | 0.532795 | 0.625694 | 0.374649 | 0.386975 | 0.30531  |
-|  8 |             8 |        8_0 | COMPLETED      | MBM                 |   -1.05062  | 0.401313 | 0.610131 | 0.569333 | 0.481635 | 0.574634 | 0.226391 |
-|  9 |             9 |        9_0 | COMPLETED      | MBM                 |   -1.69738  | 0.379687 | 0.6861   | 0.629983 | 0.445402 | 0.663666 | 0.135007 |
-| 10 |            10 |       10_0 | COMPLETED      | MBM                 |   -0.147117 | 0.375493 | 0.172172 | 0.591914 | 0.473569 | 0.468865 | 0.078563 |
-| 11 |            11 |       11_0 | COMPLETED      | MBM                 |   -1.061    | 0.37836  | 0.921201 | 0.568772 | 0.273044 | 0.825244 | 0.135034 |
-| 12 |            12 |       12_0 | COMPLETED      | MBM                 |   -2.12576  | 0.34327  | 0.747705 | 0.676657 | 0.449193 | 0.708529 | 0.065072 |
-| 13 |            13 |       13_0 | COMPLETED      | MBM                 |   -0.991792 | 0.542791 | 0.673862 | 0.662588 | 0.364075 | 0.720585 | 0        |
-| 14 |            14 |       14_0 | COMPLETED      | MBM                 |   -0.300333 | 0.147802 | 0.765616 | 0.674693 | 0.432995 | 0.695159 | 0.34678  |
-| 15 |            15 |       15_0 | COMPLETED      | MBM                 |   -2.47387  | 0.361414 | 0.782061 | 0.736703 | 0.48213  | 0.738145 | 0        |
-| 16 |            16 |       16_0 | COMPLETED      | MBM                 |   -1.32286  | 0.352128 | 0.768235 | 0.734031 | 0.30743  | 0.436042 | 0        |
-| 17 |            17 |       17_0 | COMPLETED      | MBM                 |   -2.4337   | 0.356657 | 0.785277 | 0.716697 | 0.65061  | 1        | 0        |
-| 18 |            18 |       18_0 | COMPLETED      | MBM                 |   -2.70078  | 0.345709 | 0.83814  | 0.798793 | 0.548356 | 0.931768 | 0        |
-| 19 |            19 |       19_0 | COMPLETED      | MBM                 |   -2.85718  | 0.352941 | 0.91241  | 0.683746 | 0.580091 | 0.733472 | 0        |
-| 20 |            20 |       20_0 | COMPLETED      | MBM                 |   -2.20281  | 0.337154 | 0.73181  | 0.913537 | 0.536887 | 1        | 0        |
-| 21 |            21 |       21_0 | COMPLETED      | MBM                 |   -2.40892  | 0.341671 | 1        | 0.667461 | 0.551213 | 1        | 0        |
-| 22 |            22 |       22_0 | COMPLETED      | MBM                 |   -2.71569  | 0.364355 | 1        | 0.771647 | 0.572106 | 0.365553 | 0        |
-| 23 |            23 |       23_0 | COMPLETED      | MBM                 |   -1.85921  | 0.265341 | 1        | 0.629914 | 0.562565 | 1        | 0        |
-| 24 |            24 |       24_0 | COMPLETED      | MBM                 |   -3.09054  | 0.423841 | 0.905984 | 0.656219 | 0.586585 | 0.227239 | 0        |
-| 25 |            25 |       25_0 | COMPLETED      | MBM                 |   -2.98578  | 0.420332 | 0.911996 | 0        | 0.581397 | 0.118944 | 0        |
-| 26 |            26 |       26_0 | COMPLETED      | MBM                 |   -3.10231  | 0.431175 | 0.910661 | 1        | 0.592655 | 0.370647 | 0.024401 |
+|  1 |             1 |        1_0 | COMPLETED      | Sobol               |   -0.066007 | 0.40395  | 0.137831 | 0.802264 | 0.196463 | 0.724711 | 0.199328 |
+|  2 |             2 |        2_0 | COMPLETED      | Sobol               |   -0.025374 | 0.784047 | 0.636934 | 0.104538 | 0.803026 | 0.18024  | 0.512067 |
+|  3 |             3 |        3_0 | COMPLETED      | Sobol               |   -0.695963 | 0.672605 | 0.3706   | 0.5623   | 0.436044 | 0.397945 | 0.923445 |
+|  4 |             4 |        4_0 | COMPLETED      | Sobol               |   -0.072671 | 0.015407 | 0.869527 | 0.344985 | 0.564344 | 0.947223 | 0.361192 |
+|  5 |             5 |        5_0 | COMPLETED      | MBM                 |   -0.432145 | 0.759257 | 0.532213 | 0.573802 | 0.547449 | 0.179245 | 1        |
+|  6 |             6 |        6_0 | COMPLETED      | MBM                 |   -0.181464 | 0.839669 | 0.55821  | 0.490056 | 0.373773 | 0.460341 | 1        |
+|  7 |             7 |        7_0 | COMPLETED      | MBM                 |   -0.645455 | 0.511432 | 0.099195 | 0.589431 | 0.472387 | 0.3956   | 1        |
+|  8 |             8 |        8_0 | COMPLETED      | MBM                 |   -0.911621 | 0.45418  | 0.505809 | 0.616642 | 0.344733 | 0.339837 | 1        |
+|  9 |             9 |        9_0 | COMPLETED      | MBM                 |   -1.18246  | 0.516072 | 0.471822 | 0.830447 | 0.386036 | 0.32503  | 1        |
+| 10 |            10 |       10_0 | COMPLETED      | MBM                 |   -0.231069 | 0.49601  | 0.457041 | 0.463107 | 0.123791 | 0        | 1        |
+| 11 |            11 |       11_0 | COMPLETED      | MBM                 |   -0.02658  | 0.489777 | 0.490433 | 0.568333 | 0.791405 | 0.710448 | 1        |
+| 12 |            12 |       12_0 | COMPLETED      | MBM                 |   -0.881183 | 0.53929  | 0.476351 | 0.981013 | 0.18383  | 0.318813 | 0.733111 |
+| 13 |            13 |       13_0 | COMPLETED      | MBM                 |   -0.602495 | 0.520233 | 0.498648 | 0.955484 | 0.783198 | 0.318345 | 1        |
+| 14 |            14 |       14_0 | COMPLETED      | MBM                 |   -0.513806 | 0.520615 | 0.447412 | 0.920566 | 0.453014 | 0.29899  | 0.10364  |
+| 15 |            15 |       15_0 | COMPLETED      | MBM                 |   -0.700767 | 0.541594 | 0.591864 | 0.927585 | 0.39447  | 0.338341 | 1        |
+| 16 |            16 |       16_0 | COMPLETED      | MBM                 |   -1.21426  | 0.530955 | 0.397402 | 0.92494  | 0.395615 | 0.255952 | 1        |
+| 17 |            17 |       17_0 | COMPLETED      | MBM                 |   -0.770542 | 0.526311 | 0.436706 | 0.938202 | 0.381419 | 0.40476  | 1        |
+| 18 |            18 |       18_0 | COMPLETED      | MBM                 |   -1.52818  | 0.47119  | 0.355581 | 0.814725 | 0.231138 | 0.258672 | 0.999629 |
+| 19 |            19 |       19_0 | COMPLETED      | MBM                 |   -1.31161  | 0.635528 | 0.34123  | 0.826237 | 0.182499 | 0.259004 | 1        |
+| 20 |            20 |       20_0 | COMPLETED      | MBM                 |   -1.65745  | 0.313152 | 0.367939 | 0.821504 | 0.272496 | 0.252217 | 1        |
+| 21 |            21 |       21_0 | COMPLETED      | MBM                 |   -1.5127   | 0.15968  | 0.353097 | 0.826282 | 0.092073 | 0.203765 | 0.990366 |
+| 22 |            22 |       22_0 | COMPLETED      | MBM                 |   -1.94216  | 0.159074 | 0.314995 | 0.803407 | 0.30728  | 0.193428 | 0.874723 |
+| 23 |            23 |       23_0 | COMPLETED      | MBM                 |   -1.25347  | 0.126651 | 0.347943 | 0.826009 | 0        | 0.261907 | 1        |
+| 24 |            24 |       24_0 | COMPLETED      | MBM                 |   -1.50972  | 0.102128 | 0.292002 | 0.800788 | 0.393692 | 0.128374 | 0.809593 |
+| 25 |            25 |       25_0 | COMPLETED      | MBM                 |   -1.84248  | 0.171739 | 0.298399 | 0.78688  | 0.318218 | 0.169685 | 0.714676 |
+| 26 |            26 |       26_0 | COMPLETED      | MBM                 |   -1.30335  | 0        | 0.245296 | 0.804386 | 0.430296 | 0.120303 | 0.94272  |
 
 
 **Sensitivity Analysis for hartmann6**
@@ -395,10 +395,10 @@ analysis.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/68c6461f-9a65-4b59-a6a5-c43108bd4044.json')} />
+<PlotlyFigure data={require('./assets/plot_data/48b3dbd2-6e37-4c3a-868a-fdcc32d3f2ec.json')} />
 
 
-**x6 vs. hartmann6**
+**x3 vs. hartmann6**
 
 The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
 function of a single parameter, while keeping all other parameters fixed at their
@@ -408,25 +408,23 @@ predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/e972afd0-c8f3-4a0c-b00b-4d29ee31e0f6.json')} />
+<PlotlyFigure data={require('./assets/plot_data/4c9a1f86-40be-4802-87ca-b735ca86343d.json')} />
 
 
-**x2, x6 vs. hartmann6**
+**x5 vs. hartmann6**
 
-The contour plot visualizes the predicted outcomes for hartmann6 across a
-two-dimensional parameter space, with other parameters held fixed at their status_quo
-value (or mean value if status_quo is unavailable). This plot helps in identifying
-regions of optimal performance and understanding how changes in the selected parameters
-influence the predicted outcomes. Contour lines represent levels of constant predicted
-values, providing insights into the gradient and potential optima within the parameter
-space.
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/6d3d43c2-f96a-458d-9703-2371052de2ca.json')} />
+<PlotlyFigure data={require('./assets/plot_data/38f27cc3-b07a-42e1-9ad9-150ef7d02d4b.json')} />
 
 
-**x2, x4 vs. hartmann6**
+**x3, x5 vs. hartmann6**
 
 The contour plot visualizes the predicted outcomes for hartmann6 across a
 two-dimensional parameter space, with other parameters held fixed at their status_quo
@@ -438,7 +436,7 @@ space.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/7911bc82-577a-415c-bb42-fec300787b16.json')} />
+<PlotlyFigure data={require('./assets/plot_data/a38ae731-0249-4fe6-8911-020171f8d965.json')} />
 
 
 **Cross Validation for hartmann6**
@@ -455,7 +453,7 @@ sufficient signal in the data, and instead is just predicting the mean.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/072566d3-7a1e-4426-9c55-3a7e885bd0b2.json')} />
+<PlotlyFigure data={require('./assets/plot_data/96f2f03a-2045-4f39-aa88-d6c8545e68c0.json')} />
 
 ## Conclusion
 

@@ -163,12 +163,12 @@ for parameters, data in preexisting_trials:
 
 <CellOutput>
 {
-`[INFO 09-05 18:10:30] ax.api.client: Trial 0 marked COMPLETED.
-[INFO 09-05 18:10:30] ax.api.client: Trial 1 marked COMPLETED.
-[INFO 09-05 18:10:30] ax.api.client: Trial 2 marked COMPLETED.
-[INFO 09-05 18:10:30] ax.api.client: Trial 3 marked COMPLETED.
-[INFO 09-05 18:10:30] ax.api.client: Trial 4 marked COMPLETED.
-[INFO 09-05 18:10:30] ax.api.client: Trial 5 marked COMPLETED.`
+`[INFO 09-05 19:26:18] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 09-05 19:26:18] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 09-05 19:26:18] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 09-05 19:26:18] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 09-05 19:26:18] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 09-05 19:26:18] ax.api.client: Trial 5 marked COMPLETED.`
 }
 </CellOutput>
 
@@ -192,16 +192,16 @@ trials
 
 <CellOutput>
 {
-`[INFO 09-05 18:10:30] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
-[INFO 09-05 18:10:31] ax.api.client: Generated new trial 6 with parameters {'infill_density': 50.0, 'layer_height': 0.25, 'infill_type': 'lines'} using GenerationNode CenterOfSearchSpace.
-[INFO 09-05 18:10:31] ax.api.client: Generated new trial 7 with parameters {'infill_density': 45.504189, 'layer_height': 0.233215, 'infill_type': 'gyroid'} using GenerationNode Sobol.
-[INFO 09-05 18:10:31] ax.api.client: Generated new trial 8 with parameters {'infill_density': 55.120196, 'layer_height': 0.203999, 'infill_type': 'honeycomb'} using GenerationNode MBM.
+`[INFO 09-05 19:26:18] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
+[INFO 09-05 19:26:19] ax.api.client: Generated new trial 6 with parameters {'infill_density': 50.0, 'layer_height': 0.25, 'infill_type': 'lines'} using GenerationNode CenterOfSearchSpace.
+[INFO 09-05 19:26:19] ax.api.client: Generated new trial 7 with parameters {'infill_density': 20.902452, 'layer_height': 0.240729, 'infill_type': 'gyroid'} using GenerationNode Sobol.
+[INFO 09-05 19:26:19] ax.api.client: Generated new trial 8 with parameters {'infill_density': 55.075538, 'layer_height': 0.203983, 'infill_type': 'honeycomb'} using GenerationNode MBM.
 {6: {'infill_density': 50.0, 'layer_height': 0.25, 'infill_type': 'lines'},
- 7: {'infill_density': 45.504188537597656,
-  'layer_height': 0.23321457505226137,
+ 7: {'infill_density': 20.902451872825623,
+  'layer_height': 0.2407287120819092,
   'infill_type': 'gyroid'},
- 8: {'infill_density': 55.120196210464044,
-  'layer_height': 0.20399908367800115,
+ 8: {'infill_density': 55.075537697148704,
+  'layer_height': 0.20398255413193564,
   'infill_type': 'honeycomb'}}`
 }
 </CellOutput>
@@ -235,9 +235,9 @@ for trial_index, parameters in trials.items():
 
 <CellOutput>
 {
-`[INFO 09-05 18:10:31] ax.api.client: Trial 6 marked COMPLETED.
-[INFO 09-05 18:10:31] ax.api.client: Trial 7 marked COMPLETED.
-[INFO 09-05 18:10:31] ax.api.client: Trial 8 marked COMPLETED.`
+`[INFO 09-05 19:26:19] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 09-05 19:26:19] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 09-05 19:26:19] ax.api.client: Trial 8 marked COMPLETED.`
 }
 </CellOutput>
 
@@ -254,17 +254,19 @@ trials
 
 <CellOutput>
 {
-`[INFO 09-05 18:10:34] ax.api.client: Generated new trial 9 with parameters {'infill_density': 42.138909, 'layer_height': 0.128405, 'infill_type': 'honeycomb'} using GenerationNode MBM.
-[INFO 09-05 18:10:34] ax.api.client: Generated new trial 10 with parameters {'infill_density': 72.346948, 'layer_height': 0.228143, 'infill_type': 'honeycomb'} using GenerationNode MBM.
-[INFO 09-05 18:10:34] ax.api.client: Generated new trial 11 with parameters {'infill_density': 44.975286, 'layer_height': 0.100038, 'infill_type': 'honeycomb'} using GenerationNode MBM.
-{9: {'infill_density': 42.138909080198786,
-  'layer_height': 0.12840488701756111,
+`/opt/hostedtoolcache/Python/3.12.11/x64/lib/python3.12/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 09-05 19:26:23] ax.api.client: Generated new trial 9 with parameters {'infill_density': 42.220201, 'layer_height': 0.122667, 'infill_type': 'honeycomb'} using GenerationNode MBM.
+[INFO 09-05 19:26:23] ax.api.client: Generated new trial 10 with parameters {'infill_density': 0.0, 'layer_height': 0.1, 'infill_type': 'rectilinear'} using GenerationNode MBM.
+[INFO 09-05 19:26:23] ax.api.client: Generated new trial 11 with parameters {'infill_density': 44.369712, 'layer_height': 0.1, 'infill_type': 'honeycomb'} using GenerationNode MBM.
+{9: {'infill_density': 42.22020053027674,
+  'layer_height': 0.12266724710416137,
   'infill_type': 'honeycomb'},
- 10: {'infill_density': 72.34694813461513,
-  'layer_height': 0.2281425039759081,
-  'infill_type': 'honeycomb'},
- 11: {'infill_density': 44.975286106469724,
-  'layer_height': 0.10003831239239505,
+ 10: {'infill_density': 0.0,
+  'layer_height': 0.1,
+  'infill_type': 'rectilinear'},
+ 11: {'infill_density': 44.369711706620336,
+  'layer_height': 0.1,
   'infill_type': 'honeycomb'}}`
 }
 </CellOutput>
@@ -277,9 +279,9 @@ for trial_index, parameters in trials.items():
 
 <CellOutput>
 {
-`[INFO 09-05 18:10:34] ax.api.client: Trial 9 marked COMPLETED.
-[INFO 09-05 18:10:34] ax.api.client: Trial 10 marked COMPLETED.
-[INFO 09-05 18:10:34] ax.api.client: Trial 11 marked COMPLETED.`
+`[INFO 09-05 19:26:23] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 09-05 19:26:23] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 09-05 19:26:23] ax.api.client: Trial 11 marked COMPLETED.`
 }
 </CellOutput>
 
@@ -291,15 +293,17 @@ trials
 
 <CellOutput>
 {
-`[INFO 09-05 18:10:40] ax.api.client: Generated new trial 12 with parameters {'infill_density': 8.056057, 'layer_height': 0.395549, 'infill_type': 'rectilinear'} using GenerationNode MBM.
-[INFO 09-05 18:10:40] ax.api.client: Generated new trial 13 with parameters {'infill_density': 100.0, 'layer_height': 0.4, 'infill_type': 'gyroid'} using GenerationNode MBM.
-[INFO 09-05 18:10:40] ax.api.client: Generated new trial 14 with parameters {'infill_density': 16.312513, 'layer_height': 0.121585, 'infill_type': 'honeycomb'} using GenerationNode MBM.
-{12: {'infill_density': 8.056056756641127,
-  'layer_height': 0.3955486480217006,
-  'infill_type': 'rectilinear'},
- 13: {'infill_density': 100.0, 'layer_height': 0.4, 'infill_type': 'gyroid'},
- 14: {'infill_density': 16.312513035257464,
-  'layer_height': 0.12158530056510025,
+`[INFO 09-05 19:26:28] ax.api.client: Generated new trial 12 with parameters {'infill_density': 99.959867, 'layer_height': 0.1, 'infill_type': 'honeycomb'} using GenerationNode MBM.
+[INFO 09-05 19:26:28] ax.api.client: Generated new trial 13 with parameters {'infill_density': 85.006243, 'layer_height': 0.1, 'infill_type': 'honeycomb'} using GenerationNode MBM.
+[INFO 09-05 19:26:28] ax.api.client: Generated new trial 14 with parameters {'infill_density': 8.542053, 'layer_height': 0.1, 'infill_type': 'honeycomb'} using GenerationNode MBM.
+{12: {'infill_density': 99.95986706467318,
+  'layer_height': 0.1,
+  'infill_type': 'honeycomb'},
+ 13: {'infill_density': 85.00624312965394,
+  'layer_height': 0.1,
+  'infill_type': 'honeycomb'},
+ 14: {'infill_density': 8.542053289677257,
+  'layer_height': 0.1,
   'infill_type': 'honeycomb'}}`
 }
 </CellOutput>
@@ -312,9 +316,9 @@ for trial_index, parameters in trials.items():
 
 <CellOutput>
 {
-`[INFO 09-05 18:10:40] ax.api.client: Trial 12 marked COMPLETED.
-[INFO 09-05 18:10:40] ax.api.client: Trial 13 marked COMPLETED.
-[INFO 09-05 18:10:40] ax.api.client: Trial 14 marked COMPLETED.`
+`[INFO 09-05 19:26:28] ax.api.client: Trial 12 marked COMPLETED.
+[INFO 09-05 19:26:28] ax.api.client: Trial 13 marked COMPLETED.
+[INFO 09-05 19:26:28] ax.api.client: Trial 14 marked COMPLETED.`
 }
 </CellOutput>
 
@@ -334,7 +338,11 @@ print("Prediction (mean, variance):", prediction)
 <CellOutput>
 {
 `Best Parameters: {'infill_density': 33.57, 'layer_height': 0.24, 'infill_type': 'honeycomb'}
-Prediction (mean, variance): {'compressive_strength': (np.float64(14.179921873892631), np.float64(3.957330694849414)), 'weight': (np.float64(6.48483608317601), np.float64(0.34290686875089843))}`
+Prediction (mean, variance): {'compressive_strength': (np.float64(15.780265783622658), np.float64(3.781526330622439)), 'weight': (np.float64(6.423295555834263), np.float64(0.35273470948807273))}
+/home/runner/work/Ax/Ax/ax/utils/stats/model_fit_stats.py:223: RuntimeWarning:
+divide by zero encountered in divide
+/home/runner/work/Ax/Ax/ax/utils/stats/model_fit_stats.py:257: RuntimeWarning:
+divide by zero encountered in scalar divide`
 }
 </CellOutput>
 
@@ -372,8 +380,8 @@ cards = client.compute_analyses(display=True)
 {
 `/home/runner/work/Ax/Ax/ax/analysis/utils.py:584: UserWarning:
 Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:253.)
-[WARNING 09-05 18:10:52] ax.adapter.base: TorchAdapter(generator=BoTorchGenerator) was not able to generate 100 unique candidates. Generated arms have the following weights, as there are repeats:
-[2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]`
+[WARNING 09-05 19:26:41] ax.adapter.base: TorchAdapter(generator=BoTorchGenerator) was not able to generate 100 unique candidates. Generated arms have the following weights, as there are repeats:
+[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]`
 }
 </CellOutput>
 
@@ -390,7 +398,7 @@ interval indicated in the plot.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/7265b0fa-2cd2-4f4c-8fae-ed8a3d5b268b.json')} />
+<PlotlyFigure data={require('./assets/plot_data/9dd67838-2bc8-41ea-877c-ad05a656277a.json')} />
 
 
 **Observed Arm Effects on compressive_strength**
@@ -402,7 +410,7 @@ highlighting which configurations have yielded the most favorable outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/382ff781-6a25-4eda-891e-4ba9b3e46dd2.json')} />
+<PlotlyFigure data={require('./assets/plot_data/96635c62-16b5-4341-b317-0afac8b70dd9.json')} />
 
 
 **Modeled Arm Effects on weight**
@@ -417,7 +425,7 @@ in the plot.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/67741f4f-f7fc-4be2-93fa-0d892dc072d5.json')} />
+<PlotlyFigure data={require('./assets/plot_data/e3e752ee-c3ab-4809-9bac-11acb73cd51f.json')} />
 
 
 **Observed Arm Effects on weight**
@@ -429,7 +437,7 @@ configurations have yielded the most favorable outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/db9125ae-8816-42cb-a31f-4d4ee1c4c555.json')} />
+<PlotlyFigure data={require('./assets/plot_data/5866f5f2-8842-406d-ae08-a6be3e64f217.json')} />
 
 
 **Modeled Effect on the Objective vs % Chance of Satisfying the Constraints**
@@ -440,7 +448,7 @@ frontier.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/73b93a9f-81fb-4f26-8a53-1abfb1d3c65e.json')} />
+<PlotlyFigure data={require('./assets/plot_data/6c10a4ce-55ac-4661-8603-0fa7b57eb5a9.json')} />
 
 
 **Modeled Effects: compressive_strength vs. weight**
@@ -451,7 +459,7 @@ frontier.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/9aaa86c3-526b-4404-86b0-d01d9fbb41e6.json')} />
+<PlotlyFigure data={require('./assets/plot_data/2c7b107b-1530-47fc-a5c3-d53658db440f.json')} />
 
 
 **Summary for 3d_print_strength_experiment**
@@ -461,23 +469,23 @@ High-level summary of the `Trial`-s in this `Experiment`
 
 
 
-|    |   trial_index |   arm_name | trial_status   | generation_node     |    weight |   compressive_strength |   infill_density |   layer_height | infill_type   |
-|---:|--------------:|-----------:|:---------------|:--------------------|----------:|-----------------------:|-----------------:|---------------:|:--------------|
-|  0 |             0 |        0_0 | COMPLETED      | nan                 |  0.52     |               1.74     |         10.43    |       0.3      | gyroid        |
-|  1 |             1 |        1_0 | COMPLETED      | nan                 |  2.31     |               4.63     |         55.54    |       0.12     | lines         |
-|  2 |             2 |        2_0 | COMPLETED      | nan                 |  2.84     |               5.68     |         99.43    |       0.35     | rectilinear   |
-|  3 |             3 |        3_0 | COMPLETED      | nan                 |  1.97     |               3.95     |         41.44    |       0.21     | rectilinear   |
-|  4 |             4 |        4_0 | COMPLETED      | nan                 |  3.31     |               7.36     |         27.23    |       0.37     | honeycomb     |
-|  5 |             5 |        5_0 | COMPLETED      | nan                 |  6.29     |              13.99     |         33.57    |       0.24     | honeycomb     |
-|  6 |             6 |        6_0 | COMPLETED      | CenterOfSearchSpace |  1        |               2        |         50       |       0.25     | lines         |
-|  7 |             7 |        7_0 | COMPLETED      | Sobol               |  2.92676  |               9.75586  |         45.5042  |       0.233215 | gyroid        |
-|  8 |             8 |        8_0 | COMPLETED      | MBM                 | 12.1589   |              27.0198   |         55.1202  |       0.203999 | honeycomb     |
-|  9 |             9 |        9_0 | COMPLETED      | MBM                 | 14.7677   |              32.8172   |         42.1389  |       0.128405 | honeycomb     |
-| 10 |            10 |       10_0 | COMPLETED      | MBM                 | 14.2701   |              31.7113   |         72.3469  |       0.228143 | honeycomb     |
-| 11 |            11 |       11_0 | COMPLETED      | MBM                 | 20.2311   |              44.9581   |         44.9753  |       0.100038 | honeycomb     |
-| 12 |            12 |       12_0 | COMPLETED      | MBM                 |  0.203668 |               0.407336 |          8.05606 |       0.395549 | rectilinear   |
-| 13 |            13 |       13_0 | COMPLETED      | MBM                 |  3.75     |              12.5      |        100       |       0.4      | gyroid        |
-| 14 |            14 |       14_0 | COMPLETED      | MBM                 |  6.03743  |              13.4165   |         16.3125  |       0.121585 | honeycomb     |
+|    |   trial_index |   arm_name | trial_status   | generation_node     |   weight |   compressive_strength |   infill_density |   layer_height | infill_type   |
+|---:|--------------:|-----------:|:---------------|:--------------------|---------:|-----------------------:|-----------------:|---------------:|:--------------|
+|  0 |             0 |        0_0 | COMPLETED      | nan                 |  0.52    |                1.74    |         10.43    |       0.3      | gyroid        |
+|  1 |             1 |        1_0 | COMPLETED      | nan                 |  2.31    |                4.63    |         55.54    |       0.12     | lines         |
+|  2 |             2 |        2_0 | COMPLETED      | nan                 |  2.84    |                5.68    |         99.43    |       0.35     | rectilinear   |
+|  3 |             3 |        3_0 | COMPLETED      | nan                 |  1.97    |                3.95    |         41.44    |       0.21     | rectilinear   |
+|  4 |             4 |        4_0 | COMPLETED      | nan                 |  3.31    |                7.36    |         27.23    |       0.37     | honeycomb     |
+|  5 |             5 |        5_0 | COMPLETED      | nan                 |  6.29    |               13.99    |         33.57    |       0.24     | honeycomb     |
+|  6 |             6 |        6_0 | COMPLETED      | CenterOfSearchSpace |  1       |                2       |         50       |       0.25     | lines         |
+|  7 |             7 |        7_0 | COMPLETED      | Sobol               |  1.30245 |                4.3415  |         20.9025  |       0.240729 | gyroid        |
+|  8 |             8 |        8_0 | COMPLETED      | MBM                 | 12.1501  |               27.0001  |         55.0755  |       0.203983 | honeycomb     |
+|  9 |             9 |        9_0 | COMPLETED      | MBM                 | 15.4883  |               34.4185  |         42.2202  |       0.122667 | honeycomb     |
+| 10 |            10 |       10_0 | COMPLETED      | MBM                 |  0       |                0       |          0       |       0.1      | rectilinear   |
+| 11 |            11 |       11_0 | COMPLETED      | MBM                 | 19.9664  |               44.3697  |         44.3697  |       0.1      | honeycomb     |
+| 12 |            12 |       12_0 | COMPLETED      | MBM                 | 44.9819  |               99.9599  |         99.9599  |       0.1      | honeycomb     |
+| 13 |            13 |       13_0 | COMPLETED      | MBM                 | 38.2528  |               85.0062  |         85.0062  |       0.1      | honeycomb     |
+| 14 |            14 |       14_0 | COMPLETED      | MBM                 |  3.84392 |                8.54205 |          8.54205 |       0.1      | honeycomb     |
 
 
 **Sensitivity Analysis for compressive_strength**
@@ -487,7 +495,7 @@ sensitivity analysis.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/02abe8f1-3f51-444c-ad80-7b56639c904a.json')} />
+<PlotlyFigure data={require('./assets/plot_data/54b36c3f-6bfb-4ed5-8846-04a7d4cca982.json')} />
 
 
 **layer_height vs. compressive_strength**
@@ -500,7 +508,7 @@ selected parameter on the predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/c0a91fd7-4bed-4a33-9923-88b0f82a1917.json')} />
+<PlotlyFigure data={require('./assets/plot_data/632c2c50-5aa8-4238-ab16-65d0e0166f3b.json')} />
 
 
 **infill_density vs. compressive_strength**
@@ -513,7 +521,7 @@ selected parameter on the predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/1ff1469e-9323-4835-bdf8-4c045a6ef87c.json')} />
+<PlotlyFigure data={require('./assets/plot_data/b0fabb85-77fd-41a6-a16c-23273bc168f6.json')} />
 
 
 **infill_density, layer_height vs. compressive_strength**
@@ -528,7 +536,7 @@ space.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/b927b5fe-020f-4525-9b56-377f4106723e.json')} />
+<PlotlyFigure data={require('./assets/plot_data/7fc44a49-7523-411e-b81d-ac5aa4a0d104.json')} />
 
 
 **Sensitivity Analysis for weight**
@@ -538,7 +546,7 @@ analysis.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/1552f9d1-6bf6-4e14-a790-8f6f25490044.json')} />
+<PlotlyFigure data={require('./assets/plot_data/267dec6f-e038-4ce0-9304-a933b23ac02b.json')} />
 
 
 **infill_density vs. weight**
@@ -551,7 +559,7 @@ predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/fe3a4d9a-e10b-40db-b4e3-1392d731141f.json')} />
+<PlotlyFigure data={require('./assets/plot_data/d5432785-5546-41a5-ae7f-ea0568eb0af8.json')} />
 
 
 **layer_height vs. weight**
@@ -564,7 +572,7 @@ predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/c97a4b13-33d1-456f-b05f-b70cc3f7d44d.json')} />
+<PlotlyFigure data={require('./assets/plot_data/b657e707-f817-427a-adc0-ba72da27a697.json')} />
 
 
 **infill_density, layer_height vs. weight**
@@ -578,7 +586,7 @@ providing insights into the gradient and potential optima within the parameter s
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/9b53c656-f568-4abc-a8b9-3e19ce0be166.json')} />
+<PlotlyFigure data={require('./assets/plot_data/5707895e-3a6c-4f43-8113-54fb1a33ef3d.json')} />
 
 
 **Cross Validation for weight**
@@ -595,7 +603,7 @@ sufficient signal in the data, and instead is just predicting the mean.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/0c337356-e8ff-4efc-8a6e-59cb8a70b62b.json')} />
+<PlotlyFigure data={require('./assets/plot_data/2b1b1dea-1e79-495e-a473-3cbe5cbeecc3.json')} />
 
 
 **Cross Validation for compressive_strength**
@@ -612,7 +620,7 @@ sufficient signal in the data, and instead is just predicting the mean.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/5085a270-c2f8-4d2b-b3e5-01d61f17db3e.json')} />
+<PlotlyFigure data={require('./assets/plot_data/afeb91fc-dceb-4055-ae4c-4c5ee420df8c.json')} />
 
 
 **Ax Constraints Feasibility Warning**

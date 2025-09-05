@@ -86,51 +86,51 @@ client.get_best_parameterization()
 {
 `/opt/hostedtoolcache/Python/3.12.11/x64/lib/python3.12/site-packages/pyro/ops/stats.py:527: SyntaxWarning: invalid escape sequence '\g'
   we have :math:ES^{*}(P,Q) \ge ES^{*}(Q,Q) with equality holding if and only if :math:P=Q, i.e.
-[INFO 09-05 18:03:56] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
-[INFO 09-05 18:03:56] ax.api.client: Generated new trial 0 with parameters {'x1': 0.0, 'x2': 0.0} using GenerationNode CenterOfSearchSpace.
-[INFO 09-05 18:03:56] ax.api.client: Trial 0 marked COMPLETED.
-[INFO 09-05 18:03:56] ax.api.client: Generated new trial 1 with parameters {'x1': -8.461533, 'x2': 0.309857} using GenerationNode Sobol.
-[INFO 09-05 18:03:56] ax.api.client: Trial 1 marked COMPLETED.
-[INFO 09-05 18:03:56] ax.api.client: Generated new trial 2 with parameters {'x1': 1.542585, 'x2': -8.881766} using GenerationNode Sobol.
-[INFO 09-05 18:03:56] ax.api.client: Trial 2 marked COMPLETED.
-[INFO 09-05 18:03:56] ax.api.client: Generated new trial 3 with parameters {'x1': 9.543501, 'x2': 6.103571} using GenerationNode Sobol.
-[INFO 09-05 18:03:56] ax.api.client: Trial 3 marked COMPLETED.
-[INFO 09-05 18:03:56] ax.api.client: Generated new trial 4 with parameters {'x1': -0.456649, 'x2': -4.724347} using GenerationNode Sobol.
-[INFO 09-05 18:03:56] ax.api.client: Trial 4 marked COMPLETED.
-[INFO 09-05 18:03:56] ax.api.client: Generated new trial 5 with parameters {'x1': 0.74105, 'x2': 2.543269} using GenerationNode MBM.
-[INFO 09-05 18:03:56] ax.api.client: Trial 5 marked COMPLETED.
-[INFO 09-05 18:03:57] ax.api.client: Generated new trial 6 with parameters {'x1': -0.933989, 'x2': 4.715658} using GenerationNode MBM.
-[INFO 09-05 18:03:57] ax.api.client: Trial 6 marked COMPLETED.
-[INFO 09-05 18:03:57] ax.api.client: Generated new trial 7 with parameters {'x1': 0.595054, 'x2': 4.648905} using GenerationNode MBM.
-[INFO 09-05 18:03:57] ax.api.client: Trial 7 marked COMPLETED.
-[INFO 09-05 18:03:58] ax.api.client: Generated new trial 8 with parameters {'x1': -0.235107, 'x2': 3.376092} using GenerationNode MBM.
-[INFO 09-05 18:03:58] ax.api.client: Trial 8 marked COMPLETED.
-[INFO 09-05 18:03:58] ax.api.client: Generated new trial 9 with parameters {'x1': -2.790426, 'x2': 10.0} using GenerationNode MBM.
-[INFO 09-05 18:03:58] ax.api.client: Trial 9 marked COMPLETED.
-[INFO 09-05 18:03:59] ax.api.client: Generated new trial 10 with parameters {'x1': 0.038188, 'x2': 4.052015} using GenerationNode MBM.
-[INFO 09-05 18:03:59] ax.api.client: Trial 10 marked COMPLETED.
-[INFO 09-05 18:03:59] ax.api.client: Generated new trial 11 with parameters {'x1': -10.0, 'x2': 10.0} using GenerationNode MBM.
-[INFO 09-05 18:03:59] ax.api.client: Trial 11 marked COMPLETED.
-[INFO 09-05 18:04:00] ax.api.client: Generated new trial 12 with parameters {'x1': 10.0, 'x2': -5.461336} using GenerationNode MBM.
-[INFO 09-05 18:04:00] ax.api.client: Trial 12 marked COMPLETED.
-[INFO 09-05 18:04:00] ax.api.client: Generated new trial 13 with parameters {'x1': 10.0, 'x2': -10.0} using GenerationNode MBM.
-[INFO 09-05 18:04:00] ax.api.client: Trial 13 marked COMPLETED.
-[INFO 09-05 18:04:01] ax.api.client: Generated new trial 14 with parameters {'x1': 3.990325, 'x2': -0.404386} using GenerationNode MBM.
-[INFO 09-05 18:04:01] ax.api.client: Trial 14 marked COMPLETED.
-[INFO 09-05 18:04:02] ax.api.client: Generated new trial 15 with parameters {'x1': 1.607703, 'x2': 2.053759} using GenerationNode MBM.
-[INFO 09-05 18:04:02] ax.api.client: Trial 15 marked COMPLETED.
-[INFO 09-05 18:04:02] ax.api.client: Generated new trial 16 with parameters {'x1': 0.811437, 'x2': 3.032649} using GenerationNode MBM.
-[INFO 09-05 18:04:02] ax.api.client: Trial 16 marked COMPLETED.
-[INFO 09-05 18:04:03] ax.api.client: Generated new trial 17 with parameters {'x1': 1.846351, 'x2': 1.241836} using GenerationNode MBM.
-[INFO 09-05 18:04:03] ax.api.client: Trial 17 marked COMPLETED.
-[INFO 09-05 18:04:04] ax.api.client: Generated new trial 18 with parameters {'x1': -0.914889, 'x2': 5.498725} using GenerationNode MBM.
-[INFO 09-05 18:04:04] ax.api.client: Trial 18 marked COMPLETED.
-[INFO 09-05 18:04:05] ax.api.client: Generated new trial 19 with parameters {'x1': 0.373521, 'x2': 3.362975} using GenerationNode MBM.
-[INFO 09-05 18:04:05] ax.api.client: Trial 19 marked COMPLETED.
-({'x1': 0.8114369285827207, 'x2': 3.0326488163928507},
- {'booth': (np.float64(0.3095995920426162), np.float64(5.701907672983472))},
- 16,
- '16_0')`
+[INFO 09-05 19:20:06] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
+[INFO 09-05 19:20:06] ax.api.client: Generated new trial 0 with parameters {'x1': 0.0, 'x2': 0.0} using GenerationNode CenterOfSearchSpace.
+[INFO 09-05 19:20:06] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 09-05 19:20:06] ax.api.client: Generated new trial 1 with parameters {'x1': 0.695958, 'x2': -3.846614} using GenerationNode Sobol.
+[INFO 09-05 19:20:06] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 09-05 19:20:06] ax.api.client: Generated new trial 2 with parameters {'x1': -5.405467, 'x2': 4.126192} using GenerationNode Sobol.
+[INFO 09-05 19:20:06] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 09-05 19:20:06] ax.api.client: Generated new trial 3 with parameters {'x1': -1.100115, 'x2': -8.545287} using GenerationNode Sobol.
+[INFO 09-05 19:20:06] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 09-05 19:20:06] ax.api.client: Generated new trial 4 with parameters {'x1': 5.296928, 'x2': 8.168053} using GenerationNode Sobol.
+[INFO 09-05 19:20:06] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 09-05 19:20:07] ax.api.client: Generated new trial 5 with parameters {'x1': -10.0, 'x2': -0.2048} using GenerationNode MBM.
+[INFO 09-05 19:20:07] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 09-05 19:20:07] ax.api.client: Generated new trial 6 with parameters {'x1': -2.609826, 'x2': 3.089853} using GenerationNode MBM.
+[INFO 09-05 19:20:07] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 09-05 19:20:07] ax.api.client: Generated new trial 7 with parameters {'x1': -3.362188, 'x2': 7.848674} using GenerationNode MBM.
+[INFO 09-05 19:20:07] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 09-05 19:20:08] ax.api.client: Generated new trial 8 with parameters {'x1': 5.382062, 'x2': -1.396575} using GenerationNode MBM.
+[INFO 09-05 19:20:08] ax.api.client: Trial 8 marked COMPLETED.
+[INFO 09-05 19:20:08] ax.api.client: Generated new trial 9 with parameters {'x1': 2.335303, 'x2': 0.860138} using GenerationNode MBM.
+[INFO 09-05 19:20:08] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 09-05 19:20:09] ax.api.client: Generated new trial 10 with parameters {'x1': -1.250757, 'x2': 4.857222} using GenerationNode MBM.
+[INFO 09-05 19:20:09] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 09-05 19:20:09] ax.api.client: Generated new trial 11 with parameters {'x1': 10.0, 'x2': -6.810389} using GenerationNode MBM.
+[INFO 09-05 19:20:09] ax.api.client: Trial 11 marked COMPLETED.
+[INFO 09-05 19:20:10] ax.api.client: Generated new trial 12 with parameters {'x1': -9.414433, 'x2': 10.0} using GenerationNode MBM.
+[INFO 09-05 19:20:10] ax.api.client: Trial 12 marked COMPLETED.
+[INFO 09-05 19:20:11] ax.api.client: Generated new trial 13 with parameters {'x1': 10.0, 'x2': -1.808082} using GenerationNode MBM.
+[INFO 09-05 19:20:11] ax.api.client: Trial 13 marked COMPLETED.
+[INFO 09-05 19:20:11] ax.api.client: Generated new trial 14 with parameters {'x1': 0.229225, 'x2': 2.901108} using GenerationNode MBM.
+[INFO 09-05 19:20:11] ax.api.client: Trial 14 marked COMPLETED.
+[INFO 09-05 19:20:12] ax.api.client: Generated new trial 15 with parameters {'x1': 3.09018, 'x2': -0.446072} using GenerationNode MBM.
+[INFO 09-05 19:20:12] ax.api.client: Trial 15 marked COMPLETED.
+[INFO 09-05 19:20:13] ax.api.client: Generated new trial 16 with parameters {'x1': -0.695704, 'x2': 3.960786} using GenerationNode MBM.
+[INFO 09-05 19:20:13] ax.api.client: Trial 16 marked COMPLETED.
+[INFO 09-05 19:20:13] ax.api.client: Generated new trial 17 with parameters {'x1': 1.167533, 'x2': 2.325201} using GenerationNode MBM.
+[INFO 09-05 19:20:13] ax.api.client: Trial 17 marked COMPLETED.
+[INFO 09-05 19:20:14] ax.api.client: Generated new trial 18 with parameters {'x1': -0.156716, 'x2': 3.749095} using GenerationNode MBM.
+[INFO 09-05 19:20:14] ax.api.client: Trial 18 marked COMPLETED.
+[INFO 09-05 19:20:15] ax.api.client: Generated new trial 19 with parameters {'x1': 0.473396, 'x2': 3.004937} using GenerationNode MBM.
+[INFO 09-05 19:20:15] ax.api.client: Trial 19 marked COMPLETED.
+({'x1': -0.15671616179908338, 'x2': 3.7490954513890675},
+ {'booth': (np.float64(4.090898983977695), np.float64(13.821768988241145))},
+ 18,
+ '18_0')`
 }
 </CellOutput>
 

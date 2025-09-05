@@ -132,7 +132,7 @@ score, training_time
 
 <CellOutput>
 {
-`(0.9361111111111111, 0.6623055934906006)`
+`(0.9416666666666667, 0.6828923225402832)`
 }
 </CellOutput>
 
@@ -288,7 +288,7 @@ client.complete_trial(
 
 <CellOutput>
 {
-`[INFO 09-05 18:09:10] ax.api.client: Trial 0 marked COMPLETED.
+`[INFO 09-05 19:25:01] ax.api.client: Trial 0 marked COMPLETED.
 <enum 'TrialStatus'>.COMPLETED`
 }
 </CellOutput>
@@ -367,79 +367,79 @@ for _ in range(20): # Run 20 rounds of 1 trial each
 
 <CellOutput>
 {
-`[INFO 09-05 18:09:10] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
-[INFO 09-05 18:09:10] ax.api.client: Generated new trial 1 with parameters {'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'invscaling', 'alpha': 0.001, 'eta0': 0.0001, 'batch_size': 252} using GenerationNode CenterOfSearchSpace.
-[INFO 09-05 18:09:12] ax.api.client: Trial 1 marked COMPLETED.
-[INFO 09-05 18:09:12] ax.api.client: Generated new trial 2 with parameters {'alpha': 4.074983, 'eta0': 1e-06, 'batch_size': 68, 'loss': 'hinge', 'penalty': 'elasticnet', 'learning_rate': 'constant'} using GenerationNode Sobol.
-[INFO 09-05 18:09:20] ax.api.client: Trial 2 marked COMPLETED.
-[INFO 09-05 18:09:20] ax.api.client: Generated new trial 3 with parameters {'alpha': 0.0, 'eta0': 0.071647, 'batch_size': 282, 'loss': 'modified_huber', 'penalty': 'l1', 'learning_rate': 'optimal'} using GenerationNode Sobol.
-[INFO 09-05 18:09:22] ax.api.client: Trial 3 marked COMPLETED.
-[INFO 09-05 18:09:22] ax.api.client: Generated new trial 4 with parameters {'alpha': 0.010606, 'eta0': 1e-06, 'batch_size': 396, 'loss': 'perceptron', 'penalty': 'l1', 'learning_rate': 'optimal'} using GenerationNode Sobol.
-[INFO 09-05 18:09:23] ax.api.client: Trial 4 marked COMPLETED.
-[INFO 09-05 18:09:25] ax.api.client: Generated new trial 5 with parameters {'alpha': 6.8e-05, 'eta0': 2e-06, 'batch_size': 269, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:25] ax.early_stopping.strategies.percentile: Early stoppinging trial 5: Trial objective value 0.7111111111111111 is worse than 50.0-th percentile (0.8922773837667455) across comparable trials..
-[INFO 09-05 18:09:25] ax.api.client: Trial 5 should be stopped early: Trial objective value 0.7111111111111111 is worse than 50.0-th percentile (0.8922773837667455) across comparable trials.
-[INFO 09-05 18:09:25] ax.api.client: Trial 5 marked EARLY_STOPPED.
-[INFO 09-05 18:09:27] ax.api.client: Generated new trial 6 with parameters {'alpha': 0.000141, 'eta0': 0.000216, 'batch_size': 374, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:27] ax.early_stopping.strategies.percentile: Early stoppinging trial 6: Trial objective value 0.7611111111111111 is worse than 50.0-th percentile (0.8180555555555555) across comparable trials..
-[INFO 09-05 18:09:27] ax.api.client: Trial 6 should be stopped early: Trial objective value 0.7611111111111111 is worse than 50.0-th percentile (0.8180555555555555) across comparable trials.
-[INFO 09-05 18:09:27] ax.api.client: Trial 6 marked EARLY_STOPPED.
-[INFO 09-05 18:09:29] ax.api.client: Generated new trial 7 with parameters {'alpha': 0.000133, 'eta0': 0.000101, 'batch_size': 350, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:29] ax.early_stopping.strategies.percentile: Early stoppinging trial 7: Trial objective value 0.8805555555555555 is worse than 50.0-th percentile (0.9123456790123456) across comparable trials..
-[INFO 09-05 18:09:29] ax.api.client: Trial 7 should be stopped early: Trial objective value 0.8805555555555555 is worse than 50.0-th percentile (0.9123456790123456) across comparable trials.
-[INFO 09-05 18:09:29] ax.api.client: Trial 7 marked EARLY_STOPPED.
-[INFO 09-05 18:09:32] ax.api.client: Generated new trial 8 with parameters {'alpha': 9.4e-05, 'eta0': 0.0, 'batch_size': 450, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:32] ax.early_stopping.strategies.percentile: Early stoppinging trial 8: Trial objective value 0.7555555555555555 is worse than 50.0-th percentile (0.8567375886524822) across comparable trials..
-[INFO 09-05 18:09:32] ax.api.client: Trial 8 should be stopped early: Trial objective value 0.7555555555555555 is worse than 50.0-th percentile (0.8567375886524822) across comparable trials.
-[INFO 09-05 18:09:32] ax.api.client: Trial 8 marked EARLY_STOPPED.
-[INFO 09-05 18:09:36] ax.api.client: Generated new trial 9 with parameters {'alpha': 0.001153, 'eta0': 7e-06, 'batch_size': 367, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:36] ax.early_stopping.strategies.percentile: Early stoppinging trial 9: Trial objective value 0.8055555555555556 is worse than 50.0-th percentile (0.8210652493858062) across comparable trials..
-[INFO 09-05 18:09:36] ax.api.client: Trial 9 should be stopped early: Trial objective value 0.8055555555555556 is worse than 50.0-th percentile (0.8210652493858062) across comparable trials.
-[INFO 09-05 18:09:36] ax.api.client: Trial 9 marked EARLY_STOPPED.
-[INFO 09-05 18:09:39] ax.api.client: Generated new trial 10 with parameters {'alpha': 0.024579, 'eta0': 2.3e-05, 'batch_size': 442, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:39] ax.early_stopping.strategies.percentile: Early stoppinging trial 10: Trial objective value 0.8638888888888889 is worse than 50.0-th percentile (0.918121693121693) across comparable trials..
-[INFO 09-05 18:09:39] ax.api.client: Trial 10 should be stopped early: Trial objective value 0.8638888888888889 is worse than 50.0-th percentile (0.918121693121693) across comparable trials.
-[INFO 09-05 18:09:39] ax.api.client: Trial 10 marked EARLY_STOPPED.
-[INFO 09-05 18:09:43] ax.api.client: Generated new trial 11 with parameters {'alpha': 3.4e-05, 'eta0': 2e-06, 'batch_size': 374, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:43] ax.early_stopping.strategies.percentile: Early stoppinging trial 11: Trial objective value 0.7055555555555556 is worse than 50.0-th percentile (0.8180555555555555) across comparable trials..
-[INFO 09-05 18:09:43] ax.api.client: Trial 11 should be stopped early: Trial objective value 0.7055555555555556 is worse than 50.0-th percentile (0.8180555555555555) across comparable trials.
-[INFO 09-05 18:09:43] ax.api.client: Trial 11 marked EARLY_STOPPED.
-[INFO 09-05 18:09:47] ax.api.client: Generated new trial 12 with parameters {'alpha': 1e-06, 'eta0': 0.0, 'batch_size': 500, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:47] ax.early_stopping.strategies.percentile: Early stoppinging trial 12: Trial objective value 0.7416666666666667 is worse than 50.0-th percentile (0.8795367556005854) across comparable trials..
-[INFO 09-05 18:09:47] ax.api.client: Trial 12 should be stopped early: Trial objective value 0.7416666666666667 is worse than 50.0-th percentile (0.8795367556005854) across comparable trials.
-[INFO 09-05 18:09:47] ax.api.client: Trial 12 marked EARLY_STOPPED.
-[INFO 09-05 18:09:51] ax.api.client: Generated new trial 13 with parameters {'alpha': 0.001096, 'eta0': 9e-06, 'batch_size': 428, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:51] ax.early_stopping.strategies.percentile: Early stoppinging trial 13: Trial objective value 0.6916666666666667 is worse than 50.0-th percentile (0.8478526398739165) across comparable trials..
-[INFO 09-05 18:09:51] ax.api.client: Trial 13 should be stopped early: Trial objective value 0.6916666666666667 is worse than 50.0-th percentile (0.8478526398739165) across comparable trials.
-[INFO 09-05 18:09:51] ax.api.client: Trial 13 marked EARLY_STOPPED.
-[INFO 09-05 18:09:54] ax.api.client: Generated new trial 14 with parameters {'alpha': 0.0, 'eta0': 1.0, 'batch_size': 500, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:54] ax.early_stopping.strategies.percentile: Early stoppinging trial 14: Trial objective value 0.8027777777777778 is worse than 50.0-th percentile (0.8769306540583137) across comparable trials..
-[INFO 09-05 18:09:54] ax.api.client: Trial 14 should be stopped early: Trial objective value 0.8027777777777778 is worse than 50.0-th percentile (0.8769306540583137) across comparable trials.
-[INFO 09-05 18:09:54] ax.api.client: Trial 14 marked EARLY_STOPPED.
-[INFO 09-05 18:09:58] ax.api.client: Generated new trial 15 with parameters {'alpha': 0.403142, 'eta0': 0.006304, 'batch_size': 500, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:09:58] ax.early_stopping.strategies.percentile: Early stoppinging trial 15: Trial objective value 0.8444444444444444 is worse than 50.0-th percentile (0.860687549251379) across comparable trials..
-[INFO 09-05 18:09:58] ax.api.client: Trial 15 should be stopped early: Trial objective value 0.8444444444444444 is worse than 50.0-th percentile (0.860687549251379) across comparable trials.
-[INFO 09-05 18:09:58] ax.api.client: Trial 15 marked EARLY_STOPPED.
-[INFO 09-05 18:10:01] ax.api.client: Generated new trial 16 with parameters {'alpha': 0.104743, 'eta0': 0.006382, 'batch_size': 500, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:10:01] ax.early_stopping.strategies.percentile: Early stoppinging trial 16: Trial objective value 0.8361111111111111 is worse than 50.0-th percentile (0.8444444444444444) across comparable trials..
-[INFO 09-05 18:10:01] ax.api.client: Trial 16 should be stopped early: Trial objective value 0.8361111111111111 is worse than 50.0-th percentile (0.8444444444444444) across comparable trials.
-[INFO 09-05 18:10:01] ax.api.client: Trial 16 marked EARLY_STOPPED.
-[INFO 09-05 18:10:04] ax.api.client: Generated new trial 17 with parameters {'alpha': 0.132477, 'eta0': 0.005573, 'batch_size': 500, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:10:04] ax.early_stopping.strategies.percentile: Early stoppinging trial 17: Trial objective value 0.8388888888888889 is worse than 50.0-th percentile (0.8416666666666667) across comparable trials..
-[INFO 09-05 18:10:04] ax.api.client: Trial 17 should be stopped early: Trial objective value 0.8388888888888889 is worse than 50.0-th percentile (0.8416666666666667) across comparable trials.
-[INFO 09-05 18:10:04] ax.api.client: Trial 17 marked EARLY_STOPPED.
-[INFO 09-05 18:10:07] ax.api.client: Generated new trial 18 with parameters {'alpha': 0.000687, 'eta0': 1.1e-05, 'batch_size': 500, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:10:07] ax.early_stopping.strategies.percentile: Early stoppinging trial 18: Trial objective value 0.8361111111111111 is worse than 50.0-th percentile (0.8388888888888889) across comparable trials..
-[INFO 09-05 18:10:07] ax.api.client: Trial 18 should be stopped early: Trial objective value 0.8361111111111111 is worse than 50.0-th percentile (0.8388888888888889) across comparable trials.
-[INFO 09-05 18:10:07] ax.api.client: Trial 18 marked EARLY_STOPPED.
-[INFO 09-05 18:10:10] ax.api.client: Generated new trial 19 with parameters {'alpha': 3.2e-05, 'eta0': 3.7e-05, 'batch_size': 397, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:10:10] ax.early_stopping.strategies.percentile: Early stoppinging trial 19: Trial objective value 0.8138888888888889 is worse than 50.0-th percentile (0.835332939322301) across comparable trials..
-[INFO 09-05 18:10:10] ax.api.client: Trial 19 should be stopped early: Trial objective value 0.8138888888888889 is worse than 50.0-th percentile (0.835332939322301) across comparable trials.
-[INFO 09-05 18:10:10] ax.api.client: Trial 19 marked EARLY_STOPPED.
-[INFO 09-05 18:10:15] ax.api.client: Generated new trial 20 with parameters {'alpha': 4e-05, 'eta0': 0.001801, 'batch_size': 500, 'loss': 'perceptron', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
-[INFO 09-05 18:10:15] ax.early_stopping.strategies.percentile: Early stoppinging trial 20: Trial objective value 0.7777777777777778 is worse than 50.0-th percentile (0.8375) across comparable trials..
-[INFO 09-05 18:10:15] ax.api.client: Trial 20 should be stopped early: Trial objective value 0.7777777777777778 is worse than 50.0-th percentile (0.8375) across comparable trials.
-[INFO 09-05 18:10:15] ax.api.client: Trial 20 marked EARLY_STOPPED.`
+`[INFO 09-05 19:25:01] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
+[INFO 09-05 19:25:01] ax.api.client: Generated new trial 1 with parameters {'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'invscaling', 'alpha': 0.001, 'eta0': 0.0001, 'batch_size': 252} using GenerationNode CenterOfSearchSpace.
+[INFO 09-05 19:25:03] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 09-05 19:25:03] ax.api.client: Generated new trial 2 with parameters {'alpha': 2.2e-05, 'eta0': 0.461234, 'batch_size': 462, 'loss': 'log_loss', 'penalty': 'l1', 'learning_rate': 'invscaling'} using GenerationNode Sobol.
+[INFO 09-05 19:25:04] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 09-05 19:25:04] ax.api.client: Generated new trial 3 with parameters {'alpha': 0.255743, 'eta0': 0.0, 'batch_size': 201, 'loss': 'squared_hinge', 'penalty': 'elasticnet', 'learning_rate': 'constant'} using GenerationNode Sobol.
+[INFO 09-05 19:25:07] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 09-05 19:25:07] ax.api.client: Generated new trial 4 with parameters {'alpha': 0.0, 'eta0': 0.000803, 'batch_size': 95, 'loss': 'modified_huber', 'penalty': 'elasticnet', 'learning_rate': 'adaptive'} using GenerationNode Sobol.
+[INFO 09-05 19:25:13] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 09-05 19:25:14] ax.api.client: Generated new trial 5 with parameters {'alpha': 8.5e-05, 'eta0': 4e-06, 'batch_size': 264, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:14] ax.early_stopping.strategies.percentile: Early stoppinging trial 5: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.8876984126984127) across comparable trials..
+[INFO 09-05 19:25:14] ax.api.client: Trial 5 should be stopped early: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.8876984126984127) across comparable trials.
+[INFO 09-05 19:25:14] ax.api.client: Trial 5 marked EARLY_STOPPED.
+[INFO 09-05 19:25:16] ax.api.client: Generated new trial 6 with parameters {'alpha': 8.4e-05, 'eta0': 0.003676, 'batch_size': 423, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:16] ax.early_stopping.strategies.percentile: Early stoppinging trial 6: Trial objective value 0.6527777777777778 is worse than 50.0-th percentile (0.8036898839137646) across comparable trials..
+[INFO 09-05 19:25:16] ax.api.client: Trial 6 should be stopped early: Trial objective value 0.6527777777777778 is worse than 50.0-th percentile (0.8036898839137646) across comparable trials.
+[INFO 09-05 19:25:16] ax.api.client: Trial 6 marked EARLY_STOPPED.
+[INFO 09-05 19:25:18] ax.api.client: Generated new trial 7 with parameters {'alpha': 4.2e-05, 'eta0': 0.0, 'batch_size': 22, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:18] ax.early_stopping.strategies.percentile: Early stoppinging trial 7: Trial objective value 0.7166666666666667 is worse than 50.0-th percentile (0.7204947484798231) across comparable trials..
+[INFO 09-05 19:25:18] ax.api.client: Trial 7 should be stopped early: Trial objective value 0.7166666666666667 is worse than 50.0-th percentile (0.7204947484798231) across comparable trials.
+[INFO 09-05 19:25:18] ax.api.client: Trial 7 marked EARLY_STOPPED.
+[INFO 09-05 19:25:21] ax.api.client: Generated new trial 8 with parameters {'alpha': 0.000316, 'eta0': 0.0, 'batch_size': 480, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:21] ax.early_stopping.strategies.percentile: Early stoppinging trial 8: Trial objective value 0.8666666666666667 is worse than 50.0-th percentile (0.8755952380952381) across comparable trials..
+[INFO 09-05 19:25:21] ax.api.client: Trial 8 should be stopped early: Trial objective value 0.8666666666666667 is worse than 50.0-th percentile (0.8755952380952381) across comparable trials.
+[INFO 09-05 19:25:21] ax.api.client: Trial 8 marked EARLY_STOPPED.
+[INFO 09-05 19:25:24] ax.api.client: Generated new trial 9 with parameters {'alpha': 6.3e-05, 'eta0': 0.0, 'batch_size': 500, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:24] ax.early_stopping.strategies.percentile: Early stoppinging trial 9: Trial objective value 0.8722222222222222 is worse than 50.0-th percentile (0.8790343915343916) across comparable trials..
+[INFO 09-05 19:25:24] ax.api.client: Trial 9 should be stopped early: Trial objective value 0.8722222222222222 is worse than 50.0-th percentile (0.8790343915343916) across comparable trials.
+[INFO 09-05 19:25:24] ax.api.client: Trial 9 marked EARLY_STOPPED.
+[INFO 09-05 19:25:27] ax.api.client: Generated new trial 10 with parameters {'alpha': 0.000202, 'eta0': 0.0, 'batch_size': 462, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:27] ax.early_stopping.strategies.percentile: Early stoppinging trial 10: Trial objective value 0.8 is worse than 50.0-th percentile (0.8358796296296296) across comparable trials..
+[INFO 09-05 19:25:27] ax.api.client: Trial 10 should be stopped early: Trial objective value 0.8 is worse than 50.0-th percentile (0.8358796296296296) across comparable trials.
+[INFO 09-05 19:25:27] ax.api.client: Trial 10 marked EARLY_STOPPED.
+[INFO 09-05 19:25:30] ax.api.client: Generated new trial 11 with parameters {'alpha': 2.6e-05, 'eta0': 0.0, 'batch_size': 440, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:30] ax.early_stopping.strategies.percentile: Early stoppinging trial 11: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.799930901050304) across comparable trials..
+[INFO 09-05 19:25:30] ax.api.client: Trial 11 should be stopped early: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.799930901050304) across comparable trials.
+[INFO 09-05 19:25:30] ax.api.client: Trial 11 marked EARLY_STOPPED.
+[INFO 09-05 19:25:34] ax.api.client: Generated new trial 12 with parameters {'alpha': 0.004745, 'eta0': 0.003699, 'batch_size': 500, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:34] ax.early_stopping.strategies.percentile: Early stoppinging trial 12: Trial objective value 0.6083333333333333 is worse than 50.0-th percentile (0.8722222222222222) across comparable trials..
+[INFO 09-05 19:25:34] ax.api.client: Trial 12 should be stopped early: Trial objective value 0.6083333333333333 is worse than 50.0-th percentile (0.8722222222222222) across comparable trials.
+[INFO 09-05 19:25:34] ax.api.client: Trial 12 marked EARLY_STOPPED.
+[INFO 09-05 19:25:38] ax.api.client: Generated new trial 13 with parameters {'alpha': 0.161798, 'eta0': 0.0, 'batch_size': 219, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:38] ax.early_stopping.strategies.percentile: Early stoppinging trial 13: Trial objective value 0.8 is worse than 50.0-th percentile (0.8003731343283582) across comparable trials..
+[INFO 09-05 19:25:38] ax.api.client: Trial 13 should be stopped early: Trial objective value 0.8 is worse than 50.0-th percentile (0.8003731343283582) across comparable trials.
+[INFO 09-05 19:25:38] ax.api.client: Trial 13 marked EARLY_STOPPED.
+[INFO 09-05 19:25:43] ax.api.client: Generated new trial 14 with parameters {'alpha': 100.0, 'eta0': 0.0, 'batch_size': 212, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:43] ax.early_stopping.strategies.percentile: Early stoppinging trial 14: Trial objective value 0.7805555555555556 is worse than 50.0-th percentile (0.8002249975389415) across comparable trials..
+[INFO 09-05 19:25:43] ax.api.client: Trial 14 should be stopped early: Trial objective value 0.7805555555555556 is worse than 50.0-th percentile (0.8002249975389415) across comparable trials.
+[INFO 09-05 19:25:43] ax.api.client: Trial 14 marked EARLY_STOPPED.
+[INFO 09-05 19:25:46] ax.api.client: Generated new trial 15 with parameters {'alpha': 100.0, 'eta0': 0.0, 'batch_size': 443, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:46] ax.early_stopping.strategies.percentile: Early stoppinging trial 15: Trial objective value 0.725 is worse than 50.0-th percentile (0.7992675511332227) across comparable trials..
+[INFO 09-05 19:25:46] ax.api.client: Trial 15 should be stopped early: Trial objective value 0.725 is worse than 50.0-th percentile (0.7992675511332227) across comparable trials.
+[INFO 09-05 19:25:46] ax.api.client: Trial 15 marked EARLY_STOPPED.
+[INFO 09-05 19:25:49] ax.api.client: Generated new trial 16 with parameters {'alpha': 0.000226, 'eta0': 0.0, 'batch_size': 433, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:49] ax.early_stopping.strategies.percentile: Early stoppinging trial 16: Trial objective value 0.7972222222222223 is worse than 50.0-th percentile (0.8002002922980229) across comparable trials..
+[INFO 09-05 19:25:49] ax.api.client: Trial 16 should be stopped early: Trial objective value 0.7972222222222223 is worse than 50.0-th percentile (0.8002002922980229) across comparable trials.
+[INFO 09-05 19:25:49] ax.api.client: Trial 16 marked EARLY_STOPPED.
+[INFO 09-05 19:25:52] ax.api.client: Generated new trial 17 with parameters {'alpha': 0.016813, 'eta0': 0.0, 'batch_size': 443, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:52] ax.early_stopping.strategies.percentile: Early stoppinging trial 17: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.7760226644555002) across comparable trials..
+[INFO 09-05 19:25:52] ax.api.client: Trial 17 should be stopped early: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.7760226644555002) across comparable trials.
+[INFO 09-05 19:25:52] ax.api.client: Trial 17 marked EARLY_STOPPED.
+[INFO 09-05 19:25:55] ax.api.client: Generated new trial 18 with parameters {'alpha': 0.0, 'eta0': 0.0, 'batch_size': 475, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:55] ax.early_stopping.strategies.percentile: Early stoppinging trial 18: Trial objective value 0.7472222222222222 is worse than 50.0-th percentile (0.83720591816052) across comparable trials..
+[INFO 09-05 19:25:55] ax.api.client: Trial 18 should be stopped early: Trial objective value 0.7472222222222222 is worse than 50.0-th percentile (0.83720591816052) across comparable trials.
+[INFO 09-05 19:25:55] ax.api.client: Trial 18 marked EARLY_STOPPED.
+[INFO 09-05 19:25:57] ax.api.client: Generated new trial 19 with parameters {'alpha': 0.0, 'eta0': 2e-06, 'batch_size': 500, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:25:57] ax.early_stopping.strategies.percentile: Early stoppinging trial 19: Trial objective value 0.8 is worse than 50.0-th percentile (0.8361111111111111) across comparable trials..
+[INFO 09-05 19:25:57] ax.api.client: Trial 19 should be stopped early: Trial objective value 0.8 is worse than 50.0-th percentile (0.8361111111111111) across comparable trials.
+[INFO 09-05 19:25:57] ax.api.client: Trial 19 marked EARLY_STOPPED.
+[INFO 09-05 19:26:00] ax.api.client: Generated new trial 20 with parameters {'alpha': 0.0, 'eta0': 0.0, 'batch_size': 500, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-05 19:26:00] ax.early_stopping.strategies.percentile: Early stoppinging trial 20: Trial objective value 0.6305555555555555 is worse than 50.0-th percentile (0.8) across comparable trials..
+[INFO 09-05 19:26:00] ax.api.client: Trial 20 should be stopped early: Trial objective value 0.6305555555555555 is worse than 50.0-th percentile (0.8) across comparable trials.
+[INFO 09-05 19:26:00] ax.api.client: Trial 20 marked EARLY_STOPPED.`
 }
 </CellOutput>
 
@@ -462,10 +462,8 @@ for parameters, metrics, trial_index, arm_name in frontier:
 
 <CellOutput>
 {
-`Trial 0 with parameters={'loss': 'hinge', 'penalty': 'l2', 'alpha': 0.0001, 'learning_rate': 'optimal', 'eta0': 1e-08, 'batch_size': 143} and metrics={'score': (np.float64(0.9271004402034678), 0.0010800990230151518), 'training_time': (np.float64(0.6626847623155491), 0.00029894657145125905)}
-Trial 10 with parameters={'loss': 'perceptron', 'penalty': 'l2', 'alpha': 0.02457877351111747, 'learning_rate': 'optimal', 'eta0': 2.3323519891263266e-05, 'batch_size': 442} and metrics={'score': (np.float64(0.8597673554479291), 0.0008711622836841015), 'training_time': (np.float64(0.06674590403621927), 0.00015966106507450597)}
-Trial 1 with parameters={'loss': 'squared_hinge', 'penalty': 'l2', 'alpha': 0.001, 'learning_rate': 'invscaling', 'eta0': 0.0001, 'batch_size': 252} and metrics={'score': (np.float64(0.9272363185269058), 0.0011113821723511613), 'training_time': (np.float64(1.818983433448206), 0.00030100213206259787)}
-Trial 3 with parameters={'loss': 'modified_huber', 'penalty': 'l1', 'alpha': 1.2845916356940083e-07, 'learning_rate': 'optimal', 'eta0': 0.07164702219846573, 'batch_size': 282} and metrics={'score': (np.float64(0.9279137807878021), 0.0011100232747991606), 'training_time': (np.float64(1.8942733765366635), 0.0003009570121641553)}`
+`Trial 0 with parameters={'loss': 'hinge', 'penalty': 'l2', 'alpha': 0.0001, 'learning_rate': 'optimal', 'eta0': 1e-08, 'batch_size': 143} and metrics={'score': (np.float64(0.9279248348150908), 0.002059111460016947), 'training_time': (np.float64(0.682735082048371), 0.00017838433709937168)}
+Trial 2 with parameters={'loss': 'log_loss', 'penalty': 'l1', 'alpha': 2.211468037808718e-05, 'learning_rate': 'invscaling', 'eta0': 0.46123353845857334, 'batch_size': 462} and metrics={'score': (np.float64(0.9383602115781183), 0.002061479373984507), 'training_time': (np.float64(1.1554500061845157), 0.0001784746175737571)}`
 }
 </CellOutput>
 
@@ -511,7 +509,7 @@ in the plot.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/d7c7949e-0ef9-4177-9cbe-e796cb43269d.json')} />
+<PlotlyFigure data={require('./assets/plot_data/829460d1-e586-45ea-a02a-ea38d83d800a.json')} />
 
 
 **Observed Arm Effects on score**
@@ -523,7 +521,7 @@ configurations have yielded the most favorable outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/77b13882-016e-46d8-800c-d76cc532f8b0.json')} />
+<PlotlyFigure data={require('./assets/plot_data/522e33be-2994-4dd4-aad8-16af2d1cd240.json')} />
 
 
 **Modeled Arm Effects on training_time**
@@ -538,7 +536,7 @@ interval indicated in the plot.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/803316d0-a632-4951-9411-f577ed145c38.json')} />
+<PlotlyFigure data={require('./assets/plot_data/7a505612-921a-43f8-b6f7-32bda544e7da.json')} />
 
 
 **Observed Arm Effects on training_time**
@@ -550,7 +548,7 @@ configurations have yielded the most favorable outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/b85a0c23-392c-4890-b0a5-f30e1bcf6f9b.json')} />
+<PlotlyFigure data={require('./assets/plot_data/7891550b-e3f0-4e16-bdb8-f52e154a221b.json')} />
 
 
 **Modeled Effects: score vs. training_time**
@@ -561,7 +559,7 @@ frontier.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/e5cd7b89-1dc9-4348-82ca-9f1a2f3a6dc3.json')} />
+<PlotlyFigure data={require('./assets/plot_data/076af9ed-b09c-40b8-8a63-7871cfc9f8b8.json')} />
 
 
 **Summary for Experiment**
@@ -571,29 +569,29 @@ High-level summary of the `Trial`-s in this `Experiment`
 
 
 
-|    |   trial_index | arm_name   | trial_status   | generation_node     |    score |   training_time | loss           | penalty    |       alpha | learning_rate   |        eta0 |   batch_size |
-|---:|--------------:|:-----------|:---------------|:--------------------|---------:|----------------:|:---------------|:-----------|------------:|:----------------|------------:|-------------:|
-|  0 |             0 | baseline   | COMPLETED      | nan                 | 0.936111 |        0.662306 | hinge          | l2         | 0.0001      | optimal         | 1e-08       |          143 |
-|  1 |             1 | 1_0        | COMPLETED      | CenterOfSearchSpace | 0.938889 |        1.81897  | squared_hinge  | l2         | 0.001       | invscaling      | 0.0001      |          252 |
-|  2 |             2 | 2_0        | COMPLETED      | Sobol               | 0.822222 |        7.76192  | hinge          | elasticnet | 4.07498     | constant        | 7.19428e-07 |           68 |
-|  3 |             3 | 3_0        | COMPLETED      | Sobol               | 0.938889 |        1.8944   | modified_huber | l1         | 1.28459e-07 | optimal         | 0.071647    |          282 |
-|  4 |             4 | 4_0        | COMPLETED      | Sobol               | 0.927778 |        1.11668  | perceptron     | l1         | 0.0106062   | optimal         | 1.49595e-06 |          396 |
-|  5 |             5 | 5_0        | EARLY_STOPPED  | MBM                 | 0.711111 |        0.030815 | hinge          | l2         | 6.75374e-05 | optimal         | 2.14257e-06 |          269 |
-|  6 |             6 | 6_0        | EARLY_STOPPED  | MBM                 | 0.761111 |        0.005135 | hinge          | l2         | 0.000140977 | optimal         | 0.000215873 |          374 |
-|  7 |             7 | 7_0        | EARLY_STOPPED  | MBM                 | 0.880556 |        0.032835 | hinge          | l2         | 0.000132903 | optimal         | 0.000100793 |          350 |
-|  8 |             8 | 8_0        | EARLY_STOPPED  | MBM                 | 0.755556 |        0.005719 | hinge          | l2         | 9.4058e-05  | optimal         | 2.36087e-07 |          450 |
-|  9 |             9 | 9_0        | EARLY_STOPPED  | MBM                 | 0.805556 |        0.005094 | perceptron     | l2         | 0.0011533   | optimal         | 6.56099e-06 |          367 |
-| 10 |            10 | 10_0       | EARLY_STOPPED  | MBM                 | 0.863889 |        0.076147 | perceptron     | l2         | 0.0245788   | optimal         | 2.33235e-05 |          442 |
-| 11 |            11 | 11_0       | EARLY_STOPPED  | MBM                 | 0.705556 |        0.0052   | perceptron     | l2         | 3.39369e-05 | optimal         | 1.63179e-06 |          374 |
-| 12 |            12 | 12_0       | EARLY_STOPPED  | MBM                 | 0.741667 |        0.005109 | perceptron     | l2         | 5.01502e-07 | optimal         | 1e-08       |          500 |
-| 13 |            13 | 13_0       | EARLY_STOPPED  | MBM                 | 0.691667 |        0.005058 | perceptron     | l2         | 0.00109626  | optimal         | 8.91898e-06 |          428 |
-| 14 |            14 | 14_0       | EARLY_STOPPED  | MBM                 | 0.802778 |        0.005236 | perceptron     | l2         | 1e-08       | optimal         | 1           |          500 |
-| 15 |            15 | 15_0       | EARLY_STOPPED  | MBM                 | 0.844444 |        0.005191 | perceptron     | l2         | 0.403142    | optimal         | 0.00630381  |          500 |
-| 16 |            16 | 16_0       | EARLY_STOPPED  | MBM                 | 0.836111 |        0.005193 | perceptron     | l2         | 0.104743    | optimal         | 0.00638175  |          500 |
-| 17 |            17 | 17_0       | EARLY_STOPPED  | MBM                 | 0.838889 |        0.005358 | perceptron     | l2         | 0.132477    | optimal         | 0.00557341  |          500 |
-| 18 |            18 | 18_0       | EARLY_STOPPED  | MBM                 | 0.836111 |        0.005157 | perceptron     | l2         | 0.000686928 | optimal         | 1.07293e-05 |          500 |
-| 19 |            19 | 19_0       | EARLY_STOPPED  | MBM                 | 0.813889 |        0.00502  | perceptron     | l2         | 3.18167e-05 | optimal         | 3.74764e-05 |          397 |
-| 20 |            20 | 20_0       | EARLY_STOPPED  | MBM                 | 0.777778 |        0.005185 | perceptron     | l2         | 4.04795e-05 | optimal         | 0.00180139  |          500 |
+|    |   trial_index | arm_name   | trial_status   | generation_node     |    score |   training_time | loss           | penalty    |         alpha | learning_rate   |        eta0 |   batch_size |
+|---:|--------------:|:-----------|:---------------|:--------------------|---------:|----------------:|:---------------|:-----------|--------------:|:----------------|------------:|-------------:|
+|  0 |             0 | baseline   | COMPLETED      | nan                 | 0.941667 |        0.682892 | hinge          | l2         |   0.0001      | optimal         | 1e-08       |          143 |
+|  1 |             1 | 1_0        | COMPLETED      | CenterOfSearchSpace | 0.936111 |        1.83814  | squared_hinge  | l2         |   0.001       | invscaling      | 0.0001      |          252 |
+|  2 |             2 | 2_0        | COMPLETED      | Sobol               | 0.952778 |        1.15535  | log_loss       | l1         |   2.21147e-05 | invscaling      | 0.461234    |          462 |
+|  3 |             3 | 3_0        | COMPLETED      | Sobol               | 0.897222 |        2.63543  | squared_hinge  | elasticnet |   0.255743    | constant        | 2.12183e-07 |          201 |
+|  4 |             4 | 4_0        | COMPLETED      | Sobol               | 0.944444 |        5.55096  | modified_huber | elasticnet |   3.88551e-07 | adaptive        | 0.000803279 |           95 |
+|  5 |             5 | 5_0        | EARLY_STOPPED  | MBM                 | 0.752778 |        0.030846 | hinge          | l2         |   8.45718e-05 | optimal         | 3.8618e-06  |          264 |
+|  6 |             6 | 6_0        | EARLY_STOPPED  | MBM                 | 0.652778 |        0.005197 | hinge          | l2         |   8.44251e-05 | optimal         | 0.00367638  |          423 |
+|  7 |             7 | 7_0        | EARLY_STOPPED  | MBM                 | 0.716667 |        0.559854 | hinge          | l2         |   4.22692e-05 | optimal         | 1e-08       |           22 |
+|  8 |             8 | 8_0        | EARLY_STOPPED  | MBM                 | 0.866667 |        0.005136 | hinge          | l2         |   0.000316115 | optimal         | 3.30927e-07 |          480 |
+|  9 |             9 | 9_0        | EARLY_STOPPED  | MBM                 | 0.872222 |        0.005185 | hinge          | l2         |   6.32498e-05 | optimal         | 4.24844e-08 |          500 |
+| 10 |            10 | 10_0       | EARLY_STOPPED  | MBM                 | 0.8      |        0.005234 | hinge          | l2         |   0.000201703 | optimal         | 7.33125e-08 |          462 |
+| 11 |            11 | 11_0       | EARLY_STOPPED  | MBM                 | 0.752778 |        0.004984 | hinge          | l2         |   2.6083e-05  | optimal         | 6.80865e-08 |          440 |
+| 12 |            12 | 12_0       | EARLY_STOPPED  | MBM                 | 0.608333 |        0.005187 | hinge          | l2         |   0.00474541  | optimal         | 0.00369856  |          500 |
+| 13 |            13 | 13_0       | EARLY_STOPPED  | MBM                 | 0.8      |        0.040678 | hinge          | l2         |   0.161798    | optimal         | 1.23953e-08 |          219 |
+| 14 |            14 | 14_0       | EARLY_STOPPED  | MBM                 | 0.780556 |        0.041791 | hinge          | l2         | 100           | optimal         | 1e-08       |          212 |
+| 15 |            15 | 15_0       | EARLY_STOPPED  | MBM                 | 0.725    |        0.005273 | hinge          | l2         | 100           | optimal         | 1.5851e-07  |          443 |
+| 16 |            16 | 16_0       | EARLY_STOPPED  | MBM                 | 0.797222 |        0.005191 | hinge          | l2         |   0.000225647 | optimal         | 4.79153e-08 |          433 |
+| 17 |            17 | 17_0       | EARLY_STOPPED  | MBM                 | 0.752778 |        0.005142 | hinge          | l2         |   0.0168133   | optimal         | 6.13847e-08 |          443 |
+| 18 |            18 | 18_0       | EARLY_STOPPED  | MBM                 | 0.747222 |        0.005163 | hinge          | l2         |   3.64248e-07 | optimal         | 5.40952e-08 |          475 |
+| 19 |            19 | 19_0       | EARLY_STOPPED  | MBM                 | 0.8      |        0.005529 | hinge          | l2         |   1e-08       | optimal         | 1.58564e-06 |          500 |
+| 20 |            20 | 20_0       | EARLY_STOPPED  | MBM                 | 0.630556 |        0.005325 | hinge          | l2         |   1e-08       | optimal         | 2.99866e-07 |          500 |
 
 
 **Sensitivity Analysis for score**
@@ -603,20 +601,7 @@ analysis.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/07f9fe26-e8d3-4755-8c37-e48c8708aa54.json')} />
-
-
-**alpha vs. score**
-
-The slice plot provides a one-dimensional view of predicted outcomes for score as a
-function of a single parameter, while keeping all other parameters fixed at their
-status_quo value (or mean value if status_quo is unavailable). This visualization helps
-in understanding the sensitivity and impact of changes in the selected parameter on the
-predicted metric outcomes.
-
-
-
-<PlotlyFigure data={require('./assets/plot_data/3c5c11fc-6d6d-40a2-925f-10ad4f3bc61e.json')} />
+<PlotlyFigure data={require('./assets/plot_data/314ec37e-1c4b-4c9a-9d95-e1a9770ffa23.json')} />
 
 
 **eta0 vs. score**
@@ -629,7 +614,20 @@ predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/f1517be3-28a1-4443-9f42-d5299f83a9d3.json')} />
+<PlotlyFigure data={require('./assets/plot_data/e527046e-97bf-4303-a66a-fd40ed6d5e5f.json')} />
+
+
+**batch_size vs. score**
+
+The slice plot provides a one-dimensional view of predicted outcomes for score as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/5d9ac08c-5b12-46a9-8a9c-02d2eea3b445.json')} />
 
 
 **eta0, batch_size vs. score**
@@ -643,7 +641,7 @@ providing insights into the gradient and potential optima within the parameter s
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/2e86d515-7e9b-40fa-a482-0da569d56e3b.json')} />
+<PlotlyFigure data={require('./assets/plot_data/65160af2-0c6d-4942-8360-c5c7b2ff8827.json')} />
 
 
 **Sensitivity Analysis for training_time**
@@ -653,7 +651,7 @@ sensitivity analysis.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/51637344-50c7-4dce-b2a1-3d1006deb86d.json')} />
+<PlotlyFigure data={require('./assets/plot_data/1c92dd44-b519-4ade-adf9-f9201bb82287.json')} />
 
 
 **batch_size vs. training_time**
@@ -666,7 +664,7 @@ predicted metric outcomes.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/62132c55-f13c-4fc4-889d-0b1d65acc1a9.json')} />
+<PlotlyFigure data={require('./assets/plot_data/447f6636-e3bb-4529-a254-ad102a179ecc.json')} />
 
 
 **alpha, eta0 vs. training_time**
@@ -681,7 +679,7 @@ space.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/11515ec4-d7e7-4d4c-9463-c66d677ba288.json')} />
+<PlotlyFigure data={require('./assets/plot_data/33eb3550-2279-4c8c-a21b-502e96e4bc72.json')} />
 
 
 **alpha, batch_size vs. training_time**
@@ -696,7 +694,7 @@ space.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/4fd755ee-6bee-4c7b-ac27-b9bd8721b029.json')} />
+<PlotlyFigure data={require('./assets/plot_data/159d4d81-6340-4ecb-8cf9-994a6a0747b5.json')} />
 
 
 **Cross Validation for score**
@@ -713,7 +711,7 @@ sufficient signal in the data, and instead is just predicting the mean.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/9ada23d0-4a46-4d78-8a3d-ed5f017c2ceb.json')} />
+<PlotlyFigure data={require('./assets/plot_data/83ec0f89-e10a-4afc-b4ab-7fda0f3b30dc.json')} />
 
 
 **Cross Validation for training_time**
@@ -730,7 +728,7 @@ sufficient signal in the data, and instead is just predicting the mean.
 
 
 
-<PlotlyFigure data={require('./assets/plot_data/d42e2da0-723f-4249-9cff-45754700ff16.json')} />
+<PlotlyFigure data={require('./assets/plot_data/4609e06e-dff0-4791-91e6-f42372775938.json')} />
 
 ## Conclusion
 
