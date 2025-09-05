@@ -11,11 +11,11 @@ from logging import Logger
 
 import pandas as pd
 from ax.core.experiment import Experiment
+from ax.core.map_data import MAP_KEY
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -110,13 +110,12 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             # don't stop any trials if we don't get data back
             return {}
 
-        map_key = none_throws(data.map_key)
         df = data.map_df
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do
         # early stopping at all and return {}
         if not self.is_eligible_any(
-            trial_indices=trial_indices, experiment=experiment, df=df, map_key=map_key
+            trial_indices=trial_indices, experiment=experiment, df=df
         ):
             return {}
 
@@ -126,7 +125,6 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 trial_index=trial_index,
                 experiment=experiment,
                 df=df_objective,
-                map_key=map_key,
                 minimize=minimize,
             )
             for trial_index in trial_indices
@@ -142,7 +140,6 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_index: int,
         experiment: Experiment,
         df: pd.DataFrame,
-        map_key: str,
         minimize: bool,
     ) -> tuple[bool, str | None]:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
@@ -152,7 +149,6 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             trial_index: Indices of candidate trial to stop early.
             experiment: Experiment that contains the trials and other contextual data.
             df: Dataframe of partial results for the objective metric.
-            map_key: Name of the column of the dataset that indicates progression.
             minimize: Whether objective value is being minimized.
 
         Returns:
@@ -163,15 +159,15 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         logger.info(f"Considering trial {trial_index} for early stopping.")
 
         stopping_eligible, reason = self.is_eligible(
-            trial_index=trial_index, experiment=experiment, df=df, map_key=map_key
+            trial_index=trial_index, experiment=experiment, df=df
         )
         if not stopping_eligible:
             return False, reason
 
         # threshold early stopping logic
         df_trial = df[df["trial_index"] == trial_index].dropna(subset=["mean"])
-        trial_last_prog = df_trial[map_key].max()
-        data_last_prog = df_trial[df_trial[map_key] == trial_last_prog]["mean"].iloc[0]
+        trial_last_prog = df_trial[MAP_KEY].max()
+        data_last_prog = df_trial[df_trial[MAP_KEY] == trial_last_prog]["mean"].iloc[0]
         logger.info(
             "Early stopping objective at last progression is:\n" f"{data_last_prog}."
         )

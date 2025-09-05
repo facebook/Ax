@@ -175,13 +175,11 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             metric_names=[metric_name],
         )
         map_data = assert_is_instance(map_data, MapData)
-        map_key = none_throws(map_data.map_key)
         self.assertTrue(
             es_strategy.is_eligible(
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_key,
             )[0]
         )
 
@@ -193,7 +191,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             trial_index=trial_index,
             experiment=experiment,
             df=fake_df,
-            map_key=map_key,
         )
         self.assertFalse(fake_es)
         self.assertEqual(
@@ -212,7 +209,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_key,
             )[0]
         )
 
@@ -222,7 +218,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_index=0,
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_key,
             )[0]
         )
 
@@ -235,7 +230,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_indices={0},
                 experiment=experiment,
                 df=map_data.map_df,
-                map_key=map_key,
             )
 
     def test_early_stopping_savings(self) -> None:
@@ -569,11 +563,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             UnsupportedError,
             "Arm 0_0 has multiple tiral indices",
         ):
-            align_partial_results(
-                df=df_with_single_arm_name,
-                progr_key=MAP_KEY,
-                metrics=["branin_map"],
-            )
+            align_partial_results(df=df_with_single_arm_name, metrics=["branin_map"])
 
         df_with_single_trial_index = data.map_df.copy()
         df_with_single_trial_index["trial_index"] = 0
@@ -581,11 +571,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             UnsupportedError,
             "Trial 0 has multiple arm names",
         ):
-            align_partial_results(
-                df=df_with_single_trial_index,
-                progr_key=MAP_KEY,
-                metrics=["branin_map"],
-            )
+            align_partial_results(df=df_with_single_trial_index, metrics=["branin_map"])
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
@@ -785,9 +771,7 @@ def _evaluate_early_stopping_with_df(
         early_stopping_strategy._check_validity_and_get_data(experiment, [metric_name])
     )
     metric_to_aligned_means, _ = align_partial_results(
-        df=data.map_df,
-        progr_key=MAP_KEY,
-        metrics=[metric_name],
+        df=data.map_df, metrics=[metric_name]
     )
     aligned_means = metric_to_aligned_means[metric_name]
     decisions = {
@@ -796,7 +780,6 @@ def _evaluate_early_stopping_with_df(
             experiment=experiment,
             df=aligned_means,
             df_raw=data.map_df,
-            map_key=MAP_KEY,
             minimize=cast(
                 OptimizationConfig, experiment.optimization_config
             ).objective.minimize,

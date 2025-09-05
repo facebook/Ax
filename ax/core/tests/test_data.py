@@ -161,7 +161,6 @@ class TestDataBase(TestCase):
         if self.cls is MapData:
             data = assert_is_instance(data, MapData)
             data_clone = assert_is_instance(data_clone, MapData)
-            self.assertEqual(data.map_key, data_clone.map_key)
             self.assertIsNot(data.map_df, data_clone.map_df)
             self.assertTrue(data.map_df.equals(data_clone.map_df))
 

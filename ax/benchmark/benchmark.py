@@ -39,7 +39,7 @@ from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -708,7 +708,6 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
 
     objective_name = optimization_config.objective.metric.name
     data = assert_is_instance(experiment.lookup_data(), MapData)
-    map_key = none_throws(data.map_key)
     map_df = data.map_df
 
     # Has timestamps; needs to be merged with map_df because it contains
@@ -735,12 +734,12 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
         ),
         axis=0,
         ignore_index=True,
-    )[["trial_index", map_key, "time"]]
+    )[["trial_index", MAP_KEY, "time"]]
 
     df = (
         map_df.loc[
             map_df["metric_name"] == objective_name,
-            ["trial_index", "arm_name", "mean", map_key],
+            ["trial_index", "arm_name", "mean", MAP_KEY],
         ]
         .merge(with_timestamps, how="left")
         .sort_values("time", ignore_index=True)

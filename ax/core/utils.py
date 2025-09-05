@@ -21,7 +21,6 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
@@ -651,23 +650,18 @@ def _time_trial_completed_safe(trial: BatchTrial) -> datetime:
 # -------------------- MapMetric related utils. ---------------------
 
 
-def extract_map_keys_from_opt_config(
-    optimization_config: OptimizationConfig,
-) -> set[str]:
-    """Extract names of the map keys of all map metrics from the optimization config.
+def has_map_metrics(optimization_config: OptimizationConfig) -> bool:
+    """Check if the optimization config has any ``MapMetric``s.
 
     Args:
         optimization_config: Optimization config.
-
-    Returns:
-        A set of map keys.
     """
-    has_map_data = any(
-        isinstance(metric, MapMetric) and metric.has_map_data
-        for metric in optimization_config.metrics.values()
-    )
-    map_key_names = {MAP_KEY} if has_map_data else set()
-    return map_key_names
+    metrics = optimization_config.metrics
+    # Technically an OptimizationConfig could have zero metrics since a
+    # MultiObjective could have 0 objectives
+    if len(metrics) == 0:
+        return False
+    return any(isinstance(metric, MapMetric) for metric in metrics.values())
 
 
 # -------------------- Context manager and decorator utils. ---------------------
