@@ -45,6 +45,7 @@ from gpytorch.likelihoods.gaussian_likelihood import (
     FixedNoiseGaussianLikelihood,
     GaussianLikelihood,
 )
+from gpytorch.likelihoods.hadamard_gaussian_likelihood import HadamardGaussianLikelihood
 from gpytorch.module import Module
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
@@ -77,6 +78,7 @@ class BotorchDefaultsTest(TestCase):
         self.assertEqual(model.covar_module.lengthscale_prior.scale, 3**0.5)
         model = _get_model(X=x, Y=y, Yvar=unknown_var, task_feature=1)
         self.assertIs(type(model), MultiTaskGP)  # Don't accept subclasses.
+        self.assertIsInstance(model.likelihood, HadamardGaussianLikelihood)
         model = _get_model(X=x, Y=y, Yvar=var, task_feature=1)
         self.assertIsInstance(model, MultiTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
@@ -96,6 +98,8 @@ class BotorchDefaultsTest(TestCase):
             "sd_prior": GammaPrior(2.0, 0.44),
             "eta": 0.6,
         }
+        x[0, 1] = 0
+        x[1, 1] = 1
         model = _get_model(
             X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, prior=prior
         )
@@ -115,7 +119,6 @@ class BotorchDefaultsTest(TestCase):
             task_covar_module.IndexKernelPrior.correlation_prior.eta,
             0.6,
         )
-
         model = _get_model(
             X=x,
             Y=y,
@@ -174,6 +177,7 @@ class BotorchDefaultsTest(TestCase):
             prior=deepcopy(prior),
         )
         self.assertIs(type(model), MultiTaskGP)
+        self.assertIsInstance(model.likelihood, HadamardGaussianLikelihood)
         # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
         #  `kernels`.
         data_covar_module, task_covar_module = model.covar_module.kernels
