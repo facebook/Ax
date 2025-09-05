@@ -30,7 +30,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
 from ax.core.experiment import DataType
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -140,7 +140,6 @@ from ax.storage.json_store.encoders import (
     improvement_global_stopping_strategy_to_dict,
     logical_early_stopping_strategy_to_dict,
     map_data_to_dict,
-    map_key_info_to_dict,
     metric_to_dict,
     multi_objective_optimization_config_to_dict,
     multi_objective_to_dict,
@@ -229,7 +228,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapData: map_data_to_dict,
-    MapKeyInfo: map_key_info_to_dict,
     MapMetric: metric_to_dict,
     MaxGenerationParallelism: transition_criterion_to_dict,
     MaxTrials: transition_criterion_to_dict,
@@ -365,7 +363,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "LogNormalPrior": LogNormalPrior,
     "MapData": MapData,
     "MapMetric": MapMetric,
-    "MapKeyInfo": MapKeyInfo,
     "MaxTrials": MaxTrials,
     "MaxGenerationParallelism": MaxGenerationParallelism,
     "Metric": Metric,

@@ -21,6 +21,7 @@ from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.api.utils.generation_strategy_dispatch import _get_sobol_node
+from ax.core.map_data import MAP_KEY
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -272,7 +273,7 @@ class MapKeyToFloatTransformTest(TestCase):
             data=self.experiment.fetch_data(),
             latest_rows_per_group=None,
         )
-        self.map_key: str = "timestamp"
+        self.map_key: str = MAP_KEY
         # Does not require explicitly specifying `config`.
         self.t = MapKeyToFloat(observations=self.observations, adapter=self.adapter)
 
@@ -341,7 +342,7 @@ class MapKeyToFloatTransformTest(TestCase):
             keep_indices = [
                 i
                 for i, obs in enumerate(self.observations)
-                if not isnan(obs.features.metadata["timestamp"])
+                if not isnan(obs.features.metadata["step"])
             ]
             observation_features = [self.observations[i].features for i in keep_indices]
             obs_ft2 = deepcopy(observation_features)
@@ -362,7 +363,7 @@ class MapKeyToFloatTransformTest(TestCase):
             keep_indices = [
                 i
                 for i, obs in enumerate(self.observations)
-                if isnan(obs.features.metadata["timestamp"])
+                if isnan(obs.features.metadata["step"])
             ]
             observation_features = [self.observations[i].features for i in keep_indices]
             obs_ft2 = deepcopy(observation_features)
@@ -381,7 +382,7 @@ class MapKeyToFloatTransformTest(TestCase):
             untransformed = self.t.untransform_observation_features(obs_ft2)
             expected = observation_features
             for obs in expected:
-                obs.metadata["timestamp"] = 4
+                obs.metadata["step"] = 4
 
             self.assertEqual(untransformed, observation_features)
 
@@ -564,7 +565,7 @@ class MapKeyToFloatTransformTest(TestCase):
     def test_transform_experiment_data(self) -> None:
         # First, set up a case with no NaNs.
         data = self.experiment.lookup_data()
-        data.map_df["timestamp"] = data.map_df["timestamp"].fillna(0)
+        data.map_df["step"] = data.map_df["step"].fillna(0)
         experiment_data = extract_experiment_data(
             experiment=self.experiment,
             data=data,
@@ -587,7 +588,7 @@ class MapKeyToFloatTransformTest(TestCase):
         )
         # The timestamp is always NaN for 'branin'
         actual = experiment_data.observation_data.index.get_level_values(
-            "timestamp"
+            "step"
         ).to_numpy()
         expected_timestamp = np.array([nan, 4.0, nan, 2.0, nan, 0.0])
         self.assertTrue(np.array_equal(actual, expected_timestamp, equal_nan=True))
@@ -596,9 +597,7 @@ class MapKeyToFloatTransformTest(TestCase):
             experiment_data=deepcopy(experiment_data)
         )
         transformed_timestamp = (
-            transformed_data.observation_data.index.get_level_values(
-                "timestamp"
-            ).tolist()
+            transformed_data.observation_data.index.get_level_values("step").tolist()
         )
         upper = self.t._parameter_list[0].upper
         expected_trans_timestamp = [upper, 4.0, upper, 2.0, upper, 0.0]

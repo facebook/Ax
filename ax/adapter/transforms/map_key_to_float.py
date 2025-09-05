@@ -14,9 +14,10 @@ from typing import Any, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
+from ax.core.map_data import MAP_KEY
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
-from ax.core.utils import extract_map_keys_from_opt_config
+from ax.core.utils import has_map_metrics
 from ax.generators.types import TConfig
 from pandas import Index, MultiIndex
 from pyre_extensions import none_throws
@@ -31,7 +32,7 @@ class MapKeyToFloat(MetadataToFloat):
     This transform extracts the entry from the metadata field of the observation
     features corresponding to the `parameters` specified in the transform config
     and inserts it into the parameter field. If no parameters are specified in the
-    config, the transform will extract all map key names from the optimization config.
+    config, the transform will extract the map key name from the optimization config.
 
     Inheriting from the `MetadataToFloat` transform, this transform also adds a range
     (float) parameter to the search space. Similarly, users can override the default
@@ -54,13 +55,12 @@ class MapKeyToFloat(MetadataToFloat):
         if "parameters" not in config:
             # Extract map keys from the optimization config, if no parameters are
             # specified in the config.
-            if adapter is not None and adapter._optimization_config is not None:
-                config["parameters"] = {
-                    key: {}
-                    for key in extract_map_keys_from_opt_config(
-                        optimization_config=adapter._optimization_config
-                    )
-                }
+            if (
+                adapter is not None
+                and adapter._optimization_config is not None
+                and has_map_metrics(optimization_config=adapter._optimization_config)
+            ):
+                config["parameters"] = {MAP_KEY: {}}
             else:
                 warnings.warn(
                     (

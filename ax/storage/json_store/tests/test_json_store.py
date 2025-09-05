@@ -32,7 +32,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.parameter import ParameterType
@@ -107,7 +107,7 @@ from ax.utils.testing.core_stubs import (
     get_improvement_global_stopping_strategy,
     get_interval,
     get_map_data,
-    get_map_key_info,
+    get_map_metric,
     get_metric,
     get_mll_type,
     get_model_type,
@@ -292,7 +292,7 @@ TEST_CASES = [
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
     ("MapData", get_map_data),
-    ("MapKeyInfo", get_map_key_info),
+    ("MapMetric", partial(get_map_metric, name="test")),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
     ("MultiObjectiveOptimizationConfig", get_multi_objective_optimization_config),
@@ -637,15 +637,23 @@ class JSONStoreTest(TestCase):
                 ],
                 "__type": "MapData",
             }
-            with self.assertWarnsRegex(Warning, "Received multiple"):
+            with warnings.catch_warnings(record=True) as warning_list:
                 map_data = object_from_json(
                     data_with_two_map_keys_json,
                     decoder_registry=CORE_DECODER_REGISTRY,
                     class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
                 )
-            # The "timestamp" map key will be silently dropped.
-            self.assertEqual(map_data.map_key, "epoch")
-            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
+            self.assertIn(
+                "Received multiple map keys. All except ", str(warning_list[0].message)
+            )
+            self.assertIn("will be renamed to step", str(warning_list[1].message))
+
+            # The "timestamp" map key will be silently dropped, and "epoch" will
+            # be renamed to MAP_KEY
+            self.assertIn(MAP_KEY, map_data.true_df.columns)
+            # Either 'epoch' or 'timestamps' could have been kept
+            progression = map_data.true_df[MAP_KEY].tolist()
+            self.assertTrue(progression == [0.0, 1.0] or progression == [3.0, 4.0])
 
         with self.subTest("Single map key"):
             data_json = {
@@ -660,16 +668,19 @@ class JSONStoreTest(TestCase):
                 "map_key_infos": [{"key": "epoch", "default_value": nan}],
                 "__type": "MapData",
             }
-            with warnings.catch_warnings(record=True) as ws:
+            with warnings.catch_warnings(record=True) as warning_list:
                 map_data = object_from_json(
                     data_json,
                     decoder_registry=CORE_DECODER_REGISTRY,
                     class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
                 )
+            self.assertIn(
+                f"epoch will be renamed to {MAP_KEY}", str(warning_list[0].message)
+            )
+            self.assertIn(MAP_KEY, map_data.true_df.columns)
+            self.assertEqual(map_data.true_df[MAP_KEY].tolist(), [0.0, 1.0])
             # No warning about multiple map keys
-            self.assertFalse(any("Received multiple" in str(w) for w in ws))
-            self.assertEqual(map_data.map_key, "epoch")
-            self.assertEqual(map_data.true_df["epoch"].tolist(), [0.0, 1.0])
+            self.assertFalse(any("Received multiple" in str(w) for w in warning_list))
 
         with self.subTest("No map key"):
             data_json = {

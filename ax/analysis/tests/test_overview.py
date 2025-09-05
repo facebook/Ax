@@ -52,62 +52,95 @@ class TestOverview(TestCase):
     @mock_botorch_optimize
     def test_compute(self) -> None:
         # Set up a basic optimization with the Client
-        client = Client()
+        for use_constraint in (False, True):
+            client = Client()
 
-        client.configure_experiment(
-            name="booth_function",
-            parameters=[
-                RangeParameterConfig(
-                    name="x1",
-                    bounds=(-10.0, 10.0),
-                    parameter_type="float",
-                ),
-                RangeParameterConfig(
-                    name="x2",
-                    bounds=(-10.0, 10.0),
-                    parameter_type="float",
-                ),
-            ],
-        )
-        client.configure_optimization(objective="-1 * booth")
-        # Iterate well into the BO phase
-        for _ in range(10):
-            for trial_index, parameters in client.get_next_trials(max_trials=1).items():
-                client.complete_trial(
-                    trial_index=trial_index,
-                    raw_data={
+            client.configure_experiment(
+                name="booth_function",
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1",
+                        bounds=(-10.0, 10.0),
+                        parameter_type="float",
+                    ),
+                    RangeParameterConfig(
+                        name="x2",
+                        bounds=(-10.0, 10.0),
+                        parameter_type="float",
+                    ),
+                ],
+            )
+            client.configure_optimization(
+                objective="-1 * booth",
+                outcome_constraints=["foo >= 0.0"] if use_constraint else None,
+            )
+            # Iterate well into the BO phase
+            for _ in range(10):
+                for trial_index, parameters in client.get_next_trials(
+                    max_trials=1
+                ).items():
+                    raw_data = {
                         # pyre-ignore[58]
-                        "booth": (parameters["x1"] + 2 * parameters["x2"] - 7) ** 2
+                        "booth": (parameters["x1"] + 2.0 * parameters["x2"] - 7) ** 2.0
                         # pyre-ignore[58]
-                        + (2 * parameters["x1"] + parameters["x2"] - 5) ** 2
-                    },
-                )
+                        + (2.0 * parameters["x1"] + parameters["x2"] - 5.0) ** 2.0,
+                    }
+                    if use_constraint:
+                        raw_data["foo"] = float(parameters["x1"])  # pyre-ignore[58]
+                    client.complete_trial(trial_index=trial_index, raw_data=raw_data)
 
-        # Add a CANDIDATE batch trial to produce some trial analysis cards
-        client._experiment.new_batch_trial()
+            # Add a CANDIDATE batch trial to produce some trial analysis cards
+            client._experiment.new_batch_trial()
 
-        # Add metric fetching errors to produce some healthcheck analyses
-        client._experiment._metric_fetching_errors = {
-            (0, "booth"): {
-                "trial_index": 0,
-                "metric_name": "booth",
-                "reason": "This is a test",
-                "timestamp": datetime.now().isoformat(),
-                "traceback": "Test traceback",
+            # Add metric fetching errors to produce some healthcheck analyses
+            client._experiment._metric_fetching_errors = {
+                (0, "booth"): {
+                    "trial_index": 0,
+                    "metric_name": "booth",
+                    "reason": "This is a test",
+                    "timestamp": datetime.now().isoformat(),
+                    "traceback": "Test traceback",
+                }
             }
-        }
 
-        card = OverviewAnalysis().compute(
-            experiment=client._experiment,
-            generation_strategy=client._generation_strategy,
-        )
+            overview_card = OverviewAnalysis().compute(
+                experiment=client._experiment,
+                generation_strategy=client._generation_strategy,
+            )
+            self.assertEqual(
+                any(
+                    card.name == "ObjectivePFeasibleFrontierPlot"
+                    for card_group in overview_card.children
+                    for card in card_group.flatten()
+                ),
+                use_constraint,
+            )
 
-        children_names = [child.name for child in card.children]
-        self.assertIn("ResultsAnalysis", children_names)
-        self.assertIn("InsightsAnalysis", children_names)
-        self.assertIn("DiagnosticAnalysis", children_names)
-        self.assertIn("AllTrialsAnalysis", children_names)
-        self.assertIn("HealthchecksAnalysis", children_names)
+            children_names = [child.name for child in overview_card.children]
+            self.assertIn("ResultsAnalysis", children_names)
+            self.assertIn("InsightsAnalysis", children_names)
+            self.assertIn("DiagnosticAnalysis", children_names)
+            self.assertIn("AllTrialsAnalysis", children_names)
+            self.assertIn("HealthchecksAnalysis", children_names)
+
+            # test without BotorchGenerator
+            overview_card = OverviewAnalysis().compute(
+                experiment=client._experiment,
+                # omit generation_strategy and pass adapter instead
+                adapter=Generators.SOBOL(
+                    experiment=client._experiment,
+                    search_space=client._experiment.search_space,
+                ),
+            )
+            # ObjectivePFeasibleFrontierPlot should not be computed
+            # without a BoTorchGenerator
+            self.assertFalse(
+                any(
+                    card.name == "ObjectivePFeasibleFrontierPlot"
+                    for card_group in overview_card.children
+                    for card in card_group.flatten()
+                )
+            )
 
     @mock_botorch_optimize
     def test_online(self) -> None:

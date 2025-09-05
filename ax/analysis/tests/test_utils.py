@@ -631,12 +631,13 @@ class TestUtils(TestCase):
     def test_online(self) -> None:
         # Test ArmEffectsPlot can be computed for a variety of experiments which
         # resemble those we see in an online setting.
-        for experiment in get_online_experiments()[:1]:
+        for experiment in get_online_experiments():
             data = experiment.lookup_data()
             rel_df = relativize_data(data).df
             raw_df = data.df
+            metric_name = next(iter(experiment.metrics.keys()))
             raw_arm_value = raw_df[
-                (raw_df.arm_name == "0_0") & (raw_df.metric_name == "branin")
+                (raw_df.arm_name == "0_0") & (raw_df.metric_name == metric_name)
             ]["mean"].values[0]
             for (
                 use_model_predictions,
@@ -682,12 +683,17 @@ class TestUtils(TestCase):
                 if relativize:
                     # test that data is relativized
                     expected_arm_value = rel_df[
-                        (rel_df.arm_name == "0_0") & (rel_df.metric_name == "branin")
+                        (rel_df.arm_name == "0_0") & (rel_df.metric_name == metric_name)
                     ]["mean"].values[0]
                 else:
                     # test that data is not relativized
                     expected_arm_value = raw_arm_value
-                self.assertAllClose(arm_df["branin_mean"].values[0], expected_arm_value)
+                self.assertAllClose(
+                    arm_df[f"{metric_name}_mean"].values[0],
+                    expected_arm_value,
+                    rtol=1e-4 if use_model_predictions else 1e-5,
+                    atol=1e-3 if use_model_predictions else 1e-8,
+                )
 
     @TestCase.ax_long_test(
         reason=(

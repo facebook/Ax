@@ -17,7 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
@@ -122,13 +122,11 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                             else 0.0
                             for item in res
                         ],
-                        self.map_key_info.key: [
-                            item[self.map_key_info.key] for item in res
-                        ],
+                        MAP_KEY: [item[MAP_KEY] for item in res],
                     }
                 )
 
-                datas.append(MapData(df=df, map_key_infos=[self.map_key_info]))
+                datas.append(MapData(df=df))
 
             return Ok(value=MapData.from_multiple_map_data(datas))
 
@@ -149,4 +147,4 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
         mean = assert_is_instance(branin(x1=x1, x2=x2), float) * weight
 
-        return {"mean": mean, "timestamp": timestamp}
+        return {"mean": mean, MAP_KEY: timestamp}

@@ -18,6 +18,7 @@ from ax.adapter.transforms.choice_encode import (
 from ax.adapter.transforms.convert_metric_names import ConvertMetricNames
 from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
+from ax.adapter.transforms.fixed_to_tunable import FixedToTunable
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
 from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.adapter.transforms.ivw import IVW
@@ -61,6 +62,7 @@ we will return the replacement class.
 TRANSFORM_REGISTRY: set[type[Transform]] = {
     ConvertMetricNames,
     Derelativize,
+    FixedToTunable,
     IntRangeToChoice,
     IntToFloat,
     IVW,
