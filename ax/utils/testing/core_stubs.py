@@ -31,7 +31,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -2696,10 +2696,6 @@ def get_observations_with_invalid_value(invalid_value: float) -> list[Observatio
         Observation(features=ObservationFeatures({}), data=obsd_with_non_finite)
     ]
     return observations
-
-
-def get_map_key_info() -> MapKeyInfo:
-    return MapKeyInfo(key="epoch")
 
 
 def get_branin_data(

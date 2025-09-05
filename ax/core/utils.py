@@ -21,6 +21,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MAP_KEY
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
@@ -661,12 +662,11 @@ def extract_map_keys_from_opt_config(
     Returns:
         A set of map keys.
     """
-    map_metrics = {
-        name: metric
-        for name, metric in optimization_config.metrics.items()
-        if isinstance(metric, MapMetric) and metric.has_map_data
-    }
-    map_key_names = {m.map_key_info.key for m in map_metrics.values()}
+    has_map_data = any(
+        isinstance(metric, MapMetric) and metric.has_map_data
+        for metric in optimization_config.metrics.values()
+    )
+    map_key_names = {MAP_KEY} if has_map_data else set()
     return map_key_names
 
 

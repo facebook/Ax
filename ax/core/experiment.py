@@ -1473,17 +1473,7 @@ class Experiment(Base):
                     inplace=True,
                 )
                 # Attach updated data to new trial on experiment.
-                data_constructor = old_experiment.default_data_constructor
-                old_data = (
-                    MapData.from_df(
-                        df=new_df,
-                        map_key=assert_is_instance(
-                            old_experiment.lookup_data(), MapData
-                        ).map_key,
-                    )
-                    if data_constructor == MapData
-                    else data_constructor(df=new_df)
-                )
+                old_data = old_experiment.default_data_constructor(df=new_df)
                 self.attach_data(data=old_data)
             if trial.status == TrialStatus.ABANDONED:
                 new_trial.mark_abandoned(reason=trial.abandoned_reason)

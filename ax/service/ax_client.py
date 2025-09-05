@@ -25,7 +25,6 @@ from ax.core.experiment import DataType, Experiment
 from ax.core.formatting_utils import data_and_evaluations_from_raw_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
@@ -1325,14 +1324,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             experiment=self.experiment, trial=trial
         )
 
-    def estimate_early_stopping_savings(self, map_key: str | None = None) -> float:
+    def estimate_early_stopping_savings(self) -> float:
         """Estimate early stopping savings using progressions of the MapMetric present
         on the EarlyStoppingConfig as a proxy for resource usage.
-
-        Args:
-            map_key: The name of the map_key by which to estimate early stopping
-                savings, usually steps. If none is specified use some arbitrary map_key
-                in the experiment's MapData
 
         Returns:
             The estimated resource savings as a fraction of total resource usage (i.e.
@@ -1342,26 +1336,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         if self.experiment.default_data_constructor is not MapData:
             return 0
 
-        strategy = self.early_stopping_strategy
-        map_key = (
-            map_key
-            if map_key is not None
-            else (
-                assert_is_instance(
-                    self.experiment.metrics[list(strategy.metric_names)[0]],
-                    MapMetric,
-                ).map_key_info.key
-                if strategy is not None
-                and strategy.metric_names is not None
-                and len(list(strategy.metric_names)) > 0
-                else None
-            )
-        )
-
-        return estimate_early_stopping_savings(
-            experiment=self.experiment,
-            map_key=map_key,
-        )
+        return estimate_early_stopping_savings(experiment=self.experiment)
 
     # ------------------ JSON serialization & storage methods. -----------------
 
