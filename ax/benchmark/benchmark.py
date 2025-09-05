@@ -421,16 +421,17 @@ def get_benchmark_result_from_experiment_and_gs(
             optimization_config=problem.optimization_config,
         )
     )
-    inference_trace = get_inference_trace(
-        trial_completion_order=trial_completion_order,
-        experiment=experiment,
-        problem=problem,
-        generation_strategy=generation_strategy,
-    )
-
-    optimization_trace = (
-        inference_trace if problem.report_inference_value_as_trace else oracle_trace
-    )
+    if problem.report_inference_value_as_trace:
+        inference_trace = get_inference_trace(
+            trial_completion_order=trial_completion_order,
+            experiment=experiment,
+            problem=problem,
+            generation_strategy=generation_strategy,
+        )
+        optimization_trace = inference_trace
+    else:
+        inference_trace = np.full_like(oracle_trace, fill_value=np.nan)
+        optimization_trace = oracle_trace
 
     score_trace = compute_score_trace(
         optimization_trace=optimization_trace,
