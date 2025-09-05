@@ -81,8 +81,6 @@ class MapData(Data):
                 of the DataFrame are known to be ordered and valid.
         """
         map_key_to_type = {MAP_KEY: float}
-        # map_key will be removed soon, once references are removed
-        self.map_key: str = MAP_KEY
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
             columns = list(self.required_columns().union({MAP_KEY}))

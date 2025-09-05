@@ -117,20 +117,18 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             # don't stop any trials if we don't get data back
             return {}
 
-        map_key = none_throws(data.map_key)
         df = data.map_df
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do
         # early stopping at all and return {}
         if not self.is_eligible_any(
-            trial_indices=trial_indices, experiment=experiment, df=df, map_key=map_key
+            trial_indices=trial_indices, experiment=experiment, df=df
         ):
             return {}
 
         try:
             metric_to_aligned_means, _ = align_partial_results(
                 df=df,
-                progr_key=map_key,
                 metrics=[metric_name],
             )
         except Exception as e:
@@ -147,7 +145,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 experiment=experiment,
                 df=aligned_means,
                 df_raw=df,
-                map_key=map_key,
                 minimize=minimize,
             )
             for trial_index in trial_indices
@@ -164,7 +161,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         experiment: Experiment,
         df: pd.DataFrame,
         df_raw: pd.DataFrame,
-        map_key: str,
         minimize: bool,
     ) -> tuple[bool, str | None]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
@@ -176,7 +172,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             df: Dataframe of partial results after applying interpolation,
                 filtered to objective metric.
             df_raw: The original MapData dataframe (before interpolation).
-            map_key: Name of the column of the dataset that indicates progression.
             minimize: Whether objective value is being minimized.
 
         Returns:
@@ -186,7 +181,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """
 
         stopping_eligible, reason = self.is_eligible(
-            trial_index=trial_index, experiment=experiment, df=df_raw, map_key=map_key
+            trial_index=trial_index, experiment=experiment, df=df_raw
         )
         if not stopping_eligible:
             return False, reason

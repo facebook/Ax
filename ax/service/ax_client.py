@@ -1335,7 +1335,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         if self.experiment.default_data_constructor is not MapData:
             return 0
-
         return estimate_early_stopping_savings(experiment=self.experiment)
 
     # ------------------ JSON serialization & storage methods. -----------------

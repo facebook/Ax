@@ -20,7 +20,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.types import TCandidateMetadata, TParameterization
@@ -268,7 +268,7 @@ def _observations_from_dataframe(
     experiment: experiment.Experiment,
     df: pd.DataFrame,
     cols: list[str],
-    map_key: str | None,
+    is_map_data: bool,
     statuses_to_include: set[TrialStatus],
     statuses_to_include_map_metric: set[TrialStatus],
 ) -> list[Observation]:
@@ -279,8 +279,8 @@ def _observations_from_dataframe(
         df: DataFrame derived from experiment Data.
         cols: columns used to group data into different observations.
             `cols` must always include `arm_name`.
-        map_key: column that maps dict-like Data
-            e.g. `timestamp` in timeseries data, `epoch` in ML training traces.
+        is_map_data: Whether the data is from a MapMetric, with ``MAP_KEY`` in
+            the metadata.
         statuses_to_include: data from non-MapMetrics will only be included for trials
             with statuses in this set.
         statuses_to_include_map_metric: data from MapMetrics will only be included for
@@ -341,8 +341,8 @@ def _observations_from_dataframe(
         if fidelities is not None:
             obs_parameters.update(json.loads(fidelities))
 
-        if map_key is not None:
-            obs_kwargs[Keys.METADATA][map_key] = features[map_key]
+        if is_map_data:
+            obs_kwargs[Keys.METADATA][MAP_KEY] = features[MAP_KEY]
         d = _filter_data_on_status(
             df=d,
             experiment=experiment,
@@ -441,8 +441,7 @@ def get_feature_cols(data: Data) -> list[str]:
     """
     feature_cols = OBS_COLS.intersection(data.true_df.columns)
     if isinstance(data, MapData):
-        if data.map_key is not None:
-            feature_cols.add(data.map_key)
+        feature_cols.add(MAP_KEY)
 
     for column in TIME_COLS:
         if column in feature_cols and len(data.df[column].unique()) > 1:
@@ -490,12 +489,12 @@ def observations_from_data(
             and `limit_rows_per_group`.
         limit_rows_per_metric: If specified and data is an instance of MapData,
             uses MapData.subsample() with `limit_rows_per_metric` on the
-            map_key (map_data.map_key) to subsample the MapData. Useful for
+            map_key (``MAP_KEY``) to subsample the MapData. Useful for
             managing the number of Observation objects when learning curves are
             frequently updated. Ignored if `latest_rows_per_group` is specified.
         limit_rows_per_group: If specified and data is an instance of MapData,
             uses MapData.subsample() with `limit_rows_per_group` on the
-            map_key (map_data.map_key) to subsample the MapData. Ignored if
+            map_key (``MAP_KEY``) to subsample the MapData. Ignored if
             `latest_rows_per_group` is specified.
 
     Returns:
@@ -514,16 +513,16 @@ def observations_from_data(
                 limit_rows_per_group=limit_rows_per_group,
                 include_first_last=True,
             )
-        map_key = data.map_key
+        is_map_data = True
         df = data.map_df
     else:
-        map_key = None
+        is_map_data = False
         df = data.df
     return _observations_from_dataframe(
         experiment=experiment,
         df=df,
         cols=get_feature_cols(data=data),
-        map_key=map_key,
+        is_map_data=is_map_data,
         statuses_to_include=statuses_to_include,
         statuses_to_include_map_metric=statuses_to_include_map_metric,
     )

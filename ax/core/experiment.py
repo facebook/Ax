@@ -26,7 +26,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
@@ -895,8 +895,8 @@ class Experiment(Base):
 
         last_data_type = type(last_data)
         merge_keys = ["trial_index", "metric_name", "arm_name"]
-        if isinstance(last_data, MapData) and last_data.map_key is not None:
-            merge_keys += [last_data.map_key]
+        if isinstance(last_data, MapData):
+            merge_keys += [MAP_KEY]
 
         # this merge is like a SQL left join on merge keys
         # it will return a dataframe with the columns in merge_keys

@@ -202,7 +202,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         trial_indices: set[int],
         experiment: Experiment,
         df: pd.DataFrame,
-        map_key: str | None = None,
     ) -> bool:
         """Perform a series of default checks for a set of trials `trial_indices` and
         determine if at least one of them is eligible for further stopping logic:
@@ -233,8 +232,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         # check that at least one trial has reached `self.min_progression`
         df_trials = df[df["trial_index"].isin(trial_indices)].dropna(subset=["mean"])
         any_last_prog = 0
-        if not df_trials[map_key].empty:
-            any_last_prog = df_trials[map_key].max()
+        if not df_trials[MAP_KEY].empty:
+            any_last_prog = df_trials[MAP_KEY].max()
 
         if self.min_progression is not None and any_last_prog < self.min_progression:
             # No trials have reached `self.min_progression`, not stopping any trials
@@ -247,7 +246,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         trial_index: int,
         experiment: Experiment,
         df: pd.DataFrame,
-        map_key: str,
     ) -> tuple[bool, str | None]:
         """Perform a series of default checks for a specific trial `trial_index` and
         determines whether it is eligible for further stopping logic:
@@ -269,7 +267,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 otherwise return False even though the trial is eligible, if there are
                 secondary tracking metrics that are in `df` but shouldn't be considered
                 in the early stopping decision.
-            map_key: The name of the column containing the progression (e.g. time).
 
         Returns:
             A tuple of two elements: a boolean indicating if the trial is eligible and
@@ -295,7 +292,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 )
 
             # check for min/max progression
-            trial_last_prog = df_trial[map_key].max()
+            trial_last_prog = df_trial[MAP_KEY].max()
             if (
                 self.min_progression is not None
                 and trial_last_prog < self.min_progression

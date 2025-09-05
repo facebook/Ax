@@ -22,18 +22,15 @@ logger: Logger = get_logger(__name__)
 
 def align_partial_results(
     df: pd.DataFrame,
-    progr_key: str,  # progression key
     metrics: list[str],
     interpolation: str = "slinear",
     do_forward_fill: bool = False,
-    # TODO: Allow normalizing progr_key (e.g. subtract min time stamp)
+    # TODO: Allow normalizing step (e.g. subtract min time stamp)
 ) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
     """Helper function to align partial results with heterogeneous index
 
     Args:
         df: The DataFrame containing the raw data (in long format).
-        progr_key: The key of the column indexing progression (such as
-            the number of training examples, timestamps, etc.).
         metrics: The names of the metrics to consider.
         interpolation: The interpolation method used to fill missing values
             (if applicable). See `pandas.DataFrame.interpolate` for
@@ -71,7 +68,7 @@ def align_partial_results(
         if len(df_m) > 0:
             logger.debug(
                 f"Metric {m} raw data has observations from "
-                f"{df_m[progr_key].min()} to {df_m[progr_key].max()}."
+                f"{df_m[MAP_KEY].min()} to {df_m[MAP_KEY].max()}."
             )
         else:
             logger.info(f"No data from metric {m} yet.")
@@ -95,13 +92,13 @@ def align_partial_results(
             )
 
     df = df.drop("arm_name", axis=1)
-    # remove duplicates (same trial, metric, progr_key), which can happen
+    # remove duplicates (same trial, metric, step), which can happen
     # if the same progression is erroneously reported more than once
     df = df.drop_duplicates(
-        subset=["trial_index", "metric_name", progr_key], keep="first"
+        subset=["trial_index", "metric_name", MAP_KEY], keep="first"
     )
     # set multi-index over trial, metric, and progression key
-    df = df.set_index(["trial_index", "metric_name", progr_key])
+    df = df.set_index(["trial_index", "metric_name", MAP_KEY])
     # sort index
     df = df.sort_index()
     # drop sem if all NaN (assumes presence of sem column)

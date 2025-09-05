@@ -13,7 +13,7 @@ import numpy as np
 from ax.adapter.adapter_utils import observed_hypervolume, predicted_hypervolume
 from ax.adapter.torch import TorchAdapter
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -391,11 +391,8 @@ class BestPointMixin(ABC):
             raise ValueError("`get_trace_by_progression` requires MapData.")
         map_df = map_data.map_df
 
-        # assume the first map_key is progression
-        map_key = none_throws(map_data.map_key)
-
         map_df = map_df[map_df["metric_name"] == objective]
-        map_df = map_df.sort_values(by=["trial_index", map_key])
+        map_df = map_df.sort_values(by=["trial_index", MAP_KEY])
         df = (
             map_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
             if final_progression_only
@@ -405,22 +402,22 @@ class BestPointMixin(ABC):
         # compute cumulative steps
         prev_steps_df = map_df.drop_duplicates(
             MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
-        )[["trial_index", map_key]].copy()
+        )[["trial_index", MAP_KEY]].copy()
 
         # shift the cumsum by one so that we count cumulative steps not including
         # the current trial
-        prev_steps_df[map_key] = (
-            prev_steps_df[map_key].cumsum().shift(periods=1).fillna(0)
+        prev_steps_df[MAP_KEY] = (
+            prev_steps_df[MAP_KEY].cumsum().shift(periods=1).fillna(0)
         )
-        prev_steps_df = prev_steps_df.rename(columns={map_key: "prev_steps"})
+        prev_steps_df = prev_steps_df.rename(columns={MAP_KEY: "prev_steps"})
         df = df.merge(prev_steps_df, on=["trial_index"])
-        df["cumulative_steps"] = df[map_key] + df["prev_steps"]
+        df["cumulative_steps"] = df[MAP_KEY] + df["prev_steps"]
         progressions = df["cumulative_steps"].to_numpy()
 
         if bins is None:
             # this assumes that there is at least one completed trial that
             # reached the maximum progression
-            prog_per_trial = df[map_key].max()
+            prog_per_trial = df[MAP_KEY].max()
             num_trials = len(experiment.trials)
             bins = np.linspace(
                 0, prog_per_trial * num_trials, NUM_BINS_PER_TRIAL * num_trials
