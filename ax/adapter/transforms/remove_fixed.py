@@ -18,7 +18,7 @@ from ax.core.parameter import (
     FixedParameter,
     RangeParameter,
 )
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.generators.types import TConfig
 
 if TYPE_CHECKING:
@@ -69,6 +69,18 @@ class RemoveFixed(Transform):
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+        # For hierarchical search spaces, the only hierarchical fixed (or derived)
+        # parameter has to be the root. This is a tricky case that requires a BFS
+        # traversal. We don't support it for now, since we haven't seen any use cases.
+        if isinstance(search_space, HierarchicalSearchSpace):
+            for p_name, param in search_space.parameters.items():
+                if isinstance(param, (DerivedParameter, FixedParameter)):
+                    if param.is_hierarchical and param is not search_space.root:
+                        raise NotImplementedError(
+                            f"{p_name} is a hierarchical fixed or derived parameter."
+                            "But it is not the root."
+                        )
+
         tunable_parameters: list[ChoiceParameter | RangeParameter] = []
         for p in search_space.parameters.values():
             if p.name not in self.fixed_or_derived_parameters:
@@ -79,6 +91,28 @@ class RemoveFixed(Transform):
                 # pyre-fixme[9]: parameter.Parameter`.
                 p_: ChoiceParameter | RangeParameter = p
                 tunable_parameters.append(p_)
+
+        # Also need to remove fixed parameters in `dependents`.
+        for p in tunable_parameters:
+            # NOTE: Type checking `ChoiceParameter` and `FixedParameter` is entirely
+            # unnecessary, because `is_hierarchical` returns false unless it's either a
+            # choice or fixed parameter. We do this solely to avoid a type check error
+            # from buck tests.
+            if isinstance(p, (ChoiceParameter, FixedParameter)) and p.is_hierarchical:
+                dependents = {
+                    p_value: [
+                        child
+                        for child in children
+                        if child not in self.fixed_or_derived_parameters
+                    ]
+                    for p_value, children in p.dependents.items()
+                }
+                if any(len(children) > 0 for children in dependents.values()):
+                    p.dependents = dependents
+                else:
+                    # Wipe out the dependents if all children are removed.
+                    p.dependents = None
+
         return construct_new_search_space(
             search_space=search_space,
             # pyre-ignore Incompatible parameter type [6]

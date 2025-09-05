@@ -19,7 +19,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
@@ -48,6 +48,48 @@ class RemoveFixedTransformTest(TestCase):
             ]
         )
         self.t = RemoveFixed(search_space=self.search_space)
+
+        self.hierarchical_search_space = HierarchicalSearchSpace(
+            parameters=[
+                FixedParameter(
+                    "root",
+                    parameter_type=ParameterType.BOOL,
+                    value=True,
+                    dependents={True: ["parent1", "parent2"]},
+                ),
+                ChoiceParameter(
+                    "parent1",
+                    parameter_type=ParameterType.BOOL,
+                    values=[False, True],
+                    dependents={False: ["child1"], True: ["child2"]},
+                ),
+                ChoiceParameter(
+                    "parent2",
+                    parameter_type=ParameterType.INT,
+                    values=[0, 1],
+                    dependents={0: ["child3"], 1: ["child4"]},
+                ),
+                RangeParameter(
+                    "child1", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                ),
+                FixedParameter(
+                    "child2",
+                    parameter_type=ParameterType.STRING,
+                    value="yee-haw",
+                ),
+                FixedParameter(
+                    "child3",
+                    parameter_type=ParameterType.STRING,
+                    value="hellow world",
+                ),
+                FixedParameter(
+                    "child4",
+                    parameter_type=ParameterType.STRING,
+                    value="hellow world again",
+                ),
+            ]
+        )
+        self.t_hss = RemoveFixed(search_space=self.hierarchical_search_space)
 
     def test_Init(self) -> None:
         self.assertEqual(list(self.t.fixed_or_derived_parameters.keys()), ["c", "d"])
@@ -82,6 +124,42 @@ class RemoveFixedTransformTest(TestCase):
         ss2 = self.t.transform_search_space(ss2)
         for name in ("c", "d"):
             self.assertIsNone(ss2.parameters.get(name))
+
+        # Test if dependents are removed properly.
+        hss = self.hierarchical_search_space.clone()
+        hss = self.t_hss.transform_search_space(hss)
+        self.assertEqual(set(hss.parameters), {"parent1", "parent2", "child1"})
+        self.assertEqual(
+            hss.parameters["parent1"].dependents, {False: ["child1"], True: []}
+        )
+        # Both children of `parent2` got removed. It's not hierarchical anymore.
+        self.assertFalse(hss.parameters["parent2"].is_hierarchical)
+
+        # No non-root hierarchical fixed parameter.
+        hss = HierarchicalSearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "grandparent",
+                    parameter_type=ParameterType.INT,
+                    values=[0, 1],
+                    dependents={0: [], 1: ["parent"]},
+                ),
+                FixedParameter(
+                    "parent",
+                    parameter_type=ParameterType.BOOL,
+                    value=True,
+                    dependents={True: ["child"]},
+                ),
+                ChoiceParameter(
+                    "child",
+                    parameter_type=ParameterType.INT,
+                    values=[0, 1],
+                ),
+            ]
+        )
+        t = RemoveFixed(search_space=hss.clone())
+        with self.assertRaises(NotImplementedError):
+            hss = t.transform_search_space(hss)
 
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
