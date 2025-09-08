@@ -632,22 +632,3 @@ def enumerate_discrete_combinations(
         for c in itertools.product(*discrete_choices.values())
     ]
     return fixed_features_list
-
-
-def all_ordinal_features_are_integer_valued(
-    ssd: SearchSpaceDigest,
-) -> bool:
-    """Check if all ordinal features are integer-valued.
-
-    Args:
-        ssd: A SearchSpaceDigest.
-
-    Returns:
-        True if all ordinal features are integer-valued, False otherwise.
-    """
-    for feature_idx in ssd.ordinal_features:
-        choices = ssd.discrete_choices[feature_idx]
-        int_choices = [int(c) for c in choices]
-        if choices != int_choices:
-            return False
-    return True
