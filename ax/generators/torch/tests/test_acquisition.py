@@ -818,6 +818,33 @@ class AcquisitionTest(TestCase):
             acquisition.optimize(n=3, search_space_digest=ssd_nonint)
         mock_alternating.assert_not_called()
 
+        # Check if the `fixed_features` argument works for discrete features.
+        ub = 10
+        ssd_many_combinations = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 1), (0, ub), (0, ub)],
+            ordinal_features=[1, 2],
+            discrete_choices={1: list(range(ub + 1)), 2: list(range(ub + 1))},
+        )
+        dict_args = {
+            "n": 1,
+            "search_space_digest": ssd_many_combinations,
+            "fixed_features": {1: 0},
+            "rounding_func": self.rounding_func,
+            "optimizer_options": self.optimizer_options,
+        }
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+            wraps=optimize_acqf_mixed_alternating,
+        ) as mock_alternating:
+            acquisition.optimize(**dict_args)
+        mock_alternating.assert_called()
+
+        # Now that we have made sure alternating minimization is called, call the
+        # optimizer for real.
+        candidates, _, _ = acquisition.optimize(**dict_args)
+        self.assertTrue((candidates[:, 1] == 0).all())
+
     @mock.patch(
         f"{DummyOneShotAcquisitionFunction.__module__}."
         "DummyOneShotAcquisitionFunction.evaluate",
