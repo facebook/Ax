@@ -11,7 +11,6 @@ from logging import Logger
 import numpy as np
 from ax.adapter.adapter_utils import observed_hypervolume
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -229,16 +228,21 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 and a str declaring the reason for stopping.
         """
         reference_trial_index = trial_to_check - self.window_size + 1
-        data_df = experiment.lookup_data().df
-        data_df_reference = data_df[data_df["trial_index"] <= reference_trial_index]
-        data_df = data_df[data_df["trial_index"] <= trial_to_check]
+        data = experiment.lookup_data(
+            trial_indices=[idx for idx in experiment.trials if idx <= trial_to_check]
+        )
+        data_reference = experiment.lookup_data(
+            trial_indices=[
+                idx for idx in experiment.trials if idx <= reference_trial_index
+            ]
+        )
 
         # Computing or retrieving HV at "window_size" iteration before
         if reference_trial_index in self.hv_by_trial:
             hv_reference = self.hv_by_trial[reference_trial_index]
         else:
             adapter_reference = get_tensor_converter_adapter(
-                experiment=experiment, data=Data(data_df_reference)
+                experiment=experiment, data=data_reference
             )
             hv_reference = observed_hypervolume(
                 adapter=adapter_reference, objective_thresholds=objective_thresholds
@@ -250,9 +254,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             return False, message
 
         # Computing HV at current trial
-        adapter = get_tensor_converter_adapter(
-            experiment=experiment, data=Data(data_df)
-        )
+        adapter = get_tensor_converter_adapter(experiment=experiment, data=data)
         hv = observed_hypervolume(
             adapter=adapter, objective_thresholds=objective_thresholds
         )
