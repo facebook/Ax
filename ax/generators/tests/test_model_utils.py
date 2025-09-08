@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 import numpy as np
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.model_utils import (
-    all_ordinal_features_are_integer_valued,
     best_observed_point,
     check_duplicate,
     enumerate_discrete_combinations,
@@ -188,31 +187,3 @@ class ModelUtilsTest(TestCase):
                 {1: 2, 2: 4},
             ],
         )
-
-    def test_all_ordinal_features_are_integer_valued(self) -> None:
-        # No ordinal features.
-        ssd = SearchSpaceDigest(
-            feature_names=["a", "b"],
-            bounds=[(0, 1), (0, 2)],
-            categorical_features=[0],
-            discrete_choices={0: [0, 1]},
-        )
-        self.assertTrue(all_ordinal_features_are_integer_valued(ssd=ssd))
-        # Non-integer ordinal features.
-        ssd = SearchSpaceDigest(
-            feature_names=["a", "b"],
-            bounds=[(0, 1), (0, 2)],
-            categorical_features=[0],
-            ordinal_features=[1],
-            discrete_choices={0: [0, 1], 1: [0.5, 1.5]},
-        )
-        self.assertFalse(all_ordinal_features_are_integer_valued(ssd=ssd))
-        # Integer ordinal features.
-        ssd = SearchSpaceDigest(
-            feature_names=["a", "b"],
-            bounds=[(0, 1), (0, 2)],
-            categorical_features=[0],
-            ordinal_features=[1],
-            discrete_choices={0: [0.5, 1.0], 1: [0.0, 1.0]},
-        )
-        self.assertTrue(all_ordinal_features_are_integer_valued(ssd=ssd))
