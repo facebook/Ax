@@ -631,18 +631,24 @@ class Acquisition(Base):
                 **optimizer_options_with_defaults,
             )
         elif optimizer == "optimize_acqf_mixed_alternating":
+            # NOTE: We intentially use `ssd.discrete_choices` as opposed to
+            # `discrete_choices`. This optimizer checks whether `discrete_dims` and
+            # `cat_dims` match with the bounds. However, `discrete_choices` has
+            # overridden some values in `ssd.discrete_choices` using `fixed_features`,
+            # which would fail the check. This optimizer is able to handle fixed
+            # features itself. No need for overriding.
             candidates, acqf_values = optimize_acqf_mixed_alternating(
                 acq_function=self.acqf,
                 bounds=bounds,
                 discrete_dims={
                     k: list(v)
-                    for k, v in discrete_choices.items()
-                    if k in search_space_digest.ordinal_features
+                    for k, v in ssd.discrete_choices.items()
+                    if k in ssd.ordinal_features
                 },
                 cat_dims={
                     k: list(v)
-                    for k, v in discrete_choices.items()
-                    if k in search_space_digest.categorical_features
+                    for k, v in ssd.discrete_choices.items()
+                    if k in ssd.categorical_features
                 },
                 q=n,
                 post_processing_func=rounding_func,
