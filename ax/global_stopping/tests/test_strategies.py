@@ -30,7 +30,11 @@ from ax.global_stopping.strategies.improvement import (
     ImprovementGlobalStoppingStrategy,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_data
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_timestamp_map_metric,
+    get_experiment,
+    get_experiment_with_data,
+)
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -353,6 +357,21 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "The improvement in best objective in the past 3 trials (=0.000) is "
             "less than 0.1 times the interquartile range (IQR) of objectives "
             "attained so far (IQR=0.100).",
+        )
+
+    def test_moo_with_map_data(self) -> None:
+        exp = get_branin_experiment_with_timestamp_map_metric(
+            with_trials_and_data=True, multi_objective=True, map_tracking_metric=True
+        )
+        for idx in [0, 1]:
+            exp.trials[idx].mark_completed()
+        gss = ImprovementGlobalStoppingStrategy(
+            min_trials=1, window_size=2, inactive_when_pending_trials=False
+        )
+        stop, message = gss.should_stop_optimization(experiment=exp)
+        self.assertFalse(stop)
+        self.assertEqual(
+            message, "The reference hypervolume is 0. Continue the optimization."
         )
 
     def test_safety_check(self) -> None:
