@@ -280,7 +280,7 @@ class Trial(BaseTrial):
         raw_data: TEvaluationOutcome,
         metadata: dict[str, str | int] | None = None,
         sample_size: int | None = None,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
     ) -> str:
         """Utility method that attaches data to a trial and
         returns an update message.
@@ -295,8 +295,8 @@ class Trial(BaseTrial):
             metadata: Additional metadata to track about this run, optional.
             sample_size: Number of samples collected for the underlying arm,
                 optional.
-            combine_with_last_data: Whether to combine the given data with the
-                data that was previously attached to the trial. See
+            combine_with_last_data [DEPRECATED]: Whether to combine the given data
+                with the data that was previously attached to the trial. See
                 `Experiment.attach_data` for a detailed explanation.
 
         Returns:

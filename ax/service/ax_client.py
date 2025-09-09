@@ -742,7 +742,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raw_data=raw_data,
             metadata=metadata,
             sample_size=sample_size,
-            combine_with_last_data=True,
         )
         logger.info(f"Updated trial {trial_index} with data: " f"{data_update_repr}.")
 
@@ -793,7 +792,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             metadata=metadata,
             sample_size=sample_size,
             complete_trial=True,
-            combine_with_last_data=True,
         )
         logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
 
@@ -838,7 +836,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raw_data=raw_data,
             metadata=metadata,
             sample_size=sample_size,
-            combine_with_last_data=True,
         )
         logger.info(f"Added data: {data_update_repr} to trial {trial.index}.")
 
@@ -1532,7 +1529,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         metadata: dict[str, str | int] | None = None,
         sample_size: int | None = None,
         complete_trial: bool = False,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
     ) -> str:
         """Helper method attaches data to a trial, returns a str of update."""
         # Format the data to save.
