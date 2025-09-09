@@ -141,6 +141,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             self._fitted_adapter = self.generator_enum(
                 experiment=experiment,
                 data=data,
+                model_key_override=self.model_key_override,
                 **combined_model_kwargs,
             )
             self._last_fit_arg_ids = self._get_fit_arg_ids(

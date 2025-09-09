@@ -298,6 +298,7 @@ class GeneratorRegistryBase(Enum):
         experiment: Experiment | None = None,
         data: Data | None = None,
         silently_filter_kwargs: bool = False,
+        model_key_override: str | None = None,
         **kwargs: Any,
     ) -> Adapter:
         if self.value not in self.model_key_to_model_setup:
@@ -395,8 +396,9 @@ class GeneratorRegistryBase(Enum):
                 model_kwargs.pop(key, None)
 
         # Store all kwargs on adapter, to be saved on generator run.
+        model_key = model_key_override if model_key_override else self.value
         adapter._set_kwargs_to_save(
-            model_key=self.value,
+            model_key=model_key,
             model_kwargs=_encode_callables_as_references(model_kwargs),
             bridge_kwargs=_encode_callables_as_references(bridge_kwargs),
         )

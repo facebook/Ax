@@ -73,6 +73,9 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             model_key_override="MBM with defaults",
         )
         self.assertEqual(ms.model_key, "MBM with defaults")
+        ms.fit(experiment=self.experiment, data=self.data)
+        gr = ms.gen(n=1)
+        self.assertEqual(gr._model_key, "MBM with defaults")
 
     @patch(f"{GeneratorSpec.__module__}.compute_diagnostics")
     @patch(
