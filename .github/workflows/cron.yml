@@ -68,6 +68,12 @@ jobs:
         uv pip install git+https://github.com/pytorch/botorch.git
         uv pip install -e ".[dev,mysql,notebook]"
         uv pip install --upgrade build setuptools setuptools_scm wheel
+    - name: Extract reduced version and save to env var
+      # strip the commit hash from the version to enable upload to pypi
+      # env var will persist for subsequent steps
+      run: |
+        no_local_version=$(python -m setuptools_scm | cut -d "+" -f 1)
+        echo "SETUPTOOLS_SCM_PRETEND_VERSION=${no_local_version}" >> $GITHUB_ENV
     - name: Build wheel
       run: |
         python -m build --sdist --wheel
