@@ -83,7 +83,8 @@ class TestCenterGenerationNode(TestCase):
         exp.new_trial().add_arm(arm=Arm({"x1": 2.5, "x2": 7.5})).run()
         node = CenterGenerationNode(next_node_name="test")
         gr = none_throws(node.gen(experiment=exp, pending_observations=None))
-        self.assertEqual(gr._model_key, "Sobol")
+        # The existing arm is the center of search space
+        self.assertEqual(gr._model_key, "Fallback_Sobol")
 
     def test_repr(self) -> None:
         node = CenterGenerationNode(next_node_name="test")
@@ -142,4 +143,4 @@ class TestCenterGenerationNode(TestCase):
                 for log in logs.records
             )
         )
-        self.assertEqual(gr._model_key, "Sobol")
+        self.assertEqual(gr._model_key, "Fallback_Sobol")
