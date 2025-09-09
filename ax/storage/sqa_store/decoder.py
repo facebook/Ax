@@ -392,6 +392,8 @@ class Decoder:
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
+                backfill_value=parameter_sqa.backfill_value,
+                default_value=parameter_sqa.default_value,
             )
         elif parameter_sqa.domain_type == DomainType.CHOICE:
             target_value = parameter_sqa.target_value
@@ -415,6 +417,8 @@ class Decoder:
                 is_ordered=parameter_sqa.is_ordered,
                 is_task=bool(parameter_sqa.is_task),
                 dependents=parameter_sqa.dependents,
+                backfill_value=parameter_sqa.backfill_value,
+                default_value=parameter_sqa.default_value,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
             # Don't throw an error if parameter_sqa.fixed_value is None;
@@ -426,6 +430,8 @@ class Decoder:
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
                 dependents=parameter_sqa.dependents,
+                backfill_value=parameter_sqa.backfill_value,
+                default_value=parameter_sqa.default_value,
             )
         elif parameter_sqa.domain_type == DomainType.DERIVED:
             parameter = DerivedParameter(
@@ -544,6 +550,8 @@ class Decoder:
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
+                backfill_value=parameter_sqa.backfill_value,
+                default_value=parameter_sqa.default_value,
             )
         else:
             raise SQADecodeError(
