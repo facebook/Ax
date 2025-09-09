@@ -885,13 +885,7 @@ class Experiment(Base):
                     rows that share the same values
                     for "trial_index", "metric_name", and "arm_name" in new_df
         """
-        last_ts, last_data = list(current_trial_data.items())[-1]
-        # Get the init args other than 'df' for last data
-        # in case it was a child class of `Data`
-        last_data_init_args = last_data.deserialize_init_args(
-            last_data.serialize_init_args(last_data)
-        )
-        del last_data_init_args["df"]
+        _, last_data = list(current_trial_data.items())[-1]
 
         last_data_type = type(last_data)
         merge_keys = ["trial_index", "metric_name", "arm_name"]
@@ -922,7 +916,7 @@ class Experiment(Base):
         # Remove the "_left" suffix from the column names
         last_df.columns = last_df.columns.str.replace(r"_left$", "", regex=True)
 
-        return type(last_data), last_data_type(df=last_df, **last_data_init_args)
+        return type(last_data), last_data_type(df=last_df)
 
     def attach_fetch_results(
         self,
