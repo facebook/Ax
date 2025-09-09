@@ -8,7 +8,8 @@
 
 
 import torch
-from ax.adapter.registry import Generators
+from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
+from ax.adapter.transforms.winsorize import Winsorize
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
@@ -130,6 +131,7 @@ def _get_mbm_node(
                 model_kwargs={
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
                     "torch_device": device,
+                    "transforms": MBM_X_trans + [Winsorize] + Y_trans,
                 },
             )
         ],
