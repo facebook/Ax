@@ -1,0 +1,733 @@
+---
+title: Ax for AutoML with scikit-learn
+sidebar_label: Ax for AutoML with scikit-learn
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/sklearn/sklearn.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/sklearn/sklearn.ipynb"
+/>
+
+# Ax for AutoML with scikit-learn
+
+Automated machine learning (AutoML) encompasses a large class of problems related to
+automating time-consuming and labor-intensive aspects of developing ML models. Adaptive
+experimentation is a natural fit for solving many AutoML tasks, which are often
+iterative in nature and can involve many expensive trial evaluations.
+
+In this tutorial we will use Ax for hyperparameter optimization (HPO), a common AutoML
+task in which a model's hyperparameters are adjusted to improve model performance.
+Hyperparameters refer to the parameters which are set prior to model training or
+fitting, rather than parameters being learned from data. Traditionally, ML engineers use
+a combination of domain knowledge, intuition, and manual experimentation comparing many
+models with different hyperparameter configurations to determine good hyperparameters.
+As the number of hyperparameters grows and as models become more expensive to train and
+evaluate sample efficient aproaches to experimentation like Bayesian optimization become
+increasingly valuable.
+
+In this tutorial we will train an `SGDClassifier` from the popular
+[scikit-learn](https://scikit-learn.org/) library to recognize handwritten digits and
+tune the model's hyperparameters to improve its performance. You can read more about the
+`SGDClassifier` model in their example
+[here](https://scikit-learn.org/stable/auto_examples/classification/plot_digits_classification.html),
+which this tutorial is largely based on. This tutorial will incorporate many advanced
+features in Ax to demonstrate how they can be applied on complex engineering challenges
+in a real-world setting.
+
+## Learning Objectives
+
+- Understand how Ax can be used for HPO tasks
+- Use complex optimization configurations like multiple objectives and outcome
+  constraints to achieve nuanced real-world goals
+- Use early stopping to save experimentation resources
+- Analyze the results of the optimization
+
+## Prerequisites
+
+- Familiarity with [scikit-learn](https://scikit-learn.org/) and basic machine learning
+  concepts
+- Understanding of [adaptive experimentation](../../intro-to-ae) and
+  [Bayesian optimization](../../intro-to-bo)
+- [Ask-tell Optimization of Python Functions with early stopping](../early_stopping)
+
+## Step 1: Import Necessary Modules
+
+First, ensure you have all the necessary imports:
+
+```python
+import time
+
+import matplotlib.pyplot as plt
+
+import numpy as np
+
+import sklearn.datasets
+import sklearn.linear_model
+import sklearn.model_selection
+
+from ax.api.client import Client
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
+
+from pyre_extensions import assert_is_instance
+```
+
+## Step 1.1: Understanding the baseline performance of `SGDClassifier`
+
+Before we begin HPO, let's understand the task and the performance of `SGDClassifier`
+with its default hyperparameters. The following code is largely adapted from the example
+on scikit-learn's webiste
+[here](https://scikit-learn.org/stable/auto_examples/classification/plot_digits_classification.html).
+
+```python
+# Load the digits dataset and display the first 4 images to demonstrate
+digits = sklearn.datasets.load_digits()
+classes = list(set(digits.target))
+
+_, axes = plt.subplots(nrows=1, ncols=4, figsize=(10, 3))
+for ax, image, label in zip(axes, digits.images, digits.target):
+    ax.set_axis_off()
+    ax.imshow(image, cmap=plt.cm.gray_r, interpolation="nearest")
+    ax.set_title("Training: %i" % label)
+```
+
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAxsAAADSCAYAAAAi0d0oAAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjYsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvq6yFwwAAAAlwSFlzAAAPYQAAD2EBqD+naQAAEhNJREFUeJzt3W+QlWX9P/DPCrEbAbIi5JIlLDpjySABzSQm4LgQpMYqgT5gZB0bqGSM/swsU5gLlknajBVmxBMMzFFKIZtMYXBzmp7Eyloaziyx6GQ4KS5/FPnr/XvQ1/1FS+6C1+Vhd1+vGWbc65z7fV+H5eOe99xnzykriqIIAACAxM4o9QYAAICeSdkAAACyUDYAAIAslA0AACALZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZOAV1dXUxYsSIUzq2oaEhysrK0m4ITkPmBDpnTqBz5qR761Flo6ysrEt/GhsbS73V086f/vSn+MxnPhP9+/ePc845J2655ZZ44403Sr0tMjAnp+bJJ5+Mm266KUaPHh19+vQ55R98dA/m5OQdOHAg7r333pg2bVpUVVXFwIED45Of/GTcd999cezYsVJvjwzMyam544474tOf/nQMHTo0Kioq4oILLohFixbFq6++WuqtZVFWFEVR6k2ksnbt2uO+/sUvfhEbN26MNWvWHLc+derU+PCHP3zK5zly5Ei8/fbbUV5eftLHHj16NI4ePRoVFRWnfP7Umpub45JLLomPf/zjMX/+/PjHP/4Rd999d1x++eXx+OOPl3p7JGZOTk1dXV089NBDMW7cuHjppZeiT58+sXPnzlJvi0zMycl77rnnYsyYMXHFFVfEtGnTYtCgQfHEE0/Eo48+GjfccEPcf//9pd4iiZmTUzNr1qwYOnRoXHjhhTFw4MDYtm1brFq1KoYNGxbNzc3xoQ99qNRbTKvowW6++eaiKw/xzTfffB92c/qaMWNGUVVVVezdu7d9bdWqVUVEFE888UQJd8b7wZx0zcsvv1wcPny4KIqiuPLKK4vzzjuvtBvifWVOOvfqq68Wzz33XIf1G2+8sYiIoqWlpQS74v1kTk7dr371qyIiigcffLDUW0muR72MqiumTJkSo0ePjqamppg0aVL0798/vvWtb0VExIYNG+LKK6+M4cOHR3l5eYwaNSpuv/32Dpd///u1gzt37oyysrK4++674+c//3mMGjUqysvL41Of+lT8+c9/Pu7YE712sKysLBYuXBjr16+P0aNHR3l5eVx00UXx+9//vsP+GxsbY8KECVFRURGjRo2KlStXnjDztddeixdeeCEOHDjwrn8f+/bti40bN8bcuXNj0KBB7es33HBDDBgwIB5++OF3PZ6eyZx0NHz48PjABz7Q6f3oPczJ8c4+++y46KKLOqxfc801ERGxbdu2dz2ensmcdM07j2/Pnj2ndPzprG+pN1AKu3fvjhkzZsT1118fc+fObb+0t3r16hgwYEB8/etfjwEDBsTmzZvjO9/5Tuzbty/uuuuuTnN/+ctfxv79+2PBggVRVlYWP/jBD+Laa6+NHTt2dPok5Y9//GM88sgj8ZWvfCUGDhwYP/7xj2PWrFnx0ksvxZAhQyIiYuvWrTF9+vSoqqqKpUuXxrFjx2LZsmUxdOjQDnkrVqyIpUuXxlNPPRVTpkz5n+f961//GkePHo0JEyYct96vX78YO3ZsbN26tdPHTc9kTqBz5qRzr7zySkT8u4zQO5mTjoqiiN27d8fRo0ejpaUlFi9eHH369OmZP4tKfWklpxNdzps8eXIREcXPfvazDvc/cOBAh7UFCxYU/fv3Lw4ePNi+Nm/evONeQtHa2lpERDFkyJDi9ddfb1/fsGFDERHFY4891r522223ddhTRBT9+vUrtm/f3r727LPPFhFR/OQnP2lfu/rqq4v+/fsXL7/8cvtaS0tL0bdv3w6Z75znqaee6vCY/tO6deuKiCiefvrpDrfNnj27OOecc971eLo/c9L5nPw3L6PqfczJyc9JURTFoUOHik984hPFyJEjiyNHjpz08XQv5qTrc7Jr164iItr/nHvuucVDDz3UpWO7m173MqqIiPLy8rjxxhs7rH/wgx9s/+/9+/fHa6+9FpdddlkcOHAgXnjhhU5zr7vuuqisrGz/+rLLLouIiB07dnR6bE1NTYwaNar96zFjxsSgQYPajz127Fhs2rQpamtrY/jw4e33O//882PGjBkd8hoaGqIoik4b8ltvvRURccJfuqqoqGi/nd7HnEDnzMm7W7hwYfztb3+LFStWRN++vfLFFIQ5OZGzzjorNm7cGI899lgsW7Yszj777B77LqC9cvI/8pGPRL9+/TqsP//887FkyZLYvHlz7Nu377jb9u7d22nuxz72seO+fmcA2traTvrYd45/59h//etf8dZbb8X555/f4X4nWuuqdwb90KFDHW47ePDgcf8joHcxJ9A5c/K/3XXXXbFq1aq4/fbb43Of+1yyXLofc9JRv379oqamJiIirrrqqrjiiivi0ksvjWHDhsVVV131nvNPJ72ybJzoCfSePXti8uTJMWjQoFi2bFmMGjUqKioq4plnnon6+vp4++23O83t06fPCdeLLry78Hs59r2oqqqKiIhdu3Z1uG3Xrl3HtXl6F3MCnTMnJ7Z69eqor6+PL33pS7FkyZL37bycnsxJ5yZOnBhVVVXxwAMPKBs9VWNjY+zevTseeeSRmDRpUvt6a2trCXf1/w0bNiwqKipi+/btHW470VpXjR49Ovr27RtbtmyJOXPmtK8fPnw4mpubj1uD3joncDJ6+5xs2LAhvvjFL8a1114b995773vOo2fq7XNyIgcPHuzSFZ3uplf+zsaJvNNw/7PRHj58OH7605+WakvH6dOnT9TU1MT69evjn//8Z/v69u3bT/jBe119C7YzzzwzampqYu3atbF///729TVr1sQbb7wRs2fPTvcg6PZ665zAyejNc/L000/H9ddfH5MmTYoHHnggzjjD0wxOrLfOyZtvvnnC+/z617+Otra2Du8O2hO4svF/Jk6cGJWVlTFv3ry45ZZboqysLNasWXNavTyjoaEhnnzyybj00kvjy1/+chw7dixWrFgRo0ePjubm5uPuezJvwfa9730vJk6cGJMnT27/BPEf/vCHMW3atJg+fXq+B0S305vn5C9/+Uv85je/iYh//7DZu3dvfPe7342IiIsvvjiuvvrqHA+Hbqi3zsmLL74Yn//856OsrCy+8IUvxLp16467fcyYMTFmzJgMj4buqLfOSUtLS9TU1MR1110XF154YZxxxhmxZcuWWLt2bYwYMSK++tWv5n1QJaBs/J8hQ4bEb3/72/jGN74RS5YsicrKypg7d25cccUV8dnPfrbU24uIiPHjx8fjjz8e3/zmN+PWW2+Nj370o7Fs2bLYtm1bl9614X8ZN25cbNq0Kerr6+NrX/taDBw4MG666ab4/ve/n3D39AS9eU6eeeaZuPXWW49be+frefPmKRu0661z0tra2v4SkJtvvrnD7bfddpuyQbveOifnnntuzJo1KzZv3hz3339/HDlyJM4777xYuHBhfPvb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)
+
+```python
+# Split the data into a training set and a validation set
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    digits.data, digits.target, test_size=0.20, random_state=0
+)
+
+# Instantiate a SGDClassifier with default hyperparameters
+clf = sklearn.linear_model.SGDClassifier()
+
+# Train the classifier on the training set using 10 batches.
+# Also time the training.
+n_batches = 10
+batch_size = X_train.shape[0] // n_batches
+start_time = time.monotonic()
+for epoch in range(20):
+    for i in range(n_batches):
+        start = i * batch_size
+        end = start + batch_size
+
+        X_batch = X_train[start:end]
+        y_batch = y_train[start:end]
+
+        clf.partial_fit(X_batch, y_batch, classes=classes)
+
+training_time = time.monotonic() - start_time
+
+# Evaluate the classifier on the validation set
+score = clf.score(X_test, y_test)
+score, training_time
+```
+
+<CellOutput>
+{
+`(0.9527777777777777, 0.6661538270000165)`
+}
+</CellOutput>
+
+The model performs well, but let's see if we can improve performance by tuning the
+hyperparameters.
+
+## Step 2: Initialize the Client
+
+As always, the first step in running our adaptive experiment with Ax is to create an
+instance of the `Client` to manage the state of your experiment.
+
+```python
+client = Client()
+```
+
+## Step 3: Configure the Experiment
+
+The `Client` expects a series of `Config`s which define how the experiment will be run.
+We'll set this up the same way as we did in our previous tutorial.
+
+Our current task is to tune the hyperparameters of an scikit-learn's
+[SGDClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html).
+These parameters control aspects of the model's training process and configuring them
+can have dramatic effects on the model's ability to correctly classify inputs. A full
+list of this model's hyperparameters and appropriate values are available in the
+library's documentation. In this tutorial we will tune the following hyperparameters:
+
+- **loss:** The loss function to be used
+- **penalty:** The penalty (aka regularization term) to be used
+- **learning_rate:** The learning rate schedule
+- **alpha:** Constant that multiplies the regularization term. The higher the value, the
+  stronger the regularization
+- **eta0**: The learning rate for training. In this example we will use a constant
+  learning rate schedule
+- **batch_size**: A training parameter which controls how many examples are shown during
+  a single call to `partial_fit`
+
+You will notice some hyperparameters are continuous ranges, some are discrete ranges,
+and some are categorical choices; Ax is able to handle all of these types of parameters
+via its `RangeParameterConfig` and `ChoiceParameterConfig` classes.
+
+```python
+# Configure and experiment with the desired parameters
+client.configure_experiment(
+    parameters=[
+        ChoiceParameterConfig(
+            name="loss",
+            parameter_type="str",
+            values=[
+                "hinge",
+                "log_loss",
+                "squared_hinge",
+                "modified_huber",
+                "perceptron",
+            ],
+            is_ordered=False,
+        ),
+        ChoiceParameterConfig(
+            name="penalty",
+            parameter_type="str",
+            values=["l1", "l2", "elasticnet"],
+            is_ordered=False,
+        ),
+        ChoiceParameterConfig(
+            name="learning_rate",
+            parameter_type="str",
+            values=["constant", "optimal", "invscaling", "adaptive"],
+            is_ordered=False,
+        ),
+        RangeParameterConfig(
+            name="alpha",
+            bounds=(1e-8, 100),
+            parameter_type="float",
+            scaling="log",  # Sample this parameter in log transformed space
+        ),
+        RangeParameterConfig(
+            name="eta0",
+            bounds=(1e-8, 1),
+            parameter_type="float",
+            scaling="log",
+        ),
+        RangeParameterConfig(
+            name="batch_size",
+            bounds=(5, 500),
+            parameter_type="int",
+        ),
+    ]
+)
+```
+
+## Step 4: Configure Optimization
+
+Now, we must set up the optimization objective in `Client`, where `objective` is a
+string that specifies which metric we would like to optimize and the direction (higher
+or lower) that is considered optimal.
+
+In our example we want to consider both performance and computational cost implications
+of hyperparameter modifications. `scikit-learn` models use a function called `score` to
+report the mean accuracy of the model, and in our optimization we should seek to
+maximize this value. Since model training can be a very expensive process, especially
+for large models, this can represent a significant cost.
+
+Let's configure Ax to maximize score while minimizing training time. We call this a
+multi-objective optimization, and rather than returning a single best parameterization
+we return a Pareto frontier of points which represent optimal tradeoffs between all
+metrics present. Multi-objective optimization is useful for competing metrics where a
+gain in one metric may represent a regression in the other.
+
+In these settings we can also specify outcome constraints, which indicate that if a
+metric result falls outside of the specified threshold we are not interested in any
+result, regardless of the wins observed in any other metric. For a concrete example,
+imagine Ax finding a parameterization that trains in no time at all but has an score no
+better than if the model were guessing at random.
+
+For this toy example let's configure Ax to maximize score and minimize training time,
+but avoid any hyperparameter configurations that result in a mean accuracy score of less
+than 85% or a training time greater than 2 seconds.
+
+```python
+client.configure_optimization(
+    objective="score, -training_time",
+    outcome_constraints=["score >= 0.85", "training_time <= 2"],
+)
+```
+
+## Step 5: Run Trials with early stopping
+
+Before we begin our Bayesian optimization loop, we can attach the data we collected from
+triaing `SGDClassifier` with default hyperparameters. This will give our experiment a
+head start by providing a datapoint to our surrogate model. Because these are the
+default settings provided by `scikit-learn`, it's likely they will be pretty good and
+will provide the optimization with a promising start. It is always advantageous to
+attach any existing data to an experiment to improve performance.
+
+```python
+trial_index = client.attach_baseline(
+    parameters={
+        "loss": clf.loss,
+        "penalty": clf.penalty,
+        "alpha": clf.alpha,
+        "learning_rate": clf.learning_rate,
+        "eta0": clf.eta0
+        + 1e-8,  # Default eta is 0.0, so add a small value to avoid division by zero
+        "batch_size": batch_size,
+    }
+)
+
+client.complete_trial(
+    trial_index=trial_index,
+    raw_data={"score": score, "training_time": training_time},
+)
+```
+
+<CellOutput>
+{
+`[INFO 09-09 19:37:44] ax.api.client: Trial 0 marked COMPLETED.
+<enum 'TrialStatus'>.COMPLETED`
+}
+</CellOutput>
+
+After attaching the initial trial, we will begin the experimentation loop by writing a
+for loop to execute our full experimentation budget of 30 trials. In each iteration we
+will ask Ax for the next trials (in this case just one), then instantiate an
+`SGDClassifier` with the suggested hyperparameters. Next we will define two inner loops
+to perform minibatch training, in which we divide the train set into a number of smaller
+batches and train one epoch of stochastic gradient descent at a time. After each epoch
+we will report the score and the time.
+
+Because training machine learning models is expensive, we will utilize Ax's early
+stopping functionality to kill trials unlikely to produce optimal results before they
+have been completed. After data has been attached we will ask the `Client` whether or
+not we should stop the trial, and if it advises us to do so we will report it early
+stopped and exit out of the training loop. By early stopping, we proactively save
+compute without regressing optimization performance.
+
+```python
+for _ in range(20): # Run 20 rounds of 1 trial each
+    trials = client.get_next_trials(max_trials=1)
+    for trial_index, parameters in trials.items():
+        clf = sklearn.linear_model.SGDClassifier(
+            loss=parameters["loss"],
+            penalty=parameters["penalty"],
+            alpha=parameters["alpha"],
+            learning_rate=parameters["learning_rate"],
+            eta0=parameters["eta0"],
+        )
+
+        batch_size = assert_is_instance(parameters["batch_size"], int)
+        n_batches = X_train.shape[0] // batch_size
+
+        # Create a flag to track whether the trial was stopped early
+        is_early_stopped = False
+
+        start_time = time.monotonic()
+        for epoch in range(20):
+            for i in range(n_batches):
+                # Calculate the minibatch and fit the model
+                start = i * batch_size
+                end = start + batch_size
+
+                X_batch = X_train[start:end]
+                y_batch = y_train[start:end]
+
+                clf.partial_fit(X_batch, y_batch, classes=classes)
+
+            # Evaluate the model and report the score back to Ax
+            score = clf.score(X_test, y_test)
+
+            client.attach_data(
+                trial_index=trial_index,
+                raw_data={"score": score, "training_time": time.monotonic() - start_time},
+                progression=epoch + 1,
+            )
+
+            # If the trial is underperforming, stop it
+            if client.should_stop_trial_early(trial_index=trial_index):
+                is_early_stopped = True
+                client.mark_trial_early_stopped(trial_index=trial_index)
+                break
+
+        if is_early_stopped:
+            break
+
+
+        if not is_early_stopped:
+            client.complete_trial(trial_index=trial_index)
+
+```
+
+<CellOutput>
+{
+`[INFO 09-09 19:37:44] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(node_name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, model_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')]), GenerationNode(node_name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, model_key_override=None)], transition_criteria=[])]) chosen based on user input and problem structure.
+[INFO 09-09 19:37:44] ax.api.client: Generated new trial 1 with parameters {'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'invscaling', 'alpha': 0.001, 'eta0': 0.0001, 'batch_size': 252} using GenerationNode CenterOfSearchSpace.
+[INFO 09-09 19:37:44] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 09-09 19:37:44] ax.api.client: Generated new trial 2 with parameters {'alpha': 0.029891, 'eta0': 0.0, 'batch_size': 386, 'loss': 'log_loss', 'penalty': 'elasticnet', 'learning_rate': 'adaptive'} using GenerationNode Sobol.
+[INFO 09-09 19:37:45] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 09-09 19:37:45] ax.api.client: Generated new trial 3 with parameters {'alpha': 0.000226, 'eta0': 0.000582, 'batch_size': 109, 'loss': 'hinge', 'penalty': 'l1', 'learning_rate': 'constant'} using GenerationNode Sobol.
+[INFO 09-09 19:37:46] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 09-09 19:37:46] ax.api.client: Generated new trial 4 with parameters {'alpha': 30.631984, 'eta0': 3.2e-05, 'batch_size': 250, 'loss': 'hinge', 'penalty': 'l1', 'learning_rate': 'constant'} using GenerationNode Sobol.
+[INFO 09-09 19:37:47] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 09-09 19:37:49] ax.api.client: Generated new trial 5 with parameters {'alpha': 0.000109, 'eta0': 9e-06, 'batch_size': 164, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'invscaling'} using GenerationNode MBM.
+[INFO 09-09 19:37:49] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 09-09 19:37:52] ax.api.client: Generated new trial 6 with parameters {'alpha': 0.00016, 'eta0': 3e-06, 'batch_size': 170, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-09 19:37:53] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 09-09 19:37:56] ax.api.client: Generated new trial 7 with parameters {'alpha': 0.000497, 'eta0': 0.0, 'batch_size': 285, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:37:56] ax.early_stopping.strategies.percentile: Early stoppinging trial 7: Trial objective value 0.7361111111111112 is worse than 50.0-th percentile (0.8166666666666667) across comparable trials..
+[INFO 09-09 19:37:56] ax.api.client: Trial 7 should be stopped early: Trial objective value 0.7361111111111112 is worse than 50.0-th percentile (0.8166666666666667) across comparable trials.
+[INFO 09-09 19:37:56] ax.api.client: Trial 7 marked EARLY_STOPPED.
+[INFO 09-09 19:37:59] ax.api.client: Generated new trial 8 with parameters {'alpha': 0.00064, 'eta0': 0.0, 'batch_size': 243, 'loss': 'hinge', 'penalty': 'l1', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[INFO 09-09 19:38:00] ax.api.client: Trial 8 marked COMPLETED.
+[INFO 09-09 19:38:03] ax.api.client: Generated new trial 9 with parameters {'alpha': 0.000823, 'eta0': 0.0, 'batch_size': 290, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:03] ax.early_stopping.strategies.percentile: Early stoppinging trial 9: Trial objective value 0.6666666666666666 is worse than 50.0-th percentile (0.8166666666666667) across comparable trials..
+[INFO 09-09 19:38:03] ax.api.client: Trial 9 should be stopped early: Trial objective value 0.6666666666666666 is worse than 50.0-th percentile (0.8166666666666667) across comparable trials.
+[INFO 09-09 19:38:03] ax.api.client: Trial 9 marked EARLY_STOPPED.
+[INFO 09-09 19:38:06] ax.api.client: Generated new trial 10 with parameters {'alpha': 0.000382, 'eta0': 0.0, 'batch_size': 331, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:06] ax.early_stopping.strategies.percentile: Early stoppinging trial 10: Trial objective value 0.7361111111111112 is worse than 50.0-th percentile (0.7763888888888889) across comparable trials..
+[INFO 09-09 19:38:06] ax.api.client: Trial 10 should be stopped early: Trial objective value 0.7361111111111112 is worse than 50.0-th percentile (0.7763888888888889) across comparable trials.
+[INFO 09-09 19:38:06] ax.api.client: Trial 10 marked EARLY_STOPPED.
+[INFO 09-09 19:38:10] ax.api.client: Generated new trial 11 with parameters {'alpha': 0.000406, 'eta0': 0.0, 'batch_size': 359, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:10] ax.early_stopping.strategies.percentile: Early stoppinging trial 11: Trial objective value 0.725 is worse than 50.0-th percentile (0.7361111111111112) across comparable trials..
+[INFO 09-09 19:38:10] ax.api.client: Trial 11 should be stopped early: Trial objective value 0.725 is worse than 50.0-th percentile (0.7361111111111112) across comparable trials.
+[INFO 09-09 19:38:10] ax.api.client: Trial 11 marked EARLY_STOPPED.
+[INFO 09-09 19:38:14] ax.api.client: Generated new trial 12 with parameters {'alpha': 0.000498, 'eta0': 0.0, 'batch_size': 192, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:14] ax.early_stopping.strategies.percentile: Early stoppinging trial 12: Trial objective value 0.7222222222222222 is worse than 50.0-th percentile (0.7361111111111112) across comparable trials..
+[INFO 09-09 19:38:14] ax.api.client: Trial 12 should be stopped early: Trial objective value 0.7222222222222222 is worse than 50.0-th percentile (0.7361111111111112) across comparable trials.
+[INFO 09-09 19:38:14] ax.api.client: Trial 12 marked EARLY_STOPPED.
+[INFO 09-09 19:38:18] ax.api.client: Generated new trial 13 with parameters {'alpha': 0.000561, 'eta0': 0.0, 'batch_size': 456, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:18] ax.early_stopping.strategies.percentile: Early stoppinging trial 13: Trial objective value 0.7305555555555555 is worse than 50.0-th percentile (0.7361111111111112) across comparable trials..
+[INFO 09-09 19:38:18] ax.api.client: Trial 13 should be stopped early: Trial objective value 0.7305555555555555 is worse than 50.0-th percentile (0.7361111111111112) across comparable trials.
+[INFO 09-09 19:38:18] ax.api.client: Trial 13 marked EARLY_STOPPED.
+[INFO 09-09 19:38:23] ax.api.client: Generated new trial 14 with parameters {'alpha': 0.000615, 'eta0': 0.0, 'batch_size': 500, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:23] ax.early_stopping.strategies.percentile: Early stoppinging trial 14: Trial objective value 0.5916666666666667 is worse than 50.0-th percentile (0.7333333333333334) across comparable trials..
+[INFO 09-09 19:38:23] ax.api.client: Trial 14 should be stopped early: Trial objective value 0.5916666666666667 is worse than 50.0-th percentile (0.7333333333333334) across comparable trials.
+[INFO 09-09 19:38:23] ax.api.client: Trial 14 marked EARLY_STOPPED.
+[INFO 09-09 19:38:27] ax.api.client: Generated new trial 15 with parameters {'alpha': 0.000432, 'eta0': 0.0, 'batch_size': 212, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:27] ax.early_stopping.strategies.percentile: Early stoppinging trial 15: Trial objective value 0.6944444444444444 is worse than 50.0-th percentile (0.7305555555555555) across comparable trials..
+[INFO 09-09 19:38:27] ax.api.client: Trial 15 should be stopped early: Trial objective value 0.6944444444444444 is worse than 50.0-th percentile (0.7305555555555555) across comparable trials.
+[INFO 09-09 19:38:27] ax.api.client: Trial 15 marked EARLY_STOPPED.
+[INFO 09-09 19:38:31] ax.api.client: Generated new trial 16 with parameters {'alpha': 0.00047, 'eta0': 0.0, 'batch_size': 257, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:31] ax.early_stopping.strategies.percentile: Early stoppinging trial 16: Trial objective value 0.7194444444444444 is worse than 50.0-th percentile (0.7277777777777777) across comparable trials..
+[INFO 09-09 19:38:31] ax.api.client: Trial 16 should be stopped early: Trial objective value 0.7194444444444444 is worse than 50.0-th percentile (0.7277777777777777) across comparable trials.
+[INFO 09-09 19:38:31] ax.api.client: Trial 16 marked EARLY_STOPPED.
+[INFO 09-09 19:38:35] ax.api.client: Generated new trial 17 with parameters {'alpha': 0.000525, 'eta0': 0.0, 'batch_size': 277, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:35] ax.early_stopping.strategies.percentile: Early stoppinging trial 17: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.8708333333333333) across comparable trials..
+[INFO 09-09 19:38:35] ax.api.client: Trial 17 should be stopped early: Trial objective value 0.7527777777777778 is worse than 50.0-th percentile (0.8708333333333333) across comparable trials.
+[INFO 09-09 19:38:35] ax.api.client: Trial 17 marked EARLY_STOPPED.
+[INFO 09-09 19:38:39] ax.api.client: Generated new trial 18 with parameters {'alpha': 0.000322, 'eta0': 0.0, 'batch_size': 258, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:40] ax.early_stopping.strategies.percentile: Early stoppinging trial 18: Trial objective value 0.725 is worse than 50.0-th percentile (0.7277777777777777) across comparable trials..
+[INFO 09-09 19:38:40] ax.api.client: Trial 18 should be stopped early: Trial objective value 0.725 is worse than 50.0-th percentile (0.7277777777777777) across comparable trials.
+[INFO 09-09 19:38:40] ax.api.client: Trial 18 marked EARLY_STOPPED.
+[INFO 09-09 19:38:44] ax.api.client: Generated new trial 19 with parameters {'alpha': 0.000331, 'eta0': 0.0, 'batch_size': 255, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:44] ax.early_stopping.strategies.percentile: Early stoppinging trial 19: Trial objective value 0.6916666666666667 is worse than 50.0-th percentile (0.725) across comparable trials..
+[INFO 09-09 19:38:44] ax.api.client: Trial 19 should be stopped early: Trial objective value 0.6916666666666667 is worse than 50.0-th percentile (0.725) across comparable trials.
+[INFO 09-09 19:38:44] ax.api.client: Trial 19 marked EARLY_STOPPED.
+[INFO 09-09 19:38:49] ax.api.client: Generated new trial 20 with parameters {'alpha': 0.000379, 'eta0': 0.0, 'batch_size': 252, 'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'constant'} using GenerationNode MBM.
+[INFO 09-09 19:38:49] ax.early_stopping.strategies.percentile: Early stoppinging trial 20: Trial objective value 0.6916666666666667 is worse than 50.0-th percentile (0.725) across comparable trials..
+[INFO 09-09 19:38:49] ax.api.client: Trial 20 should be stopped early: Trial objective value 0.6916666666666667 is worse than 50.0-th percentile (0.725) across comparable trials.
+[INFO 09-09 19:38:49] ax.api.client: Trial 20 marked EARLY_STOPPED.`
+}
+</CellOutput>
+
+## Step 6: Analyze Results
+
+After running trials, you can analyze the results. Most commonly this means extracting
+the parameterization from the best performing trial you conducted.
+
+Since we are optimizing multiple objectives, rather than a single best point we want to
+get the Pareto frontier -- the set of points that presents optimal tradeoffs between
+maximizing score and minimizing training time.
+
+```python
+frontier = client.get_pareto_frontier()
+
+# Frontier is a list of tuples, where each tuple contains the parameters, the metric readings, the trial index, and the arm name for a point on the Pareto frontier
+for parameters, metrics, trial_index, arm_name in frontier:
+    print(f"Trial {trial_index} with {parameters=} and {metrics=}\n")
+```
+
+<CellOutput>
+{
+`Trial 0 with parameters={'loss': 'hinge', 'penalty': 'l2', 'alpha': 0.0001, 'learning_rate': 'optimal', 'eta0': 1e-08, 'batch_size': 143} and metrics={'score': (np.float64(0.9453415478027049), 0.0005194332418631283), 'training_time': (np.float64(0.667045300590534), 0.00023891115793226808)}
+Trial 1 with parameters={'loss': 'squared_hinge', 'penalty': 'l2', 'alpha': 0.001, 'learning_rate': 'invscaling', 'eta0': 0.0001, 'batch_size': 252} and metrics={'score': (np.float64(0.9242616819627024), 0.0005633796044502643), 'training_time': (np.float64(0.6124176264802821), 0.00023960403088982553)}
+Trial 6 with parameters={'loss': 'squared_hinge', 'penalty': 'l2', 'alpha': 0.00016022143150219855, 'learning_rate': 'optimal', 'eta0': 3.2585889631648173e-06, 'batch_size': 170} and metrics={'score': (np.float64(0.9456821174865533), 0.0005356319871818493), 'training_time': (np.float64(0.9587164089856623), 0.00023962068257876924)}`
+}
+</CellOutput>
+
+## Step 7: Compute Analyses
+
+Ax can also produce a number of analyses to help interpret the results of the experiment
+via `client.compute_analyses`. Users can manually select which analyses to run, or can
+allow Ax to select which would be most relevant. In this case Ax selects the following:
+
+- **Arm Effects Plots** show the metric value for each
+  [arm](https://ax.dev/docs/next/glossary#arm) on the experiment. Ax produces one plot
+  using values from its internal surrogate model (this can be helpful for seeing the
+  true effect of an arm when evaluations are noisy) and another using the raw metric
+  values as observed.
+- **Scatter Plot** shows the effects of each trial on two metrics, and is useful for
+  understanding the trade-off between the two outcomes
+- **Summary** lists all trials generated along with their parameterizations,
+  observations, and miscellaneous metadata
+- **Sensitivity Analysis Plot** shows which parameters have the largest affect on the
+  objective using
+  [Sobol Indicies](https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis)
+- **Slice Plot** shows how the model predicts a single parameter effects the objective
+  along with a confidence interval
+- **Contour Plot** shows how the model predicts a pair of parameters effects the
+  objective as a 2D surface
+- **Cross Validation** helps to visualize how well the surrogate model is able to
+  predict out of sample points
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Modeled Arm Effects on score**
+
+Modeled effects on score. This plot visualizes predictions of the true metric changes
+for each arm based on Ax's model. This is the expected delta you would expect if you
+(re-)ran that arm. This plot helps in anticipating the outcomes and performance of arms
+based on the model's predictions. Note, flat predictions across arms indicate that the
+model predicts that there is no effect, meaning if you were to re-run the experiment,
+the delta you would see would be small and fall within the confidence interval indicated
+in the plot.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/272d74de-3f6b-4434-8ff3-105cc04cdc0b.json')} />
+
+
+**Observed Arm Effects on score**
+
+Observed effects on score. This plot visualizes the effects from previously-run arms on
+a specific metric, providing insights into their performance. This plot allows one to
+compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/2a182495-9508-4d40-89c9-e6012beae8b6.json')} />
+
+
+**Modeled Arm Effects on training_time**
+
+Modeled effects on training_time. This plot visualizes predictions of the true metric
+changes for each arm based on Ax's model. This is the expected delta you would expect if
+you (re-)ran that arm. This plot helps in anticipating the outcomes and performance of
+arms based on the model's predictions. Note, flat predictions across arms indicate that
+the model predicts that there is no effect, meaning if you were to re-run the
+experiment, the delta you would see would be small and fall within the confidence
+interval indicated in the plot.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/ec0ce133-836d-4358-9c50-64e351635e1f.json')} />
+
+
+**Observed Arm Effects on training_time**
+
+Observed effects on training_time. This plot visualizes the effects from previously-run
+arms on a specific metric, providing insights into their performance. This plot allows
+one to compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/919ea28b-d4e3-433b-a3ef-6d0541a6de34.json')} />
+
+
+**Modeled Effects: score vs. training_time**
+
+This plot displays the effects of each arm on the two selected metrics. It is useful for
+understanding the trade-off between the two metrics and for visualizing the Pareto
+frontier.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/19b8db3e-a88e-462e-b9e5-4e3467322009.json')} />
+
+
+**Summary for Experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|    |   trial_index | arm_name   | trial_status   | generation_node     |    score |   training_time | loss          | penalty    |     alpha | learning_rate   |        eta0 |   batch_size |
+|---:|--------------:|:-----------|:---------------|:--------------------|---------:|----------------:|:--------------|:-----------|----------:|:----------------|------------:|-------------:|
+|  0 |             0 | baseline   | COMPLETED      | nan                 | 0.952778 |        0.666154 | hinge         | l2         |  0.0001   | optimal         | 1e-08       |          143 |
+|  1 |             1 | 1_0        | COMPLETED      | CenterOfSearchSpace | 0.933333 |        0.611787 | squared_hinge | l2         |  0.001    | invscaling      | 0.0001      |          252 |
+|  2 |             2 | 2_0        | COMPLETED      | Sobol               | 0.666667 |        0.518438 | log_loss      | elasticnet |  0.029891 | adaptive        | 2.37935e-08 |          386 |
+|  3 |             3 | 3_0        | COMPLETED      | Sobol               | 0.930556 |        1.15114  | hinge         | l1         |  0.000226 | constant        | 0.000582006 |          109 |
+|  4 |             4 | 4_0        | COMPLETED      | Sobol               | 0.080556 |        0.667194 | hinge         | l1         | 30.632    | constant        | 3.24755e-05 |          250 |
+|  5 |             5 | 5_0        | COMPLETED      | MBM                 | 0.833333 |        0.945295 | hinge         | l2         |  0.000109 | invscaling      | 9.26379e-06 |          164 |
+|  6 |             6 | 6_0        | COMPLETED      | MBM                 | 0.944444 |        0.959786 | squared_hinge | l2         |  0.00016  | optimal         | 3.25859e-06 |          170 |
+|  7 |             7 | 7_0        | EARLY_STOPPED  | MBM                 | 0.736111 |        0.315639 | squared_hinge | l2         |  0.000497 | constant        | 1e-08       |          285 |
+|  8 |             8 | 8_0        | COMPLETED      | MBM                 | 0.947222 |        0.814635 | hinge         | l1         |  0.00064  | optimal         | 1.19627e-08 |          243 |
+|  9 |             9 | 9_0        | EARLY_STOPPED  | MBM                 | 0.666667 |        0.278525 | squared_hinge | l2         |  0.000823 | constant        | 1e-08       |          290 |
+| 10 |            10 | 10_0       | EARLY_STOPPED  | MBM                 | 0.736111 |        0.28148  | squared_hinge | l2         |  0.000382 | constant        | 1e-08       |          331 |
+| 11 |            11 | 11_0       | EARLY_STOPPED  | MBM                 | 0.725    |        0.282006 | squared_hinge | l2         |  0.000406 | constant        | 1e-08       |          359 |
+| 12 |            12 | 12_0       | EARLY_STOPPED  | MBM                 | 0.722222 |        0.378736 | squared_hinge | l2         |  0.000498 | constant        | 1e-08       |          192 |
+| 13 |            13 | 13_0       | EARLY_STOPPED  | MBM                 | 0.730556 |        0.25091  | squared_hinge | l2         |  0.000561 | constant        | 1e-08       |          456 |
+| 14 |            14 | 14_0       | EARLY_STOPPED  | MBM                 | 0.591667 |        0.212101 | squared_hinge | l2         |  0.000615 | constant        | 1e-08       |          500 |
+| 15 |            15 | 15_0       | EARLY_STOPPED  | MBM                 | 0.694444 |        0.346142 | squared_hinge | l2         |  0.000432 | constant        | 1e-08       |          212 |
+| 16 |            16 | 16_0       | EARLY_STOPPED  | MBM                 | 0.719444 |        0.315531 | squared_hinge | l2         |  0.00047  | constant        | 1e-08       |          257 |
+| 17 |            17 | 17_0       | EARLY_STOPPED  | MBM                 | 0.752778 |        0.37738  | squared_hinge | l2         |  0.000525 | constant        | 1e-08       |          277 |
+| 18 |            18 | 18_0       | EARLY_STOPPED  | MBM                 | 0.725    |        0.316363 | squared_hinge | l2         |  0.000322 | constant        | 1e-08       |          258 |
+| 19 |            19 | 19_0       | EARLY_STOPPED  | MBM                 | 0.691667 |        0.312811 | squared_hinge | l2         |  0.000331 | constant        | 1e-08       |          255 |
+| 20 |            20 | 20_0       | EARLY_STOPPED  | MBM                 | 0.691667 |        0.314736 | squared_hinge | l2         |  0.000379 | constant        | 1e-08       |          252 |
+
+
+**Sensitivity Analysis for score**
+
+Understand how each parameter affects score according to a second-order sensitivity
+analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/9dd79538-c643-421d-a6b8-7c515af6042e.json')} />
+
+
+**alpha vs. score**
+
+The slice plot provides a one-dimensional view of predicted outcomes for score as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/91d170b4-44b1-4cfa-9d43-6f77bb95c15d.json')} />
+
+
+**alpha, batch_size vs. score**
+
+The contour plot visualizes the predicted outcomes for score across a two-dimensional
+parameter space, with other parameters held fixed at their status_quo value (or mean
+value if status_quo is unavailable). This plot helps in identifying regions of optimal
+performance and understanding how changes in the selected parameters influence the
+predicted outcomes. Contour lines represent levels of constant predicted values,
+providing insights into the gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/c62db78e-9b83-45c8-b80c-74f42bb51210.json')} />
+
+
+**alpha, eta0 vs. score**
+
+The contour plot visualizes the predicted outcomes for score across a two-dimensional
+parameter space, with other parameters held fixed at their status_quo value (or mean
+value if status_quo is unavailable). This plot helps in identifying regions of optimal
+performance and understanding how changes in the selected parameters influence the
+predicted outcomes. Contour lines represent levels of constant predicted values,
+providing insights into the gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/ccc150ec-1983-4685-9dda-c51a70a40353.json')} />
+
+
+**Sensitivity Analysis for training_time**
+
+Understand how each parameter affects training_time according to a second-order
+sensitivity analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/3b546755-bf60-429d-8d06-0181364eebf0.json')} />
+
+
+**alpha vs. training_time**
+
+The slice plot provides a one-dimensional view of predicted outcomes for training_time
+as a function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (or mean value if status_quo is unavailable). This visualization helps
+in understanding the sensitivity and impact of changes in the selected parameter on the
+predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/5cb5ff77-a598-44c6-b653-41b0437c3f95.json')} />
+
+
+**alpha, eta0 vs. training_time**
+
+The contour plot visualizes the predicted outcomes for training_time across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (or mean value if status_quo is unavailable). This plot helps in identifying
+regions of optimal performance and understanding how changes in the selected parameters
+influence the predicted outcomes. Contour lines represent levels of constant predicted
+values, providing insights into the gradient and potential optima within the parameter
+space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/5dd722c8-8373-48a0-bea1-2336451ae48f.json')} />
+
+
+**alpha, batch_size vs. training_time**
+
+The contour plot visualizes the predicted outcomes for training_time across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (or mean value if status_quo is unavailable). This plot helps in identifying
+regions of optimal performance and understanding how changes in the selected parameters
+influence the predicted outcomes. Contour lines represent levels of constant predicted
+values, providing insights into the gradient and potential optima within the parameter
+space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/8278ccd9-9f62-4841-9ebf-e4a430f2ec2e.json')} />
+
+
+**Cross Validation for score**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/2d4bf67d-e6d0-4dbc-a0b2-c9b17c5dca50.json')} />
+
+
+**Cross Validation for training_time**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/8eff8096-ca82-4e63-87ef-6ba6ab1890f9.json')} />
+
+## Conclusion
+
+This tutorial demonstates Ax's ability to solve AutoML tasks with in a resource
+efficient manor. We configured a complex optimization which captures the nuanced goals
+of the experiment and utilized early stopping to save resources by killing training runs
+unlikely to produce optimal results.
+
+While this tutorial shows how to use Ax for HPO on an `SGDClassifier`, the same
+techniques can be used for many different AutoML tasks such as feature selection,
+architecture search, and more.
+
