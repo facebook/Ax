@@ -1,6 +1,14 @@
 # Changelog
 
 The release log for Ax.
+## [1.1.2] -- Sept 9, 2025
+#### Bug fixes
+* Fixed rendering issue in ArmEffectsPlot when the number of arms displayed is greater
+    than 20 (#4273)
+
+### Other changes
+* Enabled Winsorization transform by default, improving surrogate performance in the
+    presence of outliers (#4277)
 
 ## [1.1.1] -- Sept 4, 2025
 #### Bug fixes

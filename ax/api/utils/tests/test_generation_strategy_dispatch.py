@@ -10,7 +10,8 @@
 from typing import Any
 
 import torch
-from ax.adapter.registry import Generators
+from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
+from ax.adapter.transforms.winsorize import Winsorize
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
@@ -118,7 +119,11 @@ class TestDispatchUtils(TestCase):
         expected_ss = SurrogateSpec(model_configs=[ModelConfig(name="MBM defaults")])
         self.assertEqual(
             mbm_spec.model_kwargs,
-            {"surrogate_spec": expected_ss, "torch_device": torch.device("cpu")},
+            {
+                "surrogate_spec": expected_ss,
+                "torch_device": torch.device("cpu"),
+                "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+            },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
         # Experiment with 2 observations. We should still generate 4 Sobol trials.
@@ -179,7 +184,11 @@ class TestDispatchUtils(TestCase):
         )
         self.assertEqual(
             mbm_spec.model_kwargs,
-            {"surrogate_spec": expected_ss, "torch_device": torch.device("cpu")},
+            {
+                "surrogate_spec": expected_ss,
+                "torch_device": torch.device("cpu"),
+                "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+            },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
 

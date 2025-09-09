@@ -165,7 +165,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     @property
     def dependents(self) -> dict[TParamValue, list[str]]:
         raise NotImplementedError(
-            "Only choice hierarchical parameters are currently supported."
+            "Only fixed and choice hierarchical parameters are currently supported."
         )
 
     # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
@@ -775,6 +775,10 @@ class ChoiceParameter(Parameter):
             )
         return none_throws(self._dependents)
 
+    @dependents.setter
+    def dependents(self, dependents: dict[TParamValue, list[str]] | None) -> None:
+        self._dependents = dependents
+
     def _cast_values(self, values: list[TParamValue]) -> list[TParamValue]:
         return [self.cast(value) for value in values]
 
@@ -900,6 +904,10 @@ class FixedParameter(Parameter):
                 "Only hierarchical parameters support the `dependents` property."
             )
         return none_throws(self._dependents)
+
+    @dependents.setter
+    def dependents(self, dependents: dict[TParamValue, list[str]] | None) -> None:
+        self._dependents = dependents
 
     def clone(self) -> FixedParameter:
         return FixedParameter(

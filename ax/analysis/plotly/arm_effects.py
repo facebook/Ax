@@ -74,10 +74,6 @@ RAW_EFFECTS_CARDGROUP_SUBTITLE = (
     "the most favorable outcomes."
 )
 
-# If there are more than this many non-candidate arms to be plotted, change the way we
-# organize the xaxis and its labels to improve legibility.
-ARM_LABEL_THRESHOLD = 20
-
 
 class ArmEffectsPlot(Analysis):
     """
@@ -357,6 +353,7 @@ def _prepare_figure(
 
     # Track trials that get included in the plot
     num_candidate_trials = 0
+    num_non_candidate_trials = 0
     candidate_trial_marker = None
 
     for trial_index in trial_indices:
@@ -403,6 +400,8 @@ def _prepare_figure(
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
             num_candidate_trials += 1
             candidate_trial_marker = marker
+        else:
+            num_non_candidate_trials += 1
 
         text = trial_df.apply(
             lambda row: get_arm_tooltip(row=row, metric_names=[metric_name]), axis=1
@@ -426,8 +425,8 @@ def _prepare_figure(
         )
         scatter_trial_indices.append(trial_index)
 
-    # Determine use_colorscale based on the number of included arms
-    use_colorscale = len(arm_label) > ARM_LABEL_THRESHOLD
+    # Determine use_colorscale based on actual included trials
+    use_colorscale = num_non_candidate_trials > 10
 
     # Update markers and legend settings based on use_colorscale
     for scatter, trial_index in zip(scatters, scatter_trial_indices):
@@ -486,20 +485,7 @@ def _prepare_figure(
         yaxis_tickformat=".2%" if is_relative else None,
         legend=legend_position,
         margin=MARGIN_REDUCUTION,
-        xaxis={
-            "tickvals": [
-                arm_order[i * (len(arm_order) // ARM_LABEL_THRESHOLD)]
-                for i in range(ARM_LABEL_THRESHOLD)
-            ]
-            if use_colorscale
-            else arm_order,
-            "ticktext": [
-                arm_label[i * (len(arm_label) // ARM_LABEL_THRESHOLD)]
-                for i in range(ARM_LABEL_THRESHOLD)
-            ]
-            if use_colorscale
-            else arm_label,
-        },
+        xaxis={"tickvals": arm_order, "ticktext": arm_label},
     )
 
     # Add candidate trial legend at the end

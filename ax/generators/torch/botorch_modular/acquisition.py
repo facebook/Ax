@@ -20,7 +20,6 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, DataRequiredError, SearchSpaceExhausted
 from ax.generators.model_utils import (
-    all_ordinal_features_are_integer_valued,
     enumerate_discrete_combinations,
     mk_discrete_choices,
 )
@@ -105,8 +104,7 @@ def determine_optimizer(
             # If there are less than `MAX_CHOICES_ENUMERATE` choices, we will
             # evaluate all of them and pick the best.
             # If there are less than `MAX_CARDINALITY_FOR_LOCAL_SEARCH` choices
-            # for all parameters or if any of the parameters has non-integer
-            # valued choices, we will use local search. Otherwise, we will use
+            # for all parameters, we will use local search. Otherwise, we will use
             # the mixed alternating optimizer, which may use continuous relaxation
             # for the high cardinality parameters, while using local search for
             # the remaining parameters.
@@ -114,10 +112,7 @@ def determine_optimizer(
             max_cardinality = max(cardinalities)
             total_discrete_choices = reduce(operator.mul, cardinalities)
             if total_discrete_choices > MAX_CHOICES_ENUMERATE:
-                if (
-                    max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH
-                    or not all_ordinal_features_are_integer_valued(ssd=ssd)
-                ):
+                if max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH:
                     optimizer = "optimize_acqf_discrete_local_search"
                 else:
                     optimizer = "optimize_acqf_mixed_alternating"
@@ -125,19 +120,13 @@ def determine_optimizer(
                 optimizer = "optimize_acqf_discrete"
         else:
             n_combos = math.prod([len(v) for v in discrete_choices.values()])
-            # If there are
-            # - any ordinal features with non-integer choices,
-            # - less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations of
-            #   discrete choices,
-            # we will use `optimize_acqf_mixed`, which enumerates all discrete
-            # combinations and optimizes the continuous features with discrete
+            # If there are less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations of
+            # discrete choices, we will use `optimize_acqf_mixed`, which enumerates all
+            # discrete combinations and optimizes the continuous features with discrete
             # features being fixed. Otherwise, we will use
             # `optimize_acqf_mixed_alternating`, which alternates between
             # continuous and discrete optimization steps.
-            if (
-                n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD
-                or not all_ordinal_features_are_integer_valued(ssd=ssd)
-            ):
+            if n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD:
                 optimizer = "optimize_acqf_mixed"
             else:
                 optimizer = "optimize_acqf_mixed_alternating"
@@ -631,18 +620,24 @@ class Acquisition(Base):
                 **optimizer_options_with_defaults,
             )
         elif optimizer == "optimize_acqf_mixed_alternating":
+            # NOTE: We intentially use `ssd.discrete_choices` as opposed to
+            # `discrete_choices`. This optimizer checks whether `discrete_dims` and
+            # `cat_dims` match with the bounds. However, `discrete_choices` has
+            # overridden some values in `ssd.discrete_choices` using `fixed_features`,
+            # which would fail the check. This optimizer is able to handle fixed
+            # features itself. No need for overriding.
             candidates, acqf_values = optimize_acqf_mixed_alternating(
                 acq_function=self.acqf,
                 bounds=bounds,
                 discrete_dims={
                     k: list(v)
-                    for k, v in discrete_choices.items()
-                    if k in search_space_digest.ordinal_features
+                    for k, v in ssd.discrete_choices.items()
+                    if k in ssd.ordinal_features
                 },
                 cat_dims={
                     k: list(v)
-                    for k, v in discrete_choices.items()
-                    if k in search_space_digest.categorical_features
+                    for k, v in ssd.discrete_choices.items()
+                    if k in ssd.categorical_features
                 },
                 q=n,
                 post_processing_func=rounding_func,

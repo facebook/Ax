@@ -835,10 +835,6 @@ def get_experiment_with_data() -> Experiment:
 
 
 def get_experiment_with_map_data() -> Experiment:
-    # WARNING: The data for this experiment uses map key "epoch"
-    # but the metrics on the experiment use the default map key "step".
-    # The attached data only includes "ax_test_metric" and ignores
-    # the other two metrics.
     experiment = get_experiment_with_map_data_type()
     experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.new_trial()

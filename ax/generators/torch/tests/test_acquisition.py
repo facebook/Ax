@@ -626,7 +626,7 @@ class AcquisitionTest(TestCase):
     @mock_botorch_optimize
     def test_optimize_acqf_discrete_too_many_choices(self) -> None:
         # Check that mixed optimizer is used when there are too many choices.
-        # If there are non-integer valued discrete features, it should use local search.
+        # Otherwise, it should use local search.
         ssd_ordinal_integer = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 100 * (i + 1)) for i in range(3)],
@@ -639,19 +639,28 @@ class AcquisitionTest(TestCase):
             categorical_features=[0, 1, 2],
             discrete_choices={i: list(range(100 * (i + 1) + 1)) for i in range(3)},
         )
-        ssd_ordinal_noninteger = SearchSpaceDigest(
+        ssd_ordinal_noninteger_small = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
-            bounds=[(0, 50 * (i + 1)) for i in range(3)],
+            bounds=[(0, 99) for i in range(3)],
             ordinal_features=[0, 1, 2],
             discrete_choices={
-                i: np.arange(0, 50 * (i + 1) + 0.1, 0.5).tolist() for i in range(3)
+                i: np.arange(0, 100, dtype=np.float64).tolist() for i in range(3)
+            },
+        )
+        ssd_ordinal_noninteger_large = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 100) for i in range(3)],
+            ordinal_features=[0, 1, 2],
+            discrete_choices={
+                i: np.arange(0, 100 + 1, dtype=np.float64).tolist() for i in range(3)
             },
         )
         acquisition = self.get_acquisition_function()
         for ssd, expected_optimizer in [
             (ssd_ordinal_integer, "optimize_acqf_mixed_alternating"),
             (ssd_categorical_integer, "optimize_acqf_mixed_alternating"),
-            (ssd_ordinal_noninteger, "optimize_acqf_discrete_local_search"),
+            (ssd_ordinal_noninteger_small, "optimize_acqf_discrete_local_search"),
+            (ssd_ordinal_noninteger_large, "optimize_acqf_mixed_alternating"),
         ]:
             # Mock optimize_acqf_discrete_local_search because it isn't handled
             # by `mock_botorch_optimize`
@@ -805,18 +814,49 @@ class AcquisitionTest(TestCase):
         self.assertTrue((acqf_values >= 0).all())
         self.assertTrue((arm_weights == 1).all())
 
-        # Check that it is not used if there are non-integer discrete dimensions.
+        # Check that it is used even if there are non-integer discrete dimensions.
         ssd_nonint = dataclasses.replace(
             ssd,
+            bounds=[(0, 10), (0, 10), (0, 10)],
             ordinal_features=[0, 1],
-            discrete_choices={0: [0.1, 0.6], 1: list(range(26))},
+            discrete_choices={
+                0: np.arange(10 + 1, dtype=np.float64).tolist(),
+                1: np.arange(10 + 1, dtype=np.float64).tolist(),
+            },
         )
         with mock.patch(
             f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
             wraps=optimize_acqf_mixed_alternating,
         ) as mock_alternating:
             acquisition.optimize(n=3, search_space_digest=ssd_nonint)
-        mock_alternating.assert_not_called()
+        mock_alternating.assert_called()
+
+        # Check if the `fixed_features` argument works for discrete features.
+        ub = 10
+        ssd_many_combinations = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 1), (0, ub), (0, ub)],
+            ordinal_features=[1, 2],
+            discrete_choices={1: list(range(ub + 1)), 2: list(range(ub + 1))},
+        )
+        dict_args = {
+            "n": 1,
+            "search_space_digest": ssd_many_combinations,
+            "fixed_features": {1: 0},
+            "rounding_func": self.rounding_func,
+            "optimizer_options": self.optimizer_options,
+        }
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+            wraps=optimize_acqf_mixed_alternating,
+        ) as mock_alternating:
+            acquisition.optimize(**dict_args)
+        mock_alternating.assert_called()
+
+        # Now that we have made sure alternating minimization is called, call the
+        # optimizer for real.
+        candidates, _, _ = acquisition.optimize(**dict_args)
+        self.assertTrue((candidates[:, 1] == 0).all())
 
     @mock.patch(
         f"{DummyOneShotAcquisitionFunction.__module__}."

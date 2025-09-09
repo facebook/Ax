@@ -418,17 +418,17 @@ class TorchAdapter(Adapter):
             group_indices = torch.from_numpy(trial_indices_np[to_keep])
             if outcome == Keys.PAIRWISE_PREFERENCE_QUERY.value:
                 dataset = prep_pairwise_data(
-                    X=X,
-                    Y=Y.to(dtype=torch.long),
+                    X=X.to(device=self.device),
+                    Y=Y.to(dtype=torch.long, device=self.device),
                     group_indices=group_indices,
                     outcome=outcome,
                     parameters=parameters,
                 )
             else:
                 dataset = SupervisedDataset(
-                    X=X,
-                    Y=Y,
-                    Yvar=Yvar,
+                    X=X.to(device=self.device),
+                    Y=Y.to(device=self.device),
+                    Yvar=Yvar.to(device=self.device) if Yvar is not None else None,
                     feature_names=parameters,
                     outcome_names=[outcome],
                     group_indices=group_indices,
