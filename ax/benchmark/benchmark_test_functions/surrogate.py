@@ -15,6 +15,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.types import TParamValue
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
+from botorch.models.deterministic import DeterministicModel, MatheronPathModel
 from pyre_extensions import none_throws
 from torch import Tensor
 
@@ -35,12 +36,17 @@ class SurrogateTestFunction(BenchmarkTestFunction):
         get_surrogate: Function that returns the surrogate, to allow for lazy
             construction. If `get_surrogate` is not provided, `surrogate` must
             be provided and vice versa.
+        seed: Random seed to use for generating the surrogate.
+        surrogate_model_type: The type of surrogate model to use. Defaults to
+            `MatheronPathModel`.
     """
 
     name: str
     outcome_names: Sequence[str]
     _surrogate: TorchAdapter | None = None
     get_surrogate: None | Callable[[], TorchAdapter] = None
+    seed: int = 0
+    surrogate_model_type: type[DeterministicModel] = MatheronPathModel
 
     def __post_init__(self) -> None:
         if self.get_surrogate is None and self._surrogate is None:
