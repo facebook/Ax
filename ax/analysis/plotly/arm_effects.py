@@ -43,7 +43,7 @@ from ax.analysis.utils import (
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
-from ax.core.trial_status import FAILED_ABANDONED_CANDIDATE_STATUSES, TrialStatus
+from ax.core.trial_status import FAILED_ABANDONED_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -323,20 +323,17 @@ def _prepare_figure(
 ) -> go.Figure:
     # Prepare separate scatter traces for each trial index. Each trace has (x, y)
     # points for the arms which we have a mean for in the provided dataframe.
-    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+    candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
-    ].max()
+    ].unique()
     # Filter out undesired trials like FAILED and ABANDONED trials from plot.
     trials = df[
-        ~df["trial_status"].isin(
-            [ts.name for ts in FAILED_ABANDONED_CANDIDATE_STATUSES]
-        )
+        ~df["trial_status"].isin([ts.name for ts in FAILED_ABANDONED_STATUSES])
     ]["trial_index"].unique()
 
     # Check if candidate_trial is NaN and handle it
     trial_indices = list(trials)
-    if not np.isnan(candidate_trial):
-        trial_indices.append(candidate_trial)
+    trial_indices.extend(candidate_trials)
 
     trials_list = trials.tolist()
 
