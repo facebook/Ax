@@ -41,8 +41,7 @@ class MultiTypeExperimentTest(TestCase):
         self.assertEqual(b1.run_metadata["dummy_metadata"], "dummy1")
 
         self.experiment.update_runner("type2", SyntheticRunner(dummy_metadata="dummy3"))
-        b2 = self.experiment.new_batch_trial()
-        b2.trial_type = "type2"
+        b2 = self.experiment.new_batch_trial(trial_type="type2")
         b2.add_arms_and_weights(arms=arms)
         self.assertEqual(b2.trial_type, "type2")
         b2.run()

@@ -290,6 +290,9 @@ class Experiment(Base):
                 "Modifications of status_quo are disabled after trials have been "
                 "created."
             )
+        if status_quo == self.status_quo:
+            return  # No need to update the SQ arm.
+
         if status_quo is not None:
             self.search_space.check_types(
                 parameterization=status_quo.parameters,
@@ -308,24 +311,6 @@ class Experiment(Base):
                 name = f"status_quo_e{sq_idx}"
                 sq_idx += 1
             self._name_and_store_arm_if_not_exists(arm=status_quo, proposed_name=name)
-
-        # If old status_quo not present in any trials,
-        # remove from _arms_by_signature
-        if self._status_quo is not None:
-            logger.warning(
-                "Experiment's status_quo is updated. "
-                "Generally the status_quo should not be changed after being set."
-            )
-            persist_old_sq = False
-            for trial in self._trials.values():
-                # pyre-fixme[16]: `Optional` has no attribute `name`.
-                if self._status_quo.name in trial.arms_by_name:
-                    persist_old_sq = True
-                    break
-            if not persist_old_sq:
-                # pyre-fixme[16]: `Optional` has no attribute `signature`.
-                self._arms_by_signature.pop(self._status_quo.signature)
-                self._arms_by_name.pop(self._status_quo.name)
 
         self._status_quo = status_quo
 
@@ -1875,19 +1860,18 @@ class Experiment(Base):
         data_by_trial = {}
         for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
             trial = self.trials[trial_index]
-            if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
-                new_trial = trial.clone_to(
-                    cloned_experiment, clear_trial_type=clear_trial_type
-                )
-                new_index = new_trial.index
-                trial_data, timestamp = self.lookup_data_for_trial(trial_index)
-                # Clone the data to avoid overwriting the original in the DB.
-                trial_data = trial_data.clone()
-                trial_data.df["trial_index"] = new_index
-                if timestamp != -1:
-                    data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
-            else:
+            if not isinstance(trial, (Trial, BatchTrial)):
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
+            new_trial = trial.clone_to(
+                cloned_experiment, clear_trial_type=clear_trial_type
+            )
+            new_index = new_trial.index
+            trial_data, timestamp = self.lookup_data_for_trial(trial_index)
+            # Clone the data to avoid overwriting the original in the DB.
+            trial_data = trial_data.clone()
+            trial_data.df["trial_index"] = new_index
+            if timestamp != -1:
+                data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
         if data is not None:
             # If user passed in data, use it.
             cloned_experiment.attach_data(data.clone())

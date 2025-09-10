@@ -329,16 +329,11 @@ def get_branin_experiment(
     )
 
     if with_status_quo:
-        if status_quo_unknown_parameters:
-            status_quo = Arm(
-                parameters={"x1": None, "x2": None},
-                name="status_quo",
-            )
-        else:
-            status_quo = Arm(
-                parameters={"x1": 0.0, "x2": 0.0},
-                name="status_quo",
-            )
+        val = None if status_quo_unknown_parameters else 0.0
+        status_quo = Arm(
+            parameters={"x1": val, "x2": val},
+            name="status_quo",
+        )
     else:
         status_quo = None
 
@@ -670,10 +665,12 @@ def get_multi_type_experiment(
     if add_trials and add_trial_type:
         generator = get_sobol(experiment.search_space)
         gr = generator.gen(num_arms)
-        t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
-        t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.add_status_quo_arm(weight=0.5)
-        t2.add_status_quo_arm(weight=0.5)
+        t1 = experiment.new_batch_trial(
+            generator_run=gr, trial_type="type1", should_add_status_quo_arm=True
+        )
+        t2 = experiment.new_batch_trial(
+            generator_run=gr, trial_type="type2", should_add_status_quo_arm=True
+        )
         t1.run()
         t2.run()
 
@@ -747,16 +744,49 @@ def get_factorial_experiment(
             for p in exp.search_space.parameters.values()
         )
         factorial_run = factorial_generator.gen(n=n)
-        exp.new_batch_trial(
-            should_add_status_quo_arm=with_status_quo
-        ).add_generator_run(factorial_run)
+        exp.new_batch_trial(should_add_status_quo_arm=False).add_generator_run(
+            factorial_run
+        )
 
     return exp
 
 
-def get_experiment_with_repeated_arms(with_data: bool = False) -> Experiment:
-    batch_trial = get_batch_trial_with_repeated_arms(num_repeated_arms=2)
-    experiment = batch_trial.experiment
+def get_experiment_with_repeated_arms(
+    with_data: bool = False, num_repeated_arms: int = 2
+) -> Experiment:
+    """Create an experiment with a batch that contains both new arms and N
+    arms from the last existed trial in the experiment, where N is equal to
+    the input argument 'num_repeated_arms'.
+    """
+    experiment = get_experiment_with_batch_trial()
+    assert len(experiment.trials) > 0
+    # Get last (previous) trial.
+    prev_trial = experiment.trials[len(experiment.trials) - 1]
+    # Take the first N arms, where N is num_repeated_arms.
+
+    if len(prev_trial.arms) < num_repeated_arms:
+        logger.warning(
+            "There are less arms in the previous trial than the value of "
+            "input parameter 'num_repeated_arms'. Thus all the arms from "
+            "the last trial will be repeated in the new trial."
+        )
+    prev_arms = prev_trial.arms[:num_repeated_arms]
+    if isinstance(prev_trial, BatchTrial):
+        prev_weights = prev_trial.weights[:num_repeated_arms]
+    else:
+        prev_weights = [1] * len(prev_arms)
+
+    # Create new (next) arms.
+    next_arms = get_arms_from_dict(get_arm_weights2())
+    next_weights = get_weights_from_dict(get_arm_weights2())
+
+    # Add num_repeated_arms to the new trial.
+    arms = prev_arms + next_arms
+    weights = prev_weights + next_weights
+    batch = experiment.new_batch_trial()
+    batch.add_arms_and_weights(arms=arms, weights=weights)
+    batch.runner = SyntheticRunner()
+    experiment = batch.experiment
     if with_data:
         data = Data(
             df=pd.DataFrame.from_records(
@@ -778,9 +808,9 @@ def get_experiment_with_repeated_arms(with_data: bool = False) -> Experiment:
                         ("0_1", "a", 2.0, 1.0, 1),
                         ("0_1", "b", 1.0, 5.0, 1),
                         ("status_quo", "a", 2.0, 1.0, 0),
-                        ("status_quo", "b", 4.0, 4.0, 0),
+                        ("status_quo", "b", 6.0, 4.0, 0),
                         ("status_quo", "a", 2.0, 1.0, 1),
-                        ("status_quo", "b", 4.0, 4.0, 1),
+                        ("status_quo", "b", 8.0, 3.0, 1),
                     )
                 ]
             )
@@ -932,8 +962,8 @@ def get_branin_experiment_with_multi_objective(
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
         sobol_run = sobol_generator.gen(n=5)
         trial = exp.new_batch_trial(
-            should_add_status_quo_arm=with_status_quo
-        ).add_generator_run(sobol_run)
+            generator_run=sobol_run, should_add_status_quo_arm=with_status_quo
+        )
 
         if with_completed_batch:
             assert has_optimization_config
@@ -1882,7 +1912,7 @@ def get_batch_trial(
     experiment = experiment or get_experiment(
         constrain_search_space=constrain_search_space, with_status_quo=with_status_quo
     )
-    batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
+    batch = experiment.new_batch_trial(should_add_status_quo_arm=with_status_quo)
     arms = get_arms_from_dict(get_arm_weights1())
     weights = get_weights_from_dict(get_arm_weights1())
     batch.add_arms_and_weights(arms=arms, weights=weights)
@@ -1891,47 +1921,6 @@ def get_batch_trial(
     batch.runner = SyntheticRunner()
     batch.should_add_status_quo_arm = True
     batch._generation_step_index = 0
-    return batch
-
-
-def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
-    """Create a batch that contains both new arms and N arms from the last
-    existed trial in the experiment. Where N is equal to the input argument
-    'num_repeated_arms'.
-    """
-    experiment = get_experiment_with_batch_trial()
-    if len(experiment.trials) > 0:
-        # Get last (previous) trial.
-        prev_trial = experiment.trials[len(experiment.trials) - 1]
-        # Take the first N arms, where N is num_repeated_arms.
-
-        if len(prev_trial.arms) < num_repeated_arms:
-            logger.warning(
-                "There are less arms in the previous trial than the value of "
-                "input parameter 'num_repeated_arms'. Thus all the arms from "
-                "the last trial will be repeated in the new trial."
-            )
-        prev_arms = prev_trial.arms[:num_repeated_arms]
-        if isinstance(prev_trial, BatchTrial):
-            prev_weights = prev_trial.weights[:num_repeated_arms]
-        else:
-            prev_weights = [1] * len(prev_arms)
-    else:
-        raise Exception(
-            "There are no previous trials in this experiment. Thus the new "
-            "batch was not created as no repeated arms could be added."
-        )
-
-    # Create new (next) arms.
-    next_arms = get_arms_from_dict(get_arm_weights2())
-    next_weights = get_weights_from_dict(get_arm_weights2())
-
-    # Add num_repeated_arms to the new trial.
-    arms = prev_arms + next_arms
-    weights = prev_weights + next_weights
-    batch = experiment.new_batch_trial(should_add_status_quo_arm=True)
-    batch.add_arms_and_weights(arms=arms, weights=weights)
-    batch.runner = SyntheticRunner()
     return batch
 
 

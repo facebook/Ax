@@ -1993,7 +1993,7 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             orchestrator.get_improvement_over_baseline(
                 experiment=orchestrator.experiment,
                 generation_strategy=orchestrator.generation_strategy,

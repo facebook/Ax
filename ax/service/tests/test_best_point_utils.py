@@ -30,7 +30,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
@@ -857,7 +857,7 @@ class TestBestPointUtils(TestCase):
         )
 
         with self.assertRaisesRegex(
-            ValueError,
+            UserInputError,
             "Could not find valid baseline arm.",
         ):
             select_baseline_name_default_first_trial(

@@ -36,12 +36,10 @@ class TestRegressionAnalysis(TestCase):
         card = ra.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "RegressionAnalysis")
         self.assertEqual(card.title, "Ax Regression Analysis Warning")
-        self.assertTrue(
-            card.subtitle is not None
-            and "0_4" in card.subtitle
-            and "branin_b" in card.subtitle
-            and "Trial 0" in card.subtitle
-        )
+        self.assertTrue(card.subtitle is not None)
+        self.assertTrue("0_4" in card.subtitle)
+        self.assertTrue("branin_b" in card.subtitle)
+        self.assertTrue("Trial 0" in card.subtitle)
 
         df = pd.DataFrame(
             {

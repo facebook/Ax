@@ -484,7 +484,7 @@ class TorchAdapterTest(TestCase):
         # Check that the metadata is correctly re-added to observation
         # features during `fit`.
         # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run_structs`.
-        preexisting_batch_gr = exp.trials[0]._generator_run_structs[0].generator_run
+        preexisting_batch_gr = exp.trials[0]._generator_runs[0]
         preexisting_batch_gr._candidate_metadata_by_arm_signature = {
             preexisting_batch_gr.arms[0].signature: {
                 "preexisting_batch_cand_metadata": "some_value"
