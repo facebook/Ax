@@ -44,7 +44,7 @@ from ax.analysis.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import FAILED_ABANDONED_CANDIDATE_STATUSES, TrialStatus
+from ax.core.trial_status import FAILED_ABANDONED_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
@@ -330,20 +330,17 @@ def _prepare_figure(
 ) -> go.Figure:
     # Initialize the Scatters one at a time since we cannot specify multiple different
     # error bar colors from within one trace.
-    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+    candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
-    ].max()
+    ].unique()
     # Filter out undesired trials like FAILED and ABANDONED trials from plot.
     trials = df[
-        ~df["trial_status"].isin(
-            [ts.name for ts in FAILED_ABANDONED_CANDIDATE_STATUSES]
-        )
+        ~df["trial_status"].isin([ts.name for ts in FAILED_ABANDONED_STATUSES])
     ]["trial_index"].unique()
 
     trials_list = trials.tolist()
     trial_indices = trials_list.copy()
-    if not np.isnan(candidate_trial):
-        trial_indices.append(candidate_trial)
+    trial_indices.extend(candidate_trials)
 
     scatters = []
     scatter_trial_indices = []  # Track trial indices for each scatter
