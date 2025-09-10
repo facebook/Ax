@@ -21,7 +21,7 @@ from ax.core.base_trial import (
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
@@ -173,6 +173,25 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.did_not_complete)
         self.assertEqual(self.trial.failed_reason, fail_reason)
 
+    def test_staleness(self) -> None:
+        # Test that only candidate trials can be marked as stale
+        self.assertTrue(self.trial.status.is_candidate)
+        self.trial.mark_stale()
+
+        self.assertTrue(self.trial.status.is_stale)
+        self.assertTrue(self.trial.did_not_complete)
+
+        # Test that non-candidate trials cannot be marked as stale
+        self.trial.mark_running(no_runner_required=True, unsafe=True)
+
+        with self.assertRaisesRegex(
+            TrialMutationError,
+            "Cannot mark this candidate as `STALE` because the current status is "
+            "TrialStatus.RUNNING and only trials with status `CANDIDATE` are "
+            "eligible to be marked as `STALE`",
+        ):
+            self.trial.mark_stale()
+
     def test_trial_run_does_not_overwrite_existing_metadata(self) -> None:
         self.trial.runner = SyntheticRunner(dummy_metadata="y")
         self.trial.update_run_metadata({"orig_metadata": "x"})
@@ -194,10 +213,18 @@ class TrialTest(TestCase):
             TrialStatus.FAILED,
             TrialStatus.COMPLETED,
             TrialStatus.EARLY_STOPPED,
+            TrialStatus.STALE,
         ):
             self.setUp()
             # Note: This only tests the no-runner case (and thus not staging)
-            for status in (TrialStatus.RUNNING, terminal_status):
+
+            # STALE can only be reached from CANDIDATE, not from RUNNING
+            if terminal_status == TrialStatus.STALE:
+                status_transition_sequence = (terminal_status,)
+            else:
+                status_transition_sequence = (TrialStatus.RUNNING, terminal_status)
+
+            for status in status_transition_sequence:
                 kwargs = {}
                 if status == TrialStatus.RUNNING:
                     kwargs["no_runner_required"] = True
@@ -413,6 +440,7 @@ class TrialTest(TestCase):
             TrialStatus.COMPLETED,
             TrialStatus.FAILED,
             TrialStatus.ABANDONED,
+            TrialStatus.STALE,
         ]:
             self.trial._failed_reason = self.trial._abandoned_reason = None
             if status != TrialStatus.CANDIDATE:
