@@ -70,8 +70,8 @@ class TestRegressionDetection(TestCase):
             search_space=experiment.search_space, seed=TEST_SOBOL_SEED + 1
         )
         sobol_run = sobol_generator.gen(n=3)
-        experiment.new_batch_trial(should_add_status_quo_arm=True).add_generator_run(
-            sobol_run
+        experiment.new_batch_trial(
+            generator_runs=[sobol_run], should_add_status_quo_arm=True
         )
 
         df1 = pd.DataFrame(

@@ -25,7 +25,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -993,9 +993,7 @@ class Encoder:
         if trial.runner:
             runner = self.runner_to_sqa(runner=none_throws(trial.runner))
 
-        abandoned_arms = []
-        generator_runs = []
-        status_quo_name = None
+        abandoned_arms, generator_runs = [], []
 
         if isinstance(trial, Trial) and trial.generator_run:
             gr_sqa = self.generator_run_to_sqa(
@@ -1009,40 +1007,9 @@ class Encoder:
                 abandoned_arms.append(
                     self.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
                 )
-            for struct in trial.generator_run_structs:
-                gr_sqa = self.generator_run_to_sqa(
-                    generator_run=struct.generator_run, weight=1.0
-                )
+            for gr in trial._generator_runs:
+                gr_sqa = self.generator_run_to_sqa(generator_run=gr, weight=1.0)
                 generator_runs.append(gr_sqa)
-
-            trial_status_quo = trial.status_quo
-            trial_status_quo_weight_override = trial._status_quo_weight_override
-
-            if (
-                trial_status_quo is not None
-                and trial_status_quo_weight_override is not None
-            ):
-                status_quo_generator_run = GeneratorRun(
-                    arms=[trial_status_quo],
-                    weights=[trial_status_quo_weight_override],
-                    type=GeneratorRunType.STATUS_QUO.name,
-                )
-                # This is a hack necessary to get equality tests passing;
-                # otherwise you can encode same object and get two different results.
-                status_quo_generator_run._time_created = trial.time_created
-                gr_sqa = self.generator_run_to_sqa(
-                    generator_run=status_quo_generator_run
-                )
-
-                # pyre-ignore Attribute `id` declared in class `SQAGeneratorRun`
-                # has type `int` but is used as type `Optional[int]`.
-                gr_sqa.id = trial._status_quo_generator_run_db_id
-                # pyre-ignore Attribute `id` declared in class `SQAArm`
-                # has type `int` but is used as type `Optional[int]`.
-                gr_sqa.arms[0].id = trial._status_quo_arm_db_id
-
-                generator_runs.append(gr_sqa)
-                status_quo_name = trial_status_quo.name
 
         # pyre-ignore[9]: Expected `Base` for 1st...ot `typing.Type[Trial]`.
         trial_class: SQATrial = self.config.class_to_sqa_class[Trial]
@@ -1058,7 +1025,11 @@ class Encoder:
             run_metadata=trial.run_metadata,
             stop_metadata=trial.stop_metadata,
             status=trial.status,
-            status_quo_name=status_quo_name,
+            status_quo_name=(
+                none_throws(assert_is_instance(trial, BatchTrial).status_quo).name
+                if isinstance(trial, BatchTrial) and trial.status_quo
+                else None
+            ),
             time_completed=trial.time_completed,
             time_created=trial.time_created,
             time_staged=trial.time_staged,

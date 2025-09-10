@@ -168,6 +168,9 @@ def object_from_json(
 
         elif _type == "GeneratorRunStruct":
             object_json.pop("weight", None)  # Deprecated.
+            gr_json = object_json["generator_run"]
+            assert gr_json.pop("__type") == "GeneratorRun"
+            return generator_run_from_json(object_json=gr_json, **vars(registry_kwargs))
 
         elif _type not in decoder_registry:
             err = (
@@ -277,7 +280,6 @@ def object_from_json(
             object_json = _sanitize_legacy_surrogate_inputs(object_json=object_json)
         if _class is SurrogateSpec:
             object_json = _sanitize_inputs_to_surrogate_spec(object_json=object_json)
-
         return ax_class_from_json_dict(
             _class=_class, object_json=object_json, **vars(registry_kwargs)
         )
@@ -483,21 +485,25 @@ def trials_from_json(
 ) -> dict[int, BaseTrial]:
     """Load Ax Trials from JSON."""
     loaded_trials = {}
-    for index, batch_json in trials_json.items():
-        is_trial = batch_json["__type"] == "Trial"
-        batch_json = {
+    for index, trial_json in trials_json.items():
+        is_trial = trial_json["__type"] == "Trial"
+        trial_json = {
             k: object_from_json(
                 v,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-            for k, v in batch_json.items()
+            for k, v in trial_json.items()
             if k != "__type"
         }
+        if "generator_run_structs" in trial_json:
+            # `GeneratorRunStruct` (deprecated) will be decoded into a `GeneratorRun`,
+            # so all we have to do here is change the key it's stored under.
+            trial_json["generator_runs"] = trial_json.pop("generator_run_structs")
         loaded_trials[int(index)] = (
-            trial_from_json(experiment=experiment, **batch_json)
+            trial_from_json(experiment=experiment, **trial_json)
             if is_trial
-            else batch_trial_from_json(experiment=experiment, **batch_json)
+            else batch_trial_from_json(experiment=experiment, **trial_json)
         )
     return loaded_trials
 

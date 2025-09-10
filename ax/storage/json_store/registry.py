@@ -26,7 +26,7 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType
 from ax.core.generator_run import GeneratorRun
@@ -346,7 +346,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "GenerationStrategy": GenerationStrategy,
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
-    "GeneratorRunStruct": GeneratorRunStruct,
     "Generators": Generators,
     "GeneratorSpec": GeneratorSpec,
     "Hartmann6Metric": Hartmann6Metric,

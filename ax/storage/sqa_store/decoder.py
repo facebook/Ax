@@ -26,7 +26,7 @@ from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
@@ -1003,33 +1003,31 @@ class Decoder:
                 ttl_seconds=trial_sqa.ttl_seconds,
                 index=trial_sqa.index,
             )
-            generator_run_structs = [
-                GeneratorRunStruct(
-                    generator_run=self.generator_run_from_sqa(
-                        generator_run_sqa=generator_run_sqa,
-                        reduced_state=reduced_state,
-                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
-                    ),
+            generator_runs = [
+                self.generator_run_from_sqa(
+                    generator_run_sqa=generator_run_sqa,
+                    reduced_state=reduced_state,
+                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
                 )
                 for generator_run_sqa in trial_sqa.generator_runs
             ]
             if trial_sqa.status_quo_name is not None:
-                new_generator_run_structs = []
-                for struct in generator_run_structs:
-                    if (
-                        struct.generator_run.generator_run_type
-                        == GeneratorRunType.STATUS_QUO.name
-                    ):
-                        status_quo_weight = struct.generator_run.weights[0]
+                sq_arm = experiment.arms_by_name[trial_sqa.status_quo_name]
+                for gr in generator_runs:
+                    # Most of the time, the status quo arm has its own generator run,
+                    # of a dedicated type.
+                    if gr.generator_run_type == GeneratorRunType.STATUS_QUO.name:
+                        status_quo_weight = gr.weights[0]
                         trial._status_quo_weight_override = status_quo_weight
-                        trial._status_quo_generator_run_db_id = (
-                            struct.generator_run.db_id
-                        )
-                        trial._status_quo_arm_db_id = struct.generator_run.arms[0].db_id
-                    else:
-                        new_generator_run_structs.append(struct)
-                generator_run_structs = new_generator_run_structs
-            trial._generator_run_structs = generator_run_structs
+                        trial._status_quo_generator_run_db_id = gr.db_id
+                        trial._status_quo_arm_db_id = gr.arms[0].db_id
+                        break
+                    # However, sometimes the status quo arm is part of a generator run
+                    # that also includes other arms (e.g. in factorial or TS design).
+                    if sq_arm in gr.arms:
+                        trial._status_quo_generator_run_db_id = gr.db_id
+                        trial._status_quo_arm_db_id = sq_arm.db_id
+            trial._generator_runs = generator_runs
             trial._abandoned_arms_metadata = {
                 abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
                     abandoned_arm_sqa=abandoned_arm_sqa

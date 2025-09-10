@@ -1636,11 +1636,9 @@ class Orchestrator(AnalysisBase, BestPointMixin):
                     generator_runs=generator_run_list,
                     ttl_seconds=self.options.ttl_seconds_for_trials,
                     trial_type=self.trial_type,
+                    should_add_status_quo_arm=self.options.status_quo_weight > 0,
                 )
-                if self.options.status_quo_weight > 0:
-                    trial.add_status_quo_arm(
-                        weight=self.options.status_quo_weight,
-                    )
+
             else:
                 trial = self.experiment.new_trial(
                     generator_run=generator_run_list[0],

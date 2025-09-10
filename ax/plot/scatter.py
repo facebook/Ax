@@ -1361,10 +1361,10 @@ def tile_fitted(
 
     for i, metric in enumerate(metrics):
         data = _single_metric_traces(
-            model,
-            metric,
-            generator_runs_dict,
-            rel,
+            model=model,
+            metric=metric,
+            generator_runs_dict=generator_runs_dict,
+            rel=rel,
             showlegend=i == 0,
             show_arm_details_on_hover=show_arm_details_on_hover,
             show_CI=show_CI,

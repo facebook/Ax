@@ -219,7 +219,7 @@ class SQAStoreTest(TestCase):
     def test_GeneratorRunTypeValidation(self) -> None:
         experiment = get_experiment_with_batch_trial()
         # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run_structs`.
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "foobar"
         with self.assertRaises(SQAEncodeError):
             self.encoder.generator_run_to_sqa(generator_run)
@@ -236,7 +236,7 @@ class SQAStoreTest(TestCase):
     def test_GeneratorRunBestArm(self) -> None:
         experiment = self.experiment
 
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "STATUS_QUO"
 
         arm = get_arm()
@@ -253,7 +253,7 @@ class SQAStoreTest(TestCase):
     def test_GeneratorRunNoBestArm(self) -> None:
         experiment = self.experiment
 
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "STATUS_QUO"
         generator_run._best_arm_predictions = None
 
@@ -265,7 +265,7 @@ class SQAStoreTest(TestCase):
     def test_GeneratorRunNoBestArmPredictions(self) -> None:
         experiment = self.experiment
 
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "STATUS_QUO"
 
         arm = get_arm()
@@ -2327,7 +2327,7 @@ class SQAStoreTest(TestCase):
             should_add_status_quo_arm=True,
         )
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAArm).count(), 9)
+        self.assertEqual(get_session().query(SQAArm).count(), 8)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

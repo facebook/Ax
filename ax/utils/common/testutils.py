@@ -436,7 +436,8 @@ class TestCase(fake_filesystem_unittest.TestCase):
         for field in b:
             a_field = a[field]
             b_field = b[field]
-            msg = f"Dict values differ for key {field}: {a[field]=}, {b[field]=}."
+            msg = f"Dict values differ for key {field}: {a}[{field}]={a[field]}"
+            msg += f"{b}[{field}]={b[field]}."
             # for floating point values, compare approximately and consider NaNs equal
             if isinstance(a_field, float):
                 if consider_nans_equal and np.isnan(a_field):

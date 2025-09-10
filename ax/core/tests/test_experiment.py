@@ -361,7 +361,6 @@ class ExperimentTest(TestCase):
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
         self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
-        self.assertTrue("status_quo" not in self.experiment.arms_by_name)
 
         # Verify all None values
         self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
@@ -387,9 +386,9 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.status_quo = Arm(sq_parameters)
 
-        # Verify arms_by_signature, arms_by_name only contains status_quo
-        self.assertEqual(len(self.experiment.arms_by_signature), 1)
-        self.assertEqual(len(self.experiment.arms_by_name), 1)
+        # Verify arms_by_signature, arms_by_name contain all three versions of the SQ
+        self.assertEqual(len(self.experiment.arms_by_signature), 3)
+        self.assertEqual(len(self.experiment.arms_by_name), 3)
 
         # Try to change status_quo after trials have been created
         _ = self.experiment.new_batch_trial(should_add_status_quo_arm=True)
@@ -1118,9 +1117,7 @@ class ExperimentTest(TestCase):
             with_completed_batch=True,
         )
         experiment.trials[0]._trial_type = "foo"
-        with self.assertRaisesRegex(
-            ValueError, "Experiment does not support trial_type foo."
-        ):
+        with self.assertRaisesRegex(ValueError, ".* foo is not supported by the exp"):
             experiment.clone_with()
         cloned_experiment = experiment.clone_with(clear_trial_type=True)
         self.assertIsNone(cloned_experiment.trials[0].trial_type)

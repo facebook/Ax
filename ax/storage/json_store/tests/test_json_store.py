@@ -297,6 +297,7 @@ TEST_CASES = [
     ("MultiObjective", get_multi_objective),
     ("MultiObjectiveOptimizationConfig", get_multi_objective_optimization_config),
     ("MultiTypeExperiment", get_multi_type_experiment),
+    ("MultiTypeExperiment", partial(get_multi_type_experiment, add_trials=True)),
     ("ObservationFeatures", get_observation_features),
     ("Objective", get_objective),
     ("ObjectiveThreshold", get_objective_threshold),
