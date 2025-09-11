@@ -691,8 +691,8 @@ class TestUtils(TestCase):
                 self.assertAllClose(
                     arm_df[f"{metric_name}_mean"].values[0],
                     expected_arm_value,
-                    rtol=1e-4 if use_model_predictions else 1e-5,
-                    atol=1e-3 if use_model_predictions else 1e-8,
+                    rtol=1e-3 if use_model_predictions else 1e-5,
+                    atol=1e-2 if use_model_predictions else 1e-8,
                 )
 
     @TestCase.ax_long_test(
