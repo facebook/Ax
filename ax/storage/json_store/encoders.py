@@ -12,7 +12,6 @@ from typing import Any
 
 from ax.adapter.registry import _encode_callables_as_references
 from ax.adapter.transforms.base import Transform
-
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment

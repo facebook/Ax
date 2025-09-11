@@ -64,7 +64,6 @@ def get_sobol_mbm_generation_strategy(
         >>> gs = get_sobol_mbm_generation_strategy(
         ...     model_cls=SingleTaskGP,
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
-        ...     distribute_replications=False,
         ... )
     """
     model_kwargs: dict[str, type[AcquisitionFunction] | SurrogateSpec | bool] = {
@@ -106,7 +105,6 @@ def get_sobol_mbm_generation_strategy(
 def get_sobol_botorch_modular_acquisition(
     model_cls: type[Model],
     acquisition_cls: type[AcquisitionFunction],
-    distribute_replications: bool,
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: dict[str, Any] | None = None,
@@ -118,7 +116,6 @@ def get_sobol_botorch_modular_acquisition(
         model_cls: BoTorch model class, e.g. SingleTaskGP
         acquisition_cls: Acquisition function class, e.g.
             `qLogNoisyExpectedImprovement`.
-        distribute_replications: Whether to use multiple machines
         name: Name that will be attached to the `GenerationStrategy`.
         num_sobol_trials: Number of Sobol trials; if the orchestrator_options
             specify to use `BatchTrial`s, then this refers to the number of
@@ -136,13 +133,11 @@ def get_sobol_botorch_modular_acquisition(
         >>> method = get_sobol_botorch_modular_acquisition(
         ...     model_cls=SingleTaskGP,
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
-        ...     distribute_replications=False,
         ... )
         >>> # Pass sequential=False to BoTorch's optimize_acqf
         >>> batch_method = get_sobol_botorch_modular_acquisition(
         ...     model_cls=SingleTaskGP,
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
-        ...     distribute_replications=False,
         ...     batch_size=5,
         ...     model_gen_kwargs={
         ...         "model_gen_options": {
@@ -163,6 +158,5 @@ def get_sobol_botorch_modular_acquisition(
 
     return BenchmarkMethod(
         generation_strategy=generation_strategy,
-        distribute_replications=distribute_replications,
         batch_size=batch_size,
     )

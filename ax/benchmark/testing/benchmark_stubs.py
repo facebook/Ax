@@ -9,7 +9,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import torch
 from ax.adapter.torch import TorchAdapter
@@ -175,11 +174,11 @@ def get_benchmark_result() -> BenchmarkResult:
             optimization_config=problem.optimization_config,
             is_test=True,
         ),
-        inference_trace=np.ones(4),
-        oracle_trace=np.zeros(4),
-        cost_trace=np.zeros(4),
-        optimization_trace=np.array([3, 2, 1, 0.1]),
-        score_trace=np.array([3, 2, 1, 0.1]),
+        inference_trace=[1.0, 1.0, 1.0, 1.0],
+        oracle_trace=[0.0, 0.0, 0.0, 0.0],
+        cost_trace=[0.0, 0.0, 0.0, 0.0],
+        optimization_trace=[3.0, 2.0, 1.0, 0.1],
+        score_trace=[3.0, 2.0, 1.0, 0.1],
         fit_time=0.1,
         gen_time=0.2,
     )
@@ -298,7 +297,6 @@ def get_async_benchmark_method(
     )
     return BenchmarkMethod(
         generation_strategy=gs,
-        distribute_replications=False,
         max_pending_trials=max_pending_trials,
         batch_size=1,
         early_stopping_strategy=early_stopping_strategy,

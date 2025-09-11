@@ -42,6 +42,14 @@ class BenchmarkProblem(Base):
             be `BenchmarkMetric`s.
         num_trials: Number of optimization iterations to run. BatchTrials count
             as one trial.
+        test_function: A `BenchmarkTestFunction`, which will generate noiseless
+            data. This will be used by a `BenchmarkRunner`.
+        noise_std: Describes how noise is added to the output of the
+            `test_function`. If a float, IID random normal noise with that
+            standard deviation is added. A list of floats, or a dict whose keys
+            match `test_functions.outcome_names`, sets different noise
+            standard deviations for the different outcomes produced by the
+            `test_function`. This will be used by a `BenchmarkRunner`.
         optimal_value: The best ground-truth objective value, used for scoring
             optimization results on a scale from 0 to 100, where achieving the
             `optimal_value` receives a score of 100. The `optimal_value` should
@@ -55,14 +63,6 @@ class BenchmarkProblem(Base):
             `compute_baseline_value_from_sobol`, which takes the best of five
             quasi-random Sobol trials.
         search_space: The search space.
-        test_function: A `BenchmarkTestFunction`, which will generate noiseless
-            data. This will be used by a `BenchmarkRunner`.
-        noise_std: Describes how noise is added to the output of the
-            `test_function`. If a float, IID random normal noise with that
-            standard deviation is added. A list of floats, or a dict whose keys
-            match `test_functions.outcome_names`, sets different noise
-            standard deviations for the different outcomes produced by the
-            `test_function`. This will be used by a `BenchmarkRunner`.
         report_inference_value_as_trace: Whether the ``optimization_trace`` on a
             ``BenchmarkResult`` should use the ``oracle_trace`` (if False,
             default) or the ``inference_trace``. See ``BenchmarkResult`` for
@@ -73,6 +73,10 @@ class BenchmarkProblem(Base):
             returns the runtime of an step. If ``step_runtime_function`` is
             left as ``None``, each step will take one simulated second.  (When
             data is not time-series, the whole trial consists of one step.)
+        target_fidelity_and_task: A mapping from names of task and fidelity
+            parameters to their respective target values.
+        status_quo_params: The parameterization of the status quo arm. Required
+            when using relative constraints.
         auxiliary_experiments_by_purpose: A mapping from experiment purpose to
             a list of auxiliary experiments.
     """
