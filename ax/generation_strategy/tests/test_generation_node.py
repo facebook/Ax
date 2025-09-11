@@ -370,14 +370,51 @@ class TestGenerationStep(TestCase):
             [self.generator_spec],
         )
         self.assertEqual(self.sobol_generation_step.generator_name, "Sobol")
+        self.assertEqual(
+            self.sobol_generation_step.transition_criteria,
+            [
+                MinTrials(
+                    threshold=5,
+                    not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+                    block_gen_if_met=True,
+                    block_transition_if_unmet=True,
+                    use_all_trials_in_exp=False,
+                ),
+            ],
+        )
 
         named_generation_step = GenerationStep(
             generator=Generators.SOBOL,
             num_trials=5,
+            min_trials_observed=3,
             model_kwargs=self.model_kwargs,
+            enforce_num_trials=False,
             generator_name="Custom Sobol",
+            use_all_trials_in_exp=True,
         )
         self.assertEqual(named_generation_step.generator_name, "Custom Sobol")
+        self.assertEqual(
+            named_generation_step.transition_criteria,
+            [
+                MinTrials(
+                    threshold=5,
+                    not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+                    block_gen_if_met=False,
+                    block_transition_if_unmet=True,
+                    use_all_trials_in_exp=True,
+                ),
+                MinTrials(
+                    only_in_statuses=[
+                        TrialStatus.COMPLETED,
+                        TrialStatus.EARLY_STOPPED,
+                    ],
+                    threshold=3,
+                    block_gen_if_met=False,
+                    block_transition_if_unmet=True,
+                    use_all_trials_in_exp=True,
+                ),
+            ],
+        )
 
     def test_min_trials_observed(self) -> None:
         with self.assertRaisesRegex(UserInputError, "min_trials_observed > num_trials"):

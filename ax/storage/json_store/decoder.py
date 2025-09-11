@@ -924,6 +924,7 @@ def generation_step_from_json(
         index=generation_step_json.pop("index", -1),
         should_deduplicate=generation_step_json.pop("should_deduplicate", False),
         generator_name=generation_step_json.pop("generator_name", None),
+        use_all_trials_in_exp=generation_step_json.pop("use_all_trials_in_exp", False),
     )
     return generation_step
 

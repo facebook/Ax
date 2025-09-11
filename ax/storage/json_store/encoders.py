@@ -58,7 +58,10 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import TransitionCriterion
+from ax.generation_strategy.transition_criterion import (
+    TransitionCriterion,
+    TrialBasedCriterion,
+)
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
@@ -74,6 +77,7 @@ from ax.utils.testing.backend_simulator import (
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -436,6 +440,15 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
 
 def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
+    if tc := generation_step.transition_criteria:
+        # If True, `use_all_trials_in_exp` will be set on the first TC.
+        # Otherwise, it'll be False.
+        use_all_trials_in_exp = assert_is_instance(
+            tc[0], TrialBasedCriterion
+        ).use_all_trials_in_exp
+    else:
+        # If there is no TC, then the argument is irrelevant, so we can use False.
+        use_all_trials_in_exp = False
     return {
         "__type": generation_step.__class__.__name__,
         "generator": generation_step.generator,
@@ -455,6 +468,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
         "should_deduplicate": generation_step.should_deduplicate,
         "transition_criteria": generation_step.transition_criteria,
         "generator_name": generation_step.generator_name,
+        "use_all_trials_in_exp": use_all_trials_in_exp,
     }
 
 
