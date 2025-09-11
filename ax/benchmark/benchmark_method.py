@@ -20,27 +20,19 @@ class BenchmarkMethod(Base):
     information like maximum parallelism, early stopping configuration, etc.).
 
     Args:
-        name: String description.
+        name: String description. Defaults to the name of the generation strategy.
         generation_strategy: The `GenerationStrategy` to use.
-        timeout_hours: Number of hours after which to stop a benchmark
-            replication.
-        distribute_replications: Indicates whether the replications should be
-            run in a distributed manner. Ax itself does not use this attribute.
-        batch_size: Number of arms per trial. If greater than 1, trials are
-            ``BatchTrial``s; otherwise, they are ``Trial``s. Defaults to 1. This
-            and the following arguments are passed to ``OrchestratorOptions``.
-        run_trials_in_batches: Passed to ``OrchestratorOptions``.
+        batch_size: Number of arms per trial. Defaults to 1. If greater than 1,
+            trials are ``BatchTrial``s; otherwise, they are ``Trial``s.
+            Passed to ``OrchestratorOptions``.
         max_pending_trials: Passed to ``OrchestratorOptions``.
+        early_stopping_strategy: Passed to ``OrchestratorOptions``.
     """
 
     name: str = "DEFAULT"
     generation_strategy: GenerationStrategy
-
-    timeout_hours: float = 4.0
-    distribute_replications: bool = False
-
+    # Options for the Orchestrator.
     batch_size: int | None = 1
-    run_trials_in_batches: bool = False
     max_pending_trials: int = 1
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
 

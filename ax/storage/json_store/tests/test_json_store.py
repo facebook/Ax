@@ -177,10 +177,7 @@ TEST_CASES = [
     ("AuxiliaryExperimentPurpose", lambda: AuxiliaryExperimentPurpose.PE_EXPERIMENT),
     ("BackendSimulator", get_backend_simulator_with_trials),
     ("BatchTrial", get_batch_trial),
-    (
-        "BenchmarkMethod",
-        lambda: get_sobol_benchmark_method(distribute_replications=True),
-    ),
+    ("BenchmarkMethod", get_sobol_benchmark_method),
     ("BenchmarkMetric", get_benchmark_metric),
     ("BenchmarkMapMetric", get_benchmark_map_metric),
     ("BenchmarkTimeVaryingMetric", get_benchmark_time_varying_metric),

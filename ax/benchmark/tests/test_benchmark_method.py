@@ -20,11 +20,9 @@ class TestBenchmarkMethod(TestCase):
         # test that `fit_tracking_metrics` has been correctly set to False
         for step in method.generation_strategy._steps:
             self.assertFalse(none_throws(step.model_kwargs).get("fit_tracking_metrics"))
-        self.assertEqual(method.timeout_hours, 4)
 
-        method = BenchmarkMethod(generation_strategy=gs, timeout_hours=10)
+        method = BenchmarkMethod(generation_strategy=gs)
         self.assertEqual(method.name, method.generation_strategy.name)
-        self.assertEqual(method.timeout_hours, 10)
 
         # test that instantiation works with node-based strategies
         method = BenchmarkMethod(name="Sobol10", generation_strategy=gs)

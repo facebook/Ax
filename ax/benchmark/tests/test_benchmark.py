@@ -148,7 +148,6 @@ class TestBenchmark(TestCase):
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     batch_size=batch_size,
-                    distribute_replications=False,
                     model_gen_kwargs={
                         "model_gen_options": {
                             "optimizer_kwargs": {"sequential": sequential}
@@ -195,7 +194,7 @@ class TestBenchmark(TestCase):
         self._test_storage(map_data=True)
 
     def test_replication_sobol_synthetic(self) -> None:
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
         problems = [
             get_single_objective_benchmark_problem(),
             get_benchmark_problem("jenatton", num_trials=6),
@@ -207,7 +206,7 @@ class TestBenchmark(TestCase):
                 problem.num_trials, len(none_throws(res.experiment).trials)
             )
             self.assertTrue(np.isfinite(res.score_trace).all())
-            self.assertTrue(np.all(res.score_trace <= 100))
+            self.assertTrue(np.all(np.array(res.score_trace) <= 100))
             experiment = none_throws(res.experiment)
             self.assertIn(f"{problem.name}|Sobol", experiment.name)
             self.assertEqual(experiment.search_space, problem.search_space)
@@ -241,7 +240,7 @@ class TestBenchmark(TestCase):
             self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
 
     def test_replication_sobol_surrogate(self) -> None:
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
 
         # This is kind of a weird setup - these are "surrogates" that use a Branin
         # synthetic function. The idea here is to test the machinery around the
@@ -260,7 +259,7 @@ class TestBenchmark(TestCase):
                 )
 
                 self.assertTrue(np.isfinite(res.score_trace).all())
-                self.assertTrue(np.all(res.score_trace <= 100))
+                self.assertTrue(np.all(np.array(res.score_trace) <= 100))
 
     def _test_replication_async(self, map_data: bool) -> None:
         """
@@ -421,17 +420,17 @@ class TestBenchmark(TestCase):
                     )
                 self.assertFalse(np.isnan(result.inference_trace).any())
                 self.assertEqual(
-                    result.inference_trace.tolist(),
+                    result.inference_trace,
                     expected_traces[case_name],
                     msg=case_name,
                 )
                 self.assertEqual(
-                    result.oracle_trace.tolist(),
+                    result.oracle_trace,
                     expected_traces[case_name],
                     msg=case_name,
                 )
                 self.assertEqual(
-                    result.cost_trace.tolist(),
+                    result.cost_trace,
                     expected_costs[case_name],
                     msg=case_name,
                 )
@@ -661,7 +660,6 @@ class TestBenchmark(TestCase):
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
             acquisition_cls=qLogNoisyExpectedImprovement,
-            distribute_replications=False,
             num_sobol_trials=3,
             batch_size=batch_size,
         )
@@ -684,9 +682,11 @@ class TestBenchmark(TestCase):
             not report_inference_value_as_trace,
         )
 
-        self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
+        self.assertEqual(len(res.optimization_trace), problem.num_trials)
         if report_inference_value_as_trace:
-            self.assertTrue((res.inference_trace >= res.oracle_trace).all())
+            self.assertTrue(
+                (np.array(res.inference_trace) >= np.array(res.oracle_trace)).all()
+            )
 
     def test_replication_with_inference_value(self) -> None:
         for batch_size, report_inference_value_as_trace in product(
@@ -714,7 +714,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=True,
                 ),
                 get_benchmark_problem(
                     "constrained_gramacy_observed_noise", num_trials=6
@@ -725,7 +724,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
@@ -736,7 +734,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
@@ -747,7 +744,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedHypervolumeImprovement,
-                    distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
@@ -758,7 +754,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SaasFullyBayesianSingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(num_trials=6),
                 "MBM::SAAS_qLogNEI",
@@ -767,7 +762,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qKnowledgeGradient,
-                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
                     observe_noise_sd=False, num_trials=6
@@ -778,7 +772,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_augmented_branin_problem(fidelity_or_task="fidelity"),
                 "MBM::SingleTaskGP_qLogNEI",
@@ -790,7 +783,7 @@ class TestBenchmark(TestCase):
                     problem.num_trials,
                     len(none_throws(res.experiment).trials),
                 )
-                self.assertTrue(np.all(res.score_trace <= 100))
+                self.assertTrue(np.all(np.array(res.score_trace) <= 100))
                 self.assertEqual(method.name, method.generation_strategy.name)
                 self.assertEqual(method.name, expected_name)
 
@@ -799,7 +792,7 @@ class TestBenchmark(TestCase):
 
         res = self.benchmark_replication(
             problem=problem,
-            method=get_sobol_benchmark_method(distribute_replications=False),
+            method=get_sobol_benchmark_method(),
             seed=0,
         )
 
@@ -812,7 +805,7 @@ class TestBenchmark(TestCase):
             len(none_throws(res.experiment).fetch_data().df),
         )
 
-        self.assertTrue(np.all(res.score_trace <= 100))
+        self.assertTrue(np.all(np.array(res.score_trace) <= 100))
         self.assertEqual(len(res.cost_trace), problem.num_trials)
         self.assertEqual(len(res.inference_trace), problem.num_trials)
         # since inference trace is not supported for MOO, it should be all NaN
@@ -820,7 +813,7 @@ class TestBenchmark(TestCase):
 
     def test_benchmark_one_method_problem(self) -> None:
         problem = get_single_objective_benchmark_problem()
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
         with self.assertNoLogs(level="INFO"):
             agg = benchmark_one_method_problem(
                 problem=problem,
@@ -845,11 +838,10 @@ class TestBenchmark(TestCase):
     def test_benchmark_multiple_problems_methods(self) -> None:
         problems = [get_single_objective_benchmark_problem(num_trials=6)]
         methods = [
-            get_sobol_benchmark_method(distribute_replications=False),
+            get_sobol_benchmark_method(),
             get_sobol_botorch_modular_acquisition(
                 model_cls=SingleTaskGP,
                 acquisition_cls=qLogNoisyExpectedImprovement,
-                distribute_replications=False,
             ),
         ]
         with self.assertNoLogs(level="INFO"):
@@ -879,10 +871,7 @@ class TestBenchmark(TestCase):
             num_sobol_trials=1000,  # Ensures we don't use BO
         )
         timeout_seconds = 2.0
-        method = BenchmarkMethod(
-            generation_strategy=generation_strategy,
-            timeout_hours=timeout_seconds / 3600,
-        )
+        method = BenchmarkMethod(generation_strategy=generation_strategy)
 
         # Each replication will have a different number of trials
 
@@ -892,6 +881,7 @@ class TestBenchmark(TestCase):
                 problem=problem,
                 method=method,
                 seeds=(0, 1),
+                timeout_hours=timeout_seconds / 3600,
                 orchestrator_logging_level=WARNING,
             )
         elapsed = monotonic() - start
@@ -1014,20 +1004,21 @@ class TestBenchmark(TestCase):
                 generation_strategy=get_sobol_mbm_generation_strategy(
                     model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
                 ),
-                distribute_replications=False,
                 max_pending_trials=2,
                 batch_size=batch_size,
             )
             orchestrator_options = get_benchmark_orchestrator_options(
-                method=method, include_sq=include_sq
+                batch_size=none_throws(method.batch_size),
+                run_trials_in_batches=False,
+                max_pending_trials=method.max_pending_trials,
+                early_stopping_strategy=method.early_stopping_strategy,
+                include_status_quo=include_sq,
             )
             self.assertEqual(orchestrator_options.max_pending_trials, 2)
             self.assertEqual(orchestrator_options.init_seconds_between_polls, 0)
             self.assertEqual(orchestrator_options.min_seconds_before_poll, 0)
             self.assertEqual(orchestrator_options.batch_size, batch_size)
-            self.assertEqual(
-                orchestrator_options.run_trials_in_batches, method.run_trials_in_batches
-            )
+            self.assertFalse(orchestrator_options.run_trials_in_batches)
             self.assertEqual(
                 orchestrator_options.early_stopping_strategy,
                 method.early_stopping_strategy,
@@ -1171,7 +1162,7 @@ class TestBenchmark(TestCase):
             new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
             self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
 
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
         with self.subTest("MOO"):
             problem = get_multi_objective_benchmark_problem()
 
@@ -1220,8 +1211,8 @@ class TestBenchmark(TestCase):
         )
         self.assertTrue(np.isnan(transformed.oracle_trace).all())
         self.assertTrue(np.isnan(transformed.inference_trace).all())
-        self.assertEqual(transformed.score_trace.max(), result.score_trace.max())
-        self.assertLessEqual(transformed.score_trace.min(), result.score_trace.min())
+        self.assertEqual(max(transformed.score_trace), max(result.score_trace))
+        self.assertLessEqual(min(transformed.score_trace), min(result.score_trace))
 
     def test_get_best_parameters(self) -> None:
         """
