@@ -16,6 +16,7 @@ from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
     PlotlyAnalysisCard,
 )
+from ax.analysis.plotly.utils import STALE_FAIL_REASON
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
@@ -78,7 +79,14 @@ class BanditRollout(Analysis):
                 raise NotImplementedError(
                     "Only experiments with multi-arm trials are currently supported."
                 )
-            if trial.status in {TrialStatus.FAILED, TrialStatus.ABANDONED}:
+            if trial.status in {TrialStatus.STALE, TrialStatus.ABANDONED}:
+                continue
+            # Also exclude failed trials that failed due to staleness
+            if (
+                trial.status == TrialStatus.FAILED
+                and trial.failed_reason is not None
+                and trial.failed_reason == STALE_FAIL_REASON
+            ):
                 continue
             for arm, weight in trial.arm_weights.items():
                 trial_index.append(trial.index)

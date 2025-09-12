@@ -161,8 +161,8 @@ STATUSES_EXPECTING_DATA: list[TrialStatus] = [
     TrialStatus.EARLY_STOPPED,
 ]
 
-FAILED_ABANDONED_CANDIDATE_STATUSES: list[TrialStatus] = [
+STALE_ABANDONED_CANDIDATE_STATUSES: list[TrialStatus] = [
     TrialStatus.ABANDONED,
-    TrialStatus.FAILED,
+    TrialStatus.STALE,
     TrialStatus.CANDIDATE,
 ]

@@ -238,6 +238,12 @@ def prepare_arm_data(
         if trial_index != -1
         else "Additional Arm"
     )
+    df["fail_reason"] = df["trial_index"].apply(
+        lambda trial_index: experiment.trials[trial_index].failed_reason
+        if trial_index != -1
+        and experiment.trials[trial_index].failed_reason is not None
+        else None
+    )
 
     df["generation_node"] = df.apply(
         lambda row: _extract_generation_node_name(
