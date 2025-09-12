@@ -27,6 +27,7 @@ MINIMUM_CONTRAINT_VIOLATION_THRESHOLD = 0.01
 # Z-score for 95% confidence interval
 Z_SCORE_95_CI = 1.96
 
+STALE_FAIL_REASON = "Newer candidates generated."
 
 # Splat this into a go.Scatter initializer when drawing a line that represents the
 # cummulative best, Pareto frontier, etc. for a unified look and feel.
