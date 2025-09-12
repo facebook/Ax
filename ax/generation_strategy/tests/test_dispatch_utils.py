@@ -24,6 +24,7 @@ from ax.generation_strategy.dispatch_utils import (
     choose_generation_strategy_legacy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
+from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
@@ -631,16 +632,32 @@ class TestDispatchUtils(TestCase):
             sobol_gpei._steps[0].num_trials, default_initialization_num_trials
         )
 
-        num_completed_initialization_trials = 2
         sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
-            num_completed_initialization_trials=num_completed_initialization_trials,
+            num_completed_initialization_trials=2,
         )
 
+        # With the new use_all_trials_in_exp=True behavior, the step will still
+        # be configured for the total number of initialization trials, and the
+        # transition criteria will automatically account for existing trials.
         self.assertEqual(
             sobol_gpei._steps[0].num_trials,
-            default_initialization_num_trials - num_completed_initialization_trials,
+            default_initialization_num_trials,
         )
+
+        # Verify that use_all_trials_in_exp is set to True for the Sobol step
+        # so it accounts for existing trials automatically
+        first_transition_criterion = assert_is_instance(
+            sobol_gpei._steps[0].transition_criteria[0], MinTrials
+        )
+        self.assertTrue(first_transition_criterion.use_all_trials_in_exp)
+
+        # Sobol step shouldn't be created if there are enough completed trials.
+        gpei = choose_generation_strategy_legacy(
+            search_space=get_branin_search_space(),
+            num_completed_initialization_trials=5,
+        )
+        self.assertEqual(len(gpei._nodes), 1)
 
     def test_calculate_num_initialization_trials(self) -> None:
         with self.subTest("one trial for batch trials"):
