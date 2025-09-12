@@ -524,6 +524,7 @@ def run_optimization_with_orchestrator(
         optimization_config=problem.optimization_config,
         runner=runner,
         status_quo=sq_arm,
+        tracking_metrics=problem.tracking_metrics,
         auxiliary_experiments_by_purpose=problem.auxiliary_experiments_by_purpose,
     )
 

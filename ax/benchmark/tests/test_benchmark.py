@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import dataclasses
 import logging
 import tempfile
 from datetime import datetime
@@ -69,6 +70,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.objective import MultiObjective
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import (
@@ -213,6 +215,37 @@ class TestBenchmark(TestCase):
             self.assertEqual(
                 experiment.optimization_config, problem.optimization_config
             )
+
+    def test_tracking_metrics(self) -> None:
+        method = get_sobol_benchmark_method()
+        problem = get_multi_objective_benchmark_problem()
+        oc = problem.optimization_config
+        tracking_metric = (
+            assert_is_instance(oc.objective, MultiObjective).objectives[1].metric
+        )
+        problem = dataclasses.replace(
+            problem,
+            optimization_config=get_soo_opt_config(
+                outcome_names=[f"{problem.name}_0"], lower_is_better=True
+            ),
+            tracking_metrics=[tracking_metric],
+            baseline_value=3.0,
+            optimal_value=Branin(negate=False).optimal_value,
+        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=0)
+
+        self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
+        self.assertTrue(np.isfinite(res.score_trace).all())
+        self.assertTrue(all(y <= 100 for y in res.score_trace))
+        experiment = none_throws(res.experiment)
+        self.assertIn(f"{problem.name}|Sobol", experiment.name)
+        self.assertEqual(experiment.search_space, problem.search_space)
+        self.assertEqual(experiment.optimization_config, problem.optimization_config)
+        self.assertEqual(experiment.tracking_metrics, [tracking_metric])
+        self.assertEqual(
+            set(experiment.lookup_data().df["metric_name"].unique()),
+            {f"{problem.name}_0", f"{problem.name}_1"},
+        )
 
     def test_compute_score_trace(self) -> None:
         opt_trace = np.array([1, 0, -1, 2, float("nan"), 4])
