@@ -412,3 +412,44 @@ class TestOverview(TestCase):
             0,
             "Experiment should have at least one ScalarizedOutcomeConstraint",
         )
+
+    def test_results_analysis_filters_stale_trials(self) -> None:
+        """Test that ResultsAnalysis summary filters out STALE trials."""
+
+        # Set up experiment with 3 trials
+        client = Client()
+        client.configure_experiment(
+            name="test_stale_filtering",
+            parameters=[
+                RangeParameterConfig(
+                    name="x", bounds=(0.0, 1.0), parameter_type="float"
+                )
+            ],
+        )
+        client.configure_optimization(objective="x")
+
+        # Create and complete 3 trials, then set different statuses to test filtering
+        for trial_index, parameters in client.get_next_trials(max_trials=3).items():
+            # Complete trials to ensure they
+            # have data which is required to be included in the Summary
+            client.complete_trial(
+                trial_index=trial_index, raw_data={"x": float(parameters["x"])}
+            )
+
+        # Set different statuses for the trials
+        client._experiment.trials[1].mark_running(no_runner_required=True, unsafe=True)
+        client._experiment.trials[2].mark_stale(unsafe=True)
+
+        # Run ResultsAnalysis and find Summary card
+        card_group = ResultsAnalysis().compute(
+            experiment=client._experiment,
+            generation_strategy=client._generation_strategy,
+        )
+        summary_card = next(
+            card for card in card_group.flatten() if card.name == "Summary"
+        )
+
+        # Verify only non-stale trials (0, 1) are included, STALE trial (2) is excluded
+        trial_indices_in_summary = set(summary_card.df["trial_index"].unique())
+        self.assertEqual(trial_indices_in_summary, {0, 1})
+        self.assertNotIn(2, trial_indices_in_summary)

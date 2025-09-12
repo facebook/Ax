@@ -20,6 +20,7 @@ from typing import Any, cast, NamedTuple
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
+from ax.analysis.plotly.utils import STALE_FAIL_REASON
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -516,31 +517,44 @@ class Orchestrator(AnalysisBase, BestPointMixin):
                 failed before trial generation because:
                 - they should not be treated as pending points
                 - they will no longer be relevant
+                NOTE: This flag will be removed once all candidate trials have TTL set.
+                It handles legacy candidate trials without TTL that would otherwise
+                remain indefinitely. New TTL-based logic now automatically marks
+                candidates with TTL as stale when expired.
+
 
         Returns:
             List of trials, empty if generation is not possible.
         """
+        stale_candidate_trials_without_ttl = []
         if remove_stale_candidates:
-            stale_candidate_trials = self.experiment.trials_by_status[
-                TrialStatus.CANDIDATE
+            stale_candidate_trials_without_ttl = [
+                trial
+                for trial in self.experiment.trials_by_status[TrialStatus.CANDIDATE]
+                if not trial.ttl_seconds
             ]
-            self.logger.debug(
-                "Marking the following trials as failed because they are stale: "
-                f"{[t.index for t in stale_candidate_trials]}"
-            )
-            for trial in stale_candidate_trials:
-                trial.mark_failed(reason="Newer candidates generated.", unsafe=True)
-        else:
-            stale_candidate_trials = []
+            if stale_candidate_trials_without_ttl:
+                self.logger.info(
+                    "Marking the following trials as failed because they are stale: "
+                    f"{[trial.index for trial in stale_candidate_trials_without_ttl]}"
+                )
+                for trial in stale_candidate_trials_without_ttl:
+                    trial.mark_failed(reason=STALE_FAIL_REASON, unsafe=True)
+
+        # Trigger TTL check to ensure expired trials are marked as stale
+        self.experiment.trials
+
         new_trials, err = self._get_next_trials(
-            num_trials=num_trials,
-            n=self.options.batch_size,
+            num_trials=num_trials, n=self.options.batch_size
         )
+
         if len(new_trials) > 0:
             new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
             self._save_or_update_trials_and_generation_strategy_if_possible(
                 experiment=self.experiment,
-                trials=new_trials + stale_candidate_trials,
+                trials=new_trials
+                + stale_candidate_trials_without_ttl
+                + self.experiment.trials_by_status[TrialStatus.STALE],
                 generation_strategy=self.generation_strategy,
                 new_generator_runs=new_generator_runs,
                 reduce_state_generator_runs=reduce_state_generator_runs,
