@@ -45,10 +45,12 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
 )
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
 
@@ -370,4 +372,34 @@ def get_mock_lcbench_data() -> LCBenchData:
         parameter_df=parameter_df,
         metric_series=metric_series,
         timestamp_series=timestamp_series,
+    )
+
+
+def get_adapter(experiment: Experiment) -> TorchAdapter:
+    """Create a generic adapter for testing different surrogate model types."""
+    adapter = TorchAdapter(
+        experiment=experiment,
+        generator=BoTorchGenerator(),
+    )
+    return adapter
+
+
+def get_saas_adapter(experiment: Experiment) -> TorchAdapter:
+    """Create an adapter with SaasFullyBayesianSingleTaskGP model."""
+    return TorchAdapter(
+        experiment=experiment,
+        generator=BoTorchGenerator(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                        mll_options={
+                            "warmup_steps": 2,
+                            "num_samples": 4,
+                            "thinning": 1,
+                        },
+                    ),
+                ]
+            ),
+        ),
     )
