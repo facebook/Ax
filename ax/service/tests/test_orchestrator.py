@@ -8,6 +8,7 @@
 import logging
 import os
 import re
+import time
 from collections.abc import Callable
 from datetime import timedelta
 from math import ceil
@@ -2235,7 +2236,7 @@ class TestAxOrchestrator(TestCase):
             options.batch_size,
         )
 
-    def test_generate_candidates_can_remove_stale_candidates(self) -> None:
+    def test_generate_candidates_can_remove_stale_candidates_without_ttl(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
         # GIVEN a orchestrator using a GS with MBM.
         gs = self.two_sobol_steps_GS
@@ -2280,6 +2281,136 @@ class TestAxOrchestrator(TestCase):
         self.assertEqual(
             orchestrator.experiment.trials[1].status,
             TrialStatus.CANDIDATE,
+        )
+
+    def test_generate_candidates_can_remove_stale_candidates_with_ttl(
+        self,
+    ) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        # GIVEN a orchestrator using a GS with MBM and TTL configured.
+        gs = self.two_sobol_steps_GS
+
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        if isinstance(self.branin_experiment, MultiTypeExperiment):
+            self.branin_experiment.update_runner("type1", InfinitePollRunner())
+        else:
+            self.branin_experiment.runner = InfinitePollRunner()
+        options = OrchestratorOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            ttl_seconds_for_trials=2,  # Set TTL to 2 seconds
+            **self.orchestrator_options_kwargs,
+        )
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=options,
+            db_settings=self.db_settings,
+        )
+
+        # WHEN generating candidates on a new experiment
+        # Generate first candidate
+        orchestrator.generate_candidates(num_trials=1)
+
+        # Wait for 2.1 seconds to ensure TTL is expired for first candidate
+        time.sleep(2.1)
+
+        # Generate second candidate
+        orchestrator.generate_candidates(num_trials=1)
+
+        # The first candidate should be marked as STALE
+        orchestrator = Orchestrator.from_stored_experiment(
+            experiment_name=self.branin_experiment.name,
+            options=options,
+            db_settings=self.db_settings,
+        )
+        self.assertEqual(len(orchestrator.experiment.trials), 2)
+
+        self.assertEqual(
+            orchestrator.experiment.trials[1].status,
+            TrialStatus.CANDIDATE,
+        )
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status,
+            TrialStatus.STALE,
+        )
+
+    def test_generate_candidates_can_remove_stale_candidates(self) -> None:
+        # Check if candidate trials with and without TTL are marked stale correctly
+        init_test_engine_and_session_factory(force_init=True)
+
+        # GIVEN an orchestrator using a GS with MBM
+        gs = self.two_sobol_steps_GS
+
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        if isinstance(self.branin_experiment, MultiTypeExperiment):
+            self.branin_experiment.update_runner("type1", InfinitePollRunner())
+        else:
+            self.branin_experiment.runner = InfinitePollRunner()
+
+        # STEP 1: Generate initial candidate WITHOUT TTL
+        options_no_ttl = OrchestratorOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            **self.orchestrator_options_kwargs,
+        )
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=options_no_ttl,
+            db_settings=self.db_settings,
+        )
+
+        # Generate first candidate without TTL
+        orchestrator.generate_candidates(num_trials=1)
+
+        # STEP 2: Change orchestrator to use TTL and generate second candidate WITH TTL
+        options_with_ttl = OrchestratorOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            ttl_seconds_for_trials=2,
+            **self.orchestrator_options_kwargs,
+        )
+        orchestrator.options = options_with_ttl
+
+        # Generate second candidate with TTL
+        orchestrator.generate_candidates(num_trials=1)
+
+        # STEP 3: Wait for TTL to expire
+        time.sleep(2.1)
+
+        # STEP 4: Generate third candidate
+        orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=True)
+
+        # STEP 5: Verify results - reload from storage to get fresh state
+        orchestrator = Orchestrator.from_stored_experiment(
+            experiment_name=self.branin_experiment.name,
+            options=options_with_ttl,
+            db_settings=self.db_settings,
+        )
+
+        # THEN we should have 3 trials total
+        self.assertEqual(len(orchestrator.experiment.trials), 3)
+
+        # The third candidate (newest) should remain as CANDIDATE
+        self.assertEqual(
+            orchestrator.experiment.trials[2].status,
+            TrialStatus.CANDIDATE,
+        )
+
+        # The second candidate (with TTL, expired) should be marked as STALE
+        self.assertEqual(
+            orchestrator.experiment.trials[1].status,
+            TrialStatus.STALE,
+        )
+
+        # The first candidate (no TTL) should be marked as FAILED
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status,
+            TrialStatus.FAILED,
         )
 
     def test_generate_candidates_can_choose_not_to_remove_stale_candidates(
