@@ -13,6 +13,7 @@ from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.metric import Metric
 
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -96,6 +97,7 @@ class BenchmarkProblem(Base):
     auxiliary_experiments_by_purpose: (
         dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
     ) = None
+    tracking_metrics: list[Metric] | None = None
 
     def __post_init__(self) -> None:
         # Validate inputs
