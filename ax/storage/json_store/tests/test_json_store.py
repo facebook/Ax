@@ -1028,7 +1028,9 @@ class JSONStoreTest(TestCase):
                 "fit_tracking_metrics": True,
                 "fit_on_init": True,
             },
-            "gen_metadata": {},
+            "gen_metadata": {
+                "model_fit_quality": None,
+            },
             "model_state_after_gen": None,
             "generation_step_index": None,
             "candidate_metadata_by_arm_signature": None,
