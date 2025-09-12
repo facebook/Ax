@@ -20,6 +20,7 @@ from typing import Any, cast, NamedTuple
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
+from ax.analysis.plotly.utils import STALE_FAIL_REASON
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -538,7 +539,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
                     f"{[trial.index for trial in stale_candidate_trials_without_ttl]}"
                 )
                 for trial in stale_candidate_trials_without_ttl:
-                    trial.mark_failed(reason="Newer candidates generated.", unsafe=True)
+                    trial.mark_failed(reason=STALE_FAIL_REASON, unsafe=True)
 
         # Trigger TTL check to ensure expired trials are marked as stale
         self.experiment.trials
