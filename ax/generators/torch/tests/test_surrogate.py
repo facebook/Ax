@@ -2047,8 +2047,7 @@ class SurrogateWithModelListTest(TestCase):
             ),
         }
 
-        # offset makes task feature point to valid outcome indices
-        Xs, Ys, Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=-1)
+        Xs, Ys, Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype)
         ds1 = SupervisedDataset(
             X=Xs,
             Y=Ys,
