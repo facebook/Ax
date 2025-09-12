@@ -2804,7 +2804,7 @@ class TestAxClient(TestCase):
                 },
             ],
             objectives={"objective": ObjectiveProperties(minimize=True)},
-            choose_generation_strategy_kwargs={"num_initialization_trials": 2},
+            choose_generation_strategy_kwargs={"num_initialization_trials": 4},
         )
         hss = assert_is_instance(
             ax_client.experiment.search_space, HierarchicalSearchSpace
