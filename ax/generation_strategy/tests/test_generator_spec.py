@@ -18,7 +18,6 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import none_throws
 
 
 class BaseGeneratorSpecTest(TestCase):
@@ -176,26 +175,6 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         ms.fixed_features = new_features
         self.assertEqual(ms.fixed_features, new_features)
         self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
-
-    def test_gen_attaches_empty_model_fit_metadata_if_fit_not_applicable(self) -> None:
-        ms = GeneratorSpec(generator_enum=Generators.SOBOL)
-        ms.fit(experiment=self.experiment, data=self.data)
-        gr = ms.gen(n=1)
-        gen_metadata = none_throws(gr.gen_metadata)
-        self.assertEqual(gen_metadata["model_fit_quality"], None)
-        self.assertEqual(gen_metadata["model_std_quality"], None)
-        self.assertEqual(gen_metadata["model_fit_generalization"], None)
-        self.assertEqual(gen_metadata["model_std_generalization"], None)
-
-    def test_gen_attaches_model_fit_metadata_if_applicable(self) -> None:
-        ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
-        ms.fit(experiment=self.experiment, data=self.data)
-        gr = ms.gen(n=1)
-        gen_metadata = none_throws(gr.gen_metadata)
-        self.assertIsInstance(gen_metadata["model_fit_quality"], float)
-        self.assertIsInstance(gen_metadata["model_std_quality"], float)
-        self.assertIsInstance(gen_metadata["model_fit_generalization"], float)
-        self.assertIsInstance(gen_metadata["model_std_generalization"], float)
 
     def test_spec_string_representation(self) -> None:
         ms = GeneratorSpec(

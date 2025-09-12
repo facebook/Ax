@@ -20,7 +20,6 @@ from ax.adapter.cross_validation import (
     cross_validate,
     CVDiagnostics,
     CVResult,
-    get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.adapter.registry import GeneratorRegistryBase
 from ax.core.data import Data
@@ -230,17 +229,11 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         # copy to ensure there is no in-place modification
         model_gen_kwargs = deepcopy(model_gen_kwargs)
         generator_run = fitted_adapter.gen(**model_gen_kwargs)
-        fit_and_std_quality_and_generalization_dict = (
-            get_fit_and_std_quality_and_generalization_dict(
-                fitted_adapter=self.fitted_adapter,
-            )
-        )
+
         generator_run._gen_metadata = (
             {} if generator_run.gen_metadata is None else generator_run.gen_metadata
         )
-        generator_run._gen_metadata.update(
-            **fit_and_std_quality_and_generalization_dict
-        )
+
         return generator_run
 
     def copy(self) -> GeneratorSpec:
