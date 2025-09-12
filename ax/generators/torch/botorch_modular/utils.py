@@ -663,3 +663,17 @@ def get_cv_fold(
         test_X=X[idcs],
         test_Y=Y[idcs],
     )
+
+
+def get_all_task_values_from_ssd(search_space_digest: SearchSpaceDigest) -> list[int]:
+    """Get all task values from a search space digest.
+
+    Args:
+        search_space_digest: The search space digest.
+
+    Returns:
+        A list of all task values.
+    """
+    task_feature = search_space_digest.task_features[0]
+    task_bounds = search_space_digest.bounds[task_feature]
+    return list(range(int(task_bounds[0]), int(task_bounds[1] + 1)))
