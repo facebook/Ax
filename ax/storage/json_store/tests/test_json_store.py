@@ -223,6 +223,16 @@ TEST_CASES = [
     ("FixedParameter", get_fixed_parameter),
     ("FixedParameter", partial(get_fixed_parameter, with_dependents=True)),
     ("GammaPrior", get_gamma_prior),
+    (
+        "GenerationStep",
+        partial(
+            GenerationStep,
+            generator=Generators.SOBOL,
+            num_trials=5,
+            min_trials_observed=3,
+            use_all_trials_in_exp=True,
+        ),
+    ),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     (
         "GenerationStrategy",
