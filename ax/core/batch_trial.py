@@ -178,15 +178,10 @@ class BatchTrial(BaseTrial):
         These are constructed by merging the arms and weights from
         each generator run that is attached to the trial.
         """
-        arm_weights = OrderedDict()
-        if len(self._generator_runs) == 0:
-            return arm_weights
+        arm_weights = defaultdict(float)
         for gr in self._generator_runs:
             for arm, weight in gr.arm_weights.items():
-                if arm in arm_weights:
-                    arm_weights[arm] += weight
-                else:
-                    arm_weights[arm] = weight
+                arm_weights[arm] += weight
         return arm_weights
 
     @arm_weights.setter
