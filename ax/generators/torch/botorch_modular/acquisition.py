@@ -64,7 +64,7 @@ logger: Logger = get_logger(__name__)
 
 
 # For fully discrete search spaces.
-MAX_CHOICES_ENUMERATE = 100_000
+MAX_CHOICES_ENUMERATE = 10_000
 MAX_CARDINALITY_FOR_LOCAL_SEARCH = 100
 # For mixed search spaces.
 ALTERNATING_OPTIMIZER_THRESHOLD = 10
