@@ -67,6 +67,7 @@ def _make_sobol_step(
         max_parallelism=max_parallelism,
         model_kwargs={"deduplicate": True, "seed": seed},
         should_deduplicate=should_deduplicate,
+        use_all_trials_in_exp=True,
     )
 
 
@@ -466,7 +467,7 @@ def choose_generation_strategy_legacy(
 
         # If number of initialization trials is not specified, estimate it.
         logger.debug(
-            "Calculating the number of remaining initialization trials based on "
+            "Calculating the number of initialization trials based on "
             f"num_initialization_trials={num_initialization_trials} "
             f"max_initialization_trials={max_initialization_trials} "
             f"num_tunable_parameters={len(search_space.tunable_parameters)} "
@@ -486,14 +487,6 @@ def choose_generation_strategy_legacy(
             logger.debug(
                 f"calculated num_initialization_trials={num_initialization_trials}"
             )
-        num_remaining_initialization_trials = max(
-            0, num_initialization_trials - max(0, num_completed_initialization_trials)
-        )
-        logger.debug(
-            "num_completed_initialization_trials="
-            f"{num_completed_initialization_trials} "
-            f"num_remaining_initialization_trials={num_remaining_initialization_trials}"
-        )
         steps = []
         # `disable_progbar` and jit_compile defaults and overrides
         model_is_saasbo = use_saasbo and (suggested_model is Generators.BOTORCH_MODULAR)
@@ -517,12 +510,14 @@ def choose_generation_strategy_legacy(
             ),
         }
 
-        # Create `generation_strategy`, adding first Sobol step
-        # if `num_remaining_initialization_trials` is > 0.
-        if num_remaining_initialization_trials > 0:
+        # Create `generation_strategy`, adding Sobol step first.
+        if num_initialization_trials > max(0, num_completed_initialization_trials):
+            # Note: With `use_all_trials_in_exp=True`, the Sobol step will automatically
+            # account for any existing trials in the experiment, so we can use the total
+            # number of initialization trials directly.
             steps.append(
                 _make_sobol_step(
-                    num_trials=num_remaining_initialization_trials,
+                    num_trials=num_initialization_trials,
                     min_trials_observed=min_sobol_trials_observed,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
@@ -559,7 +554,7 @@ def choose_generation_strategy_legacy(
         gs = GenerationStrategy(steps=steps, name=name)
         logger.info(
             f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
-            f" {num_remaining_initialization_trials} will take longer to generate due"
+            f" {num_initialization_trials} will take longer to generate due"
             " to model-fitting."
         )
     else:  # `force_random_search` is True or we could not suggest BO model
