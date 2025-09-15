@@ -325,9 +325,9 @@ def _prepare_figure(
 ) -> go.Figure:
     # Prepare separate scatter traces for each trial index. Each trace has (x, y)
     # points for the arms which we have a mean for in the provided dataframe.
-    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+    candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
-    ].max()
+    ].unique()
     # Filter out undesired trials like STALE and ABANDONED trials from plot.
     status_filter = ~df["trial_status"].isin(
         [ts.name for ts in STALE_ABANDONED_CANDIDATE_STATUSES]
@@ -342,8 +342,7 @@ def _prepare_figure(
 
     # Check if candidate_trial is NaN and handle it
     trial_indices = list(trials)
-    if not np.isnan(candidate_trial):
-        trial_indices.append(candidate_trial)
+    trial_indices.extend(candidate_trials)
 
     trials_list = trials.tolist()
 

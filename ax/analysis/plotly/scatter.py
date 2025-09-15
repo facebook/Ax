@@ -331,9 +331,9 @@ def _prepare_figure(
 ) -> go.Figure:
     # Initialize the Scatters one at a time since we cannot specify multiple different
     # error bar colors from within one trace.
-    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+    candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
-    ].max()
+    ].unique()
     # Filter out undesired trials like STALE and ABANDONED trials from plot.
     status_filter = ~df["trial_status"].isin(
         [ts.name for ts in STALE_ABANDONED_CANDIDATE_STATUSES]
@@ -348,8 +348,7 @@ def _prepare_figure(
 
     trials_list = trials.tolist()
     trial_indices = trials_list.copy()
-    if not np.isnan(candidate_trial):
-        trial_indices.append(candidate_trial)
+    trial_indices.extend(candidate_trials)
 
     scatters = []
     scatter_trial_indices = []  # Track trial indices for each scatter
