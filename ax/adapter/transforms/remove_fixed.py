@@ -26,6 +26,47 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
+def find_adoptable_descendants(
+    param: FixedParameter,
+    search_space: HierarchicalSearchSpace,
+) -> list[str]:
+    """
+    Find all descendants (if any) of a fixed parameter that needs to be adopted by the
+    parent of the fixed parameter.
+
+    Note that the fixed parameter will be removed in the `RemoveFixed` transform. Its
+    dependents (if any) need to be adopted by its parent, i.e., the grandparent adopts
+    the grandchildren.
+
+    If the dependents of the fixed parameter also contain fixed parameters, then we need
+    to recursively to find all descendants to be adopted, e.g., the great-grandparent
+    adopts the great-grandchildren.
+
+    Args:
+        param: The fixed parameter to be removed.
+        search_space: The hierarchical search space that `param` comes from.
+
+    Returns:
+        A list of names of adoptable descendants of `param`.
+    """
+    lst_adoptable_descendants = []
+
+    if param.is_hierarchical:
+        for child in next(iter(param.dependents.values())):
+            if isinstance(search_space.parameters[child], DerivedParameter):
+                continue
+            if isinstance(search_space.parameters[child], FixedParameter):
+                lst_adoptable_descendants += find_adoptable_descendants(
+                    # pyre-ignore[6]: It's a fixed parameter for sure.
+                    search_space.parameters[child],
+                    search_space=search_space,
+                )
+            else:
+                lst_adoptable_descendants.append(child)
+
+    return lst_adoptable_descendants
+
+
 class RemoveFixed(Transform):
     """Remove fixed and derived parameters.
 
@@ -69,18 +110,6 @@ class RemoveFixed(Transform):
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        # For hierarchical search spaces, the only hierarchical fixed (or derived)
-        # parameter has to be the root. This is a tricky case that requires a BFS
-        # traversal. We don't support it for now, since we haven't seen any use cases.
-        if isinstance(search_space, HierarchicalSearchSpace):
-            for p_name, param in search_space.parameters.items():
-                if isinstance(param, (DerivedParameter, FixedParameter)):
-                    if param.is_hierarchical and param is not search_space.root:
-                        raise NotImplementedError(
-                            f"{p_name} is a hierarchical fixed or derived parameter."
-                            "But it is not the root."
-                        )
-
         tunable_parameters: list[ChoiceParameter | RangeParameter] = []
         for p in search_space.parameters.values():
             if p.name not in self.fixed_or_derived_parameters:
@@ -92,26 +121,50 @@ class RemoveFixed(Transform):
                 p_: ChoiceParameter | RangeParameter = p
                 tunable_parameters.append(p_)
 
-        # Also need to remove fixed parameters in `dependents`.
-        for p in tunable_parameters:
-            # NOTE: Type checking `ChoiceParameter` and `FixedParameter` is entirely
-            # unnecessary, because `is_hierarchical` returns false unless it's either a
-            # choice or fixed parameter. We do this solely to avoid a type check error
-            # from buck tests.
-            if isinstance(p, (ChoiceParameter, FixedParameter)) and p.is_hierarchical:
-                dependents = {
-                    p_value: [
-                        child
-                        for child in children
-                        if child not in self.fixed_or_derived_parameters
-                    ]
-                    for p_value, children in p.dependents.items()
-                }
-                if any(len(children) > 0 for children in dependents.values()):
-                    p.dependents = dependents
-                else:
-                    # Wipe out the dependents if all children are removed.
-                    p.dependents = None
+        # Also need to update `dependents` if the search space is hierarchical.
+        if isinstance(search_space, HierarchicalSearchSpace):
+            for p in tunable_parameters:
+                # NOTE: Type checking `ChoiceParameter` and `FixedParameter` is entirely
+                # unnecessary, because `is_hierarchical` returns false unless it's
+                # either a choice or fixed parameter. We do this solely to avoid a type
+                # check error from buck tests.
+                if (
+                    isinstance(p, (ChoiceParameter, FixedParameter))
+                    and p.is_hierarchical
+                ):
+                    dependents = {}
+
+                    # 1. Remove fixed and derived parameters in `dependents`.
+                    # 2. If a fixed parameter has dependents, then the parent of the
+                    # fixed parameter needs to adopt the dependents.
+                    # 3. Set `dependents=None` if all children are removed.
+                    for p_value, children in p.dependents.items():
+                        updated_children = []
+
+                        for child in children:
+                            if isinstance(
+                                search_space.parameters[child], DerivedParameter
+                            ):
+                                # Do nothing. This derived parameter will be removed.
+                                continue
+                            elif isinstance(
+                                search_space.parameters[child], FixedParameter
+                            ):
+                                updated_children += find_adoptable_descendants(
+                                    # pyre-ignore[6]: It's a fixed parameter for sure.
+                                    param=search_space.parameters[child],
+                                    search_space=search_space,
+                                )
+                            else:
+                                updated_children.append(child)
+
+                        dependents[p_value] = updated_children
+
+                    if any(len(children) > 0 for children in dependents.values()):
+                        p.dependents = dependents
+                    else:
+                        # Wipe out the dependents if all children are removed.
+                        p.dependents = None
 
         return construct_new_search_space(
             search_space=search_space,
