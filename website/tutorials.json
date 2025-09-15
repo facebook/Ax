@@ -30,6 +30,10 @@
       "title": "Using custom generators via Modular BoTorch Interface"
     },
     {
+      "id": "external_generation_node",
+      "title": "Using external methods for candidate generation in Ax"
+    },
+    {
       "id": "analyses",
       "title": "Utilizing and Creating Ax Analyses"
     }
