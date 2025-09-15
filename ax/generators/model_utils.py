@@ -111,13 +111,12 @@ def rejection_sample(
         raise ValueError("Rounding function must be provided for deduplication.")
 
     # Rejection sample with parameter constraints.
-    points = np.zeros((n, d))
+    points = np.zeros((0, d))
     attempted_draws = 0
-    successful_draws = 0
     if max_draws is None:
         max_draws = DEFAULT_MAX_RS_DRAWS
 
-    while successful_draws < n and attempted_draws <= max_draws:
+    while points.shape[0] < n and attempted_draws <= max_draws:
         # _gen_unconstrained returns points including fixed features.
         # pyre-ignore: Anonymous function w/ named args.
         point = gen_unconstrained(
@@ -142,24 +141,13 @@ def rejection_sample(
                 # should be rare since the point is feasible in the continuous space.
                 point = rounding_func(point)
 
+            points = np.concatenate([points, point[None, :]], axis=0)
             # Deduplicate: don't add the same point twice.
-            duplicate = False
             if deduplicate:
-                if existing_points is not None:
-                    prev_points = np.vstack(
-                        [points[:successful_draws, :], existing_points]
-                    )
-                else:
-                    prev_points = points[:successful_draws, :]
-                duplicate = check_duplicate(point=point, points=prev_points)
-
-            # Add point if valid.
-            if not duplicate:
-                points[successful_draws] = point
-                successful_draws += 1
+                points = remove_duplicates(points, existing_points)
         attempted_draws += 1
 
-    if successful_draws < n:
+    if points.shape[0] < n:
         # Only possible if attempted_draws >= max_draws.
         raise SearchSpaceExhausted(
             f"Rejection sampling error (specified maximum draws ({max_draws}) exhausted"
@@ -170,20 +158,36 @@ def rejection_sample(
     return (points, attempted_draws)
 
 
-def check_duplicate(point: npt.NDArray, points: npt.NDArray) -> bool:
-    """Check if a point exists in another array.
+def remove_duplicates(
+    points: npt.NDArray,
+    existing_points: npt.NDArray | None = None,
+) -> npt.NDArray:
+    """Remove any point in points if it is duplicate or contained in existing_points.
 
     Args:
-        point: Newly generated point to check.
-        points: Points previously generated.
+        points: Points to remove duplicates from.
+        existing_points: Additional points to check for duplicates.
 
     Returns:
-        True if the point is contained in points, else False
+        Points with duplicates removed.
     """
-    for p in points:
-        if np.array_equal(p, point):
-            return True
-    return False
+    if existing_points is None:
+        existing_points = np.empty((0, points.shape[1]))
+
+    unique_points = np.empty((0, points.shape[1]))
+    for point in points:
+        # Check if point has already been added to unique points
+        if np.any(np.all(point == unique_points, axis=1)):
+            continue
+
+        # Check if point is duplicate of existing points
+        if np.any(np.all(point == existing_points, axis=1)):
+            continue
+
+        # Add current point to our collection of unique points
+        unique_points = np.concatenate([unique_points, point[None, :]], axis=0)
+
+    return unique_points
 
 
 def add_fixed_features(

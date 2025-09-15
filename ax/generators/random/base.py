@@ -18,7 +18,9 @@ from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.base import Generator
 from ax.generators.model_utils import (
     add_fixed_features,
+    DEFAULT_MAX_RS_DRAWS,
     rejection_sample,
+    remove_duplicates,
     tunable_feature_indices,
     validate_bounds,
 )
@@ -149,11 +151,10 @@ class RandomGenerator(Generator):
 
         validate_bounds(bounds=bounds, fixed_feature_indices=fixed_feature_indices)
         attempted_draws = 0
-        max_draws = None
+        max_draws = DEFAULT_MAX_RS_DRAWS
         if model_gen_options:
-            max_draws = model_gen_options.get("max_rs_draws")
-            if max_draws is not None:
-                max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
+            max_draws = model_gen_options.get("max_rs_draws", DEFAULT_MAX_RS_DRAWS)
+            max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
         try:
             # Always rejection sample, but this only rejects if there are
             # constraints or actual duplicates and deduplicate is specified.
@@ -207,11 +208,19 @@ class RandomGenerator(Generator):
                     n_thinning=20,
                     seed=self.seed + num_generated,
                 )
-                points = polytope_sampler.draw(n=n).numpy()
-                if rounding_func is not None:
-                    points = np.array([rounding_func(point) for point in points])
-                # TODO: Deduplicate points (should refactor deduplication logic
-                # to cover both the rejection sampling and polytope sampling cases.
+                points = np.zeros((0, len(bounds)))
+                while points.shape[0] < n and attempted_draws < max_draws:
+                    n_remaining = n - points.shape[0]
+                    more_points = polytope_sampler.draw(n=n_remaining).numpy()
+
+                    if rounding_func is not None:
+                        more_points = np.array([rounding_func(p) for p in more_points])
+
+                    points = np.concatenate([points, more_points], axis=0)
+                    attempted_draws += n_remaining
+
+                    if self.deduplicate:
+                        points = remove_duplicates(points, generated_points)
             else:
                 raise e
 

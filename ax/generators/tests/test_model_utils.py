@@ -13,9 +13,9 @@ import numpy as np
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.model_utils import (
     best_observed_point,
-    check_duplicate,
     enumerate_discrete_combinations,
     mk_discrete_choices,
+    remove_duplicates,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -142,12 +142,26 @@ class ModelUtilsTest(TestCase):
                 options={"method": "feasible_threshold"},
             )
 
-    def test_CheckDuplicate(self) -> None:
-        duplicate_point = np.array([0, 1])
-        not_duplicate_point = np.array([9, 9])
-        points = np.array([[0, 1], [0, 2], [0, 1]])
-        self.assertTrue(check_duplicate(duplicate_point, points))
-        self.assertFalse(check_duplicate(not_duplicate_point, points))
+    def test_RemoveDuplicates(self) -> None:
+        existing_points = np.array([[0, 1], [0, 2]])
+
+        points_with_duplicates = np.array([[0, 1], [0, 2], [0, 3], [0, 1]])
+        unique_points = remove_duplicates(points_with_duplicates)
+        expected_points = np.array([[0, 1], [0, 2], [0, 3]])
+        self.assertTrue(np.array_equal(expected_points, unique_points))
+
+        unique_points = remove_duplicates(points_with_duplicates, existing_points)
+        expected_points = np.array([[0, 3]])
+        self.assertTrue(np.array_equal(expected_points, unique_points))
+
+        points_without_duplicates = np.array([[0, 1], [0, 2], [0, 3], [0, 4]])
+        expected_points = np.array([[0, 1], [0, 2], [0, 3], [0, 4]])
+        unique_points = remove_duplicates(points_without_duplicates)
+        self.assertTrue(np.array_equal(expected_points, unique_points))
+
+        unique_points = remove_duplicates(points_without_duplicates, existing_points)
+        expected_points = np.array([[0, 3], [0, 4]])
+        self.assertTrue(np.array_equal(expected_points, unique_points))
 
     def test_MkDiscreteChoices(self) -> None:
         ssd1 = SearchSpaceDigest(
