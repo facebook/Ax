@@ -78,7 +78,6 @@ def _make_botorch_step(
     model_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
-    no_winsorization: bool = False,
     should_deduplicate: bool = False,
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
@@ -108,11 +107,11 @@ def _make_botorch_step(
         fit_out_of_design=fit_out_of_design
     )
 
-    if not no_winsorization:
-        _, default_bridge_kwargs = generator.view_defaults()
-        default_transforms = default_bridge_kwargs["transforms"]
-        transforms = model_kwargs.get("transforms", default_transforms)
-        model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
+    # Add Winsorize transform.
+    _, default_bridge_kwargs = generator.view_defaults()
+    default_transforms = default_bridge_kwargs["transforms"]
+    transforms = model_kwargs.get("transforms", default_transforms)
+    model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
 
     if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
         model_kwargs["surrogate_spec"] = SurrogateSpec(
@@ -300,7 +299,6 @@ def choose_generation_strategy_legacy(
     enforce_sequential_optimization: bool = True,
     random_seed: int | None = None,
     torch_device: torch.device | None = None,
-    no_winsorization: bool = False,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     derelativize_with_raw_status_quo: bool = False,
@@ -346,8 +344,6 @@ def choose_generation_strategy_legacy(
             for multi-objective optimization) can be sped up by running candidate
             generation on the GPU. If not specified, uses the default torch device
             (usually the CPU).
-        no_winsorization: Whether to apply the winsorization transform
-            prior to applying other transforms for fitting the BoTorch model.
         winsorization_config: Explicit winsorization settings, if winsorizing. Usually
             only `upper_quantile_margin` is set when minimizing, and only
             `lower_quantile_margin` when maximizing.
@@ -525,7 +521,6 @@ def choose_generation_strategy_legacy(
                 generator=suggested_model,
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
-                no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
                 model_kwargs=model_kwargs,
                 should_deduplicate=should_deduplicate,

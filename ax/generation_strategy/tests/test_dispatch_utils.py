@@ -505,15 +505,6 @@ class TestDispatchUtils(TestCase):
         )
         self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": True})
 
-    def test_no_winzorization_wins(self) -> None:
-        unwinsorized = choose_generation_strategy_legacy(
-            search_space=get_branin_search_space(),
-            winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
-            no_winsorization=True,
-        )
-        # Transforms have not been updated to include Winsorize.
-        self.assertNotIn("transforms", unwinsorized._steps[1].model_kwargs)
-
     def test_num_trials(self) -> None:
         ss = get_discrete_search_space()
         with self.subTest(
