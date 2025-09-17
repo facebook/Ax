@@ -17,6 +17,7 @@ from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.dispatch_utils import get_derelativize_config
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.common.testutils import TestCase
@@ -123,6 +124,9 @@ class TestDispatchUtils(TestCase):
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
                 "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+                "transform_configs": get_derelativize_config(
+                    derelativize_with_raw_status_quo=True
+                ),
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
@@ -188,6 +192,9 @@ class TestDispatchUtils(TestCase):
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
                 "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+                "transform_configs": get_derelativize_config(
+                    derelativize_with_raw_status_quo=True
+                ),
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
