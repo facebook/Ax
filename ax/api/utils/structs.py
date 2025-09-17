@@ -39,8 +39,9 @@ class GenerationStrategyDispatchStruct:
             underlying generation strategy dispatch logic, which is responsible for
             determinining the exact details. Available options are:
                 - ``"fast"``, a faster generation method that uses the built-in
-                    defaults from the Modular BoTorch Model without any model
-                    selection.
+                    defaults from the Modular BoTorch Model with a standard GP model.
+                - ``"quality"``, a slower but more performant generation method that
+                    leverages a fully Bayesian SAAS model with input warping.
                 - ``"random_search"``, primarily intended for pure exploration
                     experiments, this method utilizes quasi-random Sobol sequences
                     for candidate generation.
