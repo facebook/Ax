@@ -159,6 +159,7 @@ class Encoder:
         create and store copies of the Trials, Metrics, Parameters,
         ParameterConstraints, and Runner owned by this Experiment.
         """
+        arms = [self.arm_to_sqa(arm) for arm in experiment.arms_by_name.values()]
 
         optimization_metrics = self.optimization_config_to_sqa(
             experiment.optimization_config
@@ -239,6 +240,7 @@ class Encoder:
             status_quo_parameters=status_quo_parameters,
             time_created=experiment.time_created,
             experiment_type=experiment_type,
+            arms=arms,
             metrics=optimization_metrics + tracking_metrics,
             parameters=parameters,
             parameter_constraints=parameter_constraints,

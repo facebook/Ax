@@ -161,6 +161,7 @@ class SQAMetric(Base):
 class SQAArm(Base):
     __tablename__: str = "arm_v2"
 
+    experiment_id: Column[int | None] = Column(Integer, ForeignKey("experiment_v2.id"))
     generator_run_id: Column[int] = Column(
         Integer, ForeignKey("generator_run_v2.id"), nullable=False
     )
@@ -389,6 +390,9 @@ class SQAExperiment(Base):
     # a child, the old one will be deleted.
     # Use selectin loading for collections to prevent idle timeout errors
     # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
+    arms: list[SQAArm] = relationship(
+        "SQAArm", cascade="all, delete-orphan", lazy="selectin"
+    )
     data: list[SQAData] = relationship(
         "SQAData", cascade="all, delete-orphan", lazy="selectin"
     )
