@@ -1043,8 +1043,16 @@ class Encoder:
         )
         return trial_sqa
 
-    def experiment_data_to_sqa(self, experiment: Experiment) -> list[SQAData]:
-        """Convert Ax experiment data to SQLAlchemy."""
+    def experiment_data_to_sqa(
+        self,
+        experiment: Experiment,
+    ) -> list[SQAData]:
+        if (
+            experiment.experiment_type
+            in self.config.EXPERIMENT_TYPES_WITH_NO_DATA_STORAGE
+        ):
+            return []
+
         return [
             self.data_to_sqa(data=data, trial_index=trial_index, timestamp=timestamp)
             for trial_index, data_by_timestamp in experiment.data_by_trial.items()
