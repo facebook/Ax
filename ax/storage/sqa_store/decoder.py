@@ -29,7 +29,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -1011,20 +1011,6 @@ class Decoder:
                 )
                 for generator_run_sqa in trial_sqa.generator_runs
             ]
-            if trial_sqa.status_quo_name is not None:
-                sq_arm = experiment.arms_by_name[trial_sqa.status_quo_name]
-                for gr in generator_runs:
-                    # Most of the time, the status quo arm has its own generator run,
-                    # of a dedicated type.
-                    if gr.generator_run_type == GeneratorRunType.STATUS_QUO.name:
-                        trial._status_quo_generator_run_db_id = gr.db_id
-                        trial._status_quo_arm_db_id = gr.arms[0].db_id
-                        break
-                    # However, sometimes the status quo arm is part of a generator run
-                    # that also includes other arms (e.g. in factorial or TS design).
-                    if sq_arm in gr.arms:
-                        trial._status_quo_generator_run_db_id = gr.db_id
-                        trial._status_quo_arm_db_id = sq_arm.db_id
             trial._generator_runs = generator_runs
             trial._abandoned_arms_metadata = {
                 abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
