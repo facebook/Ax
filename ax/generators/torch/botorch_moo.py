@@ -49,7 +49,6 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
-# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizerList = Callable[
     [
         list[AcquisitionFunction],

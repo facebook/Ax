@@ -7,7 +7,6 @@
 # pyre-strict
 
 import logging
-import warnings
 from math import ceil
 from typing import Any, cast
 
@@ -25,7 +24,6 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
-from ax.generators.types import TConfig
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
@@ -90,21 +88,22 @@ def _make_botorch_step(
     use_input_warping: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
-    model_kwargs = model_kwargs or {}
-
-    winsorization_transform_config = _get_winsorization_transform_config(
-        winsorization_config=winsorization_config,
-        no_winsorization=no_winsorization,
-        derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
+    model_kwargs = model_kwargs.copy() if model_kwargs is not None else {}
+    # NOTE: This is a private function that's only called by `model_kwargs`
+    # from `choose_generation_strategy_legacy`. Those `model_kwargs` do not include
+    # transform configs, so we don't need to worry about overriding them here.
+    # Asserting that it's not included just to be extra safe.
+    assert "transform_configs" not in model_kwargs
+    model_kwargs["transform_configs"] = get_derelativize_config(
+        derelativize_with_raw_status_quo=derelativize_with_raw_status_quo
     )
-
-    derelativization_transform_config = {
-        "use_raw_status_quo": derelativize_with_raw_status_quo
-    }
-    model_kwargs["transform_configs"] = model_kwargs.get("transform_configs", {})
-    model_kwargs["transform_configs"]["Derelativize"] = (
-        derelativization_transform_config
-    )
+    if winsorization_config is not None:
+        # Make sure Winsorize is in the dict.
+        model_kwargs["transform_configs"].setdefault("Winsorize", {})
+        # Add manually specified winsorization config.
+        model_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
+            winsorization_config
+        )
     model_kwargs["data_loader_config"] = DataLoaderConfig(
         fit_out_of_design=fit_out_of_design
     )
@@ -114,10 +113,6 @@ def _make_botorch_step(
         default_transforms = default_bridge_kwargs["transforms"]
         transforms = model_kwargs.get("transforms", default_transforms)
         model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
-        if winsorization_transform_config is not None:
-            model_kwargs["transform_configs"]["Winsorize"] = (
-                winsorization_transform_config
-            )
 
     if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
         model_kwargs["surrogate_spec"] = SurrogateSpec(
@@ -573,19 +568,17 @@ def choose_generation_strategy_legacy(
     return gs
 
 
-def _get_winsorization_transform_config(
-    winsorization_config: None | (WinsorizationConfig | dict[str, WinsorizationConfig]),
+def get_derelativize_config(
     derelativize_with_raw_status_quo: bool,
-    no_winsorization: bool,
-) -> TConfig | None:
-    if no_winsorization:
-        if winsorization_config is not None:
-            warnings.warn(
-                "`no_winsorization = True` but `winsorization_config` has been set. "
-                "Not winsorizing.",
-                stacklevel=2,
-            )
-        return None
-    if winsorization_config:
-        return {"winsorization_config": winsorization_config}
-    return {"derelativize_with_raw_status_quo": derelativize_with_raw_status_quo}
+) -> dict[str, dict[str, bool]]:
+    """Returns the transform config for derelativize for the three
+    transforms it applies to: Deralatize, Winsorize, BilogY.
+    """
+    if derelativize_with_raw_status_quo is False:
+        return {}
+    else:
+        return {
+            "Derelativize": {"use_raw_status_quo": True},
+            "Winsorize": {"derelativize_with_raw_status_quo": True},
+            "BilogY": {"derelativize_with_raw_status_quo": True},
+        }
