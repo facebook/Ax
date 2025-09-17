@@ -123,7 +123,6 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "ttl_seconds": batch.ttl_seconds,
         "status": batch.status,
         "status_quo": batch.status_quo,
-        "status_quo_weight_override": batch._status_quo_weight_override,
         "time_created": batch.time_created,
         "time_completed": batch.time_completed,
         "time_staged": batch.time_staged,
