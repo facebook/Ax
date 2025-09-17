@@ -130,7 +130,7 @@ class RandomAdapter(Adapter):
         # Generate the candidates
         X, w = self.generator.gen(
             n=n,
-            bounds=search_space_digest.bounds,
+            search_space_digest=search_space_digest,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,

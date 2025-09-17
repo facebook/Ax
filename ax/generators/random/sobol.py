@@ -11,6 +11,7 @@ from collections.abc import Callable
 import numpy as np
 import numpy.typing as npt
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.generators.model_utils import tunable_feature_indices
 from ax.generators.random.base import RandomGenerator
 from ax.generators.types import TConfig
@@ -75,7 +76,7 @@ class SobolGenerator(RandomGenerator):
     def gen(
         self,
         n: int,
-        bounds: list[tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
@@ -86,7 +87,8 @@ class SobolGenerator(RandomGenerator):
 
         Args:
             n: Number of candidates to generate.
-            bounds: A list of (lower, upper) tuples for each column of X.
+            search_space_digest: A ``SearchSpaceDigest`` object containing
+                metadata on the features in the datasets.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                 A x <= b.
@@ -104,13 +106,13 @@ class SobolGenerator(RandomGenerator):
 
         """
         tf_indices = tunable_feature_indices(
-            bounds=bounds, fixed_features=fixed_features
+            bounds=search_space_digest.bounds, fixed_features=fixed_features
         )
         if len(tf_indices) > 0:
             self.init_engine(len(tf_indices))
         points, weights = super().gen(
             n=n,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             model_gen_options=model_gen_options,

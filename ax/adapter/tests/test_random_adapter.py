@@ -6,9 +6,11 @@
 
 # pyre-strict
 
+import dataclasses
 from unittest import mock
 
 import numpy as np
+from ax.adapter.adapter_utils import extract_search_space_digest
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import Cont_X_trans
 from ax.core.arm import Arm
@@ -88,7 +90,14 @@ class RandomAdapterTest(TestCase):
             )
         gen_args = mock_gen.mock_calls[0][2]
         self.assertEqual(gen_args["n"], 3)
-        self.assertEqual(gen_args["bounds"], [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)])
+        ssd = gen_args["search_space_digest"]
+        self.assertEqual(
+            ssd,
+            extract_search_space_digest(
+                self.search_space, list(self.search_space.parameters.keys())
+            ),
+        )
+        self.assertEqual(ssd.bounds, [(0.0, 1.0), (1.0, 2.0), (0.0, 5.0)])
         self.assertTrue(
             np.array_equal(
                 gen_args["linear_constraints"][0],
@@ -130,7 +139,14 @@ class RandomAdapterTest(TestCase):
                 model_gen_options=self.model_gen_options,
             )
         gen_args = mock_gen.mock_calls[0][2]
-        self.assertEqual(gen_args["bounds"], [(0.0, 1.0), (1.0, 2.0)])
+        ssd = gen_args["search_space_digest"]
+        self.assertEqual(
+            ssd,
+            extract_search_space_digest(
+                search_space, list(search_space.parameters.keys())
+            ),
+        )
+        self.assertEqual(ssd.bounds, [(0.0, 1.0), (1.0, 2.0)])
         self.assertIsNone(gen_args["linear_constraints"])
         self.assertIsNone(gen_args["fixed_features"])
 
@@ -179,10 +195,13 @@ class RandomAdapterTest(TestCase):
         exp = Experiment(
             search_space=get_search_space_for_range_values(min=0.0, max=5.0)
         )
-        generator = SobolGenerator(deduplicate=True)
-        gen_res = generator.gen(
-            n=1, bounds=[(0.0, 1.0), (0.0, 1.0)], rounding_func=lambda x: x
+        ssd = extract_search_space_digest(
+            search_space=exp.search_space,
+            param_names=list(exp.search_space.parameters.keys()),
         )
+        ssd = dataclasses.replace(ssd, bounds=[(0.0, 1.0), (0.0, 1.0)])
+        generator = SobolGenerator(deduplicate=True)
+        gen_res = generator.gen(n=1, search_space_digest=ssd, rounding_func=lambda x: x)
         # Using Cont_X_trans, particularly UnitX here to test transform application.
         adapter = RandomAdapter(
             experiment=exp, generator=generator, transforms=Cont_X_trans
