@@ -14,6 +14,7 @@ from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.dispatch_utils import get_derelativize_config
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
@@ -132,6 +133,9 @@ def _get_mbm_node(
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
                     "torch_device": device,
                     "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+                    "transform_configs": get_derelativize_config(
+                        derelativize_with_raw_status_quo=True
+                    ),
                 },
             )
         ],
