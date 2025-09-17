@@ -8,6 +8,7 @@
 
 
 import numpy as np
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.uniform import UniformGenerator
 from ax.utils.common.testutils import TestCase
@@ -32,11 +33,17 @@ class UniformGeneratorTest(TestCase):
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds
 
+    def _create_ssd(self, n_tunable: int, n_fixed: int) -> SearchSpaceDigest:
+        return SearchSpaceDigest(
+            feature_names=[f"x{i}" for i in range(n_tunable + n_fixed)],
+            bounds=self._create_bounds(n_tunable=n_tunable, n_fixed=n_fixed),
+        )
+
     def test_with_all_tunable(self) -> None:
         generator = UniformGenerator(seed=self.seed)
-        bounds = self._create_bounds(n_tunable=3, n_fixed=0)
+        ssd = self._create_ssd(n_tunable=3, n_fixed=0)
         generated_points, weights = generator.gen(
-            n=3, bounds=bounds, rounding_func=lambda x: x
+            n=3, search_space_digest=ssd, rounding_func=lambda x: x
         )
         self.assertTrue(np.shape(self.expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(self.expected_points, generated_points))
@@ -44,19 +51,19 @@ class UniformGeneratorTest(TestCase):
 
     def test_with_fixed_space(self) -> None:
         generator = UniformGenerator(seed=self.seed)
-        bounds = self._create_bounds(n_tunable=0, n_fixed=2)
+        ssd = self._create_ssd(n_tunable=0, n_fixed=2)
         n = 3
         with self.assertRaises(SearchSpaceExhausted):
             generator.gen(
                 n=3,
-                bounds=bounds,
+                search_space_digest=ssd,
                 fixed_features={0: 1, 1: 2},
                 rounding_func=lambda x: x,
             )
         generator = UniformGenerator(seed=self.seed, deduplicate=False)
         generated_points, _ = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={0: 1, 1: 2},
             rounding_func=lambda x: x,
         )
@@ -69,12 +76,12 @@ class UniformGeneratorTest(TestCase):
         # one at a time.
         generator = UniformGenerator(seed=self.seed, init_position=init_position)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
 
         for i in range(init_position, 3):
             generated_points, weights = generator.gen(
                 n=1,
-                bounds=bounds,
+                search_space_digest=ssd,
                 fixed_features={fixed_param_index: 1},
                 rounding_func=lambda x: x,
             )
@@ -93,17 +100,17 @@ class UniformGeneratorTest(TestCase):
     def test_with_reloaded_state(self) -> None:
         # Check that a reloaded generator will produce the same samples.
         org_generator = UniformGenerator()
-        bounds = self._create_bounds(n_tunable=3, n_fixed=0)
+        ssd = self._create_ssd(n_tunable=3, n_fixed=0)
         # Generate some to advance the state.
-        org_generator.gen(n=3, bounds=bounds, rounding_func=lambda x: x)
+        org_generator.gen(n=3, search_space_digest=ssd, rounding_func=lambda x: x)
         # Construct a new generator with the state.
         new_generator = UniformGenerator(**org_generator._get_state())
         # Compare the generated samples.
         org_samples, _ = org_generator.gen(
-            n=3, bounds=bounds, rounding_func=lambda x: x
+            n=3, search_space_digest=ssd, rounding_func=lambda x: x
         )
         new_samples, _ = new_generator.gen(
-            n=3, bounds=bounds, rounding_func=lambda x: x
+            n=3, search_space_digest=ssd, rounding_func=lambda x: x
         )
         self.assertTrue(np.allclose(org_samples, new_samples))
 
@@ -112,10 +119,10 @@ class UniformGeneratorTest(TestCase):
         # Enforce both fixed and tunable constraints.
         generator = UniformGenerator(seed=0)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         generated_points, weights = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             linear_constraints=(
                 np.array([[1, -1, 0, 0], [0, 1, -1, 0], [0, 0, 1, -1]]),
                 np.array([0, 0, 0]),
@@ -139,10 +146,10 @@ class UniformGeneratorTest(TestCase):
         # Enforce both fixed and tunable constraints.
         generator = UniformGenerator(seed=0)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         generated_points, weights = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             linear_constraints=(
                 np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
                 np.array([1, 1]),
@@ -164,5 +171,9 @@ class UniformGeneratorTest(TestCase):
         generator = UniformGenerator()
         with self.assertRaises(ValueError):
             generated_points, weights = generator.gen(
-                n=1, bounds=[(-1, 1)], rounding_func=lambda x: x
+                n=1,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=["a"], bounds=[(-1, 1)]
+                ),
+                rounding_func=lambda x: x,
             )

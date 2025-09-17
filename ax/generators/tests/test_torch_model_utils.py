@@ -10,6 +10,7 @@ from unittest import mock
 
 import numpy as np
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.utils import (
     _generate_sobol_points,
     subset_model,
@@ -38,7 +39,9 @@ class TorchUtilsTest(TestCase):
 
         gen_sobol = _generate_sobol_points(
             n_sobol=100,
-            bounds=bounds,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=["a", "b", "c"], bounds=bounds
+            ),
             device=torch.device("cpu"),
             linear_constraints=linear_constraints,
             rounding_func=test_rounding_func,

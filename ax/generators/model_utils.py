@@ -116,7 +116,7 @@ def rejection_sample(
     if max_draws is None:
         max_draws = DEFAULT_MAX_RS_DRAWS
 
-    while points.shape[0] < n and attempted_draws <= max_draws:
+    while points.shape[0] < n and attempted_draws < max_draws:
         # _gen_unconstrained returns points including fixed features.
         # pyre-ignore: Anonymous function w/ named args.
         point = gen_unconstrained(

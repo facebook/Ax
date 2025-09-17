@@ -14,13 +14,13 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.base import Generator
 from ax.generators.model_utils import (
     add_fixed_features,
     DEFAULT_MAX_RS_DRAWS,
     rejection_sample,
-    remove_duplicates,
     tunable_feature_indices,
     validate_bounds,
 )
@@ -109,7 +109,7 @@ class RandomGenerator(Generator):
     def gen(
         self,
         n: int,
-        bounds: list[tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
@@ -120,8 +120,8 @@ class RandomGenerator(Generator):
 
         Args:
             n: Number of candidates to generate.
-            bounds: A list of (lower, upper) tuples for each column of X.
-                Defined on [0, 1]^d.
+            search_space_digest: A ``SearchSpaceDigest`` object containing
+                metadata on the features in the datasets.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                 A x <= b.
@@ -142,16 +142,29 @@ class RandomGenerator(Generator):
 
         """
         tf_indices = tunable_feature_indices(
-            bounds=bounds, fixed_features=fixed_features
+            bounds=search_space_digest.bounds, fixed_features=fixed_features
         )
         if fixed_features:
             fixed_feature_indices = np.array(list(fixed_features.keys()))
         else:
             fixed_feature_indices = np.array([])
 
-        validate_bounds(bounds=bounds, fixed_feature_indices=fixed_feature_indices)
-        attempted_draws = 0
+        validate_bounds(
+            bounds=search_space_digest.bounds,
+            fixed_feature_indices=fixed_feature_indices,
+        )
         max_draws = DEFAULT_MAX_RS_DRAWS
+        discrete_indices = set(search_space_digest.discrete_choices.keys())
+        continuous_indices = {
+            i
+            for i in range(len(search_space_digest.feature_names))
+            if i not in discrete_indices
+        }
+        if fixed_features is not None:
+            for i in fixed_features.keys():
+                if i in continuous_indices:
+                    continuous_indices.remove(i)
+        has_continuous_parameters = len(continuous_indices) > 0
         if model_gen_options:
             max_draws = model_gen_options.get("max_rs_draws", DEFAULT_MAX_RS_DRAWS)
             max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
@@ -159,13 +172,10 @@ class RandomGenerator(Generator):
             # Always rejection sample, but this only rejects if there are
             # constraints or actual duplicates and deduplicate is specified.
             # If rejection sampling fails, fall back to polytope sampling.
-            # NOTE: The rejection sampling logic in `rejection_sample` only
-            # rejects points that do not satisfy the linear constraints;
-            # it does not consider the rounding function.
             points, attempted_draws = rejection_sample(
                 gen_unconstrained=self._gen_unconstrained,
                 n=n,
-                d=len(bounds),
+                d=len(search_space_digest.bounds),
                 tunable_feature_indices=tf_indices,
                 linear_constraints=linear_constraints,
                 deduplicate=self.deduplicate,
@@ -175,7 +185,7 @@ class RandomGenerator(Generator):
                 existing_points=generated_points,
             )
         except SearchSpaceExhausted as e:
-            if self.fallback_to_sample_polytope:
+            if has_continuous_parameters or self.fallback_to_sample_polytope:
                 logger.warning(
                     "Parameter constraints are very restrictive, this makes "
                     "candidate generation difficult. "
@@ -194,37 +204,48 @@ class RandomGenerator(Generator):
                     if generated_points is not None
                     else None
                 )
-                polytope_sampler = HitAndRunPolytopeSampler(
+                polytope_sampler: HitAndRunPolytopeSampler = HitAndRunPolytopeSampler(
                     inequality_constraints=self._convert_inequality_constraints(
                         linear_constraints,
                     ),
                     equality_constraints=self._convert_equality_constraints(
-                        d=len(bounds),
+                        d=len(search_space_digest.bounds),
                         fixed_features=fixed_features,
                     ),
-                    bounds=self._convert_bounds(bounds),
+                    bounds=self._convert_bounds(bounds=search_space_digest.bounds),
                     interior_point=interior_point,
                     n_burnin=100,
                     n_thinning=20,
                     seed=self.seed + num_generated,
                 )
-                points = np.zeros((0, len(bounds)))
-                while points.shape[0] < n and attempted_draws < max_draws:
-                    n_remaining = n - points.shape[0]
-                    more_points = polytope_sampler.draw(n=n_remaining).numpy()
 
-                    if rounding_func is not None:
-                        more_points = np.array([rounding_func(p) for p in more_points])
+                def gen_polytope_sampler(
+                    n: int,
+                    d: int,
+                    tunable_feature_indices: npt.NDArray,
+                    fixed_features: dict[int, float] | None = None,
+                ) -> npt.NDArray:
+                    # Note: the fixed features are applied as equality constraints
+                    # in the polytope sampler, so we don't need to apply them here.
+                    return polytope_sampler.draw(n=n).numpy()
 
-                    points = np.concatenate([points, more_points], axis=0)
-                    attempted_draws += n_remaining
-
-                    if self.deduplicate:
-                        points = remove_duplicates(points, generated_points)
+                # we call rejection_sample here to reuse all the deduplication
+                # logic
+                points, _ = rejection_sample(
+                    gen_unconstrained=gen_polytope_sampler,
+                    n=n,
+                    d=len(search_space_digest.bounds),
+                    tunable_feature_indices=tf_indices,
+                    linear_constraints=linear_constraints,
+                    deduplicate=self.deduplicate,
+                    max_draws=max_draws,
+                    fixed_features=fixed_features,
+                    rounding_func=rounding_func,
+                    existing_points=generated_points,
+                )
             else:
                 raise e
 
-        self.attempted_draws = attempted_draws
         return points, np.ones(len(points))
 
     @copy_doc(Generator._get_state)
@@ -259,13 +280,12 @@ class RandomGenerator(Generator):
 
         """
         tunable_points = self._gen_samples(n=n, tunable_d=len(tunable_feature_indices))
-        points = add_fixed_features(
+        return add_fixed_features(
             tunable_points=tunable_points,
             d=d,
             tunable_feature_indices=tunable_feature_indices,
             fixed_features=fixed_features,
         )
-        return points
 
     def _gen_samples(self, n: int, tunable_d: int) -> npt.NDArray:
         """Generate n samples on [0, 1]^d.

@@ -13,6 +13,7 @@ from typing import Any, cast
 import numpy as np
 import numpy.typing as npt
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError
 from ax.generators.model_utils import (
     filter_constraints_and_fixed_features,
@@ -201,7 +202,7 @@ def _get_X_pending_and_observed(
 
 def _generate_sobol_points(
     n_sobol: int,
-    bounds: list[tuple[float, float]],
+    search_space_digest: SearchSpaceDigest,
     device: torch.device,
     linear_constraints: tuple[Tensor, Tensor] | None = None,
     fixed_features: dict[int, float] | None = None,
@@ -225,7 +226,7 @@ def _generate_sobol_points(
     sobol = SobolGenerator(deduplicate=False, seed=np.random.randint(10000))
     array_X, _ = sobol.gen(
         n=n_sobol,
-        bounds=bounds,
+        search_space_digest=search_space_digest,
         linear_constraints=linear_constraints_array,
         fixed_features=fixed_features,
         rounding_func=array_rounding_func,

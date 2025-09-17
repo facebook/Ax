@@ -9,6 +9,7 @@
 from unittest import mock
 
 import numpy as np
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
@@ -27,14 +28,22 @@ class SobolGeneratorTest(TestCase):
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds
 
+    def _create_ssd(self, n_tunable: int, n_fixed: int) -> SearchSpaceDigest:
+        return SearchSpaceDigest(
+            feature_names=[f"x{i}" for i in range(n_tunable + n_fixed)],
+            bounds=self._create_bounds(n_tunable=n_tunable, n_fixed=n_fixed),
+        )
+
     def test_SobolGeneratorAllTunable(self) -> None:
         generator = SobolGenerator(seed=0)
-        bounds = self._create_bounds(n_tunable=3, n_fixed=0)
+        ssd = self._create_ssd(n_tunable=3, n_fixed=0)
         generated_points, weights = generator.gen(
-            n=3, bounds=bounds, rounding_func=lambda x: x
+            n=3,
+            search_space_digest=ssd,
+            rounding_func=lambda x: x,
         )
         self.assertEqual(np.shape(generated_points), (3, 3))
-        np_bounds = np.array(bounds)
+        np_bounds = np.array(ssd.bounds)
         self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
         self.assertTrue(np.all(weights == 1.0))
@@ -43,22 +52,22 @@ class SobolGeneratorTest(TestCase):
         self.assertEqual(state.get("seed"), generator.seed)
         generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             rounding_func=lambda x: x,
             generated_points=generated_points,
         )
 
     def test_SobolGeneratorFixedSpace(self) -> None:
         generator = SobolGenerator(seed=0, deduplicate=False)
-        bounds = self._create_bounds(n_tunable=0, n_fixed=2)
+        ssd = self._create_ssd(n_tunable=0, n_fixed=2)
         generated_points, _ = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={0: 1, 1: 2},
             rounding_func=lambda x: x,
         )
         self.assertEqual(np.shape(generated_points), (3, 2))
-        np_bounds = np.array(bounds)
+        np_bounds = np.array(ssd.bounds)
         self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
         # Should error out if deduplicating since there's only one feasible point.
@@ -66,14 +75,14 @@ class SobolGeneratorTest(TestCase):
         with self.assertRaisesRegex(SearchSpaceExhausted, "Rejection sampling"):
             generated_points, _ = generator.gen(
                 n=3,
-                bounds=bounds,
+                search_space_digest=ssd,
                 fixed_features={0: 1, 1: 2},
                 rounding_func=lambda x: x,
             )
         # But we can generate 1 point.
         generated_points, _ = generator.gen(
             n=1,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={0: 1, 1: 2},
             rounding_func=lambda x: x,
         )
@@ -82,7 +91,7 @@ class SobolGeneratorTest(TestCase):
         with self.assertRaisesRegex(SearchSpaceExhausted, "Rejection sampling"):
             generator.gen(
                 n=1,
-                bounds=bounds,
+                search_space_digest=ssd,
                 fixed_features={0: 1, 1: 2},
                 rounding_func=lambda x: x,
                 generated_points=generated_points,
@@ -91,15 +100,15 @@ class SobolGeneratorTest(TestCase):
     def test_SobolGeneratorNoScramble(self) -> None:
         generator = SobolGenerator(scramble=False)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         generated_points, _ = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
         )
         self.assertEqual(np.shape(generated_points), (3, 4))
-        np_bounds = np.array(bounds)
+        np_bounds = np.array(ssd.bounds)
         self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
 
@@ -109,19 +118,19 @@ class SobolGeneratorTest(TestCase):
         bulk_generator = SobolGenerator(seed=0)
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         bulk_generated_points, _ = bulk_generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
         )
-        np_bounds = np.array(bounds)
-        all_generated = np.zeros((0, len(bounds)))
+        np_bounds = np.array(ssd.bounds)
+        all_generated = np.zeros((0, len(ssd.bounds)))
         for expected_points in bulk_generated_points:
             generated_points, weights = generator.gen(
                 n=1,
-                bounds=bounds,
+                search_space_digest=ssd,
                 fixed_features={fixed_param_index: 1},
                 rounding_func=lambda x: x,
                 generated_points=all_generated,
@@ -138,12 +147,12 @@ class SobolGeneratorTest(TestCase):
         # Enforce both fixed and tunable constraints.
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         A = np.array([[1, -1, 0, 0], [0, 1, -1, 0], [0, 0, 1, -1]])
         b = np.array([0, 0, 0])
         generated_points, _ = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             linear_constraints=(A, b),
             fixed_features={fixed_param_index: 0.5},
             rounding_func=lambda x: x,
@@ -162,13 +171,13 @@ class SobolGeneratorTest(TestCase):
         # Enforce both fixed and tunable constraints.
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         A = np.array([[1, 1, 0, 0], [0, 1, 1, 0]])
         b = np.array([1, 1])
 
         generated_points, _ = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             linear_constraints=(A, b),
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
@@ -182,7 +191,7 @@ class SobolGeneratorTest(TestCase):
         # sampler gives a search space exhausted error.  Testing fallback to
         # polytope sampler when encountering this error.
         generator = SobolGenerator(seed=0, fallback_to_sample_polytope=True)
-        bounds = self._create_bounds(n_tunable=10, n_fixed=0)
+        ssd = self._create_ssd(n_tunable=10, n_fixed=0)
         A = np.ones((1, 10))
         b = np.array([1]).reshape((1, 1))
 
@@ -199,12 +208,12 @@ class SobolGeneratorTest(TestCase):
         ) as wrapped_sampler:
             generated_points, _ = generator.gen(
                 n=3,
-                bounds=bounds,
+                search_space_digest=ssd,
                 linear_constraints=(A, b),
                 rounding_func=rounding_func,
             )
-        # First call uses the original seed since no candidates are generated.
-        self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 0)
+        # Last call (for third candidate) uses seed=2
+        self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 2)
         self.assertTrue(
             "exceeded specified maximum draws" in mock_logger.call_args.args[0]
         )
@@ -219,13 +228,13 @@ class SobolGeneratorTest(TestCase):
         ) as wrapped_sampler:
             generator.gen(
                 n=3,
-                bounds=bounds,
+                search_space_digest=ssd,
                 linear_constraints=(A, b),
                 rounding_func=rounding_func,
                 generated_points=generated_points,
             )
-        # Second call uses seed 3 since 3 candidates are already generated.
-        self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 3)
+        # last call for (6th generated point) uses seed=5
+        self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 5)
         rounding_func.assert_called()
 
     def test_SobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
@@ -233,12 +242,12 @@ class SobolGeneratorTest(TestCase):
         # sampler gives a search space exhausted error.  Testing fallback to
         # polytope sampler when encountering this error.
         generator = SobolGenerator(seed=0, fallback_to_sample_polytope=True)
-        bounds = self._create_bounds(n_tunable=10, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=10, n_fixed=1)
         A = np.insert(np.ones((1, 10)), 10, 0, axis=1)
         b = np.array([1]).reshape((1, 1))
         generated_points, _ = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             linear_constraints=(A, b),
             fixed_features={10: 1},
             rounding_func=lambda x: x,
@@ -253,10 +262,10 @@ class SobolGeneratorTest(TestCase):
         # and a final generation.
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         generated_points_single_batch, _ = generator.gen(
             n=3,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
         )
@@ -264,7 +273,7 @@ class SobolGeneratorTest(TestCase):
         generator_first_batch = SobolGenerator(seed=0)
         generated_points_first_batch, _ = generator_first_batch.gen(
             n=1,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
         )
@@ -273,7 +282,7 @@ class SobolGeneratorTest(TestCase):
         )
         generated_points_second_batch, _ = generator_second_batch.gen(
             n=2,
-            bounds=bounds,
+            search_space_digest=ssd,
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
             generated_points=generated_points_first_batch,
@@ -292,24 +301,21 @@ class SobolGeneratorTest(TestCase):
 
     def test_SobolGeneratorBadBounds(self) -> None:
         generator = SobolGenerator()
+        ssd = SearchSpaceDigest(feature_names=["x"], bounds=[(-1, 1)])
         with self.assertRaisesRegex(ValueError, "This generator operates on"):
-            generator.gen(
-                n=1,
-                bounds=[(-1, 1)],
-                rounding_func=lambda x: x,
-            )
+            generator.gen(n=1, search_space_digest=ssd, rounding_func=lambda x: x)
 
     def test_SobolGeneratorMaxDraws(self) -> None:
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         with self.assertRaises(SearchSpaceExhausted):
             generator.gen(
                 n=3,
-                bounds=bounds,
+                search_space_digest=ssd,
                 linear_constraints=(
                     np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
-                    np.array([1, 1]),
+                    np.array([[1], [1]]),
                 ),
                 fixed_features={fixed_param_index: 1},
                 model_gen_options={"max_rs_draws": 0},
@@ -319,10 +325,10 @@ class SobolGeneratorTest(TestCase):
     def test_SobolGeneratorDedupe(self) -> None:
         generator = SobolGenerator(seed=0, deduplicate=True)
         n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
+        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
         generated_points, _ = generator.gen(
             n=2,
-            bounds=bounds,
+            search_space_digest=ssd,
             linear_constraints=(
                 np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
                 np.array([1, 1]),
@@ -333,7 +339,7 @@ class SobolGeneratorTest(TestCase):
         self.assertEqual(len(generated_points), 2)
         generated_points, _ = generator.gen(
             n=1,
-            bounds=bounds,
+            search_space_digest=ssd,
             linear_constraints=(
                 np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
                 np.array([1, 1]),
