@@ -7,7 +7,6 @@
 # pyre-strict
 
 import logging
-import warnings
 from itertools import product
 from typing import Any
 
@@ -49,10 +48,7 @@ class TestDispatchUtils(TestCase):
     @mock_botorch_optimize
     def test_choose_generation_strategy_legacy(self) -> None:
         expected_transforms = [Winsorize] + MBM_X_trans + Y_trans
-        expected_transform_configs = {
-            "Winsorize": {"derelativize_with_raw_status_quo": False},
-            "Derelativize": {"use_raw_status_quo": False},
-        }
+        expected_transform_configs = {}
         with self.subTest("GPEI"):
             sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space()
@@ -348,16 +344,27 @@ class TestDispatchUtils(TestCase):
             "transforms": [LogY],
             "transform_configs": {"LogY": {"metrics": ["metric_1"]}},
         }
+        with self.assertRaises(AssertionError):
+            bo_step = _make_botorch_step(model_kwargs=model_kwargs)
+        model_kwargs = {"transforms": [LogY]}
         bo_step = _make_botorch_step(model_kwargs=model_kwargs)
         self.assertEqual(
             none_throws(bo_step.model_kwargs)["transforms"], [Winsorize, LogY]
         )
         self.assertEqual(
             none_throws(bo_step.model_kwargs)["transform_configs"],
+            {},
+        )
+        # With derelativize_with_raw_status_quo.
+        bo_step = _make_botorch_step(
+            model_kwargs=model_kwargs, derelativize_with_raw_status_quo=True
+        )
+        self.assertEqual(
+            none_throws(bo_step.model_kwargs)["transform_configs"],
             {
-                "LogY": {"metrics": ["metric_1"]},
-                "Derelativize": {"use_raw_status_quo": False},
-                "Winsorize": {"derelativize_with_raw_status_quo": False},
+                "Derelativize": {"use_raw_status_quo": True},
+                "Winsorize": {"derelativize_with_raw_status_quo": True},
+                "BilogY": {"derelativize_with_raw_status_quo": True},
             },
         )
 
@@ -478,9 +485,7 @@ class TestDispatchUtils(TestCase):
                 )
             },
         )
-        self.assertIn("Derelativize", tc)
-        self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": False})
-
+        # With derelativize_with_raw_status_quo.
         winsorized = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             derelativize_with_raw_status_quo=True,
@@ -501,19 +506,13 @@ class TestDispatchUtils(TestCase):
         self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": True})
 
     def test_no_winzorization_wins(self) -> None:
-        with warnings.catch_warnings(record=True) as w:
-            unwinsorized = choose_generation_strategy_legacy(
-                search_space=get_branin_search_space(),
-                winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
-                no_winsorization=True,
-            )
-            self.assertEqual(len(w), 1)
-            self.assertIn("Not winsorizing", str(w[-1].message))
-
-        self.assertNotIn(
-            "Winsorize",
-            none_throws(unwinsorized._steps[1].model_kwargs)["transform_configs"],
+        unwinsorized = choose_generation_strategy_legacy(
+            search_space=get_branin_search_space(),
+            winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
+            no_winsorization=True,
         )
+        # Transforms have not been updated to include Winsorize.
+        self.assertNotIn("transforms", unwinsorized._steps[1].model_kwargs)
 
     def test_num_trials(self) -> None:
         ss = get_discrete_search_space()
