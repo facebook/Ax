@@ -218,7 +218,6 @@ class SQAStoreTest(TestCase):
 
     def test_GeneratorRunTypeValidation(self) -> None:
         experiment = get_experiment_with_batch_trial()
-        # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run_structs`.
         generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "foobar"
         with self.assertRaises(SQAEncodeError):
