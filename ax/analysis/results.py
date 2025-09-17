@@ -54,6 +54,10 @@ ARM_EFFECTS_PAIR_CARDGROUP_SUBTITLE = (
     "will manifest in a long-term validation experiment. "
 )
 
+NON_STALE_TRIAL_STATUSES: list[TrialStatus] = list(
+    set(TrialStatus) - {TrialStatus.STALE}
+)
+
 
 class ResultsAnalysis(Analysis):
     """
@@ -221,7 +225,9 @@ class ResultsAnalysis(Analysis):
             else None
         )
 
-        summary = Summary().compute_or_error_card(
+        summary = Summary(
+            trial_statuses=NON_STALE_TRIAL_STATUSES
+        ).compute_or_error_card(
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
