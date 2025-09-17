@@ -74,8 +74,7 @@ class Trial(BaseTrial):
             ttl_seconds=ttl_seconds,
             index=index,
         )
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._generator_run = None
+        self._generator_run: GeneratorRun | None = None
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)
 
@@ -84,16 +83,16 @@ class Trial(BaseTrial):
         """Generator run attached to this trial."""
         return self._generator_run
 
-    # pyre-ignore[6]: T77111662.
-    @copy_doc(BaseTrial.generator_runs)
     @property
     def generator_runs(self) -> list[GeneratorRun]:
-        gr = self._generator_run
-        return [gr] if gr is not None else []
+        """Generator runs attached to this trial. Since this is a one-arm
+        ``Trial`` (and not ``BatchTrial``), this will be a list of length 1.
+        """
+        return [self._generator_run] if self._generator_run else []
 
     @property
     def arm(self) -> Arm | None:
-        """The arm associated with this batch."""
+        """The ``Arm`` associated with this ``Trial``."""
         if self.generator_run is None:
             return None
 
@@ -149,14 +148,11 @@ class Trial(BaseTrial):
                 "included multiple."
             )
 
-        self.experiment.search_space.check_types(
-            generator_run.arms[0].parameters, raise_error=True
-        )
-        self._check_existing_and_name_arm(generator_run.arms[0])
+        # Call `BaseTrial._add_generator_run` to validate and name the arms,
+        # then attach the generator run to the experiment.
+        self._add_generator_run(generator_run=generator_run)
+
         self._generator_run = generator_run
-        self._set_generation_step_index(
-            generation_step_index=generator_run._generation_step_index
-        )
         return self
 
     @property
