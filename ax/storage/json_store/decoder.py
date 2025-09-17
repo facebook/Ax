@@ -500,6 +500,7 @@ def trials_from_json(
             # `GeneratorRunStruct` (deprecated) will be decoded into a `GeneratorRun`,
             # so all we have to do here is change the key it's stored under.
             trial_json["generator_runs"] = trial_json.pop("generator_run_structs")
+        trial_json.pop("status_quo_weight_override", None)  # Deprecated.
         loaded_trials[int(index)] = (
             trial_from_json(experiment=experiment, **trial_json)
             if is_trial
