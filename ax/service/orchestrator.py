@@ -535,6 +535,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
             ]
             if stale_candidate_trials_without_ttl:
                 self.logger.info(
+                    f"[Experiment name: {self.experiment._name}] "
                     "Marking the following trials as failed because they are stale: "
                     f"{[trial.index for trial in stale_candidate_trials_without_ttl]}"
                 )
