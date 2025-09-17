@@ -1017,8 +1017,6 @@ class Decoder:
                     # Most of the time, the status quo arm has its own generator run,
                     # of a dedicated type.
                     if gr.generator_run_type == GeneratorRunType.STATUS_QUO.name:
-                        status_quo_weight = gr.weights[0]
-                        trial._status_quo_weight_override = status_quo_weight
                         trial._status_quo_generator_run_db_id = gr.db_id
                         trial._status_quo_arm_db_id = gr.arms[0].db_id
                         break

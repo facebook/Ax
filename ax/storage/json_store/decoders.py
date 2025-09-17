@@ -103,7 +103,6 @@ def batch_trial_from_json(
     abandoned_arms_metadata: dict[str, AbandonedArm],
     num_arms_created: int,
     status_quo: Arm | None,
-    status_quo_weight_override: float,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
     failed_reason: str | None = None,
@@ -149,11 +148,8 @@ def batch_trial_from_json(
 
     # Trial.arms_by_name only returns arms with weights
     batch.should_add_status_quo_arm = batch.status_quo is not None
-    batch._status_quo_weight_override = status_quo_weight_override
     if batch.should_add_status_quo_arm:
-        batch.add_status_quo_arm(
-            weight=status_quo_weight_override,
-        )
+        batch.add_status_quo_arm()
 
     # Set trial status last, after adding all the arms.
     batch._status = status

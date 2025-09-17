@@ -160,20 +160,15 @@ class BatchTrialTest(TestCase):
     def test_status_quo_weight_is_ignored_when_none(self) -> None:
         tot_weight = sum(self.batch.weights)
         self.assertEqual(sum(self.batch.weights), tot_weight)
-        self.assertIsNone(self.batch._status_quo_weight_override)
 
     def test_status_quo_set_on_clone_to(self) -> None:
         batch2 = self.batch.clone_to(include_sq=False)
         self.assertEqual(batch2.status_quo, self.experiment.status_quo)
         # Since should_add_status_quo_arm was False,
-        # _status_quo_weight_override should be False and the
-        # status_quo arm should not appear in arm_weights
-        self.assertIsNone(batch2._status_quo_weight_override)
         self.assertTrue(batch2.status_quo not in batch2.arm_weights)
         self.assertEqual(sum(batch2.weights), sum(self.weights))
         # Test with should_add_status_quo_arm=True
         batch3 = self.experiment.new_batch_trial(should_add_status_quo_arm=True)
-        self.assertEqual(batch3._status_quo_weight_override, 1.0)
         self.assertTrue(batch2.status_quo in batch3.arm_weights)
 
     def test_cannot_add_status_quo_arm_without_status_quo(self) -> None:
