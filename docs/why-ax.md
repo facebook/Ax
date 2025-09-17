@@ -13,7 +13,7 @@ task. Selecting and tuning these configurations can often take time, resources,
 and affects the quality of user experiences. Ax is a machine learning system to
 help guide and automate this experimentation process, so that researchers and
 developers can determine how to get the most out of their processes in an
-efficient manor.
+efficient manner.
 
 Ax is a platform for optimizing many kinds of experiment, and is typically
 useful for problems that are expensive to evaulate or where the number of
