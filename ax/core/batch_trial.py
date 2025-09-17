@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-import warnings
-
 from collections import defaultdict, OrderedDict
 from collections.abc import MutableMapping
 from dataclasses import dataclass
@@ -133,7 +131,6 @@ class BatchTrial(BaseTrial):
         self._arms_by_name: dict[str, Arm] = {}
         self._generator_runs: list[GeneratorRun] = []
         self._abandoned_arms_metadata: dict[str, AbandonedArm] = {}
-        self._status_quo_weight_override: float | None = None
         self.should_add_status_quo_arm = should_add_status_quo_arm
         if generator_run is not None:
             if generator_runs is not None:
@@ -183,6 +180,13 @@ class BatchTrial(BaseTrial):
             for arm, weight in gr.arm_weights.items():
                 arm_weights[arm] += weight
         return arm_weights
+
+    @property
+    def _status_quo_weight_override(self) -> None:
+        raise DeprecationWarning(
+            "Status quo weight override is no longer supported. Please "
+            "contact the Ax developers for help adjusting your application."
+        )
 
     @arm_weights.setter
     def arm_weights(self, arm_weights: MutableMapping[Arm, float]) -> None:
@@ -330,16 +334,6 @@ class BatchTrial(BaseTrial):
         if weight is not None:
             if weight <= 0.0:
                 raise ValueError("Status quo weight must be positive.")
-            if (
-                self._status_quo_weight_override is not None
-                and weight != self._status_quo_weight_override
-            ):
-                warnings.warn(
-                    f"Status quo weight is being overridden from {weight} "
-                    f"to {self._status_quo_weight_override}.",
-                    UserWarning,
-                    stacklevel=3,
-                )
 
         sq_arm_already_added_with_correct_weight = False
         for existing_arm in self.arm_weights:
@@ -360,7 +354,6 @@ class BatchTrial(BaseTrial):
                 weight=weight,
                 generator_run_type=GeneratorRunType.STATUS_QUO,
             )
-        self._status_quo_weight_override = weight
         self._refresh_arms_by_name()
         return self
 
@@ -536,9 +529,6 @@ class BatchTrial(BaseTrial):
             ],
             should_add_status_quo_arm=include_sq and self.should_add_status_quo_arm,
         )
-        if (sq := self.status_quo) is not None and sq in self.arm_weights:
-            new_trial._status_quo_weight_override = self.arm_weights[sq]
-
         self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial
 
