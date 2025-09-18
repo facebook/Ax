@@ -37,7 +37,6 @@ OBS_COLS: set[str] = {
     "arm_name",
     "trial_index",
     "random_split",
-    "fidelities",
     *TIME_COLS,
 }
 
@@ -337,9 +336,6 @@ def _observations_from_dataframe(
                 times = d[col]
                 if times.nunique() == 1 and not times.isnull().any():
                     obs_kwargs[col] = times.iloc[0]
-        fidelities = features.get("fidelities")
-        if fidelities is not None:
-            obs_parameters.update(json.loads(fidelities))
 
         if is_map_data:
             obs_kwargs[Keys.METADATA][MAP_KEY] = features[MAP_KEY]

@@ -68,7 +68,6 @@ class Data(Base, SerializationMixin):
         # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
         "random_split": int,
-        "fidelities": np.dtype("O"),  # Dictionary stored as json
     }
 
     _df: pd.DataFrame
