@@ -8,13 +8,11 @@
 
 import logging
 from math import ceil
-from typing import Any, cast
+from typing import Any
 
 import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import GeneratorRegistryBase, Generators
-from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -106,12 +104,6 @@ def _make_botorch_step(
     model_kwargs["data_loader_config"] = DataLoaderConfig(
         fit_out_of_design=fit_out_of_design
     )
-
-    # Add Winsorize transform.
-    _, default_bridge_kwargs = generator.view_defaults()
-    default_transforms = default_bridge_kwargs["transforms"]
-    transforms = model_kwargs.get("transforms", default_transforms)
-    model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
 
     if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
         model_kwargs["surrogate_spec"] = SurrogateSpec(
@@ -384,9 +376,7 @@ def choose_generation_strategy_legacy(
             no max parallelism will be enforced for any step of the generation
             strategy. Be aware that parallelism is limited to improve performance of
             Bayesian optimization, so only disable its limiting if necessary.
-        optimization_config: used to infer whether to use MOO and will be passed in to
-            ``Winsorize`` via its ``transform_config`` in order to determine default
-            winsorization behavior when necessary.
+        optimization_config: Used to infer whether to use MOO.
         should_deduplicate: Whether to deduplicate the parameters of proposed arms
             against those of previous arms via rejection sampling. If this is True,
             the generation strategy will discard generator runs produced from the

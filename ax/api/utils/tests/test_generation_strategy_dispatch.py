@@ -10,8 +10,7 @@
 from typing import Any
 
 import torch
-from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
-from ax.adapter.transforms.winsorize import Winsorize
+from ax.adapter.registry import Generators
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
@@ -123,7 +122,6 @@ class TestDispatchUtils(TestCase):
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
-                "transforms": MBM_X_trans + [Winsorize] + Y_trans,
                 "transform_configs": get_derelativize_config(
                     derelativize_with_raw_status_quo=True
                 ),
@@ -191,7 +189,6 @@ class TestDispatchUtils(TestCase):
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
-                "transforms": MBM_X_trans + [Winsorize] + Y_trans,
                 "transform_configs": get_derelativize_config(
                     derelativize_with_raw_status_quo=True
                 ),
