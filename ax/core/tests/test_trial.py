@@ -8,6 +8,7 @@
 
 import itertools
 from copy import deepcopy
+from datetime import datetime
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -453,3 +454,14 @@ class TrialTest(TestCase):
             test_trial._time_created = self.trial._time_created
             test_trial._time_staged = self.trial._time_staged
             self.assertEqual(self.trial, test_trial)
+
+    def test_mark_complete_custom_date(self) -> None:
+        self.trial.mark_running(no_runner_required=True)
+        with self.subTest("custom completion time"):
+            completion_time = "2025-01-01"
+            self.trial.mark_completed(time_completed=completion_time)
+            self.assertEqual(self.trial.status, TrialStatus.COMPLETED)
+            self.assertEqual(
+                self.trial.time_completed,
+                datetime.strptime(completion_time, "%Y-%m-%d"),
+            )
