@@ -12,9 +12,8 @@ from typing import Any
 
 import torch
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
+from ax.adapter.registry import Generators
 from ax.adapter.transforms.log_y import LogY
-from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.generation_strategy.dispatch_utils import (
@@ -47,7 +46,6 @@ class TestDispatchUtils(TestCase):
 
     @mock_botorch_optimize
     def test_choose_generation_strategy_legacy(self) -> None:
-        expected_transforms = [Winsorize] + MBM_X_trans + Y_trans
         expected_transform_configs = {}
         with self.subTest("GPEI"):
             sobol_gpei = choose_generation_strategy_legacy(
@@ -58,7 +56,6 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[1].generator, Generators.BOTORCH_MODULAR)
             expected_model_kwargs: dict[str, Any] = {
                 "torch_device": None,
-                "transforms": expected_transforms,
                 "transform_configs": expected_transform_configs,
                 "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
@@ -122,12 +119,10 @@ class TestDispatchUtils(TestCase):
                 set(model_kwargs.keys()),
                 {
                     "torch_device",
-                    "transforms",
                     "transform_configs",
                     "data_loader_config",
                 },
             )
-            self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("Sobol (we can try every option)"):
             sobol = choose_generation_strategy_legacy(
                 search_space=get_factorial_search_space(), num_trials=1000
@@ -198,7 +193,6 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed._steps[1].generator, Generators.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
                 "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
@@ -213,7 +207,6 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[1].generator, Generators.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
                 "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
@@ -235,12 +228,10 @@ class TestDispatchUtils(TestCase):
                 set(model_kwargs.keys()),
                 {
                     "torch_device",
-                    "transforms",
                     "transform_configs",
                     "data_loader_config",
                 },
             )
-            self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("SAASBO"):
             sobol_fullybayesian = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
@@ -348,9 +339,7 @@ class TestDispatchUtils(TestCase):
             bo_step = _make_botorch_step(model_kwargs=model_kwargs)
         model_kwargs = {"transforms": [LogY]}
         bo_step = _make_botorch_step(model_kwargs=model_kwargs)
-        self.assertEqual(
-            none_throws(bo_step.model_kwargs)["transforms"], [Winsorize, LogY]
-        )
+        self.assertEqual(none_throws(bo_step.model_kwargs)["transforms"], [LogY])
         self.assertEqual(
             none_throws(bo_step.model_kwargs)["transform_configs"],
             {},

@@ -47,6 +47,7 @@ from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.adapter.transforms.trial_as_task import TrialAsTask
 from ax.adapter.transforms.unit_x import UnitX
+from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -142,11 +143,16 @@ Mixed_transforms: list[type[Transform]] = [
     Logit,
 ]
 
-Y_trans: list[type[Transform]] = [Derelativize, BilogY, StandardizeY]
+Y_trans: list[type[Transform]] = [Derelativize, Winsorize, BilogY, StandardizeY]
 
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
-TS_trans: list[type[Transform]] = Y_trans + [SearchSpaceToChoice]
+TS_trans: list[type[Transform]] = [
+    Derelativize,
+    BilogY,
+    StandardizeY,
+    SearchSpaceToChoice,
+]
 
 MTGP_Y_trans: list[type[Transform]] = [
     Derelativize,
