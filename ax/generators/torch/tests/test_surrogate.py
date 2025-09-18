@@ -12,6 +12,7 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from itertools import product
+from math import log
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
@@ -22,7 +23,10 @@ from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
 from ax.generators.model_utils import best_in_sample_point
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
-from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.generators.torch.botorch_modular.kernels import (
+    DefaultRBFKernel,
+    ScaleMaternKernel,
+)
 from ax.generators.torch.botorch_modular.surrogate import (
     _construct_default_input_transforms,
     _construct_specified_input_transforms,
@@ -61,6 +65,7 @@ from botorch.models.transforms.input import (
     Normalize,
 )
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
+from botorch.models.utils.gpytorch_modules import SQRT2, SQRT3
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.evaluation import compute_in_sample_model_fit_metric
 from botorch.utils.sampling import draw_sobol_samples
@@ -71,6 +76,7 @@ from gpytorch.kernels import Kernel, LinearKernel, MaternKernel, RBFKernel, Scal
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.likelihoods.noise_models import HomoskedasticNoise
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
+from gpytorch.priors import LogNormalPrior
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 from torch.nn import ModuleList  # @manual -- autodeps can't figure it out.
@@ -1872,6 +1878,30 @@ class SurrogateTest(TestCase):
         self.assertEqual(len(models), 2)
         self.assertIsInstance(models[0], SingleTaskGP)
         self.assertTrue(isinstance(models[1], Mock))
+
+    def test_with_parameter_specific_priors(self) -> None:
+        model_config = ModelConfig(
+            botorch_model_class=SingleTaskGP,
+            covar_module_class=DefaultRBFKernel,
+            covar_module_options={
+                "lengthscale_prior_dict": {"x1": (1.0, 2.0), "x2": (3.0, 4.0)}
+            },
+        )
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[model_config],
+            )
+        )
+        surrogate.fit(
+            datasets=self.training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        covar_module = assert_is_instance(
+            surrogate.model.covar_module, DefaultRBFKernel
+        )
+        prior = assert_is_instance(covar_module.lengthscale_prior, LogNormalPrior)
+        self.assertAllClose(prior.loc, torch.tensor([1.0, 3.0, SQRT2 + log(3) * 0.5]))
+        self.assertAllClose(prior.scale, torch.tensor([2.0, 4.0, SQRT3]))
 
 
 class SurrogateWithModelListTest(TestCase):

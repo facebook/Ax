@@ -187,6 +187,7 @@ class DefaultRBFKernel(RBFKernel):
         active_dims: Sequence[int] | None = None,
         batch_shape: torch.Size | None = None,
         mle: bool = False,
+        lengthscale_prior: LogNormalPrior | None = None,
     ) -> None:
         """Initialize Matern kernel with dimension-scaling prior or MLE.
 
@@ -197,10 +198,14 @@ class DefaultRBFKernel(RBFKernel):
             batch_shape: The batch shape for the kernel.
             mle: A boolean indicating whether to use MLE (no priors) or a dimension
                 scaling prior.
+            lengthscale_prior: The lengthscale prior. If None, a default prior is used.
         """
-        lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
-            ard_num_dims=ard_num_dims, mle=mle
-        )
+        if lengthscale_prior is not None:
+            initial_value = lengthscale_prior.mode[0].item()
+        else:
+            lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
+                ard_num_dims=ard_num_dims, mle=mle
+            )
         super().__init__(
             ard_num_dims=ard_num_dims,
             batch_shape=batch_shape,
@@ -229,10 +234,14 @@ class DefaultMaternKernel(MaternKernel):
         batch_shape: torch.Size | None = None,
         nu: float = 2.5,
         mle: bool = False,
+        lengthscale_prior: LogNormalPrior | None = None,
     ) -> None:
-        lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
-            ard_num_dims=ard_num_dims, mle=mle
-        )
+        if lengthscale_prior is not None:
+            initial_value = lengthscale_prior.mode[0].item()
+        else:
+            lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
+                ard_num_dims=ard_num_dims, mle=mle
+            )
         super().__init__(
             ard_num_dims=ard_num_dims,
             batch_shape=batch_shape,

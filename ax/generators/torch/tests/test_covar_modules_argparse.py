@@ -180,6 +180,7 @@ class CovarModuleArgparseTest(TestCase):
                 "active_dims": list(range(9)),
                 "batch_shape": torch.Size([2]),  # For 2 outputs.
                 "ard_num_dims": 9,
+                "lengthscale_prior": None,
             }
             self.assertEqual(covar_module_kwargs, expected)
             # Test other inputs.
@@ -195,6 +196,7 @@ class CovarModuleArgparseTest(TestCase):
                 "active_dims": [7, 8],
                 "batch_shape": torch.Size([]),
                 "ard_num_dims": 1,
+                "lengthscale_prior": None,
             }
             self.assertEqual(covar_module_kwargs, expected)
 
