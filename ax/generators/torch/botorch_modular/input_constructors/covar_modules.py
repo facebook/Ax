@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from logging import Logger
+from math import log
 from typing import Any
 
 import torch
@@ -24,13 +25,14 @@ from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models import MultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
+from botorch.models.utils.gpytorch_modules import SQRT2, SQRT3
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.transforms import normalize_indices
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.linear_kernel import LinearKernel
-from gpytorch.priors.torch_priors import Prior
+from gpytorch.priors.torch_priors import LogNormalPrior, Prior
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -174,6 +176,7 @@ def _covar_module_argparse_default_rbf(
     active_dims: Sequence[int] | None = None,
     batch_shape: torch.Size | _DefaultType = DEFAULT,
     remove_task_features: bool = False,
+    lengthscale_prior_dict: dict[str, tuple[float, float]] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Constructs inputs for ``DefaultRBFKernel``.
@@ -181,6 +184,15 @@ def _covar_module_argparse_default_rbf(
     The key feature of this helper is the support for ``inactive_features`` input,
     which is used to determine the ``active_dims`` input for the kernel by removing
     the dimensions that correspond to the given feature names in the dataset.
+
+    Args:
+        lengthscale_prior_dict: A dictionary of lengthscale prior parameters.
+            The keys are the parameter names and the values are the loc and scale
+            parameters for GPyTorch LogNormal prior for the given parameter.
+            For parameters that are not found in this dictionary, the default
+            values are used.
+            This allow us to specify specific priors for individual parameters,
+            while using the default priors for the rest.
     """
     if inactive_features is not None and active_dims is not None:
         raise UserInputError(
@@ -202,6 +214,19 @@ def _covar_module_argparse_default_rbf(
     )
     if ard_num_dims is DEFAULT:
         ard_num_dims = len(active_dims) if active_dims is not None else d
+    if lengthscale_prior_dict:
+        default_loc = SQRT2 + log(assert_is_instance(ard_num_dims, int)) * 0.5
+        default_scale = SQRT3
+        loc_scale = [
+            lengthscale_prior_dict.get(ft, (default_loc, default_scale))
+            for ft in dataset.feature_names
+        ]
+        loc, scale = zip(*loc_scale)
+        lengthscale_prior = LogNormalPrior(
+            loc=torch.tensor(loc), scale=torch.tensor(scale)
+        )
+    else:
+        lengthscale_prior = None
     return _covar_module_argparse_base(
         covar_module_class=covar_module_class,
         dataset=dataset,
@@ -209,6 +234,7 @@ def _covar_module_argparse_default_rbf(
         ard_num_dims=ard_num_dims,
         batch_shape=batch_shape,
         active_dims=active_dims,
+        lengthscale_prior=lengthscale_prior,
         **kwargs,
     )
 
