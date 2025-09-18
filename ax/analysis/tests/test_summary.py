@@ -225,3 +225,53 @@ class TestSummary(TestCase):
         self.assertEqual(len(card.df), 2)
         self.assertIn(0, card.df["trial_index"].values)
         self.assertIn(1, card.df["trial_index"].values)
+
+    def test_default_excludes_stale_trials(self) -> None:
+        """Test that Summary defaults to excluding STALE trials."""
+        # Set up experiment with basic configuration
+        client = Client()
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        client.configure_optimization(objective="foo")
+
+        # Create 3 trials with different statuses to test default filtering behavior
+        client.get_next_trials(max_trials=3)
+
+        # Mark trial 0 as STALE - this should be excluded from results
+        stale_trial = client._experiment.trials[0]
+        stale_trial.mark_stale(unsafe=True)
+
+        # Trial 1 remains RUNNING - should be included
+
+        # Mark trial 2 as COMPLETED - should be included
+        completed_trial = client._experiment.trials[2]
+        completed_trial.mark_completed()
+
+        experiment = client._experiment
+
+        # Compute Summary analysis with default trial_statuses setting
+        analysis = Summary()
+        card = analysis.compute(experiment=experiment)
+
+        # Verify only 2 trials are included (RUNNING and COMPLETED, excluding STALE)
+        self.assertEqual(len(card.df), 2)
+
+        # Verify first result is the RUNNING trial (index 1)
+        self.assertEqual(card.df["trial_index"].iloc[0], 1)
+        self.assertEqual(card.df["trial_status"].iloc[0], "RUNNING")
+
+        # Verify second result is the COMPLETED trial (index 2)
+        self.assertEqual(card.df["trial_index"].iloc[1], 2)
+        self.assertEqual(card.df["trial_status"].iloc[1], "COMPLETED")
+
+        # Verify that no trials in the output have STALE status
+        stale_statuses = card.df[card.df["trial_status"] == "STALE"]
+        self.assertEqual(len(stale_statuses), 0)
