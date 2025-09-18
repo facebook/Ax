@@ -155,6 +155,8 @@ DEFAULT_STATUSES_TO_WARM_START: list[TrialStatus] = [
 
 NON_ABANDONED_STATUSES: set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABANDONED}
 
+NON_STALE_STATUSES: set[TrialStatus] = set(TrialStatus) - {TrialStatus.STALE}
+
 STATUSES_EXPECTING_DATA: list[TrialStatus] = [
     TrialStatus.RUNNING,
     TrialStatus.COMPLETED,

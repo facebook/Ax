@@ -13,7 +13,7 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
@@ -48,7 +48,9 @@ class Summary(Analysis):
         omit_empty_columns: bool = True,
     ) -> None:
         self.trial_indices = trial_indices
-        self.trial_statuses = trial_statuses
+        self.trial_statuses: Sequence[TrialStatus] = (
+            trial_statuses if trial_statuses is not None else list(NON_STALE_STATUSES)
+        )
         self.omit_empty_columns = omit_empty_columns
 
     @override
