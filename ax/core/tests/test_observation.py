@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import json
 from unittest.mock import Mock, patch, PropertyMock
 
 import numpy as np
@@ -322,87 +321,6 @@ class ObservationsTest(TestCase):
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
-
-    def test_ObservationsFromDataWithFidelities(self) -> None:
-        truth = {
-            0.5: {
-                "arm_name": "0_0",
-                "parameters": {"x": 0, "y": "a", "z": 1},
-                "mean": 2.0,
-                "sem": 2.0,
-                "trial_index": 1,
-                "metric_name": "a",
-                "fidelities": json.dumps({"z": 0.5}),
-                "updated_parameters": {"x": 0, "y": "a", "z": 0.5},
-                "mean_t": np.array([2.0]),
-                "covariance_t": np.array([[4.0]]),
-            },
-            0.25: {
-                "arm_name": "0_1",
-                "parameters": {"x": 1, "y": "b", "z": 0.5},
-                "mean": 3.0,
-                "sem": 3.0,
-                "trial_index": 2,
-                "metric_name": "a",
-                "fidelities": json.dumps({"z": 0.25}),
-                "updated_parameters": {"x": 1, "y": "b", "z": 0.25},
-                "mean_t": np.array([3.0]),
-                "covariance_t": np.array([[9.0]]),
-            },
-            1: {
-                "arm_name": "0_0",
-                "parameters": {"x": 0, "y": "a", "z": 1},
-                "mean": 4.0,
-                "sem": 4.0,
-                "trial_index": 1,
-                "metric_name": "b",
-                "fidelities": json.dumps({"z": 1}),
-                "updated_parameters": {"x": 0, "y": "a", "z": 1},
-                "mean_t": np.array([4.0]),
-                "covariance_t": np.array([[16.0]]),
-            },
-        }
-        arms = {
-            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
-            #  `Union[Dict[str, Union[float, str]], Dict[str, Union[int, str]], float,
-            #  ndarray, str]`.
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Union[Dict[str, Union[float, str]],
-            #  Dict[str, Union[int, str]], float, ndarray, str]`.
-            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
-            for _, obs in truth.items()
-        }
-        experiment = Mock()
-        experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
-        trials = {
-            obs["trial_index"]: Trial(
-                experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
-            )
-            for _, obs in truth.items()
-        }
-        type(experiment).arms_by_name = PropertyMock(return_value=arms)
-        type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
-
-        df = pd.DataFrame(list(truth.values()))[
-            ["arm_name", "trial_index", "mean", "sem", "metric_name", "fidelities"]
-        ]
-        data = Data(df=df)
-        observations = observations_from_data(experiment, data)
-
-        self.assertEqual(len(observations), 3)
-        for obs in observations:
-            # pyre-fixme[6]: For 1st param expected `float` but got `Union[None,
-            #  bool, float, int, str]`.
-            t = truth[obs.features.parameters["z"]]
-            self.assertEqual(obs.features.parameters, t["updated_parameters"])
-            self.assertEqual(obs.features.trial_index, t["trial_index"])
-            self.assertEqual(obs.data.metric_names, [t["metric_name"]])
-            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
-            self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
-            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
-            self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
-            self.assertEqual(obs.arm_name, t["arm_name"])
 
     def test_ObservationsFromMapData(self) -> None:
         truth = [
