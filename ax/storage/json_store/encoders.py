@@ -548,7 +548,6 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> dict[str,
         "trial_index": obs_features.trial_index,
         "start_time": obs_features.start_time,
         "end_time": obs_features.end_time,
-        "random_split": obs_features.random_split,
         "metadata": obs_features.metadata,
     }
 

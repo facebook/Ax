@@ -15,12 +15,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, TYPE_CHECKING, TypeVar
 
+import pandas as pd
+
 import torch
 from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -30,6 +33,7 @@ from ax.core.parameter import (
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.core.types import TCandidateMetadata
 from ax.exceptions.storage import JSONDecodeError
 from ax.storage.botorch_modular_registry import (
     CLASS_TO_REVERSE_REGISTRY,
@@ -102,6 +106,7 @@ def batch_trial_from_json(
     runner: Runner | None,
     abandoned_arms_metadata: dict[str, AbandonedArm],
     num_arms_created: int,
+    # TODO: check status_quo logic
     status_quo: Arm | None,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
@@ -466,4 +471,26 @@ def fixed_parameter_from_json(
         is_fidelity=is_fidelity,
         target_value=target_value,
         dependents=dependents,
+    )
+
+
+def observation_features_from_json(
+    parameters: dict[str, TParamValue],
+    trial_index: int,
+    start_time: pd.Timestamp | None = None,
+    end_time: pd.Timestamp | None = None,
+    metadata: TCandidateMetadata = None,
+    **kwargs: Any,
+) -> ObservationFeatures:
+    """
+    `random_split` used to be supported, so it may appear in
+    `kwargs`.
+    """
+    warn_on_kwargs(callable_with_kwargs=ObservationFeatures, **kwargs)
+    return ObservationFeatures(
+        parameters=parameters,
+        trial_index=trial_index,
+        start_time=start_time,
+        end_time=end_time,
+        metadata=metadata,
     )

@@ -33,22 +33,17 @@ logger: Logger = get_logger(__name__)
 
 TIME_COLS = {"start_time", "end_time"}
 
-OBS_COLS: set[str] = {
-    "arm_name",
-    "trial_index",
-    "random_split",
-    *TIME_COLS,
-}
+OBS_COLS: set[str] = {"arm_name", "trial_index", *TIME_COLS}
 
-OBS_KWARGS: set[str] = {"trial_index", "random_split", *TIME_COLS}
+OBS_KWARGS: set[str] = {"trial_index", *TIME_COLS}
 
 
 class ObservationFeatures(Base):
     """The features of an observation.
 
     These include both the arm parameters and the features of the
-    observation found in the Data object: trial index, times,
-    and random split. This object is meant to contain everything needed to
+    observation found in the Data object: trial index, start_time,
+    and end_time. This object is meant to contain everything needed to
     represent this observation in a model feature space. It is essentially a
     row of Data joined with the arm parameters.
 
@@ -60,7 +55,6 @@ class ObservationFeatures(Base):
         trial_index: trial index
         start_time: batch start time
         end_time: batch end time
-        random_split: random split
 
     """
 
@@ -70,14 +64,12 @@ class ObservationFeatures(Base):
         trial_index: int | None = None,
         start_time: pd.Timestamp | None = None,
         end_time: pd.Timestamp | None = None,
-        random_split: int | None = None,
         metadata: TCandidateMetadata = None,
     ) -> None:
         self.parameters = parameters
         self.trial_index = trial_index
         self.start_time = start_time
         self.end_time = end_time
-        self.random_split = random_split
         self.metadata = metadata
 
     @staticmethod
@@ -86,7 +78,6 @@ class ObservationFeatures(Base):
         trial_index: int | None = None,
         start_time: pd.Timestamp | None = None,
         end_time: pd.Timestamp | None = None,
-        random_split: int | None = None,
         metadata: TCandidateMetadata = None,
     ) -> ObservationFeatures:
         """Convert a Arm to an ObservationFeatures, including additional
@@ -100,7 +91,6 @@ class ObservationFeatures(Base):
             trial_index=trial_index,
             start_time=start_time,
             end_time=end_time,
-            random_split=random_split,
             metadata=metadata,
         )
 
@@ -116,8 +106,6 @@ class ObservationFeatures(Base):
             self.start_time = new_features.start_time
         if new_features.end_time is not None:
             self.end_time = new_features.end_time
-        if new_features.random_split is not None:
-            self.random_split = new_features.random_split
         return self
 
     def clone(
@@ -140,13 +128,12 @@ class ObservationFeatures(Base):
             trial_index=self.trial_index,
             start_time=self.start_time,
             end_time=self.end_time,
-            random_split=self.random_split,
             metadata=deepcopy(self.metadata),
         )
 
     def __repr__(self) -> str:
         strs = []
-        for attr in ["trial_index", "start_time", "end_time", "random_split"]:
+        for attr in ["trial_index", "start_time", "end_time"]:
             if getattr(self, attr) is not None:
                 strs.append(f", {attr}={getattr(self, attr)}")
         repr_str = "ObservationFeatures(parameters={parameters}".format(
@@ -168,7 +155,6 @@ class ObservationFeatures(Base):
                 self.trial_index,
                 self.start_time,
                 self.end_time,
-                self.random_split,
             )
         )
 
