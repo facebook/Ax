@@ -134,6 +134,37 @@ pip3 install ax-platform`}</CodeBlock>
   </div>
 );
 
+
+const papertitle = `Ax: A Platform for Adaptive Experimentation`;
+const paper_bibtex = `
+@inproceedings{olson2025ax,
+  title = {{Ax: A Platform for Adaptive Experimentation}},
+  author = {
+    Olson, Miles and Santorella, Elizabeth and Tiao, Louis C. and
+    Cakmak, Sait and Eriksson, David and Garrard, Mia and Daulton, Sam and
+    Balandat, Maximilian and Bakshy, Eytan and Kashtelyan, Elena and
+    Lin, Zhiyuan Jerry and Ament, Sebastian and Beckerman, Bernard and
+    Onofrey, Eric and Igusti, Paschal and Lara, Cristian and
+    Letham, Benjamin and Cardoso, Cesar and Shen, Shiyun Sunny and
+    Lin, Andy Chenyuan and Grange, Matthew
+  },
+  booktitle = {AutoML 2025 ABCD Track},
+  year = {2025}
+}`;
+
+const Reference = () => (
+  <div
+    className="padding--lg"
+    id="reference"
+    style={{}}>
+    <h2 className='text--center'>References</h2>
+    <div>
+      <a href={`https://openreview.net/forum?id=U1f6wHtG1g`}>{papertitle}</a>
+      <CodeBlock className='margin-vert--md'>{paper_bibtex}</CodeBlock>
+    </div>
+  </div>
+);
+
 const MyPage = () => {
   const {siteConfig} = useDocusaurusContext();
   return (
@@ -186,6 +217,7 @@ const MyPage = () => {
         )}
       </div>
       <QuickStart />
+      <Reference />
     </Layout>
   );
 };
