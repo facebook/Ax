@@ -107,6 +107,7 @@ class TorchAdapterTest(TestCase):
                         "arm_name": ["0_0", "0_0", "1_0", "1_0"],
                         "mean": [3.0, 2.0, 1.0, 0.0],
                         "sem": [3.0, 1e-4, 2.0, 1e-3],
+                        "metric_signature": ["y1", "y2", "y1", "y2"],
                     }
                 )
             )
@@ -869,6 +870,7 @@ class TorchAdapterTest(TestCase):
                         "mean": o,
                         "sem": None,
                         "trial_index": trial.index,
+                        "metric_signature": metric,
                     }
                     for metric, o in (("m1", 0.2), ("m2", 0.5))
                 ]

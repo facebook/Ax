@@ -50,6 +50,7 @@ class TestMarginalEffectsPlot(TestCase):
                             "metric_name": ["metric_1"] * num_arms,
                             "mean": list(range(num_arms)),
                             "sem": [0.5] * num_arms,
+                            "metric_signature": ["metric_1"] * num_arms,
                         }
                     )
                 )

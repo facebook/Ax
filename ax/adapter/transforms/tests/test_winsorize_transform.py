@@ -633,6 +633,7 @@ class WinsorizeTransformTest(TestCase):
                         "mean": mean,
                         "sem": sem,
                         "trial_index": t.index,
+                        "metric_signature": metric_name,
                     }
                     for metric_name, mean, sem in (("a", 1.0, 2.0), ("b", 2.0, 4.0))
                 ]
