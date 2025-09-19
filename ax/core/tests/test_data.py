@@ -238,7 +238,6 @@ class DataTest(TestCase):
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
                 trial_index=0,
-                sample_sizes={"0_1": 2},
                 start_time=now.isoformat(),
                 end_time=now.isoformat(),
             )
@@ -256,7 +255,6 @@ class DataTest(TestCase):
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
                 trial_index=0,
-                sample_sizes={"0_1": 2},
                 start_time=now_ms,
                 end_time=now_ms,
             )

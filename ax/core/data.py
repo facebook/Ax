@@ -246,7 +246,6 @@ class Data(Base, SerializationMixin):
         cls: type[TData],
         evaluations: Mapping[str, TTrialEvaluation],
         trial_index: int,
-        sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,
         end_time: int | str | None = None,
     ) -> TData:
@@ -258,7 +257,6 @@ class Data(Base, SerializationMixin):
                 outcome names to values, means, or tuples of mean and SEM. If SEM is
                 not specified, it will be set to None and inferred from data.
             trial_index: Trial index to which this data belongs.
-            sample_sizes: Number of samples collected for each arm.
             start_time: Optional start time of run of the trial that produced this
                 data, in milliseconds or iso format.  Milliseconds will be automatically
                 converted to iso format because iso format automatically works with the
@@ -274,7 +272,6 @@ class Data(Base, SerializationMixin):
         records = cls._get_records(evaluations=evaluations, trial_index=trial_index)
         records = cls._add_cols_to_records(
             records=records,
-            sample_sizes=sample_sizes,
             start_time=start_time,
             end_time=end_time,
         )
@@ -283,7 +280,6 @@ class Data(Base, SerializationMixin):
     @staticmethod
     def _add_cols_to_records(
         records: list[dict[str, Any]],
-        sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,
         end_time: int | str | None = None,
     ) -> list[dict[str, Any]]:
@@ -298,9 +294,6 @@ class Data(Base, SerializationMixin):
 
             for record in records:
                 record.update({"start_time": start_time, "end_time": end_time})
-        if sample_sizes:
-            for record in records:
-                record["n"] = sample_sizes[str(record["arm_name"])]
 
         return records
 

@@ -535,14 +535,12 @@ class BatchTrial(BaseTrial):
     def attach_batch_trial_data(
         self,
         raw_data: dict[str, TEvaluationOutcome],
-        sample_sizes: dict[str, int] | None = None,
         metadata: dict[str, str | int] | None = None,
     ) -> None:
         """Attaches data to the trial
 
         Args:
             raw_data: Map from arm name to metric outcomes.
-            sample_sizes: Dict from arm name to sample size.
             metadata: Additional metadata to track about this run.
                 importantly the start_date and end_date
             complete_trial: Whether to mark trial as complete after
@@ -569,7 +567,7 @@ class BatchTrial(BaseTrial):
             )
 
         evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
+            raw_data=raw_data, metadata=metadata
         )
         self._validate_batch_trial_data(data=data)
 

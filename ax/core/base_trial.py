@@ -786,7 +786,6 @@ class BaseTrial(ABC, SortableBase):
         self,
         raw_data: dict[str, TEvaluationOutcome],
         metadata: dict[str, str | int] | None,
-        sample_sizes: dict[str, int] | None = None,
     ) -> tuple[dict[str, TEvaluationOutcome], Data]:
         """Formats given raw data as Ax evaluations and `Data`.
 
@@ -794,8 +793,6 @@ class BaseTrial(ABC, SortableBase):
             raw_data: Map from arm name to
                 metric outcomes.
             metadata: Additional metadata to track about this run.
-            sample_size: Integer sample size for 1-arm trials, dict from arm
-                name to sample size for batched trials. Optional.
         """
 
         metadata = metadata if metadata is not None else {}
@@ -804,7 +801,6 @@ class BaseTrial(ABC, SortableBase):
             raw_data=raw_data,
             metric_names=list(set(self.experiment.metrics)),
             trial_index=self.index,
-            sample_sizes=sample_sizes or {},
             data_type=self.experiment.default_data_type,
             start_time=metadata.get("start_time"),
             end_time=metadata.get("end_time"),
