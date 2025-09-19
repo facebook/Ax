@@ -103,13 +103,22 @@ class Metric(SortableBase, SerializationMixin):
         name: str,
         lower_is_better: bool | None = None,
         properties: dict[str, Any] | None = None,
+        signature_override: str | None = None,
     ) -> None:
         """Inits Metric.
 
         Args:
-            name: Name of metric.
+            name: The display name of the metric used for instantiation and
+                human-readable representation. This is typically the name users
+                see and interact with directly.
             lower_is_better: Flag for metrics which should be minimized.
             properties: Dictionary of this metric's properties
+            signature_override: Override for the metric's signature (canonical name)
+                when it should differ from the display name. Use this parameter to
+                provide a specific signature value without subclassing.
+                Some examples of when this parameter is useful:
+                    - Display names don't align with external system naming conventions
+                    - Simple custom mappings that don't justify creating a subclass
         """
         if not isinstance(name, str):
             raise ValueError(f"Metric name must be a string, got {type(name)}.")
@@ -118,6 +127,7 @@ class Metric(SortableBase, SerializationMixin):
         self._name = name
         self.lower_is_better = lower_is_better
         self.properties: dict[str, Any] = properties or {}
+        self.signature_override = signature_override
 
     # ---------- Properties and methods that subclasses often override. ----------
 
@@ -276,12 +286,18 @@ class Metric(SortableBase, SerializationMixin):
             if trial.status.expecting_data
         }
 
-    # NOTE: Also overridable are `serialize_init_args` and `deserialize_init_args`,
-    # which are inherited from the `SerializationMixin` base class.
-    # Override those if and only if your metric requires custom serialization; e.g. if
-    # some of its attributes are not readily serializable and require pre-processing.
-    # Note that all these serialized attributes will be deserialized by the
-    # `deserialize_init_args` method on the same class.
+    # NOTE: This should be overridden if there is a specific formula for computing
+    # the signature of the metric. The default implementation uses the metric name
+    # if a signature override is not provided.
+    @property
+    def signature(self) -> str:
+        """Get the signature (canonical name) for the metric. This may differ from
+        the metric's name to accommodate external requirements/naming conventions.
+
+        In some implementations, this can be formulaic based on class
+        attributes, which can be constructed by overriding this property method.
+        """
+        return self.signature_override or self.name
 
     # ---------- Properties and metrods that should not be overridden. ----------
 
