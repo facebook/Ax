@@ -430,6 +430,13 @@ class ChoiceParameterTest(TestCase):
                 parameter_type=ParameterType.INT,
                 values=list(range(1001)),
             )
+        # With bypass_cardinality_check=True, this should not raise an error.
+        ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            values=list(range(1001)),
+            bypass_cardinality_check=True,
+        )
 
     def test_Hierarchical(self) -> None:
         # Test case where only some of the values entail dependents.
