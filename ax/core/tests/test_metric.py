@@ -151,16 +151,20 @@ class MetricTest(TestCase):
             metric.summary_dict,
             {
                 "name": "m1",
+                "signature": "m1",
                 "type": "Metric",
                 "lower_is_better": False,
             },
         )
 
-        metric = TestMetric(name="m2", lower_is_better=True)
+        metric = TestMetric(
+            name="m2", lower_is_better=True, signature_override="m2_signature"
+        )
         self.assertDictEqual(
             metric.summary_dict,
             {
                 "name": "m2",
+                "signature": "m2_signature",
                 "type": "TestMetric",
                 "lower_is_better": True,
             },

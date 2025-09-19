@@ -199,7 +199,7 @@ class TestAdapterUtils(TestCase):
     def test_observation_data_to_array(self) -> None:
         outcomes = ["a", "b", "c"]
         obsd = ObservationData(
-            metric_names=["c", "a", "b"],
+            metric_signatures=["c", "a", "b"],
             means=np.array([1, 2, 3]),
             covariance=np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
         )
@@ -211,7 +211,7 @@ class TestAdapterUtils(TestCase):
 
         # With missing metrics.
         obsd2 = ObservationData(
-            metric_names=["c", "a"],
+            metric_signatures=["c", "a"],
             means=np.array([1, 2]),
             covariance=np.array([[1, 2], [4, 5]]),
         )

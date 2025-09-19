@@ -32,7 +32,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def __init__(
         self,
-        metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
@@ -42,7 +42,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """A BaseEarlyStoppingStrategy class.
 
         Args:
-            metric_names: The names of the metrics the strategy will interact with.
+            metric_signatures: The names of the metrics the strategy will interact with.
                 If no metric names are provided, considers the objective metric(s).
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
@@ -63,7 +63,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 should be > 0 to ensure that at least one trial has completed and that
                 we have a reliable approximation for `prog_max`.
         """
-        self.metric_names = metric_names
+        self.metric_signatures = metric_signatures
         self.min_progression = min_progression
         self.max_progression = max_progression
         self.min_curves = min_curves
@@ -115,10 +115,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return estimate_early_stopping_savings(experiment=experiment)
 
     def _check_validity_and_get_data(
-        self, experiment: Experiment, metric_names: list[str]
+        self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
         """Validity checks and returns the `MapData` used for early stopping that
-        is associated with `metric_names`. This function also handles normalizing
+        is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
         data = experiment.lookup_data()
@@ -128,11 +128,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 "Not stopping any trials."
             )
             return None
-        for metric_name in metric_names:
-            if metric_name not in set(data.df["metric_name"]):
+        for metric_signature in metric_signatures:
+            if metric_signature not in set(data.df["metric_signature"]):
                 logger.info(
                     f"{self.__class__.__name__} did not receive data from the "
-                    f"objective metric `{metric_name}`. Not stopping any trials."
+                    f"objective metric `{metric_signature}`. Not stopping any trials."
                 )
                 return None
 
@@ -147,7 +147,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         data = assert_is_instance(data, MapData)
         map_df = data.map_df
         # keep only relevant metrics
-        map_df = map_df[map_df["metric_name"].isin(metric_names)].copy()
+        map_df = map_df[map_df["metric_signature"].isin(metric_signatures)].copy()
         if self.normalize_progressions:
             values = map_df[MAP_KEY].astype(float)
             map_df[MAP_KEY] = values / values.abs().max()
@@ -261,8 +261,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             trial_index: The index of the trial to check.
             experiment: The experiment containing the trial.
             df: A dataframe containing the time-dependent metrics for the trial.
-                NOTE: `df` should only contain data with `metric_name` fields that are
-                associated with the early stopping strategy. This is usually done
+                NOTE: `df` should only contain data with `metric_signature` fields that
+                are associated with the early stopping strategy. This is usually done
                 automatically in `_check_validity_and_get_data`. `is_eligible` might
                 otherwise return False even though the trial is eligible, if there are
                 secondary tracking metrics that are in `df` but shouldn't be considered
@@ -282,8 +282,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
 
         # Check eligibility of each metric.
-        for metric_name, metric_df in df.groupby("metric_name"):
+        for metric_signature, metric_df in df.groupby("metric_signature"):
             # check for no data
+            metric_name = experiment.signature_to_metric[metric_signature].name
             df_trial = metric_df[metric_df["trial_index"] == trial_index]
             df_trial = df_trial.dropna(subset=["mean"])
             if df_trial.empty:
@@ -321,9 +322,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return next(iter(objectives_to_directions.items()))
 
     def _all_objectives_and_directions(self, experiment: Experiment) -> dict[str, bool]:
-        """A dictionary mapping metric names to corresponding directions, i.e.
+        """A dictionary mapping metric signatures to corresponding directions, i.e.
         a Boolean indicating whether the objective is minimized, for each objective in
-        the experiment or in `self.metric_names`, if specified.
+        the experiment or in `self.metric_signatures`, if specified.
 
         Args:
             experiment: The experiment containing the optimization config.
@@ -331,9 +332,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Returns: A dictionary mapping metric names to a Boolean indicating whether
             the objective is being minimized.
         """
-        if self.metric_names is None:
+        if self.metric_signatures is None:
             logger.debug(
-                "No metric names specified. Defaulting to the objective metric(s).",
+                "No metric signatures specified. "
+                "Defaulting to the objective metric(s).",
                 stacklevel=2,
             )
             optimization_config = none_throws(experiment.optimization_config)
@@ -345,15 +347,18 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
             directions = {}
             for objective in objectives:
-                metric_name = objective.metric.name
-                directions[metric_name] = objective.minimize
+                metric_signature = objective.metric.signature
+                directions[metric_signature] = objective.minimize
 
         else:
-            metric_names = list(self.metric_names)
+            metric_signatures = list(self.metric_signatures)
             directions = {}
-            for metric_name in metric_names:
-                minimize = experiment.metrics[metric_name].lower_is_better or False
-                directions[metric_name] = minimize
+            for metric_signature in metric_signatures:
+                minimize = (
+                    experiment.signature_to_metric[metric_signature].lower_is_better
+                    or False
+                )
+                directions[metric_signature] = minimize
 
         return directions
 
@@ -364,7 +369,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
-        metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
@@ -375,7 +380,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """A ModelBasedEarlyStoppingStrategy class.
 
         Args:
-            metric_names: The names of the metrics the strategy will interact with.
+            metric_signatures: The names of the metrics the strategy will interact with.
                 If no metric names are provided the objective metric is assumed.
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
@@ -400,7 +405,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 is not reliable or excessively noisy.
         """
         super().__init__(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
@@ -410,14 +415,14 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self.min_progression_modeling = min_progression_modeling
 
     def _check_validity_and_get_data(
-        self, experiment: Experiment, metric_names: list[str]
+        self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
         """Validity checks and returns the `MapData` used for early stopping that
-        is associated with `metric_names`. This function also handles normalizing
+        is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
         map_data = super()._check_validity_and_get_data(
-            experiment=experiment, metric_names=metric_names
+            experiment=experiment, metric_signatures=metric_signatures
         )
         if map_data is not None and self.min_progression_modeling is not None:
             map_df = map_data.map_df

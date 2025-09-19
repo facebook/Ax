@@ -160,7 +160,7 @@ class SklearnMetric(Metric):
 
         except Exception as e:
             return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                MetricFetchE(message=f"Failed to fetch {self.signature}", exception=e)
             )
 
     def train_eval(self, arm: Arm) -> tuple[float, float]:

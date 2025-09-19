@@ -51,8 +51,8 @@ def get_early_stopping_metrics(
     `early_stopping_strategy` is operating."""
     if early_stopping_strategy is None:
         return []
-    if early_stopping_strategy.metric_names is not None:
-        return list(early_stopping_strategy.metric_names)
+    if early_stopping_strategy.metric_signatures is not None:
+        return list(early_stopping_strategy.metric_signatures)
     # TODO: generalize this to multi-objective ess
     default_objective, _ = early_stopping_strategy._default_objective_and_direction(
         experiment=experiment

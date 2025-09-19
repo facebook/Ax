@@ -98,7 +98,7 @@ class MultiObjectiveLegacyBoTorchGenerator(LegacyBoTorchGenerator):
             Yvars,
             task_features,
             fidelity_features,
-            metric_names,
+            metric_signatures,
             state_dict,
             **kwargs,
         ) -> model
@@ -106,7 +106,7 @@ class MultiObjectiveLegacyBoTorchGenerator(LegacyBoTorchGenerator):
     Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),
     `task_features` identifies columns of Xs that should be modeled as a task,
     `fidelity_features` is a list of ints that specify the positions of fidelity
-    parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
+    parameters in 'Xs', `metric_signatures` provides the names of each `Y` in `Ys`,
     `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
     Optional kwargs are being passed through from the `LegacyBoTorchGenerator`
     constructor. This callable is assumed to return a fitted BoTorch model that has
@@ -229,7 +229,7 @@ class MultiObjectiveLegacyBoTorchGenerator(LegacyBoTorchGenerator):
         self.device = None
         self.task_features: list[int] = []
         self.fidelity_features: list[int] = []
-        self.metric_names: list[str] = []
+        self.metric_signatures: list[str] = []
 
     @copy_doc(TorchGenerator.gen)
     def gen(

@@ -52,5 +52,5 @@ def get_torch_test_data(
     ]
     feature_names = ["x1", "x2", "x3"]
     task_features = [] if task_features is None else task_features
-    metric_names = ["y"]
-    return X, Y, Yvar, bounds, task_features, feature_names, metric_names
+    metric_signatures = ["y"]
+    return X, Y, Yvar, bounds, task_features, feature_names, metric_signatures

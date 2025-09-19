@@ -49,7 +49,9 @@ class TimeAsFeatureTransformTest(TestCase):
         self.training_obs = [
             Observation(
                 data=ObservationData(
-                    metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
+                    metric_signatures=[],
+                    means=np.array([]),
+                    covariance=np.empty((0, 0)),
                 ),
                 features=obsf,
             )

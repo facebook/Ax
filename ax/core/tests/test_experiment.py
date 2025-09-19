@@ -457,7 +457,14 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(
             set(
-                exp.fetch_data(metrics=[Metric(name="not_yet_on_experiment")])
+                exp.fetch_data(
+                    metrics=[
+                        Metric(
+                            name="not_yet_on_experiment",
+                            signature_override="not_yet_on_experiment_signature",
+                        )
+                    ]
+                )
                 .df["metric_name"]
                 .values
             ),
@@ -465,7 +472,14 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(
             set(
-                exp.fetch_data(metrics=[Metric(name="not_yet_on_experiment")])
+                exp.fetch_data(
+                    metrics=[
+                        Metric(
+                            name="not_yet_on_experiment",
+                            signature_override="not_yet_on_experiment_signature",
+                        )
+                    ]
+                )
                 .df["metric_signature"]
                 .values
             ),

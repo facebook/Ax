@@ -169,7 +169,7 @@ def _get_objective_v_param_plots(
         return []
     range_param_names = [param.name for param in range_params]
     num_range_params = len(range_params)
-    num_metrics = len(model.metric_names)
+    num_metrics = len(model.metric_signatures)
     num_slice_plots = num_range_params * num_metrics
     output_plots = []
     if num_slice_plots <= max_num_slice_plots:
@@ -208,7 +208,10 @@ def _get_objective_v_param_plots(
         # params that yields the desired number of plots (solved using quadratic eqn)
         num_params_per_metric = int(0.5 + (0.25 + num_contour_per_metric) ** 0.5)
         try:
-            for metric_name in model.metric_names:
+            metric_names = []
+            for signature in model.metric_signatures:
+                metric_names.append(experiment.signature_to_metric[signature].name)
+            for metric_name in metric_names:
                 if importance is not None:
                     range_params_sens_for_metric = {
                         k: v
@@ -364,9 +367,12 @@ def get_standard_plots(
                     logger.exception(f"Failed to compute feature sensitivities: {e}")
         if sens is None:
             try:
+                metric_names = []
+                for signature in model.metric_signatures:
+                    metric_names.append(experiment.signature_to_metric[signature].name)
                 sens = {
                     metric_name: model.feature_importances(metric_name)
-                    for i, metric_name in enumerate(sorted(model.metric_names))
+                    for i, metric_name in enumerate(sorted(metric_names))
                 }
             except Exception as e:
                 logger.warning(f"Failed to compute feature importances: {e}")
