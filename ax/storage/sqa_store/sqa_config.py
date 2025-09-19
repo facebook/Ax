@@ -9,7 +9,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -67,9 +67,10 @@ class SQAConfig:
             serialization function.
     """
 
+    EXPERIMENT_TYPES_WITH_NO_DATA_STORAGE: set[str] = field(default_factory=set)
+
     def _default_class_to_sqa_class(self=None) -> dict[type[Base], type[SQABase]]:
-        # pyre-fixme[7]
-        return {
+        ax_cls_to_sqa_cls = {
             AbandonedArm: SQAAbandonedArm,
             AnalysisCard: SQAAnalysisCard,
             Arm: SQAArm,
@@ -84,6 +85,10 @@ class SQAConfig:
             Trial: SQATrial,
             AuxiliaryExperiment: SQAAuxiliaryExperiment,
         }
+        return {
+            cast(type[Base], k): cast(type[SQABase], v)
+            for k, v in ax_cls_to_sqa_cls.items()
+        }
 
     class_to_sqa_class: dict[type[Base], type[SQABase]] = field(
         default_factory=_default_class_to_sqa_class
@@ -92,27 +97,21 @@ class SQAConfig:
     generator_run_type_enum: Enum | type[Enum] | None = GeneratorRunType
     auxiliary_experiment_purpose_enum: type[Enum] = AuxiliaryExperimentPurpose
 
-    # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    json_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] = field(
+    # Encoding and decoding registries:
+    json_encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]] = field(
         default_factory=lambda: CORE_ENCODER_REGISTRY
     )
-    # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    json_class_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] = field(
-        default_factory=lambda: CORE_CLASS_ENCODER_REGISTRY
+    json_class_encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]] = (
+        field(default_factory=lambda: CORE_CLASS_ENCODER_REGISTRY)
     )
-
     json_decoder_registry: TDecoderRegistry = field(
         default_factory=lambda: CORE_DECODER_REGISTRY
     )
-    # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
     json_class_decoder_registry: dict[str, Callable[[dict[str, Any]], Any]] = field(
         default_factory=lambda: CORE_CLASS_DECODER_REGISTRY
     )
 
+    # Metric and runner class registries:
     metric_registry: dict[type[Metric], int] = field(
         default_factory=lambda: CORE_METRIC_REGISTRY
     )
