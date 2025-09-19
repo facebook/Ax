@@ -553,11 +553,17 @@ class BaseTrial(ABC, SortableBase):
         self._time_run_started = datetime.now()
         return self
 
-    def mark_completed(self, unsafe: bool = False) -> BaseTrial:
+    def mark_completed(
+        self, unsafe: bool = False, time_completed: str | None = None
+    ) -> BaseTrial:
         """Mark trial as completed.
 
         Args:
             unsafe: Ignore sanity checks on state transitions.
+            time_completed: The time the trial was completed. If None, defaults to
+                the time the method was called. String must follow "%Y-%m-%d" format.
+                This is a risky argument, and should only be used if you are confident
+                in your changes.
         Returns:
             The trial instance.
         """
@@ -566,7 +572,11 @@ class BaseTrial(ABC, SortableBase):
                 "Can only complete trial that is currently running."
             )
         self._status = TrialStatus.COMPLETED
-        self._time_completed = datetime.now()
+        self._time_completed = (
+            datetime.now()
+            if time_completed is None
+            else datetime.strptime(time_completed, "%Y-%m-%d")
+        )
         return self
 
     def mark_abandoned(
