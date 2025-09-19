@@ -636,6 +636,7 @@ class SQAStoreTest(TestCase):
                     for i, objective in enumerate(objectives):
                         metric = objective.metric
                         self.assertEqual(metric.name, f"m{1 + 2 * i}")
+                        self.assertEqual(metric.signature, f"m{1 + 2 * i}")
                         self.assertEqual(metric.__class__, Metric)
                 elif composite_type == "scalarized" and not immutable:
                     # Check scalarized objective children
@@ -1620,16 +1621,32 @@ class SQAStoreTest(TestCase):
         # Extract default value.
         properties = serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
-            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+            properties,
+            {
+                "name": "foo",
+                "lower_is_better": None,
+                "properties": {},
+                "signature_override": None,
+            },
         )
 
         # Extract passed value.
         properties = serialize_init_args(
-            obj=Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
+            obj=Metric(
+                name="foo",
+                lower_is_better=True,
+                properties={"foo": "bar"},
+                signature_override="foo_signature",
+            )
         )
         self.assertEqual(
             properties,
-            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+            {
+                "name": "foo",
+                "lower_is_better": True,
+                "properties": {"foo": "bar"},
+                "signature_override": "foo_signature",
+            },
         )
 
     def test_RegistryAdditions(self) -> None:

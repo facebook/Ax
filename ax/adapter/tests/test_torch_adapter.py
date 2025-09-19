@@ -107,6 +107,7 @@ class TorchAdapterTest(TestCase):
                         "arm_name": ["0_0", "0_0", "1_0", "1_0"],
                         "mean": [3.0, 2.0, 1.0, 0.0],
                         "sem": [3.0, 1e-4, 2.0, 1e-3],
+                        "metric_signature": ["y1", "y2", "y1", "y2"],
                     }
                 )
             )
@@ -178,7 +179,7 @@ class TorchAdapterTest(TestCase):
             torch.tensor([[[pred_var[0], 0.0], [0.0, pred_var[1]]]], **tkwargs),
         )
         pr_obs_data_expected = ObservationData(
-            metric_names=["y1", "y2"],
+            metric_signatures=["y1", "y2"],
             means=np.array(pred_means),
             covariance=np.diag(pred_var),
         )
@@ -262,7 +263,7 @@ class TorchAdapterTest(TestCase):
 
         # Test `_cross_validate`
         cv_obs_data_expected = ObservationData(
-            metric_names=["y1", "y2"],
+            metric_signatures=["y1", "y2"],
             means=np.array([3.0, 2.0]),
             covariance=np.diag([4.0, 3.0]),
         )
@@ -605,7 +606,7 @@ class TorchAdapterTest(TestCase):
             search_space=search_space,
         )
         adapter = TorchAdapter(experiment=experiment, generator=BoTorchGenerator())
-        metric_names = ["m1"]
+        metric_signatures = ["m1"]
         experiment_data = adapter.get_training_data()
         for use_task, expected_class in (
             (True, MultiTaskDataset),
@@ -621,7 +622,7 @@ class TorchAdapterTest(TestCase):
             )
             converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
                 experiment_data=experiment_data,
-                outcomes=metric_names,
+                outcomes=metric_signatures,
                 parameters=feature_names,
                 search_space_digest=search_space_digest,
             )
@@ -639,13 +640,13 @@ class TorchAdapterTest(TestCase):
             self.assertTrue(torch.equal(dataset.Y, expected_Y))
             self.assertIsNone(dataset.Yvar)
             self.assertEqual(dataset.feature_names, feature_names)
-            self.assertEqual(dataset.outcome_names, metric_names)
-            self.assertEqual(ordered_outcomes, metric_names)
+            self.assertEqual(dataset.outcome_names, metric_signatures)
+            self.assertEqual(ordered_outcomes, metric_signatures)
 
             with self.assertRaisesRegex(DataRequiredError, "no corresponding data"):
                 adapter._convert_experiment_data(
                     experiment_data=experiment_data,
-                    outcomes=metric_names + ["extra"],
+                    outcomes=metric_signatures + ["extra"],
                     parameters=feature_names,
                     search_space_digest=search_space_digest,
                 )
@@ -708,7 +709,7 @@ class TorchAdapterTest(TestCase):
         raw_X[0, -1] = 0  # Make sure task value 0 exists.
         raw_Y = torch.sin(raw_X).sum(-1, keepdim=True).expand(-1, 4)
         feature_names = ["x0", "x1", "x2"]
-        metric_names = ["y", "y:c0", "y:c1", "y:c2"]
+        metric_signatures = ["y", "y:c0", "y:c1", "y:c2"]
         parameter_decomposition = {f"c{i}": [f"x{i}"] for i in range(3)}
         metric_decomposition = {f"c{i}": [f"y:c{i}"] for i in range(3)}
 
@@ -741,7 +742,7 @@ class TorchAdapterTest(TestCase):
         experiment_data = adapter.get_training_data()
         converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
             experiment_data=experiment_data,
-            outcomes=metric_names,
+            outcomes=metric_signatures,
             parameters=feature_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=feature_names,
@@ -869,6 +870,7 @@ class TorchAdapterTest(TestCase):
                         "mean": o,
                         "sem": None,
                         "trial_index": trial.index,
+                        "metric_signature": metric,
                     }
                     for metric, o in (("m1", 0.2), ("m2", 0.5))
                 ]

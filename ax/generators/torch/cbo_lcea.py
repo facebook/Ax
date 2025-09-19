@@ -142,7 +142,7 @@ class LCEABO(LegacyBoTorchGenerator):
         Yvars: list[Tensor],
         task_features: list[int],
         fidelity_features: list[int],
-        metric_names: list[str],
+        metric_signatures: list[str],
         state_dict: dict[str, Tensor] | None = None,
         fidelity_model_id: int | None = None,
         **kwargs: Any,

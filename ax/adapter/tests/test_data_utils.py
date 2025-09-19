@@ -97,7 +97,9 @@ class TestDataUtils(TestCase):
     def test_extract_experiment_data_non_map(self) -> None:
         # This is a 2 objective experiment with 2 trials, 1 arm each.
         observations = [[0.1, 1.0], [0.2, 2.0]]
-        exp = get_experiment_with_observations(observations=observations)
+        exp = get_experiment_with_observations(
+            observations=observations, signature_suffix=True
+        )
         # Add another trial but fail it.
         # Also add some custom arm metadata.
         sobol = Generators.SOBOL(experiment=exp)
@@ -118,6 +120,7 @@ class TestDataUtils(TestCase):
                         "mean": 0.4,
                         "sem": 0.2,
                         "trial_index": t.index,
+                        "metric_signature": "m1_sig",
                     }
                 ]
             )
@@ -155,7 +158,7 @@ class TestDataUtils(TestCase):
         # First 4 rows correspond to 2 metrics from the 2 completed trials.
         data_df = exp.lookup_data().df[:4]
         expected_obs_df = data_df.pivot(
-            columns="metric_name",
+            columns="metric_signature",
             index=["trial_index", "arm_name"],
             values=["mean", "sem"],
         )
@@ -171,8 +174,13 @@ class TestDataUtils(TestCase):
         self.assertTrue(
             experiment_data.observation_data.columns.equals(
                 MultiIndex.from_tuples(
-                    [("mean", "m1"), ("mean", "m2"), ("sem", "m1"), ("sem", "m2")],
-                    names=[None, "metric_name"],
+                    [
+                        ("mean", "m1_sig"),
+                        ("mean", "m2_sig"),
+                        ("sem", "m1_sig"),
+                        ("sem", "m2_sig"),
+                    ],
+                    names=[None, "metric_signature"],
                 )
             )
         )
@@ -214,7 +222,7 @@ class TestDataUtils(TestCase):
         # All data should be included.
         data_df = exp.lookup_data().df
         expected_obs_df = data_df.pivot(
-            columns="metric_name",
+            columns="metric_signature",
             index=["trial_index", "arm_name"],
             values=["mean", "sem"],
         )
@@ -258,7 +266,7 @@ class TestDataUtils(TestCase):
         )
         # Observation data: By default only includes completed map metrics.
         # There is none, so map metrics are not included.
-        metrics = set(experiment_data.metric_names)
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin"})
         self.assertEqual(len(experiment_data.observation_data), 2)
         # Complete a trial to include map metrics.
@@ -273,7 +281,7 @@ class TestDataUtils(TestCase):
         )
         # Observation data: Map metrics should be included but only with latest
         # timestamp for trial 0.
-        metrics = set(experiment_data.metric_names)
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [(0, "0_0", float("NaN")), (0, "0_0", 3.0), (1, "1_0", float("NaN"))],
@@ -313,7 +321,7 @@ class TestDataUtils(TestCase):
             experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
         )
         # Observation data: Map metrics should be included for all timestamps.
-        metrics = set(experiment_data.metric_names)
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [
@@ -384,6 +392,7 @@ class TestDataUtils(TestCase):
                     {
                         "arm_name": t.arms[0].name,
                         "metric_name": "branin_a",
+                        "metric_signature": "branin_a",
                         "mean": 0.4 * t.index,
                         "sem": 0.2 + 0.1 * t.index,
                         "trial_index": t.index,
@@ -396,6 +405,7 @@ class TestDataUtils(TestCase):
                     {
                         "arm_name": t.arms[0].name,
                         "metric_name": "branin_b",
+                        "metric_signature": "branin_b",
                         "mean": 0.4 * t.index,
                         "sem": 0.2 + 0.1 * t.index,
                         "trial_index": t.index,
@@ -552,7 +562,7 @@ class TestDataUtils(TestCase):
                 },
             ),
             data=ObservationData(
-                metric_names=["branin"],
+                metric_signatures=["branin"],
                 means=np.array([55.602112642270264]),
                 covariance=np.diag([0.0]),
             ),
@@ -569,7 +579,7 @@ class TestDataUtils(TestCase):
                     },
                 ),
                 data=ObservationData(
-                    metric_names=["branin_map"],
+                    metric_signatures=["branin_map"],
                     means=np.array([55.602112642270264]),
                     covariance=np.diag([0.0]),
                 ),
@@ -584,7 +594,7 @@ class TestDataUtils(TestCase):
                 metadata={"step": float("NaN")},
             ),
             data=ObservationData(
-                metric_names=["branin"],
+                metric_signatures=["branin"],
                 means=np.array([27.702905548512433]),
                 covariance=np.diag([0.0]),
             ),
@@ -598,7 +608,7 @@ class TestDataUtils(TestCase):
                     metadata={"step": timestamp},
                 ),
                 data=ObservationData(
-                    metric_names=["branin_map"],
+                    metric_signatures=["branin_map"],
                     means=np.array([27.702905548512433]),
                     covariance=np.diag([0.0]),
                 ),
@@ -630,7 +640,7 @@ class TestDataUtils(TestCase):
                     metadata={Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"],
+                    metric_signatures=["branin", "branin_map"],
                     # Means are deterministic based on the parameterization.
                     means=np.array([55.602112642270264, 55.602112642270264]),
                     covariance=np.diag([0.0, 0.0]),
@@ -644,7 +654,7 @@ class TestDataUtils(TestCase):
                     metadata={},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"],
+                    metric_signatures=["branin", "branin_map"],
                     means=np.array([27.702905548512433, 27.702905548512433]),
                     covariance=np.diag([0.0, 0.0]),
                 ),
@@ -653,7 +663,7 @@ class TestDataUtils(TestCase):
         ]
         self.assertEqual(observations, expected)
 
-    def test_experiment_data_metric_names(self) -> None:
+    def test_experiment_data_metric_signatures(self) -> None:
         for experiment, expected in [
             (get_branin_experiment(), []),
             (get_branin_experiment(with_completed_trial=True), ["branin"]),
@@ -667,4 +677,4 @@ class TestDataUtils(TestCase):
             experiment_data = extract_experiment_data(
                 experiment=experiment, data_loader_config=DataLoaderConfig()
             )
-            self.assertEqual(experiment_data.metric_names, expected)
+            self.assertEqual(experiment_data.metric_signatures, expected)

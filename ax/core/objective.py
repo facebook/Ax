@@ -67,6 +67,11 @@ class Objective(SortableBase):
         """Get a list of objective metric names."""
         return [m.name for m in self.metrics]
 
+    @property
+    def metric_signatures(self) -> list[str]:
+        """Get a list of objective metric signatures."""
+        return [m.signature for m in self.metrics]
+
     def clone(self) -> Objective:
         """Create a copy of the objective."""
         return Objective(self.metric.clone(), self.minimize)

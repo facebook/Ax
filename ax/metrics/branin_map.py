@@ -85,6 +85,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         """Ignore _timestamp on equality checks"""
         return (
             self.name == o.name
+            and self.signature == o.signature
             and self.param_names == o.param_names
             and self.noise_sd == o.noise_sd
             and self.lower_is_better == o.lower_is_better
@@ -122,6 +123,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                             else 0.0
                             for item in res
                         ],
+                        "metric_signature": self.signature,
                         MAP_KEY: [item[MAP_KEY] for item in res],
                     }
                 )

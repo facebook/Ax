@@ -70,9 +70,8 @@ def table_view_plot(
     # model.metric_names = [regular_metric, metric1, metric2] # "exploded" out
     # We want to filter model.metric_names and get rid of metric1, metric2
     metric_names = [
-        metric_name
-        for metric_name in model.metric_names
-        if metric_name in experiment.metrics
+        experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
     ]
 
     metric_name_to_lower_is_better = {

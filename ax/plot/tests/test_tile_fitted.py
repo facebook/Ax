@@ -40,7 +40,7 @@ def get_adapter(with_status_quo: bool) -> Adapter:
         autospec=True,
         return_value=[
             ObservationData(
-                metric_names=["branin"],
+                metric_signatures=["branin"],
                 means=np.array([1.0]),
                 covariance=np.array([[1.0]]),
             )

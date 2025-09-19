@@ -63,7 +63,7 @@ class TestEarlyStoppingProblem(TestCase):
         )
         self.assertEqual(len(create_surrogate_regressor_call_args), 2)
         self.assertEqual(
-            problem.optimization_config.objective.metric.name, DEFAULT_METRIC_NAME
+            problem.optimization_config.objective.metric.signature, DEFAULT_METRIC_NAME
         )
         self.assertIsNone(problem.step_runtime_function)
         self.assertEqual(problem.optimal_value, OPTIMAL_VALUES[dataset_name])

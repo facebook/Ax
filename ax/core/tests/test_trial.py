@@ -23,6 +23,7 @@ from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
 from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
+from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
@@ -43,6 +44,7 @@ TEST_DATA = Data(
                 "mean": 1.0,
                 "sem": 2.0,
                 "trial_index": 0,
+                "metric_signature": get_objective().metric.signature,
             }
         ]
     )
@@ -312,7 +314,7 @@ class TrialTest(TestCase):
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data_results",
-        return_value={get_objective().metric.name: Ok(TEST_DATA)},
+        return_value={get_objective().metric.signature: Ok(TEST_DATA)},
     )
     def test_fetch_data_result(self, mock: Mock) -> None:
         metric_name = get_objective().metric.name
@@ -390,7 +392,21 @@ class TrialTest(TestCase):
         map_trial = map_experiment.new_trial().add_arm(
             arm=get_branin_arms(n=1, seed=0)[0]
         )
+
+        map_experiment.add_tracking_metrics(
+            metrics=[
+                BraninMetric(name="time", param_names=["x1", "x2"]),
+                BraninMetric(name="m1", param_names=["x1", "x2"]),
+            ]
+        )
         map_trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Unable to find the metric signature for one or more metrics.",
+        ):
+            map_trial.update_trial_data(raw_data=[(0, {"m2": 1.0})])
+
         with self.assertRaisesRegex(
             UserInputError,
             "The format of the `raw_data` is not compatible with `MapData`. ",

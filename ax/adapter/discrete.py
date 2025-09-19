@@ -90,7 +90,7 @@ class DiscreteAdapter(Adapter):
         if experiment_data.observation_data.empty:
             self.outcomes = []
         else:
-            self.outcomes = sorted(experiment_data.metric_names)
+            self.outcomes = sorted(experiment_data.metric_signatures)
         # Convert observations to arrays
         Xs_array, Ys_array, Yvars_array = self._convert_experiment_data(
             experiment_data=experiment_data,
@@ -187,8 +187,8 @@ class DiscreteAdapter(Adapter):
             pending_array: list[list[TParamValueList]] | None = None
         else:
             pending_array = [[] for _ in self.outcomes]
-            for metric_name, po_list in pending_observations.items():
-                pending_array[self.outcomes.index(metric_name)] = [
+            for metric_signature, po_list in pending_observations.items():
+                pending_array[self.outcomes.index(metric_signature)] = [
                     [po.parameters[p] for p in self.parameters] for po in po_list
                 ]
 

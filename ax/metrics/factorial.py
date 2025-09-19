@@ -84,6 +84,7 @@ class FactorialMetric(Metric):
                         "trial_index": trial.index,
                         "n": n,
                         "frac_nonnull": mean,
+                        "metric_signature": self.signature,
                     }
                 )
             return Ok(value=Data(df=pd.DataFrame(data)))

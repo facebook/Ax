@@ -394,6 +394,7 @@ class TestManagedLoop(TestCase):
             objective_name="branin",
             minimize=True,
             evaluation_function=_branin_evaluation_function,
+            outcome_constraints=["constrained_metric <= 10"],
             total_trials=6,
             generation_strategy=strategy0,
         )

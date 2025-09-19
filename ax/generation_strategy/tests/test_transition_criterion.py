@@ -53,7 +53,7 @@ class TestTransitionCriterion(TestCase):
         self.branin_experiment = get_branin_experiment()
 
     def test_minimum_preference_criterion(self) -> None:
-        criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
+        criterion = MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
         experiment = get_experiment()
         generation_strategy = GenerationStrategy(
             name="SOBOL::default",
@@ -87,6 +87,7 @@ class TestTransitionCriterion(TestCase):
                     "metric_name": ["m1" for _ in range(6)],
                     "mean": [0, 0, 0, 1, 1, 1],
                     "sem": [0 for _ in range(6)],
+                    "metric_signature": ["m1" for _ in range(6)],
                 }
             )
         )
@@ -603,11 +604,11 @@ class TestTransitionCriterion(TestCase):
             + "'count_only_trials_with_data': False})",
         )
         minimum_preference_occurrences_criterion = MinimumPreferenceOccurances(
-            metric_name="m1", threshold=3
+            metric_signature="m1", threshold=3
         )
         self.assertEqual(
             str(minimum_preference_occurrences_criterion),
-            "MinimumPreferenceOccurances({'metric_name': 'm1', 'threshold': 3, "
+            "MinimumPreferenceOccurances({'metric_signature': 'm1', 'threshold': 3, "
             + "'transition_to': None, 'block_gen_if_met': False, "
             "'block_transition_if_unmet': True})",
         )

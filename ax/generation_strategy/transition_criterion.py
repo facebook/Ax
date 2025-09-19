@@ -624,7 +624,7 @@ class MinimumPreferenceOccurances(TransitionCriterion):
     responses have been received.
 
     Args:
-        metric_name: name of the metric to check for preference occurrences.
+        metric_signature: signature of the metric to check for preference occurrences.
         threshold: The threshold as an integer for this criterion. Ex: If we want to
             generate at most 3 trials, then the threshold is 3.
         transition_to: The name of the GenerationNode the GenerationStrategy should
@@ -643,13 +643,13 @@ class MinimumPreferenceOccurances(TransitionCriterion):
 
     def __init__(
         self,
-        metric_name: str,
+        metric_signature: str,
         threshold: int,
         transition_to: str | None = None,
         block_gen_if_met: bool | None = False,
         block_transition_if_unmet: bool | None = True,
     ) -> None:
-        self.metric_name = metric_name
+        self.metric_signature = metric_signature
         self.threshold = threshold
         super().__init__(
             transition_to=transition_to,
@@ -663,7 +663,9 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         curr_node: GenerationNode,
     ) -> bool:
         # TODO: @mgarrard replace fetch_data with lookup_data
-        data = experiment.fetch_data(metrics=[experiment.metrics[self.metric_name]])
+        data = experiment.fetch_data(
+            metrics=[experiment.signature_to_metric[self.metric_signature]]
+        )
 
         count_no = (data.df["mean"] == 0).sum()
         count_yes = (data.df["mean"] != 0).sum()
