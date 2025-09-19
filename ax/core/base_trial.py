@@ -30,6 +30,7 @@ from ax.exceptions.core import TrialMutationError, UnsupportedError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
+from typing_extensions import Self
 
 
 if TYPE_CHECKING:
@@ -137,12 +138,60 @@ class BaseTrial(ABC, SortableBase):
         # strategy, this property will be set to the generation step that produced
         # the generator run(s).
         self._generation_step_index: int | None = None
-        # Please do not store any data related to trial deployment or data-
+        # NOTE: Please do not store any data related to trial deployment or data-
         # fetching in properties. It is intended to only store properties related
         # to core Ax functionality and not to any third-system that the trials
         # might be getting deployed to.
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._properties = {}
+        self._properties: dict[str, Any] = {}
+
+    @abstractproperty
+    def arms(self) -> list[Arm]:
+        """All arms associated with this trial."""
+        pass
+
+    @abstractproperty
+    def arms_by_name(self) -> dict[str, Arm]:
+        """A mapping of from arm names, to all arms associated with
+        this trial.
+        """
+        pass
+
+    @abstractproperty
+    def abandoned_arms(self) -> list[Arm]:
+        """All abandoned arms, associated with this trial."""
+        pass
+
+    @abstractmethod
+    def add_generator_run(self, generator_run: GeneratorRun) -> Self:
+        """Add a generator run to the trial.
+
+        The arms and weights from the generator run will be merged with
+        the existing arms and weights on the trial, and the generator run
+        object will be linked to the trial for tracking.
+
+        Args:
+            generator_run: The generator run to be added.
+
+        Returns:
+            The trial instance.
+        """
+        pass
+
+    @abstractmethod
+    def add_arm(
+        self, arm: Arm, candidate_metadata: dict[str, Any] | None = None
+    ) -> Self:
+        """Add arm to the trial.
+
+        Returns:
+            The trial instance.
+        """
+        pass
+
+    @abstractmethod
+    def __repr__(self) -> str:
+        """String representation of the trial."""
+        pass
 
     @property
     def experiment(self) -> core.experiment.Experiment:
@@ -236,6 +285,25 @@ class BaseTrial(ABC, SortableBase):
         (e.g. different deployment types).
         """
         return self._trial_type
+
+    def _add_generator_run(self, generator_run: GeneratorRun) -> None:
+        """Helper called from ``{BatchTrial, Trial}.add_generator_run: validates
+        and names arms; adds the ``GeneratorRun`` to this trial's ``Experiment``.
+        """
+        # 1. Validate the arm(s) in the generator run.
+        for arm in generator_run.arms:
+            self.experiment.search_space.check_types(arm.parameters, raise_error=True)
+
+        # 2. Name any yet-unnamed arms: for arms that are not yet added to this
+        # trial's experiment, assign a new name; use name on experiment otherwise.
+        for arm in generator_run.arms:
+            self._check_existing_and_name_arm(arm)
+
+        # 3.TODO: Add the generator run to the experiment if it's not already there;
+        # assign an experiment-level index if newly added.
+
+        # 4. TODO: Capture which generator run the arms we are about to add this
+        # this trial, came from.
 
     def assign_runner(self) -> BaseTrial:
         """Assigns default experiment runner if trial doesn't already have one."""
@@ -430,23 +498,6 @@ class BaseTrial(ABC, SortableBase):
                 "single trial."
             )
         self._generation_step_index = generation_step_index
-
-    @abstractproperty
-    def arms(self) -> list[Arm]:
-        pass
-
-    @abstractproperty
-    def arms_by_name(self) -> dict[str, Arm]:
-        pass
-
-    @abstractmethod
-    def __repr__(self) -> str:
-        pass
-
-    @abstractproperty
-    def abandoned_arms(self) -> list[Arm]:
-        """All abandoned arms, associated with this trial."""
-        pass
 
     @property
     def active_arms(self) -> list[Arm]:

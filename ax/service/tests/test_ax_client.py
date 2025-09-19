@@ -3046,9 +3046,9 @@ class TestAxClient(TestCase):
 
         self.assertEqual(ax_client.generation_strategy.name, "Sobol")
         self.assertEqual(
-            assert_is_instance(
-                ax_client.experiment.trials[0], Trial
-            )._generator_run._model_key,
+            none_throws(
+                assert_is_instance(ax_client.experiment.trials[0], Trial)._generator_run
+            )._model_key,
             "Sobol",
         )
         with mock.patch(

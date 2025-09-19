@@ -293,11 +293,9 @@ class BatchTrial(BaseTrial):
             }
         )
 
-        # Add names to arms
-        # For those not yet added to this experiment, create a new name
-        # Else, use the name of the existing arm
-        for arm in generator_run.arms:
-            self._check_existing_and_name_arm(arm)
+        # Call `BaseTrial._add_generator_run` to validate and name the arms,
+        # then attach the generator run to the experiment.
+        self._add_generator_run(generator_run=generator_run)
 
         self._generator_runs.append(generator_run)
         if generator_run._generation_step_index is not None:

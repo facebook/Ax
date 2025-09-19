@@ -110,6 +110,7 @@ from ax.generators.torch.botorch_modular.surrogate import (
     Surrogate,
     SurrogateSpec,
 )
+
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
@@ -136,6 +137,7 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 from pyre_extensions import assert_is_instance, none_throws
+from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
 
@@ -1996,6 +1998,31 @@ class TestTrial(BaseTrial):
 
     def generator_runs(self) -> str:
         return "test"
+
+    def add_generator_run(self, generator_run: GeneratorRun) -> Self:
+        """Add a generator run to the trial.
+
+        The arms and weights from the generator run will be merged with
+        the existing arms and weights on the trial, and the generator run
+        object will be linked to the trial for tracking.
+
+        Args:
+            generator_run: The generator run to be added.
+
+        Returns:
+            The trial instance.
+        """
+        return self
+
+    def add_arm(
+        self, arm: Arm, candidate_metadata: dict[str, Any] | None = None
+    ) -> Self:
+        """Add arm to the trial.
+
+        Returns:
+            The trial instance.
+        """
+        return self
 
 
 ##############################
