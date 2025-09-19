@@ -33,6 +33,7 @@ class TestRegressionDetection(TestCase):
                 "trial_index": [0] * 12,
                 "mean": list(np.arange(7, 1, -1)) + list(np.arange(6, 1, -1)) + [10.0],
                 "sem": [1.0] * 12,
+                "metric_signature": ["branin_a"] * 6 + ["branin_b"] * 6,
             }
         )
 
@@ -81,6 +82,7 @@ class TestRegressionDetection(TestCase):
                 "trial_index": [1] * 8,
                 "mean": list(np.arange(5, 1, -1)) + list(np.arange(4, 1, -1)) + [20.0],
                 "sem": [1.0] * 8,
+                "metric_signature": ["branin_a"] * 4 + ["branin_b"] * 4,
             }
         )
 

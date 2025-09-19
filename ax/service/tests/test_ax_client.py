@@ -1720,6 +1720,7 @@ class TestAxClient(TestCase):
 
         # Incomplete trial fails
         params, idx = ax_client.get_next_trial()
+        ax_client.add_tracking_metrics(metric_names=["missing_metric"])
         ax_client.complete_trial(
             trial_index=idx, raw_data=[(0, {"missing_metric": (0, 0.0)})]
         )
@@ -1743,6 +1744,7 @@ class TestAxClient(TestCase):
         self.assertTrue(ax_client.get_trial(idx).status.is_completed)
         # Trial with incomplete data
         params, idx = ax_client.get_next_trial()
+        ax_client.add_tracking_metrics(metric_names=["missing_metric"])
         ax_client.complete_trial(
             trial_index=idx,
             raw_data=[(2, {"missing_metric": (456, 0.0)})],
@@ -2061,6 +2063,7 @@ class TestAxClient(TestCase):
             ],
             support_intermediate_data=True,
         )
+        ax_client.add_tracking_metrics(metric_names=["branin"])
         for _ in range(5):
             parameters, trial_index = ax_client.get_next_trial()
             value = assert_is_instance(branin(*parameters.values()), float)
@@ -2101,6 +2104,7 @@ class TestAxClient(TestCase):
         # Attach an early stopped trial.
         parameters, trial_index = ax_client.get_next_trial()
         value = assert_is_instance(branin(*parameters.values()), float)
+        ax_client.add_tracking_metrics(metric_names=["branin"])
         ax_client.update_running_trial_with_intermediate_data(
             trial_index=trial_index, raw_data=[(0, {"branin": (value, 0.0)})]
         )
@@ -2867,6 +2871,7 @@ class TestAxClient(TestCase):
         )
         parameters, idx = ax_client.get_next_trial()
         value = assert_is_instance(branin(*parameters.values()), float)
+        ax_client.add_tracking_metrics(metric_names=["branin"])
         ax_client.update_running_trial_with_intermediate_data(
             idx, raw_data=[(0, {"branin": (value, 0.0)})]
         )

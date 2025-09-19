@@ -153,6 +153,7 @@ class SklearnMetric(Metric):
                     "mean": means,
                     "sem": sems,
                     "trial_index": trial.index,
+                    "metric_signature": self.signature,
                 }
             )
             return Ok(value=Data(df=df))

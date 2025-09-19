@@ -7,6 +7,7 @@
 # pyre-strict
 
 import datetime
+import json
 from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
@@ -24,6 +25,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.parameter import Parameter
@@ -263,6 +265,17 @@ def object_from_json(
                 **vars(registry_kwargs),
             )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
+            # Special handling for Data and MapData backward compatibility
+            if _class in (Data, MapData):
+                data_json_str = object_json.get("df", {}).get("value", "")
+                data_json = json.loads(data_json_str)
+                if data_json and "metric_signature" not in data_json:
+                    object_json["df"]["value"] = (
+                        _update_data_json_with_metric_signature(
+                            object_json["df"]["value"]
+                        )
+                    )
+
             return _class(
                 # Note: we do not recursively call object_from_json here again as
                 # that would invalidate design principles behind deserialize_init_args.
@@ -1243,3 +1256,9 @@ def _update_deprecated_model_registry(name: str) -> str:
         return new_name
     else:
         return name
+
+
+def _update_data_json_with_metric_signature(data_json_str: str) -> str:
+    data_json = json.loads(data_json_str)
+    data_json["metric_signature"] = data_json.get("metric_name", {})
+    return json.dumps(data_json)

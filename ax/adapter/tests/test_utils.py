@@ -256,7 +256,9 @@ class TestAdapterUtils(TestCase):
         )
         self.experiment.attach_data(
             Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
             )
         )
         # With `fetch_data` on trial returning data for metric "m2", that metric
@@ -265,7 +267,9 @@ class TestAdapterUtils(TestCase):
             self.trial,
             "fetch_data",
             return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
             ),
         ):
             pending = none_throws(get_pending_observation_features(self.experiment))

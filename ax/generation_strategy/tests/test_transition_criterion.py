@@ -87,6 +87,7 @@ class TestTransitionCriterion(TestCase):
                     "metric_name": ["m1" for _ in range(6)],
                     "mean": [0, 0, 0, 1, 1, 1],
                     "sem": [0 for _ in range(6)],
+                    "metric_signature": ["m1" for _ in range(6)],
                 }
             )
         )
