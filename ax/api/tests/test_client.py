@@ -797,7 +797,7 @@ class TestClient(TestCase):
 
         client.set_early_stopping_strategy(
             early_stopping_strategy=PercentileEarlyStoppingStrategy(
-                metric_names=["foo"]
+                metric_signatures=["foo"]
             )
         )
 

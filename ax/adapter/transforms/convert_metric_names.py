@@ -101,9 +101,11 @@ class ConvertMetricNames(Transform):
         observation_data: list[ObservationData],
     ) -> list[ObservationData]:
         for obsd in observation_data:
-            for i in range(len(obsd.metric_names)):
-                if obsd.metric_names[i] in self.metric_name_map:
-                    obsd.metric_names[i] = self.metric_name_map[obsd.metric_names[i]]
+            for i in range(len(obsd.metric_signatures)):
+                if obsd.metric_signatures[i] in self.metric_name_map:
+                    obsd.metric_signatures[i] = self.metric_name_map[
+                        obsd.metric_signatures[i]
+                    ]
         return observation_data
 
     @copy_doc(Transform.untransform_observations)
@@ -121,9 +123,11 @@ class ConvertMetricNames(Transform):
             if not reverse_map:
                 continue
 
-            for j in range(len(obs.data.metric_names)):
-                if obs.data.metric_names[j] in reverse_map:
-                    obs.data.metric_names[j] = reverse_map[obs.data.metric_names[j]]
+            for j in range(len(obs.data.metric_signatures)):
+                if obs.data.metric_signatures[j] in reverse_map:
+                    obs.data.metric_signatures[j] = reverse_map[
+                        obs.data.metric_signatures[j]
+                    ]
         return observations
 
 

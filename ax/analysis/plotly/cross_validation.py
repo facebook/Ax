@@ -118,8 +118,14 @@ class CrossValidationPlot(Analysis):
         cv_results = cross_validate(
             model=relevant_adapter, folds=self.folds, untransform=self.untransform
         )
-        for metric_name in self.metric_names or relevant_adapter.metric_names:
-            df = _prepare_data(metric_name=metric_name, cv_results=cv_results)
+        relevant_adapter_metric_names = [
+            relevant_adapter._experiment.signature_to_metric[signature].name
+            for signature in relevant_adapter._metric_signatures
+        ]
+        for metric_name in self.metric_names or relevant_adapter_metric_names:
+            df = _prepare_data(
+                metric_name=metric_name, cv_results=cv_results, adapter=relevant_adapter
+            )
 
             fig = _prepare_plot(df=df)
 
@@ -230,20 +236,29 @@ def compute_cross_validation_adhoc(
     )
 
 
-def _prepare_data(metric_name: str, cv_results: list[CVResult]) -> pd.DataFrame:
+def _prepare_data(
+    metric_name: str, cv_results: list[CVResult], adapter: Adapter
+) -> pd.DataFrame:
     records = []
     for observed, predicted in cv_results:
+        observed_metric_names = []
+        predicted_metric_names = []
+        for signature in observed.data.metric_signatures:
+            observed_metric_names.append(
+                adapter._experiment.signature_to_metric[signature].name
+            )
+        for signature in predicted.metric_signatures:
+            predicted_metric_names.append(
+                adapter._experiment.signature_to_metric[signature].name
+            )
+
         # Find the index of the metric in observed and predicted
         observed_i = next(
-            (
-                i
-                for i, name in enumerate(observed.data.metric_names)
-                if name == metric_name
-            ),
+            (i for i, name in enumerate(observed_metric_names) if name == metric_name),
             None,
         )
         predicted_i = next(
-            (i for i, name in enumerate(predicted.metric_names) if name == metric_name),
+            (i for i, name in enumerate(predicted_metric_names) if name == metric_name),
             None,
         )
         # Check if both indices are found

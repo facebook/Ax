@@ -403,7 +403,7 @@ class SurrogateSpec:
     Args:
         model_configs: List of model configs. Each model config is a specification of
             a surrogate model. Defaults to a single ``ModelConfig`` with all defaults.
-        metric_to_model_configs: Dictionary mapping metric names to a list of model
+        metric_to_model_configs: Dictionary mapping metric signatures to a list of model
             configs for that metric.
         eval_criterion: The name of the evaluation criteria to use. These are defined in
             ``ax.utils.stats.model_fit_stats``. Defaults to rank correlation.
@@ -443,7 +443,7 @@ class Surrogate(Base):
             during cross-validation. If refit_on_cv is True, generally one
             would set this to be False, so that no information is leaked between or
             across folds.
-        metric_to_best_model_config: Dictionary mapping a metric name to the best
+        metric_to_best_model_config: Dictionary mapping a metric signature to the best
             model config. This is only used by `BoTorchGenerator.cross_validate` and
             for logging what model was used.
 
@@ -465,7 +465,7 @@ class Surrogate(Base):
         # If the new dataset is identical, we will skip model fitting for that metric.
         # The keys are `tuple(dataset.outcome_names)`.
         self._last_datasets: dict[tuple[str], SupervisedDataset] = {}
-        # Store a reference from a tuple of metric names to the BoTorch Model
+        # Store a reference from a tuple of metric signatures to the BoTorch Model
         # corresponding to those metrics. In most cases this will be a one-tuple,
         # though we need n-tuples for LCE-M models. This will be used to skip model
         # construction & fitting if the datasets are identical.
@@ -762,8 +762,8 @@ class Surrogate(Base):
                 outcome_names.extend(dataset.outcome_names)
 
             # store best model config, model, and dataset
-            for metric_name in dataset.outcome_names:
-                self.metric_to_best_model_config[metric_name] = none_throws(
+            for metric_signature in dataset.outcome_names:
+                self.metric_to_best_model_config[metric_signature] = none_throws(
                     best_model_config
                 )
             self._submodels[outcome_name_tuple] = model
@@ -1131,10 +1131,12 @@ class Surrogate(Base):
 
     @property
     def model_name_by_metric(self) -> dict[str, str]:
-        """Returns a dictionary mapping metric names to model names."""
+        """Returns a dictionary mapping metric signatures to model names."""
         return {
-            metric_name: model_config.identifier
-            for metric_name, model_config in (self.metric_to_best_model_config.items())
+            metric_signature: model_config.identifier
+            for metric_signature, model_config in (
+                self.metric_to_best_model_config.items()
+            )
         }
 
     def models_for_gen(self, n: int) -> tuple[list[dict[str, str]], list[Model]]:

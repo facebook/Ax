@@ -65,7 +65,7 @@ def _construct_model(
     Ys: list[Tensor],
     Yvars: list[Tensor],
     fidelity_features: list[int],
-    metric_names: list[str],
+    metric_signatures: list[str],
     use_input_warping: bool = False,
     prior: dict[str, Any] | None = None,
     *,
@@ -120,13 +120,15 @@ def _construct_model(
         # use multi-task GP
         mtgp_rank_dict = {} if multitask_gp_ranks is None else multitask_gp_ranks
         # assembles list of ranks associated with each metric
-        if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
+        if len({len(Xs), len(Ys), len(Yvars), len(metric_signatures)}) > 1:
             raise ValueError(
-                "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
+                "Lengths of Xs, Ys, Yvars, and metric_signatures must match. Your "
                 f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
-                f"{len(metric_names)}, respectively."
+                f"{len(metric_signatures)}, respectively."
             )
-        mtgp_rank_list = [mtgp_rank_dict.get(metric, None) for metric in metric_names]
+        mtgp_rank_list = [
+            mtgp_rank_dict.get(metric, None) for metric in metric_signatures
+        ]
         models = [
             _get_model(
                 X=X,
@@ -149,7 +151,7 @@ def get_and_fit_model(
     Yvars: list[Tensor],
     task_features: list[int],
     fidelity_features: list[int],
-    metric_names: list[str],
+    metric_signatures: list[str],
     state_dict: dict[str, Tensor] | None = None,
     refit_model: bool = True,
     use_input_warping: bool = False,
@@ -170,7 +172,7 @@ def get_and_fit_model(
         Yvars: List of observed variance of Ys.
         task_features: List of columns of X that are tasks.
         fidelity_features: List of columns of X that are fidelity parameters.
-        metric_names: Names of each outcome Y in Ys.
+        metric_signatures: Signature of each outcome Y in Ys.
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
         refit_model: Flag for refitting model.
@@ -211,7 +213,7 @@ def get_and_fit_model(
         Ys=Ys,
         Yvars=Yvars,
         fidelity_features=fidelity_features,
-        metric_names=metric_names,
+        metric_signatures=metric_signatures,
         use_input_warping=use_input_warping,
         prior=prior,
         multitask_gp_ranks=multitask_gp_ranks,

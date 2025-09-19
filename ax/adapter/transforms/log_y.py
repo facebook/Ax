@@ -59,11 +59,11 @@ class LogY(Transform):
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        metric_names = [
+        metric_signatures = [
             assert_is_instance(m, str)
             for m in list(assert_is_instance(config.get("metrics", []), Iterable))
         ]
-        if len(metric_names) == 0:
+        if len(metric_signatures) == 0:
             raise ValueError("Must specify at least one metric in the config.")
         super().__init__(
             search_space=search_space,
@@ -72,7 +72,7 @@ class LogY(Transform):
             adapter=adapter,
             config=config,
         )
-        self.metric_names: list[str] = metric_names
+        self.metric_signatures: list[str] = metric_signatures
         if config.get("match_ci_width", False):
             # perform moment-matching to compute variance that results in a CI
             # of same width as the when transforming the moments
@@ -93,7 +93,7 @@ class LogY(Transform):
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
-            if c.metric.name in self.metric_names:
+            if c.metric.signature in self.metric_signatures:
                 base_str = f"LogY transform cannot be applied to metric {c.metric.name}"
                 if c.relative:
                     raise ValueError(
@@ -117,9 +117,11 @@ class LogY(Transform):
         for obsd in observation_data:
             cov = obsd.covariance
             idcs = [
-                i for i, m in enumerate(obsd.metric_names) if m in self.metric_names
+                i
+                for i, m in enumerate(obsd.metric_signatures)
+                if m in self.metric_signatures
             ]
-            if len(idcs) != len(obsd.metric_names):
+            if len(idcs) != len(obsd.metric_signatures):
                 # TODO: Support covariances for a subset of observations
                 diff = cov - np.diag(np.diag(cov))
                 if not np.all(np.isnan(diff) | (diff == 0)):
@@ -127,8 +129,8 @@ class LogY(Transform):
                         "LogY transform for a subset of metrics not supported for "
                         " correlated observations"
                     )
-                for i, m in enumerate(obsd.metric_names):
-                    if m in self.metric_names:
+                for i, m in enumerate(obsd.metric_signatures):
+                    if m in self.metric_signatures:
                         obsd.means[i], obsd.covariance[i, i] = transform(
                             np.array(obsd.means[i], ndmin=1),
                             np.array(obsd.covariance[i, i], ndmin=1),
@@ -155,7 +157,7 @@ class LogY(Transform):
         fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
-            if c.metric.name in self.metric_names:
+            if c.metric.signature in self.metric_signatures:
                 if c.relative:
                     raise ValueError("Unexpected relative transform.")
                 c.bound = np.exp(c.bound)

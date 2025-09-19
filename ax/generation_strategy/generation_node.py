@@ -404,7 +404,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             data: Optional override for the experiment data used to generate candidates;
                 if not specified, will use ``experiment.lookup_data()`` (extracted in
                 ``Adapter``).
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
             model_gen_kwargs: Keyword arguments, passed through to
@@ -483,7 +483,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             n: Optional integer representing how many arms should be in the generator
                 run produced by this method. When this is ``None``, ``n`` will be
                 determined by the ``GeneratorSpec`` that we are generating from.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
             model_gen_kwargs: Keyword arguments, passed through to

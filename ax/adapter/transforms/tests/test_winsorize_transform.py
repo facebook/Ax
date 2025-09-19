@@ -58,7 +58,7 @@ OBSERVATION_DATA = [
         data=ObservationData(
             means=np.array([1.0, 2.0, 6.0]),
             covariance=np.array([[1.0, 2.0, 0.0], [3.0, 4.0, 0.0], [0.0, 0.0, 4.0]]),
-            metric_names=["a", "b", "b"],
+            metric_signatures=["a", "b", "b"],
         ),
         arm_name="1_1",
     )
@@ -69,12 +69,12 @@ class WinsorizeTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.obsd1 = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([0.0, 0.0, 1.0]),
             covariance=np.array([[1.0, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 3.0]]),
         )
         self.obsd2 = ObservationData(
-            metric_names=["m1", "m1", "m2", "m2"],
+            metric_signatures=["m1", "m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 2.0, 1.0]),
             covariance=np.array(
                 [
@@ -154,7 +154,7 @@ class WinsorizeTransformTest(TestCase):
         )
 
         self.obsd3 = ObservationData(
-            metric_names=["m3", "m3", "m3", "m3"],
+            metric_signatures=["m3", "m3", "m3", "m3"],
             means=np.array([0.0, 1.0, 5.0, 3.0]),
             covariance=np.eye(4),
         )
@@ -352,7 +352,7 @@ class WinsorizeTransformTest(TestCase):
     def test_winsorization_without_optimization_config(self) -> None:
         means = np.array([-100, 0, 1, 2, 3, 4, 5, 6, 7, 50])
         obsd = ObservationData(
-            metric_names=["m1"] * 10,
+            metric_signatures=["m1"] * 10,
             means=means,
             covariance=np.eye(10),
         )
@@ -388,7 +388,7 @@ class WinsorizeTransformTest(TestCase):
             0.0, AUTO_WINS_QUANTILE
         )
         obsd2 = ObservationData(
-            metric_names=["m2"] * 10,
+            metric_signatures=["m2"] * 10,
             means=means,
             covariance=np.eye(10),
         )
@@ -407,17 +407,17 @@ class WinsorizeTransformTest(TestCase):
 
     def test_winsorization_with_optimization_config(self) -> None:
         obsd_1 = ObservationData(
-            metric_names=["m1"] * 10,
+            metric_signatures=["m1"] * 10,
             means=np.array([-100, 0, 1, 2, 3, 4, 5, 6, 7, 50]),
             covariance=np.eye(10),
         )
         obsd_2 = ObservationData(
-            metric_names=["m2"] * 7,
+            metric_signatures=["m2"] * 7,
             means=np.array([-10, 0, 1, 2, 3, 4, 47]),
             covariance=np.eye(7),
         )
         obsd_3 = ObservationData(
-            metric_names=["m3"] * 6,
+            metric_signatures=["m3"] * 6,
             means=np.array([-456, 1, 2, 3, 4, 9]),
             covariance=np.eye(6),
         )
@@ -740,7 +740,7 @@ def get_default_transform_cutoffs(
     obs_data_len: SupportsIndex = 6,
 ) -> dict[str, tuple[float, float]]:
     obsd = ObservationData(
-        metric_names=["m1"] * obs_data_len,
+        metric_signatures=["m1"] * obs_data_len,
         means=np.array(range(obs_data_len)),
         # pyre-fixme[6]: For 1st argument expected `int` but got `SupportsIndex`.
         covariance=np.eye(obs_data_len),

@@ -28,7 +28,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
-        metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
         percentile_threshold: float = 50.0,
         min_progression: float | None = 10,
         max_progression: float | None = None,
@@ -39,9 +39,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """Construct a PercentileEarlyStoppingStrategy instance.
 
         Args:
-            metric_names: A (length-one) list of name of the metric to observe. If
-                None will default to the objective metric on the Experiment's
-                OptimizationConfig.
+            metric_signatures: A (length-one) list of signatures of the metric to
+                observe. If None will default to the objective metric on the
+                Experiment's OptimizationConfig.
             percentile_threshold: Falling below this threshold compared to other trials
                 at the same step will stop the run. Must be between 0.0 and 100.0.
                 e.g. if percentile_threshold=25.0, the bottom 25% of trials are stopped.
@@ -68,7 +68,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 we have a reliable approximation for `prog_max`.
         """
         super().__init__(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             trial_indices_to_ignore=trial_indices_to_ignore,
             min_progression=min_progression,
             max_progression=max_progression,
@@ -78,7 +78,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         self.percentile_threshold = percentile_threshold
 
-        if metric_names is not None and len(list(metric_names)) > 1:
+        if metric_signatures is not None and len(list(metric_signatures)) > 1:
             raise UnsupportedError(
                 "PercentileEarlyStoppingStrategy only supports a single metric. Use "
                 "LogicalEarlyStoppingStrategy to compose early stopping strategies "
@@ -107,11 +107,11 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             (optional) messages with the associated reason. An empty dictionary
             means no suggested updates to any trial's status.
         """
-        metric_name, minimize = self._default_objective_and_direction(
+        metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
         )
         data = self._check_validity_and_get_data(
-            experiment=experiment, metric_names=[metric_name]
+            experiment=experiment, metric_signatures=[metric_signature]
         )
         if data is None:
             # don't stop any trials if we don't get data back
@@ -129,7 +129,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         try:
             metric_to_aligned_means, _ = align_partial_results(
                 df=df,
-                metrics=[metric_name],
+                metrics=[metric_signature],
             )
         except Exception as e:
             logger.warning(
@@ -138,7 +138,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
             return {}
 
-        aligned_means = metric_to_aligned_means[metric_name]
+        aligned_means = metric_to_aligned_means[metric_signature]
         decisions = {
             trial_index: self._should_stop_trial_early(
                 trial_index=trial_index,

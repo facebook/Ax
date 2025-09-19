@@ -303,7 +303,7 @@ class GenerationStrategy(Base):
                 the `n` and produce a node-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
         """
@@ -347,7 +347,7 @@ class GenerationStrategy(Base):
             data: Optional data to be passed to the underlying node's ``gen``, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the ``experiment``.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
             n: Integer representing how many total arms should be in the generator
@@ -690,7 +690,7 @@ class GenerationStrategy(Base):
             data: Optional data to be passed to the underlying node's `gen`, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the `experiment`.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
             n: Integer representing how many arms should be in the generator run

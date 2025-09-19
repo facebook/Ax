@@ -33,12 +33,12 @@ class StratifiedStandardizeYTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.obsd1 = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 8.0]),
             covariance=np.array([[1.0, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 3.0]]),
         )
         self.obsd2 = ObservationData(
-            metric_names=["m1", "m1", "m2", "m2"],
+            metric_signatures=["m1", "m1", "m2", "m2"],
             means=np.array([1.0, 5.0, 2.0, 1.0]),
             covariance=np.array(
                 [
@@ -83,7 +83,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         self.strata_mapping = {"a": 0, "b": 1, "c": 1}
         self.obsf3 = ObservationFeatures({"x": 5, "z": "c"})
         self.obsd3 = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([2.0, 4.0, 16.0]),
             covariance=np.array([[1.2, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 3.0]]),
         )
@@ -218,7 +218,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
     def test_TransformObservations(self) -> None:
         std_m2_a = sqrt(2) * 3
         obsd1_ta = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([0.0, -3.0 / std_m2_a, 3.0 / std_m2_a]),
             covariance=np.array(
                 [
@@ -230,7 +230,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         )
         std_m1_b, std_m2_b = 2 * sqrt(2), sqrt(1 / 2)
         obsd1_tb = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([-2.0 / std_m1_b, 0.5 / std_m2_b, 6.5 / std_m2_b]),
             covariance=np.array(
                 [

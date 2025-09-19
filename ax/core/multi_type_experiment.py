@@ -221,8 +221,9 @@ class MultiTypeExperiment(Experiment):
         oc_metrics = oc.metrics if oc else []
         if metric.name in oc_metrics and trial_type != self._default_trial_type:
             raise ValueError(
-                f"Metric `{metric.name}` must remain a `{self._default_trial_type}` "
-                "metric because it is part of the optimization_config."
+                f"Metric `{metric.name}` must remain a "
+                f"`{self._default_trial_type}` metric because it is part of the "
+                "optimization_config."
             )
         elif not self.supports_trial_type(trial_type):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")

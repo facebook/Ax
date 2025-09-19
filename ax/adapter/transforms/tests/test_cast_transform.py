@@ -79,7 +79,9 @@ class CastTransformTest(TestCase):
             metadata=None,
         )
         self.obs_data = ObservationData(
-            metric_names=["m1"], means=np.array([1.0]), covariance=np.array([[1.0]])
+            metric_signatures=["m1"],
+            means=np.array([1.0]),
+            covariance=np.array([[1.0]]),
         )
 
     def test_invalid_config(self) -> None:

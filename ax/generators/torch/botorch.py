@@ -143,7 +143,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
             Yvars,
             task_features,
             fidelity_features,
-            metric_names,
+            metric_signatures,
             state_dict,
             **kwargs,
         ) -> model
@@ -151,7 +151,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
     Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),
     `task_features` identifies columns of Xs that should be modeled as a task,
     `fidelity_features` is a list of ints that specify the positions of fidelity
-    parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,
+    parameters in 'Xs', `metric_signatures` provides the signatures of each `Y` in `Ys`,
     `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.
     Optional kwargs are being passed through from the `LegacyBoTorchGenerator`
     constructor. This callable is assumed to return a fitted BoTorch model that has
@@ -282,7 +282,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
         self.device = None
         self.task_features: list[int] = []
         self.fidelity_features: list[int] = []
-        self.metric_names: list[str] = []
+        self.metric_signatures: list[str] = []
 
     @copy_doc(TorchGenerator.fit)
     def fit(
@@ -296,7 +296,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
                 "LegacyBoTorchGenerator.fit requires non-empty data sets."
             )
         self.Xs, self.Ys, self.Yvars = _datasets_to_legacy_inputs(datasets=datasets)
-        self.metric_names = sum((ds.outcome_names for ds in datasets), [])
+        self.metric_signatures = sum((ds.outcome_names for ds in datasets), [])
         # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
         self.dtype = self.Xs[0].dtype
@@ -316,7 +316,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
             Yvars=self.Yvars,
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
-            metric_names=self.metric_names,
+            metric_signatures=self.metric_signatures,
             use_input_warping=self.use_input_warping,
             use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
             **extra_kwargs,
@@ -495,7 +495,7 @@ class LegacyBoTorchGenerator(TorchGenerator):
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
-            metric_names=self.metric_names,
+            metric_signatures=self.metric_signatures,
             refit_model=self.refit_on_cv,
             use_input_warping=self.use_input_warping,
             use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
