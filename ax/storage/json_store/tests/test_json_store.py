@@ -35,6 +35,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
@@ -944,6 +945,20 @@ class JSONStoreTest(TestCase):
             expected_json = botorch_component_to_dict(interval)
             del expected_json["state_dict"]["lower_bound"]
             botorch_component_from_json(interval.__class__, expected_json)
+
+    def test_observation_features_backward_compatibility(self) -> None:
+        json = {
+            "__type": "ObservationFeatures",
+            "parameters": {"x1": 0.0},
+            "trial_index": 0,
+            "random_split": 4,
+        }
+        with self.assertLogs(logger="ax", level="WARNING") as cm:
+            decoded = object_from_json(object_json=json)
+        self.assertTrue(any("random_split" in w for w in cm.output))
+        self.assertIsInstance(decoded, ObservationFeatures)
+        self.assertEqual(decoded.parameters, {"x1": 0.0})
+        self.assertEqual(decoded.trial_index, 0)
 
     def test_objective_backwards_compatibility(self) -> None:
         # Test that we can load an objective that has conflicting

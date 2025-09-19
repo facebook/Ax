@@ -113,6 +113,7 @@ from ax.storage.json_store.decoders import (
     fixed_parameter_from_json,
     input_transform_type_from_json,
     multi_objective_from_json,
+    observation_features_from_json,
     outcome_transform_type_from_json,
     pathlib_from_json,
     transform_type_from_json,
@@ -422,7 +423,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "TrialType": TrialType,
     "TrialStatus": TrialStatus,
     "ThresholdEarlyStoppingStrategy": ThresholdEarlyStoppingStrategy,
-    "ObservationFeatures": ObservationFeatures,
+    "ObservationFeatures": observation_features_from_json,
     "WinsorizationConfig": WinsorizationConfig,
 }
 

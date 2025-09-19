@@ -44,7 +44,6 @@ class ObservationsTest(TestCase):
             "trial_index": 2,
             "start_time": t,
             "end_time": t,
-            "random_split": 1,
         }
         # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
         #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
@@ -57,10 +56,10 @@ class ObservationsTest(TestCase):
         obsf = ObservationFeatures(**attrs)
         for k, v in attrs.items():
             self.assertEqual(getattr(obsf, k), v)
-        printstr = "ObservationFeatures(parameters={'x': 0, 'y': 'a'}, "
-        printstr += "trial_index=2, "
-        printstr += "start_time={t}, end_time={t}, ".format(t=t)
-        printstr += "random_split=1)"
+        printstr = (
+            "ObservationFeatures(parameters={'x': 0, 'y': 'a'}, trial_index=2, "
+            f"start_time={t}, end_time={t})"
+        )
         self.assertEqual(repr(obsf), printstr)
         # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
         #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
@@ -129,12 +128,10 @@ class ObservationsTest(TestCase):
             trial_index=4,
             start_time=pd.Timestamp("2005-02-25"),
             end_time=pd.Timestamp("2005-02-26"),
-            random_split=7,
         )
         obsf.update_features(new_obsf)
         self.assertEqual(obsf.parameters, {**parameters, **new_parameters})
         self.assertEqual(obsf.trial_index, 4)
-        self.assertEqual(obsf.random_split, 7)
         self.assertEqual(obsf.start_time, pd.Timestamp("2005-02-25"))
         self.assertEqual(obsf.end_time, pd.Timestamp("2005-02-26"))
 
