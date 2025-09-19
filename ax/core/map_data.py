@@ -21,7 +21,7 @@ import numpy.typing as npt
 import pandas as pd
 from ax.core.data import _filter_df, Data
 from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
@@ -57,7 +57,12 @@ class MapData(Data):
     `experiment.attach_data()` (this requires a description to be set.)
     """
 
-    DEDUPLICATE_BY_COLUMNS = ["trial_index", "arm_name", "metric_name"]
+    DEDUPLICATE_BY_COLUMNS = [
+        "trial_index",
+        "arm_name",
+        "metric_name",
+        "metric_signature",
+    ]
 
     _map_df: pd.DataFrame
     _memo_df: pd.DataFrame | None
@@ -154,21 +159,32 @@ class MapData(Data):
 
     @staticmethod
     def from_map_evaluations(
-        evaluations: Mapping[str, TMapTrialEvaluation], trial_index: int
+        evaluations: Mapping[str, TMapTrialEvaluation],
+        trial_index: int,
+        metric_name_to_signature: Mapping[str, str],
     ) -> MapData:
-        records = [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-                MAP_KEY: step,
-            }
-            for name, map_dict_and_metrics_list in evaluations.items()
-            for step, evaluation in map_dict_and_metrics_list
-            for metric_name, value in evaluation.items()
-        ]
+        records = []
+        for name, map_dict_and_metrics_list in evaluations.items():
+            for step, evaluation in map_dict_and_metrics_list:
+                for metric_name, value in evaluation.items():
+                    if metric_name not in metric_name_to_signature:
+                        raise UserInputError(
+                            f"Metric {metric_name} not found in "
+                            "metric_name_to_signature. "
+                            "Please provide a mapping for all metric names "
+                            "present in the evaluations to their respective "
+                            "signatures."
+                        )
+                    record = {
+                        "arm_name": name,
+                        "metric_name": metric_name,
+                        "mean": value[0] if isinstance(value, tuple) else value,
+                        "sem": value[1] if isinstance(value, tuple) else None,
+                        "trial_index": trial_index,
+                        "metric_signature": metric_name_to_signature[metric_name],
+                        MAP_KEY: step,
+                    }
+                    records.append(record)
         return MapData(df=pd.DataFrame(records))
 
     @property
@@ -212,10 +228,20 @@ class MapData(Data):
         self,
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
     ) -> MapData:
+        if metric_names and metric_signatures:
+            raise UserInputError(
+                "Cannot filter by both metric names and metric signatures. "
+                "Please filter by one or the other."
+            )
+
         return MapData(
             df=_filter_df(
-                df=self.map_df, trial_indices=trial_indices, metric_names=metric_names
+                df=self.map_df,
+                trial_indices=trial_indices,
+                metric_names=metric_names,
+                metric_signatures=metric_signatures,
             ),
             _skip_ordering_and_validation=True,
         )
@@ -372,6 +398,7 @@ class MapData(Data):
     def from_evaluations(
         cls,
         evaluations: Mapping[str, TTrialEvaluation],
+        metric_name_to_signature: Mapping[str, str],
         trial_index: int,
         sample_sizes: Mapping[str, int] | None = None,
         start_time: int | str | None = None,

@@ -361,6 +361,7 @@ class TestBenchmarkRunner(TestCase):
                 {
                     "arm_name",
                     "metric_name",
+                    "metric_signature",
                     "mean",
                     "sem",
                     "trial_index",
