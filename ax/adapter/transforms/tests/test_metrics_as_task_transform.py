@@ -26,7 +26,7 @@ class MetricsAsTaskTransformTest(TestCase):
         self.observations = [
             Observation(
                 data=ObservationData(
-                    metric_names=["metric1", "metric2", "metric3"],
+                    metric_signatures=["metric1", "metric2", "metric3"],
                     means=np.array([1.0, 2.0, 3.0]),
                     covariance=np.diag([1.0, 2.0, 3.0]),
                 ),
@@ -35,7 +35,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric3"],
+                    metric_signatures=["metric3"],
                     means=np.array([30.0]),
                     covariance=np.array([[30.0]]),
                 ),
@@ -46,7 +46,7 @@ class MetricsAsTaskTransformTest(TestCase):
         self.expected_new_observations = [
             Observation(
                 data=ObservationData(
-                    metric_names=["metric1", "metric2", "metric3"],
+                    metric_signatures=["metric1", "metric2", "metric3"],
                     means=np.array([1.0, 2.0, 3.0]),
                     covariance=np.diag([1.0, 2.0, 3.0]),
                 ),
@@ -57,7 +57,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric2", "metric3"],
+                    metric_signatures=["metric2", "metric3"],
                     means=np.array([1.0, 1.0]),
                     covariance=np.diag([1.0, 1.0]),
                 ),
@@ -68,7 +68,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric3"],
+                    metric_signatures=["metric3"],
                     means=np.array([2.0]),
                     covariance=np.array([[2.0]]),
                 ),
@@ -79,7 +79,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric3"],
+                    metric_signatures=["metric3"],
                     means=np.array([30.0]),
                     covariance=np.array([[30.0]]),
                 ),

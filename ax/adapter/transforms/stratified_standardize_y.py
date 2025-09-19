@@ -131,7 +131,7 @@ class StratifiedStandardizeY(Transform):
             for j, obsd in enumerate(observation_data):
                 v = none_throws(observation_features[j].parameters[self.p_name])
                 strata = self.strata_mapping[v]
-                for i, m in enumerate(obsd.metric_names):
+                for i, m in enumerate(obsd.metric_signatures):
                     Ys[(m, strata)].append(obsd.means[i])
         else:
             experiment_data = none_throws(experiment_data)
@@ -170,8 +170,12 @@ class StratifiedStandardizeY(Transform):
         for obs in observations:
             v = none_throws(obs.features.parameters[self.p_name])
             strata = self.strata_mapping[v]
-            means = np.array([self.Ymean[(m, strata)] for m in obs.data.metric_names])
-            stds = np.array([self.Ystd[(m, strata)] for m in obs.data.metric_names])
+            means = np.array(
+                [self.Ymean[(m, strata)] for m in obs.data.metric_signatures]
+            )
+            stds = np.array(
+                [self.Ystd[(m, strata)] for m in obs.data.metric_signatures]
+            )
             obs.data.means = (obs.data.means - means) / stds
             obs.data.covariance /= np.dot(stds[:, None], stds[:, None].transpose())
         return observations
@@ -197,8 +201,8 @@ class StratifiedStandardizeY(Transform):
                     "StratifiedStandardizeY transform does not support relative "
                     f"constraint {c}"
                 )
-            c.bound = (c.bound - self.Ymean[(c.metric.name, strata)]) / self.Ystd[
-                (c.metric.name, strata)
+            c.bound = (c.bound - self.Ymean[(c.metric.signature, strata)]) / self.Ystd[
+                (c.metric.signature, strata)
             ]
         return optimization_config
 
@@ -209,8 +213,12 @@ class StratifiedStandardizeY(Transform):
         for obs in observations:
             v = none_throws(obs.features.parameters[self.p_name])
             strata = self.strata_mapping[v]
-            means = np.array([self.Ymean[(m, strata)] for m in obs.data.metric_names])
-            stds = np.array([self.Ystd[(m, strata)] for m in obs.data.metric_names])
+            means = np.array(
+                [self.Ymean[(m, strata)] for m in obs.data.metric_signatures]
+            )
+            stds = np.array(
+                [self.Ystd[(m, strata)] for m in obs.data.metric_signatures]
+            )
             obs.data.means = obs.data.means * stds + means
             obs.data.covariance *= np.dot(stds[:, None], stds[:, None].transpose())
         return observations
@@ -232,8 +240,8 @@ class StratifiedStandardizeY(Transform):
                     "StratifiedStandardizeY does not support relative constraints"
                 )
             c.bound = float(
-                c.bound * self.Ystd[(c.metric.name, strata)]
-                + self.Ymean[(c.metric.name, strata)]
+                c.bound * self.Ystd[(c.metric.signature, strata)]
+                + self.Ymean[(c.metric.signature, strata)]
             )
         return outcome_constraints
 

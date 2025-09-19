@@ -505,6 +505,14 @@ class Experiment(Base):
             optimization_config_metrics = self.optimization_config.metrics
         return {**self._tracking_metrics, **optimization_config_metrics}
 
+    @property
+    def signature_to_metric(self) -> dict[str, Metric]:
+        """Returns a dictionary of metrics attached to the experiment, keyed by
+        their signature. Useful for cases that require accessing metric objects
+        by their signature (e.g. plotting from observation data/adapter).
+        """
+        return {metric.signature: metric for metric in self.metrics.values()}
+
     def _metrics_by_class(
         self, metrics: list[Metric] | None = None
     ) -> dict[type[Metric], list[Metric]]:

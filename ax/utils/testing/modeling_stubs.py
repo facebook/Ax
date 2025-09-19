@@ -19,6 +19,7 @@ from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.experiment import Experiment
+from ax.core.metric import Metric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
@@ -73,38 +74,38 @@ def get_observation_features() -> ObservationFeatures:
 
 
 def get_observation(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}, trial_index=0),
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
     )
 
 
 def get_observation1(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}, trial_index=0),
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
     )
 
 
 def get_observation_status_quo0(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
@@ -114,52 +115,52 @@ def get_observation_status_quo0(
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="0_0",
     )
 
 
 def get_observation1trans(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 9.0, "y": 121.0}, trial_index=0),
         data=ObservationData(
             means=np.array([9.0, 25.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
     )
 
 
 def get_observation2(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 3.0, "y": 2.0}, trial_index=1),
         data=ObservationData(
             means=np.array([2.0, 1.0]),
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
     )
 
 
 def get_observation2trans(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 16.0, "y": 9.0}, trial_index=1),
         data=ObservationData(
             means=np.array([9.0, 4.0]),
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
     )
@@ -194,7 +195,7 @@ def get_generation_strategy(
     if with_completion_criteria > 0:
         gs._steps[0].num_trials = -1
         gs._steps[0].completion_criteria = [
-            MinimumPreferenceOccurances(metric_name="m1", threshold=3)
+            MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
         ] * with_completion_criteria
     return gs
 
@@ -445,7 +446,9 @@ def get_to_new_sq_transform_type() -> type[TransformToNewSQ]:
 
 
 def get_experiment_for_value() -> Experiment:
-    return Experiment(get_search_space_for_value(), "test")
+    experiment = Experiment(get_search_space_for_value(), "test")
+    experiment.add_tracking_metrics([Metric(name="a"), Metric(name="b")])
+    return experiment
 
 
 def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:

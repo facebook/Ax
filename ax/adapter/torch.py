@@ -179,10 +179,10 @@ class TorchAdapter(Adapter):
         # Re-assign self.generator for more precise typing.
         self.generator: TorchGenerator = generator
 
-    def feature_importances(self, metric_name: str) -> dict[str, float]:
+    def feature_importances(self, metric_signature: str) -> dict[str, float]:
         importances_tensor = self.generator.feature_importances()
         importances_dict = dict(zip(self.outcomes, importances_tensor, strict=True))
-        importances_arr = importances_dict[metric_name].flatten()
+        importances_arr = importances_dict[metric_signature].flatten()
         return dict(zip(self.parameters, importances_arr, strict=True))
 
     def infer_objective_thresholds(
@@ -723,7 +723,7 @@ class TorchAdapter(Adapter):
         # we will only fit models to the outcomes that are extracted from optimization
         # config in Adapter.__init__.
         if update_outcomes_and_parameters and self._fit_tracking_metrics:
-            self.outcomes = sorted(experiment_data.metric_names)
+            self.outcomes = sorted(experiment_data.metric_signatures)
         # Get all relevant information on the parameters
         search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
@@ -1162,18 +1162,18 @@ class TorchAdapter(Adapter):
                 )
             except (KeyError, TypeError):
                 raise ValueError("Out of design points cannot be converted.")
-            for metric_name, mean, var in zip(
-                obsd.metric_names, obsd.means, obsd.covariance.diagonal()
+            for metric_signature, mean, var in zip(
+                obsd.metric_signatures, obsd.means, obsd.covariance.diagonal()
             ):
-                Xs[metric_name].append(x)
-                Ys[metric_name].append(mean)
-                Yvars[metric_name].append(var)
+                Xs[metric_signature].append(x)
+                Ys[metric_signature].append(mean)
+                Yvars[metric_signature].append(var)
                 if obsf.metadata is not None:
                     any_candidate_metadata_is_not_none = True
-                candidate_metadata_dict[metric_name].append(obsf.metadata)
+                candidate_metadata_dict[metric_signature].append(obsf.metadata)
                 trial_index = obsf.trial_index
                 if trial_index is not None:
-                    trial_indices[metric_name].append(trial_index)
+                    trial_indices[metric_signature].append(trial_index)
                 else:
                     at_least_one_trial_index_is_none = True
         if len(trial_indices) > 0 and at_least_one_trial_index_is_none:
@@ -1220,18 +1220,19 @@ def validate_transformed_optimization_config(
             )
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric in c.metrics:
-                if c_metric.name not in outcomes:
+                if c_metric.signature not in outcomes:
                     raise DataRequiredError(
-                        f"Scalarized constraint metric component {c.metric.name} "
-                        + "not found in fitted data."
+                        f"Scalarized constraint metric component "
+                        f"{c.metric.signature} not found in fitted data."
                     )
-        elif c.metric.name not in outcomes:
+        elif c.metric.signature not in outcomes:
             raise DataRequiredError(
-                f"Outcome constraint metric {c.metric.name} not found in fitted data."
+                f"Outcome constraint metric {c.metric.signature} not found in fitted "
+                "data."
             )
-    obj_metric_names = [m.name for m in optimization_config.objective.metrics]
-    for obj_metric_name in obj_metric_names:
-        if obj_metric_name not in outcomes:
+    obj_metric_signatures = [m.signature for m in optimization_config.objective.metrics]
+    for obj_metric_signature in obj_metric_signatures:
+        if obj_metric_signature not in outcomes:
             raise DataRequiredError(
-                f"Objective metric {obj_metric_name} not found in fitted data."
+                f"Objective metric {obj_metric_signature} not found in fitted data."
             )

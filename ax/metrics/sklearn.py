@@ -153,13 +153,14 @@ class SklearnMetric(Metric):
                     "mean": means,
                     "sem": sems,
                     "trial_index": trial.index,
+                    "metric_signature": self.signature,
                 }
             )
             return Ok(value=Data(df=df))
 
         except Exception as e:
             return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+                MetricFetchE(message=f"Failed to fetch {self.signature}", exception=e)
             )
 
     def train_eval(self, arm: Arm) -> tuple[float, float]:

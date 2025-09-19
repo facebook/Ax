@@ -390,7 +390,7 @@ class MapKeyToFloatTransformTest(TestCase):
         observations = [
             Observation(
                 data=ObservationData(
-                    metric_names=["metric1", "metric2"],
+                    metric_signatures=["metric1", "metric2"],
                     means=np.array([1.0, 2.0]),
                     covariance=np.diag([1.0, 2.0]),
                 ),
@@ -401,7 +401,7 @@ class MapKeyToFloatTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric3"],
+                    metric_signatures=["metric3"],
                     means=np.array([30.0]),
                     covariance=np.array([[30.0]]),
                 ),
@@ -412,7 +412,7 @@ class MapKeyToFloatTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["x1", "x2"],
+                    metric_signatures=["x1", "x2"],
                     means=np.array([1.5, 2.5]),
                     covariance=np.diag([1.0, 2.0]),
                 ),
@@ -538,7 +538,9 @@ class MapKeyToFloatTransformTest(TestCase):
                     metadata={"map_key": timestamp},
                 ),
                 data=ObservationData(
-                    metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
+                    metric_signatures=[],
+                    means=np.array([]),
+                    covariance=np.empty((0, 0)),
                 ),
             )
             for width, height, timestamp in (

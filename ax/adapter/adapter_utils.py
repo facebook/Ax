@@ -418,10 +418,10 @@ def extract_objective_thresholds(
     for ot in objective_thresholds:
         if ot.relative:
             raise ValueError(
-                f"Objective {ot.metric.name} has a relative threshold that is not "
-                f"supported here."
+                f"Objective {ot.metric.signature} has a relative threshold that "
+                f"is not supported here."
             )
-        objective_threshold_dict[ot.metric.name] = ot.bound
+        objective_threshold_dict[ot.metric.signature] = ot.bound
 
     # Check that all thresholds correspond to a metric.
     if set(objective_threshold_dict.keys()).difference(set(objective.metric_names)):
@@ -464,14 +464,14 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
     if isinstance(objective, ScalarizedObjective):
         s = -1.0 if objective.minimize else 1.0
         for obj_metric, obj_weight in objective.metric_weights:
-            objective_weights[outcomes.index(obj_metric.name)] = obj_weight * s
+            objective_weights[outcomes.index(obj_metric.signature)] = obj_weight * s
     elif isinstance(objective, MultiObjective):
         for obj in objective.objectives:
             s = -1.0 if obj.minimize else 1.0
-            objective_weights[outcomes.index(obj.metric.name)] = s
+            objective_weights[outcomes.index(obj.metric.signature)] = s
     else:
         s = -1.0 if objective.minimize else 1.0
-        objective_weights[outcomes.index(objective.metric.name)] = s
+        objective_weights[outcomes.index(objective.metric.signature)] = s
     return objective_weights
 
 
@@ -487,10 +487,10 @@ def extract_outcome_constraints(
         s = 1 if c.op == ComparisonOp.LEQ else -1
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric, c_weight in c.metric_weights:
-                j = outcomes.index(c_metric.name)
+                j = outcomes.index(c_metric.signature)
                 A[i, j] = s * c_weight
         else:
-            j = outcomes.index(c.metric.name)
+            j = outcomes.index(c.metric.signature)
             A[i, j] = s
         b[i, 0] = s * c.bound
     return (A, b)
@@ -595,7 +595,7 @@ def pending_observations_as_array_list(
         return None
 
     pending = [np.array([]) for _ in outcome_names]
-    for metric_name, po_list in pending_observations.items():
+    for metric_signature, po_list in pending_observations.items():
         # It is possible that some metrics attached to the experiment should
         # not be included in pending features for a given model. For example,
         # if a model is fit to the initial data that is missing some of the
@@ -603,9 +603,9 @@ def pending_observations_as_array_list(
         # some of the metrics attached to the experiment, so metrics that
         # appear in pending_observations (drawn from an experiment) but not
         # in outcome_names (metrics, expected for the model) are filtered out.
-        if metric_name not in outcome_names:
+        if metric_signature not in outcome_names:
             continue
-        pending[outcome_names.index(metric_name)] = np.array(
+        pending[outcome_names.index(metric_signature)] = np.array(
             [[po.parameters[p] for p in param_names] for po in po_list]
         )
     return pending
@@ -1194,7 +1194,7 @@ def array_to_observation_data(
     for i in range(f.shape[0]):
         observation_data.append(
             ObservationData(
-                metric_names=list(outcomes),
+                metric_signatures=list(outcomes),
                 means=f[i, :].copy(),
                 covariance=cov[i, :, :].copy(),
             )
@@ -1226,9 +1226,11 @@ def observation_data_to_array(
     # Iterate over observations and extract the relevant data.
     for i, obsd in enumerate(observation_data):
         # Indices of outcomes that are observed.
-        outcome_idx = [j for j, o in enumerate(outcomes) if o in obsd.metric_names]
+        outcome_idx = [j for j, o in enumerate(outcomes) if o in obsd.metric_signatures]
         # Corresponding indices in the observation data.
-        observation_idx = [obsd.metric_names.index(outcomes[j]) for j in outcome_idx]
+        observation_idx = [
+            obsd.metric_signatures.index(outcomes[j]) for j in outcome_idx
+        ]
         means[i, outcome_idx] = obsd.means[observation_idx]
         # We can't use advanced indexing over two dimensions jointly for assignment,
         # so this has to be done in two steps.
@@ -1262,13 +1264,16 @@ def feasible_hypervolume(
     """
     # Get objective at each iteration
     obj_threshold_dict = {
-        ot.metric.name: ot.bound for ot in optimization_config.objective_thresholds
+        ot.metric.signature: ot.bound for ot in optimization_config.objective_thresholds
     }
     f_vals = np.hstack(
-        [values[m.name].reshape(-1, 1) for m in optimization_config.objective.metrics]
+        [
+            values[m.signature].reshape(-1, 1)
+            for m in optimization_config.objective.metrics
+        ]
     )
     obj_thresholds = np.array(
-        [obj_threshold_dict[m.name] for m in optimization_config.objective.metrics]
+        [obj_threshold_dict[m.signature] for m in optimization_config.objective.metrics]
     )
     # Set infeasible points to be the objective threshold
     for oc in optimization_config.outcome_constraints:
@@ -1276,7 +1281,7 @@ def feasible_hypervolume(
             raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
-        g = values[oc.metric.name]
+        g = values[oc.metric.signature]
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f_vals[~feas] = obj_thresholds
 

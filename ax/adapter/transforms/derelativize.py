@@ -96,7 +96,9 @@ class Derelativize(Transform):
             if c.relative:
                 if isinstance(c, ScalarizedOutcomeConstraint):
                     missing_metrics = {
-                        metric.name for metric in c.metrics if metric.name not in f
+                        metric.signature
+                        for metric in c.metrics
+                        if metric.signature not in f
                     }
                     if len(missing_metrics) > 0:
                         raise DataRequiredError(
@@ -107,12 +109,12 @@ class Derelativize(Transform):
                     # sum of its component metrics
                     sq_val = np.sum(
                         [
-                            c.weights[i] * f[metric.name][0]
+                            c.weights[i] * f[metric.signature][0]
                             for i, metric in enumerate(c.metrics)
                         ]
                     )
-                elif c.metric.name in f:
-                    sq_val = f[c.metric.name][0]
+                elif c.metric.signature in f:
+                    sq_val = f[c.metric.signature][0]
                 else:
                     raise DataRequiredError(
                         f"Status-quo metric value not yet available for metric "
@@ -142,25 +144,25 @@ def _warn_if_raw_sq_is_out_of_CI(
     by more than 1.96 standard deviation from the predictions.
     """
     relative_metrics = {
-        oc.metric.name
+        oc.metric.signature
         for oc in optimization_config.all_constraints
         if oc.relative and not isinstance(oc, ScalarizedOutcomeConstraint)
     }.union(
         {
-            metric.name
+            metric.signature
             for oc in optimization_config.all_constraints
             if oc.relative and isinstance(oc, ScalarizedOutcomeConstraint)
             for metric in oc.metrics
         }
     )
-    for metric_name in relative_metrics:
-        raw_obs = raw_f[metric_name][0]
-        pred_mean = pred_f[metric_name][0]
-        pred_std = np.sqrt(pred_cov[metric_name][metric_name][0])
+    for metric_signature in relative_metrics:
+        raw_obs = raw_f[metric_signature][0]
+        pred_mean = pred_f[metric_signature][0]
+        pred_std = np.sqrt(pred_cov[metric_signature][metric_signature][0])
         if abs(raw_obs - pred_mean) > 1.96 * pred_std:
             logger.warning(
                 "Model predictions for status quo arm for metric "
-                f"{metric_name} deviate more than two standard deviations "
+                f"{metric_signature} deviate more than two standard deviations "
                 "from the raw status quo value. "
                 f"{raw_obs=}, {pred_mean=}, {pred_std=}."
             )

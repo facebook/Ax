@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
@@ -636,6 +636,7 @@ class SQAStoreTest(TestCase):
                     for i, objective in enumerate(objectives):
                         metric = objective.metric
                         self.assertEqual(metric.name, f"m{1 + 2 * i}")
+                        self.assertEqual(metric.signature, f"m{1 + 2 * i}")
                         self.assertEqual(metric.__class__, Metric)
                 elif composite_type == "scalarized" and not immutable:
                     # Check scalarized objective children
@@ -1526,6 +1527,7 @@ class SQAStoreTest(TestCase):
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
             metric_type=CORE_METRIC_REGISTRY[BraninMetric],
+            signature="foobar",
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -1541,6 +1543,7 @@ class SQAStoreTest(TestCase):
 
         sqa_metric = SQAMetric(
             name="foobar",
+            signature="foobar",
             intent=MetricIntent.OBJECTIVE,
             metric_type=CORE_METRIC_REGISTRY[BraninMetric],
             generator_run_id=0,
@@ -1551,6 +1554,34 @@ class SQAStoreTest(TestCase):
             sqa_metric.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_metric)
+
+    def test_MetricDecodeWithNoSignatureOverride(self) -> None:
+        metric_name = "testMetric"
+        testMetric = Metric(name=metric_name)
+        sqa_metric = self.encoder.metric_to_sqa(testMetric)
+        metric = cast(Metric, self.decoder.metric_from_sqa(sqa_metric))
+        self.assertEqual(metric.name, metric_name)
+        self.assertEqual(metric.signature, metric_name)
+
+    def test_MetricDecodeWithSignatureOverride(self) -> None:
+        metric_name = "testMetric"
+        testMetric = Metric(name=metric_name, signature_override="override")
+        sqa_metric = self.encoder.metric_to_sqa(testMetric)
+        metric = cast(Metric, self.decoder.metric_from_sqa(sqa_metric))
+        self.assertEqual(metric.name, metric_name)
+        self.assertEqual(metric.signature, "override")
+
+    def test_MetricEncodeCapturesSignature(self) -> None:
+        # with override
+        metric = get_branin_metric()
+        metric.signature_override = "override"
+        sqa_metric = self.encoder.metric_to_sqa(metric)
+        self.assertEqual(sqa_metric.signature, "override")
+
+        # without override
+        metric = get_branin_metric()
+        sqa_metric = self.encoder.metric_to_sqa(metric)
+        self.assertEqual(sqa_metric.signature, metric.name)
 
     def test_MetricEncodeFailure(self) -> None:
         metric = get_branin_metric()
@@ -1620,16 +1651,32 @@ class SQAStoreTest(TestCase):
         # Extract default value.
         properties = serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
-            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+            properties,
+            {
+                "name": "foo",
+                "lower_is_better": None,
+                "properties": {},
+                "signature_override": None,
+            },
         )
 
         # Extract passed value.
         properties = serialize_init_args(
-            obj=Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
+            obj=Metric(
+                name="foo",
+                lower_is_better=True,
+                properties={"foo": "bar"},
+                signature_override="foo_signature",
+            )
         )
         self.assertEqual(
             properties,
-            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+            {
+                "name": "foo",
+                "lower_is_better": True,
+                "properties": {"foo": "bar"},
+                "signature_override": "foo_signature",
+            },
         )
 
     def test_RegistryAdditions(self) -> None:
