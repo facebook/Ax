@@ -148,7 +148,7 @@ def batch_trial_from_json(
     batch._abandoned_arms_metadata = abandoned_arms_metadata
     batch._num_arms_created = num_arms_created
     batch._generation_step_index = generation_step_index
-    batch._properties = properties
+    batch._properties = properties or {}
     batch._refresh_arms_by_name()  # Trigger cache build
 
     # Trial.arms_by_name only returns arms with weights
