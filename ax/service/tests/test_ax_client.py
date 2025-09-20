@@ -504,7 +504,6 @@ class TestAxClient(TestCase):
                         0.0,
                     )
                 },
-                sample_size=i,
             )
         self.assertEqual(
             none_throws(ax_client.generation_strategy.adapter)._model_key, "BoTorch"
@@ -705,7 +704,6 @@ class TestAxClient(TestCase):
                         0.0,
                     ),
                 },
-                sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
         self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")

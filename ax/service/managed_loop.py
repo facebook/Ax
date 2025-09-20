@@ -215,7 +215,6 @@ class OptimizationLoop:
                 for arm, weight in self._get_weights_by_arm(trial)
             },
             trial_index=self.current_trial,
-            sample_sizes={},
             data_type=self.experiment.default_data_type,
             metric_names=none_throws(
                 self.experiment.optimization_config

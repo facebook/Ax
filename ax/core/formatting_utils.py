@@ -104,7 +104,6 @@ def data_and_evaluations_from_raw_data(
     raw_data: Mapping[str, TEvaluationOutcome],
     metric_names: Sequence[str],
     trial_index: int,
-    sample_sizes: Mapping[str, int],
     data_type: DataType,
     start_time: int | str | None = None,
     end_time: int | str | None = None,
@@ -119,8 +118,6 @@ def data_and_evaluations_from_raw_data(
         raw_data: Mapping from arm name to raw_data.
         metric_names: Names of metrics used to transform raw data to evaluations.
         trial_index: Index of the trial, for which the evaluations are.
-        sample_sizes: Number of samples collected for each arm, may be empty
-            if unavailable.
         start_time: Optional start time of run of the trial that produced this
             data, in milliseconds or iso format.  Milliseconds will eventually be
             converted to iso format because iso format automatically works with the
@@ -151,7 +148,6 @@ def data_and_evaluations_from_raw_data(
         data = Data.from_evaluations(
             evaluations=cast(dict[str, TTrialEvaluation], evaluations),
             trial_index=trial_index,
-            sample_sizes=sample_sizes,
             start_time=start_time,
             end_time=end_time,
         )

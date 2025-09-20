@@ -681,7 +681,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         trial_index: int,
         raw_data: TEvaluationOutcome,
         metadata: dict[str, str | int] | None = None,
-        sample_size: int | None = None,
     ) -> None:
         """
         Updates the trial with given metric values without completing it. Also
@@ -725,8 +724,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run.
-            sample_size: Number of samples collected for the underlying arm,
-                optional.
         """
         if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
@@ -741,7 +738,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             trial_index=trial_index,
             raw_data=raw_data,
             metadata=metadata,
-            sample_size=sample_size,
             combine_with_last_data=True,
         )
         logger.info(f"Updated trial {trial_index} with data: " f"{data_update_repr}.")
@@ -751,7 +747,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         trial_index: int,
         raw_data: TEvaluationOutcome,
         metadata: dict[str, str | int] | None = None,
-        sample_size: int | None = None,
     ) -> None:
         """
         Completes the trial with given metric values and adds optional metadata
@@ -779,8 +774,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run.
-            sample_size: Number of samples collected for the underlying arm,
-                optional.
         """
         # Validate that trial can be completed.
         trial = self.get_trial(trial_index)
@@ -791,7 +784,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             trial_index=trial_index,
             raw_data=raw_data,
             metadata=metadata,
-            sample_size=sample_size,
             complete_trial=True,
             combine_with_last_data=True,
         )
@@ -802,7 +794,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         trial_index: int,
         raw_data: TEvaluationOutcome,
         metadata: dict[str, str | int] | None = None,
-        sample_size: int | None = None,
     ) -> None:
         """
         Attaches additional data or updates the existing data for a trial in a
@@ -820,8 +811,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 is no SEM.  Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run.
-            sample_size: Number of samples collected for the underlying arm,
-                optional.
         """
         if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
@@ -837,7 +826,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             trial_index=trial_index,
             raw_data=raw_data,
             metadata=metadata,
-            sample_size=sample_size,
             combine_with_last_data=True,
         )
         logger.info(f"Added data: {data_update_repr} to trial {trial.index}.")
@@ -1530,7 +1518,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         trial_index: int,
         raw_data: TEvaluationOutcome,
         metadata: dict[str, str | int] | None = None,
-        sample_size: int | None = None,
         complete_trial: bool = False,
         combine_with_last_data: bool = False,
     ) -> str:
@@ -1540,7 +1527,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         update_info = trial.update_trial_data(
             raw_data=raw_data,
             metadata=metadata,
-            sample_size=sample_size,
             combine_with_last_data=combine_with_last_data,
         )
 
@@ -1733,7 +1719,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         _, data = data_and_evaluations_from_raw_data(
             raw_data={"data": raw_data},
-            sample_sizes={},
             trial_index=trial_index,
             data_type=self.experiment.default_data_type,
             metric_names=opt_config.objective.metric_names,

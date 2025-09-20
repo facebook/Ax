@@ -279,7 +279,6 @@ class Trial(BaseTrial):
         self,
         raw_data: TEvaluationOutcome,
         metadata: dict[str, str | int] | None = None,
-        sample_size: int | None = None,
         combine_with_last_data: bool = False,
     ) -> str:
         """Utility method that attaches data to a trial and
@@ -293,8 +292,6 @@ class Trial(BaseTrial):
                 Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run, optional.
-            sample_size: Number of samples collected for the underlying arm,
-                optional.
             combine_with_last_data: Whether to combine the given data with the
                 data that was previously attached to the trial. See
                 `Experiment.attach_data` for a detailed explanation.
@@ -303,13 +300,10 @@ class Trial(BaseTrial):
             A string message summarizing the update.
         """
         arm_name = none_throws(self.arm).name
-        sample_sizes = {arm_name: sample_size} if sample_size else {}
         raw_data_by_arm = {arm_name: raw_data}
 
         evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data_by_arm,
-            metadata=metadata,
-            sample_sizes=sample_sizes,
+            raw_data=raw_data_by_arm, metadata=metadata
         )
 
         self.validate_data_for_trial(data=data)
