@@ -462,7 +462,7 @@ class Encoder:
         json blob.
         """
         metric_class = type(metric)
-        metric_type = self.config.metric_registry.get(metric_class)
+        metric_type = int(self.config.metric_registry.get(metric_class))
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
