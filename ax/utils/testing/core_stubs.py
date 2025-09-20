@@ -1062,6 +1062,7 @@ def get_hierarchical_search_space_experiment(
     for i in range(num_observations):
         trial = experiment.new_trial(generator_run=sobol_generator.gen(1))
         trial.mark_running(no_runner_required=True)
+
         data = Data(
             df=pd.DataFrame.from_records(
                 [
@@ -1076,6 +1077,43 @@ def get_hierarchical_search_space_experiment(
                 ]
             )
         )
+
+        experiment.attach_data(data)
+        trial.mark_completed()
+
+    return experiment
+
+
+def get_hierarchical_search_space_experiment_with_map_data(
+    num_observations: int = 0,
+) -> Experiment:
+    experiment = Experiment(
+        name="test_experiment_hss",
+        description="test experiment with hierarchical search space",
+        search_space=get_hierarchical_search_space(),
+        optimization_config=get_optimization_config(),
+    )
+    experiment._properties = {"owners": [DEFAULT_USER]}
+    sobol_generator = get_sobol(search_space=experiment.search_space)
+    for i in range(num_observations):
+        trial = experiment.new_trial(generator_run=sobol_generator.gen(1))
+        trial.mark_running(no_runner_required=True)
+
+        df = pd.DataFrame.from_records(
+            [
+                {
+                    "arm_name": f"{i}_0",
+                    "metric_name": f"m{j + 1}",
+                    "mean": o,
+                    "sem": None,
+                    "trial_index": i,
+                    "step": i,
+                }
+                for j, o in enumerate(torch.rand(2).tolist())
+            ]
+        )
+        data = MapData(df=df)
+
         experiment.attach_data(data)
         trial.mark_completed()
     return experiment
