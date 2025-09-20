@@ -40,7 +40,10 @@ from ax.generators.base import Generator
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment_with_timestamp_map_metric
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_timestamp_map_metric,
+    get_hierarchical_search_space_experiment,
+)
 from botorch.acquisition.logei import qLogExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from pandas.testing import assert_frame_equal
@@ -276,6 +279,26 @@ class MapKeyToFloatTransformTest(TestCase):
         self.map_key: str = MAP_KEY
         # Does not require explicitly specifying `config`.
         self.t = MapKeyToFloat(observations=self.observations, adapter=self.adapter)
+
+        # Set up a hierarchical search space experiment
+        self.hss_experiment = get_hierarchical_search_space_experiment(
+            num_observations=10, use_map_data=True
+        )
+        self.hss_observations = observations_from_data(
+            experiment=self.hss_experiment, data=self.hss_experiment.lookup_data()
+        )
+        self.hss_experiment_data = extract_experiment_data(
+            experiment=self.hss_experiment,
+            data_loader_config=DataLoaderConfig(),
+        )
+        self.hierarchical_search_space = self.hss_experiment.search_space
+
+        self.hss_t = MapKeyToFloat(
+            search_space=self.hierarchical_search_space,
+            experiment_data=self.hss_experiment_data,
+            # We didn't construct an adapter. So we pass `config` manually.
+            config={"parameters": {self.map_key: {}}},
+        )
 
     def test_Init(self) -> None:
         # Check for error if adapter & parameters are not provided.
