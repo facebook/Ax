@@ -179,11 +179,15 @@ class RemoveFixed(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name, p in self.fixed_or_derived_parameters.items():
-                if isinstance(p, DerivedParameter):
-                    obsf.parameters[p_name] = p.compute(parameters=obsf.parameters)
-                else:
-                    obsf.parameters[p_name] = p.value
+            # Only untransform observations with specified parameters
+            # where at least one of them is not a fixed or derived parameter.
+            # This would be empty when status quo param values are not specified
+            if obsf.parameters:
+                for p_name, p in self.fixed_or_derived_parameters.items():
+                    if isinstance(p, DerivedParameter):
+                        obsf.parameters[p_name] = p.compute(parameters=obsf.parameters)
+                    else:
+                        obsf.parameters[p_name] = p.value
         return observation_features
 
     def transform_experiment_data(
