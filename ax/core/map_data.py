@@ -114,7 +114,15 @@ class MapData(Data):
         return dataframe_equals(self.map_df, o.map_df)
 
     @property
-    def true_df(self) -> pd.DataFrame:
+    def full_df(self) -> pd.DataFrame:
+        """
+        Return the full ``DataFrame`` with step-level information.
+
+        By contrast, ``self.df`` is a subset of the data containing only recent
+        step(s). Because constructing ``df`` can be expensive, it is better to
+        use ``self.full_df`` for operations that do not require scanning the
+        full DataFrame, such as accessing the columns of the DataFrame.
+        """
         return self.map_df
 
     def required_columns(self) -> set[str]:
