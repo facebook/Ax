@@ -28,6 +28,7 @@ from pyre_extensions import assert_is_instance
 
 TData = TypeVar("TData", bound="Data")
 DF_REPR_MAX_LENGTH = 1000
+MAP_KEY = "step"
 
 
 class Data(Base, SerializationMixin):
@@ -39,10 +40,24 @@ class Data(Base, SerializationMixin):
 
 
     Attributes:
-        df: DataFrame with underlying data, and required columns. For Data, the
-            required columns are "arm_name", "metric_name", "mean", and "sem", the
-            latter two of which must be numeric.
+        full_df: DataFrame with underlying data. For Data, the required columns
+            are "arm_name", "metric_name", "mean", and "sem", the latter two of
+            which must be numeric. This is close to the raw data input by the
+            user as ``df``; by contrast, in the ``Data`` subclass ``MapData``,
+            the property ``self.df`` may be a subset of the full data used for
+            modeling. Constructing ``df`` can be expensive, so it is better to
+            reference ``full_df`` than ``df`` for operations that do not require
+            scanning the full data, such as accessing the columns of the
+            DataFrame.
 
+    Properties:
+        df: Potentially smaller representation of the data used for modeling. In
+            the base class ``Data``, ``df`` equals ``full_df``. In the subclass
+            ``MapData``, ``df`` contains only the most recent ``step`` values
+            for each trial-arm-metric. Because constructing ``df`` can be
+            expensive, it is recommended to reference ``full_df`` for operations
+            that do not require scanning the full data, such as accessing the
+            columns of the DataFrame.
     """
 
     # Note: Although the SEM (standard error of the mean) is a required column,
@@ -68,9 +83,11 @@ class Data(Base, SerializationMixin):
         # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
         "random_split": int,
+        # Used with MapData
+        MAP_KEY: float,
     }
 
-    _df: pd.DataFrame
+    full_df: pd.DataFrame
 
     def __init__(
         self: TData,
@@ -88,9 +105,9 @@ class Data(Base, SerializationMixin):
         """
         if df is None:
             # Initialize with barebones DF.
-            self._df = pd.DataFrame(columns=list(self.required_columns()))
+            self.full_df = pd.DataFrame(columns=list(self.required_columns()))
         elif _skip_ordering_and_validation:
-            self._df = df
+            self.full_df = df
         else:
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
@@ -98,24 +115,24 @@ class Data(Base, SerializationMixin):
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            extra_columns = columns - self.supported_columns()
-            if extra_columns:
-                raise ValueError(f"Columns {list(extra_columns)} are not supported.")
             df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
-
-            # Reorder the columns for easier viewing
-            col_order = [c for c in self.column_data_types() if c in df.columns]
-            self._df = df.reindex(columns=col_order, copy=False)
+            self.full_df = self._get_df_with_cols_in_expected_order(df=df)
 
     @classmethod
-    def _safecast_df(
-        cls: type[TData],
-        df: pd.DataFrame,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Mapping[str, type] | None = None,
-    ) -> pd.DataFrame:
+    def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Reorder the columns for easier viewing"""
+        current_order = list(df.columns)  # Surprisingly slow, so do it once
+        expected_order = list(cls.COLUMN_DATA_TYPES)
+        col_order = [c for c in expected_order if c in current_order] + [
+            c for c in current_order if c not in expected_order
+        ]
+        if current_order != expected_order:
+            return df.reindex(columns=col_order, copy=False)
+        return df
+
+    @classmethod
+    def _safecast_df(cls: type[TData], df: pd.DataFrame) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
         Needed because numpy does not support NaNs in integer arrays.
@@ -131,9 +148,7 @@ class Data(Base, SerializationMixin):
 
         """
         dtypes = df.dtypes
-        for col, coltype in cls.column_data_types(
-            extra_column_types=extra_column_types
-        ).items():
+        for col, coltype in cls.COLUMN_DATA_TYPES.items():
             if col in df.columns.values and coltype is not Any:
                 # Pandas timestamp handlng is weird
                 dtype = "datetime64[ns]" if coltype is pd.Timestamp else coltype
@@ -146,30 +161,6 @@ class Data(Base, SerializationMixin):
     def required_columns(self) -> set[str]:
         """Names of columns that must be present in the underlying ``DataFrame``."""
         return self.REQUIRED_COLUMNS
-
-    @classmethod
-    def supported_columns(
-        cls, extra_column_names: Iterable[str] | None = None
-    ) -> set[str]:
-        """Names of columns supported (but not necessarily required) by this class."""
-        extra_column_names = set(extra_column_names or [])
-        extra_column_types: dict[str, Any] = {name: Any for name in extra_column_names}
-        return cls.REQUIRED_COLUMNS.union(
-            cls.column_data_types(extra_column_types=extra_column_types)
-        )
-
-    @classmethod
-    def column_data_types(
-        cls,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Mapping[str, type] | None = None,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-    ) -> dict[str, type]:
-        """Type specification for all supported columns."""
-        extra_column_types = extra_column_types or {}
-        return {**cls.COLUMN_DATA_TYPES, **extra_column_types}
 
     @classmethod
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
@@ -201,15 +192,8 @@ class Data(Base, SerializationMixin):
         return extract_init_args(args=args, class_=cls)
 
     @property
-    def true_df(self) -> pd.DataFrame:
-        """Return the ``DataFrame`` being used as the source of truth (avoid using
-        except for caching).
-        """
-        return self._df
-
-    @property
     def df(self) -> pd.DataFrame:
-        return self._df
+        return self.full_df
 
     @staticmethod
     def from_multiple(data: Iterable[TData]) -> TData:

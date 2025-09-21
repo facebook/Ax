@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import random
 from unittest.mock import patch
 
 import pandas as pd
@@ -190,17 +189,17 @@ class TestDataBase(TestCase):
 
     def test_from_multiple_with_generator(self) -> None:
         data = self.cls.from_multiple_data(self.data_with_df for _ in range(2))
-        self.assertEqual(len(data.true_df), 2 * len(self.data_with_df.true_df))
+        self.assertEqual(len(data.full_df), 2 * len(self.data_with_df.full_df))
 
-    def test_data_column_data_types_default(self) -> None:
-        self.assertEqual(self.cls.column_data_types(), self.cls.COLUMN_DATA_TYPES)
-
-    def test_data_column_data_types_with_extra_columns(self) -> None:
-        bartype = random.choice([str, int, float])
-        columns = self.cls.column_data_types(extra_column_types={"foo": bartype})
-        for c, t in self.cls.COLUMN_DATA_TYPES.items():
-            self.assertEqual(columns[c], t)
-        self.assertEqual(columns["foo"], bartype)
+    def test_extra_columns(self) -> None:
+        value = 3
+        extra_col_df = self.df.assign(foo=value)
+        data = self.cls(df=extra_col_df)
+        self.assertIn("foo", data.full_df.columns)
+        self.assertIn("foo", data.df.columns)
+        print(data.full_df["foo"])
+        print(data.full_df["foo"].equals(value))
+        self.assertTrue((data.full_df["foo"] == value).all())
 
 
 class DataTest(TestCase):
@@ -225,10 +224,6 @@ class DataTest(TestCase):
 
         data = CustomData(df=self.df)
         self.assertNotEqual(data, Data(self.df))
-
-        # Try making regular data with extra column
-        with self.assertRaisesRegex(ValueError, "cat"):
-            Data(df=self.df.assign(cat="dog"))
 
     def test_FromEvaluationsIsoFormat(self) -> None:
         now = pd.Timestamp.now()
