@@ -117,6 +117,7 @@ class SQAMetric(Base):
     metric_type: Column[int] = Column(Integer, nullable=False)
     name: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
     properties: Column[dict[str, Any] | None] = Column(JSONEncodedTextDict, default={})
+    signature: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
 
     # Attributes for Objectives
     minimize: Column[bool | None] = Column(Boolean)
