@@ -162,13 +162,9 @@ def cross_validate(
                 )
             # Get test observations in transformed space.
             for t in model.transforms.values():
-                cv_test_data = t.transform_experiment_data(experiment_data=cv_test_data)
-            # Re-construct the test observations with the transformed data.
-            cv_test_observations = [
-                obs
-                for obs in cv_test_data.convert_to_list_of_observations()
-                if test_selector is None or test_selector(obs)
-            ]
+                cv_test_observations = t.transform_observations(
+                    observations=cv_test_observations
+                )
         # Form CVResult objects
         if len(cv_test_observations) < len(cv_test_predictions):
             msg = (
