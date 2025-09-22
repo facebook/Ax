@@ -11,14 +11,12 @@ import unittest
 
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.choice_encode import (
-    ChoiceEncode,
     ChoiceToNumericChoice,
-    OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
-from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
+from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.json_store.decoders import transform_type_from_json
 from ax.storage.json_store.encoder import object_to_json
@@ -31,9 +29,9 @@ class TestTransformEncode(unittest.TestCase):
         super().setUp()
 
         self.deprecatedTestCases = [
-            (OrderedChoiceEncode, OrderedChoiceToIntegerRange),
-            (ChoiceEncode, ChoiceToNumericChoice),
-            (TaskEncode, TaskChoiceToIntTaskChoice),
+            ("OrderedChoiceEncode", OrderedChoiceToIntegerRange),
+            ("ChoiceEncode", ChoiceToNumericChoice),
+            ("TaskEncode", TaskChoiceToIntTaskChoice),
         ]
 
     def test_encode_and_decode_transform(self) -> None:
@@ -55,10 +53,10 @@ class TestTransformEncode(unittest.TestCase):
 
     def test_encode_and_decode_deprecated_transforms(self) -> None:
         for deprecated_type, current_type in self.deprecatedTestCases:
-            transform_dict = transform_type_to_dict(deprecated_type)
-            self.assertEqual(transform_dict["__type"], "Type[Transform]")
-            self.assertIn(deprecated_type.__name__, transform_dict["transform_type"])
-
+            transform_dict = {
+                "__type": "Type[Transform]",
+                "transform_type": deprecated_type,
+            }
             decoded_transform_type = transform_type_from_json(transform_dict)
             # Deprecated type is decoded into the current type.
             self.assertNotEqual(decoded_transform_type, deprecated_type)

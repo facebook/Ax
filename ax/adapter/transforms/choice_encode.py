@@ -6,11 +6,10 @@
 
 # pyre-strict
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.deprecated_transform_mixin import DeprecatedTransformMixin
 from ax.adapter.transforms.utils import ClosestLookupDict, construct_new_search_space
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
@@ -151,13 +150,6 @@ class ChoiceToNumericChoice(Transform):
         )
 
 
-class ChoiceEncode(DeprecatedTransformMixin, ChoiceToNumericChoice):
-    """Deprecated alias for ChoiceToNumericChoice."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
-
 class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
     """Convert ordered ChoiceParameters to integer RangeParameters.
 
@@ -251,10 +243,3 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
                 for pc in search_space.parameter_constraints
             ],
         )
-
-
-class OrderedChoiceEncode(DeprecatedTransformMixin, OrderedChoiceToIntegerRange):
-    """Deprecated alias for OrderedChoiceToIntegerRange."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)

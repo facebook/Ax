@@ -14,7 +14,6 @@ from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.choice_encode import (
     ChoiceToNumericChoice,
-    OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
 from ax.core.observation import ObservationFeatures
@@ -37,7 +36,7 @@ from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 
-class ChoiceEncodeTransformTest(TestCase):
+class ChoiceToNumericChoiceTransformTest(TestCase):
     t_class = ChoiceToNumericChoice
 
     def setUp(self) -> None:
@@ -359,7 +358,7 @@ class ChoiceEncodeTransformTest(TestCase):
         )
 
 
-class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
+class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTest):
     t_class = OrderedChoiceToIntegerRange
 
     def setUp(self) -> None:
@@ -446,24 +445,6 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
         t_ss = self.t.transform_search_space(ss)
         self.assertEqual(t_ss.parameters["b"].lower, 1)
         self.assertEqual(t_ss.parameters["b"].upper, 2)
-
-    def test_deprecated_OrderedChoiceEncode(self) -> None:
-        # Ensure we error if we try to transform a fidelity parameter
-        ss3 = SearchSpace(
-            parameters=[
-                ChoiceParameter(
-                    "b",
-                    parameter_type=ParameterType.FLOAT,
-                    values=[1.0, 10.0, 100.0],
-                    is_ordered=True,
-                    is_fidelity=True,
-                    target_value=100.0,
-                )
-            ]
-        )
-        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
-        t_deprecated = OrderedChoiceEncode(search_space=ss3, observations=[])
-        self.assertEqual(t.__dict__, t_deprecated.__dict__)
 
     def test_hss_dependents_are_preserved(self) -> None:
         """

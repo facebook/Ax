@@ -6,11 +6,10 @@
 
 # pyre-strict
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
-from ax.adapter.transforms.deprecated_transform_mixin import DeprecatedTransformMixin
 from ax.adapter.transforms.utils import construct_new_search_space
 from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
@@ -108,10 +107,3 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
                 for pc in search_space.parameter_constraints
             ],
         )
-
-
-class TaskEncode(DeprecatedTransformMixin, TaskChoiceToIntTaskChoice):
-    """Deprecated alias for TaskChoiceToIntTaskChoice."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
