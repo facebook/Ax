@@ -142,10 +142,11 @@ class ChoiceToNumericChoice(Transform):
     def transform_experiment_data(
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
+        arm_data = experiment_data.arm_data.copy()
+        for parameter_name, new_values in self.encoded_parameters.items():
+            arm_data[parameter_name] = arm_data[parameter_name].map(new_values)
         return ExperimentData(
-            arm_data=experiment_data.arm_data.replace(
-                to_replace=self.encoded_parameters
-            ),
+            arm_data=arm_data,
             observation_data=experiment_data.observation_data,
         )
 

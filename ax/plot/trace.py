@@ -870,7 +870,7 @@ def compute_running_feasible_optimum_df(
         running_feasible_optimum_df.set_index("trial_index")
         .reindex(new_index)
         .reset_index()
-        .fillna(method="ffill")
+        .ffill()
     )
 
     # Add legend column.
