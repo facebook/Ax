@@ -276,6 +276,7 @@ def _obs_vs_pred_dropdown_plot(
 
 def _get_batch_comparison_plot_data(
     observations: list[Observation],
+    experiment: Experiment,
     batch_x: int,
     batch_y: int,
     rel: bool = False,
@@ -300,14 +301,30 @@ def _get_batch_comparison_plot_data(
         for observation in observations
         if observation.features.trial_index == batch_x
     }
+    x_observation_metric_names = {}
+    for arm_name, obs in x_observations.items():
+        x_observation_metric_names[arm_name] = [
+            experiment.signature_to_metric[sig].name
+            for sig in obs.data.metric_signatures
+        ]
+
     y_observations = {
         observation.arm_name: observation
         for observation in observations
         if observation.features.trial_index == batch_y
     }
+    y_observation_metric_names = {}
+    for arm_name, obs in y_observations.items():
+        y_observation_metric_names[arm_name] = [
+            experiment.signature_to_metric[sig].name
+            for sig in obs.data.metric_signatures
+        ]
 
     # Assume input is well formed and metric_names are consistent across observations
-    metric_names = observations[0].data.metric_names
+    metric_names = []
+    for signature in observations[0].data.metric_signatures:
+        metric_names.append(experiment.signature_to_metric[signature].name)
+
     insample_data: dict[str, PlotInSampleArm] = {}
     for arm_name, x_observation in x_observations.items():
         # Restrict to arms present in both trials
@@ -324,14 +341,14 @@ def _get_batch_comparison_plot_data(
             "se_hat": {},
             "context_stratum": None,
         }
-        for i, mname in enumerate(x_observation.data.metric_names):
+        for i, mname in enumerate(x_observation_metric_names[arm_name]):
             # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y"][mname] = x_observation.data.means[i]
             # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
             arm_data["se"][mname] = np.sqrt(x_observation.data.covariance[i][i])
-        for i, mname in enumerate(y_observation.data.metric_names):
+        for i, mname in enumerate(y_observation_metric_names[arm_name]):
             # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
@@ -366,19 +383,21 @@ def _get_cv_plot_data(
     # Apply label_dict to cv_results
     cv_results = deepcopy(cv_results)  # Copy and edit in-place
     for cv_i in cv_results:
-        cv_i.observed.data.metric_names = [
-            label_dict.get(m, m) for m in cv_i.observed.data.metric_names
+        cv_i.observed.data.metric_signatures = [
+            label_dict.get(m, m) for m in cv_i.observed.data.metric_signatures
         ]
-        cv_i.predicted.metric_names = [
-            label_dict.get(m, m) for m in cv_i.predicted.metric_names
+        cv_i.predicted.metric_signatures = [
+            label_dict.get(m, m) for m in cv_i.predicted.metric_signatures
         ]
 
     # arm_name -> Arm data
     insample_data: dict[str, PlotInSampleArm] = {}
 
-    # Get the union of all metric_names seen in predictions
-    metric_names = list(
-        set().union(*(cv_result.predicted.metric_names for cv_result in cv_results))
+    # Get the union of all metric_signatures seen in predictions
+    metric_signatures = list(
+        set().union(
+            *(cv_result.predicted.metric_signatures for cv_result in cv_results)
+        )
     )
 
     for rid, cv_result in enumerate(cv_results):
@@ -392,14 +411,14 @@ def _get_cv_plot_data(
             "se_hat": {},
             "context_stratum": None,
         }
-        for i, mname in enumerate(cv_result.observed.data.metric_names):
+        for i, mname in enumerate(cv_result.observed.data.metric_signatures):
             # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y"][mname] = cv_result.observed.data.means[i]
             # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
             arm_data["se"][mname] = np.sqrt(cv_result.observed.data.covariance[i][i])
-        for i, mname in enumerate(cv_result.predicted.metric_names):
+        for i, mname in enumerate(cv_result.predicted.metric_signatures):
             # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
@@ -414,7 +433,7 @@ def _get_cv_plot_data(
         # pyre-fixme[6]:
         insample_data[f"{arm_name}_{rid}"] = PlotInSampleArm(**arm_data)
     return PlotData(
-        metrics=metric_names,
+        metrics=metric_signatures,
         in_sample=insample_data,
         out_of_sample=None,
         status_quo_name=None,
@@ -683,7 +702,12 @@ def interact_batch_comparison(
     if not status_quo_name and experiment.status_quo:
         status_quo_name = none_throws(experiment.status_quo).name
     plot_data = _get_batch_comparison_plot_data(
-        observations, batch_x, batch_y, rel=rel, status_quo_name=status_quo_name
+        observations=observations,
+        experiment=experiment,
+        batch_x=batch_x,
+        batch_y=batch_y,
+        rel=rel,
+        status_quo_name=status_quo_name,
     )
     if x_label is None:
         x_label = f"Batch {batch_x}"

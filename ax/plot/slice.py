@@ -325,7 +325,10 @@ def interact_slice_plotly(
     if generator_runs_dict is None:
         generator_runs_dict = {}
 
-    metric_names = list(model.metric_names)
+    metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
 
     # Populate `pbuttons`, which allows the user to select 1D slices of parameter
     # space with the chosen parameter on the x-axis.

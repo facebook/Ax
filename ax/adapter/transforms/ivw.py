@@ -39,7 +39,7 @@ def ivw_metric_merge(
         obsd: An ObservationData object
         conflicting_noiseless: "warn", "ignore", or "raise"
     """
-    if len(obsd.metric_names) == len(set(obsd.metric_names)):
+    if len(obsd.metric_signatures) == len(set(obsd.metric_signatures)):
         return obsd
     if conflicting_noiseless not in {"warn", "ignore", "raise"}:
         raise ValueError(
@@ -51,9 +51,11 @@ def ivw_metric_merge(
     # obsd.means for each measurement.
     weights: dict[str, npt.NDArray] = {}
     indicies: dict[str, list[int]] = {}
-    for metric_name in set(obsd.metric_names):
-        indcs = [i for i, mn in enumerate(obsd.metric_names) if mn == metric_name]
-        indicies[metric_name] = indcs
+    for metric_signature in set(obsd.metric_signatures):
+        indcs = [
+            i for i, mn in enumerate(obsd.metric_signatures) if mn == metric_signature
+        ]
+        indicies[metric_signature] = indcs
         # Extract variances for observations of this metric
         # NOTE: This only extracts the diagonal of the covariance matrix, and would not
         # lead to a maximum variance reduction in the presence of correlated noise.
@@ -64,46 +66,46 @@ def ivw_metric_merge(
             # Weight is inverse of variance, normalized
             # Expected `np.ndarray` for 3rd anonymous parameter to call
             # `dict.__setitem__` but got `float`.
-            weights[metric_name] = 1.0 / sigma2s
-            weights[metric_name] /= np.sum(weights[metric_name])
+            weights[metric_signature] = 1.0 / sigma2s
+            weights[metric_signature] /= np.sum(weights[metric_signature])
         else:
             # Check if there are conflicting means for the noiseless observations
             means_noiseless = obsd.means[indcs][idx_noiseless]
             _check_conflicting_means(
-                means_noiseless, metric_name, conflicting_noiseless
+                means_noiseless, metric_signature, conflicting_noiseless
             )
             # The first observation gets all the weight.
-            weights[metric_name] = np.zeros_like(sigma2s)
-            weights[metric_name][idx_noiseless[0]] = 1.0
+            weights[metric_signature] = np.zeros_like(sigma2s)
+            weights[metric_signature][idx_noiseless[0]] = 1.0
     # Compute the new values
-    metric_names = sorted(set(obsd.metric_names))
-    means = np.zeros(len(metric_names))
-    covariance = np.zeros((len(metric_names), len(metric_names)))
-    for i, metric_name in enumerate(metric_names):
-        ys = obsd.means[indicies[metric_name]]
-        means[i] = np.sum(weights[metric_name] * ys)
-        # Calculate covariances with metric_name
-        for j, metric_name2 in enumerate(metric_names[i:], start=i):
-            for ii, idx_i in enumerate(indicies[metric_name]):
-                for jj, idx_j in enumerate(indicies[metric_name2]):
+    metric_signatures = sorted(set(obsd.metric_signatures))
+    means = np.zeros(len(metric_signatures))
+    covariance = np.zeros((len(metric_signatures), len(metric_signatures)))
+    for i, metric_signature in enumerate(metric_signatures):
+        ys = obsd.means[indicies[metric_signature]]
+        means[i] = np.sum(weights[metric_signature] * ys)
+        # Calculate covariances with metric_signature
+        for j, metric_signature2 in enumerate(metric_signatures[i:], start=i):
+            for ii, idx_i in enumerate(indicies[metric_signature]):
+                for jj, idx_j in enumerate(indicies[metric_signature2]):
                     covariance[i, j] += (
-                        weights[metric_name][ii]
-                        * weights[metric_name2][jj]
+                        weights[metric_signature][ii]
+                        * weights[metric_signature2][jj]
                         * obsd.covariance[idx_i, idx_j]
                     )
             covariance[j, i] = covariance[i, j]
     return ObservationData(
-        metric_names=metric_names, means=means, covariance=covariance
+        metric_signatures=metric_signatures, means=means, covariance=covariance
     )
 
 
 def _check_conflicting_means(
     means_noiseless: npt.NDArray,
-    metric_name: str,
+    metric_signature: str,
     conflicting_noiseless: str,
 ) -> None:
     if np.var(means_noiseless) > 0:
-        message = f"Conflicting noiseless measurements for {metric_name}."
+        message = f"Conflicting noiseless measurements for {metric_signature}."
         if conflicting_noiseless == "warn":
             logger.warning(message)
         elif conflicting_noiseless == "raise":

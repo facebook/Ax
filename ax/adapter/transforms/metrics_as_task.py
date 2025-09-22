@@ -83,13 +83,13 @@ class MetricsAsTask(Transform):
             )
             # Split out observations for the task metrics
             for task_metric, target_metrics in self.metric_task_map.items():
-                if task_metric in obs.data.metric_names:
+                if task_metric in obs.data.metric_signatures:
                     # Make an observation for this task metric.
                     params = obs.features.parameters.copy()
                     params["METRIC_TASK"] = task_metric
                     new_obs_feats = obs.features.clone(replace_parameters=params)
                     new_obs_data = ObservationData(
-                        metric_names=target_metrics,
+                        metric_signatures=target_metrics,
                         means=obs.data.means_dict[task_metric]
                         * np.ones(len(target_metrics)),
                         covariance=np.diag(

@@ -865,7 +865,9 @@ def _validate_and_maybe_get_default_metric_names(
             multi_objective = assert_is_instance(
                 none_throws(optimization_config).objective, MultiObjective
             )
-            metric_names = tuple(obj.metric.name for obj in multi_objective.objectives)
+            metric_names = tuple(
+                obj.metric.signature for obj in multi_objective.objectives
+            )
         else:
             raise UserInputError(
                 "Inference of `metric_names` failed. Expected `MultiObjective` but "
@@ -894,14 +896,16 @@ def _validate_experiment_and_maybe_get_objective_thresholds(
             optimization_config, MultiObjectiveOptimizationConfig
         ).objective_thresholds
         if any(
-            ot.relative for ot in objective_thresholds if ot.metric.name in metric_names
+            ot.relative
+            for ot in objective_thresholds
+            if ot.metric.signature in metric_names
         ):
             raise NotImplementedError(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds."
             )
         constraint_metric_names = {
-            objective_threshold.metric.name
+            objective_threshold.metric.signature
             for objective_threshold in objective_thresholds
         }
         missing_metric_names = set(metric_names) - set(constraint_metric_names)
@@ -926,7 +930,7 @@ def _validate_and_maybe_get_default_reference_point(
 ) -> tuple[float, float] | None:
     if reference_point is None:
         reference_point = {
-            objective_threshold.metric.name: objective_threshold.bound
+            objective_threshold.metric.signature: objective_threshold.bound
             for objective_threshold in objective_thresholds
         }
         missing_metric_names = set(metric_names) - set(reference_point)
@@ -1008,7 +1012,7 @@ def _maybe_get_default_minimize_single_metric(
                 optimization_config.objective, MultiObjective
             )
             for objective in multi_objective.objectives:
-                if objective.metric.name == metric_name:
+                if objective.metric.signature == metric_name:
                     return objective.minimize
         else:
             return optimization_config.objective.minimize
@@ -1025,7 +1029,7 @@ def _maybe_get_default_minimize_single_metric(
                 f"{VALID_CONSTRAINT_OP_NAMES}. Got {invalid_constraint_op_names}.)"
             )
         minimize = {
-            objective_threshold.metric.name: objective_threshold.op.name == "LEQ"
+            objective_threshold.metric.signature: objective_threshold.op.name == "LEQ"
             for objective_threshold in objective_thresholds
         }
         minimize = minimize.get(metric_name)

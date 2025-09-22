@@ -24,7 +24,7 @@ from pandas.testing import assert_frame_equal
 def compare_obs(
     test: TestCase, obs1: Observation, obs2: Observation, discrepancy_tol: float = 1e-8
 ) -> None:
-    test.assertEqual(obs1.data.metric_names, obs2.data.metric_names)
+    test.assertEqual(obs1.data.metric_signatures, obs2.data.metric_signatures)
     test.assertTrue(np.array_equal(obs1.data.means, obs2.data.means))
     discrep = np.max(np.abs(obs1.data.covariance - obs2.data.covariance))
     test.assertLessEqual(discrep, discrepancy_tol)
@@ -43,7 +43,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         # test nan in covariance
         observation = Observation(
             data=ObservationData(
-                metric_names=["m1"],
+                metric_signatures=["m1"],
                 means=np.array([1.0]),
                 covariance=np.array([[float("nan")]]),
             ),
@@ -61,7 +61,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         # test full covariance
         observation = Observation(
             data=ObservationData(
-                metric_names=["m1", "m2"],
+                metric_signatures=["m1", "m2"],
                 means=np.array([1.0, 1.0]),
                 covariance=np.ones((2, 2)),
             ),
@@ -78,7 +78,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         observations = [
             Observation(
                 data=ObservationData(
-                    metric_names=["m1"],
+                    metric_signatures=["m1"],
                     means=np.array([1.0]),
                     covariance=zero_covar,
                 ),
@@ -87,7 +87,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["m1"],
+                    metric_signatures=["m1"],
                     means=np.array([2.0]),
                     covariance=zero_covar,
                 ),
@@ -105,7 +105,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         observations = [
             Observation(
                 data=ObservationData(
-                    metric_names=["m1"],
+                    metric_signatures=["m1"],
                     means=np.array([1.0]),
                     covariance=zero_covar,
                 ),
@@ -114,7 +114,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["m1"],
+                    metric_signatures=["m1"],
                     means=np.array([1.0]),
                     covariance=zero_covar,
                 ),
@@ -123,7 +123,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["m1"],
+                    metric_signatures=["m1"],
                     means=np.array([2.0]),
                     covariance=zero_covar,
                 ),
@@ -146,7 +146,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         obs_feat1 = ObservationFeatures(parameters={"a": 0.0, "b": 1.0})
         obs1 = Observation(
             data=ObservationData(
-                metric_names=["m1", "m2"],
+                metric_signatures=["m1", "m2"],
                 means=np.array([1.0, 2.0]),
                 covariance=np.array(
                     [
@@ -160,7 +160,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         )
         obs2 = Observation(
             data=ObservationData(
-                metric_names=["m1", "m2"],
+                metric_signatures=["m1", "m2"],
                 means=np.array([1.0, 1.0]),
                 covariance=np.array(
                     [
@@ -175,7 +175,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         # different arm
         obs3 = Observation(
             data=ObservationData(
-                metric_names=["m1", "m2"],
+                metric_signatures=["m1", "m2"],
                 means=np.array([3.0, 1.0]),
                 covariance=np.array(
                     [
@@ -189,7 +189,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         )
         expected_obs = Observation(
             data=ObservationData(
-                metric_names=["m1", "m2"],
+                metric_signatures=["m1", "m2"],
                 means=np.array([1.0, 1.6]),
                 covariance=np.array([[0.5, 0.0], [0.0, 1.2]]),
             ),

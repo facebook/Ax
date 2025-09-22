@@ -97,7 +97,7 @@ class BaseAdapterTest(TestCase):
             list(adapter.transforms), [t.__name__ for t in [Cast] + MBM_X_trans_base]
         )
         self.assertEqual(adapter.fit_time, adapter.fit_time_since_gen)
-        self.assertEqual(adapter._metric_names, set())
+        self.assertEqual(adapter._metric_signatures, set())
         self.assertEqual(adapter._optimization_config, exp.optimization_config)
         self.assertEqual(adapter._training_in_design_idx, [])
         self.assertIsNone(adapter._status_quo)
@@ -150,8 +150,8 @@ class BaseAdapterTest(TestCase):
         # Check that the properties are set correctly.
         # Only checking a subset that are expected to be different than test_init_empty.
         self.assertEqual(adapter._raw_transforms, [Cast] + MBM_X_trans + Y_trans)
-        metric_names = set(exp.metrics)
-        self.assertEqual(adapter._metric_names, metric_names)
+        metric_signatures = {m.signature for m in exp.metrics.values()}
+        self.assertEqual(adapter._metric_signatures, metric_signatures)
         self.assertEqual(
             adapter._training_in_design_idx, [True] * len(exp.arms_by_name)
         )
@@ -170,9 +170,9 @@ class BaseAdapterTest(TestCase):
         self.assertTrue(
             np.allclose(
                 adapter._training_data.observation_data[
-                    [("mean", m) for m in metric_names]
+                    [("mean", m) for m in metric_signatures]
                 ],
-                exp_df.sort_values(by="arm_name")[list(metric_names)],
+                exp_df.sort_values(by="arm_name")[list(metric_signatures)],
             )
         )
         # Check that fit was called with the transformed arguments.
@@ -330,7 +330,7 @@ class BaseAdapterTest(TestCase):
         called = False
         mock_predictions: list[ObservationData] = [
             ObservationData(
-                metric_names=["branin"],
+                metric_signatures=["branin"],
                 means=np.zeros(1),
                 covariance=np.ones((1, 1)),
             )
@@ -644,7 +644,11 @@ class BaseAdapterTest(TestCase):
             if additional_fetch:
                 # Last observation should only include the constraint metric.
                 self.assertEqual(
-                    set(call_kwargs["status_quo_observations"][-1].data.metric_names),
+                    set(
+                        call_kwargs["status_quo_observations"][
+                            -1
+                        ].data.metric_signatures
+                    ),
                     {"branin_map_constraint"},
                 )
             opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
@@ -657,7 +661,7 @@ class BaseAdapterTest(TestCase):
                 adapter_sq.features.trial_index, get_target_trial_index(experiment=exp)
             )
             self.assertTrue(
-                set(adapter_sq.data.metric_names).issuperset(opt_config_metrics)
+                set(adapter_sq.data.metric_signatures).issuperset(opt_config_metrics)
             )
 
         # Case 2: Experiment has an optimization config with no map metrics
@@ -719,7 +723,7 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(cov["b"]["a"], [3.0, 4.0])
         # Check that errors if metric mismatch
         od3 = ObservationData(
-            metric_names=["a"], means=np.array([2.0]), covariance=np.array([[4.0]])
+            metric_signatures=["a"], means=np.array([2.0]), covariance=np.array([[4.0]])
         )
         with self.assertRaises(ValueError):
             unwrap_observation_data(observation_data + [od3])
@@ -1051,7 +1055,9 @@ class BaseAdapterTest(TestCase):
         ) -> list[ObservationData]:
             return [
                 ObservationData(
-                    metric_names=["m1"], means=np.ones((1)), covariance=np.ones((1, 1))
+                    metric_signatures=["m1"],
+                    means=np.ones((1)),
+                    covariance=np.ones((1, 1)),
                 )
                 for _ in observation_features
             ]

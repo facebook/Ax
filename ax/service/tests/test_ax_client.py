@@ -368,12 +368,21 @@ class TestAxClient(TestCase):
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
             # pyre-fixme[16]: `Optional` has no attribute `objective`.
+            opt_config.objective.objectives[0].metric.signature,
+            "foo",
+        )
+        self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `objective`.
             opt_config.objective.objectives[0].metric.name,
             "foo",
         )
         self.assertEqual(
             opt_config.objective.objectives[0].minimize,
             True,
+        )
+        self.assertEqual(
+            opt_config.objective.objectives[1].metric.signature,
+            "bar",
         )
         self.assertEqual(
             opt_config.objective.objectives[1].metric.name,
@@ -432,7 +441,7 @@ class TestAxClient(TestCase):
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
             # pyre-fixme[16]: `Optional` has no attribute `objective`.
-            opt_config.objective.metric.name,
+            opt_config.objective.metric.signature,
             "foo",
         )
         self.assertEqual(
@@ -552,7 +561,12 @@ class TestAxClient(TestCase):
         f"{GenerationStrategy.__module__}.GenerationStrategy._gen_with_multiple_nodes",
         side_effect=OptimizationComplete("test error"),
     )
-    def test_optimization_complete(self, _mock_gen) -> None:
+    @patch(
+        "ax.core.Experiment.signature_to_metric",
+        autospec=True,
+        return_value={"branin": Metric(name="branin")},
+    )
+    def test_optimization_complete(self, _mock_gen, _mock_sig_to_metric) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
@@ -1081,22 +1095,32 @@ class TestAxClient(TestCase):
         )
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
+        self.assertEqual(objectives[0].metric.signature, "obj_m1")
         self.assertEqual(objectives[0].metric.name, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(objectives[1].metric.signature, "obj_m2")
         self.assertEqual(objectives[1].metric.name, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
         # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
+        self.assertEqual(thresholds[0].metric.signature, "obj_m1")
         self.assertEqual(thresholds[0].metric.name, "obj_m1")
+
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(thresholds[1].metric.signature, "obj_m2")
         self.assertEqual(thresholds[1].metric.name, "obj_m2")
+
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
+        self.assertEqual(outcome_constraints[0].metric.signature, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
+        self.assertEqual(
+            ax_client.experiment.tracking_metrics[0].signature, "tracking_m4"
+        )
         self.assertEqual(ax_client.experiment.tracking_metrics[0].name, "tracking_m4")
         self.assertEqual(
             ax_client.experiment.tracking_metrics[0].properties, {"m4_opt": "m4_val"}
@@ -1176,20 +1200,25 @@ class TestAxClient(TestCase):
         )
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
+        self.assertEqual(objectives[0].metric.signature, "obj_m1")
         self.assertEqual(objectives[0].metric.name, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(objectives[1].metric.signature, "obj_m2")
         self.assertEqual(objectives[1].metric.name, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
         # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
+        self.assertEqual(thresholds[0].metric.signature, "obj_m1")
         self.assertEqual(thresholds[0].metric.name, "obj_m1")
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(thresholds[1].metric.signature, "obj_m2")
         self.assertEqual(thresholds[1].metric.name, "obj_m2")
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
+        self.assertEqual(outcome_constraints[0].metric.signature, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
         self.assertEqual(
@@ -2247,7 +2276,7 @@ class TestAxClient(TestCase):
     @patch(
         "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
-        return_value=[get_observation1trans(first_metric_name="branin").data],
+        return_value=[get_observation1trans(first_metric_signature="branin").data],
     )
     def test_get_model_predictions(self, _predict) -> None:
         ax_client = get_branin_optimization()

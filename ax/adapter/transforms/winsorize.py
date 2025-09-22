@@ -122,14 +122,15 @@ class Winsorize(Transform):
             means_df = experiment_data.observation_data["mean"]
             # Dropping NaNs here since the DF will have NaN for missing values.
             all_metric_values = {
-                name: column.dropna().values for name, column in means_df.items()
+                signature: column.dropna().values
+                for signature, column in means_df.items()
             }
         else:
             observation_data = [obs.data for obs in none_throws(observations)]
             all_metric_values = get_data(observation_data=observation_data)
-        for metric_name, metric_values in all_metric_values.items():
-            self.cutoffs[metric_name] = _get_cutoffs(
-                metric_name=metric_name,
+        for metric_signature, metric_values in all_metric_values.items():
+            self.cutoffs[metric_signature] = _get_cutoffs(
+                metric_signature=metric_signature,
                 metric_values=metric_values,
                 winsorization_config=winsorization_config,
                 adapter=adapter,
@@ -143,12 +144,18 @@ class Winsorize(Transform):
     ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
-            for idx, metric_name in enumerate(obsd.metric_names):
-                if metric_name not in self.cutoffs:
-                    raise ValueError(f"Cannot winsorize unknown metric {metric_name}")
+            for idx, metric_signature in enumerate(obsd.metric_signatures):
+                if metric_signature not in self.cutoffs:
+                    raise ValueError(
+                        f"Cannot winsorize unknown metric {metric_signature}"
+                    )
                 # Clip on the winsorization bounds.
-                obsd.means[idx] = max(obsd.means[idx], self.cutoffs[metric_name][0])
-                obsd.means[idx] = min(obsd.means[idx], self.cutoffs[metric_name][1])
+                obsd.means[idx] = max(
+                    obsd.means[idx], self.cutoffs[metric_signature][0]
+                )
+                obsd.means[idx] = min(
+                    obsd.means[idx], self.cutoffs[metric_signature][1]
+                )
         return observation_data
 
     def transform_experiment_data(
@@ -170,7 +177,7 @@ class Winsorize(Transform):
 
 
 def _get_cutoffs(
-    metric_name: str,
+    metric_signature: str,
     metric_values: list[float],
     winsorization_config: WinsorizationConfig | dict[str, WinsorizationConfig],
     adapter: Optional["adapter_module.base.Adapter"],
@@ -180,23 +187,26 @@ def _get_cutoffs(
     # (1) Use the same config for all metrics if one WinsorizationConfig was specified
     if isinstance(winsorization_config, WinsorizationConfig):
         return _quantiles_to_cutoffs(
-            metric_name=metric_name,
+            metric_signature=metric_signature,
             metric_values=metric_values,
             metric_config=winsorization_config,
         )
 
-    # (2) If `winsorization_config` is a dict, use it if `metric_name` is a key,
+    # (2) If `winsorization_config` is a dict, use it if `metric_signature` is a key,
     # and the corresponding value is a WinsorizationConfig.
-    if isinstance(winsorization_config, dict) and metric_name in winsorization_config:
-        metric_config = winsorization_config[metric_name]
+    if (
+        isinstance(winsorization_config, dict)
+        and metric_signature in winsorization_config
+    ):
+        metric_config = winsorization_config[metric_signature]
         if not isinstance(metric_config, WinsorizationConfig):
             raise UserInputError(
                 "Expected winsorization config of type "
                 f"`WinsorizationConfig` but got {metric_config} of type "
-                f"{type(metric_config)} for metric {metric_name}."
+                f"{type(metric_config)} for metric {metric_signature}."
             )
         return _quantiles_to_cutoffs(
-            metric_name=metric_name,
+            metric_signature=metric_signature,
             metric_values=metric_values,
             metric_config=metric_config,
         )
@@ -217,12 +227,13 @@ def _get_cutoffs(
         )
         if oc.relative
     }
-    if metric_name in relative_constraint_metrics:
+    if metric_signature in relative_constraint_metrics:
         if not use_raw_sq:
             warnings.warn(
                 "Automatic winsorization doesn't support relative outcome constraints "
                 "or objective thresholds when `derelativize_with_raw_status_quo` is "
-                f"not set to `True`. Skipping winsorization for metric {metric_name}.",
+                "not set to `True`. Skipping winsorization for metric "
+                f"{metric_signature}.",
                 AxOptimizationWarning,
                 stacklevel=3,
             )
@@ -232,11 +243,11 @@ def _get_cutoffs(
         )
 
     # Non-objective metrics - obtain cutoffs from outcome_constraints.
-    if metric_name not in optimization_config.objective.metric_names:
-        # Get all outcome constraints for `metric_name`` that aren't scalarized.
+    if metric_signature not in optimization_config.objective.metric_signatures:
+        # Get all outcome constraints for `metric_signature`` that aren't scalarized.
         return _obtain_cutoffs_from_outcome_constraints(
             optimization_config=optimization_config,
-            metric_name=metric_name,
+            metric_signature=metric_signature,
             metric_values=metric_values,
         )
 
@@ -245,7 +256,9 @@ def _get_cutoffs(
         objective = assert_is_instance(
             optimization_config.objective, ScalarizedObjective
         )
-        weight = [w for m, w in objective.metric_weights if m.name == metric_name][0]
+        weight = [
+            w for m, w in objective.metric_weights if m.signature == metric_signature
+        ][0]
         # Winsorize from above if the weight is positive and minimize is `True` or the
         # weight is negative and minimize is `False`.
         return _get_auto_winsorization_cutoffs_single_objective(
@@ -263,14 +276,14 @@ def _get_cutoffs(
     # Multi-objective
     return _get_auto_winsorization_cutoffs_multi_objective(
         optimization_config=optimization_config,
-        metric_name=metric_name,
+        metric_signature=metric_signature,
         metric_values=metric_values,
     )
 
 
 def _get_auto_winsorization_cutoffs_multi_objective(
     optimization_config: OptimizationConfig,
-    metric_name: str,
+    metric_signature: str,
     metric_values: list[float],
 ) -> tuple[float, float]:
     # We approach a multi-objective metric the same as output constraints. It may be
@@ -280,7 +293,7 @@ def _get_auto_winsorization_cutoffs_multi_objective(
         optimization_config, MultiObjectiveOptimizationConfig
     )
     objective_threshold = _get_objective_threshold_from_moo_config(
-        optimization_config=optimization_config, metric_name=metric_name
+        optimization_config=optimization_config, metric_signature=metric_signature
     )
     if objective_threshold:
         return _get_auto_winsorization_cutoffs_outcome_constraint(
@@ -299,7 +312,7 @@ def _get_auto_winsorization_cutoffs_multi_objective(
         minimize = [
             objective.minimize
             for objective in objectives.objectives
-            if objective.metric.name == metric_name
+            if objective.metric.signature == metric_signature
         ][0]
         return _get_auto_winsorization_cutoffs_single_objective(
             metric_values=metric_values,
@@ -309,25 +322,25 @@ def _get_auto_winsorization_cutoffs_multi_objective(
 
 def _obtain_cutoffs_from_outcome_constraints(
     optimization_config: OptimizationConfig,
-    metric_name: str,
+    metric_signature: str,
     metric_values: list[float],
 ) -> tuple[float, float]:
     """Get all outcome constraints (non-scalarized) for a given metric."""
     # Check for scalarized outcome constraints for the given metric
     if any(
         isinstance(oc, ScalarizedOutcomeConstraint)
-        and metric_name in [metric.name for metric in oc.metrics]
+        and metric_signature in [metric.signature for metric in oc.metrics]
         for oc in optimization_config.outcome_constraints
     ):
         warnings.warn(
             "Automatic winsorization isn't supported for a "
             "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
-            f"manually if you want to winsorize metric {metric_name}.",
+            f"manually if you want to winsorize metric {metric_signature}.",
             AxOptimizationWarning,
             stacklevel=3,
         )
     outcome_constraints = _get_non_scalarized_outcome_constraints(
-        optimization_config=optimization_config, metric_name=metric_name
+        optimization_config=optimization_config, metric_signature=metric_signature
     )
     if outcome_constraints:
         return _get_auto_winsorization_cutoffs_outcome_constraint(
@@ -338,24 +351,24 @@ def _obtain_cutoffs_from_outcome_constraints(
 
 
 def _get_non_scalarized_outcome_constraints(
-    optimization_config: OptimizationConfig, metric_name: str
+    optimization_config: OptimizationConfig, metric_signature: str
 ) -> list[OutcomeConstraint]:
     return [
         oc
         for oc in optimization_config.outcome_constraints
         if not isinstance(oc, ScalarizedOutcomeConstraint)
-        and oc.metric.name == metric_name
+        and oc.metric.signature == metric_signature
     ]
 
 
 def _get_objective_threshold_from_moo_config(
-    optimization_config: MultiObjectiveOptimizationConfig, metric_name: str
+    optimization_config: MultiObjectiveOptimizationConfig, metric_signature: str
 ) -> list[ObjectiveThreshold]:
     """Get the non-relative objective threshold for a given metric."""
     return [
         ot
         for ot in optimization_config.objective_thresholds
-        if ot.metric.name == metric_name
+        if ot.metric.signature == metric_signature
     ]
 
 
@@ -415,7 +428,7 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
 
 
 def _quantiles_to_cutoffs(
-    metric_name: str,
+    metric_signature: str,
     metric_values: list[float],
     metric_config: WinsorizationConfig,
 ) -> tuple[float, float]:
@@ -432,7 +445,7 @@ def _quantiles_to_cutoffs(
     ):
         raise ValueError(
             f"Lower bound: {lower} was greater than the inverse of the "
-            f"upper bound: {1 - upper} for metric {metric_name}. Decrease "
+            f"upper bound: {1 - upper} for metric {metric_signature}. Decrease "
             f"one or both of `lower_quantile_margin` and "
             "`upper_quantile_margin`."
         )
