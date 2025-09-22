@@ -15,7 +15,7 @@ from typing import Any, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import Parameter
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.utils.common.logger import get_logger
 
 if TYPE_CHECKING:
@@ -31,7 +31,8 @@ class MetadataToParameterMixin:
     This Mixin has utilities for converting metadata from observation features
     into a parameter.
 
-    Transform is done in-place.
+    Transform is mostly done in-place. For hierarchical search spaces, this transform
+    returns a clone of the search space.
     """
 
     _parameter_list: list[Parameter] = []
@@ -40,6 +41,15 @@ class MetadataToParameterMixin:
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for parameter in self._parameter_list:
             search_space.add_parameter(parameter.clone())
+
+        if isinstance(search_space, HierarchicalSearchSpace):
+            # The hierarchical search space does not have a root anymore due to the
+            # newly added parameters:
+            # 1. Disable the root check;
+            # 2. Re-initialize the search space to clear the variable `self._root`.
+            search_space.requires_root = False
+            search_space = search_space.clone()
+
         return search_space
 
     def transform_observation_features(

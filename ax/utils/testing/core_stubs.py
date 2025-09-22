@@ -142,6 +142,7 @@ from typing_extensions import Self
 logger: Logger = get_logger(__name__)
 
 TEST_SOBOL_SEED = 1234
+TORCH_RAND_SEED = 42
 DEFAULT_USER = "foo-user"
 
 ##############################
@@ -1051,7 +1052,23 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
 
 def get_hierarchical_search_space_experiment(
     num_observations: int = 0,
+    use_map_data: bool = False,
 ) -> Experiment:
+    """
+    Create an experiment with a hierarchical search space and optional observations.
+
+    Args:
+        num_observations: The number of trials in the experiment.
+        use_map_data: Whether to use `MapData` or `Data` when constructing the
+            experiment. This flag is for testing the transform `MapKeyToFloat`, which
+            is applied to the search space only if the experiment has map data.
+
+    Returns:
+        An experiment with a hierarchical search space and some optional observations.
+
+    NOTE: We have fixed the random seeds in the Sobol generator and `torch.rand`.
+    Otherwise, `MapKeyToFloatTransformTest` is flaky.
+    """
     experiment = Experiment(
         name="test_experiment_hss",
         description="test experiment with hierarchical search space",
@@ -1059,27 +1076,38 @@ def get_hierarchical_search_space_experiment(
         optimization_config=get_optimization_config(),
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
-    sobol_generator = get_sobol(search_space=experiment.search_space)
+    sobol_generator = get_sobol(
+        search_space=experiment.search_space, seed=TEST_SOBOL_SEED
+    )
     for i in range(num_observations):
         trial = experiment.new_trial(generator_run=sobol_generator.gen(1))
         trial.mark_running(no_runner_required=True)
-        data = Data(
-            df=pd.DataFrame.from_records(
-                [
-                    {
+
+        torch_rnd_generator = torch.Generator().manual_seed(TORCH_RAND_SEED)
+        outcomes = torch.rand(2, generator=torch_rnd_generator).tolist()
+
+        dict_step = {"step": i} if use_map_data else {}
+        df = pd.DataFrame.from_records(
+            [
+                {
+                    **{
                         "arm_name": f"{i}_0",
                         "metric_name": f"m{j + 1}",
                         "mean": o,
                         "sem": None,
                         "trial_index": i,
                         "metric_signature": f"m{j + 1}",
-                    }
-                    for j, o in enumerate(torch.rand(2).tolist())
-                ]
-            )
+                    },
+                    **dict_step,
+                }
+                for j, o in enumerate(outcomes)
+            ]
         )
+        data = MapData(df=df) if use_map_data else Data(df=df)
+
         experiment.attach_data(data)
         trial.mark_completed()
+
     return experiment
 
 
