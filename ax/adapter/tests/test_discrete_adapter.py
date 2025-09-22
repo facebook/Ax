@@ -73,6 +73,7 @@ class DiscreteAdapterTest(TestCase):
                         "mean": 3.0,
                         "sem": 1.2,
                         "trial_index": t.index,
+                        "metric_signature": "m1",
                     }
                 ]
             )

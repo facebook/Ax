@@ -36,7 +36,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.service.utils.with_db_settings_base import (
     _save_generation_strategy_to_db_if_possible,
 )
@@ -481,6 +481,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "step": {0: np.nan},
@@ -506,6 +507,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "foo"},
+                        "metric_signature": {0: "foo", 1: "foo"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: np.nan, 1: 10.0},
@@ -515,6 +517,17 @@ class TestClient(TestCase):
         )
 
         # With extra metrics
+        # Try and attach data for a metric that doesn't exist
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Unable to find the metric signature for one or more metrics.",
+        ):
+            client.attach_data(
+                trial_index=trial_index,
+                raw_data={"foo": 1.0, "bar": 2.0},
+            )
+
+        client.configure_metrics(metrics=[DummyMetric(name="bar")])
         client.attach_data(
             trial_index=trial_index,
             raw_data={"foo": 1.0, "bar": 2.0},
@@ -533,6 +546,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0, 2: 0},
                         "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "bar"},
+                        "metric_signature": {0: "foo", 1: "foo", 2: "bar"},
                         "mean": {0: 2.0, 1: 1.0, 2: 2.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan},
                         "step": {0: 10.0, 1: np.nan, 2: np.nan},
@@ -575,6 +589,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "bar"},
+                        "metric_signature": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: np.nan, 1: np.nan},
@@ -604,6 +619,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 1, 1: 1},
                         "arm_name": {0: "1_0", 1: "1_0"},
                         "metric_name": {0: "foo", 1: "bar"},
+                        "metric_signature": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: 10.0, 1: 10.0},
@@ -630,6 +646,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 2},
                         "arm_name": {0: "2_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "step": {0: np.nan},
@@ -758,6 +775,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 0.0},
                         "sem": {0: np.nan},
                         "step": {0: 1.0},
@@ -820,6 +838,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
                         "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
+                        "metric_signature": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
                         "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
                         "step": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},

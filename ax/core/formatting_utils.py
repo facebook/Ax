@@ -102,7 +102,7 @@ def raw_data_to_evaluation(
 
 def data_and_evaluations_from_raw_data(
     raw_data: Mapping[str, TEvaluationOutcome],
-    metric_names: Sequence[str],
+    metric_name_to_signature: Mapping[str, str],
     trial_index: int,
     data_type: DataType,
     start_time: int | str | None = None,
@@ -116,7 +116,8 @@ def data_and_evaluations_from_raw_data(
 
     Args:
         raw_data: Mapping from arm name to raw_data.
-        metric_names: Names of metrics used to transform raw data to evaluations.
+        metric_name_to_signature: Mapping of metric names to signatures used to
+            transform raw data to evaluations.
         trial_index: Index of the trial, for which the evaluations are.
         start_time: Optional start time of run of the trial that produced this
             data, in milliseconds or iso format.  Milliseconds will eventually be
@@ -130,10 +131,11 @@ def data_and_evaluations_from_raw_data(
     evaluations = {
         arm_name: raw_data_to_evaluation(
             raw_data=raw_data[arm_name],
-            metric_names=metric_names,
+            metric_names=list(metric_name_to_signature.keys()),
         )
         for arm_name in raw_data
     }
+
     if all(isinstance(evaluations[x], dict) for x in evaluations.keys()):
         if data_type is DataType.MAP_DATA:
             raise UserInputError(
@@ -147,6 +149,7 @@ def data_and_evaluations_from_raw_data(
         # All evaluations are no-fidelity evaluations.
         data = Data.from_evaluations(
             evaluations=cast(dict[str, TTrialEvaluation], evaluations),
+            metric_name_to_signature=metric_name_to_signature,
             trial_index=trial_index,
             start_time=start_time,
             end_time=end_time,
@@ -163,6 +166,7 @@ def data_and_evaluations_from_raw_data(
         data = MapData.from_map_evaluations(
             evaluations=cast(dict[str, TMapTrialEvaluation], evaluations),
             trial_index=trial_index,
+            metric_name_to_signature=metric_name_to_signature,
         )
     else:
         raise ValueError(

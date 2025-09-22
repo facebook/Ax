@@ -47,6 +47,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
                 "mean": list(np.random.normal(0, 1, 6)),
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
+                "metric_signature": ["branin_a"] * 6,
             }
         )
         self.df_metric_b = pd.DataFrame(
@@ -56,6 +57,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
                 "mean": list(np.random.normal(0, 1, 6)),
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
+                "metric_signature": ["branin_b"] * 6,
             }
         )
         self.df_metric_d = pd.DataFrame(
@@ -65,6 +67,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
                 "mean": [1.0, 1.0, 2.0, 3.0, 4.0, 5.0],
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
+                "metric_signature": ["branin_d"] * 6,
             }
         )
         df = pd.concat(
@@ -119,6 +122,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
                 "mean": [1.0, -1.0, -2.0, -3.0, -4.0, -5.0],
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
+                "metric_signature": ["branin_d"] * 6,
             }
         )
         df = pd.concat(

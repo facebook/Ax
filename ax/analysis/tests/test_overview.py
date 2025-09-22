@@ -245,6 +245,7 @@ class TestOverview(TestCase):
                         "trial_index": trial.index,
                         "arm_name": arm.name,
                         "metric_name": "booth",
+                        "metric_signature": "booth",
                         "mean": (x1 + 2 * x2 - 7) ** 2 + (2 * x1 + x2 - 5) ** 2,
                         "sem": 0.0,
                     }

@@ -75,6 +75,7 @@ class TorchXMetric(Metric):
                 "metric_name": self.name,
                 "mean": mean,
                 "sem": sem,
+                "metric_signature": self.signature,
             }
             return Ok(value=Data(df=pd.DataFrame.from_records([df_dict])))
 
