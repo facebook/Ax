@@ -19,7 +19,10 @@ class TestContourPlot(TestCase):
     @mock_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
-        self.client = AxClient()
+
+        # There were some flaky test failures on the github side. Fix the random seed
+        # to reduce the flakiness.
+        self.client = AxClient(random_seed=42)
         self.client.create_experiment(
             is_test=True,
             name="foo",
