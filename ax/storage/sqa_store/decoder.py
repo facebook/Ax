@@ -1212,12 +1212,17 @@ class Decoder:
             )
             or {}
         )
+
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
+
+        if metric_class is Metric and metric_sqa.signature != metric_sqa.name:
+            args["signature_override"] = metric_sqa.signature
 
         args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)
         metric.db_id = metric_sqa.id
+
         return metric
 
     def _objective_from_sqa(self, metric: Metric, metric_sqa: SQAMetric) -> Objective:
