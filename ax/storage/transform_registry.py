@@ -13,7 +13,6 @@ from ax.adapter.transforms.choice_encode import (
     ChoiceToNumericChoice,
     OrderedChoiceToIntegerRange,
 )
-from ax.adapter.transforms.convert_metric_names import ConvertMetricNames
 from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.adapter.transforms.fixed_to_tunable import FixedToTunable
@@ -58,7 +57,7 @@ please add it to DEPRECATED_TRANSFORMS. When loading from the DB,
 we will return the replacement class.
 """
 TRANSFORM_REGISTRY: set[type[Transform]] = {
-    ConvertMetricNames,
+    # ConvertMetricNames, DEPRECATED
     Derelativize,
     FixedToTunable,
     IntRangeToChoice,
@@ -104,6 +103,7 @@ REMOVED_TRANSFORMS: set[str] = {
     "OutOfDesign",
     "CapParameter",
     "MapUnitX",
+    "ConvertMetricNames",
 }
 
 """
