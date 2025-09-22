@@ -141,7 +141,7 @@ class ExperimentData:
         3           3_0       0.837545  0.732969
         >>> print(experiment_data.observation_data)
                              mean      sem
-        metric_name            m1   m2  m1  m2
+        metric_signature            m1   m2  m1  m2
         trial_index arm_name
         0           0_0       0.1  1.0 NaN NaN
         1           1_0       0.2  2.0 NaN NaN
@@ -162,7 +162,7 @@ class ExperimentData:
         1           1_0       1.0  1.0
         >>> print(experiment_data.observation_data)
                                             mean               sem
-        metric_name                        branin branin_map branin branin_map
+        metric_signature                        branin branin_map branin branin_map
         trial_index arm_name timestamp
         0           0_0      0.0        55.602113  55.602113    0.0        0.0
                              1.0              NaN  55.602113    NaN        0.0
@@ -270,8 +270,8 @@ class ExperimentData:
                 # Keeping it as a df for consistent indexing.
                 row_df = data_rows.loc[[idx]]
                 # Only include metrics that have data.
-                metric_names = list(row_df["mean"].dropna(axis="columns").columns)
-                if len(metric_names) == 0:
+                metric_signatures = list(row_df["mean"].dropna(axis="columns").columns)
+                if len(metric_signatures) == 0:
                     continue
                 if has_multiple_rows:
                     obs_ft = obs_ft_base.clone()
@@ -282,10 +282,12 @@ class ExperimentData:
                     # Add map key to metadata as expected in ObservationFeatures.
                     none_throws(obs_ft.metadata)[data_rows.index.name] = idx
                 obs_data = ObservationData(
-                    metric_names=metric_names,
-                    means=row_df["mean"][metric_names].to_numpy().reshape(-1),
+                    metric_signatures=metric_signatures,
+                    means=row_df["mean"][metric_signatures].to_numpy().reshape(-1),
                     covariance=np.diag(
-                        np.square(row_df["sem"][metric_names].to_numpy().reshape(-1))
+                        np.square(
+                            row_df["sem"][metric_signatures].to_numpy().reshape(-1)
+                        )
                     ),
                 )
                 observations.append(
@@ -294,8 +296,8 @@ class ExperimentData:
         return observations
 
     @property
-    def metric_names(self) -> list[str]:
-        """The list of metric names that are available on ``observation_data``."""
+    def metric_signatures(self) -> list[str]:
+        """The list of metric signatures that are available on ``observation_data``."""
         try:
             return list(self.observation_data["mean"].columns)
         except KeyError:

@@ -198,8 +198,13 @@ def _get_in_sample_arms(
     raw_data = []
     arm_name_to_parameters = {}
     for obs in observations:
+        obs_metric_names = []
+        for signature in obs.data.metric_signatures:
+            obs_metric_names.append(
+                model._experiment.signature_to_metric[signature].name
+            )
         arm_name_to_parameters[obs.arm_name] = obs.features.parameters
-        for j, metric_name in enumerate(obs.data.metric_names):
+        for j, metric_name in enumerate(obs_metric_names):
             if metric_name in metric_names:
                 raw_data.append(
                     {
@@ -235,7 +240,12 @@ def _get_in_sample_arms(
         # Extract raw measurement
         obs_y = {}  # Observed metric means.
         obs_se = {}  # Observed metric standard errors.
-        for j, metric_name in enumerate(obs.data.metric_names):
+        obs_metric_names = []
+        for signature in obs.data.metric_signatures:
+            obs_metric_names.append(
+                model._experiment.signature_to_metric[signature].name
+            )
+        for j, metric_name in enumerate(obs_metric_names):
             if metric_name in metric_names:
                 obs_y[metric_name] = obs.data.means[j]
                 obs_se[metric_name] = np.sqrt(obs.data.covariance[j, j])
@@ -377,7 +387,11 @@ def get_plot_data(
 
         - Mapping from arm name to parameters.
     """
-    metrics_plot = model.metric_names if metric_names is None else metric_names
+    model_metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
+    metrics_plot = set(model_metric_names) if metric_names is None else metric_names
     in_sample_plot, raw_data, cond_name_to_parameters = _get_in_sample_arms(
         model=model,
         metric_names=metrics_plot,
@@ -785,7 +799,8 @@ def infer_is_relative(
     if model._optimization_config:
         constraints = none_throws(model._optimization_config).outcome_constraints
         constraint_relativity = {
-            constraint.metric.name: constraint.relative for constraint in constraints
+            constraint.metric.signature: constraint.relative
+            for constraint in constraints
         }
     for metric in metrics:
         if metric not in constraint_relativity:

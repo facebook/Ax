@@ -56,7 +56,7 @@ class DerelativizeTransformTest(TestCase):
                 ObservationData(
                     means=predicted_means,
                     covariance=np.array([[1.0, 0.0], [0.0, 1.0]]),
-                    metric_names=["m1", "m2"],
+                    metric_signatures=["m1", "m2"],
                 )
             ]
             with ExitStack() as es:

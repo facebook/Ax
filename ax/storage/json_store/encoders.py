@@ -656,7 +656,7 @@ def percentile_early_stopping_strategy_to_dict(
     """Convert Ax percentile early stopping strategy to a dictionary."""
     return {
         "__type": strategy.__class__.__name__,
-        "metric_names": strategy.metric_names,
+        "metric_signatures": strategy.metric_signatures,
         "percentile_threshold": strategy.percentile_threshold,
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
@@ -671,7 +671,7 @@ def threshold_early_stopping_strategy_to_dict(
     """Convert Ax metric-threshold early stopping strategy to a dictionary."""
     return {
         "__type": strategy.__class__.__name__,
-        "metric_names": strategy.metric_names,
+        "metric_signatures": strategy.metric_signatures,
         "metric_threshold": strategy.metric_threshold,
         "min_progression": strategy.min_progression,
         "trial_indices_to_ignore": strategy.trial_indices_to_ignore,

@@ -55,7 +55,7 @@ class MergeRepeatedMeasurements(Transform):
             str, defaultdict[str, defaultdict[str, list[float]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         if experiment_data is not None:
-            metrics = experiment_data.metric_names
+            metrics = experiment_data.metric_signatures
             for arm_name, df in experiment_data.observation_data.groupby(
                 level="arm_name"
             ):
@@ -92,7 +92,7 @@ class MergeRepeatedMeasurements(Transform):
                     raise NotImplementedError(
                         "Only independent metrics are currently supported."
                     )
-                for i, m in enumerate(obsd.metric_names):
+                for i, m in enumerate(obsd.metric_signatures):
                     arm_to_multi_obs[arm_name][m]["means"].append(obsd.means[i])
                     arm_to_multi_obs[arm_name][m]["vars"].append(obsd.covariance[i, i])
 
@@ -140,16 +140,16 @@ class MergeRepeatedMeasurements(Transform):
             arm_name = none_throws(arm_name)
             metric_dict = arm_to_merged.pop(arm_name)
             obsd = obs.data
-            merged_means = np.zeros(len(obsd.metric_names))
+            merged_means = np.zeros(len(obsd.metric_signatures))
             merged_covariance = np.zeros(
-                (len(obsd.metric_names), len(obsd.metric_names))
+                (len(obsd.metric_signatures), len(obsd.metric_signatures))
             )
-            for i, m in enumerate(obsd.metric_names):
+            for i, m in enumerate(obsd.metric_signatures):
                 merged_metric = metric_dict[m]
                 merged_means[i] = merged_metric["mean"]
                 merged_covariance[i, i] = merged_metric["var"]
             new_obsd = ObservationData(
-                metric_names=obsd.metric_names,
+                metric_signatures=obsd.metric_signatures,
                 means=merged_means,
                 covariance=merged_covariance,
             )

@@ -276,6 +276,9 @@ class TestInstantiationtUtils(TestCase):
                 status_quo_defined=False,
             )
             self.assertEqual(single_optimization_config.objective.metric.name, "branin")
+            self.assertEqual(
+                single_optimization_config.objective.metric.signature, "branin"
+            )
 
     def test_single_valued_choice_to_fixed_param_conversion(self) -> None:
         for use_dependents in [True, False]:

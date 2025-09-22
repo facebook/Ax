@@ -82,7 +82,9 @@ class PowerTransformY(Transform):
             config=config,
         )
         # pyre-fixme[9]: Can't annotate config["metrics"] properly.
-        metric_names: list[str] | None = config.get("metrics", None) if config else None
+        metric_signatures: list[str] | None = (
+            config.get("metrics", None) if config else None
+        )
         self.clip_mean: bool = (
             assert_is_instance(config.get("clip_mean", True), bool) if config else True
         )
@@ -90,14 +92,16 @@ class PowerTransformY(Transform):
             means_df = experiment_data.observation_data["mean"]
             # Dropping NaNs here since the DF will have NaN for missing values.
             Ys = {
-                name: column.dropna().values
-                for name, column in means_df.items()
-                if metric_names is None or name in metric_names
+                signature: column.dropna().values
+                for signature, column in means_df.items()
+                if metric_signatures is None or signature in metric_signatures
             }
         else:
             observation_data = [obs.data for obs in none_throws(observations)]
-            Ys = get_data(observation_data=observation_data, metric_names=metric_names)
-        self.metric_names: list[str] = list(Ys.keys())
+            Ys = get_data(
+                observation_data=observation_data, metric_signatures=metric_signatures
+            )
+        self.metric_signatures: list[str] = list(Ys.keys())
         self.power_transforms: dict[str, PowerTransformer] = _compute_power_transforms(
             Ys=Ys
         )
@@ -111,8 +115,8 @@ class PowerTransformY(Transform):
     ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
-            for i, m in enumerate(obsd.metric_names):
-                if m in self.metric_names:
+            for i, m in enumerate(obsd.metric_signatures):
+                if m in self.metric_signatures:
                     transform = self.power_transforms[m].transform
                     obsd.means[i], obsd.covariance[i, i] = match_ci_width(
                         mean=obsd.means[i],
@@ -128,8 +132,8 @@ class PowerTransformY(Transform):
     ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
-            for i, m in enumerate(obsd.metric_names):
-                if m in self.metric_names:
+            for i, m in enumerate(obsd.metric_signatures):
+                if m in self.metric_signatures:
                     l, u = self.inv_bounds[m]
                     transform = self.power_transforms[m].inverse_transform
                     if not self.clip_mean and (obsd.means[i] < l or obsd.means[i] > u):
@@ -154,21 +158,23 @@ class PowerTransformY(Transform):
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
-                c_metric_names = [metric.name for metric in c.metrics]
-                intersection = set(c_metric_names) & set(self.metric_names)
+                c_metric_signatures = [metric.signature for metric in c.metrics]
+                intersection = set(c_metric_signatures) & set(self.metric_signatures)
                 if intersection:
                     raise NotImplementedError(
-                        f"PowerTransformY cannot be used for metric(s) {intersection} "
-                        "that are part of a ScalarizedOutcomeConstraint."
+                        "PowerTransformY cannot be used for metric(s) "
+                        f"{intersection} that are part of a "
+                        "ScalarizedOutcomeConstraint."
                     )
-            elif c.metric.name in self.metric_names:
+            elif c.metric.signature in self.metric_signatures:
                 if c.relative:
                     raise ValueError(
-                        f"PowerTransformY cannot be applied to metric {c.metric.name} "
-                        "since it is subject to a relative constraint."
+                        "PowerTransformY cannot be applied to metric "
+                        f"{c.metric.signature} since it is subject to "
+                        "a relative constraint."
                     )
                 else:
-                    transform = self.power_transforms[c.metric.name].transform
+                    transform = self.power_transforms[c.metric.signature].transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return optimization_config
 
@@ -180,11 +186,13 @@ class PowerTransformY(Transform):
         for c in outcome_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
                 raise ValueError("ScalarizedOutcomeConstraint not supported here")
-            elif c.metric.name in self.metric_names:
+            elif c.metric.signature in self.metric_signatures:
                 if c.relative:
                     raise ValueError("Relative constraints not supported here.")
                 else:
-                    transform = self.power_transforms[c.metric.name].inverse_transform
+                    transform = self.power_transforms[
+                        c.metric.signature
+                    ].inverse_transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return outcome_constraints
 
@@ -192,8 +200,8 @@ class PowerTransformY(Transform):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         obs_data = experiment_data.observation_data
-        metrics_in_data = experiment_data.metric_names
-        for metric in self.metric_names:
+        metrics_in_data = experiment_data.metric_signatures
+        for metric in self.metric_signatures:
             if metric not in metrics_in_data:
                 continue
             new_mean, new_sem = match_ci_width(

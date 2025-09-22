@@ -26,7 +26,7 @@ OBSERVATION_DATA = [
         data=ObservationData(
             means=np.array([1.0, 2.0, 6.0]),
             covariance=np.array([[1.0, 2.0, 0.0], [3.0, 4.0, 0.0], [0.0, 0.0, 4.0]]),
-            metric_names=["m1", "m2", "m3"],
+            metric_signatures=["m1", "m2", "m3"],
         ),
         arm_name="1_1",
     )

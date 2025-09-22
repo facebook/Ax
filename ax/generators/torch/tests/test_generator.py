@@ -101,7 +101,7 @@ class BoTorchGeneratorTest(TestCase):
             self.bounds,
             _,
             self.feature_names,  # This is ["x1", "x2", "x3"].
-            self.metric_names,  # This is just ["y"].
+            self.metric_signatures,  # This is just ["y"].
         ) = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
         self.X_test = Xs2
@@ -111,7 +111,7 @@ class BoTorchGeneratorTest(TestCase):
                 Y=self.Ys,
                 Yvar=self.Yvars,
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
         ]
         self.non_block_design_training_data = self.block_design_training_data + [
@@ -156,7 +156,7 @@ class BoTorchGeneratorTest(TestCase):
         self.linear_constraints = None
         self.fixed_features = None
         self.pending_observations = None
-        self.moo_metric_names = ["y1", "y2", "y3"]
+        self.moo_metric_signatures = ["y1", "y2", "y3"]
         self.moo_training_data = [  # block design
             SupervisedDataset(
                 X=X,
@@ -169,7 +169,7 @@ class BoTorchGeneratorTest(TestCase):
                 [self.Xs for _ in range(3)],
                 [self.Ys, Ys2, self.Ys],
                 [self.Yvars for _ in range(3)],
-                self.moo_metric_names,
+                self.moo_metric_signatures,
             )
         ]
 
@@ -779,7 +779,7 @@ class BoTorchGeneratorTest(TestCase):
                 [self.Xs, self.Xs[:1], self.Xs[1:]],
                 [self.Ys, self.Ys[:1] + 1, self.Ys[1:]],
                 [self.Yvars, self.Yvars[:1], self.Yvars[1:]],
-                self.moo_metric_names,
+                self.moo_metric_signatures,
             )
         ]
 
