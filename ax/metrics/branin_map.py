@@ -122,6 +122,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                             else 0.0
                             for item in res
                         ],
+                        "metric_signature": self.signature,
                         MAP_KEY: [item[MAP_KEY] for item in res],
                     }
                 )

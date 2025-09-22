@@ -28,6 +28,7 @@ class TestRegressionAnalysis(TestCase):
                 "trial_index": [0] * 12,
                 "mean": list(np.arange(7, 1, -1)) + list(np.arange(6, 1, -1)) + [10.0],
                 "sem": [1.0] * 12,
+                "metric_signature": ["branin_a"] * 6 + ["branin_b"] * 6,
             }
         )
 
@@ -48,6 +49,7 @@ class TestRegressionAnalysis(TestCase):
                 "trial_index": [0] * 12,
                 "mean": list(np.arange(7, 1, -1)) * 2,
                 "sem": [1.0] * 12,
+                "metric_signature": ["branin_a"] * 6 + ["branin_b"] * 6,
             }
         )
         experiment.attach_data(Data(df=df))

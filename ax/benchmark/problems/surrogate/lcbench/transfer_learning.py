@@ -128,6 +128,17 @@ def get_lcbench_benchmark_problem(
         use_map_metric=False,
     )
 
+    # The pre-saved gain experiment metrics don't have the `signature_override`
+    # attribute.
+    for metric in obj["experiment"].metrics.values():
+        if not hasattr(metric, "_signature_override:"):
+            metric.signature_override = None
+
+    # The pre-saved experiment data doesn't have the `metric_signature` column.
+    # Defaulting the values to `metric_name`.
+    if "metric_signature" not in obj["data"].df.columns:
+        obj["data"].df["metric_signature"] = obj["data"].df["metric_name"]
+
     def get_surrogate() -> TorchAdapter:
         """Construct an adapter with the LCBench surrogate and datasets.
 

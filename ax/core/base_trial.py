@@ -26,7 +26,7 @@ from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
-from ax.exceptions.core import TrialMutationError, UnsupportedError
+from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
@@ -848,15 +848,28 @@ class BaseTrial(ABC, SortableBase):
 
         metadata = metadata if metadata is not None else {}
 
-        evaluations, data = data_and_evaluations_from_raw_data(
-            raw_data=raw_data,
-            metric_names=list(set(self.experiment.metrics)),
-            trial_index=self.index,
-            data_type=self.experiment.default_data_type,
-            start_time=metadata.get("start_time"),
-            end_time=metadata.get("end_time"),
-        )
-        return evaluations, data
+        metric_name_to_signature = {
+            name: metric.signature for name, metric in self.experiment.metrics.items()
+        }
+
+        try:
+            evaluations, data = data_and_evaluations_from_raw_data(
+                raw_data=raw_data,
+                metric_name_to_signature=metric_name_to_signature,
+                trial_index=self.index,
+                data_type=self.experiment.default_data_type,
+                start_time=metadata.get("start_time"),
+                end_time=metadata.get("end_time"),
+            )
+            return evaluations, data
+        except UserInputError as e:
+            if "not found in metric_name_to_signature." in str(e):
+                raise UserInputError(
+                    "Unable to find the metric signature for one or more metrics. "
+                    "Please ensure that the experiment has an attached metric "
+                    "for each metric present in raw_data."
+                ) from e
+            raise e
 
     def _raise_cant_attach_if_completed(self) -> None:
         """

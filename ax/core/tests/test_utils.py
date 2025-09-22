@@ -105,6 +105,7 @@ class UtilsTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_0",
@@ -114,6 +115,7 @@ class UtilsTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_1",
@@ -123,6 +125,7 @@ class UtilsTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_1",
@@ -132,6 +135,7 @@ class UtilsTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_2",
@@ -141,6 +145,7 @@ class UtilsTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_2",
@@ -150,6 +155,7 @@ class UtilsTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_2",
@@ -159,6 +165,7 @@ class UtilsTest(TestCase):
                     "metric_name": "c",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "c",
                 },
             ]
         )
@@ -229,7 +236,9 @@ class UtilsTest(TestCase):
             self.trial,
             "lookup_data",
             return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
             ),
         ):
             self.assertEqual(
@@ -263,6 +272,11 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=self.trial.index,
+                    metric_name_to_signature={
+                        "m1": "m1",
+                        "m2": "m2",
+                        "tracking": "tracking",
+                    },
                 ),
             ),
         ):
@@ -288,6 +302,11 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=self.trial.index,
+                    metric_name_to_signature={
+                        "m1": "m1",
+                        "m2": "m2",
+                        "tracking": "tracking",
+                    },
                 ),
             ),
         ):
@@ -325,6 +344,7 @@ class UtilsTest(TestCase):
                         "metric_name": "m1",  # Only attach data for m1, not m2
                         "start_time": "2018-01-01",
                         "end_time": "2018-01-02",
+                        "metric_signature": "m1",
                     }
                 ]
             )
@@ -376,7 +396,9 @@ class UtilsTest(TestCase):
             self.trial,
             "lookup_data",
             return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
             ),
         ):
             self.assertEqual(
@@ -393,7 +415,9 @@ class UtilsTest(TestCase):
             self.trial,
             "lookup_data",
             return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
             ),
         ):
             with patch.object(
@@ -402,6 +426,7 @@ class UtilsTest(TestCase):
                 return_value=Data.from_evaluations(
                     {other_trial.arm.name: {"m2": (1, 0), "tracking": (1, 0)}},
                     trial_index=other_trial.index,
+                    metric_name_to_signature={"m2": "m2", "tracking": "tracking"},
                 ),
             ):
                 pending = get_pending_observation_features(self.experiment)
@@ -475,6 +500,7 @@ class UtilsTest(TestCase):
             return_value=Data.from_evaluations(
                 {self.hss_trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.hss_trial.index,
+                metric_name_to_signature={"m2": "m2"},
             ),
         ):
             self.assertEqual(
@@ -505,6 +531,7 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=hss_batch_trial.index,
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
                 ),
             ),
         ):
@@ -536,6 +563,7 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=hss_batch_trial.index,
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
                 ),
             ),
         ):

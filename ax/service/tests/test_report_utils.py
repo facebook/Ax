@@ -255,6 +255,7 @@ class ReportUtilsTest(TestCase):
                     "trial_index": [0, 1],
                     "n": [123] * 2,
                     "frac_nonnull": [1] * 2,
+                    "metric_signature": [OBJECTIVE_NAME] * 2,
                 }
             )
         )

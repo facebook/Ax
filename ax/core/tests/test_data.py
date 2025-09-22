@@ -12,39 +12,40 @@ from unittest.mock import patch
 import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MAP_KEY, MapData
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from pyre_extensions import assert_is_instance
 
-REPR_1000: str = (
-    "Data(df=\n|    |   trial_index |   arm_name | metric_name   |   mean |   sem "
-    "| start_time          | end_time            |\n"
-    "|---:|--------------:|-----------:|:--------------|-------:|------:"
-    "|:--------------------|:--------------------|\n"
-    "|  0 |             1 |        0_0 | a             |    2   |   0.2 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  1 |             1 |        0_0 | b             |    1.8 |   0.3 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  2 |             1 |        0_1 | a             |    4   |   0.6 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  3 |             1 |        0_1 | b             |    3.7 |   0.5 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  4 |             1 |        0_2 | a             |    0.5 | nan   "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  5 |             1 |        0_2 | b             |    3   | nan   "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |)"
+REPR_500: str = (
+    "Data(df=\n"
+    "|    |   trial_index |   arm_name | metric_name   | metric_signature   |   mean "
+    "|   sem | start_time          | end_time            |\n"
+    "|---:|--------------:|-----------:|:--------------|:-------------------|-------:"
+    "|------:|:--------------------|:--------------------|\n"
+    "|  0 |             1 |        0_0 | a             | a_signature        |    2   "
+    "|   0.2 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  1 |             1 |        0_0 | b             | b_signature        |    1.8 "
+    "|   0.3 | 2018-01-...)"
 )
 
-REPR_500: str = (
-    "Data(df=\n|    |   trial_index |   arm_name | metric_name   |   mean |   sem "
-    "| start_time          | end_time            |\n"
-    "|---:|--------------:|-----------:|:--------------|-------:|------:"
-    "|:--------------------|:--------------------|\n"
-    "|  0 |             1 |        0_0 | a             |    2   |   0.2 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  1 |             1 |        0_0 | b             |    1.8 |   0.3 "
-    "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
-    "|  2 |             1 |        0_1 | a           ...)"
+REPR_1000: str = (
+    "Data(df=\n"
+    "|    |   trial_index |   arm_name | metric_name   | metric_signature   |   mean "
+    "|   sem | start_time          | end_time            |\n"
+    "|---:|--------------:|-----------:|:--------------|:-------------------|-------:"
+    "|------:|:--------------------|:--------------------|\n"
+    "|  0 |             1 |        0_0 | a             | a_signature        |    2   "
+    "|   0.2 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  1 |             1 |        0_0 | b             | b_signature        |    1.8 "
+    "|   0.3 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  2 |             1 |        0_1 | a             | a_signature        |    4   "
+    "|   0.6 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  3 |             1 |        0_1 | b             | b_signature        |    3.7 "
+    "|   0.5 | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  4 |             1 |        0_2 | a             | a_signature        |    0.5 "
+    "| nan   | 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    "|  5 |             1 |        0_2 | b             | b_signatur...)"
 )
 
 
@@ -59,6 +60,7 @@ def get_test_dataframe() -> pd.DataFrame:
                 "metric_name": "a",
                 "start_time": "2018-01-01",
                 "end_time": "2018-01-02",
+                "metric_signature": "a_signature",
             },
             {
                 "arm_name": "0_0",
@@ -68,6 +70,7 @@ def get_test_dataframe() -> pd.DataFrame:
                 "metric_name": "b",
                 "start_time": "2018-01-01",
                 "end_time": "2018-01-02",
+                "metric_signature": "b_signature",
             },
             {
                 "arm_name": "0_1",
@@ -77,6 +80,7 @@ def get_test_dataframe() -> pd.DataFrame:
                 "metric_name": "a",
                 "start_time": "2018-01-01",
                 "end_time": "2018-01-02",
+                "metric_signature": "a_signature",
             },
             {
                 "arm_name": "0_1",
@@ -86,6 +90,7 @@ def get_test_dataframe() -> pd.DataFrame:
                 "metric_name": "b",
                 "start_time": "2018-01-01",
                 "end_time": "2018-01-02",
+                "metric_signature": "b_signature",
             },
             {
                 "arm_name": "0_2",
@@ -95,6 +100,7 @@ def get_test_dataframe() -> pd.DataFrame:
                 "metric_name": "a",
                 "start_time": "2018-01-01",
                 "end_time": "2018-01-02",
+                "metric_signature": "a_signature",
             },
             {
                 "arm_name": "0_2",
@@ -104,6 +110,7 @@ def get_test_dataframe() -> pd.DataFrame:
                 "metric_name": "b",
                 "start_time": "2018-01-01",
                 "end_time": "2018-01-02",
+                "metric_signature": "b_signature",
             },
         ]
     )
@@ -210,6 +217,7 @@ class DataTest(TestCase):
         super().setUp()
         self.df_hash = "be6ca1edb2d83e08c460665476d32caa"
         self.df = get_test_dataframe()
+        self.metric_name_to_signature = {"a": "a_signature", "b": "b_signature"}
 
     def test_repr(self) -> None:
         self.assertEqual(
@@ -237,6 +245,7 @@ class DataTest(TestCase):
             eval1 = (3.7, sem) if sem is not None else 3.7
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
+                metric_name_to_signature=self.metric_name_to_signature,
                 trial_index=0,
                 start_time=now.isoformat(),
                 end_time=now.isoformat(),
@@ -254,6 +263,7 @@ class DataTest(TestCase):
             eval1 = (3.7, sem) if sem is not None else 3.7
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
+                metric_name_to_signature=self.metric_name_to_signature,
                 trial_index=0,
                 start_time=now_ms,
                 end_time=now_ms,
@@ -263,6 +273,38 @@ class DataTest(TestCase):
             self.assertNotEqual(data, Data(self.df))
             self.assertEqual(data.df["start_time"][0].day, day)
             self.assertEqual(data.df["end_time"][0].day, day)
+
+    def test_FromEvaluationsNameAndSignature(self) -> None:
+        data = Data.from_evaluations(
+            evaluations={"0_1": {"a": (3.7, 0.5)}},
+            metric_name_to_signature=self.metric_name_to_signature,
+            trial_index=0,
+        )
+
+        self.assertEqual(data.df["metric_name"][0], "a")
+        self.assertEqual(data.df["metric_signature"][0], "a_signature")
+
+    def test_FromEvaluationsMissingMetricSigMappingEntry(self) -> None:
+        eval1 = (3.7, 0.5)
+        with self.assertRaisesRegex(
+            UserInputError, "Metric b not found in metric_name_to_signature"
+        ):
+            Data.from_evaluations(
+                evaluations={"0_1": {"b": eval1}},
+                metric_name_to_signature={"a": "a"},
+                trial_index=0,
+            )
+
+    def test_FromEvaluationsExtraMetricSigMappingEntry(self) -> None:
+        eval1 = (3.7, 0.5)
+        extra_metric_name_to_signature = self.metric_name_to_signature
+        extra_metric_name_to_signature["c"] = "c_signature"
+        data = Data.from_evaluations(
+            evaluations={"0_1": {"b": eval1}},
+            metric_name_to_signature=extra_metric_name_to_signature,
+            trial_index=0,
+        )
+        self.assertEqual(set(data.df["metric_signature"]), {"b_signature"})
 
     def test_from_multiple(self) -> None:
         with self.subTest("Combinining non-empty Data"):
@@ -300,3 +342,35 @@ class DataTest(TestCase):
         data_elt_B = CustomDataB(df=self.df)
         with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
             Data.from_multiple_data([data_elt_A, data_elt_B])
+
+    def test_filter(self) -> None:
+        data = Data(df=self.df)
+        # Test that filter throws when we provide metric names and metric signatures
+        with self.assertRaisesRegex(
+            UserInputError, "Cannot filter by both metric names and metric signatures."
+        ):
+            data.filter(metric_names=["a"], metric_signatures=["a_sig"])
+
+        # Test that filter works when we provide metric names and trial indices
+        filtered = data.filter(metric_names=["a"], trial_indices=[1])
+        self.assertEqual(len(filtered.df), 3)
+        self.assertEqual(set(filtered.df["metric_name"]), {"a"})
+        self.assertEqual(set(filtered.df["trial_index"]), {1})
+
+        # Test that filter works when we provide metric signatures and trial indices
+        filtered = data.filter(metric_signatures=["a_signature"], trial_indices=[1])
+        self.assertEqual(len(filtered.df), 3)
+        self.assertEqual(set(filtered.df["metric_signature"]), {"a_signature"})
+        self.assertEqual(set(filtered.df["trial_index"]), {1})
+
+        # Test that filter works when we provide metric names
+        filtered = data.filter(metric_signatures=["b_signature", "a_signature"])
+        self.assertEqual(len(filtered.df), 6)
+        self.assertEqual(
+            set(filtered.df["metric_signature"]), {"a_signature", "b_signature"}
+        )
+
+        # Test that filter works when we provide metric signatures
+        filtered = data.filter(metric_names=["a"])
+        self.assertEqual(len(filtered.df), 3)
+        self.assertEqual(set(filtered.df["metric_name"]), {"a"})
