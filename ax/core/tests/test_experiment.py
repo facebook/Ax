@@ -433,7 +433,12 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.arms_by_name), 4 * n)
 
         # Verify that `metrics` kwarg to `experiment.fetch_data` is respected.
-        exp.add_tracking_metric(Metric(name="not_yet_on_experiment"))
+        exp.add_tracking_metric(
+            Metric(
+                name="not_yet_on_experiment",
+                signature_override="not_yet_on_experiment_signature",
+            )
+        )
         exp.attach_data(
             Data(
                 df=pd.DataFrame.from_records(
@@ -444,6 +449,7 @@ class ExperimentTest(TestCase):
                             "mean": 3,
                             "sem": 0,
                             "trial_index": 0,
+                            "metric_signature": "not_yet_on_experiment_signature",
                         }
                     ]
                 )
@@ -456,6 +462,14 @@ class ExperimentTest(TestCase):
                 .values
             ),
             {"not_yet_on_experiment"},
+        )
+        self.assertEqual(
+            set(
+                exp.fetch_data(metrics=[Metric(name="not_yet_on_experiment")])
+                .df["metric_signature"]
+                .values
+            ),
+            {"not_yet_on_experiment_signature"},
         )
 
         # Verify data lookup includes trials attached from `fetch_data`.
@@ -487,6 +501,7 @@ class ExperimentTest(TestCase):
                         "mean": 3,
                         "sem": 0,
                         "trial_index": 0,
+                        "metric_signature": "not_yet_on_experiment_signature",
                     },
                     {
                         "arm_name": "0_0",
@@ -494,6 +509,7 @@ class ExperimentTest(TestCase):
                         "mean": 3,
                         "sem": 0,
                         "trial_index": 0,
+                        "metric_signature": "z",
                     },
                 ]
             )
@@ -666,6 +682,7 @@ class ExperimentTest(TestCase):
                     "1_13",
                 ],
                 "metric_name": ["b"] * 9,
+                "metric_signature": ["b"] * 9,
                 "mean": list(range(1, 10)),
                 "sem": [0.1 + i * 0.05 for i in range(9)],
                 "trial_index": [0, 0, 0, 0, 0, 1, 1, 1, 1],
@@ -685,6 +702,7 @@ class ExperimentTest(TestCase):
                         "0_11",
                     ],
                     "metric_name": ["b"] * 5,
+                    "metric_signature": ["b"] * 5,
                     "mean": [5.0, 1.0, 4.0, 2.0, 3.0],
                     "sem": [0.3, 0.1, 0.25, 0.15, 0.2],
                 }
@@ -702,6 +720,7 @@ class ExperimentTest(TestCase):
                         "1_13",
                     ],
                     "metric_name": ["b"] * 4,
+                    "metric_signature": ["b"] * 4,
                     "mean": [6.0, 7.0, 8.0, 9.0],
                     "sem": [0.35, 0.4, 0.45, 0.5],
                 }
@@ -1069,6 +1088,7 @@ class ExperimentTest(TestCase):
                 "mean": [100.0],
                 "sem": [1.0],
                 "trial_index": [1],
+                "metric_signature": ["branin"],
             },
         )
         cloned_experiment = experiment.clone_with(trial_indices=[1], data=Data(df=df))
@@ -1506,7 +1526,10 @@ class ExperimentWithMapDataTest(TestCase):
         }
 
         self.experiment.add_tracking_metric(
-            metric=MapMetric(name="no_fetch_impl_metric")
+            metric=MapMetric(
+                name="no_fetch_impl_metric",
+                signature_override="no_fetch_impl_metric_signature",
+            )
         )
         self.experiment.new_trial()
         self.experiment.trials[0].mark_running(no_runner_required=True)
@@ -1516,6 +1539,9 @@ class ExperimentWithMapDataTest(TestCase):
                 for arm_name, partial_results in evaluations.items()
             },
             trial_index=0,
+            metric_name_to_signature={
+                "no_fetch_impl_metric": "no_fetch_impl_metric_signature",
+            },
         )
         self.experiment.attach_data(first_epoch)
         remaining_epochs = MapData.from_map_evaluations(
@@ -1524,6 +1550,9 @@ class ExperimentWithMapDataTest(TestCase):
                 for arm_name, partial_results in evaluations.items()
             },
             trial_index=0,
+            metric_name_to_signature={
+                "no_fetch_impl_metric": "no_fetch_impl_metric_signature",
+            },
         )
         self.experiment.attach_data(remaining_epochs)
         self.experiment.trials[0].mark_completed()
@@ -1907,6 +1936,7 @@ class ExperimentWithMapDataTest(TestCase):
                 "metric_name": ["b"] * 12,
                 "mean": [float(x) for x in range(1, 13)],
                 "sem": [0.1 + i * 0.05 for i in range(12)],
+                "metric_signature": ["b"] * 12,
             }
         )
 
@@ -1943,6 +1973,7 @@ class ExperimentWithMapDataTest(TestCase):
                     0.6,
                     0.65,
                 ],
+                "metric_signature": ["b"] * 12,
             }
         )
 

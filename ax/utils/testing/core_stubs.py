@@ -799,6 +799,7 @@ def get_experiment_with_repeated_arms(
                         "mean": mean,
                         "sem": sem,
                         "trial_index": trial_index,
+                        "metric_signature": metric_name,
                     }
                     for arm_name, metric_name, mean, sem, trial_index in (
                         ("0_0", "a", 2.0, 1.0, 0),
@@ -1071,6 +1072,7 @@ def get_hierarchical_search_space_experiment(
                         "mean": o,
                         "sem": None,
                         "trial_index": i,
+                        "metric_signature": f"m{j + 1}",
                     }
                     for j, o in enumerate(torch.rand(2).tolist())
                 ]
@@ -1093,6 +1095,7 @@ def get_experiment_with_observations(
     optimization_config: OptimizationConfig | None = None,
     candidate_metadata: Sequence[TCandidateMetadata] | None = None,
     additional_data_columns: Sequence[Mapping[str, Any]] | None = None,
+    signature_suffix: bool = False,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
@@ -1100,8 +1103,16 @@ def get_experiment_with_observations(
         multi_objective = False
     if multi_objective and optimization_config is None:
         metrics = [
-            Metric(name="m1", lower_is_better=minimize),
-            Metric(name="m2", lower_is_better=False),
+            Metric(
+                name="m1",
+                lower_is_better=minimize,
+                signature_override="m1_sig" if signature_suffix else None,
+            ),
+            Metric(
+                name="m2",
+                lower_is_better=False,
+                signature_override="m2_sig" if signature_suffix else None,
+            ),
         ]
         if scalarized:
             optimization_config = OptimizationConfig(
@@ -1130,7 +1141,12 @@ def get_experiment_with_observations(
                 outcome_constraints=(
                     [
                         OutcomeConstraint(
-                            metric=Metric(name="m3"),
+                            metric=Metric(
+                                name="m3",
+                                signature_override="m3_sig"
+                                if signature_suffix
+                                else None,
+                            ),
                             op=ComparisonOp.GEQ,
                             bound=0.0,
                             relative=False,
@@ -1143,10 +1159,19 @@ def get_experiment_with_observations(
     elif optimization_config is None:
         if scalarized:
             raise NotImplementedError
-        objective = Objective(metric=Metric(name="m1"), minimize=minimize)
+        objective = Objective(
+            metric=Metric(
+                name="m1",
+                signature_override="m1_sig" if signature_suffix else None,
+            ),
+            minimize=minimize,
+        )
         if constrained:
             constraint = OutcomeConstraint(
-                metric=Metric(name="m2"),
+                metric=Metric(
+                    name="m2",
+                    signature_override="m2_sig" if signature_suffix else None,
+                ),
                 op=ComparisonOp.GEQ,
                 bound=0.0,
                 relative=False,
@@ -1161,7 +1186,15 @@ def get_experiment_with_observations(
         search_space=search_space,
         optimization_config=optimization_config,
         tracking_metrics=(
-            [Metric(name=f"m{len(observations[0])}", lower_is_better=False)]
+            [
+                Metric(
+                    name=f"m{len(observations[0])}",
+                    lower_is_better=False,
+                    signature_override=f"m{len(observations[0])}_sig"
+                    if signature_suffix
+                    else None,
+                )
+            ]
             if with_tracking_metrics
             else None
         ),
@@ -1169,6 +1202,7 @@ def get_experiment_with_observations(
         is_test=True,
     )
     metrics = sorted(exp.metrics)
+    metric_to_signature_map = {name: m.signature for name, m in exp.metrics.items()}
     exp._properties = {"owners": [DEFAULT_USER]}
     sobol_generator = get_sobol(search_space=search_space)
     for i, obs_i in enumerate(observations):
@@ -1201,6 +1235,7 @@ def get_experiment_with_observations(
                         "sem": s,
                         "trial_index": trial.index,
                         **additional_cols,
+                        "metric_signature": metric_to_signature_map[m],
                     }
                     for m, o, s in zip(metrics, obs_i, sems_i, strict=True)
                 ]
@@ -2622,6 +2657,7 @@ def get_data(
         "mean": ([1, 3, 2, 2.25, 1.75] * ((num_arms + 4) // 5))[:num_arms],
         "sem": ([0, 0.5, 0.25, 0.40, 0.15] * ((num_arms + 4) // 5))[:num_arms],
         "n": ([100, 100, 100, 100, 100] * ((num_arms + 4) // 5))[:num_arms],
+        "metric_signature": metric_name,
     }
     return Data(df=pd.DataFrame.from_records(df_dict))
 
@@ -2639,6 +2675,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=3),
                     "end_time": now,
+                    "metric_signature": "branin_a",
                 },
                 {
                     "arm_name": "0_0",
@@ -2648,6 +2685,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=3),
                     "end_time": now,
+                    "metric_signature": "branin_a",
                 },
                 {
                     "arm_name": "status_quo",
@@ -2657,6 +2695,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=2),
                     "end_time": now - timedelta(days=1),
+                    "metric_signature": "branin_b",
                 },
                 {
                     "arm_name": "0_0",
@@ -2666,6 +2705,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
                     "sem": 0.01,
                     "start_time": now - timedelta(days=2),
                     "end_time": now - timedelta(days=1),
+                    "metric_signature": "branin_b",
                 },
             ]
         )
@@ -2694,7 +2734,9 @@ def get_map_data(trial_index: int = 0) -> MapData:
         ],
     }
     return MapData.from_map_evaluations(
-        evaluations=evaluations, trial_index=trial_index
+        evaluations=evaluations,
+        trial_index=trial_index,
+        metric_name_to_signature={"ax_test_metric": "ax_test_metric", "epoch": "epoch"},
     )
 
 
@@ -2730,6 +2772,7 @@ def get_branin_data(
                     float(none_throws(none_throws(trial.arm).parameters["x2"])),
                 ),
                 "sem": 0.0,
+                "metric_signature": metric,
             }
             for trial in trials
             for metric in metrics
@@ -2742,6 +2785,7 @@ def get_branin_data(
                 "arm_name": f"{trial_index}_0",
                 "mean": 5.0,
                 "sem": 0.0,
+                "metric_signature": metric,
             }
             for trial_index in (trial_indices or [0])
             for metric in metrics
@@ -2778,6 +2822,7 @@ def get_branin_data_batch(
             "metric_name": metric,
             "mean": means[i],
             "sem": 0.1,
+            "metric_signature": metric,
         }
         for i in range(len(means))
         for metric in metrics
@@ -2802,6 +2847,7 @@ def get_branin_data_multi_objective(
             "arm_name": arm_name,
             "mean": 5.0,
             "sem": 0.0,
+            "metric_signature": outcome,
         }
         for trial_index in (trial_indices or [0])
         for arm_name in arm_names or [f"{trial_index}_0"]

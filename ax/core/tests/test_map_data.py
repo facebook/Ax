@@ -30,6 +30,7 @@ class MapDataTest(TestCase):
                     "sem": 0.3,
                     "trial_index": 0,
                     "metric_name": "a",
+                    "metric_signature": "a_sig",
                 },
                 # repeated arm 0_0
                 {
@@ -39,6 +40,7 @@ class MapDataTest(TestCase):
                     "sem": 0.2,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a_sig",
                 },
                 {
                     "arm_name": "0_0",
@@ -47,6 +49,7 @@ class MapDataTest(TestCase):
                     "sem": 0.3,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b_sig",
                 },
                 {
                     "arm_name": "0_1",
@@ -55,6 +58,7 @@ class MapDataTest(TestCase):
                     "sem": 0.6,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a_sig",
                 },
                 {
                     "arm_name": "0_1",
@@ -63,6 +67,7 @@ class MapDataTest(TestCase):
                     "sem": 0.5,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b_sig",
                 },
                 {
                     "arm_name": "0_1",
@@ -71,6 +76,7 @@ class MapDataTest(TestCase):
                     "sem": None,
                     "trial_index": 1,
                     "metric_name": "a",
+                    "metric_signature": "a_sig",
                 },
                 {
                     "arm_name": "0_1",
@@ -79,6 +85,7 @@ class MapDataTest(TestCase):
                     "sem": None,
                     "trial_index": 1,
                     "metric_name": "b",
+                    "metric_signature": "b_sig",
                 },
             ]
         )
@@ -104,7 +111,9 @@ class MapDataTest(TestCase):
         with self.assertRaisesRegex(
             UnsupportedError, "MapData.from_evaluations is not supported"
         ):
-            MapData.from_evaluations(evaluations={}, trial_index=0)
+            MapData.from_evaluations(
+                evaluations={}, metric_name_to_signature={}, trial_index=0
+            )
 
     def test_combine(self) -> None:
         with self.subTest("From no MapDatas"):
@@ -116,12 +125,14 @@ class MapDataTest(TestCase):
             self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
 
     def test_from_map_evaluations(self) -> None:
+        metric_name_to_signature = {"b": "b_signature"}
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
             eval2 = (3.8, sem) if sem is not None else 3.8
             map_data = MapData.from_map_evaluations(
                 evaluations={"0_1": [(1.0, {"b": eval1}), (1.0, {"b": eval2})]},
                 trial_index=0,
+                metric_name_to_signature=metric_name_to_signature,
             )
             self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
             self.assertEqual(len(map_data.map_df), 2)
@@ -152,7 +163,7 @@ class MapDataTest(TestCase):
 
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
         max_epochs = [25, 50, 75, 100]
-        metric_names = ["a", "b"]
+        metric_names_to_sig = {"a": "a", "b": "b"}
         large_map_df = pd.DataFrame(
             [
                 {
@@ -162,8 +173,9 @@ class MapDataTest(TestCase):
                     "sem": 0.1,
                     "trial_index": trial_index,
                     "metric_name": metric_name,
+                    "metric_signature": metric_sig,
                 }
-                for metric_name in metric_names
+                for metric_name, metric_sig in metric_names_to_sig.items()
                 for trial_index, (arm_name, max_epoch) in enumerate(
                     zip(arm_names, max_epochs)
                 )
@@ -215,7 +227,7 @@ class MapDataTest(TestCase):
     def test_subsample(self) -> None:
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
         max_epochs = [25, 50, 75, 100]
-        metric_names = ["a", "b"]
+        metric_names_to_sig = {"a": "a", "b": "b"}
         large_map_df = pd.DataFrame(
             [
                 {
@@ -225,8 +237,9 @@ class MapDataTest(TestCase):
                     "sem": 0.1,
                     "trial_index": trial_index,
                     "metric_name": metric_name,
+                    "metric_signature": metric_sig,
                 }
-                for metric_name in metric_names
+                for metric_name, metric_sig in metric_names_to_sig.items()
                 for trial_index, (arm_name, max_epoch) in enumerate(
                     zip(arm_names, max_epochs)
                 )
@@ -243,8 +256,9 @@ class MapDataTest(TestCase):
                     "sem": 0.1,
                     "trial_index": trial_index,
                     "metric_name": metric_name,
+                    "metric_signature": metric_sig,
                 }
-                for metric_name in metric_names
+                for metric_name, metric_sig in metric_names_to_sig.items()
                 for trial_index, (arm_name, max_epoch) in enumerate(
                     zip(arm_names, max_epochs)
                 )

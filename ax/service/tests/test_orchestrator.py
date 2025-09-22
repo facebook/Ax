@@ -2085,17 +2085,17 @@ class TestAxOrchestrator(TestCase):
         orchestrator.run_n_trials(max_trials=1)
 
         self.assertEqual(len(self.branin_experiment.completed_trials), 1)
+        metric_name = next(iter(self.branin_experiment.metrics.keys()))
         self.branin_experiment.attach_data(
             Data(
                 df=pd.DataFrame(
                     {
                         "arm_name": ["0_0"],
-                        "metric_name": [
-                            next(iter(self.branin_experiment.metrics.keys()))
-                        ],
+                        "metric_name": [metric_name],
                         "mean": [TEST_MEAN],
                         "sem": [0.1],
                         "trial_index": [0],
+                        "metric_signature": [metric_name],
                     }
                 )
             )

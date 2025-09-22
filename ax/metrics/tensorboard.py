@@ -135,7 +135,7 @@ try:
                         {
                             "trial_index": trial.index,
                             "arm_name": arm_name,
-                            "metric_name": metric.name,
+                            "metric_signature": metric.signature,
                             MAP_KEY: t.step,
                             "mean": (
                                 t.tensor_proto.double_val[0]
@@ -167,6 +167,10 @@ try:
                                 "the curve empty in the TensorBoard UI?"
                             )
                     df = self._process_records_to_df(metric=metric, records=records)
+                    df.loc[
+                        df["metric_signature"] == metric.signature, "metric_name"
+                    ] = metric.name
+
                     # Accumulate successfully extracted timeseries
                     res[metric.name] = Ok(
                         MapData(
@@ -224,7 +228,7 @@ try:
                 pd.DataFrame(records)
                 # If a metric has multiple records for the same arm, metric, and
                 # step (sometimes caused by restarts, etc) take the mean
-                .groupby(["arm_name", "metric_name", MAP_KEY])
+                .groupby(["arm_name", "metric_signature", MAP_KEY])
                 .mean()
                 .reset_index()
             )
