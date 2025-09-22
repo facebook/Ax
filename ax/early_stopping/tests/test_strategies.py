@@ -87,7 +87,9 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         )
         test_objective = none_throws(test_experiment.optimization_config).objective
         with self.subTest("provide metric names"):
-            es_strategy = FakeStrategy(metric_names=[test_objective.metric.name])
+            es_strategy = FakeStrategy(
+                metric_signatures=[test_objective.metric.signature]
+            )
             (
                 actual_metric_name,
                 actual_minimize,
@@ -143,7 +145,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         with self.subTest("provide metric names -- multi-objective"):
             es_strategy = FakeStrategy(
-                metric_names=[test_multi_objective.objectives[1].metric.name]
+                metric_signatures=[test_multi_objective.objectives[1].metric.signature]
             )
             (
                 actual_metric_name,
@@ -166,13 +168,13 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             num_trials=3, num_fetches=5, num_complete=3
         )
         es_strategy = FakeStrategy(min_progression=3, max_progression=5)
-        metric_name, __ = es_strategy._default_objective_and_direction(
+        metric_signature, __ = es_strategy._default_objective_and_direction(
             experiment=experiment
         )
 
         map_data = es_strategy._check_validity_and_get_data(
             experiment,
-            metric_names=[metric_name],
+            metric_signatures=[metric_signature],
         )
         map_data = assert_is_instance(map_data, MapData)
         self.assertTrue(
@@ -199,7 +201,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         fake_map_data = es_strategy._check_validity_and_get_data(
             experiment,
-            metric_names=["fake_metric_name"],
+            metric_signatures=["fake_metric_name"],
         )
         self.assertIsNone(fake_map_data)
 
@@ -326,7 +328,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             "PercentileEarlyStoppingStrategy only supports a single metric.",
         ):
             PercentileEarlyStoppingStrategy(
-                metric_names=["tracking_branin_map", "foo"],
+                metric_signatures=["tracking_branin_map", "foo"],
                 percentile_threshold=75,
                 min_curves=5,
                 min_progression=0.1,
@@ -371,19 +373,19 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         2: 30.522333 <-- best
         """
         if non_objective_metric:
-            metric_names = ["tracking_branin_map"]
+            metric_signatures = ["tracking_branin_map"]
             # remove the optimization config to force that only the tracking metric can
             # be used for early stopping
             exp._optimization_config = None
             data = assert_is_instance(exp.fetch_data(), MapData)
             self.assertTrue((data.map_df["metric_name"] == "tracking_branin_map").all())
         else:
-            metric_names = None
+            metric_signatures = None
 
         idcs = set(exp.trials.keys())
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             percentile_threshold=25,
             min_curves=4,
             min_progression=0.1,
@@ -391,9 +393,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
-        if metric_names is None:
+        if metric_signatures is None:
             logger_mock.assert_called_once_with(
-                "No metric names specified. Defaulting to the objective metric(s).",
+                "No metric signatures specified. "
+                "Defaulting to the objective metric(s).",
                 stacklevel=2,
             )
         else:
@@ -403,7 +406,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         # test ignore trial indices
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             percentile_threshold=25,
             min_curves=4,
             min_progression=0.1,
@@ -415,7 +418,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             percentile_threshold=50,
             min_curves=4,
             min_progression=0.1,
@@ -432,7 +435,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(set(should_stop), {0})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             percentile_threshold=75,
             min_curves=4,
             min_progression=0.1,
@@ -444,7 +447,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         # not enough completed trials
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             percentile_threshold=75,
             min_curves=5,
             min_progression=0.1,
@@ -484,7 +487,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         # We consider trial 3 for early stopping at progression 2, and
         #    choose to stop it.
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=["branin_map"],
+            metric_signatures=["branin_map"],
             percentile_threshold=50,
             min_curves=3,
             min_progression=0.1,
@@ -539,7 +542,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         # We consider trial 3 for early stopping at progression 0, and
         #    choose not to stop it.
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=["branin_map"],
+            metric_signatures=["branin_map"],
             percentile_threshold=50,
             min_curves=3,
             min_progression=0.1,

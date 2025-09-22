@@ -79,7 +79,7 @@ class CrossValidationTest(TestCase):
         self.observation_data = ObservationData(
             means=np.array([2.0, 1.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["m1", "m2"],
+            metric_signatures=["m1", "m2"],
         )
         self.cv_results = [
             CVResult(observed=obs, predicted=self.observation_data)

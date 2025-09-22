@@ -128,7 +128,6 @@ class TestDataBase(TestCase):
     def setUp(self) -> None:
         super().setUp()
         df = get_test_dataframe()
-
         if self.cls is Data:
             self.df = df
             self.data_with_df = Data(df=self.df)

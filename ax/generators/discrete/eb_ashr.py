@@ -100,7 +100,7 @@ class EBAshr(ThompsonSampler):
             Ys: List of length m of measured metrics across k arms. The outcomes
                 are assumed to be relativized with respect to status quo.
             Yvars: List of length m of measured metrics variances across arms.
-            outcome_names: List of m metric names.
+            outcome_names: List of m metric signatures.
 
         Returns: A tuple containing
             - shrinken outcome estimates and

@@ -166,18 +166,18 @@ class ObservationData(Base):
     ObservationFeatures object.
 
     Attributes:
-        metric_names: A list of k metric names that were observed
+        metric_signatures: A list of k metric signatures that were observed
         means: a k-array of observed means
         covariance: a (k x k) array of observed covariances
     """
 
     def __init__(
         self,
-        metric_names: list[str],
+        metric_signatures: list[str],
         means: npt.NDArray,
         covariance: npt.NDArray,
     ) -> None:
-        k = len(metric_names)
+        k = len(metric_signatures)
         if means.shape != (k,):
             raise ValueError(f"Shape of means should be {(k,)}, is {(means.shape)}.")
         if covariance.shape != (k, k):
@@ -186,7 +186,7 @@ class ObservationData(Base):
                     (k, k), (covariance.shape)
                 )
             )
-        self.metric_names = metric_names
+        self.metric_signatures = metric_signatures
         self.means = means
         self.covariance = covariance
 
@@ -195,7 +195,7 @@ class ObservationData(Base):
         """Extract means from this observation data as mapping from metric name to
         mean.
         """
-        return dict(zip(self.metric_names, self.means))
+        return dict(zip(self.metric_signatures, self.means))
 
     @property
     def covariance_matrix(self) -> dict[str, dict[str, float]]:
@@ -206,14 +206,16 @@ class ObservationData(Base):
         return {
             m1: {
                 m2: float(self.covariance[idx1][idx2])
-                for idx2, m2 in enumerate(self.metric_names)
+                for idx2, m2 in enumerate(self.metric_signatures)
             }
-            for idx1, m1 in enumerate(self.metric_names)
+            for idx1, m1 in enumerate(self.metric_signatures)
         }
 
     def __repr__(self) -> str:
-        return "ObservationData(metric_names={mn}, means={m}, covariance={c})".format(
-            mn=self.metric_names, m=self.means, c=self.covariance
+        return (
+            "ObservationData(metric_signatures={mn}, means={m}, covariance={c})".format(
+                mn=self.metric_signatures, m=self.means, c=self.covariance
+            )
         )
 
 
@@ -339,7 +341,7 @@ def _observations_from_dataframe(
             Observation(
                 features=ObservationFeatures(**obs_kwargs),
                 data=ObservationData(
-                    metric_names=d["metric_name"].tolist(),
+                    metric_signatures=d["metric_signature"].tolist(),
                     means=d["mean"].values,
                     covariance=np.diag(d["sem"].values ** 2),
                 ),
@@ -378,22 +380,26 @@ def _filter_data_on_status(
     Returns:
         A dataframe with filtered observations.
     """
-    if "metric_name" not in df.columns:
-        raise ValueError(f"`metric_name` column is missing from {df!r}.")
+    if "metric_signature" not in df.columns:
+        raise ValueError(f"`metric_signature` column is missing from {df!r}.")
     dfs = []
-    for g, d in df.groupby(by="metric_name"):
-        metric_name = g
-        if metric_name not in experiment.metrics:
+    metric_signature_to_name = {
+        m.signature: m.name for m in experiment.metrics.values()
+    }
+    for g, d in df.groupby(by="metric_signature"):
+        metric_signature = g
+        if metric_signature not in metric_signature_to_name.keys():
             # Observations can only be made for metrics attached to the experiment.
             logger.exception(
-                f"Data contains metric {metric_name} that has not been added to the "
-                "experiment. You can either update the `optimization_config` or attach "
-                "it as a tracking metric using `Experiment.add_tracking_metrics` "
-                "or `AxClient.add_tracking_metrics`. Ignoring all data for "
-                f"metric {metric_name}."
+                f"Data contains metric {metric_signature} that has not been added to "
+                "the experiment. You can either update the `optimization_config` "
+                "or attach it as a tracking metric using "
+                "`Experiment.add_tracking_metrics` or `AxClient.add_tracking_metrics`. "
+                "Ignoring all data for "
+                f"metric {metric_signature}."
             )
             continue
-        metric = experiment.metrics[metric_name]
+        metric = experiment.metrics[metric_signature_to_name[metric_signature]]
         statuses_to_include_metric = (
             statuses_to_include_map_metric
             if isinstance(metric, MapMetric) and metric.has_map_data
@@ -454,7 +460,7 @@ def observations_from_data(
     Pulls arm parameters from from experiment. Overrides fidelity parameters
     in the arm with those found in the Data object.
 
-    Uses a diagonal covariance matrix across metric_names.
+    Uses a diagonal covariance matrix across metric_signatures.
 
     Args:
         experiment: Experiment with arm parameters.

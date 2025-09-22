@@ -636,6 +636,7 @@ class SQAStoreTest(TestCase):
                     for i, objective in enumerate(objectives):
                         metric = objective.metric
                         self.assertEqual(metric.name, f"m{1 + 2 * i}")
+                        self.assertEqual(metric.signature, f"m{1 + 2 * i}")
                         self.assertEqual(metric.__class__, Metric)
                 elif composite_type == "scalarized" and not immutable:
                     # Check scalarized objective children

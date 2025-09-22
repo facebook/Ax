@@ -262,10 +262,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
         # be [-0.35, 0.35].
         self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
         self.assertEqual(inferred_reference_point[0].bound, -0.35)
-        self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+        self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
         self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
         self.assertEqual(inferred_reference_point[1].bound, 0.35)
-        self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+        self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
         with mock.patch(
             "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
@@ -313,10 +313,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
             # be [-0.35, 0.35].
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
     def test_infer_reference_point_from_experiment_shuffled_metrics(self) -> None:
         # Generating an experiment with given data.
@@ -339,7 +339,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.0, "y": 0.0}),
                 data=ObservationData(
-                    metric_names=["m3", "m2", "m1"],
+                    metric_signatures=["m3", "m2", "m1"],
                     means=np.array([0.1, 1.0, -1.0]),
                     covariance=np.diag(np.full(3, float("nan"))),
                 ),
@@ -347,7 +347,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.1, "y": 0.1}),
                 data=ObservationData(
-                    metric_names=["m3", "m2", "m1"],
+                    metric_signatures=["m3", "m2", "m1"],
                     means=np.array([0.2, 2.0, -0.5]),
                     covariance=np.diag(np.full(3, float("nan"))),
                 ),
@@ -355,7 +355,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.2, "y": 0.2}),
                 data=ObservationData(
-                    metric_names=["m3", "m2", "m1"],
+                    metric_signatures=["m3", "m2", "m1"],
                     means=np.array([0.3, 0.5, -2.0]),
                     covariance=np.diag(np.full(3, float("nan"))),
                 ),
@@ -391,10 +391,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
 
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
     def test_get_tensor_converter_adapter(self) -> None:
         # Test that it can convert experiments with different number of observations.

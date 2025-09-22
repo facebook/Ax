@@ -61,13 +61,13 @@ class LogYTransformTest(TestCase):
 
     def test_TransformObservations(self) -> None:
         obsd_with_noise = ObservationData(
-            metric_names=["m1", "m2", "m3"],
+            metric_signatures=["m1", "m2", "m3"],
             means=np.array([0.5, 1.0, 1.0]),
             covariance=np.diag(np.array([1.0, 1.0, np.exp(1) - 1])),
         )
         # test default transform
         obsd1_t = ObservationData(
-            metric_names=["m1", "m2", "m3"],
+            metric_signatures=["m1", "m2", "m3"],
             means=np.array([0.5, 1.0, -0.5]),
             covariance=np.diag(np.array([1.0, 1.0, 1.0])),
         )
@@ -92,7 +92,7 @@ class LogYTransformTest(TestCase):
         Z[0, 2] = np.sqrt(np.exp(1)) - 1
         Z[2, 0] = np.sqrt(np.exp(1)) - 1
         obsd1 = ObservationData(
-            metric_names=["m3", "m3", "m3"],
+            metric_signatures=["m3", "m3", "m3"],
             means=np.ones(3),
             covariance=np.diag(np.ones(3) * (np.exp(1) - 1)) + Z,
         )
@@ -103,7 +103,7 @@ class LogYTransformTest(TestCase):
 
         # Test with unknown noise.
         obsd_without_noise = ObservationData(
-            metric_names=["m1", "m2"],
+            metric_signatures=["m1", "m2"],
             means=np.array([1.0, 2.0]),
             covariance=np.diag(np.array([float("nan"), float("nan")])),
         )

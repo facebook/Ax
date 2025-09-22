@@ -125,13 +125,13 @@ class AcquisitionTest(TestCase):
         self.Yvar = torch.tensor([[0.0], [2.0]], **self.tkwargs)
         self.fidelity_features = [2]
         self.feature_names = ["a", "b", "c"]
-        self.metric_names = ["metric"]
+        self.metric_signatures = ["metric"]
         self.training_data = [
             SupervisedDataset(
                 X=self.X,
                 Y=self.Y,
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
         ]
         self.search_space_digest = SearchSpaceDigest(

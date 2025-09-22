@@ -30,17 +30,21 @@ class SlicesTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
+        model_metric_names = [
+            exp.signature_to_metric[signature].name
+            for signature in model.metric_signatures
+        ]
         # Assert that each type of plot can be constructed successfully
         plot = plot_slice_plotly(
             model,
             # pyre-fixme[16]: `Adapter` has no attribute `parameters`.
             model.parameters[0],
-            list(model.metric_names)[0],
+            model_metric_names[0],
         )
         self.assertIsInstance(plot, go.Figure)
         plot = interact_slice_plotly(model)
         self.assertIsInstance(plot, go.Figure)
-        plot = plot_slice(model, model.parameters[0], list(model.metric_names)[0])
+        plot = plot_slice(model, model.parameters[0], model_metric_names[0])
         self.assertIsInstance(plot, AxPlotConfig)
         plot = interact_slice(model)
         self.assertIsInstance(plot, AxPlotConfig)

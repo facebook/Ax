@@ -193,7 +193,7 @@ class Adapter:
 
         self.fit_time: float = 0.0
         self.fit_time_since_gen: float = 0.0
-        self._metric_names: set[str] = set()
+        self._metric_signatures: set[str] = set()
         # pyre-ignore [13] Assigned in _set_and_filter_training_data.
         self._training_data: ExperimentData
         self._optimization_config: OptimizationConfig | None = optimization_config
@@ -362,7 +362,7 @@ class Adapter:
         """
         # NOTE: This is copied in get_training_data, so it won't be modified in-place.
         self._training_data = experiment_data
-        self._metric_names: set[str] = set(experiment_data.metric_names)
+        self._metric_signatures: set[str] = set(experiment_data.metric_signatures)
         # Filter out-of-design points if `fit_out_of_design` is False.
         if self._data_loader_config.fit_out_of_design:
             self._training_in_design_idx = [True] * len(experiment_data.arm_data)
@@ -514,10 +514,10 @@ class Adapter:
         sq_data = obs_data.loc[
             obs_data.index.get_level_values("arm_name") == self.status_quo_name
         ]
-        metric_names = list(sq_data["mean"].columns)
+        metric_signatures = list(sq_data["mean"].columns)
         return {
             index[0]: ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=row["mean"].to_numpy(),
                 covariance=np.diag(row["sem"].to_numpy() ** 2),
             )
@@ -535,9 +535,9 @@ class Adapter:
         return self._status_quo_name
 
     @property
-    def metric_names(self) -> set[str]:
-        """Metric names present in training data."""
-        return self._metric_names
+    def metric_signatures(self) -> set[str]:
+        """Metric signatures present in training data."""
+        return self._metric_signatures
 
     @property
     def model_space(self) -> SearchSpace:
@@ -1042,7 +1042,7 @@ class Adapter:
     ) -> dict[str, Any]:
         return self.generator.deserialize_state(serialized_state=serialized_state)
 
-    def feature_importances(self, metric_name: str) -> dict[str, float]:
+    def feature_importances(self, metric_signature: str) -> dict[str, float]:
         """Computes feature importances for a single metric.
 
         Depending on the type of the generator, this method will approach sensitivity
@@ -1055,7 +1055,7 @@ class Adapter:
         NOTE: Currently, this is only implemented for GP-based generators.
 
         Args:
-            metric_name: Name of metric to compute feature importances for.
+            metric_signatures: Signature of metric to compute feature importances for.
 
         Returns:
             A dictionary mapping parameter names to their corresponding feature
@@ -1125,20 +1125,20 @@ def unwrap_observation_data(observation_data: list[ObservationData]) -> TModelPr
     """Converts observation data to the format for model prediction outputs.
     That format assumes each observation data has the same set of metrics.
     """
-    metrics = set(observation_data[0].metric_names)
+    metrics = set(observation_data[0].metric_signatures)
     f: TModelMean = {metric: [] for metric in metrics}
     cov: TModelCov = {m1: {m2: [] for m2 in metrics} for m1 in metrics}
     for od in observation_data:
-        if set(od.metric_names) != metrics:
+        if set(od.metric_signatures) != metrics:
             raise ValueError(
                 "Each ObservationData should use same set of metrics. "
                 "Expected {exp}, got {got}.".format(
-                    exp=metrics, got=set(od.metric_names)
+                    exp=metrics, got=set(od.metric_signatures)
                 )
             )
-        for i, m1 in enumerate(od.metric_names):
+        for i, m1 in enumerate(od.metric_signatures):
             f[m1].append(od.means[i])
-            for j, m2 in enumerate(od.metric_names):
+            for j, m2 in enumerate(od.metric_signatures):
                 cov[m1][m2].append(od.covariance[i, j])
     return f, cov
 
@@ -1270,7 +1270,7 @@ def _combine_multiple_status_quo_observations(
     # Check if the it includes all metrics in the opt config.
     # If not, search for observations of the remaining metrics as well.
     while remaining_metrics := metrics.difference(
-        sum((obs.data.metric_names for obs in partial_obs), [])
+        sum((obs.data.metric_signatures for obs in partial_obs), [])
     ):
         # Find observations of the remaining metrics.
         # Search using one metric at a time.
@@ -1278,7 +1278,7 @@ def _combine_multiple_status_quo_observations(
         obs_w_lookup_metric = [
             obs
             for obs in status_quo_observations
-            if lookup_metric in obs.data.metric_names
+            if lookup_metric in obs.data.metric_signatures
         ]
         if len(obs_w_lookup_metric) == 0:
             logger.warning(
@@ -1301,7 +1301,9 @@ def _combine_multiple_status_quo_observations(
             # NOTE: omitting the metadata since it can be different in each obs.
         ),
         data=ObservationData(
-            metric_names=sum((obs.data.metric_names for obs in partial_obs), []),
+            metric_signatures=sum(
+                (obs.data.metric_signatures for obs in partial_obs), []
+            ),
             means=np.concatenate([obs.data.means for obs in partial_obs], axis=0),
             covariance=np.diag(
                 np.concatenate(

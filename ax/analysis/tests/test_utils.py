@@ -712,9 +712,13 @@ class TestUtils(TestCase):
                 )
                 generation_strategy.current_node._fit(experiment=experiment)
                 adapter = none_throws(generation_strategy.adapter)
+                model_metric_names = [
+                    experiment.signature_to_metric[signature].name
+                    for signature in adapter.metric_signatures
+                ]
                 df = prepare_arm_data(
                     experiment=experiment,
-                    metric_names=[*adapter.metric_names],
+                    metric_names=model_metric_names,
                     use_model_predictions=use_model_predictions,
                     adapter=adapter,
                     trial_index=trial_index,
@@ -773,10 +777,14 @@ class TestUtils(TestCase):
                         )
                         generation_strategy.current_node._fit(experiment=experiment)
                         adapter = none_throws(generation_strategy.adapter)
+                        model_metric_names = [
+                            experiment.signature_to_metric[signature].name
+                            for signature in adapter.metric_signatures
+                        ]
 
                         _ = prepare_arm_data(
                             experiment=experiment,
-                            metric_names=[*adapter.metric_names],
+                            metric_names=model_metric_names,
                             use_model_predictions=use_model_predictions,
                             adapter=adapter,
                             trial_index=trial_index,

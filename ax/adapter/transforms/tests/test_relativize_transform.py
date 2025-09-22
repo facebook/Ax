@@ -104,7 +104,7 @@ class RelativizeDataTest(TestCase):
                     observations=[
                         Observation(
                             data=ObservationData(
-                                metric_names=["foo"],
+                                metric_signatures=["foo"],
                                 means=np.array([2]),
                                 covariance=np.array([[0.1]]),
                             ),
@@ -183,7 +183,7 @@ class RelativizeDataTest(TestCase):
             results = tf.transform_observations(observations)
             for i, tsfm_obs in enumerate(results):
                 expected_mean, expected_covar = expected_mean_and_covar[i]
-                self.assertEqual(tsfm_obs.data.metric_names, metric_names)
+                self.assertEqual(tsfm_obs.data.metric_signatures, metric_signatures)
                 # status quo means must always be zero
                 self.assertTrue(
                     np.allclose(tsfm_obs.data.means, expected_mean),
@@ -210,26 +210,26 @@ class RelativizeDataTest(TestCase):
                 )
                 j += 1
 
-        metric_names: list[str] = ["foobar", "foobaz"]
+        metric_signatures: list[str] = ["foobar", "foobaz"]
         arm_names = ["status_quo", "0_0", "status_quo", "1_0"]
         obs_data = [
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([2.5, 5.5]),
                 covariance=np.array([[0.2, 0.0], [0.0, 0.3]]),
             ),
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([2.0, 11.0]),
                 covariance=np.array([[0.25, 0.0], [0.0, 0.35]]),
             ),
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([2.0, 5.0]),
                 covariance=np.array([[0.1, 0.0], [0.0, 0.2]]),
             ),
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([1.0, 10.0]),
                 covariance=np.array([[0.3, 0.0], [0.0, 0.4]]),
             ),
@@ -312,12 +312,12 @@ class RelativizeDataTest(TestCase):
             arm_names = ["status_quo", "0_0"]
             obs_data = [
                 ObservationData(
-                    metric_names=["foo"],
+                    metric_signatures=["foo"],
                     means=np.array([sq_mean]),
                     covariance=np.array([[sq_sem]]),
                 ),
                 ObservationData(
-                    metric_names=["foo"],
+                    metric_signatures=["foo"],
                     means=np.array([mean]),
                     covariance=np.array([[sem]]),
                 ),
@@ -336,7 +336,7 @@ class RelativizeDataTest(TestCase):
             for relativize_cls in [Relativize, RelativizeWithConstantControl]:
                 transform = relativize_cls(search_space=None, adapter=adapter)
                 relative_obs = transform.transform_observations(observations)
-                self.assertEqual(relative_obs[0].data.metric_names, ["foo"])
+                self.assertEqual(relative_obs[0].data.metric_signatures, ["foo"])
                 self.assertAlmostEqual(relative_obs[0].data.means[0], 0, places=4)
                 self.assertAlmostEqual(
                     relative_obs[0].data.covariance[0][0], 0, places=4
@@ -367,7 +367,7 @@ class RelativizeDataTest(TestCase):
             ]
             sq_obs_data.append(
                 ObservationData(
-                    metric_names=status_quo_data["metric_name"].to_list(),
+                    metric_signatures=status_quo_data["metric_signature"].to_list(),
                     means=status_quo_data["mean"].to_numpy(),
                     covariance=status_quo_data["sem"].to_numpy()[np.newaxis, :] ** 2,
                 )
@@ -395,8 +395,8 @@ class RelativizeDataTest(TestCase):
         # this assertion just checks that order is the same, which
         # is only important for the purposes of this test
         self.assertEqual(
-            [datum.data.metric_names for datum in relative_obs_t],
-            [datum.data.metric_names for datum in relative_observations],
+            [datum.data.metric_signatures for datum in relative_obs_t],
+            [datum.data.metric_signatures for datum in relative_observations],
         )
         means = [
             np.array([datum.data.means for datum in relative_obs_t]),

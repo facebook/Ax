@@ -70,7 +70,7 @@ class BilogY(Transform):
         if adapter is not None and adapter._optimization_config is not None:
             # TODO @deriksson: Add support for relative outcome constraints
             self.metric_to_bound: dict[str, float] = {
-                oc.metric.name: oc.bound
+                oc.metric.signature: oc.bound
                 for oc in adapter._optimization_config.outcome_constraints
                 if not oc.relative
             }
@@ -103,7 +103,7 @@ class BilogY(Transform):
         transform: Callable[[npt.NDArray, npt.NDArray], npt.NDArray],
     ) -> list[ObservationData]:
         for obsd in observation_data:
-            for i, m in enumerate(obsd.metric_names):
+            for i, m in enumerate(obsd.metric_signatures):
                 if m in self.metric_to_bound.keys():
                     bound = self.metric_to_bound[m]
                     obsd.means[i], obsd.covariance[i, i] = match_ci_width(
@@ -118,9 +118,9 @@ class BilogY(Transform):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         obs_data = experiment_data.observation_data
-        metric_names = experiment_data.metric_names
+        metric_signatures = experiment_data.metric_signatures
         for metric, bound in self.metric_to_bound.items():
-            if metric not in metric_names:
+            if metric not in metric_signatures:
                 continue
             obs_data[("mean", metric)], obs_data[("sem", metric)] = match_ci_width(
                 mean=obs_data[("mean", metric)].to_numpy(),

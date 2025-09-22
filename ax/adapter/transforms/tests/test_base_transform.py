@@ -38,14 +38,14 @@ class TransformsTest(TestCase):
     def test_TransformObservations(self) -> None:
         # Test that this is an identity transform
         means = np.array([3.0, 4.0])
-        metric_names = ["a", "b"]
+        metric_signatures = ["a", "b"]
         covariance = np.array([[1.0, 2.0], [3.0, 4.0]])
         parameters = {"x": 1.0, "y": "cat"}
         arm_name = "armmy"
         observation = Observation(
             features=ObservationFeatures(parameters=parameters),  # pyre-ignore
             data=ObservationData(
-                metric_names=metric_names, means=means, covariance=covariance
+                metric_signatures=metric_signatures, means=means, covariance=covariance
             ),
             arm_name=arm_name,
         )
@@ -55,7 +55,7 @@ class TransformsTest(TestCase):
         for obs in [obs1, obs2]:
             self.assertTrue(np.array_equal(obs.data.means, means))
             self.assertTrue(np.array_equal(obs.data.covariance, covariance))
-            self.assertEqual(obs.data.metric_names, metric_names)
+            self.assertEqual(obs.data.metric_signatures, metric_signatures)
             self.assertEqual(obs.features.parameters, parameters)
             self.assertEqual(obs.arm_name, arm_name)
 

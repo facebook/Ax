@@ -32,7 +32,7 @@ class TestAEPsychCriterion(TestCase):
     """
 
     def test_single_criterion(self) -> None:
-        criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
+        criterion = MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
 
         experiment = get_experiment()
 
@@ -91,7 +91,7 @@ class TestAEPsychCriterion(TestCase):
 
     def test_many_criteria(self) -> None:
         criteria = [
-            MinimumPreferenceOccurances(metric_name="m1", threshold=3),
+            MinimumPreferenceOccurances(metric_signature="m1", threshold=3),
             MinTrials(only_in_statuses=[TrialStatus.COMPLETED], threshold=5),
         ]
 

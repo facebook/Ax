@@ -211,7 +211,6 @@ class Trial(BaseTrial):
         """
 
         fetch_result = self.lookup_data()
-
         try:
             df = fetch_result.df
             return df.loc[df["metric_name"] == metric_name].iloc[0]["mean"]

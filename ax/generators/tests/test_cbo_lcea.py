@@ -28,14 +28,14 @@ class LCEABOTest(TestCase):
         train_Y = torch.tensor([[1.0], [2.0], [3.0]])
         train_Yvar = 0.1 * torch.ones(3, 1)
         feature_names = ["x0", "x1", "x2", "x3"]
-        metric_names = ["y"]
+        metric_signatures = ["y"]
         training_data = [
             SupervisedDataset(
                 X=train_X,
                 Y=train_Y,
                 Yvar=train_Yvar,
                 feature_names=feature_names,
-                outcome_names=metric_names,
+                outcome_names=metric_signatures,
             )
         ]
 
@@ -65,7 +65,7 @@ class LCEABOTest(TestCase):
             Yvars=[train_Yvar],
             task_features=[],
             fidelity_features=[],
-            metric_names=["y"],
+            metric_signatures=["y"],
         )
         self.assertIsInstance(gp, LCEAGP)
 
@@ -76,7 +76,7 @@ class LCEABOTest(TestCase):
             Yvars=[train_Yvar, train_Yvar],
             task_features=[],
             fidelity_features=[],
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
         )
         self.assertIsInstance(gp_list, ModelListGP)
 

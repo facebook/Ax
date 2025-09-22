@@ -2742,7 +2742,7 @@ def get_map_data(trial_index: int = 0) -> MapData:
 
 def get_observations_with_invalid_value(invalid_value: float) -> list[Observation]:
     obsd_with_non_finite = ObservationData(
-        metric_names=["m1"] * 4,
+        metric_signatures=["m1"] * 4,
         means=np.array([-100, 4, invalid_value, 2]),
         covariance=np.eye(4),
     )
@@ -2866,11 +2866,11 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
     )
 
 
-def get_percentile_early_stopping_strategy_with_non_objective_metric_name() -> (
+def get_percentile_early_stopping_strategy_with_non_objective_metric_signature() -> (
     PercentileEarlyStoppingStrategy
 ):
     return PercentileEarlyStoppingStrategy(
-        metric_names=["foo"],
+        metric_signatures=["foo"],
         percentile_threshold=0.25,
         min_progression=0.2,
         min_curves=10,

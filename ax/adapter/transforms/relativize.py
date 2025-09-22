@@ -188,12 +188,12 @@ class BaseRelativize(Transform, ABC):
             )
 
         trial_indices = observation_data.index.get_level_values("trial_index")
-        for metric in experiment_data.metric_names:
+        for metric in experiment_data.metric_signatures:
             # Create arrays of control values for each row based on trial_index.
             mean_c, sem_c = [], []
             for idx in trial_indices:
                 sq_data = self.status_quo_data_by_trial[idx]
-                j = get_metric_index(data=sq_data, metric_name=metric)
+                j = get_metric_index(data=sq_data, metric_signature=metric)
                 mean_c.append(sq_data.means[j])
                 sem_c.append(sq_data.covariance[j, j] ** 0.5)
 
@@ -275,15 +275,15 @@ class BaseRelativize(Transform, ABC):
         Returns:
             (un)relativized ObservationData
         """
-        L = len(data.metric_names)
+        L = len(data.metric_signatures)
         result = ObservationData(
-            metric_names=data.metric_names,
+            metric_signatures=data.metric_signatures,
             # zeros are just to create the shape so values can be set by index
             means=np.zeros(L),
             covariance=np.zeros((L, L)),
         )
-        for i, metric in enumerate(data.metric_names):
-            j = get_metric_index(data=status_quo_data, metric_name=metric)
+        for i, metric in enumerate(data.metric_signatures):
+            j = get_metric_index(data=status_quo_data, metric_signature=metric)
             means_t = data.means[i]
             sems_t = sqrt(data.covariance[i, i])
             mean_c = status_quo_data.means[j]
@@ -324,10 +324,10 @@ class BaseRelativize(Transform, ABC):
         )
 
 
-def get_metric_index(data: ObservationData, metric_name: str) -> int:
+def get_metric_index(data: ObservationData, metric_signature: str) -> int:
     """Get the index of a metric in the ObservationData."""
     try:
-        return data.metric_names.index(metric_name)
+        return data.metric_signatures.index(metric_signature)
     except (IndexError, StopIteration):
         raise ValueError(
             "Relativization cannot be performed because "
