@@ -10,9 +10,7 @@
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.bilog_y import BilogY
 from ax.adapter.transforms.choice_encode import (
-    ChoiceEncode,
     ChoiceToNumericChoice,
-    OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
 from ax.adapter.transforms.convert_metric_names import ConvertMetricNames
@@ -37,7 +35,7 @@ from ax.adapter.transforms.remove_fixed import RemoveFixed
 from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.stratified_standardize_y import StratifiedStandardizeY
-from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
+from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.adapter.transforms.time_as_feature import TimeAsFeature
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.adapter.transforms.trial_as_task import TrialAsTask
@@ -68,7 +66,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     IVW,
     Log,
     OneHot,
-    OrderedChoiceEncode,  # TO BE DEPRECATED
+    # OrderedChoiceEncode,  # DEPRECATED
     OrderedChoiceToIntegerRange,
     # This transform was upstreamed into the base adapter.
     # DEPRECATED: OutOfDesign
@@ -76,14 +74,14 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     SearchSpaceToChoice,
     StandardizeY,
     StratifiedStandardizeY,
-    TaskEncode,  # TO BE DEPRECATED
+    # TaskEncode,  # DEPRECATED
     TaskChoiceToIntTaskChoice,
     TrialAsTask,
     UnitX,
     Winsorize,
     # CapParameter,  DEPRECATED
     PowerTransformY,
-    ChoiceEncode,  # TO BE DEPRECATED
+    # ChoiceEncode,  # DEPRECATED
     ChoiceToNumericChoice,
     Logit,
     # MapUnitX, DEPRECATED
