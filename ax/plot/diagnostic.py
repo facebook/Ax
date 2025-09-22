@@ -12,11 +12,9 @@ from typing import Any
 import numpy as np
 import plotly.graph_objs as go
 from ax.adapter.cross_validation import CVResult
-from ax.adapter.transforms.convert_metric_names import convert_mt_observations
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import Observation
 from ax.plot.base import (
     AxPlotConfig,
@@ -697,8 +695,6 @@ def interact_batch_comparison(
         x_label: Label for the x-axis.
         y_label: Label for the y-axis.
     """
-    if isinstance(experiment, MultiTypeExperiment):
-        observations = convert_mt_observations(observations, experiment)
     if not status_quo_name and experiment.status_quo:
         status_quo_name = none_throws(experiment.status_quo).name
     plot_data = _get_batch_comparison_plot_data(
