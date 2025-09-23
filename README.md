@@ -171,6 +171,28 @@ The above example limits the cloned directory size via the
 argument to `git clone`. If you require the entire commit history you may remove
 this argument.
 
+## Citing Ax
+
+If you use Ax, please cite the following paper:
+> [M. Olson, E. Santorella, L. C. Tiao, S. Cakmak, D. Eriksson, M. Garrard, S. Daulton, M. Balandat,  E. Bakshy, E. Kashtelyan, Z. J. Lin, S. Ament, B. Beckerman, E. Onofrey, P. Igusti, C. Lara, B. Letham, C. Cardoso, S. S. Shen, A. C. Lin, and M. Grange. Ax: A platform for Adaptive Experimentation. In AutoML 2025 ABCD Track, 2025.](https://openreview.net/forum?id=U1f6wHtG1g)
+
+```
+@inproceedings{olson2025ax,
+  title = {{Ax: A Platform for Adaptive Experimentation}},
+  author = {
+    Olson, Miles and Santorella, Elizabeth and Tiao, Louis C. and
+    Cakmak, Sait and Eriksson, David and Garrard, Mia and Daulton, Sam and
+    Balandat, Maximilian and Bakshy, Eytan and Kashtelyan, Elena and
+    Lin, Zhiyuan Jerry and Ament, Sebastian and Beckerman, Bernard and
+    Onofrey, Eric and Igusti, Paschal and Lara, Cristian and
+    Letham, Benjamin and Cardoso, Cesar and Shen, Shiyun Sunny and
+    Lin, Andy Chenyuan and Grange, Matthew
+  },
+  booktitle = {AutoML 2025 ABCD Track},
+  year = {2025}
+}
+```
+
 ## License
 
 Ax is licensed under the [MIT license](./LICENSE).
