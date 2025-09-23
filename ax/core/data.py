@@ -111,15 +111,21 @@ class Data(Base, SerializationMixin):
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            extra_columns = columns - self.supported_columns()
-            if extra_columns:
-                raise ValueError(f"Columns {list(extra_columns)} are not supported.")
             df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
+            self._df = self._get_df_with_cols_in_expected_order(df=df)
 
-            # Reorder the columns for easier viewing
-            col_order = [c for c in self.column_data_types() if c in df.columns]
-            self._df = df.reindex(columns=col_order, copy=False)
+    @classmethod
+    def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Reorder the columns for easier viewing"""
+        current_order = list(df.columns)  # Surprisingly slow, so do it once
+        expected_order = list(cls.COLUMN_DATA_TYPES)
+        col_order = [c for c in expected_order if c in current_order] + [
+            c for c in current_order if c not in expected_order
+        ]
+        if current_order != expected_order:
+            return df.reindex(columns=col_order, copy=False)
+        return df
 
     @classmethod
     def _safecast_df(
@@ -159,17 +165,6 @@ class Data(Base, SerializationMixin):
     def required_columns(self) -> set[str]:
         """Names of columns that must be present in the underlying ``DataFrame``."""
         return self.REQUIRED_COLUMNS
-
-    @classmethod
-    def supported_columns(
-        cls, extra_column_names: Iterable[str] | None = None
-    ) -> set[str]:
-        """Names of columns supported (but not necessarily required) by this class."""
-        extra_column_names = set(extra_column_names or [])
-        extra_column_types: dict[str, Any] = {name: Any for name in extra_column_names}
-        return cls.REQUIRED_COLUMNS.union(
-            cls.column_data_types(extra_column_types=extra_column_types)
-        )
 
     @classmethod
     def column_data_types(
