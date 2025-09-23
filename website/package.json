@@ -14,10 +14,11 @@
     "docusaurus": "docusaurus"
   },
   "devDependencies": {},
+  "//": "TODO: T239136996 Unpin Docusaurus canary after 3.8.2 or 3.9 is released",
   "dependencies": {
-    "@docusaurus/core": "3.6.3",
-    "@docusaurus/plugin-client-redirects": "3.6.3",
-    "@docusaurus/preset-classic": "3.6.3",
+    "@docusaurus/core": "3.8.1-canary-6401",
+    "@docusaurus/plugin-client-redirects": "3.8.1-canary-6401",
+    "@docusaurus/preset-classic": "3.8.1-canary-6401",
     "clsx": "^1.1.1",
     "plotly.js": "^2.8.1",
     "react": "^18.3.1",
