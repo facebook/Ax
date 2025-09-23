@@ -659,9 +659,9 @@ class JSONStoreTest(TestCase):
 
             # The "timestamp" map key will be silently dropped, and "epoch" will
             # be renamed to MAP_KEY
-            self.assertIn(MAP_KEY, map_data.true_df.columns)
+            self.assertIn(MAP_KEY, map_data.full_df.columns)
             # Either 'epoch' or 'timestamps' could have been kept
-            progression = map_data.true_df[MAP_KEY].tolist()
+            progression = map_data.full_df[MAP_KEY].tolist()
             self.assertTrue(progression == [0.0, 1.0] or progression == [3.0, 4.0])
 
         with self.subTest("Single map key"):
@@ -686,8 +686,8 @@ class JSONStoreTest(TestCase):
             self.assertIn(
                 f"epoch will be renamed to {MAP_KEY}", str(warning_list[0].message)
             )
-            self.assertIn(MAP_KEY, map_data.true_df.columns)
-            self.assertEqual(map_data.true_df[MAP_KEY].tolist(), [0.0, 1.0])
+            self.assertIn(MAP_KEY, map_data.full_df.columns)
+            self.assertEqual(map_data.full_df[MAP_KEY].tolist(), [0.0, 1.0])
             # No warning about multiple map keys
             self.assertFalse(any("Received multiple" in str(w) for w in warning_list))
 

@@ -1589,7 +1589,7 @@ class ExperimentWithMapDataTest(TestCase):
             # Fetch other metrics and merge Data into the cached MapData
             full_data = exp.fetch_data()
 
-            self.assertEqual(len(full_data.true_df), len(map_data.true_df) + 20)
+            self.assertEqual(len(full_data.full_df), len(map_data.full_df) + 20)
 
     def test_is_moo_problem(self) -> None:
         exp = get_branin_experiment()

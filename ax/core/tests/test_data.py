@@ -195,15 +195,15 @@ class TestDataBase(TestCase):
 
     def test_from_multiple_with_generator(self) -> None:
         data = self.cls.from_multiple_data(self.data_with_df for _ in range(2))
-        self.assertEqual(len(data.true_df), 2 * len(self.data_with_df.true_df))
+        self.assertEqual(len(data.full_df), 2 * len(self.data_with_df.full_df))
 
     def test_extra_columns(self) -> None:
         value = 3
         extra_col_df = self.df.assign(foo=value)
         data = self.cls(df=extra_col_df)
-        self.assertIn("foo", data.true_df.columns)
+        self.assertIn("foo", data.full_df.columns)
         self.assertIn("foo", data.df.columns)
-        self.assertTrue((data.true_df["foo"] == value).all())
+        self.assertTrue((data.full_df["foo"] == value).all())
 
 
 class DataTest(TestCase):

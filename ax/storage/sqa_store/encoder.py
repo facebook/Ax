@@ -1081,7 +1081,7 @@ class Encoder:
         # pyre-fixme[29]: `SQAData` is not a function.
         return data_class(
             id=data.db_id,
-            data_json=data.true_df.to_json(),
+            data_json=data.full_df.to_json(),
             time_created=timestamp,
             trial_index=trial_index,
             structure_metadata_json=json.dumps(

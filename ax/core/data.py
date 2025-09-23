@@ -191,9 +191,14 @@ class Data(Base, SerializationMixin):
         return extract_init_args(args=args, class_=cls)
 
     @property
-    def true_df(self) -> pd.DataFrame:
-        """Return the ``DataFrame`` being used as the source of truth (avoid using
-        except for caching).
+    def full_df(self) -> pd.DataFrame:
+        """
+        Return the ``DataFrame`` being used as the source of truth.
+
+        In the ``Data`` subclass ``MapData``, ``self.df`` may be a subset of the
+        full data used for modeling. Constructing ``df`` can be expensive, so it
+        is better to use ``full_df`` for operations that do not require scanning
+        the full data, such as accessing the columns of the DataFrame.
         """
         return self._df
 

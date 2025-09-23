@@ -796,9 +796,9 @@ class Experiment(Base):
             )
         data_type = type(data)
         data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
-        if data.true_df.empty:
+        if data.full_df.empty:
             raise ValueError("Data to attach is empty.")
-        metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
+        metrics_not_on_exp = set(data.full_df["metric_name"].values) - set(
             self.metrics.keys()
         )
         if metrics_not_on_exp:
@@ -811,7 +811,7 @@ class Experiment(Base):
                 "the experiment's optimization config."
             )
         cur_time_millis = current_timestamp_in_millis()
-        for trial_index, trial_df in data.true_df.groupby(data.true_df["trial_index"]):
+        for trial_index, trial_df in data.full_df.groupby(data.full_df["trial_index"]):
             if not isinstance(data, MapData):
                 trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
             # Overwrite `df` so that `data` only has current trial data.
@@ -835,14 +835,16 @@ class Experiment(Base):
             elif overwrite_existing_data:
                 if len(current_trial_data) > 0:
                     _, last_data = list(current_trial_data.items())[-1]
-                    # It may seem odd to use `true_df` here, because with
+                    # It may seem odd to use `full_df` here, because with
                     # MapData, `df` is shorter, and since it is cached, it won't
                     # be constructed too often. However, constructing MapData's
                     # `df` is sufficiently expensive due to the groupby-apply
-                    # and sort operations needed that using `true_df` is much
+                    # and sort operations needed that using `full_df` is much
                     # faster even if repeated many times.
-                    last_data_metrics = set(last_data.true_df["metric_name"])
-                    new_data_metrics = set(trial_df["metric_name"])
+                    last_data_metrics = set(last_data.full_df["metric_name"].unique())
+
+                    new_data_metrics = set(trial_df["metric_name"].unique())
+
                     difference = last_data_metrics.difference(new_data_metrics)
                     if len(difference) > 0:
                         raise ValueError(
@@ -887,10 +889,10 @@ class Experiment(Base):
 
         # this merge is like a SQL left join on merge keys
         # it will return a dataframe with the columns in merge_keys
-        # plus "_merge" and any other columns in last_data.true_df with _left appended
+        # plus "_merge" and any other columns in last_data.full_df with _left appended
         # plus any other columns in new_df with _right appended
         merged = pd.merge(
-            last_data.true_df,
+            last_data.full_df,
             new_df,
             on=merge_keys,
             how="left",
@@ -1451,7 +1453,7 @@ class Experiment(Base):
             # Trial has data, so we replicate it on the new experiment.
             has_data = ts != -1 and not dat.df.empty
             if has_data:
-                new_df = dat.true_df.copy()
+                new_df = dat.full_df.copy()
                 new_df["trial_index"].replace(
                     {trial.index: new_trial.index}, inplace=True
                 )
