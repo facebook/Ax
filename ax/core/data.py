@@ -33,6 +33,7 @@ logger: Logger = get_logger(__name__)
 
 TData = TypeVar("TData", bound="Data")
 DF_REPR_MAX_LENGTH = 1000
+MAP_KEY = "step"
 
 
 class Data(Base, SerializationMixin):
@@ -81,6 +82,8 @@ class Data(Base, SerializationMixin):
         # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
         "random_split": int,
+        # Used with MapData
+        MAP_KEY: float,
     }
 
     _df: pd.DataFrame
@@ -128,13 +131,7 @@ class Data(Base, SerializationMixin):
         return df
 
     @classmethod
-    def _safecast_df(
-        cls: type[TData],
-        df: pd.DataFrame,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Mapping[str, type] | None = None,
-    ) -> pd.DataFrame:
+    def _safecast_df(cls: type[TData], df: pd.DataFrame) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
         Needed because numpy does not support NaNs in integer arrays.
@@ -150,9 +147,7 @@ class Data(Base, SerializationMixin):
 
         """
         dtypes = df.dtypes
-        for col, coltype in cls.column_data_types(
-            extra_column_types=extra_column_types
-        ).items():
+        for col, coltype in cls.COLUMN_DATA_TYPES.items():
             if col in df.columns.values and coltype is not Any:
                 # Pandas timestamp handlng is weird
                 dtype = "datetime64[ns]" if coltype is pd.Timestamp else coltype
@@ -165,19 +160,6 @@ class Data(Base, SerializationMixin):
     def required_columns(self) -> set[str]:
         """Names of columns that must be present in the underlying ``DataFrame``."""
         return self.REQUIRED_COLUMNS
-
-    @classmethod
-    def column_data_types(
-        cls,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Mapping[str, type] | None = None,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-    ) -> dict[str, type]:
-        """Type specification for all supported columns."""
-        extra_column_types = extra_column_types or {}
-        return {**cls.COLUMN_DATA_TYPES, **extra_column_types}
 
     @classmethod
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:

@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from ax.core.data import _filter_df, Data
+from ax.core.data import _filter_df, Data, MAP_KEY
 from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.docutils import copy_doc
@@ -33,7 +33,6 @@ from ax.utils.common.serialization import (
 from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
-MAP_KEY = "step"
 
 
 class MapData(Data):
@@ -85,15 +84,13 @@ class MapData(Data):
                 Intended only for use in `MapData.filter`, where the contents
                 of the DataFrame are known to be ordered and valid.
         """
-        map_key_to_type = {MAP_KEY: float}
-
         if df is None:  # If df is None create an empty dataframe with appropriate cols
-            columns = list(self.required_columns().union({MAP_KEY}))
-            # Create columns with expected dtypes
-            dtype_dict = {**self.COLUMN_DATA_TYPES, **map_key_to_type}
-
+            columns = list(self.required_columns())
             self._map_df = pd.DataFrame.from_dict(
-                {col: pd.Series([], dtype=dtype_dict[col]) for col in columns}
+                {
+                    col: pd.Series([], dtype=self.COLUMN_DATA_TYPES[col])
+                    for col in columns
+                }
             )
         elif _skip_ordering_and_validation:
             self._map_df = df
@@ -113,7 +110,7 @@ class MapData(Data):
                 # mutate the original df
                 df = df.reset_index(drop=True)
 
-            self._map_df = self._safecast_df(df=df, extra_column_types=map_key_to_type)
+            self._map_df = self._safecast_df(df=df)
             self._map_df = self._get_df_with_cols_in_expected_order(df=self._map_df)
 
         self._memo_df = None

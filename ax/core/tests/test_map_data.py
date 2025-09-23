@@ -322,3 +322,9 @@ class MapDataTest(TestCase):
             len(subsample_map_df[subsample_map_df["metric_name"] == "b"]),
             len(map_df[map_df["metric_name"] == "b"]),
         )
+
+    def test_dtype_conversion(self) -> None:
+        df = self.df
+        df[MAP_KEY] = df[MAP_KEY].astype(int)
+        data = MapData(df=df)
+        self.assertEqual(data.map_df[MAP_KEY].dtype, float)

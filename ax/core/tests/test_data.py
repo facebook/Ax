@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import random
 from unittest.mock import patch
 
 import pandas as pd
@@ -197,16 +196,6 @@ class TestDataBase(TestCase):
     def test_from_multiple_with_generator(self) -> None:
         data = self.cls.from_multiple_data(self.data_with_df for _ in range(2))
         self.assertEqual(len(data.true_df), 2 * len(self.data_with_df.true_df))
-
-    def test_data_column_data_types_default(self) -> None:
-        self.assertEqual(self.cls.column_data_types(), self.cls.COLUMN_DATA_TYPES)
-
-    def test_data_column_data_types_with_extra_columns(self) -> None:
-        bartype = random.choice([str, int, float])
-        columns = self.cls.column_data_types(extra_column_types={"foo": bartype})
-        for c, t in self.cls.COLUMN_DATA_TYPES.items():
-            self.assertEqual(columns[c], t)
-        self.assertEqual(columns["foo"], bartype)
 
     def test_extra_columns(self) -> None:
         value = 3
