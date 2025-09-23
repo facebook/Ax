@@ -17,7 +17,7 @@ from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.adapter.transforms.fixed_to_tunable import FixedToTunable
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
-from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
+from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.adapter.transforms.ivw import IVW
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.log_y import LogY
@@ -94,7 +94,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     TimeAsFeature,
     TransformToNewSQ,
     FillMissingParameters,
-    LogIntToFloat,
+    # LogIntToFloat, DEPRECATED
     MapKeyToFloat,
     BilogY,
 }
@@ -104,6 +104,7 @@ REMOVED_TRANSFORMS: set[str] = {
     "CapParameter",
     "MapUnitX",
     "ConvertMetricNames",
+    "LogIntToFloat",
 }
 
 """

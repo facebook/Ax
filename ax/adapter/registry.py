@@ -32,7 +32,7 @@ from ax.adapter.transforms.choice_encode import (
 )
 from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
-from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
+from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.logit import Logit
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
@@ -94,17 +94,16 @@ Cont_X_trans: list[type[Transform]] = [
 ]
 
 # This is a modification of Cont_X_trans that aims to avoid continuous relaxation
-# where possible. It replaces IntToFloat with LogIntToFloat, which is only transforms
-# log-scale integer parameters, which still use continuous relaxation. Other discrete
-# transforms will remain discrete. When used with MBM, a Normalize input transform
-# will be added to replace the UnitX transform. This setup facilitates the use of
+# where possible. To this end, the Log transform converts log-scale integer
+# RangeParameters to numeric discrete ChoiceParameters. Other discrete transforms
+# will remain discrete. When used with MBM, a Normalize input transform will be
+# added to replace the UnitX transform. This setup facilitates the use of
 # optimize_acqf_mixed_alternating, which is a more efficient acquisition function
 # optimizer for mixed discrete/continuous problems.
 MBM_X_trans_base: list[type[Transform]] = [
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
-    LogIntToFloat,
     Log,
     Logit,
 ]
@@ -138,7 +137,6 @@ rel_EB_ashr_trans: list[type[Transform]] = [
 Mixed_transforms: list[type[Transform]] = [
     RemoveFixed,
     ChoiceToNumericChoice,
-    LogIntToFloat,
     Log,
     Logit,
 ]
