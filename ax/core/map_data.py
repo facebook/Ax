@@ -106,11 +106,6 @@ class MapData(Data):
                 raise ValueError(
                     f"Dataframe must contain required columns {missing_columns}."
                 )
-            supported_columns = self.supported_columns(extra_column_names=[MAP_KEY])
-            extra_columns = columns - supported_columns
-            if extra_columns:
-                raise UnsupportedError(f"Columns {extra_columns} are not supported.")
-
             if df["trial_index"].isnull().any():
                 df = df.dropna(axis=0, how="all", ignore_index=True)
             else:
@@ -119,14 +114,7 @@ class MapData(Data):
                 df = df.reset_index(drop=True)
 
             self._map_df = self._safecast_df(df=df, extra_column_types=map_key_to_type)
-
-            col_order = [
-                c
-                for c in self.column_data_types(extra_column_types=map_key_to_type)
-                if c in df.columns
-            ]
-            if not (self._map_df.columns == col_order).all():
-                self._map_df = self._map_df.reindex(columns=col_order)
+            self._map_df = self._get_df_with_cols_in_expected_order(df=self._map_df)
 
         self._memo_df = None
 
