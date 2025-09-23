@@ -49,7 +49,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
-from ax.exceptions.core import AxStorageWarning
+from ax.exceptions.core import AxStorageWarning, UnsupportedError
 from ax.exceptions.storage import JSONEncodeError, STORAGE_DOCS_SUFFIX
 from ax.generation_strategy.best_model_selector import BestModelSelector
 from ax.generation_strategy.generation_node import GenerationNode
@@ -182,6 +182,13 @@ def range_parameter_to_dict(parameter: RangeParameter) -> dict[str, Any]:
 
 def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
     """Convert Ax choice parameter to a dictionary."""
+    if parameter._bypass_cardinality_check:
+        raise UnsupportedError(
+            "`bypass_cardinality_check` should only be set to True "
+            "when constructing parameters within the modeling layer. "
+            "It is not supported for storage."
+        )
+
     return {
         "__type": parameter.__class__.__name__,
         "is_ordered": parameter.is_ordered,
