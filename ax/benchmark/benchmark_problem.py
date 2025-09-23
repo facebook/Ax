@@ -63,6 +63,11 @@ class BenchmarkProblem(Base):
             can be derived using the function
             `compute_baseline_value_from_sobol`, which takes the best of five
             quasi-random Sobol trials.
+        worst_feasible_value: The worst possible objective value for a feasible trial.
+            This must be provided for constrained problems. This value is assigned to
+            infeasible trials when computing the score of a given benchmark probem.
+            This has the desirable property that any feasible trial has a better score
+            than an infeasible trial.
         search_space: The search space.
         report_inference_value_as_trace: Whether the ``optimization_trace`` on a
             ``BenchmarkResult`` should use the ``oracle_trace`` (if False,
@@ -89,6 +94,7 @@ class BenchmarkProblem(Base):
     noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
     optimal_value: float
     baseline_value: float
+    worst_feasible_value: float | None = None
     search_space: SearchSpace = field(repr=False)
     report_inference_value_as_trace: bool = False
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
@@ -127,6 +133,30 @@ class BenchmarkProblem(Base):
                 "The baseline value must be strictly less than the optimal "
                 "value for maximization problems."
             )
+        # Validate worst_feasible_value
+        if len(self.optimization_config.outcome_constraints) > 0:
+            if isinstance(self.optimization_config, MultiObjectiveOptimizationConfig):
+                if self.worst_feasible_value != 0.0:
+                    raise ValueError(
+                        "The worst feasible value must be 0.0 for multi-objective "
+                        "problems."
+                    )
+            elif self.worst_feasible_value is None:
+                raise ValueError(
+                    "The worst feasible value must be provided for constrained "
+                    "problems (got `None`)"
+                )
+            elif self.optimization_config.objective.minimize:
+                if self.optimal_value > self.worst_feasible_value:
+                    raise ValueError(
+                        "The worst feasible value must be greater than or equal to "
+                        "the optimal value for minimization problems."
+                    )
+            elif self.optimal_value < self.worst_feasible_value:
+                raise ValueError(
+                    "The worst feasible value must be less than or equal to "
+                    "the optimal value for maximization problems."
+                )
 
         # Validate that names on optimization config are contained in names on
         # test function

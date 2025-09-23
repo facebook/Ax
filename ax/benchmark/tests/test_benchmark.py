@@ -6,6 +6,7 @@
 # pyre-strict
 
 import dataclasses
+import itertools
 import logging
 import tempfile
 from datetime import datetime
@@ -96,7 +97,7 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
 
-from botorch.test_functions.synthetic import Branin
+from botorch.test_functions.synthetic import Branin, PressureVessel
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -1315,6 +1316,119 @@ class TestBenchmark(TestCase):
             )
             self.assertEqual(best_point, experiment.trials[0].arms[0].parameters)
 
+    def test_worst_feasible_value_validation(self) -> None:
+        """Test validation logic for worst_feasible_value in BenchmarkProblem."""
+        search_space = get_continuous_search_space(bounds=[(0, 1), (0, 1)])
+        test_function = IdentityTestFunction(outcome_names=["objective", "constraint"])
+
+        # MOO with constraints - must be 0.0
+        moo_config = get_moo_opt_config(
+            outcome_names=["objective", "constraint"],
+            ref_point=[1.0],
+            num_constraints=1,
+        )
+        BenchmarkProblem(
+            name="moo_valid",
+            optimization_config=moo_config,
+            search_space=search_space,
+            test_function=test_function,
+            num_trials=4,
+            baseline_value=5.0,
+            optimal_value=10.0,
+            worst_feasible_value=0.0,
+        )
+        with self.assertRaisesRegex(ValueError, "must be 0.0 for multi-objective"):
+            BenchmarkProblem(
+                name="moo_invalid",
+                optimization_config=moo_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=5.0,
+                optimal_value=10.0,
+                worst_feasible_value=5.0,
+            )
+
+        # SOO with constraints, `worst_feasible_value` must be provided
+        soo_min_config = get_soo_opt_config(
+            outcome_names=["objective", "constraint"], lower_is_better=True
+        )
+        soo_max_config = get_soo_opt_config(
+            outcome_names=["objective", "constraint"], lower_is_better=False
+        )
+        with self.assertRaisesRegex(
+            ValueError, "must be provided for constrained problems"
+        ):
+            BenchmarkProblem(
+                name="none_invalid",
+                optimization_config=soo_min_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=10.0,
+                optimal_value=5.0,
+            )
+
+        # Minimization: worst_feasible >= optimal
+        with self.assertRaisesRegex(ValueError, "must be greater than or equal to"):
+            BenchmarkProblem(
+                name="min_invalid",
+                optimization_config=soo_min_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=10.0,
+                optimal_value=5.0,
+                worst_feasible_value=3.0,
+            )
+        BenchmarkProblem(
+            name="min_valid",
+            optimization_config=soo_min_config,
+            search_space=search_space,
+            test_function=test_function,
+            num_trials=4,
+            baseline_value=10.0,
+            optimal_value=5.0,
+            worst_feasible_value=8.0,
+        )
+
+        # Maximization: worst_feasible <= optimal
+        with self.assertRaisesRegex(ValueError, "must be less than or equal to"):
+            BenchmarkProblem(
+                name="max_invalid",
+                optimization_config=soo_max_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=5.0,
+                optimal_value=10.0,
+                worst_feasible_value=15.0,
+            )
+        BenchmarkProblem(
+            name="max_valid",
+            optimization_config=soo_max_config,
+            search_space=search_space,
+            test_function=test_function,
+            num_trials=4,
+            baseline_value=5.0,
+            optimal_value=10.0,
+            worst_feasible_value=8.0,
+        )
+
+        # No constraints - validation skipped
+        no_constraint_config = get_soo_opt_config(outcome_names=["objective"])
+        no_constraint_test_function = IdentityTestFunction(outcome_names=["objective"])
+        BenchmarkProblem(
+            name="no_constraints",
+            optimization_config=no_constraint_config,
+            search_space=search_space,
+            test_function=no_constraint_test_function,
+            num_trials=4,
+            baseline_value=10.0,
+            optimal_value=5.0,
+            worst_feasible_value=None,
+        )
+
     def test_get_benchmark_result_from_experiment_and_gs(self) -> None:
         problem = get_single_objective_benchmark_problem()
         method = BenchmarkMethod(
@@ -1368,3 +1482,98 @@ class TestBenchmark(TestCase):
                     result_inf.inference_trace, result_inf.optimization_trace
                 )
             )
+
+    def test_scoring_constrained_problem(self) -> None:
+        # Make sure the score is computed correctly for a constrained problem
+        expected_score_traces_oracle = [
+            [0.0, 0.0, 51.9295, 51.9295, 51.9295],
+            [-20.8965, -20.8965, 41.8845, 41.8845, 41.8845],
+        ]
+        expected_score_traces_inference = [
+            [0.0, 0.0, 51.9295, 0.0, 0.0],
+            [-20.8965, -20.8965, 41.8845, -20.8965, -20.8965],
+        ]
+        expected_is_feasible_trace = [False, False, True, False, False]
+        worst_feasible_value = PressureVessel().worst_feasible_value
+        feasible_value = 118769.1124  # Value of the only feasible trial
+        expected_oracle_trace = [
+            worst_feasible_value,
+            worst_feasible_value,
+            feasible_value,
+            feasible_value,
+            feasible_value,
+        ]
+        expected_inference_trace = [
+            worst_feasible_value,
+            worst_feasible_value,
+            feasible_value,  # The only feasible trial
+            worst_feasible_value,
+            worst_feasible_value,
+        ]
+
+        for (
+            baseline_value,
+            report_inference_value_as_trace,
+            num_trials,
+        ) in itertools.product([float("inf"), 200_000], [False, True], [2, 5]):
+            sobol = BenchmarkMethod(generation_strategy=get_sobol_generation_strategy())
+            problem = create_problem_from_botorch(
+                test_problem_class=PressureVessel,
+                test_problem_kwargs={},
+                num_trials=num_trials,
+                baseline_value=baseline_value,
+                report_inference_value_as_trace=report_inference_value_as_trace,
+            )
+            results = benchmark_replication(problem=problem, method=sobol, seed=2)
+
+            # Check that the traces are what we expect
+            idx = 0 if baseline_value == float("inf") else 1
+            expected = (
+                expected_score_traces_inference
+                if report_inference_value_as_trace
+                else expected_score_traces_oracle
+            )
+            self.assertTrue(
+                np.allclose(
+                    results.score_trace,
+                    expected[idx][:num_trials],
+                    atol=1e-3,
+                )
+            )
+            self.assertTrue(
+                np.allclose(
+                    results.oracle_trace,
+                    expected_oracle_trace[:num_trials],
+                    atol=1e-3,
+                )
+            )
+            self.assertTrue(
+                np.equal(
+                    none_throws(results.is_feasible_trace),
+                    expected_is_feasible_trace[:num_trials],
+                ).all()
+            )
+            if report_inference_value_as_trace:
+                self.assertTrue(
+                    np.allclose(
+                        results.inference_trace,
+                        expected_inference_trace[:num_trials],
+                        atol=1e-3,
+                    )
+                )
+                self.assertTrue(
+                    np.allclose(
+                        results.optimization_trace,
+                        expected_inference_trace[:num_trials],
+                        atol=1e-3,
+                    )
+                )
+            else:
+                self.assertTrue(np.isnan(none_throws(results.inference_trace)).all())
+                self.assertTrue(
+                    np.allclose(
+                        results.optimization_trace,
+                        expected_oracle_trace[:num_trials],
+                        atol=1e-3,
+                    )
+                )

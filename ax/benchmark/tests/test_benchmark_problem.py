@@ -84,6 +84,7 @@ class TestBenchmarkProblem(TestCase):
                 search_space=SearchSpace(parameters=[]),
                 test_function=test_function,
                 baseline_value=1.0,
+                worst_feasible_value=2.0,
             )
 
     def test_get_soo_opt_config(self) -> None:
