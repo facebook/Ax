@@ -55,6 +55,7 @@ from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
+from ax.exceptions.core import UnsupportedError
 from ax.exceptions.storage import SQAEncodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
@@ -279,6 +280,12 @@ class Encoder:
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
             )
         elif isinstance(parameter, ChoiceParameter):
+            if parameter._bypass_cardinality_check:
+                raise UnsupportedError(
+                    "`bypass_cardinality_check` should only be set to `True` "
+                    "when constructing parameters within the modeling layer. "
+                    "It is not supported for storage."
+                )
             # pyre-fixme[29]: `SQAParameter` is not a function.
             return parameter_class(
                 id=parameter.db_id,

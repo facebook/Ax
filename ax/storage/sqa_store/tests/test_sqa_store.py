@@ -28,12 +28,13 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import ObjectNotFoundError, TrialMutationError
+
+from ax.exceptions.core import ObjectNotFoundError, TrialMutationError, UnsupportedError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -1460,6 +1461,21 @@ class SQAStoreTest(TestCase):
                     logit_scale=True,
                 )
             )
+
+    def test_bypass_cardinality_check(self) -> None:
+        choice_parameter = ChoiceParameter(
+            name="test_choice",
+            parameter_type=ParameterType.INT,
+            values=[1, 2, 3],
+            bypass_cardinality_check=True,
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "`bypass_cardinality_check` should only be set to `True` "
+            "when constructing parameters within the modeling layer. It is not "
+            "supported for storage.",
+        ):
+            self.encoder.parameter_to_sqa(parameter=choice_parameter)
 
     def test_ParameterConstraintValidation(self) -> None:
         sqa_parameter_constraint = SQAParameterConstraint(

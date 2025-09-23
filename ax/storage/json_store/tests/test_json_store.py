@@ -36,9 +36,9 @@ from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ParameterType
+from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.runner import Runner
-from ax.exceptions.core import AxStorageWarning
+from ax.exceptions.core import AxStorageWarning, UnsupportedError
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
@@ -61,6 +61,7 @@ from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.encoders import (
     botorch_component_to_dict,
     botorch_modular_to_dict,
+    choice_parameter_to_dict,
     metric_to_dict,
     runner_to_dict,
 )
@@ -1336,6 +1337,21 @@ class JSONStoreTest(TestCase):
         self.assertTrue(
             any("Found unexpected kwargs" in warning for warning in cm.output)
         )
+
+    def test_choice_parameter_bypass_cardinality_check_encode_failure(self) -> None:
+        choice_parameter = ChoiceParameter(
+            name="test_choice",
+            parameter_type=ParameterType.INT,
+            values=[1, 2, 3],
+            bypass_cardinality_check=True,
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "`bypass_cardinality_check` should only be set to True "
+            "when constructing parameters within the modeling layer. It is not "
+            "supported for storage.",
+        ):
+            choice_parameter_to_dict(choice_parameter)
 
     def test_surrogate_spec_backwards_compatibility(self) -> None:
         # This is an invalid example that has both deprecated args

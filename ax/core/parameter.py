@@ -588,6 +588,9 @@ class ChoiceParameter(Parameter):
             True.
         dependents: Optional mapping for parameters in hierarchical search
             spaces; format is { value -> list of dependent parameter names }.
+        bypass_cardinality_check: Whether to bypass the cardinality check
+            that restricts the number of distinct values. This should only be
+            set to True when constructing parameters within the modeling layer.
     """
 
     def __init__(
@@ -601,6 +604,7 @@ class ChoiceParameter(Parameter):
         target_value: TParamValue = None,
         sort_values: bool | None = None,
         dependents: dict[TParamValue, list[str]] | None = None,
+        bypass_cardinality_check: bool = False,
     ) -> None:
         if (is_fidelity or is_task) and (target_value is None):
             ptype = "fidelity" if is_fidelity else "task"
@@ -620,11 +624,12 @@ class ChoiceParameter(Parameter):
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
         # Cap the number of possible values.
-        if len(values) > MAX_VALUES_CHOICE_PARAM:
+        if not bypass_cardinality_check and len(values) > MAX_VALUES_CHOICE_PARAM:
             raise UserInputError(
                 f"`ChoiceParameter` with more than {MAX_VALUES_CHOICE_PARAM} values "
                 "is not supported! Use a `RangeParameter` instead."
             )
+        self._bypass_cardinality_check = bypass_cardinality_check
         # Remove duplicate values.
         # Using dict to deduplicate here since set doesn't preserve order but dict does.
         dict_values = dict.fromkeys(values)
