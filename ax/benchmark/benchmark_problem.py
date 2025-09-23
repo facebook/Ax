@@ -85,6 +85,10 @@ class BenchmarkProblem(Base):
             when using relative constraints.
         auxiliary_experiments_by_purpose: A mapping from experiment purpose to
             a list of auxiliary experiments.
+        tracking_metrics: A list of metrics to track on the experiment in
+            addition to the metrics contained in the OptimizationConfig.
+            Tracking metrics appear in the data stored on the Experiment
+            and do not affect the traces in a BenchmarkResult.
     """
 
     name: str
