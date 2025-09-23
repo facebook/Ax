@@ -30,6 +30,7 @@ from botorch.test_functions.base import (
     MultiObjectiveTestProblem,
 )
 from botorch.test_functions.multi_fidelity import AugmentedBranin
+from pyre_extensions import assert_is_instance
 
 # A mapping from (BoTorch problem class name, dim | None) to baseline value
 # Obtained using `get_baseline_value_from_sobol`
@@ -248,6 +249,12 @@ def create_problem_from_botorch(
         if isinstance(test_problem, MultiObjectiveTestProblem)
         else test_problem.optimal_value
     )
+    if len(optimization_config.outcome_constraints) > 0:
+        worst_feasible_value = assert_is_instance(
+            test_problem.worst_feasible_value, float
+        )
+    else:
+        worst_feasible_value = None  # Not needed for unconstrained problems
     baseline_value = (
         BOTORCH_BASELINE_VALUES[(test_problem_class.__name__, dim)]
         if baseline_value is None
@@ -261,10 +268,9 @@ def create_problem_from_botorch(
         test_function=test_function,
         noise_std=noise_std,
         num_trials=num_trials,
-        # pyre-fixme[6]: For 7th argument expected `float` but got `Union[float,
-        #  Tensor, Module]`.
-        optimal_value=optimal_value,
+        optimal_value=assert_is_instance(optimal_value, float),
         baseline_value=baseline_value,
+        worst_feasible_value=worst_feasible_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
         step_runtime_function=step_runtime_function,
         status_quo_params=status_quo_params,

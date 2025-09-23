@@ -181,6 +181,7 @@ def get_benchmark_result() -> BenchmarkResult:
         cost_trace=[0.0, 0.0, 0.0, 0.0],
         optimization_trace=[3.0, 2.0, 1.0, 0.1],
         score_trace=[3.0, 2.0, 1.0, 0.1],
+        is_feasible_trace=[True, True, True, True],
         fit_time=0.1,
         gen_time=0.2,
     )

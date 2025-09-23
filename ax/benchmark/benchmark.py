@@ -19,6 +19,7 @@ Key terms used:
 
 """
 
+import math
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -52,7 +53,7 @@ from ax.core.utils import get_model_times
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.orchestrator import Orchestrator
-from ax.service.utils.best_point import get_trace
+from ax.service.utils.best_point import _prepare_data_for_trace, get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
@@ -330,6 +331,17 @@ def get_inference_trace(
     return inference_trace
 
 
+def get_is_feasible_trace(
+    experiment: Experiment, optimization_config: OptimizationConfig
+) -> list[float]:
+    """Get a trace of feasibility for each arm pull in the experiment."""
+    df = experiment.lookup_data().df.copy()  # Let's not modify the original df
+    if len(df) == 0:
+        return []
+    df = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
+    return df["feasible"].tolist()
+
+
 def get_best_parameters(
     experiment: Experiment,
     generation_strategy: GenerationStrategy,
@@ -431,6 +443,12 @@ def get_benchmark_result_from_experiment_and_gs(
             optimization_config=problem.optimization_config,
         )
     )
+    is_feasible_trace = np.array(
+        get_is_feasible_trace(
+            experiment=actual_params_oracle_dummy_experiment,
+            optimization_config=problem.optimization_config,
+        )
+    )
     if problem.report_inference_value_as_trace:
         inference_trace = get_inference_trace(
             trial_completion_order=trial_completion_order,
@@ -443,12 +461,38 @@ def get_benchmark_result_from_experiment_and_gs(
         inference_trace = np.full_like(oracle_trace, fill_value=np.nan)
         optimization_trace = oracle_trace
 
-    score_trace = compute_score_trace(
-        optimization_trace=optimization_trace,
-        optimal_value=problem.optimal_value,
-        baseline_value=problem.baseline_value,
-    )
+    # Need to modify the optimization trace for constrained problems
+    if len(problem.optimization_config.outcome_constraints) > 0:
+        inds_is_feas = np.where(is_feasible_trace)[0]
+        infeasible_inds = (
+            np.arange(len(optimization_trace))
+            if len(inds_is_feas) == 0
+            else np.arange(inds_is_feas[0])
+        )
+        oracle_trace[infeasible_inds] = problem.worst_feasible_value
+        if problem.report_inference_value_as_trace:
+            # Note: The inference trace isn't cumulative.
+            inference_trace[~is_feasible_trace] = problem.worst_feasible_value
+            optimization_trace[~is_feasible_trace] = problem.worst_feasible_value
+        else:
+            optimization_trace[infeasible_inds] = problem.worst_feasible_value
 
+        baseline_value = (
+            none_throws(problem.worst_feasible_value)
+            if not math.isfinite(problem.baseline_value)
+            else problem.baseline_value
+        )
+        score_trace = compute_score_trace(
+            optimization_trace=optimization_trace,
+            optimal_value=problem.optimal_value,
+            baseline_value=baseline_value,
+        )
+    else:
+        score_trace = compute_score_trace(
+            optimization_trace=optimization_trace,
+            optimal_value=problem.optimal_value,
+            baseline_value=problem.baseline_value,
+        )
     fit_time, gen_time = get_model_times(experiment=experiment)
     if strip_runner_before_saving:
         # Strip runner from experiment before returning, so that the experiment can
@@ -462,6 +506,7 @@ def get_benchmark_result_from_experiment_and_gs(
         oracle_trace=oracle_trace.tolist(),
         inference_trace=inference_trace.tolist(),
         optimization_trace=optimization_trace.tolist(),
+        is_feasible_trace=is_feasible_trace.tolist(),
         score_trace=score_trace.tolist(),
         cost_trace=cost_trace.tolist(),
         fit_time=fit_time,
