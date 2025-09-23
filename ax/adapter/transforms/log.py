@@ -105,6 +105,7 @@ class Log(Transform):
                         is_ordered=True,
                         is_fidelity=p.is_fidelity,
                         target_value=target_value,
+                        sort_values=True,
                         bypass_cardinality_check=True,
                     )
 
