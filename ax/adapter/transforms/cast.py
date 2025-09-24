@@ -46,7 +46,6 @@ class Cast(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -54,7 +53,6 @@ class Cast(Transform):
         self.search_space: SearchSpace = none_throws(search_space).clone()
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

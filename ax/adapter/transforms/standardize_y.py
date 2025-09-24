@@ -13,8 +13,7 @@ from typing import Optional, TYPE_CHECKING
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.utils import get_data
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
@@ -44,28 +43,21 @@ class StandardizeY(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["base_adapter.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )
-        if experiment_data is not None:
-            means_df = experiment_data.observation_data["mean"]
-            # Dropping NaNs here since the DF will have NaN for missing values.
-            Ys = {
-                signature: column.dropna().values
-                for signature, column in means_df.items()
-            }
-        else:
-            observation_data = [obs.data for obs in none_throws(observations)]
-            Ys = get_data(observation_data=observation_data)
+        means_df = none_throws(experiment_data).observation_data["mean"]
+        # Dropping NaNs here since the DF will have NaN for missing values.
+        Ys = {
+            signature: column.dropna().values for signature, column in means_df.items()
+        }
         # Compute means and SDs
         # pyre-fixme[4]: Attribute must be annotated.
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys=Ys)

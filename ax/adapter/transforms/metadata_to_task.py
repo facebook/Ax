@@ -15,7 +15,6 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.metadata_to_parameter import MetadataToParameterMixin
 from ax.core import ParameterType
-from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, TParamValue
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
@@ -46,7 +45,6 @@ class MetadataToTask(MetadataToParameterMixin, Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -54,7 +52,6 @@ class MetadataToTask(MetadataToParameterMixin, Transform):
         Transform.__init__(
             self,
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

@@ -229,7 +229,7 @@ def _get_in_sample_arms(
 
     # Merge multiple measurements within each Observation with IVW to get
     # un-modeled prediction
-    t = IVW(None, [])
+    t = IVW()
     observations = t.transform_observations(observations)
     # Start filling in plot data
     in_sample_plot: dict[str, PlotInSampleArm] = {}

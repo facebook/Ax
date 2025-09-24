@@ -8,14 +8,12 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Callable
 from numbers import Number
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.transforms.derelativize import Derelativize
-from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
@@ -72,34 +70,6 @@ class ClosestLookupDict(dict):
                 return super().__getitem__(lkey)
             else:
                 return super().__getitem__(rkey)
-
-
-def get_data(
-    observation_data: list[ObservationData],
-    metric_signatures: list[str] | None = None,
-    raise_on_non_finite_data: bool = True,
-) -> dict[str, list[float]]:
-    """Extract all metrics if `metric_names` is None.
-
-    Raises a value error if any data is non-finite.
-
-    Args:
-        observation_data: List of observation data.
-        metric_names: List of metric names.
-        raise_on_non_finite_data: If true, raises an exception on nan/inf.
-
-    Returns:
-        A dictionary mapping metric names to lists of metric values.
-    """
-    Ys = defaultdict(list)
-    for obsd in observation_data:
-        for i, m in enumerate(obsd.metric_signatures):
-            if metric_signatures is None or m in metric_signatures:
-                val = obsd.means[i]
-                if raise_on_non_finite_data and (not np.isfinite(val)):
-                    raise ValueError(f"Non-finite data found for metric {m}: {val}")
-                Ys[m].append(val)
-    return Ys
 
 
 def match_ci_width(

@@ -10,7 +10,7 @@ from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
@@ -37,14 +37,12 @@ class FillMissingParameters(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

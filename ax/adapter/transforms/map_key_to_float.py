@@ -15,7 +15,7 @@ from typing import Any, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.metadata_to_float import MetadataToFloat
 from ax.core.map_data import MAP_KEY
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.core.utils import has_map_metrics
 from ax.generators.types import TConfig
@@ -46,7 +46,6 @@ class MapKeyToFloat(MetadataToFloat):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -74,7 +73,6 @@ class MapKeyToFloat(MetadataToFloat):
                 )
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -83,24 +81,14 @@ class MapKeyToFloat(MetadataToFloat):
     def _get_values_for_parameter(
         self,
         name: str,
-        observations: list[Observation] | None,
-        experiment_data: ExperimentData | None,
+        experiment_data: ExperimentData,
     ) -> set[float]:
-        if experiment_data is not None:
-            obs_data = experiment_data.observation_data
-            if name not in obs_data.index.names:
-                raise ValueError(
-                    f"Parameter {name} is not in the index of the observation data."
-                )
-            return set(
-                obs_data.index.unique(level=name).dropna().astype(float).tolist()
+        obs_data = experiment_data.observation_data
+        if name not in obs_data.index.names:
+            raise ValueError(
+                f"Parameter {name} is not in the index of the observation data."
             )
-        # For Observations, the logic is identical to the parent class.
-        return super()._get_values_for_parameter(
-            name=name,
-            observations=observations,
-            experiment_data=experiment_data,
-        )
+        return set(obs_data.index.unique(level=name).dropna().astype(float).tolist())
 
     def _transform_observation_feature(self, obsf: ObservationFeatures) -> None:
         if len(obsf.parameters) == 0:

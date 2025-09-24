@@ -53,7 +53,6 @@ class BaseRelativize(Transform, ABC):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -61,7 +60,6 @@ class BaseRelativize(Transform, ABC):
         cls_name = self.__class__.__name__
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

@@ -11,7 +11,6 @@ from typing import Optional, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
 from ax.adapter.transforms.utils import construct_new_search_space
-from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -37,7 +36,6 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
     def __init__(
         self,
         search_space: SearchSpace,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -47,7 +45,6 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
         ), "TaskChoiceToIntTaskChoice requires search space"
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

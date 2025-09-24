@@ -1340,7 +1340,6 @@ def transform_search_space(
         try:
             t_instance = t(
                 search_space=search_space,
-                observations=[],
                 adapter=None,
                 config=transform_configs.get(t.__name__),
             )
