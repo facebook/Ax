@@ -14,7 +14,6 @@ from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
@@ -64,8 +63,6 @@ class TransformsTest(TestCase):
         experiment_data = extract_experiment_data(
             experiment=experiment, data_loader_config=DataLoaderConfig()
         )
-        with self.assertRaisesRegex(UnsupportedError, "Only one of"):
-            Transform(observations=[], experiment_data=experiment_data)
         t = Transform(experiment_data=experiment_data)
         # Errors out since no_op_for_experiment_data defaults to False.
         with self.assertRaisesRegex(NotImplementedError, "transform_experiment_data"):

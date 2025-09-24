@@ -33,105 +33,49 @@ def compare_obs(
 
 class MergeRepeatedMeasurementsTransformTest(TestCase):
     def test_Transform(self) -> None:
-        obs_feats1 = ObservationFeatures(parameters={"a": 0.0})
         with self.assertRaisesRegex(
             DataRequiredError,
             "`MergeRepeatedMeasurements` transform requires non-empty data",
         ):
             # test that observations are required
             MergeRepeatedMeasurements()
-        # test nan in covariance
-        observation = Observation(
-            data=ObservationData(
-                metric_signatures=["m1"],
-                means=np.array([1.0]),
-                covariance=np.array([[float("nan")]]),
-            ),
-            features=obs_feats1,
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 1.0], [1.0, 2.0]]
         )
-        with self.assertRaisesRegex(
-            NotImplementedError, "All observations must have arm names."
-        ):
-            MergeRepeatedMeasurements(observations=[observation])
-        observation.arm_name = "0_0"
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
         with self.assertRaisesRegex(
             NotImplementedError, "All metrics must have noise observations."
         ):
-            MergeRepeatedMeasurements(observations=[observation])
-        # test full covariance
-        observation = Observation(
-            data=ObservationData(
-                metric_signatures=["m1", "m2"],
-                means=np.array([1.0, 1.0]),
-                covariance=np.ones((2, 2)),
-            ),
-            features=obs_feats1,
-            arm_name="0_0",
-        )
-        with self.assertRaisesRegex(
-            NotImplementedError, "Only independent metrics are currently supported."
-        ):
-            MergeRepeatedMeasurements(observations=[observation])
+            MergeRepeatedMeasurements(experiment_data=experiment_data)
 
         # test noiseless, different means
-        zero_covar = np.zeros((1, 1))
-        observations = [
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["m1"],
-                    means=np.array([1.0]),
-                    covariance=zero_covar,
-                ),
-                features=obs_feats1,
-                arm_name="0_0",
-            ),
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["m1"],
-                    means=np.array([2.0]),
-                    covariance=zero_covar,
-                ),
-                features=obs_feats1,
-                arm_name="0_0",
-            ),
-        ]
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 1.0], [1.0, 2.0]],
+            sems=[[0.0, 0.0], [0.0, 0.0]],
+            parameterizations=[{"a": 0.0}, {"a": 0.0}],
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
         with self.assertRaisesRegex(
             ValueError,
             "All repeated arms with noiseless measurements "
             "must have the same means.",
         ):
-            MergeRepeatedMeasurements(observations=observations)
+            MergeRepeatedMeasurements(experiment_data=experiment_data)
         # test noiseless, same means
-        observations = [
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["m1"],
-                    means=np.array([1.0]),
-                    covariance=zero_covar,
-                ),
-                features=obs_feats1,
-                arm_name="0_0",
-            ),
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["m1"],
-                    means=np.array([1.0]),
-                    covariance=zero_covar,
-                ),
-                features=obs_feats1,
-                arm_name="0_0",
-            ),
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["m1"],
-                    means=np.array([2.0]),
-                    covariance=zero_covar,
-                ),
-                features=ObservationFeatures(parameters={"a": 2.0}),
-                arm_name="0_1",
-            ),
-        ]
-        t = MergeRepeatedMeasurements(observations=observations)
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [1.0, 2.0], [2.0, 3.0]],
+            sems=[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]],
+            parameterizations=[{"a": 0.0}, {"a": 0.0}, {"a": 1.0}],
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        observations = experiment_data.convert_to_list_of_observations()
+        t = MergeRepeatedMeasurements(experiment_data=experiment_data)
         expected_obs = observations[-2:]
         transformed_obs = t.transform_observations(observations)
         for i in (0, 1):
@@ -143,67 +87,37 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
             )
 
         # basic test
-        obs_feat1 = ObservationFeatures(parameters={"a": 0.0, "b": 1.0})
-        obs1 = Observation(
-            data=ObservationData(
-                metric_signatures=["m1", "m2"],
-                means=np.array([1.0, 2.0]),
-                covariance=np.array(
-                    [
-                        [1.0, 0.0],
-                        [0.0, 2.0],
-                    ]
-                ),
-            ),
-            features=obs_feat1,
-            arm_name="0_0",
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [1.0, 1.0], [3.0, 1.0]],
+            sems=[[1.0, sqrt(2.0)], [1.0, sqrt(3.0)], [2.0, sqrt(5.0)]],
+            parameterizations=[
+                {"a": 0.0, "b": 1.0},
+                {"a": 0.0, "b": 1.0},
+                {"a": 1.0, "b": 0.0},
+            ],
         )
-        obs2 = Observation(
-            data=ObservationData(
-                metric_signatures=["m1", "m2"],
-                means=np.array([1.0, 1.0]),
-                covariance=np.array(
-                    [
-                        [1.0, 0.0],
-                        [0.0, 3.0],
-                    ]
-                ),
-            ),
-            features=obs_feat1,
-            arm_name="0_0",
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
         )
-        # different arm
-        obs3 = Observation(
-            data=ObservationData(
-                metric_signatures=["m1", "m2"],
-                means=np.array([3.0, 1.0]),
-                covariance=np.array(
-                    [
-                        [4.0, 0.0],
-                        [0.0, 5.0],
-                    ]
-                ),
-            ),
-            features=ObservationFeatures(parameters={"a": 1.0, "b": 0.0}),
-            arm_name="0_1",
-        )
+        observations = experiment_data.convert_to_list_of_observations()
+        observations_copy = deepcopy(observations)
+        t = MergeRepeatedMeasurements(experiment_data=experiment_data)
+        observations2 = t.transform_observations(observations)
         expected_obs = Observation(
             data=ObservationData(
                 metric_signatures=["m1", "m2"],
                 means=np.array([1.0, 1.6]),
                 covariance=np.array([[0.5, 0.0], [0.0, 1.2]]),
             ),
-            features=obs_feat1,
+            features=ObservationFeatures(parameters={"a": 0.0, "b": 1.0}),
             arm_name="0_0",
         )
-        observations = [obs1, obs2, obs3]
-        observations_copy = deepcopy(observations)
-        t = MergeRepeatedMeasurements(observations=observations)
-        observations2 = t.transform_observations(observations)
         compare_obs(
             test=self, obs1=expected_obs, obs2=observations2[0], discrepancy_tol=1e-8
         )
-        compare_obs(test=self, obs1=obs3, obs2=observations2[1], discrepancy_tol=0.0)
+        compare_obs(
+            test=self, obs1=observations[2], obs2=observations2[1], discrepancy_tol=0.0
+        )
         # test repeating the transform
         observations2_copy = t.transform_observations(observations_copy)
         compare_obs(

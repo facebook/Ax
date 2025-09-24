@@ -15,16 +15,13 @@ from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_observations_with_invalid_value,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
 
@@ -49,12 +46,6 @@ class StandardizeYTransformTest(TestCase):
                 ]
             ),
         )
-        obs1 = Observation(features=ObservationFeatures({}), data=self.obsd1)
-        obs2 = Observation(features=ObservationFeatures({}), data=self.obsd2)
-        self.t = StandardizeY(
-            search_space=None,
-            observations=[obs1, obs2],
-        )
         self.experiment_data = extract_experiment_data(
             experiment=get_experiment_with_observations(
                 observations=[  # Same means as above.
@@ -72,15 +63,16 @@ class StandardizeYTransformTest(TestCase):
             ),
             data_loader_config=DataLoaderConfig(),
         )
+        self.t = StandardizeY(
+            search_space=None,
+            experiment_data=self.experiment_data,
+        )
 
     def test_Init(self) -> None:
         self.assertEqual(self.t.Ymean, {"m1": 1.0, "m2": 1.5})
         self.assertEqual(self.t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
         with self.assertRaises(DataRequiredError):
-            StandardizeY(
-                search_space=None,
-                observations=[],
-            )
+            StandardizeY(search_space=None)
         # Initialize with experiment data.
         t = StandardizeY(
             search_space=None,
@@ -183,16 +175,6 @@ class StandardizeYTransformTest(TestCase):
         oc = OptimizationConfig(objective=objective, outcome_constraints=[con])
         with self.assertRaises(ValueError):
             oc = self.t.transform_optimization_config(oc, None, None)
-
-    def test_non_finite_data_raises(self) -> None:
-        for invalid_value in [float("nan"), float("inf")]:
-            observations = get_observations_with_invalid_value(
-                invalid_value=invalid_value
-            )
-            with self.assertRaisesRegex(
-                ValueError, f"Non-finite data found for metric m1: {invalid_value}"
-            ):
-                StandardizeY(observations=observations, config={"metrics": ["m1"]})
 
     def test_transform_experiment_data(self) -> None:
         experiment_data = deepcopy(self.experiment_data)

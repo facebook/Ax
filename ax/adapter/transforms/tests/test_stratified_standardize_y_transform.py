@@ -32,6 +32,40 @@ from pandas.testing import assert_frame_equal
 class StratifiedStandardizeYTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        self.search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x", parameter_type=ParameterType.FLOAT, lower=0, upper=10
+                ),
+                ChoiceParameter(
+                    name="z", parameter_type=ParameterType.STRING, values=["a", "b"]
+                ),
+            ]
+        )
+        self.experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [float("nan"), 8.0], [1.0, 2.0], [5.0, 1.0]],
+            sems=[
+                [1.0, sqrt(2.0)],
+                [float("nan"), sqrt(3.0)],
+                [1.0, sqrt(2.0)],
+                [1.0, sqrt(3.0)],
+            ],
+            search_space=self.search_space,
+            parameterizations=[
+                {"x": 2.0, "z": "a"},
+                {"x": 3.0, "z": "a"},
+                {"x": 5.0, "z": "b"},
+                {"x": 7.0, "z": "b"},
+            ],
+        )
+        self.experiment_data = extract_experiment_data(
+            experiment=self.experiment, data_loader_config=DataLoaderConfig()
+        )
+        self.t = StratifiedStandardizeY(
+            search_space=self.search_space,
+            experiment_data=self.experiment_data,
+            config={"parameter_name": "z"},
+        )
         self.obsd1 = ObservationData(
             metric_signatures=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 8.0]),
@@ -49,26 +83,9 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 ]
             ),
         )
-        self.search_space = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    name="x", parameter_type=ParameterType.FLOAT, lower=0, upper=10
-                ),
-                ChoiceParameter(
-                    name="z", parameter_type=ParameterType.STRING, values=["a", "b"]
-                ),
-            ]
-        )
-        self.obsf1 = ObservationFeatures({"x": 2, "z": "a"})
-        self.obsf2 = ObservationFeatures({"x": 5, "z": "b"})
-        self.obs1 = Observation(features=self.obsf1, data=self.obsd1)
-        self.obs2 = Observation(features=self.obsf2, data=self.obsd2)
-        self.t = StratifiedStandardizeY(
-            search_space=self.search_space,
-            observations=[self.obs1, self.obs2],
-            config={"parameter_name": "z"},
-        )
-        self.search_space2 = SearchSpace(
+
+        # Second experiment / transform with multiple values mapping to the same strata.
+        search_space2 = SearchSpace(
             parameters=[
                 RangeParameter(
                     name="x", parameter_type=ParameterType.FLOAT, lower=0, upper=10
@@ -80,17 +97,40 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 ),
             ]
         )
-        self.strata_mapping = {"a": 0, "b": 1, "c": 1}
-        self.obsf3 = ObservationFeatures({"x": 5, "z": "c"})
-        self.obsd3 = ObservationData(
-            metric_signatures=["m1", "m2", "m2"],
-            means=np.array([2.0, 4.0, 16.0]),
-            covariance=np.array([[1.2, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 3.0]]),
+        experiment2 = get_experiment_with_observations(
+            observations=[
+                [1.0, 2.0],
+                [1.0, 8.0],
+                [3.0, 1.0],
+                [3.0, 2.0],
+                [2.0, 4.0],
+                [2.0, 16.0],
+            ],
+            sems=[
+                [1.0, sqrt(2.0)],
+                [1.0, sqrt(3.0)],
+                [1.0, sqrt(2.0)],
+                [1.0, sqrt(3.0)],
+                [sqrt(1.2), sqrt(2.0)],
+                [sqrt(1.2), sqrt(3.0)],
+            ],
+            search_space=search_space2,
+            parameterizations=[
+                {"x": 2.0, "z": "a"},
+                {"x": 3.0, "z": "a"},
+                {"x": 5.0, "z": "b"},
+                {"x": 7.0, "z": "b"},
+                {"x": 5.0, "z": "c"},
+                {"x": 6.0, "z": "c"},
+            ],
         )
-        self.obs3 = Observation(features=self.obsf3, data=self.obsd3)
+        experiment_data2 = extract_experiment_data(
+            experiment=experiment2, data_loader_config=DataLoaderConfig()
+        )
+        self.strata_mapping = {"a": 0, "b": 1, "c": 1}
         self.t2 = StratifiedStandardizeY(
-            search_space=self.search_space2,
-            observations=[self.obs1, self.obs2, self.obs3],
+            search_space=search_space2,
+            experiment_data=experiment_data2,
             config={"parameter_name": "z", "strata_mapping": self.strata_mapping},
         )
         self.m1 = Metric(name="m1")
@@ -105,22 +145,6 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 metric=self.m2, op=ComparisonOp.LEQ, bound=3.5, relative=False
             ),
         ]
-        self.experiment = get_experiment_with_observations(
-            observations=[[1.0, 2.0], [1.0, 8.0], [3.0, 1.0], [3.0, 2.0]],
-            sems=[
-                [1.0, sqrt(2.0)],
-                [1.0, sqrt(3.0)],
-                [1.0, sqrt(2.0)],
-                [1.0, sqrt(3.0)],
-            ],
-            search_space=self.search_space,
-            parameterizations=[
-                {"x": 2.0, "z": "a"},
-                {"x": 3.0, "z": "a"},
-                {"x": 5.0, "z": "b"},
-                {"x": 7.0, "z": "b"},
-            ],
-        )
 
     def test_Init(self) -> None:
         Ymean_expected = {
@@ -135,10 +159,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
             ("m2", "a"): sqrt(2) * 3.0,
             ("m2", "b"): sqrt(2) * 0.5,
         }
-        self.assertEqual(
-            self.t.Ymean,
-            Ymean_expected,
-        )
+        self.assertEqual(self.t.Ymean, Ymean_expected)
         self.assertEqual(set(self.t.Ystd), set(Ystd_expected))
         for k, v in self.t.Ystd.items():
             self.assertAlmostEqual(v, Ystd_expected[k])
@@ -148,13 +169,13 @@ class StratifiedStandardizeYTransformTest(TestCase):
             # No parameter specified
             StratifiedStandardizeY(
                 search_space=self.search_space,
-                observations=[self.obs1, self.obs2],
+                experiment_data=self.experiment_data,
             )
         with self.assertRaises(ValueError):
             # Wrong parameter type
             StratifiedStandardizeY(
                 search_space=self.search_space,
-                observations=[self.obs1, self.obs2],
+                experiment_data=self.experiment_data,
                 config={"parameter_name": "x"},
             )
         # Multiple tasks parameters
@@ -182,7 +203,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         with self.assertRaises(ValueError):
             StratifiedStandardizeY(
                 search_space=ss3,
-                observations=[self.obs1, self.obs2],
+                experiment_data=self.experiment_data,
             )
 
         # Grab from task feature
@@ -202,12 +223,9 @@ class StratifiedStandardizeYTransformTest(TestCase):
         )
         t2 = StratifiedStandardizeY(
             search_space=ss2,
-            observations=[self.obs1, self.obs2],
+            experiment_data=self.experiment_data,
         )
-        self.assertEqual(
-            t2.Ymean,
-            Ymean_expected,
-        )
+        self.assertEqual(t2.Ymean, Ymean_expected)
         self.assertEqual(set(t2.Ystd), set(Ystd_expected))
         for k, v in t2.Ystd.items():
             self.assertAlmostEqual(v, Ystd_expected[k])
@@ -375,24 +393,16 @@ class StratifiedStandardizeYTransformTest(TestCase):
         ]
 
     def test_transform_experiment_data(self) -> None:
-        experiment_data = extract_experiment_data(
-            experiment=self.experiment,
-            data_loader_config=DataLoaderConfig(),
-        )
-        transform = StratifiedStandardizeY(
-            search_space=self.search_space,
-            experiment_data=experiment_data,
-            config={"parameter_name": "z"},
-        )
-        transformed_data = transform.transform_experiment_data(
-            experiment_data=deepcopy(experiment_data)
+        transformed_data = self.t.transform_experiment_data(
+            experiment_data=deepcopy(self.experiment_data)
         )
 
         # Check that arm data is identical.
-        assert_frame_equal(experiment_data.arm_data, transformed_data.arm_data)
+        assert_frame_equal(self.experiment_data.arm_data, transformed_data.arm_data)
 
         # Check that observation data is transformed correctly.
         observation_data = transformed_data.observation_data
+        std_m1_b = sqrt(2) * 2
         std_m2_a = sqrt(2) * 3
         std_m2_b = sqrt(2) * 0.5
         expected_means = DataFrame(
@@ -400,9 +410,9 @@ class StratifiedStandardizeYTransformTest(TestCase):
             columns=observation_data["mean"].columns,
             data=[
                 [0.0, (2.0 - 5.0) / std_m2_a],
-                [0.0, (8.0 - 5.0) / std_m2_a],
-                [0.0, (1.0 - 1.5) / std_m2_b],
-                [0.0, (2.0 - 1.5) / std_m2_b],
+                [float("nan"), (8.0 - 5.0) / std_m2_a],
+                [(1.0 - 3.0) / std_m1_b, (2.0 - 1.5) / std_m2_b],
+                [(5.0 - 3.0) / std_m1_b, (1.0 - 1.5) / std_m2_b],
             ],
         )
         assert_frame_equal(observation_data["mean"], expected_means)
@@ -412,42 +422,9 @@ class StratifiedStandardizeYTransformTest(TestCase):
             columns=observation_data["sem"].columns,
             data=[
                 [1.0, sqrt(2.0) / std_m2_a],
-                [1.0, sqrt(3.0) / std_m2_a],
-                [1.0, sqrt(2.0) / std_m2_b],
-                [1.0, sqrt(3.0) / std_m2_b],
+                [float("nan"), sqrt(3.0) / std_m2_a],
+                [1.0 / std_m1_b, sqrt(2.0) / std_m2_b],
+                [1.0 / std_m1_b, sqrt(3.0) / std_m2_b],
             ],
         )
         assert_frame_equal(observation_data["sem"], expected_sems)
-
-    def test_init_with_experiment_data(self) -> None:
-        experiment_data = extract_experiment_data(
-            experiment=self.experiment,
-            data_loader_config=DataLoaderConfig(),
-        )
-
-        # Initialize transform with experiment data
-        transform = StratifiedStandardizeY(
-            search_space=self.search_space,
-            experiment_data=experiment_data,
-            config={"parameter_name": "z"},
-        )
-
-        # Check that transform was initialized correctly.
-        expected_ymean = {
-            ("m1", "a"): 1.0,
-            ("m2", "a"): 5.0,
-            ("m1", "b"): 3.0,
-            ("m2", "b"): 1.5,
-        }
-        expected_ystd = {
-            ("m1", "a"): 1.0,  # Default to 1.0 when std is too small
-            ("m2", "a"): sqrt(2) * 3.0,
-            ("m1", "b"): 1.0,  # Default to 1.0 when std is too small
-            ("m2", "b"): sqrt(2) * 0.5,
-        }
-        self.assertEqual(transform.Ymean, expected_ymean)
-
-        # For Ystd, check almost equal for each value due to floating point precision.
-        self.assertEqual(set(transform.Ystd), set(expected_ystd))
-        for k, v in transform.Ystd.items():
-            self.assertAlmostEqual(v, expected_ystd[k])

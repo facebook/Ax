@@ -21,13 +21,8 @@ from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.api.utils.generation_strategy_dispatch import _get_sobol_node
-from ax.core.map_data import MAP_KEY
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    observations_from_data,
-)
+from ax.core.map_data import MAP_KEY, MapData
+from ax.core.observation import ObservationFeatures, observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
@@ -277,9 +272,15 @@ class MapKeyToFloatTransformTest(TestCase):
             data=self.experiment.fetch_data(),
             latest_rows_per_group=None,
         )
+        self.experiment_data = extract_experiment_data(
+            experiment=self.experiment,
+            data_loader_config=DataLoaderConfig(),
+        )
         self.map_key: str = MAP_KEY
         # Does not require explicitly specifying `config`.
-        self.t = MapKeyToFloat(observations=self.observations, adapter=self.adapter)
+        self.t = MapKeyToFloat(
+            experiment_data=self.experiment_data, adapter=self.adapter
+        )
 
         # Set up a hierarchical search space experiment
         self.hss_experiment = get_hierarchical_search_space_experiment(
@@ -304,34 +305,28 @@ class MapKeyToFloatTransformTest(TestCase):
     def test_Init(self) -> None:
         # Check for error if adapter & parameters are not provided.
         with self.assertWarnsRegex(Warning, "optimization config"):
-            MapKeyToFloat(observations=self.observations)
+            MapKeyToFloat(experiment_data=self.experiment_data)
 
-        experiment_data = extract_experiment_data(
-            experiment=self.experiment,
-            data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
-        )
-        t2 = MapKeyToFloat(experiment_data=experiment_data, adapter=self.adapter)
-        for t in (self.t, t2):
-            # Check for default initialization
-            self.assertEqual(len(t._parameter_list), 1)
-            (p,) = t._parameter_list
-            self.assertEqual(p.name, self.map_key)
-            self.assertEqual(p.parameter_type, ParameterType.FLOAT)
-            self.assertEqual(p.lower, 0.0)
-            self.assertEqual(p.upper, 4.0)
-            self.assertFalse(p.log_scale)
+        # Check for default initialization
+        self.assertEqual(len(self.t._parameter_list), 1)
+        (p,) = self.t._parameter_list
+        self.assertEqual(p.name, self.map_key)
+        self.assertEqual(p.parameter_type, ParameterType.FLOAT)
+        self.assertEqual(p.lower, 0.0)
+        self.assertEqual(p.upper, 4.0)
+        self.assertFalse(p.log_scale)
 
         # specifying a parameter name that is not in the observation features' metadata
-        with self.assertRaisesRegex(KeyError, "'baz'"):
+        with self.assertRaisesRegex(ValueError, "Parameter baz"):
             MapKeyToFloat(
-                observations=self.observations,
+                experiment_data=self.experiment_data,
                 config={"parameters": {"baz": {}}},
             )
 
         # test that one is able to override default config
         with self.subTest(msg="override default config"):
             t = MapKeyToFloat(
-                observations=self.observations,
+                experiment_data=self.experiment_data,
                 config={"parameters": {self.map_key: {"lower": 0.1}}},
             )
             self.assertDictEqual(t.parameters, {self.map_key: {"lower": 0.1}})
@@ -348,7 +343,6 @@ class MapKeyToFloatTransformTest(TestCase):
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
-
         self.assertSetEqual(set(ss2.parameters), {"x1", "x2", self.map_key})
 
         p = assert_is_instance(ss2.parameters[self.map_key], RangeParameter)
@@ -421,68 +415,34 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(untransformed, observation_features)
 
     def test_mixed_nan_progression(self) -> None:
-        observations = [
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["metric1", "metric2"],
-                    means=np.array([1.0, 2.0]),
-                    covariance=np.diag([1.0, 2.0]),
-                ),
-                features=ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0},
-                    metadata={self.map_key: 10.0},
-                ),
+        observation_features = [
+            ObservationFeatures(
+                parameters={"x1": 5.0, "x2": 2.0},
+                metadata={self.map_key: 2.0},
             ),
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["metric3"],
-                    means=np.array([30.0]),
-                    covariance=np.array([[30.0]]),
-                ),
-                features=ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0},
-                    metadata={self.map_key: np.nan},
-                ),
+            ObservationFeatures(
+                parameters={"x1": 5.0, "x2": 2.0},
+                metadata={self.map_key: float("nan")},
             ),
-            Observation(
-                data=ObservationData(
-                    metric_signatures=["x1", "x2"],
-                    means=np.array([1.5, 2.5]),
-                    covariance=np.diag([1.0, 2.0]),
-                ),
-                features=ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0},
-                    metadata={self.map_key: 20.0},
-                ),
+            ObservationFeatures(
+                parameters={"x1": 5.0, "x2": 2.0},
+                metadata={self.map_key: 4.0},
             ),
         ]
-        observation_features = [obs.features for obs in observations]
-
-        t = MapKeyToFloat(observations=observations, adapter=self.adapter)
-
-        self.assertEqual(len(t._parameter_list), 1)
-        (p,) = t._parameter_list
-        self.assertEqual(p.name, self.map_key)
-        self.assertEqual(p.parameter_type, ParameterType.FLOAT)
-        self.assertEqual(p.lower, 10.0)
-        self.assertEqual(p.upper, 20.0)
-
-        obs_ft2 = deepcopy(observation_features)
-        obs_ft2 = t.transform_observation_features(obs_ft2)
-
+        obs_ft2 = self.t.transform_observation_features(observation_features)
         self.assertEqual(
             obs_ft2,
             [
                 ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 10.0},
+                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 2.0},
                     metadata={},
                 ),
                 ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 20.0},
+                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 4.0},
                     metadata={},
                 ),
                 ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 20.0},
+                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 4.0},
                     metadata={},
                 ),
             ],
@@ -506,13 +466,17 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(obs.metadata, {"dummy": 1.0})
 
     def test_constant_progression(self) -> None:
+        data_df = self.experiment.lookup_data().true_df
         for constant in (23, np.nan):
             with self.subTest(msg=f"{constant=}"):
-                observations = deepcopy(self.observations)
-                for obs in observations:
-                    obs.features.metadata[self.map_key] = constant
+                experiment_data = extract_experiment_data(
+                    experiment=self.experiment,
+                    data_loader_config=DataLoaderConfig(),
+                    data=MapData(df=data_df.assign(step=constant)),
+                )
+                observations = experiment_data.convert_to_list_of_observations()
+                t = MapKeyToFloat(experiment_data=experiment_data, adapter=self.adapter)
                 observation_features = [obs.features for obs in observations]
-                t = MapKeyToFloat(observations=observations, adapter=self.adapter)
 
                 # forward and reverse transforms are identity/no-ops
                 obs_ft2 = deepcopy(observation_features)
@@ -561,41 +525,6 @@ class MapKeyToFloatTransformTest(TestCase):
         self.assertEqual(
             obsf,
             ObservationFeatures(parameters={self.map_key: p.upper}),
-        )
-
-    def test_with_different_map_key(self) -> None:
-        observations = [
-            Observation(
-                features=ObservationFeatures(
-                    trial_index=0,
-                    parameters={"x1": width, "x2": height},
-                    metadata={"map_key": timestamp},
-                ),
-                data=ObservationData(
-                    metric_signatures=[],
-                    means=np.array([]),
-                    covariance=np.empty((0, 0)),
-                ),
-            )
-            for width, height, timestamp in (
-                (0.0, 1.0, 12345.0),
-                (0.1, 0.9, 12346.0),
-            )
-        ]
-        t = MapKeyToFloat(
-            observations=observations,
-            config={"parameters": {"map_key": {"log_scale": False}}},
-        )
-        self.assertEqual(t.parameters, {"map_key": {"log_scale": False}})
-        self.assertEqual(len(t._parameter_list), 1)
-        tf_obs_ft = t.transform_observation_features(
-            [obs.features for obs in observations]
-        )
-        self.assertEqual(
-            tf_obs_ft[0].parameters, {"x1": 0.0, "x2": 1.0, "map_key": 12345.0}
-        )
-        self.assertEqual(
-            tf_obs_ft[1].parameters, {"x1": 0.1, "x2": 0.9, "map_key": 12346.0}
         )
 
     def test_transform_experiment_data(self) -> None:

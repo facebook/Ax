@@ -42,10 +42,7 @@ class LogitTransformTest(TestCase):
                 ),
             ]
         )
-        self.t = Logit(
-            search_space=self.search_space,
-            observations=[],
-        )
+        self.t = Logit(search_space=self.search_space)
         self.search_space_with_target = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -117,10 +114,7 @@ class LogitTransformTest(TestCase):
         self.assertEqual(ss2.parameters["x"].lower, logit(0.9))
         # pyre-fixme[16]: `Parameter` has no attribute `upper`.
         self.assertEqual(ss2.parameters["x"].upper, logit(0.999))
-        t2 = Logit(
-            search_space=self.search_space_with_target,
-            observations=[],
-        )
+        t2 = Logit(search_space=self.search_space_with_target)
         ss_target = deepcopy(self.search_space_with_target)
         t2.transform_search_space(ss_target)
         self.assertEqual(ss_target.parameters["x"].target_value, logit(0.123))
@@ -132,19 +126,13 @@ class LogitTransformTest(TestCase):
         # pyre-fixme[16]: `Parameter` has no attribute `set_logit_scale`.
         rss.parameters["y"].set_logit_scale(True)
         # Transform a non-distributional parameter.
-        t = Logit(
-            search_space=rss,
-            observations=[],
-        )
+        t = Logit(search_space=rss)
         t.transform_search_space(rss)
         # pyre-fixme[16]: Optional type has no attribute `logit_scale`.
         self.assertFalse(rss.parameters.get("y").logit_scale)
         # Error with distributional parameter.
         rss.parameters["x"].set_logit_scale(True)
-        t = Logit(
-            search_space=rss,
-            observations=[],
-        )
+        t = Logit(search_space=rss)
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)
 

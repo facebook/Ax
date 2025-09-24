@@ -149,14 +149,14 @@ class OneHotTransformTest(TestCase):
                 )
             ]
         )
-        t = OneHot(search_space=ss3, observations=[])
+        t = OneHot(search_space=ss3)
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
-        t = OneHot(search_space=rss, observations=[])
+        t = OneHot(search_space=rss)
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss_new, RobustSearchSpace)
@@ -172,10 +172,7 @@ class OneHotTransformTest(TestCase):
             num_samples=rss.num_samples,
             environmental_variables=all_params[:2],
         )
-        t = OneHot(
-            search_space=rss,
-            observations=[],
-        )
+        t = OneHot(search_space=rss)
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(len(rss_new.parameters.keys()), 6)

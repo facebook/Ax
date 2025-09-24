@@ -122,7 +122,7 @@ class LogYTransformTest(TestCase):
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
         oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
-        tf = LogY(search_space=None, observations=[], config={"metrics": ["m1"]})
+        tf = LogY(search_space=None, config={"metrics": ["m1"]})
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
         # output constraint on a different metric should work
@@ -209,7 +209,7 @@ class LogYTransformTest(TestCase):
             objective=mo,
             objective_thresholds=objective_thresholds,
         )
-        tf = LogY(search_space=None, observations=[], config={"metrics": ["m1"]})
+        tf = LogY(search_space=None, config={"metrics": ["m1"]})
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         oc.objective_thresholds[0].bound = math.log(1.234)
         self.assertEqual(oc_tf, oc)
