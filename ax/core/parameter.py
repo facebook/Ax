@@ -186,6 +186,20 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     def clone(self) -> Parameter:
         pass
 
+    def disable(self, default_value: TParamValue) -> None:
+        """
+        Effectively remove parameter from the search space for future trial generation.
+        Existing trials remain valid, and the disabled parameter is replaced with the
+        default_value for all subsequent trials.
+        """
+        if self.is_disabled:
+            logger.warning(
+                f"Parameter {self.name} is already disabled with "
+                f"default value {self.default_value}. "
+                f"Updating default value to {default_value}."
+            )
+        self._default_value = default_value
+
     @property
     def _unique_id(self) -> str:
         return str(self)
