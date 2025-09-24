@@ -427,7 +427,7 @@ def get_feature_cols(data: Data) -> list[str]:
     Returns:
         A list of column names to be used to group observations.
     """
-    feature_cols = OBS_COLS.intersection(data.true_df.columns)
+    feature_cols = OBS_COLS.intersection(data.full_df.columns)
     if isinstance(data, MapData):
         feature_cols.add(MAP_KEY)
 

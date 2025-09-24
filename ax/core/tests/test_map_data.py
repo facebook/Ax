@@ -328,3 +328,8 @@ class MapDataTest(TestCase):
         df[MAP_KEY] = df[MAP_KEY].astype(int)
         data = MapData(df=df)
         self.assertEqual(data.map_df[MAP_KEY].dtype, float)
+
+    def test_true_df_deprecation(self) -> None:
+        with self.assertWarnsRegex(DeprecationWarning, "true_df"):
+            true_df = self.mmd.true_df
+        self.assertIs(true_df, self.mmd.map_df)

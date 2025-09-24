@@ -646,14 +646,14 @@ class Metric(SortableBase, SerializationMixin):
     def _wrap_experiment_data(cls, data: Data) -> dict[int, MetricFetchResult]:
         return {
             trial_index: Ok(value=data.filter(trial_indices=[trial_index]))
-            for trial_index in data.true_df["trial_index"]
+            for trial_index in data.full_df["trial_index"]
         }
 
     @classmethod
     def _wrap_trial_data_multi(cls, data: Data) -> dict[str, MetricFetchResult]:
         return {
             signature: Ok(value=data.filter(metric_signatures=[signature]))
-            for signature in data.true_df["metric_signature"]
+            for signature in data.full_df["metric_signature"]
         }
 
     @classmethod
@@ -669,7 +669,7 @@ class Metric(SortableBase, SerializationMixin):
                         metric_signatures=[metric_signature],
                     )
                 )
-                for metric_signature in data.true_df["metric_signature"]
+                for metric_signature in data.full_df["metric_signature"]
             }
-            for trial_index in data.true_df["trial_index"]
+            for trial_index in data.full_df["trial_index"]
         }

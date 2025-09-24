@@ -121,7 +121,7 @@ class ExperimentData:
             map_keys being optional, containing the mean and sem observations for each
             metric. The columns of the dataframe are multi-indexed, with the first level
             being "mean" or "sem" and the second level being the metric signature.
-            This is typically constructed by pivoting `(Map)Data.true_df`.
+            This is typically constructed by pivoting `(Map)Data.full_df`.
             If the `Data` object contains additional metadata columns like `start_time`
             and `end_time`, these will be carried onto `observation_data`. The metadata
             columns will be indexed with the first level being "metadata" and the second
@@ -410,7 +410,7 @@ def _extract_observation_data(
                 include_first_last=True,
             )
 
-    df = data.true_df
+    df = data.full_df
     # Filter out rows for invalid statuses.
     to_keep = Series(index=df.index, data=False)
     trial_statuses = df["trial_index"].map(

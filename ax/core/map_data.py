@@ -118,8 +118,28 @@ class MapData(Data):
     def __eq__(self, o: MapData) -> bool:
         return dataframe_equals(self.map_df, o.map_df)
 
+    # true_df is being deprecated after the release of Ax 1.1.2, so it will
+    # surface in Ax 1.1.3 or 1.2.0, so it can be removed in the minor release
+    # after that.
     @property
     def true_df(self) -> pd.DataFrame:
+        warnings.warn(
+            "MapData.true_df is deprecated. Use MapData.full_df instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.map_df
+
+    @property
+    def full_df(self) -> pd.DataFrame:
+        """
+        Return the full ``DataFrame`` with step-level information.
+
+        By contrast, ``self.df`` is a subset of the data containing only recent
+        step(s). Because constructing ``df`` can be expensive, it is better to
+        use ``self.full_df`` for operations that do not require scanning the
+        full DataFrame, such as accessing the columns of the DataFrame.
+        """
         return self.map_df
 
     def required_columns(self) -> set[str]:
