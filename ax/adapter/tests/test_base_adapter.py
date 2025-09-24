@@ -91,10 +91,13 @@ class BaseAdapterTest(TestCase):
             )
         # Check that the properties are set correctly.
         self.assertEqual(adapter._data_loader_config, DataLoaderConfig())
-        self.assertEqual(adapter._raw_transforms, [Cast] + MBM_X_trans_base)
+        self.assertEqual(
+            adapter._raw_transforms, [FillMissingParameters, Cast] + MBM_X_trans_base
+        )
         self.assertEqual(adapter._transform_configs, {})
         self.assertEqual(
-            list(adapter.transforms), [t.__name__ for t in [Cast] + MBM_X_trans_base]
+            list(adapter.transforms),
+            [t.__name__ for t in [FillMissingParameters, Cast] + MBM_X_trans_base],
         )
         self.assertEqual(adapter.fit_time, adapter.fit_time_since_gen)
         self.assertEqual(adapter._metric_signatures, set())
@@ -149,7 +152,10 @@ class BaseAdapterTest(TestCase):
             )
         # Check that the properties are set correctly.
         # Only checking a subset that are expected to be different than test_init_empty.
-        self.assertEqual(adapter._raw_transforms, [Cast] + MBM_X_trans + Y_trans)
+        self.assertEqual(
+            adapter._raw_transforms,
+            [FillMissingParameters, Cast] + MBM_X_trans + Y_trans,
+        )
         metric_signatures = {m.signature for m in exp.metrics.values()}
         self.assertEqual(adapter._metric_signatures, metric_signatures)
         self.assertEqual(
@@ -849,7 +855,7 @@ class BaseAdapterTest(TestCase):
         m = Adapter(experiment=experiment, generator=Generator())
         self.assertEqual(
             [t.__name__ for t in m._raw_transforms],
-            ["Cast"],
+            ["FillMissingParameters", "Cast"],
         )
         # Check that SQ and all trial 1 are OOD
         ood_arms = set(
@@ -860,14 +866,16 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(
             set(ood_arms), {"status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"}
         )
-        # Fit with filling missing parameters
-        m = Adapter(
-            experiment=experiment,
-            generator=Generator(),
-            search_space=ss2,
-            transforms=[],  # FillMissingParameters added by default.
-            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
-        )
+        # Fit with filling missing parameters using deprecated config
+        with self.assertLogs(
+            "ax.adapter.transforms.fill_missing_parameters", level="ERROR"
+        ):
+            m = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                search_space=ss2,
+                transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+            )
         self.assertEqual(
             [t.__name__ for t in m._raw_transforms], ["FillMissingParameters", "Cast"]
         )
@@ -932,6 +940,7 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(len(m.model_space.parameter_constraints), 1)
 
         # With expand model space, custom is not OOD, and model space is expanded
+        # Using deprecated config
         m = Adapter(
             experiment=experiment,
             generator=Generator(),
@@ -948,12 +957,29 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(m.model_space.parameter_constraints, [])
 
         # With fill values, SQ is also in design, and x2 is further expanded
+        with self.assertLogs(
+            "ax.adapter.transforms.fill_missing_parameters", level="ERROR"
+        ):
+            m = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                search_space=ss,
+                transforms=[FillMissingParameters],
+                transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+            )
+        self.assertEqual(sum(m.training_in_design), 7)
+        self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+        self.assertEqual(m.model_space.parameter_constraints, [])
+
+        # Using parameter backfill values
+        for parameter in ss._parameters.values():
+            parameter._backfill_value = sq_vals[parameter.name]
+
+        experiment._search_space = ss
         m = Adapter(
             experiment=experiment,
             generator=Generator(),
             search_space=ss,
-            transforms=[FillMissingParameters],
-            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
         )
         self.assertEqual(sum(m.training_in_design), 7)
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)

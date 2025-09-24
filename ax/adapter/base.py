@@ -12,7 +12,7 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -38,14 +38,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import (
-    TCandidateMetadata,
-    TModelCov,
-    TModelMean,
-    TModelPredict,
-    TParameterization,
-    TParamValue,
-)
+from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
 from ax.core.utils import get_target_trial_index, has_map_metrics
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
@@ -195,12 +188,10 @@ class Adapter:
 
         t_fit_start = time.monotonic()
         transforms = transforms or []
-        transforms = [Cast] + list(transforms)
+        transforms = [FillMissingParameters, Cast] + list(transforms)
         self._transform_configs: Mapping[str, TConfig] = (
             {} if transform_configs is None else {**transform_configs}
         )
-        if "FillMissingParameters" in self._transform_configs:
-            transforms = [FillMissingParameters] + transforms
         self._raw_transforms: list[type[Transform]] = transforms
         self._set_search_space(search_space or experiment.search_space)
 
@@ -371,29 +362,6 @@ class Adapter:
         newly added parameters."""
         self._search_space = search_space.clone()
         self._model_space = search_space.clone()
-        # Add FillMissingParameters transform if search space has parameters with
-        # backfill values.
-        backfill_values = search_space.backfill_values()
-        if len(backfill_values) > 0:
-            fill_missing_values_transform = self._transform_configs.get(
-                "FillMissingParameters", {}
-            )
-            current_fill_values = cast(
-                Mapping[str, TParamValue],
-                fill_missing_values_transform.get("fill_values", {}),
-            )
-            # Override backfill_values with fill values already in the transform
-            fill_missing_values_transform["fill_values"] = {
-                **backfill_values,
-                **current_fill_values,
-            }
-            self._transform_configs = {
-                **self._transform_configs,
-                "FillMissingParameters": fill_missing_values_transform,
-            }
-            # Add FillMissingParameters transform if not already present.
-            if FillMissingParameters not in self._raw_transforms:
-                self._raw_transforms = [FillMissingParameters] + self._raw_transforms
 
     def _set_and_filter_training_data(
         self, experiment_data: ExperimentData, search_space: SearchSpace
@@ -424,13 +392,13 @@ class Adapter:
         """Compute in-design status for each row of ``experiment_data``, after
         filling missing values if ``FillMissingParameters`` transform is used.
         """
-        if "FillMissingParameters" in self._transform_configs:
-            t = FillMissingParameters(
-                config=self._transform_configs["FillMissingParameters"]
-            )
-            experiment_data = t.transform_experiment_data(
-                experiment_data=experiment_data,
-            )
+        t = FillMissingParameters(
+            search_space=search_space,
+            config=self._transform_configs.get("FillMissingParameters", None),
+        )
+        experiment_data = t.transform_experiment_data(
+            experiment_data=experiment_data,
+        )
         # TODO [T230585235]: Implement more efficient membership checks.
         return [
             search_space.check_membership(
@@ -448,11 +416,11 @@ class Adapter:
     def _set_model_space(self, arm_data: DataFrame) -> None:
         """Set model space, possibly expanding range parameters to cover data."""
         # If fill for missing values, include those in expansion.
-        fill_values: TParameterization | None = None
-        if "FillMissingParameters" in self._transform_configs:
-            fill_values = self._transform_configs[  # pyre-ignore[9]
-                "FillMissingParameters"
-            ].get("fill_values", None)
+        t = FillMissingParameters(
+            search_space=self._model_space,
+            config=self._transform_configs.get("FillMissingParameters", None),
+        )
+        fill_values = t._fill_values
         # Update model space. Expand bounds as needed to cover the values found
         # in the data. Only applies to range parameters.
         for p_name, p in self._model_space.parameters.items():
