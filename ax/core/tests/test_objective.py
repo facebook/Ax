@@ -85,6 +85,25 @@ class ObjectiveTest(TestCase):
             [self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
         )
 
+        # Test that ScalarizedObjective is not allowed in MultiObjective
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Scalarized objectives are not supported for a `MultiObjective`.",
+        ):
+            MultiObjective(objectives=[self.scalarized_objective])
+
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Scalarized objectives are not supported for a `MultiObjective`.",
+        ):
+            MultiObjective(
+                objectives=[
+                    self.objectives["o1"],
+                    self.scalarized_objective,
+                    self.objectives["o3"],
+                ]
+            )
+
     def test_ScalarizedObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
             # pyre-fixme[7]: Expected `None` but got `Metric`.
