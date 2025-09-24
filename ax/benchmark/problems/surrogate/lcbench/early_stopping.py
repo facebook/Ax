@@ -23,7 +23,6 @@ from ax.benchmark.problems.surrogate.lcbench.data import (
     LCBenchData,
     load_lcbench_data,
 )
-from ax.benchmark.problems.surrogate.lcbench.transfer_learning import DEFAULT_NUM_TRIALS
 from ax.benchmark.problems.surrogate.lcbench.utils import (
     BASELINE_VALUES,
     DEFAULT_METRIC_NAME,
@@ -47,6 +46,7 @@ from sklearn.preprocessing import FunctionTransformer, MinMaxScaler
 logger: Logger = get_logger(__name__)
 
 TRegressorProtocol = TypeVar("TRegressorProtocol", bound="RegressorProtocol")
+DEFAULT_NUM_TRIALS: int = 30
 
 
 OPTIMAL_VALUES: dict[str, float] = {
