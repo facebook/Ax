@@ -848,7 +848,7 @@ class BaseAdapterTest(TestCase):
         # Fit model without filling missing parameters
         m = Adapter(experiment=experiment, generator=Generator())
         self.assertEqual(
-            [t.__name__ for t in m._raw_transforms],  # pyre-ignore[16]
+            [t.__name__ for t in m._raw_transforms],
             ["Cast"],
         )
         # Check that SQ and all trial 1 are OOD
@@ -1111,4 +1111,30 @@ class BaseAdapterTest(TestCase):
         assert_frame_equal(
             in_design_training_data.observation_data,
             training_data.observation_data.iloc[[0, 2]],
+        )
+
+    def test_added_parameters(self) -> None:
+        exp = get_branin_experiment()
+        adapter = Adapter(experiment=exp, generator=Generator())
+        data, ss = adapter._process_and_transform_data(experiment=exp)
+        self.assertEqual(ss, exp.search_space)
+        self.assertListEqual(list(data.arm_data.columns), ["x1", "x2", "metadata"])
+        # Add new parameter
+        exp.add_parameters_to_search_space(
+            [
+                RangeParameter(
+                    name="x3",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                    backfill_value=0.5,
+                )
+            ]
+        )
+        self.assertNotEqual(exp.search_space, adapter._search_space)
+        adapter._process_and_transform_data(experiment=exp)
+        data, ss = adapter._process_and_transform_data(experiment=exp)
+        self.assertEqual(ss, exp.search_space)
+        self.assertListEqual(
+            list(data.arm_data.columns), ["x1", "x2", "x3", "metadata"]
         )
