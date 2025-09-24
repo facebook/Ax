@@ -1373,8 +1373,7 @@ class Experiment(Base):
         Args:
             old_experiment: The experiment from which to transfer trials and data
             copy_run_metadata_keys: A list of keys denoting which items to copy over
-                from each trial's run_metadata. Defaults to
-                ``old_experiment.runner.run_metadata_report_keys``.
+                from each trial's run_metadata. Defaults to copying all run_metadata.
             trial_statuses_to_copy: All trials with a status in this list will be
                 copied. By default, copies all ``RUNNING``, ``COMPLETED``,
                 ``ABANDONED``, and ``EARLY_STOPPED`` trials.
@@ -1390,9 +1389,6 @@ class Experiment(Base):
                 f"Can only warm-start experiments that don't yet have trials. "
                 f"Experiment {self._name} has {len(self.trials)} trials."
             )
-
-        if copy_run_metadata_keys is None and old_experiment.runner is not None:
-            copy_run_metadata_keys = old_experiment.runner.run_metadata_report_keys
 
         old_parameter_names = set(old_experiment.search_space.parameters.keys())
         parameter_names = set(self.search_space.parameters.keys())
@@ -1445,11 +1441,14 @@ class Experiment(Base):
                 generation_model_key = trial.generator_run._model_key or "Manual"
             new_trial._properties["generation_model_key"] = generation_model_key
 
-            if copy_run_metadata_keys is not None:
-                for run_metadata_field in copy_run_metadata_keys:
-                    new_trial.update_run_metadata(
-                        {run_metadata_field: trial.run_metadata.get(run_metadata_field)}
-                    )
+            # Copy all run_metadata by default.
+            if copy_run_metadata_keys is None:
+                copy_run_metadata_keys = list(trial.run_metadata.keys())
+
+            for run_metadata_field in copy_run_metadata_keys:
+                new_trial.update_run_metadata(
+                    {run_metadata_field: trial.run_metadata.get(run_metadata_field)}
+                )
             # Trial has data, so we replicate it on the new experiment.
             has_data = ts != -1 and not dat.df.empty
             if has_data:

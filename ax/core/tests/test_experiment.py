@@ -76,9 +76,14 @@ from ax.utils.testing.mock import mock_botorch_optimize
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
-DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
-DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
-DUMMY_RUN_METADATA: dict[str, str] = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
+DUMMY_RUN_METADATA_KEY_1 = "test_run_metadata_key_1"
+DUMMY_RUN_METADATA_KEY_2 = "test_run_metadata_key_2"
+DUMMY_RUN_METADATA_VALUE_1 = "test_run_metadata_value_1"
+DUMMY_RUN_METADATA_VALUE_2 = "test_run_metadata_value_2"
+DUMMY_RUN_METADATA: dict[str, str] = {
+    DUMMY_RUN_METADATA_KEY_1: DUMMY_RUN_METADATA_VALUE_1,
+    DUMMY_RUN_METADATA_KEY_2: DUMMY_RUN_METADATA_VALUE_2,
+}
 DUMMY_ABANDONED_REASON = "test abandoned reason"
 DUMMY_ARM_NAME = "test_arm_name"
 
@@ -94,7 +99,7 @@ class TestMetric(Metric):
 class SyntheticRunnerWithMetadataKeys(SyntheticRunner):
     @property
     def run_metadata_report_keys(self) -> list[str]:
-        return [DUMMY_RUN_METADATA_KEY]
+        return [DUMMY_RUN_METADATA_KEY_1, DUMMY_RUN_METADATA_KEY_2]
 
 
 class ExperimentTest(TestCase):
@@ -1009,10 +1014,27 @@ class ExperimentTest(TestCase):
         new_experiment.optimization_config.objective.metric.noise_sd = 0
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
-            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY],
             trial_statuses_to_copy=[TrialStatus.COMPLETED],
         )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 3)
+        # check that all run_metadata was copied by default
+        for _, trial in new_experiment.trials.items():
+            self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
+
+        # check that only run_metadata of specified keys are copied
+        new_experiment = get_branin_experiment()
+        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        new_experiment.warm_start_from_old_experiment(
+            old_experiment=old_experiment,
+            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY_1],
+            trial_statuses_to_copy=[TrialStatus.COMPLETED],
+        )
+        self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 3)
+        for _, trial in new_experiment.trials.items():
+            self.assertDictEqual(
+                trial.run_metadata,
+                {DUMMY_RUN_METADATA_KEY_1: DUMMY_RUN_METADATA_VALUE_1},
+            )
 
         # Warm start from an experiment with only a subset of metrics
         map_data_experiment = get_branin_experiment_with_timestamp_map_metric()
@@ -1628,10 +1650,7 @@ class ExperimentWithMapDataTest(TestCase):
         new_experiment.optimization_config.objective.metric.noise_sd = 0
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
-        new_experiment.warm_start_from_old_experiment(
-            old_experiment=old_experiment,
-            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY],
-        )
+        new_experiment.warm_start_from_old_experiment(old_experiment=old_experiment)
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
         i_old_trial = 0
         for _, trial in new_experiment.trials.items():
@@ -1648,8 +1667,24 @@ class ExperimentWithMapDataTest(TestCase):
             self.assertEqual(
                 trial._properties["generation_model_key"], Generators.SOBOL.value
             )
+            # check that all run_metadata is copied by default
             self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
             i_old_trial += 1
+
+        # check that only run_metadata of specified keys are copied
+        new_experiment = get_branin_experiment_with_timestamp_map_metric()
+        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        for _, trial in old_experiment.trials.items():
+            trial._run_metadata = DUMMY_RUN_METADATA
+        new_experiment.warm_start_from_old_experiment(
+            old_experiment=old_experiment,
+            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY_1],
+        )
+        for _, trial in new_experiment.trials.items():
+            self.assertDictEqual(
+                trial.run_metadata,
+                {DUMMY_RUN_METADATA_KEY_1: DUMMY_RUN_METADATA_VALUE_1},
+            )
 
         # Check that the data was attached for correct trials
 
