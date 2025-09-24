@@ -38,6 +38,7 @@ from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
+from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -185,6 +186,17 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0]),
+                    is_moo=True,
+                ),
+                datasets=[self.supervised_dataset],
+            ),
+        )
+        # Default to qLogNParEGO for > 4 objectives.
+        self.assertEqual(
+            qLogNParEGO,
+            choose_botorch_acqf_class(
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, -1.0, 1.0, 1.0, 1.0]),
                     is_moo=True,
                 ),
                 datasets=[self.supervised_dataset],
