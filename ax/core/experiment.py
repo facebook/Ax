@@ -31,7 +31,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
-from ax.core.parameter import Parameter
+from ax.core.parameter import DerivedParameter, Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
@@ -179,7 +179,7 @@ class Experiment(Base):
         self.add_tracking_metrics(tracking_metrics or [])
 
         # call setters defined below
-        self.search_space = search_space
+        self.search_space: SearchSpace = search_space
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
@@ -276,6 +276,96 @@ class Experiment(Base):
                     f"got {parameter.parameter_type}."
                 )
         self._search_space = search_space
+
+    def add_parameters_to_search_space(
+        self,
+        parameters: Sequence[Parameter],
+        status_quo_values: TParameterization | None = None,
+    ) -> None:
+        """
+        Add new parameters to the experiment's search space. This allows extending
+        the search space after the experiment has run some trials.
+
+        Backfill values must be provided for all new parameters if the experiment has
+        already run some trials. The backfill values represent the parameter values
+        that were used in the existing trials.
+
+        Args:
+            parameters: A sequence of parameter configurations to add to the search
+                space.
+            status_quo_values: Optional parameter values for the new parameters to
+                use in the status quo (baseline) arm, if one is defined.
+        """
+        status_quo_values = status_quo_values or {}
+
+        # Additional checks iff a trial exists
+        if len(self.trials) != 0:
+            if any(parameter.backfill_value is None for parameter in parameters):
+                raise UserInputError(
+                    "Must provide backfill values for all new parameters when "
+                    "adding parameters to an experiment with existing trials."
+                )
+            if any(isinstance(parameter, DerivedParameter) for parameter in parameters):
+                raise UserInputError(
+                    "Cannot add derived parameters to an experiment with existing "
+                    "trials."
+                )
+
+        # Validate status quo values
+        status_quo = self._status_quo
+        if status_quo_values is not None and status_quo is None:
+            logger.warning(
+                "Status quo values specified, but experiment does not have a "
+                "status quo. Ignoring provided status quo values."
+            )
+        if status_quo is not None:
+            parameter_names = {parameter.name for parameter in parameters}
+            status_quo_parameters = status_quo_values.keys()
+            disabled_parameters = {
+                parameter.name
+                for parameter in self._search_space.parameters.values()
+                if parameter.is_disabled
+            }
+            extra_status_quo_values = status_quo_parameters - parameter_names
+            if extra_status_quo_values:
+                logger.warning(
+                    "Status quo value provided for parameters "
+                    f"`{extra_status_quo_values}` which is are being added to "
+                    "the search space. Ignoring provided status quo values."
+                )
+            mising_status_quo_values = (
+                parameter_names - disabled_parameters - status_quo_parameters
+            )
+            if mising_status_quo_values:
+                raise UserInputError(
+                    "No status quo value provided for parameters "
+                    f"`{mising_status_quo_values}` which are being added to "
+                    "the search space."
+                )
+            for parameter_name, value in status_quo_values.items():
+                status_quo._parameters[parameter_name] = value
+
+        # Add parameters to search space
+        self._search_space.add_parameters(parameters)
+
+    def disable_parameters_in_search_space(
+        self, default_parameter_values: TParameterization
+    ) -> None:
+        """
+        Disable parameters in the experiment. This allows narrowing the search space
+        after the experiment has run some trials.
+
+        When parameters are disabled, they are effectively removed from the search
+        space for future trial generation. Existing trials remain valid, and the
+        disabled parameters are replaced with fixed default values for all subsequent
+        trials.
+
+        Args:
+            default_parameter_values: Fixed values to use for the disabled parameters
+                in all future trials. These values will be used for the parameter in
+                all subsequent trials.
+        """
+        self._search_space.disable_parameters(default_parameter_values)
 
     @property
     def status_quo(self) -> Arm | None:
