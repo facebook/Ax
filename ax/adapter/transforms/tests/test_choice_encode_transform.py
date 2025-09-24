@@ -184,7 +184,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                 )
             ]
         )
-        t = ChoiceToNumericChoice(search_space=ss3, observations=[])
+        t = ChoiceToNumericChoice(search_space=ss3)
         self.assertEqual(
             t.transform_search_space(ss3.clone()),
             SearchSpace(
@@ -258,10 +258,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         rss = get_robust_search_space()
         assert_is_instance(rss.parameters["c"], ChoiceParameter)._is_ordered = True
         # Transform a non-distributional parameter.
-        t = self.t_class(
-            search_space=rss,
-            observations=[],
-        )
+        t = self.t_class(search_space=rss)
         rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
@@ -274,10 +271,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
             num_samples=rss.num_samples,
             environmental_variables=all_params[:2],
         )
-        t = self.t_class(
-            search_space=rss,
-            observations=[],
-        )
+        t = self.t_class(search_space=rss)
         rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
@@ -409,7 +403,7 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTes
                 )
             ]
         )
-        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
+        t = OrderedChoiceToIntegerRange(search_space=ss3)
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 

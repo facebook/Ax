@@ -188,10 +188,7 @@ class RemoveFixedTransformTest(TestCase):
             FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
         )
         # Transform a non-distributional parameter.
-        t = RemoveFixed(
-            search_space=rss,
-            observations=[],
-        )
+        t = RemoveFixed(search_space=rss)
         rss = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss, RobustSearchSpace)
@@ -211,10 +208,7 @@ class RemoveFixedTransformTest(TestCase):
         rss.add_parameter(
             FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
         )
-        t = RemoveFixed(
-            search_space=rss,
-            observations=[],
-        )
+        t = RemoveFixed(search_space=rss)
         rss = t.transform_search_space(rss)
         self.assertIsInstance(rss, RobustSearchSpace)
         self.assertEqual(len(rss.parameters.keys()), 4)

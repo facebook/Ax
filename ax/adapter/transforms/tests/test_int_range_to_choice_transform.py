@@ -9,7 +9,6 @@
 from copy import deepcopy
 
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
-
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import RobustSearchSpace, SearchSpace
@@ -30,10 +29,7 @@ class IntRangeToChoiceTransformTest(TestCase):
             ],
             parameter_constraints=[],
         )
-        self.t = IntRangeToChoice(
-            search_space=self.search_space,
-            observations=[],
-        )
+        self.t = IntRangeToChoice(search_space=self.search_space)
 
     def test_Init(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"a"})
@@ -56,10 +52,7 @@ class IntRangeToChoiceTransformTest(TestCase):
     def test_w_robust_search_space(self) -> None:
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
-        t = IntRangeToChoice(
-            search_space=rss,
-            observations=[],
-        )
+        t = IntRangeToChoice(search_space=rss)
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss_new, RobustSearchSpace)
@@ -75,10 +68,7 @@ class IntRangeToChoiceTransformTest(TestCase):
             num_samples=rss.num_samples,
             environmental_variables=all_params[:2],
         )
-        t = IntRangeToChoice(
-            search_space=rss,
-            observations=[],
-        )
+        t = IntRangeToChoice(search_space=rss)
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
@@ -88,10 +78,7 @@ class IntRangeToChoiceTransformTest(TestCase):
         self.assertIsInstance(rss_new.parameters.get("z"), ChoiceParameter)
         # Error with distributional parameter.
         rss = get_robust_search_space(use_discrete=True)
-        t = IntRangeToChoice(
-            search_space=rss,
-            observations=[],
-        )
+        t = IntRangeToChoice(search_space=rss)
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)
 

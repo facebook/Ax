@@ -137,10 +137,7 @@ class LogTransformTest(TestCase):
         self.assertEqual(param_a.upper, 2)
 
         # Test target values transformation
-        t2 = Log(
-            search_space=self.search_space_with_target,
-            observations=[],
-        )
+        t2 = Log(search_space=self.search_space_with_target)
 
         t2.transform_search_space(self.search_space_with_target)
         self.assertEqual(
@@ -158,19 +155,13 @@ class LogTransformTest(TestCase):
         # pyre-fixme[16]: `Parameter` has no attribute `set_log_scale`.
         rss.parameters["y"].set_log_scale(True)
         # Transform a non-distributional parameter.
-        t = Log(
-            search_space=rss,
-            observations=[],
-        )
+        t = Log(search_space=rss)
         t.transform_search_space(rss)
         # pyre-fixme[16]: Optional type has no attribute `log_scale`.
         self.assertFalse(rss.parameters.get("y").log_scale)
         # Error with distributional parameter.
         rss.parameters["x"].set_log_scale(True)
-        t = Log(
-            search_space=rss,
-            observations=[],
-        )
+        t = Log(search_space=rss)
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)
 

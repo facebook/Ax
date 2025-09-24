@@ -39,10 +39,7 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
                 ),
             ]
         )
-        self.t = TaskChoiceToIntTaskChoice(
-            search_space=self.search_space,
-            observations=[],
-        )
+        self.t = TaskChoiceToIntTaskChoice(search_space=self.search_space)
 
     def test_Init(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["c"])
@@ -94,10 +91,7 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
             ]
         )
         with self.assertRaises(ValueError):
-            TaskChoiceToIntTaskChoice(
-                search_space=ss3,
-                observations=[],
-            )
+            TaskChoiceToIntTaskChoice(search_space=ss3)
 
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
@@ -105,10 +99,7 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
         rss.parameters["c"]._is_task = True
         rss.parameters["c"]._target_value = "red"
         # Transform a non-distributional parameter.
-        t = TaskChoiceToIntTaskChoice(
-            search_space=rss,
-            observations=[],
-        )
+        t = TaskChoiceToIntTaskChoice(search_space=rss)
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss_new, RobustSearchSpace)
@@ -125,10 +116,7 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
             num_samples=rss.num_samples,
             environmental_variables=all_params[:2],
         )
-        t = TaskChoiceToIntTaskChoice(
-            search_space=rss,
-            observations=[],
-        )
+        t = TaskChoiceToIntTaskChoice(search_space=rss)
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))

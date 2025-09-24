@@ -254,7 +254,6 @@ class RelativizeDataTest(TestCase):
         for relativize_cls, expected_mean_and_covar in self.cases:
             tf = relativize_cls(
                 search_space=None,
-                observations=observations,
                 adapter=adapter,
             )
             # check transform and untransform on observations
@@ -275,7 +274,6 @@ class RelativizeDataTest(TestCase):
                 )
                 tf = relativize_cls(
                     search_space=None,
-                    observations=observations,
                     adapter=adapter,
                 )
                 observations2 = deepcopy(observations)
@@ -294,11 +292,7 @@ class RelativizeDataTest(TestCase):
 
         for abstract_cls in [BaseRelativize, BadRelativize]:
             with self.assertRaisesRegex(TypeError, "Can't instantiate abstract class"):
-                abstract_cls(
-                    search_space=None,
-                    observations=None,
-                    adapter=None,
-                )
+                abstract_cls(search_space=None, adapter=None)
 
     def test_transform_status_quos_always_zero(self) -> None:
         for _ in range(1000):
@@ -481,7 +475,6 @@ class RelativizeDataOptConfigTest(TestCase):
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
             relativize = relativize_cls(
                 search_space=None,
-                observations=[],
                 adapter=self.model,
             )
             optimization_config = get_branin_optimization_config()
@@ -496,7 +489,6 @@ class RelativizeDataOptConfigTest(TestCase):
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
             relativize = relativize_cls(
                 search_space=None,
-                observations=[],
                 adapter=self.model,
             )
             optimization_config = get_branin_optimization_config()
@@ -530,7 +522,6 @@ class RelativizeDataOptConfigTest(TestCase):
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
             relativize = relativize_cls(
                 search_space=None,
-                observations=[],
                 adapter=self.model,
             )
             optimization_config = get_branin_optimization_config()
@@ -553,7 +544,6 @@ class RelativizeDataOptConfigTest(TestCase):
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
             relativize = relativize_cls(
                 search_space=None,
-                observations=[],
                 adapter=self.model,
             )
             optimization_config = get_branin_multi_objective_optimization_config(
@@ -585,7 +575,6 @@ class RelativizeDataOptConfigTest(TestCase):
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
             relativize = relativize_cls(
                 search_space=None,
-                observations=[],
                 adapter=self.model,
             )
             optimization_config = get_branin_multi_objective_optimization_config(

@@ -81,8 +81,7 @@ class DerelativizeTransformTest(TestCase):
         sq_b_observed: float,
         sq_b_predicted: float,
     ) -> None:
-        t = Derelativize(search_space=None, observations=[])
-
+        t = Derelativize(search_space=None)
         # Adapter with in-design status quo
         search_space = SearchSpace(
             parameters=[
@@ -239,11 +238,7 @@ class DerelativizeTransformTest(TestCase):
             t.transform_optimization_config(oc, g, None)
 
         # Bypasses error if use_raw_sq
-        t2 = Derelativize(
-            search_space=None,
-            observations=[],
-            config={"use_raw_status_quo": True},
-        )
+        t2 = Derelativize(search_space=None, config={"use_raw_status_quo": True})
         t2.transform_optimization_config(deepcopy(oc), g, None)
 
         # But not if sq arm is not available.
@@ -287,10 +282,7 @@ class DerelativizeTransformTest(TestCase):
             t.transform_optimization_config(deepcopy(oc), None, None)
 
     def test_errors(self) -> None:
-        t = Derelativize(
-            search_space=None,
-            observations=[],
-        )
+        t = Derelativize(search_space=None)
         oc = OptimizationConfig(
             objective=Objective(Metric("c"), minimize=False),
             outcome_constraints=[

@@ -259,10 +259,7 @@ class UnitXTransformTest(TestCase):
         # Error if trying to transform non-normal multivariate distributions.
         rss = get_robust_search_space(multivariate=True)
         rss.parameter_distributions[0].distribution_class = "multivariate_t"
-        t = UnitX(
-            search_space=rss,
-            observations=[],
-        )
+        t = UnitX(search_space=rss)
         with self.assertRaisesRegex(UnsupportedError, "multivariate"):
             t.transform_search_space(rss)
         # Transform multivariate normal.

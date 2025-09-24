@@ -36,7 +36,6 @@ from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -2766,18 +2765,6 @@ def get_map_data(trial_index: int = 0) -> MapData:
         trial_index=trial_index,
         metric_name_to_signature={"ax_test_metric": "ax_test_metric", "epoch": "epoch"},
     )
-
-
-def get_observations_with_invalid_value(invalid_value: float) -> list[Observation]:
-    obsd_with_non_finite = ObservationData(
-        metric_signatures=["m1"] * 4,
-        means=np.array([-100, 4, invalid_value, 2]),
-        covariance=np.eye(4),
-    )
-    observations = [
-        Observation(features=ObservationFeatures({}), data=obsd_with_non_finite)
-    ]
-    return observations
 
 
 def get_branin_data(
