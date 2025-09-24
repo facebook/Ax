@@ -38,13 +38,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import (
-    TCandidateMetadata,
-    TModelCov,
-    TModelMean,
-    TModelPredict,
-    TParameterization,
-)
+from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
 from ax.core.utils import get_target_trial_index, has_map_metrics
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
@@ -98,6 +92,16 @@ class Adapter:
     transform", which is a transform that changes types of the data and problem
     specification.
     """
+
+    # pyre-ignore [13] Assigned in _set_and_filter_training_data.
+    _training_data: ExperimentData
+
+    # The space used for optimization.
+    _search_space: SearchSpace
+
+    # The space used for modeling. Might be larger than the optimization
+    # space to cover training data.
+    _model_space: SearchSpace
 
     def __init__(
         self,
@@ -184,18 +188,16 @@ class Adapter:
 
         t_fit_start = time.monotonic()
         transforms = transforms or []
-        transforms = [Cast] + list(transforms)
-        transform_configs = {} if transform_configs is None else transform_configs
-        if "FillMissingParameters" in transform_configs:
-            transforms = [FillMissingParameters] + transforms
-        self._raw_transforms = transforms
-        self._transform_configs: Mapping[str, TConfig] = transform_configs
+        transforms = [FillMissingParameters, Cast] + list(transforms)
+        self._transform_configs: Mapping[str, TConfig] = (
+            {} if transform_configs is None else {**transform_configs}
+        )
+        self._raw_transforms: list[type[Transform]] = transforms
+        self._set_search_space(search_space or experiment.search_space)
 
         self.fit_time: float = 0.0
         self.fit_time_since_gen: float = 0.0
         self._metric_signatures: set[str] = set()
-        # pyre-ignore [13] Assigned in _set_and_filter_training_data.
-        self._training_data: ExperimentData
         self._optimization_config: OptimizationConfig | None = optimization_config
         self._training_in_design_idx: list[bool] = []
         self._status_quo: Observation | None = None
@@ -204,12 +206,6 @@ class Adapter:
         self._model_key: str | None = None
         self._model_kwargs: dict[str, Any] | None = None
         self._bridge_kwargs: dict[str, Any] | None = None
-        # The space used for optimization.
-        search_space = search_space or experiment.search_space
-        self._search_space: SearchSpace = search_space.clone()
-        # The space used for modeling. Might be larger than the optimization
-        # space to cover training data.
-        self._model_space: SearchSpace = search_space.clone()
         self._fit_tracking_metrics = fit_tracking_metrics
         self.outcomes: list[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
@@ -303,6 +299,7 @@ class Adapter:
     ) -> tuple[ExperimentData, SearchSpace]:
         r"""Processes the data into ``ExperimentData`` and returns the transformed
         ``ExperimentData`` and the search space. This packages the following methods:
+        * self._set_search_space
         * self._set_and_filter_training_data
         * self._set_status_quo
         * self._transform_data
@@ -312,6 +309,10 @@ class Adapter:
             data_loader_config=self._data_loader_config,
             data=data,
         )
+        # If the search space has changed, we need to update the model space
+        if self._search_space != experiment.search_space:
+            self._set_search_space(experiment.search_space)
+            self._set_model_space(arm_data=experiment_data.arm_data)
         experiment_data = self._set_and_filter_training_data(
             experiment_data=experiment_data, search_space=self._model_space
         )
@@ -353,6 +354,15 @@ class Adapter:
                     self.transforms[t.__name__] = t_instance
         return experiment_data, search_space
 
+    def _set_search_space(
+        self,
+        search_space: SearchSpace,
+    ) -> None:
+        """Set search space and model space. Adds a FillMissingParameters transform for
+        newly added parameters."""
+        self._search_space = search_space.clone()
+        self._model_space = search_space.clone()
+
     def _set_and_filter_training_data(
         self, experiment_data: ExperimentData, search_space: SearchSpace
     ) -> ExperimentData:
@@ -382,13 +392,13 @@ class Adapter:
         """Compute in-design status for each row of ``experiment_data``, after
         filling missing values if ``FillMissingParameters`` transform is used.
         """
-        if "FillMissingParameters" in self._transform_configs:
-            t = FillMissingParameters(
-                config=self._transform_configs["FillMissingParameters"]
-            )
-            experiment_data = t.transform_experiment_data(
-                experiment_data=experiment_data,
-            )
+        t = FillMissingParameters(
+            search_space=search_space,
+            config=self._transform_configs.get("FillMissingParameters", None),
+        )
+        experiment_data = t.transform_experiment_data(
+            experiment_data=experiment_data,
+        )
         # TODO [T230585235]: Implement more efficient membership checks.
         return [
             search_space.check_membership(
@@ -406,11 +416,11 @@ class Adapter:
     def _set_model_space(self, arm_data: DataFrame) -> None:
         """Set model space, possibly expanding range parameters to cover data."""
         # If fill for missing values, include those in expansion.
-        fill_values: TParameterization | None = None
-        if "FillMissingParameters" in self._transform_configs:
-            fill_values = self._transform_configs[  # pyre-ignore[9]
-                "FillMissingParameters"
-            ].get("fill_values", None)
+        t = FillMissingParameters(
+            search_space=self._model_space,
+            config=self._transform_configs.get("FillMissingParameters", None),
+        )
+        fill_values = t._fill_values
         # Update model space. Expand bounds as needed to cover the values found
         # in the data. Only applies to range parameters.
         for p_name, p in self._model_space.parameters.items():
