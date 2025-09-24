@@ -126,8 +126,7 @@ class Experiment(Base):
         # pyre-fixme[13]: Attribute `_search_space` is never initialized.
         self._search_space: SearchSpace
         self._status_quo: Arm | None = None
-        # pyre-fixme[13]: Attribute `_is_test` is never initialized.
-        self._is_test: bool
+        self._is_test: bool = False
 
         self._name = name
         self.description = description
@@ -136,14 +135,12 @@ class Experiment(Base):
 
         self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: str | None = experiment_type
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._optimization_config = None
+        self._optimization_config: OptimizationConfig | None = None
         self._tracking_metrics: dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._default_data_type = default_data_type or DataType.DATA
+        self._default_data_type: DataType = default_data_type or DataType.DATA
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
