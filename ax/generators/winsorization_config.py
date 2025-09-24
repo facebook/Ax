@@ -28,7 +28,7 @@ class WinsorizationConfig:
         ``upper_boundary`` and leave smaller values unaffected.
     """
 
-    lower_quantile_margin: float = 0.0
-    upper_quantile_margin: float = 0.0
+    lower_quantile_margin: float | None = 0.0
+    upper_quantile_margin: float | None = 0.0
     lower_boundary: float | None = None
     upper_boundary: float | None = None
