@@ -208,6 +208,14 @@ class TestDataBase(TestCase):
             self.assertEqual(columns[c], t)
         self.assertEqual(columns["foo"], bartype)
 
+    def test_extra_columns(self) -> None:
+        value = 3
+        extra_col_df = self.df.assign(foo=value)
+        data = self.cls(df=extra_col_df)
+        self.assertIn("foo", data.true_df.columns)
+        self.assertIn("foo", data.df.columns)
+        self.assertTrue((data.true_df["foo"] == value).all())
+
 
 class DataTest(TestCase):
     """Tests that are specific to Data and not shared with MapData."""
@@ -232,10 +240,6 @@ class DataTest(TestCase):
 
         data = CustomData(df=self.df)
         self.assertNotEqual(data, Data(self.df))
-
-        # Try making regular data with extra column
-        with self.assertRaisesRegex(ValueError, "cat"):
-            Data(df=self.df.assign(cat="dog"))
 
     def test_FromEvaluationsIsoFormat(self) -> None:
         now = pd.Timestamp.now()
