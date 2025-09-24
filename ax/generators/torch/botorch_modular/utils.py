@@ -31,6 +31,7 @@ from botorch.acquisition.logei import (
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
+from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.fully_bayesian import (
@@ -308,8 +309,10 @@ def choose_botorch_acqf_class(
             - `qLogProbabilityOfFeasibility` if there are outcome constraints and
                 no feasible point has been found.
             - `qLogNoisyExpectedImprovement` for single-objective optimization.
-            - `qLogNoisyExpectedHypervolumeImprovement`` for multi-objective
-                optimization.
+            - `qLogNoisyExpectedHypervolumeImprovement` for multi-objective
+                optimization with <= 4 objectives.
+            - `qLogNParEGO` for multi-objective optimization with > 4 objectives
+                to prevent slow optimization.
     """
 
     # Check if the training data is feasible.
@@ -335,7 +338,11 @@ def choose_botorch_acqf_class(
             return acqf_class
 
     if torch_opt_config.is_moo and not torch_opt_config.use_learned_objective:
-        acqf_class = qLogNoisyExpectedHypervolumeImprovement
+        # For MOO problems with > 4 objectives, use ParEGO to prevent slow optimization.
+        if torch_opt_config.objective_weights.count_nonzero() > 4:
+            acqf_class = qLogNParEGO
+        else:
+            acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
         acqf_class = qLogNoisyExpectedImprovement
 
