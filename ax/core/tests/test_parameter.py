@@ -431,12 +431,15 @@ class ChoiceParameterTest(TestCase):
                 values=list(range(1001)),
             )
         # With bypass_cardinality_check=True, this should not raise an error.
-        ChoiceParameter(
+        p = ChoiceParameter(
             name="x",
             parameter_type=ParameterType.INT,
             values=list(range(1001)),
             bypass_cardinality_check=True,
         )
+        # Make sure the parameter can clone successfully.
+        clone = p.clone()
+        self.assertEqual(clone, p)
 
     def test_Hierarchical(self) -> None:
         # Test case where only some of the values entail dependents.

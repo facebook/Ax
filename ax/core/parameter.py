@@ -798,6 +798,7 @@ class ChoiceParameter(Parameter):
             target_value=self._target_value,
             sort_values=self._sort_values,
             dependents=deepcopy(self._dependents),
+            bypass_cardinality_check=self._bypass_cardinality_check,
         )
 
     def __repr__(self) -> str:
