@@ -181,12 +181,12 @@ If you use Ax, please cite the following paper:
   title = {{Ax: A Platform for Adaptive Experimentation}},
   author = {
     Olson, Miles and Santorella, Elizabeth and Tiao, Louis C. and
-    Cakmak, Sait and Eriksson, David and Garrard, Mia and Daulton, Sam and
-    Balandat, Maximilian and Bakshy, Eytan and Kashtelyan, Elena and
-    Lin, Zhiyuan Jerry and Ament, Sebastian and Beckerman, Bernard and
+    Cakmak, Sait and Garrard, Mia and Daulton, Samuel and
+    Lin, Zhiyuan Jerry  and Ament, Sebastian and Beckerman, Bernard and
     Onofrey, Eric and Igusti, Paschal and Lara, Cristian and
     Letham, Benjamin and Cardoso, Cesar and Shen, Shiyun Sunny and
-    Lin, Andy Chenyuan and Grange, Matthew
+    Lin, Andy Chenyuan and Grange, Matthew and Kashtelyan, Elena and
+    Eriksson, David and Balandat, Maximilian and Bakshy, Eytan.
   },
   booktitle = {AutoML 2025 ABCD Track},
   year = {2025}
