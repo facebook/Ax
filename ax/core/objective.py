@@ -107,6 +107,10 @@ class MultiObjective(Objective):
 
         """
         self._objectives: list[Objective] = objectives
+        if any(isinstance(o, ScalarizedObjective) for o in objectives):
+            raise NotImplementedError(
+                "Scalarized objectives are not supported for a `MultiObjective`."
+            )
 
     @property
     def metric(self) -> Metric:
