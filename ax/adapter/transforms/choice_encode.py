@@ -11,7 +11,7 @@ from typing import Optional, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import ClosestLookupDict, construct_new_search_space
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -45,7 +45,6 @@ class ChoiceToNumericChoice(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -53,7 +52,6 @@ class ChoiceToNumericChoice(Transform):
         assert search_space is not None, "ChoiceToNumericChoice requires search space"
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -168,14 +166,12 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
     def __init__(
         self,
         search_space: SearchSpace,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

@@ -15,10 +15,9 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
-    get_data,
 )
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.observation import Observation, ObservationData
+from ax.core.observation import ObservationData
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -92,14 +91,12 @@ class Winsorize(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -117,19 +114,13 @@ class Winsorize(Transform):
         # Get config settings.
         winsorization_config = config.get("winsorization_config", {})
         use_raw_sq = _get_and_validate_use_raw_sq(config=config)
-        self.cutoffs = {}
-        if experiment_data is not None:
-            means_df = experiment_data.observation_data["mean"]
-            # Dropping NaNs here since the DF will have NaN for missing values.
-            all_metric_values = {
-                signature: column.dropna().values
-                for signature, column in means_df.items()
-            }
-        else:
-            observation_data = [obs.data for obs in none_throws(observations)]
-            all_metric_values = get_data(observation_data=observation_data)
-        for metric_signature, metric_values in all_metric_values.items():
-            self.cutoffs[metric_signature] = _get_cutoffs(
+        means_df = none_throws(experiment_data).observation_data["mean"]
+        # Dropping NaNs here since the DF will have NaN for missing values.
+        all_metric_values = {
+            signature: column.dropna().values for signature, column in means_df.items()
+        }
+        self.cutoffs = {
+            metric_signature: _get_cutoffs(
                 metric_signature=metric_signature,
                 metric_values=metric_values,
                 winsorization_config=winsorization_config,
@@ -137,6 +128,8 @@ class Winsorize(Transform):
                 optimization_config=optimization_config,
                 use_raw_sq=use_raw_sq,
             )
+            for metric_signature, metric_values in all_metric_values.items()
+        }
 
     def _transform_observation_data(
         self,

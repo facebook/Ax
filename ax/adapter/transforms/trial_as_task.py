@@ -11,7 +11,7 @@ from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.utils import get_target_trial_index
@@ -62,14 +62,12 @@ class TrialAsTask(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -80,10 +78,9 @@ class TrialAsTask(Transform):
                 "TrialAsTask transform is not supported for RobustSearchSpace."
             )
         # Identify values of trial.
-        if experiment_data is not None:
-            trials = set(experiment_data.arm_data.index.get_level_values("trial_index"))
-        else:
-            trials = {obs.features.trial_index for obs in none_throws(observations)}
+        trials = set(
+            none_throws(experiment_data).arm_data.index.get_level_values("trial_index")
+        )
         if None in trials:
             raise ValueError(
                 "Unable to use trial as task since not all observations have "

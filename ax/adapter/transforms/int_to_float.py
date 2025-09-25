@@ -16,7 +16,7 @@ from ax.adapter.transforms.rounding import (
     randomized_round_parameters,
 )
 from ax.adapter.transforms.utils import construct_new_search_space
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
@@ -50,7 +50,6 @@ class IntToFloat(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -60,7 +59,6 @@ class IntToFloat(Transform):
         )
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

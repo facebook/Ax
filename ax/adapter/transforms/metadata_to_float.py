@@ -9,14 +9,12 @@
 from __future__ import annotations
 
 from logging import Logger
-from math import isnan
-from typing import Any, SupportsFloat, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.metadata_to_parameter import MetadataToParameterMixin
 from ax.core import ParameterType
-from ax.core.observation import Observation
 from ax.core.parameter import RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
@@ -52,7 +50,6 @@ class MetadataToFloat(MetadataToParameterMixin, Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -60,7 +57,6 @@ class MetadataToFloat(MetadataToParameterMixin, Transform):
         Transform.__init__(
             self,
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -73,7 +69,7 @@ class MetadataToFloat(MetadataToParameterMixin, Transform):
         self._parameter_list: list[RangeParameter] = []
         for name in self.parameters:
             values: set[float] = self._get_values_for_parameter(
-                name=name, observations=observations, experiment_data=experiment_data
+                name=name, experiment_data=none_throws(experiment_data)
             )
 
             if len(values) == 0:
@@ -114,17 +110,7 @@ class MetadataToFloat(MetadataToParameterMixin, Transform):
     def _get_values_for_parameter(
         self,
         name: str,
-        observations: list[Observation] | None,
-        experiment_data: ExperimentData | None,
+        experiment_data: ExperimentData,
     ) -> set[float]:
-        if experiment_data is not None:
-            all_metadata = experiment_data.arm_data["metadata"]
-            return all_metadata.str.get(name).dropna().astype(float).tolist()
-
-        values: set[float] = set()
-        for obs in none_throws(observations):
-            obsf_metadata = none_throws(obs.features.metadata)
-            value = float(assert_is_instance(obsf_metadata[name], SupportsFloat))
-            if not isnan(value):
-                values.add(value)
-        return values
+        all_metadata = experiment_data.arm_data["metadata"]
+        return all_metadata.str.get(name).dropna().astype(float).tolist()

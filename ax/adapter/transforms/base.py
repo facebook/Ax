@@ -64,39 +64,26 @@ class Transform:
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Do any initial computations for preparing the transform.
 
-        This takes in search space and observations, but they are not modified.
-
         Args:
             search_space: The search space of the experiment.
-            observations: A list of observations from the experiment.
             experiment_data: A container for the parameterizations, metadata and
                 observations for the trials in the experiment.
                 Constructed using ``extract_experiment_data``.
             adapter: Adapter for referencing experiment, status quo, etc.
             config: A dictionary of options specific to each transform.
         """
-        if experiment_data is not None and observations is not None:
-            raise UnsupportedError(
-                "Only one of `experiment_data` or `observations` should be provided. "
-                f"Got {experiment_data=}, {observations=}."
+        if self.requires_data_for_initialization and (
+            experiment_data is None or experiment_data.observation_data.empty
+        ):
+            raise DataRequiredError(
+                f"`{self.__class__.__name__}` transform requires non-empty data."
             )
-        if self.requires_data_for_initialization:
-            has_non_empty_observations = observations is not None and len(observations)
-            has_non_empty_experiment_data = (
-                experiment_data is not None
-                and not experiment_data.observation_data.empty
-            )
-            if not (has_non_empty_observations or has_non_empty_experiment_data):
-                raise DataRequiredError(
-                    f"`{self.__class__.__name__}` transform requires non-empty data."
-                )
         if config is None:
             config = {}
         self.config = config

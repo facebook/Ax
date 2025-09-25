@@ -38,14 +38,12 @@ class MergeRepeatedMeasurements(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -54,47 +52,25 @@ class MergeRepeatedMeasurements(Transform):
         arm_to_multi_obs: defaultdict[
             str, defaultdict[str, defaultdict[str, list[float]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-        if experiment_data is not None:
-            metrics = experiment_data.metric_signatures
-            for arm_name, df in experiment_data.observation_data.groupby(
-                level="arm_name"
-            ):
-                for m in metrics:
-                    # Get the subset of the df for the metric.
-                    df_m = df[[("mean", m), ("sem", m)]].dropna(
-                        axis=0, subset=[("mean", m)]
-                    )
-                    if any(df_m[("sem", m)].isna()):
-                        raise NotImplementedError(
-                            "All metrics must have noise observations."
-                        )
-                    arm_to_multi_obs[arm_name][m]["means"].extend(
-                        df_m[("mean", m)].tolist()
-                    )
-                    arm_to_multi_obs[arm_name][m]["vars"].extend(
-                        (df_m[("sem", m)] ** 2).tolist()
-                    )
-        else:
-            for obs in none_throws(observations):
-                if (arm_name := obs.arm_name) is None:
-                    # Since the transform will be initialized with Adapter training
-                    # data, all observations will have arm names.
-                    raise NotImplementedError("All observations must have arm names.")
-                # TODO: support inverse variance weighting for multivariate
-                # distributions (full covariance).
-                obsd = obs.data
-                diag = np.diag(np.diag(obsd.covariance))
-                if np.any(np.isnan(obsd.covariance)):
+
+        experiment_data = none_throws(experiment_data)
+        metrics = experiment_data.metric_signatures
+        for arm_name, df in experiment_data.observation_data.groupby(level="arm_name"):
+            for m in metrics:
+                # Get the subset of the df for the metric.
+                df_m = df[[("mean", m), ("sem", m)]].dropna(
+                    axis=0, subset=[("mean", m)]
+                )
+                if any(df_m[("sem", m)].isna()):
                     raise NotImplementedError(
                         "All metrics must have noise observations."
                     )
-                elif ~np.all(obsd.covariance == diag):
-                    raise NotImplementedError(
-                        "Only independent metrics are currently supported."
-                    )
-                for i, m in enumerate(obsd.metric_signatures):
-                    arm_to_multi_obs[arm_name][m]["means"].append(obsd.means[i])
-                    arm_to_multi_obs[arm_name][m]["vars"].append(obsd.covariance[i, i])
+                arm_to_multi_obs[arm_name][m]["means"].extend(
+                    df_m[("mean", m)].tolist()
+                )
+                arm_to_multi_obs[arm_name][m]["vars"].extend(
+                    (df_m[("sem", m)] ** 2).tolist()
+                )
 
         self.arm_to_merged: defaultdict[str, dict[str, dict[str, float]]] = defaultdict(
             dict

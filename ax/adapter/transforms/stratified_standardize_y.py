@@ -6,14 +6,13 @@
 
 # pyre-strict
 
-from collections import defaultdict
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.standardize_y import compute_standardization_parameters
-from ax.core.observation import Observation, ObservationFeatures, separate_observations
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter
@@ -49,7 +48,6 @@ class StratifiedStandardizeY(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -58,7 +56,6 @@ class StratifiedStandardizeY(Transform):
 
         Args:
             search_space: The search space of the experiment.
-            observations: A list of observations from the experiment.
             experiment_data: A container for the parameterizations, metadata and
                 observations for the trials in the experiment.
                 Constructed using ``extract_experiment_data``.
@@ -73,7 +70,6 @@ class StratifiedStandardizeY(Transform):
         assert search_space is not None, "StratifiedStandardizeY requires search space"
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -125,32 +121,23 @@ class StratifiedStandardizeY(Transform):
             # pyre-ignore [8]
             self.strata_mapping = {v: v for v in strat_p.values}
         # Compute means and SDs
-        if observations is not None:
-            observation_features, observation_data = separate_observations(observations)
-            Ys: defaultdict[tuple[str, TParamValue], list[float]] = defaultdict(list)
-            for j, obsd in enumerate(observation_data):
-                v = none_throws(observation_features[j].parameters[self.p_name])
-                strata = self.strata_mapping[v]
-                for i, m in enumerate(obsd.metric_signatures):
-                    Ys[(m, strata)].append(obsd.means[i])
-        else:
-            experiment_data = none_throws(experiment_data)
-            if len(experiment_data.observation_data.index.names) > 2:
-                raise NotImplementedError(
-                    "StratifiedStandardizeY does not support experiment data with "
-                    "map keys."
-                )
-            strata = (
-                experiment_data.arm_data[self.p_name]
-                .map(self.strata_mapping)
-                .rename("strata")
+        experiment_data = none_throws(experiment_data)
+        if len(experiment_data.observation_data.index.names) > 2:
+            raise NotImplementedError(
+                "StratifiedStandardizeY does not support experiment data with "
+                "map keys."
             )
-            means = experiment_data.observation_data["mean"]
-            Ys: dict[tuple[str, TParamValue], list[float]] = {}
-            # Group means by strata values and extract corresponding Ys.
-            for strata_value, group in means.groupby(strata.loc[means.index]):
-                for m in means.columns:
-                    Ys[(m, strata_value)] = group[m].dropna().values.tolist()
+        strata = (
+            experiment_data.arm_data[self.p_name]
+            .map(self.strata_mapping)
+            .rename("strata")
+        )
+        means = experiment_data.observation_data["mean"]
+        Ys: dict[tuple[str, TParamValue], list[float]] = {}
+        # Group means by strata values and extract corresponding Ys.
+        for strata_value, group in means.groupby(strata.loc[means.index]):
+            for m in means.columns:
+                Ys[(m, strata_value)] = group[m].dropna().values.tolist()
 
         # Expected `DefaultDict[typing.Union[str, typing.Tuple[str,
         # Optional[typing.Union[bool, float, str]]]], List[float]]` for 1st anonymous

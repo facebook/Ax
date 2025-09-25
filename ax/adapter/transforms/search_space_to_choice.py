@@ -11,7 +11,7 @@ from typing import Optional, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization, TParamValue
@@ -41,7 +41,6 @@ class SearchSpaceToChoice(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -49,7 +48,6 @@ class SearchSpaceToChoice(Transform):
         assert search_space is not None, "SearchSpaceToChoice requires search space"
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -65,20 +63,12 @@ class SearchSpaceToChoice(Transform):
             )
         self.parameter_name = "arms"
         self.parameter_names: list[str] = list(search_space.parameters)
-        if experiment_data is not None:
-            arm_data = experiment_data.arm_data[self.parameter_names]
-            arm_data = arm_data[self.parameter_names]
-            self.signature_to_parameterization: dict[str, TParameterization] = {
-                Arm(parameters=row).signature: row.copy()
-                for row in arm_data.to_dict(orient="records")
-            }
-        else:
-            self.signature_to_parameterization: dict[str, TParameterization] = {
-                Arm(
-                    parameters=obs.features.parameters.copy()
-                ).signature: obs.features.parameters
-                for obs in none_throws(observations)
-            }
+        arm_data = none_throws(experiment_data).arm_data[self.parameter_names]
+        arm_data = arm_data[self.parameter_names]
+        self.signature_to_parameterization: dict[str, TParameterization] = {
+            Arm(parameters=row).signature: row.copy()
+            for row in arm_data.to_dict(orient="records")
+        }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         values: list[TParamValue] = list(self.signature_to_parameterization.keys())

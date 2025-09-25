@@ -17,7 +17,7 @@ import numpy.typing as npt
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import match_ci_width, T_MATCH_CI_WIDTH
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
@@ -53,7 +53,6 @@ class LogY(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: base_adapter.Adapter | None = None,
         config: TConfig | None = None,
@@ -67,7 +66,6 @@ class LogY(Transform):
             raise ValueError("Must specify at least one metric in the config.")
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,

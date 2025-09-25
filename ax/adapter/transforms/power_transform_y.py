@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.utils import get_data, match_ci_width
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.adapter.transforms.utils import match_ci_width
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
@@ -53,7 +53,6 @@ class PowerTransformY(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -62,7 +61,6 @@ class PowerTransformY(Transform):
 
         Args:
             search_space: The search space of the experiment.
-            observations: A list of observations from the experiment.
             experiment_data: A container for the parameterizations, metadata and
                 observations for the trials in the experiment.
                 Constructed using ``extract_experiment_data``.
@@ -70,13 +68,12 @@ class PowerTransformY(Transform):
             config: A dictionary of options to control the behavior of the transform.
                 Can contain the following keys:
                 - "metrics": A list of metric names to apply the transform to. If
-                    omitted, all metrics found in `observations` are transformed.
+                    omitted, all metrics are transformed.
                 - "clip_mean": Whether to clip the mean to the image of the transform.
                     Defaults to True.
         """
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -88,19 +85,13 @@ class PowerTransformY(Transform):
         self.clip_mean: bool = (
             assert_is_instance(config.get("clip_mean", True), bool) if config else True
         )
-        if experiment_data is not None:
-            means_df = experiment_data.observation_data["mean"]
-            # Dropping NaNs here since the DF will have NaN for missing values.
-            Ys = {
-                signature: column.dropna().values
-                for signature, column in means_df.items()
-                if metric_signatures is None or signature in metric_signatures
-            }
-        else:
-            observation_data = [obs.data for obs in none_throws(observations)]
-            Ys = get_data(
-                observation_data=observation_data, metric_signatures=metric_signatures
-            )
+        means_df = none_throws(experiment_data).observation_data["mean"]
+        # Dropping NaNs here since the DF will have NaN for missing values.
+        Ys = {
+            name: column.dropna().values
+            for name, column in means_df.items()
+            if metric_signatures is None or name in metric_signatures
+        }
         self.metric_signatures: list[str] = list(Ys.keys())
         self.power_transforms: dict[str, PowerTransformer] = _compute_power_transforms(
             Ys=Ys

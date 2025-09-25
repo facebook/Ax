@@ -57,9 +57,7 @@ def derelativize_opt_config(
     experiment: Experiment,
     trial_indices: Iterable[int] | None = None,
 ) -> OptimizationConfig:
-    tf = Derelativize(
-        search_space=None, observations=None, config={"use_raw_status_quo": True}
-    )
+    tf = Derelativize(search_space=None, config={"use_raw_status_quo": True})
     optimization_config = tf.transform_optimization_config(
         optimization_config=optimization_config.clone(),
         adapter=get_tensor_converter_adapter(
