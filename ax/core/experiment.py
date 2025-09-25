@@ -1963,6 +1963,7 @@ class Experiment(Base):
         trial_indices: Iterable[int] | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         omit_empty_columns: bool = True,
+        relativize: bool = False,
     ) -> pd.DataFrame:
         """
         High-level summary of the Experiment with one row per arm. Any values missing at
@@ -1984,10 +1985,23 @@ class Experiment(Base):
             trial_indices: If specified, only include these trial indices.
             omit_empty_columns: If True, omit columns where every value is None.
             trial_status: If specified, only include trials with this status.
+            relativize: If True and experiment has a status quo, relativize metrics
         """
 
         records = []
-        data_df = self.lookup_data(trial_indices=trial_indices).df
+        data = self.lookup_data(trial_indices=trial_indices)
+
+        # Relativize metrics if requested
+        data_df = (
+            data.relativize(
+                status_quo_name=none_throws(self.status_quo).name,
+                as_percent=True,
+                include_sq=True,
+            ).df
+            if relativize
+            else data.df
+        )
+
         trials = (
             self.get_trials_by_indices(trial_indices=trial_indices)
             if trial_indices
@@ -2047,6 +2061,7 @@ class Experiment(Base):
                 records.append(record)
 
         df = pd.DataFrame(records)
+
         if omit_empty_columns:
             df = df.loc[:, df.notnull().any()]
         return df

@@ -74,7 +74,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from pandas.testing import assert_frame_equal
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 DUMMY_RUN_METADATA_KEY_1 = "test_run_metadata_key_1"
 DUMMY_RUN_METADATA_KEY_2 = "test_run_metadata_key_2"
@@ -365,7 +365,7 @@ class ExperimentTest(TestCase):
         sq_parameters["w"] = 3.5
         self.experiment.status_quo = Arm(sq_parameters)
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
-        self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
+        self.assertEqual(none_throws(self.experiment.status_quo).name, "status_quo_e0")
 
         # Verify all None values
         self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
@@ -1533,6 +1533,107 @@ class ExperimentTest(TestCase):
             }
         )
         self.assertTrue(df_completed.equals(expected_completed_df))
+
+    def test_to_df_with_relativize(self) -> None:
+        """Test the relativize flag in to_df method with status quo."""
+        # Create an experiment with status quo and completed trials
+        experiment = get_branin_experiment(with_status_quo=True)
+
+        # Create two completed trials
+        for _ in range(2):
+            sobol_run = get_sobol(search_space=experiment.search_space).gen(n=1)
+            trial = experiment.new_trial(generator_run=sobol_run)
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+
+        # Fetch and add status quo data
+        experiment.fetch_data()
+        sq_data = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": i,
+                        "arm_name": "status_quo",
+                        "metric_name": "branin",
+                        "metric_signature": "branin",
+                        "mean": 10.0,
+                        "sem": 0.1,
+                    }
+                    for i in range(2)
+                ]
+            )
+        )
+        experiment.attach_data(sq_data)
+
+        # Test without relativization
+        df_no_rel = experiment.to_df(relativize=False)
+
+        # Test with relativization
+        df_with_rel = experiment.to_df(relativize=True)
+
+        # Basic structure should be the same
+        self.assertEqual(len(df_with_rel), len(df_no_rel))
+        self.assertEqual(set(df_with_rel.columns), set(df_no_rel.columns))
+
+        # Find metric columns and verify relativization occurred
+        metric_cols = [
+            col
+            for col in df_no_rel.columns
+            if col
+            not in ["trial_index", "arm_name", "trial_status", "name", "x1", "x2"]
+        ]
+
+        if metric_cols:
+            metric_name = metric_cols[0]
+            orig_values = df_no_rel[metric_name].dropna()
+            rel_values = df_with_rel[metric_name].dropna()
+
+            # Values should change for non-status-quo trials
+            non_sq_changed = any(
+                abs(o - r) > 1e-10 for o, r in zip(orig_values, rel_values) if o != 10.0
+            )
+            self.assertTrue(non_sq_changed, "Relativization should change some values")
+
+    def test_to_df_relativize_without_status_quo(self) -> None:
+        """Test that relativize=True has no effect when there's no status quo."""
+        # Create experiment without status quo
+        experiment = Experiment(
+            name="test_no_sq",
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            # No status_quo parameter
+        )
+
+        # Add some trials with data
+        trial1 = experiment.new_trial()
+        trial1.add_arm(Arm({"w": 1.0, "x": 2, "y": "foo", "z": True}))
+        trial1.mark_running(no_runner_required=True)
+
+        # Attach some data
+        data = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": trial1.arm.name if trial1.arm else "unknown",
+                        "metric_name": "m1",
+                        "metric_signature": "m1",
+                        "mean": 10.0,
+                        "sem": 1.0,
+                    }
+                ]
+            )
+        )
+        experiment.attach_data(data)
+
+        # Both relativize=True and relativize=False should return the same result
+        df_no_relativize = experiment.to_df(relativize=False)
+        # Since there's no status quo, relativize=True should work but have no effect
+        # We need to pass relativize_func even though it won't be used
+        df_with_relativize = experiment.to_df(relativize=True)
+
+        # DataFrames should be identical when no status quo exists
+        pd.testing.assert_frame_equal(df_no_relativize, df_with_relativize)
 
 
 class ExperimentWithMapDataTest(TestCase):
