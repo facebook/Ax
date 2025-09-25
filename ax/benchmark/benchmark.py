@@ -53,7 +53,11 @@ from ax.core.utils import get_model_times
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.orchestrator import Orchestrator
-from ax.service.utils.best_point import _prepare_data_for_trace, get_trace
+from ax.service.utils.best_point import (
+    _prepare_data_for_trace,
+    derelativize_opt_config,
+    get_trace,
+)
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
@@ -334,12 +338,22 @@ def get_inference_trace(
 def get_is_feasible_trace(
     experiment: Experiment, optimization_config: OptimizationConfig
 ) -> list[float]:
-    """Get a trace of feasibility for each arm pull in the experiment."""
+    """Get a trace of feasibility for the experiment.
+
+    For batch trials we return True if any arm in a given batch is feasible.
+    """
     df = experiment.lookup_data().df.copy()  # Let's not modify the original df
     if len(df) == 0:
         return []
+    # Derelativize the optimization config if needed.
+    optimization_config = derelativize_opt_config(
+        optimization_config=optimization_config,
+        experiment=experiment,
+    )
+    # Compute feasibility and return feasibility per group
     df = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
-    return df["feasible"].tolist()
+    trial_grouped = df.groupby("trial_index")["feasible"]
+    return trial_grouped.any().tolist()
 
 
 def get_best_parameters(
