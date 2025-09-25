@@ -127,7 +127,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             return {}
 
         try:
-            metric_to_aligned_means, _ = align_partial_results(
+            aligned_df = align_partial_results(
                 df=df,
                 metrics=[metric_signature],
             )
@@ -138,6 +138,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
             return {}
 
+        metric_to_aligned_means = aligned_df["mean"]
         aligned_means = metric_to_aligned_means[metric_signature]
         decisions = {
             trial_index: self._should_stop_trial_early(

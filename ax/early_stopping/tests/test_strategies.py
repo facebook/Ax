@@ -773,9 +773,8 @@ def _evaluate_early_stopping_with_df(
     data = none_throws(
         early_stopping_strategy._check_validity_and_get_data(experiment, [metric_name])
     )
-    metric_to_aligned_means, _ = align_partial_results(
-        df=data.map_df, metrics=[metric_name]
-    )
+    aligned_df = align_partial_results(df=data.map_df, metrics=[metric_name])
+    metric_to_aligned_means = aligned_df["mean"]
     aligned_means = metric_to_aligned_means[metric_name]
     decisions = {
         trial_index: early_stopping_strategy._should_stop_trial_early(

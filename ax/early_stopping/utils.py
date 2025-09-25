@@ -7,7 +7,6 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Literal
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -26,7 +25,7 @@ def align_partial_results(
     interpolation: str = "slinear",
     do_forward_fill: bool = False,
     # TODO: Allow normalizing step (e.g. subtract min time stamp)
-) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
+) -> pd.DataFrame:
     """Helper function to align partial results with heterogeneous index
 
     Args:
@@ -118,18 +117,7 @@ def align_partial_results(
         # where one task only has data for early progressions
         wide_df[active_cols] = wide_df[active_cols].fillna(method="pad", axis=0)
 
-    def _to_dict(key: Literal["mean", "sem"]) -> dict[str, pd.DataFrame]:
-        """Helper function to convert wide dataframe to dict of dataframes."""
-        return {
-            m: wide_df[key][m]
-            for m in wide_df[key].columns.unique(level="metric_signature")
-        }
-
-    # combine results into output dataframes
-    dfs_mean = _to_dict("mean")
-    dfs_sem = _to_dict("sem") if has_sem else {}
-
-    return dfs_mean, dfs_sem
+    return wide_df
 
 
 def estimate_early_stopping_savings(experiment: Experiment) -> float:
