@@ -255,7 +255,8 @@ class ExperimentData:
             obs_ft_base = ObservationFeatures(
                 # NOTE: It is crucial to pop metadata first here.
                 # Otherwise, it'd end up in parameters.
-                metadata=row.pop("metadata"),
+                # Copy ensures any changes to the metadata don't affect the original.
+                metadata=row.pop("metadata").copy(),
                 parameters=row.dropna().to_dict(),
                 trial_index=trial_index,
             )

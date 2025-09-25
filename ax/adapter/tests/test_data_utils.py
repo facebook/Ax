@@ -11,7 +11,6 @@ from math import nan
 from unittest import mock
 
 import numpy as np
-
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.core.data import Data
@@ -28,6 +27,7 @@ from ax.utils.testing.core_stubs import (
 )
 from pandas import DataFrame, MultiIndex, Timestamp
 from pandas.testing import assert_frame_equal
+from pyre_extensions import none_throws
 
 
 class TestDataUtils(TestCase):
@@ -662,6 +662,14 @@ class TestDataUtils(TestCase):
             ),
         ]
         self.assertEqual(observations, expected)
+        # Check that modifying the metadata does not affect the original.
+        none_throws(observations[0].features.metadata).pop(
+            Keys.TRIAL_COMPLETION_TIMESTAMP
+        )
+        self.assertIn(
+            Keys.TRIAL_COMPLETION_TIMESTAMP,
+            experiment_data.arm_data.iloc[0]["metadata"],
+        )
 
     def test_experiment_data_metric_signatures(self) -> None:
         for experiment, expected in [
