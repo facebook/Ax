@@ -90,15 +90,12 @@ class MetricsAsTaskTransformTest(TestCase):
         ]
         self.t = MetricsAsTask(
             search_space=self.search_space,
-            observations=self.observations,
             config={"metric_task_map": self.metric_task_map},
         )
 
     def test_Init(self) -> None:
         with self.assertRaises(ValueError):
-            MetricsAsTask(
-                search_space=self.search_space, observations=self.observations
-            )
+            MetricsAsTask(search_space=self.search_space)
 
     def test_TransformObservations(self) -> None:
         new_obs = self.t.transform_observations(deepcopy(self.observations))

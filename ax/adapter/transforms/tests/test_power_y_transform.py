@@ -19,7 +19,6 @@ from ax.adapter.transforms.power_transform_y import (
     _compute_power_transforms,
     PowerTransformY,
 )
-from ax.adapter.transforms.utils import get_data
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import observations_from_data
@@ -27,10 +26,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_observations_with_invalid_value,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from sklearn.preprocessing import PowerTransformer
 
 
@@ -51,6 +47,9 @@ class PowerTransformYTest(TestCase):
             observations=[[0.5, 0.9], [0.1, 0.4], [0.9, 0.8], [0.3, 0.2]],
             sems=[[0.2, 0.1], [0.03, 0.05], [0.14, 0.1], [float("nan"), float("nan")]],
         )
+        self.experiment_data = extract_experiment_data(
+            experiment=self.experiment, data_loader_config=DataLoaderConfig()
+        )
         self.observations = observations_from_data(
             experiment=self.experiment, data=self.experiment.lookup_data()
         )
@@ -61,7 +60,7 @@ class PowerTransformYTest(TestCase):
     def test_init(self) -> None:
         shared_init_args = {
             "search_space": None,
-            "observations": self.observations[:2],
+            "experiment_data": self.experiment_data,
         }
         # Init without a config.
         t = PowerTransformY(**shared_init_args)
@@ -81,18 +80,8 @@ class PowerTransformYTest(TestCase):
             self.assertIsInstance(tf.inv_bounds[m], tuple)
             self.assertTrue(len(tf.inv_bounds[m]) == 2)
 
-    def test_get_data(self) -> None:
-        for m in ["m1", "m2"]:
-            Ys = get_data([self.obsd1, self.obsd2, self.obsd3], [m])
-            self.assertIsInstance(Ys, dict)
-            self.assertEqual([*Ys], [m])
-            if m == "m1":
-                self.assertEqual(Ys[m], [0.5, 0.1, 0.9])
-            else:
-                self.assertEqual(Ys[m], [0.9, 0.4, 0.8])
-
     def test_compute_power_transform(self) -> None:
-        Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
+        Ys = {"m2": [0.9, 0.4, 0.8]}
         pts = _compute_power_transforms(Ys)
         self.assertEqual(pts["m2"].method, "yeo-johnson")
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
@@ -108,7 +97,7 @@ class PowerTransformYTest(TestCase):
         self.assertAlmostEqual(np.max(np.abs(Y_np - Y_np2)), 0.0)
 
     def test_compute_inverse_bounds(self) -> None:
-        Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
+        Ys = {"m2": [0.9, 0.4, 0.8]}
         pt = _compute_power_transforms(Ys)["m2"]
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
@@ -135,7 +124,7 @@ class PowerTransformYTest(TestCase):
     def test_transform_and_untransform_one_metric(self) -> None:
         pt = PowerTransformY(
             search_space=None,
-            observations=deepcopy(self.observations[:2]),
+            experiment_data=self.experiment_data,
             config={"metrics": ["m1"]},
         )
 
@@ -171,7 +160,7 @@ class PowerTransformYTest(TestCase):
     def test_transform_and_untransform_all_metrics(self) -> None:
         pt = PowerTransformY(
             search_space=None,
-            observations=deepcopy(self.observations[:2]),
+            experiment_data=self.experiment_data,
             config={"metrics": ["m1", "m2"]},
         )
 
@@ -200,14 +189,14 @@ class PowerTransformYTest(TestCase):
 
     def test_compare_to_sklearn(self) -> None:
         # Make sure the transformed values agree with Sklearn
-        observation_data = [self.obsd1, self.obsd2, self.obsd3]
+        observation_data = [self.obsd1, self.obsd2, self.obsd3, self.obsd_nan]
 
         y_orig = np.array([data.means[0] for data in observation_data])[:, None]
         y1 = PowerTransformer("yeo-johnson").fit(y_orig).transform(y_orig).ravel()
 
         pt = PowerTransformY(
             search_space=None,
-            observations=deepcopy(self.observations[:3]),
+            experiment_data=self.experiment_data,
             config={"metrics": ["m1"]},
         )
         observation_data_tf = pt._transform_observation_data(observation_data)
@@ -222,7 +211,7 @@ class PowerTransformYTest(TestCase):
         oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
         tf = PowerTransformY(
             search_space=None,
-            observations=self.observations[:2],
+            experiment_data=self.experiment_data,
             config={"metrics": ["m1"]},
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
@@ -294,14 +283,6 @@ class PowerTransformYTest(TestCase):
             str(cm.exception),
         )
 
-    def test_non_finite_data_raises(self) -> None:
-        for invalid_value in [float("nan"), float("inf")]:
-            observations = get_observations_with_invalid_value(invalid_value)
-            with self.assertRaisesRegex(
-                ValueError, f"Non-finite data found for metric m1: {invalid_value}"
-            ):
-                PowerTransformY(observations=observations, config={"metrics": ["m1"]})
-
     def test_with_experiment_data(self) -> None:
         experiment_data = extract_experiment_data(
             experiment=self.experiment, data_loader_config=DataLoaderConfig()
@@ -318,7 +299,7 @@ class PowerTransformYTest(TestCase):
             # initialized it using observations.
             t_old = PowerTransformY(
                 search_space=self.experiment.search_space,
-                observations=self.observations,
+                experiment_data=self.experiment_data,
                 config={"metrics": metrics},
             )
             transformed_data = t.transform_experiment_data(

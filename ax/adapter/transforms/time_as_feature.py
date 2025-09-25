@@ -87,14 +87,15 @@ class TimeAsFeature(Transform):
                 raise UnsupportedError(
                     "TimeAsFeature transform is not supported with map data."
                 )
-            # Dividing by 1e9 to convert from nanoseconds to seconds, to be consistent
-            # with usage of seconds in the `Observation` version.
-            start_times = obs_data[("metadata", "start_time")].astype("int64") / 1e9
-            if start_times.isna().any():
+            # Check with raw values, because coversion to int eliminates NaNs.
+            if obs_data[("metadata", "start_time")].isna().any():
                 raise ValueError(
                     "Unable to use TimeAsFeature since not all observations have "
                     "start time specified."
                 )
+            # Dividing by 1e9 to convert from nanoseconds to seconds, to be consistent
+            # with usage of seconds in the `Observation` version.
+            start_times = obs_data[("metadata", "start_time")].astype("int64") / 1e9
             current_time_ts = unixtime_to_pandas_ts(self.current_time)
             end_times = (
                 obs_data[("metadata", "end_time")]

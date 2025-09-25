@@ -49,7 +49,7 @@ class MetadataToTaskTransformTest(TestCase):
         )
         self.transform_config: TConfig = {"task_values": [0, 1]}
         self.t = MetadataToTask(
-            observations=self.observations, config=self.transform_config
+            experiment_data=self.experiment_data, config=self.transform_config
         )
 
     def test_Init(self) -> None:

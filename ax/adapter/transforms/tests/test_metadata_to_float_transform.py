@@ -83,12 +83,6 @@ class MetadataToFloatTransformTest(TestCase):
         )
 
         self.t = MetadataToFloat(
-            observations=self.observations,
-            config={
-                "parameters": {"bar": {"digits": 4}},
-            },
-        )
-        self.t2 = MetadataToFloat(
             experiment_data=self.experiment_data,
             config={
                 "parameters": {"bar": {"digits": 4}},
@@ -96,23 +90,20 @@ class MetadataToFloatTransformTest(TestCase):
         )
 
     def test_Init(self) -> None:
-        for t in (self.t, self.t2):
-            self.assertEqual(len(t._parameter_list), 1)
-            p = t._parameter_list[0]
-            # check that the parameter options are specified in a sensible manner
-            # by default if the user does not specify them explicitly
-            self.assertEqual(p.name, "bar")
-            self.assertEqual(p.parameter_type, ParameterType.FLOAT)
-            self.assertEqual(p.lower, 3.0)
-            self.assertEqual(p.upper, 15.0)
-            self.assertFalse(p.log_scale)
-            self.assertFalse(p.logit_scale)
-            self.assertEqual(p.digits, 4)
-            self.assertFalse(p.is_fidelity)
-            self.assertIsNone(p.target_value)
+        self.assertEqual(len(self.t._parameter_list), 1)
+        p = self.t._parameter_list[0]
+        # check that the parameter options are specified in a sensible manner
+        # by default if the user does not specify them explicitly
+        self.assertEqual(p.name, "bar")
+        self.assertEqual(p.parameter_type, ParameterType.FLOAT)
+        self.assertEqual(p.lower, 3.0)
+        self.assertEqual(p.upper, 15.0)
+        self.assertFalse(p.log_scale)
+        self.assertFalse(p.logit_scale)
+        self.assertEqual(p.digits, 4)
+        self.assertFalse(p.is_fidelity)
+        self.assertIsNone(p.target_value)
 
-        with self.assertRaisesRegex(DataRequiredError, "requires non-empty data"):
-            MetadataToFloat(search_space=None, observations=None)
         with self.assertRaisesRegex(DataRequiredError, "requires non-empty data"):
             MetadataToFloat(search_space=None)
 

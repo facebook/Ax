@@ -83,22 +83,28 @@ class SearchSpaceToChoiceTest(TestCase):
         self.t = SearchSpaceToChoice(
             search_space=self.search_space, experiment_data=self.experiment_data
         )
+        # Convert first observation to experiment data for t2
+        experiment_single = get_experiment_with_observations(
+            observations=[[1.0]],
+            search_space=self.search_space,
+            parameterizations=[{"a": 1, "b": "a"}],
+        )
+        experiment_data_single = extract_experiment_data(
+            experiment=experiment_single, data_loader_config=DataLoaderConfig()
+        )
         self.t2 = SearchSpaceToChoice(
-            search_space=self.search_space, observations=self.observations[:1]
+            search_space=self.search_space, experiment_data=experiment_data_single
         )
         self.t3 = SearchSpaceToChoice(
             search_space=self.search_space,
-            observations=self.observations,
+            experiment_data=self.experiment_data,
             config={"use_ordered": True},
         )
 
     def test_validation(self) -> None:
         # Test with no data.
         with self.assertRaisesRegex(DataRequiredError, "non-empty data"):
-            SearchSpaceToChoice(
-                search_space=self.search_space,
-                observations=[],
-            )
+            SearchSpaceToChoice(search_space=self.search_space)
         # Test with empty experiment data.
         with self.assertRaisesRegex(DataRequiredError, "non-empty data"):
             SearchSpaceToChoice(
@@ -123,20 +129,14 @@ class SearchSpaceToChoiceTest(TestCase):
             ]
         )
         with self.assertRaisesRegex(ValueError, "fidelity"):
-            SearchSpaceToChoice(
-                search_space=ss,
-                observations=self.observations,
-            )
+            SearchSpaceToChoice(search_space=ss, experiment_data=self.experiment_data)
 
         # Test for error with robust search space.
         rss = get_robust_search_space()
         with self.assertRaisesRegex(
             UnsupportedError, "not supported for RobustSearchSpace"
         ):
-            SearchSpaceToChoice(
-                search_space=rss,
-                observations=self.observations,
-            )
+            SearchSpaceToChoice(search_space=rss, experiment_data=self.experiment_data)
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()

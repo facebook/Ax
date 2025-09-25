@@ -95,7 +95,7 @@ class IVWTransformTest(TestCase):
             covariance=np.array([[0.5, 0.14], [0.14, 1.584]]),
         )
         observation_data = [obsd1_0, obsd1_1]
-        t = IVW(None, [])
+        t = IVW(search_space=None)
         observation_data2 = t._transform_observation_data(observation_data)
         observation_data2_true = [obsd2_0, obsd2_1]
         for i, obsd in enumerate(observation_data2_true):
