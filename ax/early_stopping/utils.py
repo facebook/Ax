@@ -6,8 +6,8 @@
 
 # pyre-strict
 
-from collections import defaultdict
 from logging import Logger
+from typing import Literal
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -97,45 +97,37 @@ def align_partial_results(
     df = df.drop_duplicates(
         subset=["trial_index", "metric_signature", MAP_KEY], keep="first"
     )
-    # set multi-index over trial, metric, and progression key
-    df = df.set_index(["trial_index", "metric_signature", MAP_KEY])
-    # sort index
-    df = df.sort_index()
-    # drop sem if all NaN (assumes presence of sem column)
     has_sem = not df["sem"].isnull().all()
-    if not has_sem:
-        df = df.drop("sem", axis=1)
-    # create the common index that every map result will be re-indexed w.r.t.
-    index_union = df.index.levels[2].unique()
-    # loop through (trial, metric) combos and align data
-    dfs_mean = defaultdict(list)
-    dfs_sem = defaultdict(list)
-    for tidx in df.index.levels[0]:  # this could be slow if there are many trials
-        for metric in df.index.levels[1]:
-            # grab trial+metric sub-df and reindex to common index
-            df_ridx = df.loc[(tidx, metric)].reindex(index_union)
-            # interpolate / fill missing results
-            # TODO: Allow passing of additional kwargs to `interpolate`
-            # TODO: Allow using an arbitrary prediction model for this instead
-            try:
-                df_interp = df_ridx.interpolate(
-                    method=interpolation, limit_area="inside"
-                )
-                if do_forward_fill:
-                    # do forward fill (with valid observations) to handle instances
-                    # where one task only has data for early progressions
-                    df_interp = df_interp.fillna(method="pad")
-            except ValueError:
-                df_interp = df_ridx
+    # wide dataframe with hierarchical columns aligned to common index
+    # (outer join of map keys across "trial_index", "metric_signature")
+    wide_df: pd.DataFrame = df.pivot(
+        index=MAP_KEY,
+        columns=["metric_signature", "trial_index"],
+        values=["mean", *(["sem"] if has_sem else [])],
+    )
+    # interpolation is only possible for columns with at least 2 entries,
+    # will raise `ValueError` otherwise
+    active = wide_df.notna().sum(axis=0) > 1
+    active_cols = wide_df.columns[active]
+    # interpolate / fill missing results
+    wide_df[active_cols] = wide_df[active_cols].interpolate(
+        method=interpolation, limit_area="inside", axis=0
+    )
+    if do_forward_fill:
+        # do forward fill (with valid observations) to handle instances
+        # where one task only has data for early progressions
+        wide_df[active_cols] = wide_df[active_cols].fillna(method="pad", axis=0)
 
-            # renaming column to trial index, append results
-            dfs_mean[metric].append(df_interp["mean"].rename(tidx))
-            if has_sem:
-                dfs_sem[metric].append(df_interp["sem"].rename(tidx))
+    def _to_dict(key: Literal["mean", "sem"]) -> dict[str, pd.DataFrame]:
+        """Helper function to convert wide dataframe to dict of dataframes."""
+        return {
+            m: wide_df[key][m]
+            for m in wide_df[key].columns.unique(level="metric_signature")
+        }
 
     # combine results into output dataframes
-    dfs_mean = {metric: pd.concat(dfs, axis=1) for metric, dfs in dfs_mean.items()}
-    dfs_sem = {metric: pd.concat(dfs, axis=1) for metric, dfs in dfs_sem.items()}
+    dfs_mean = _to_dict("mean")
+    dfs_sem = _to_dict("sem") if has_sem else {}
 
     return dfs_mean, dfs_sem
 
