@@ -38,7 +38,7 @@ acqf_name_abbreviations: dict[str, str] = {
 
 def get_sobol_mbm_generation_strategy(
     model_cls: type[Model],
-    acquisition_cls: type[AcquisitionFunction],
+    acquisition_cls: type[AcquisitionFunction] | None = None,
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: dict[str, Any] | None = None,
@@ -66,22 +66,28 @@ def get_sobol_mbm_generation_strategy(
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
         ... )
     """
-    model_kwargs: dict[str, type[AcquisitionFunction] | SurrogateSpec | bool] = {
-        "botorch_acqf_class": acquisition_cls,
+    model_kwargs: dict[str, Any] = {
         "surrogate_spec": SurrogateSpec(
             model_configs=[ModelConfig(botorch_model_class=model_cls)]
         ),
     }
+    if acquisition_cls is not None:
+        model_kwargs["botorch_acqf_class"] = acquisition_cls
+        acqf_name = acqf_name_abbreviations.get(
+            acquisition_cls.__name__, acquisition_cls.__name__
+        )
+    else:
+        acqf_name = ""
 
     model_name = model_names_abbrevations.get(model_cls.__name__, model_cls.__name__)
-    acqf_name = acqf_name_abbreviations.get(
-        acquisition_cls.__name__, acquisition_cls.__name__
-    )
     # Historically all benchmarks were sequential, so sequential benchmarks
     # don't get anything added to their name, for continuity
     batch_suffix = f"_q{batch_size}" if batch_size > 1 else ""
 
-    name = name or f"MBM::{model_name}_{acqf_name}{batch_suffix}"
+    name = (
+        name
+        or f"MBM::{model_name}{('_' + acqf_name) if acqf_name else ''}{batch_suffix}"
+    )
 
     generation_strategy = GenerationStrategy(
         name=name,
@@ -104,7 +110,7 @@ def get_sobol_mbm_generation_strategy(
 
 def get_sobol_botorch_modular_acquisition(
     model_cls: type[Model],
-    acquisition_cls: type[AcquisitionFunction],
+    acquisition_cls: type[AcquisitionFunction] | None = None,
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: dict[str, Any] | None = None,
