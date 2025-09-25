@@ -18,6 +18,10 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
 
+class SomeTransform(Transform):
+    pass
+
+
 class TransformsTest(TestCase):
     def test_IdentityTransform(self) -> None:
         # Test that the identity transform does not mutate anything
@@ -63,12 +67,19 @@ class TransformsTest(TestCase):
         experiment_data = extract_experiment_data(
             experiment=experiment, data_loader_config=DataLoaderConfig()
         )
-        t = Transform(experiment_data=experiment_data)
+        t = SomeTransform(experiment_data=experiment_data)
         # Errors out since no_op_for_experiment_data defaults to False.
         with self.assertRaisesRegex(NotImplementedError, "transform_experiment_data"):
             t.transform_experiment_data(experiment_data=experiment_data)
         # No-op when no_op_for_experiment_data is True.
         t.no_op_for_experiment_data = True
+        self.assertIs(
+            t.transform_experiment_data(experiment_data=experiment_data),
+            experiment_data,
+        )
+        # Base transform itself doesn't error out.
+        t = Transform(experiment_data=experiment_data)
+        self.assertFalse(t.no_op_for_experiment_data)
         self.assertIs(
             t.transform_experiment_data(experiment_data=experiment_data),
             experiment_data,

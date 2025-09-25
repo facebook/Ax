@@ -301,7 +301,7 @@ class Transform:
 
         Returns: The transformed experiment data.
         """
-        if self.no_op_for_experiment_data:
+        if self.no_op_for_experiment_data or self.__class__ == Transform:
             return experiment_data
         else:
             raise NotImplementedError(
