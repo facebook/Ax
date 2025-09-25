@@ -57,6 +57,7 @@ please add it to DEPRECATED_TRANSFORMS. When loading from the DB,
 we will return the replacement class.
 """
 TRANSFORM_REGISTRY: set[type[Transform]] = {
+    Transform,
     # ConvertMetricNames, DEPRECATED
     Derelativize,
     FixedToTunable,
