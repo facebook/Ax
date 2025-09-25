@@ -18,6 +18,7 @@ import numpy as np
 import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import Generators
+from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.one_hot import OneHot
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
@@ -338,6 +339,7 @@ TEST_CASES = [
     ("Type[Model]", get_model_type),
     ("Type[MarginalLogLikelihood]", get_mll_type),
     ("Type[Transform]", get_transform_type),
+    ("Type[Transform]", lambda: Transform),
     ("Type[InputTransform]", get_input_transform_type),
     ("Type[OutcomeTransform]", get_outcome_transfrom_type),
     ("Type[TransformToNewSQ]", get_to_new_sq_transform_type),
