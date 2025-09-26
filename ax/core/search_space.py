@@ -110,11 +110,19 @@ class SearchSpace(Base):
         }
 
     @property
-    def tunable_parameters(self) -> dict[str, Parameter]:
+    def tunable_parameters(self) -> dict[str, ChoiceParameter | RangeParameter]:
         return {
             name: parameter
             for name, parameter in self.parameters.items()
-            if not isinstance(parameter, FixedParameter)
+            if isinstance(parameter, (ChoiceParameter, RangeParameter))
+        }
+
+    @property
+    def nontunable_parameters(self) -> dict[str, DerivedParameter | FixedParameter]:
+        return {
+            name: parameter
+            for name, parameter in self.parameters.items()
+            if isinstance(parameter, (DerivedParameter, FixedParameter))
         }
 
     def __getitem__(self, parameter_name: str) -> Parameter:
