@@ -128,7 +128,7 @@ class RemoveFixedTransformTest(TestCase):
         self.t_hss = RemoveFixed(search_space=self.hierarchical_search_space)
 
     def test_Init(self) -> None:
-        self.assertEqual(list(self.t.fixed_or_derived_parameters.keys()), ["c", "d"])
+        self.assertEqual(list(self.t.nontunable_parameters), ["c", "d"])
 
     def test_TransformObservationFeatures(self) -> None:
         observation_features = [

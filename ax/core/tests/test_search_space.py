@@ -146,8 +146,18 @@ class SearchSpaceTest(TestCase):
     def test_Properties(self) -> None:
         self.assertEqual(len(self.ss1.parameters), TOTAL_PARAMS)
         self.assertTrue("a" in self.ss1.parameters)
+
+        # Check tunable parameters
         self.assertTrue(len(self.ss1.tunable_parameters), TUNABLE_PARAMS)
         self.assertFalse("d" in self.ss1.tunable_parameters)
+        self.assertFalse("h" in self.ss1.tunable_parameters)
+
+        # Each parameter is either tunable or nontunable.
+        self.assertEqual(
+            set(self.ss1.parameters),
+            set(self.ss1.nontunable_parameters).union(self.ss1.tunable_parameters),
+        )
+
         self.assertTrue(len(self.ss1.range_parameters), RANGE_PARAMS)
         self.assertFalse("c" in self.ss1.range_parameters)
         self.assertTrue(len(self.ss1.parameter_constraints) == 0)

@@ -16,7 +16,7 @@ from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
     FixedParameter,
-    RangeParameter,
+    Parameter,
 )
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.generators.types import TConfig
@@ -70,8 +70,9 @@ def find_adoptable_descendants(
 class RemoveFixed(Transform):
     """Remove fixed and derived parameters.
 
-    Fixed and derived parameters should not be included in the SearchSpace.
-    This transform removes these parameters, leaving only tunable parameters.
+    Fixed and derived parameters (i.e., nontunable parameters) should not be included
+    in the search space. This transform removes these parameters, leaving only tunable
+    parameters.
 
     Transform is done in-place for observation features.
     """
@@ -90,34 +91,23 @@ class RemoveFixed(Transform):
             adapter=adapter,
             config=config,
         )
-        # Identify parameters that should be transformed
-        self.fixed_or_derived_parameters: dict[
-            str, FixedParameter | DerivedParameter
-        ] = {
-            p_name: p
-            for p_name, p in search_space.parameters.items()
-            if isinstance(p, (DerivedParameter, FixedParameter))
+
+        self.nontunable_parameters: dict[str, DerivedParameter | FixedParameter] = {
+            name: p.clone() for name, p in search_space.nontunable_parameters.items()
         }
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.fixed_or_derived_parameters:
+            for p_name in self.nontunable_parameters:
                 obsf.parameters.pop(p_name, None)
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        tunable_parameters: list[ChoiceParameter | RangeParameter] = []
-        for p in search_space.parameters.values():
-            if p.name not in self.fixed_or_derived_parameters:
-                # If it's not in fixed_or_derived_parameters, it must be a
-                # tunable param.
-                # pyre: p_ is declared to have type `Union[ChoiceParameter,
-                # pyre: RangeParameter]` but is used as type `ax.core.
-                # pyre-fixme[9]: parameter.Parameter`.
-                p_: ChoiceParameter | RangeParameter = p
-                tunable_parameters.append(p_)
+        tunable_parameters: list[Parameter] = list(
+            search_space.tunable_parameters.values()
+        )
 
         # Also need to update `dependents` if the search space is hierarchical.
         if isinstance(search_space, HierarchicalSearchSpace):
@@ -181,7 +171,7 @@ class RemoveFixed(Transform):
             # where at least one of them is not a fixed or derived parameter.
             # This would be empty when status quo param values are not specified
             if obsf.parameters:
-                for p_name, p in self.fixed_or_derived_parameters.items():
+                for p_name, p in self.nontunable_parameters.items():
                     if isinstance(p, DerivedParameter):
                         obsf.parameters[p_name] = p.compute(parameters=obsf.parameters)
                     else:
@@ -193,7 +183,7 @@ class RemoveFixed(Transform):
     ) -> ExperimentData:
         return ExperimentData(
             arm_data=experiment_data.arm_data.drop(
-                columns=list(self.fixed_or_derived_parameters)
+                columns=list(self.nontunable_parameters)
             ),
             observation_data=experiment_data.observation_data,
         )
