@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+
 from ax.utils.common.string_utils import sanitize_name
 from ax.utils.common.testutils import TestCase
 
@@ -13,7 +14,8 @@ class StringUtilsTest(TestCase):
     def test_sanitize_name(self) -> None:
         self.assertEqual(sanitize_name("foo.bar.baz"), "foo__dot__bar__dot__baz")
         self.assertEqual(
-            sanitize_name("foo.bar/11:Baz"), "foo__dot__bar__slash__11__colon__Baz"
+            sanitize_name("foo.bar/11:Baz|qux"),
+            "foo__dot__bar__slash__11__colon__Baz__pipe__qux",
         )
         self.assertEqual(
             sanitize_name("foo.bar + 0.1 * baz"), "foo__dot__bar + 0.1 * baz"
