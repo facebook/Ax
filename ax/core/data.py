@@ -27,6 +27,7 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
+from ax.utils.stats.math_utils import relativize as relativize_func
 from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
@@ -391,6 +392,98 @@ class Data(Base, SerializationMixin):
                 in the underlying dataframe.
         """
         return cls.from_multiple(data=data)
+
+    def relativize(
+        self,
+        status_quo_name: str = "status_quo",
+        as_percent: bool = False,
+        include_sq: bool = False,
+        bias_correction: bool = True,
+        control_as_constant: bool = False,
+    ) -> "Data":
+        """Relativize this data object w.r.t. a status_quo arm.
+
+        Args:
+            status_quo_name: The name of the status_quo arm.
+            as_percent: If True, return results as percentage change.
+            include_sq: Include status quo in final df.
+            bias_correction: Whether to apply bias correction when computing relativized
+                metric values. Uses a second-order Taylor expansion for approximating
+                the means and standard errors or the ratios, see
+                ax.utils.stats.statstools.relativize for more details.
+            control_as_constant: If true, control is treated as a constant.
+                bias_correction is ignored when this is true.
+
+        Returns:
+            The new data object with the relativized metrics (excluding the
+                status_quo arm)
+
+        """
+
+        df = self.df.copy()
+        grp_cols = list(
+            {"trial_index", "metric_name", "random_split"}.intersection(
+                df.columns.values
+            )
+        )
+
+        grouped_df = df.groupby(grp_cols)
+        dfs = []
+        for grp in grouped_df.groups.keys():
+            subgroup_df = grouped_df.get_group(grp)
+            is_sq = subgroup_df["arm_name"] == status_quo_name
+
+            # Check if status quo exists in this subgroup
+            sq_data = (
+                subgroup_df[is_sq][["mean", "sem"]].drop_duplicates().values.flatten()
+            )
+            if len(sq_data) == 0:
+                # No status quo in this subgroup, skip relativization
+                continue
+            elif len(sq_data) != 2:
+                raise ValueError(
+                    f"Expected exactly 2 values (mean, sem) for status quo, "
+                    f"got {len(sq_data)}"
+                )
+
+            sq_mean, sq_sem = sq_data
+
+            # rm status quo from final df to relativize
+            if not include_sq:
+                subgroup_df = subgroup_df[~is_sq]
+            means_rel, sems_rel = relativize_func(
+                means_t=subgroup_df["mean"].values,
+                sems_t=subgroup_df["sem"].values,
+                mean_c=sq_mean,
+                sem_c=sq_sem,
+                as_percent=as_percent,
+                bias_correction=bias_correction,
+                control_as_constant=control_as_constant,
+            )
+            dfs.append(
+                pd.concat(
+                    [
+                        subgroup_df.drop(["mean", "sem"], axis=1),
+                        pd.DataFrame(
+                            np.array([means_rel, sems_rel]).T,
+                            columns=["mean", "sem"],
+                            index=subgroup_df.index,
+                        ),
+                    ],
+                    axis=1,
+                )
+            )
+        if not dfs:
+            raise ValueError(
+                f"Relativization not possible: status quo arm '{status_quo_name}' "
+                f"not found or dataset contains no data."
+            )
+        df_rel = pd.concat(dfs, axis=0)
+        if include_sq:
+            # Set status quo to exactly 0 mean and 0 SEM to avoid negative zero display
+            df_rel.loc[df_rel["arm_name"] == status_quo_name, "mean"] = 0.0
+            df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0
+        return Data(df_rel)
 
     def clone(self) -> Data:
         """Returns a new Data object with the same underlying dataframe."""

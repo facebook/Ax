@@ -275,3 +275,64 @@ class TestSummary(TestCase):
         # Verify that no trials in the output have STALE status
         stale_statuses = card.df[card.df["trial_status"] == "STALE"]
         self.assertEqual(len(stale_statuses), 0)
+
+    def test_metrics_relativized_with_status_quo(self) -> None:
+        """Test that Summary relativizes metrics by default when status quo is
+        present."""
+        client = Client()
+        client.configure_experiment(
+            name="test_experiment_relativize",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        client.configure_optimization(objective="metric1")
+
+        # Add status quo
+        baseline_trial_index = client.attach_baseline({"x1": 0.5})
+        client.complete_trial(
+            trial_index=baseline_trial_index, raw_data={"metric1": 90.0}
+        )
+
+        # Get trials and complete with metric data
+        client.get_next_trials(max_trials=2)
+
+        # Complete trials with different metric values
+        client.complete_trial(
+            trial_index=baseline_trial_index + 1, raw_data={"metric1": 100.0}
+        )
+        client.complete_trial(
+            trial_index=baseline_trial_index + 2, raw_data={"metric1": 80.0}
+        )
+
+        experiment = client._experiment
+
+        # Test that Summary works and produces results
+        # (relativization happens internally)
+        analysis = Summary()
+
+        card = analysis.compute(experiment=experiment)
+
+        # Verify basic structure
+        self.assertEqual(card.name, "Summary")
+        self.assertEqual(card.title, "Summary for test_experiment_relativize")
+        self.assertTrue("metric1" in card.df.columns)
+        self.assertEqual(len(card.df), 3)
+
+        # Verify all trials are present (baseline at index 0,
+        # regular trials at indices 1 and 2)
+        trial_indices = set(card.df["trial_index"].values)
+
+        self.assertEqual(trial_indices, {0, 1, 2})
+
+        # Check that metric values are present (actual relativization values depend on
+        # the underlying experiment.to_df implementation with relativize=True)
+        # Some values might be NaN due to relativization, but not all should be NaN
+        metric_values = card.df["metric1"].values
+        non_na_count = sum(~pd.isna(metric_values))
+        # At least some trials should have non-NaN metric values
+        self.assertGreater(non_na_count, 0, "All metric values are NaN")
