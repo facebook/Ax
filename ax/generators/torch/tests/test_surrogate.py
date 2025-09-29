@@ -12,8 +12,8 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from itertools import product
-from math import log
 from typing import Any
+
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -24,6 +24,7 @@ from ax.exceptions.model import ModelError
 from ax.generators.model_utils import best_in_sample_point
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.kernels import (
+    default_loc_and_scale_for_lognormal_lengthscale_prior,
     DefaultRBFKernel,
     ScaleMaternKernel,
 )
@@ -64,7 +65,6 @@ from botorch.models.transforms.input import (
     Normalize,
 )
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
-from botorch.models.utils.gpytorch_modules import SQRT2, SQRT3
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.evaluation import compute_in_sample_model_fit_metric
 from botorch.utils.sampling import draw_sobol_samples
@@ -1807,7 +1807,6 @@ class SurrogateTest(TestCase):
         for i, model in enumerate(models):
             # Recorded model matches used model
             mc_name = models_used[i]["metric"]
-            print(mc_name)
             self.assertTrue(mc_name in name_to_covar)
             self.assertEqual(type(model.covar_module), name_to_covar[mc_name])
         # All equal values
@@ -1871,6 +1870,34 @@ class SurrogateTest(TestCase):
         self.assertTrue(isinstance(models[1], Mock))
 
     def test_with_parameter_specific_priors(self) -> None:
+        ard_num_dims = 3
+        expected_loc, expected_scale = (
+            default_loc_and_scale_for_lognormal_lengthscale_prior(
+                ard_num_dims=ard_num_dims
+            )
+        )
+        self._test_with_parameter_specific_priors(
+            expected_loc=expected_loc, expected_scale=expected_scale
+        )
+
+        # test that the default prior parameters in the input_constructors.covar_modules
+        # file are linked te the definition in the botorch_modular.kernels file
+        expected_loc, expected_scale = np.random.rand(2) + 1
+        with patch(
+            "ax.generators.torch.botorch_modular.input_constructors.covar_modules."
+            "default_loc_and_scale_for_lognormal_lengthscale_prior"
+        ) as mock_default_func:
+            # Mock the function to return different values
+            mock_default_func.return_value = (expected_loc, expected_scale)
+            self._test_with_parameter_specific_priors(
+                expected_loc=expected_loc, expected_scale=expected_scale
+            )
+
+    def _test_with_parameter_specific_priors(
+        self,
+        expected_loc: float | None = None,
+        expected_scale: float | None = None,
+    ) -> None:
         model_config = ModelConfig(
             botorch_model_class=SingleTaskGP,
             covar_module_class=DefaultRBFKernel,
@@ -1891,8 +1918,8 @@ class SurrogateTest(TestCase):
             surrogate.model.covar_module, DefaultRBFKernel
         )
         prior = assert_is_instance(covar_module.lengthscale_prior, LogNormalPrior)
-        self.assertAllClose(prior.loc, torch.tensor([1.0, 3.0, SQRT2 + log(3) * 0.5]))
-        self.assertAllClose(prior.scale, torch.tensor([2.0, 4.0, SQRT3]))
+        self.assertAllClose(prior.loc, torch.tensor([1.0, 3.0, expected_loc]))
+        self.assertAllClose(prior.scale, torch.tensor([2.0, 4.0, expected_scale]))
 
 
 class SurrogateWithModelListTest(TestCase):
