@@ -13,10 +13,10 @@ from copy import deepcopy
 from enum import Enum
 from logging import Logger
 from math import inf
-from typing import cast, Union
+from typing import Any, cast, Union
 from warnings import warn
 
-from ax.core.types import TNumeric, TParameterization, TParamValue, TParamValueList
+from ax.core.types import TNumeric, TParameterization, TParamValue
 from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
@@ -98,6 +98,8 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     _name: str
     _target_value: TParamValue = None
     _parameter_type: ParameterType
+    _backfill_value: TParamValue = None
+    _default_value: TParamValue = None
 
     def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
@@ -153,6 +155,18 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     @property
     def target_value(self) -> TParamValue:
         return self._target_value
+
+    @property
+    def backfill_value(self) -> TParamValue:
+        return self._backfill_value
+
+    @property
+    def default_value(self) -> TParamValue:
+        return self._default_value
+
+    @property
+    def is_disabled(self) -> bool:
+        return self.default_value is not None
 
     @property
     def parameter_type(self) -> ParameterType:
@@ -214,9 +228,9 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     @property
     def summary_dict(
         self,
-    ) -> dict[str, TParamValueList | TParamValue | str | list[str]]:
+    ) -> dict[str, Any]:
         # Assemble dict.
-        summary_dict = {
+        summary_dict: dict[str, Any] = {
             "name": self.name,
             "type": self.__class__.__name__.removesuffix("Parameter"),
             "domain": self.domain_repr,
@@ -239,17 +253,14 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         if flags:
             summary_dict["flags"] = ", ".join(flags)
         if getattr(self, "is_fidelity", False) or getattr(self, "is_task", False):
-            # pyre-fixme[6]: For 2nd argument expected `str` but got `Union[None,
-            #  bool, float, int, str]`.
             summary_dict["target_value"] = self.target_value
         if getattr(self, "is_hierarchical", False):
-            # pyre-fixme[6]: For 2nd argument expected `str` but got
-            #  `Dict[Union[None, bool, float, int, str], List[str]]`.
             summary_dict["dependents"] = self.dependents
+        if getattr(self, "backfill_value", None) is not None:
+            summary_dict["backfill_value"] = self.backfill_value
+        if getattr(self, "default_value", None) is not None:
+            summary_dict["default_value"] = self.default_value
 
-        # pyre-fixme[7]: Expected `Dict[str, Union[None, List[Union[None, bool,
-        #  float, int, str]], List[str], bool, float, int, str]]` but got `Dict[str,
-        #  str]`.
         return summary_dict
 
 
@@ -267,6 +278,8 @@ class RangeParameter(Parameter):
         digits: int | None = None,
         is_fidelity: bool = False,
         target_value: TParamValue = None,
+        backfill_value: TParamValue = None,
+        default_value: TParamValue = None,
     ) -> None:
         """Initialize RangeParameter
 
@@ -283,6 +296,11 @@ class RangeParameter(Parameter):
             digits: Number of digits to round values to for float type.
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
+            backfill_value: For parameters added to experiments that have already run
+                trials.
+                Used to backfill trials missing the parameter.
+            default_value: For parameters disabled in experiments that have already
+                run trials. Used as default value in modeling for future trials.
         """
         if is_fidelity and (target_value is None):
             raise UserInputError(
@@ -302,6 +320,12 @@ class RangeParameter(Parameter):
         self._is_fidelity = is_fidelity
         self._target_value: TNumeric | None = (
             self.cast(target_value) if target_value is not None else None
+        )
+        self._backfill_value: TNumeric | None = (
+            self.cast(backfill_value) if backfill_value is not None else None
+        )
+        self._default_value: TNumeric | None = (
+            self.cast(default_value) if default_value is not None else None
         )
 
         self._validate_range_param(
@@ -541,6 +565,8 @@ class RangeParameter(Parameter):
             digits=self._digits,
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
+            backfill_value=self._backfill_value,
+            default_value=self._default_value,
         )
 
     def cast(self, value: TParamValue) -> TNumeric:
@@ -591,6 +617,10 @@ class ChoiceParameter(Parameter):
         bypass_cardinality_check: Whether to bypass the cardinality check
             that restricts the number of distinct values. This should only be
             set to True when constructing parameters within the modeling layer.
+        backfill_value: For parameters added to experiments that have already run.
+                Used to backfill trials missing the parameter.
+        default_value: For parameters disabled in experiments that have already
+                run. Used as default value in modeling for future trials.
     """
 
     def __init__(
@@ -605,6 +635,8 @@ class ChoiceParameter(Parameter):
         sort_values: bool | None = None,
         dependents: dict[TParamValue, list[str]] | None = None,
         bypass_cardinality_check: bool = False,
+        backfill_value: TParamValue = None,
+        default_value: TParamValue = None,
     ) -> None:
         if (is_fidelity or is_task) and (target_value is None):
             ptype = "fidelity" if is_fidelity else "task"
@@ -619,6 +651,12 @@ class ChoiceParameter(Parameter):
         self._is_fidelity = is_fidelity
         self._target_value: TParamValue = (
             self.cast(target_value) if target_value is not None else None
+        )
+        self._backfill_value: TParamValue = (
+            self.cast(backfill_value) if backfill_value is not None else None
+        )
+        self._default_value: TParamValue = (
+            self.cast(default_value) if default_value is not None else None
         )
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
@@ -799,6 +837,8 @@ class ChoiceParameter(Parameter):
             sort_values=self._sort_values,
             dependents=deepcopy(self._dependents),
             bypass_cardinality_check=self._bypass_cardinality_check,
+            backfill_value=self._backfill_value,
+            default_value=self._default_value,
         )
 
     def __repr__(self) -> str:
@@ -836,6 +876,8 @@ class FixedParameter(Parameter):
         is_fidelity: bool = False,
         target_value: TParamValue = None,
         dependents: dict[TParamValue, list[str]] | None = None,
+        backfill_value: TParamValue = None,
+        default_value: TParamValue = None,
     ) -> None:
         """Initialize FixedParameter
 
@@ -848,6 +890,10 @@ class FixedParameter(Parameter):
             target_value: Target value of this parameter if it is a fidelity.
             dependents: Optional mapping for parameters in hierarchical search
                 spaces; format is { value -> list of dependent parameter names }.
+            backfill_value: For parameters added to experiments that have already run.
+                Used to backfill trials missing the parameter.
+            default_value: For parameters disabled in experiments that have already
+                run. Used as default value in modeling for future trials.
         """
         if is_fidelity and (target_value is None):
             raise UserInputError(
@@ -861,6 +907,12 @@ class FixedParameter(Parameter):
         self._is_fidelity = is_fidelity
         self._target_value: TParamValue = (
             self.cast(target_value) if target_value is not None else None
+        )
+        self._backfill_value: TParamValue = (
+            self.cast(backfill_value) if backfill_value is not None else None
+        )
+        self._default_value: TParamValue = (
+            self.cast(default_value) if default_value is not None else None
         )
         # NOTE: We don't need to check that dependent parameters actually exist as
         # that is done in `HierarchicalSearchSpace` constructor.
@@ -923,6 +975,8 @@ class FixedParameter(Parameter):
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
             dependents=self._dependents,
+            backfill_value=self._backfill_value,
+            default_value=self._default_value,
         )
 
     def __repr__(self) -> str:
