@@ -278,6 +278,8 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+                backfill_value=parameter.backfill_value,
+                default_value=parameter.default_value,
             )
         elif isinstance(parameter, ChoiceParameter):
             if parameter._bypass_cardinality_check:
@@ -298,6 +300,8 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+                backfill_value=parameter.backfill_value,
+                default_value=parameter.default_value,
             )
         elif isinstance(parameter, FixedParameter):
             # pyre-fixme[29]: `SQAParameter` is not a function.
@@ -310,6 +314,8 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+                backfill_value=parameter.backfill_value,
+                default_value=parameter.default_value,
             )
         elif isinstance(parameter, DerivedParameter):
             # pyre-fixme[29]: `SQAParameter` is not a function.
@@ -431,6 +437,8 @@ class Encoder:
                 digits=parameter.digits,
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
+                backfill_value=parameter.backfill_value,
+                default_value=parameter.default_value,
             )
         else:
             raise SQAEncodeError(
