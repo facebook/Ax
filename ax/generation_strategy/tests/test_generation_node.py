@@ -349,6 +349,29 @@ class TestGenerationNode(TestCase):
             ObservationFeatures(parameters={"x": 0}),
         )
 
+    def test_disabled_parameters(self) -> None:
+        input_constructors = self.sobol_generation_node.apply_input_constructors(
+            experiment=self.branin_experiment, gen_kwargs={}
+        )
+        self.assertIsNone(input_constructors["fixed_features"])
+        # Disable parameter
+        self.branin_experiment.disable_parameters_in_search_space({"x1": 1.2345})
+        input_constructors = self.sobol_generation_node.apply_input_constructors(
+            experiment=self.branin_experiment, gen_kwargs={}
+        )
+        expected_fixed_features = ObservationFeatures(parameters={"x1": 1.2345})
+        self.assertEqual(input_constructors["fixed_features"], expected_fixed_features)
+        # Test fixed features override
+        input_constructors = self.sobol_generation_node.apply_input_constructors(
+            experiment=self.branin_experiment,
+            gen_kwargs={
+                "fixed_features": ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0})
+            },
+        )
+        # The passed fixed feature overrides the disabled parameter default value
+        expected_fixed_features = ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0})
+        self.assertEqual(input_constructors["fixed_features"], expected_fixed_features)
+
 
 class TestGenerationStep(TestCase):
     def setUp(self) -> None:
