@@ -949,25 +949,42 @@ class GenerationNode(SerializationMixin, SortableBase):
             An object of ObservationFeatures that represents the fixed features to
             pass into the model.
         """
+        node_fixed_features = None
         # passed_fixed_features represents the fixed features that were passed by the
         # user to the gen method as overrides.
         passed_fixed_features = gen_kwargs.get("fixed_features")
         if passed_fixed_features is not None:
-            return passed_fixed_features
-
-        node_fixed_features = None
-        input_constructors_module = gs_module.generation_node_input_constructors
-        purpose_fixed_features = (
-            input_constructors_module.InputConstructorPurpose.FIXED_FEATURES
-        )
-        if purpose_fixed_features in self.input_constructors:
-            node_fixed_features = self.input_constructors[purpose_fixed_features](
-                previous_node=self.previous_node,
-                next_node=self,
-                gs_gen_call_kwargs=gen_kwargs,
-                experiment=experiment,
+            node_fixed_features = passed_fixed_features
+        else:
+            input_constructors_module = gs_module.generation_node_input_constructors
+            purpose_fixed_features = (
+                input_constructors_module.InputConstructorPurpose.FIXED_FEATURES
             )
-        return node_fixed_features
+            if purpose_fixed_features in self.input_constructors:
+                node_fixed_features = self.input_constructors[purpose_fixed_features](
+                    previous_node=self.previous_node,
+                    next_node=self,
+                    gs_gen_call_kwargs=gen_kwargs,
+                    experiment=experiment,
+                )
+        # also pass default parameter values as fixed features for disabled parameters
+        disabled_parameters_parameterization = {
+            name: parameter.default_value
+            for name, parameter in experiment.search_space.parameters.items()
+            if parameter.is_disabled
+        }
+        if len(disabled_parameters_parameterization) == 0:
+            return node_fixed_features
+
+        if node_fixed_features is None:
+            return ObservationFeatures(parameters=disabled_parameters_parameterization)
+
+        return node_fixed_features.clone(
+            replace_parameters={
+                **disabled_parameters_parameterization,
+                **node_fixed_features.parameters,
+            }
+        )
 
 
 class GenerationStep(GenerationNode, SortableBase):

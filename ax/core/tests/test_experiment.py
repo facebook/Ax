@@ -40,6 +40,7 @@ from ax.exceptions.core import (
     OptimizationNotConfiguredError,
     RunnerNotFoundError,
     UnsupportedError,
+    UserInputError,
 )
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
@@ -357,6 +358,111 @@ class ExperimentTest(TestCase):
         extra_param_ss.add_parameter(FixedParameter("l", ParameterType.FLOAT, 0.5))
         with self.assertRaises(ValueError):
             self.experiment.search_space = extra_param_ss
+
+    def test_AddSearchSpaceParameters(self) -> None:
+        new_param = RangeParameter(
+            name="new_param",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+        )
+
+        with self.subTest("Add parameter to experiment with no trials"):
+            experiment = self.experiment.clone_with(trial_indices=[])
+            experiment.add_parameters_to_search_space(
+                parameters=[new_param],
+                status_quo_values={new_param.name: 0.0},
+            )
+            # Verify parameter was added
+            self.assertIn("new_param", experiment.search_space.parameters)
+            self.assertEqual(experiment.search_space.parameters["new_param"], new_param)
+            # Verify backfill value was used as status quo
+            self.assertIsNotNone(experiment.status_quo)
+            self.assertIn("new_param", experiment.status_quo.parameters)
+            self.assertEqual(experiment.status_quo.parameters["new_param"], 0.0)
+
+        with self.subTest("Add parameter with status quo value"):
+            experiment = self.experiment.clone_with(trial_indices=[])
+            experiment.add_parameters_to_search_space(
+                parameters=[new_param], status_quo_values={"new_param": 1.0}
+            )
+            # Verify parameter was added
+            self.assertIn("new_param", experiment.search_space.parameters)
+            self.assertEqual(experiment.search_space.parameters["new_param"], new_param)
+            # Verify backfill value was used as status quo
+            self.assertIsNotNone(experiment.status_quo)
+            self.assertIn("new_param", experiment.status_quo.parameters)
+            self.assertEqual(experiment.status_quo.parameters["new_param"], 1.0)
+
+        with self.subTest("Test error when adding parameter that already exists"):
+            experiment = self.experiment.clone_with(trial_indices=[])
+            existing_param = self.experiment.search_space.parameters["w"]
+            with self.assertRaises(UserInputError):
+                experiment.add_parameters_to_search_space(parameters=[existing_param])
+
+        with self.subTest(
+            "Test error when adding parameters to experiment with trials but no "
+            "backfill values"
+        ):
+            experiment = self.experiment.clone_with()
+            experiment.new_batch_trial()
+            with self.assertRaises(UserInputError):
+                experiment.add_parameters_to_search_space(parameters=[new_param])
+
+        with self.subTest(
+            "Test successfully adding parameters with backfill values when trials exist"
+        ):
+            experiment = self.experiment.clone_with()
+            experiment.new_batch_trial()
+            new_param._backfill_value = 0.5
+            experiment.add_parameters_to_search_space(
+                parameters=[new_param], status_quo_values={new_param.name: 0.0}
+            )
+            # Verify parameter was added
+            self.assertIn("new_param", experiment.search_space.parameters)
+            self.assertEqual(experiment.search_space.parameters["new_param"], new_param)
+            # Verify backfill value was used as status quo
+            self.assertIsNotNone(experiment.status_quo)
+            self.assertIn("new_param", experiment.status_quo.parameters)
+            self.assertEqual(experiment.status_quo.parameters["new_param"], 0.0)
+
+    def test_DisableSearchSpaceParameters(self) -> None:
+        with self.subTest(
+            "Test error when trying to disable parameter not in search space"
+        ):
+            experiment = self.experiment.clone_with()
+            with self.assertRaises(UserInputError):
+                experiment.disable_parameters_in_search_space({"nonexistent": 1.0})
+
+        with self.subTest("Test error when providing invalid default value"):
+            experiment = self.experiment.clone_with()
+            with self.assertRaises(UserInputError):
+                experiment.disable_parameters_in_search_space({"w": "string_value"})
+
+        with self.subTest("Test successfully disabling parameter"):
+            experiment = self.experiment.clone_with()
+            experiment.disable_parameters_in_search_space({"w": 2.5})
+            # Verify parameter was disabled (has default value)
+            self.assertEqual(experiment.search_space.parameters["w"].default_value, 2.5)
+
+        with self.subTest("Test re-enable parameter"):
+            # Using the same experiment as above
+            parameter = experiment.search_space.parameters["w"].clone()
+            parameter._default_value = None
+            experiment.add_parameters_to_search_space(parameters=[parameter])
+            # Verify parameter was re-enabled
+            self.assertIsNone(experiment.search_space.parameters["w"].default_value)
+
+    def test_OptimizationConfigSetter(self) -> None:
+        # Establish current metrics size
+        self.assertEqual(
+            len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
+        )
+
+        # Add optimization config with 1 different metric
+        opt_config = get_optimization_config()
+        opt_config.outcome_constraints[0].metric = Metric(name="m3")
+        self
 
     def test_StatusQuoSetter(self) -> None:
         sq_parameters = self.experiment.status_quo.parameters

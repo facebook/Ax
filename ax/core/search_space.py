@@ -162,6 +162,87 @@ class SearchSpace(Base):
 
         self._parameter_constraints: list[ParameterConstraint] = parameter_constraints
 
+    def add_parameters(
+        self,
+        parameters: Sequence[Parameter],
+    ) -> None:
+        """
+        Add new parameters to the experiment's search space. This allows extending
+        the search space after the experiment has run some trials.
+
+        Backfill values must be provided for all new parameters if the experiment has
+        already run some trials. The backfill values represent the parameter values
+        that were used in the existing trials.
+        """
+        # Disabled parameters should be updated
+        parameters_to_add = []
+        parameters_to_update = []
+
+        # Check which parameters to add to the search space and which to update
+        for parameter in parameters:
+            # Parameters already exist in search space
+            if parameter.name in self.parameters.keys():
+                existing_parameter = self.parameters[parameter.name]
+                # Only disabled parameters can be re-added
+                if not existing_parameter.is_disabled:
+                    raise UserInputError(
+                        f"Parameter `{parameter.name}` already exists in search space."
+                    )
+                if type(parameter) is not type(existing_parameter):
+                    raise UserInputError(
+                        f"Parameter `{parameter.name}` already exists in search "
+                        "space. Cannot change parameter type from "
+                        f"{type(existing_parameter)} to {type(parameter)}."
+                    )
+                parameters_to_update.append(parameter)
+
+            # Parameter does not exist in search space
+            else:
+                parameters_to_add.append(parameter)
+
+        # Add new parameters to search space and status quo
+        for parameter in parameters_to_add:
+            self.add_parameter(parameter)
+
+        # Update disabled parameters in search space
+        for parameter in parameters_to_update:
+            self.update_parameter(parameter)
+
+    def disable_parameters(self, default_parameter_values: TParameterization) -> None:
+        """
+        Disable parameters in the experiment. This allows narrowing the search space
+        after the experiment has run some trials.
+
+        When parameters are disabled, they are effectively removed from the search
+        space for future trial generation. Existing trials remain valid, and the
+        disabled parameters are replaced with fixed default values for all subsequent
+        trials.
+
+        Args:
+            default_parameter_values: Fixed values to use for the disabled parameters
+                in all future trials. These values will be used for the parameter in
+                all subsequent trials.
+        """
+        parameters_to_disable = set(default_parameter_values.keys())
+        search_space_parameters = set(self.parameters.keys())
+        parameters_not_in_search_space = parameters_to_disable - search_space_parameters
+
+        # Validate that all parameters to disable are in the search space
+        if len(parameters_not_in_search_space) > 0:
+            raise UserInputError(
+                f"Cannot disable parameters {parameters_not_in_search_space} "
+                "because they are not in the search space."
+            )
+
+        # Validate that all parameters to disable have a valid default
+        for parameter_to_disable, default_value in default_parameter_values.items():
+            parameter = self.parameters[parameter_to_disable]
+            parameter.validate(default_value, raises=True)
+
+        # Disable parameters
+        for parameter_to_disable, default_value in default_parameter_values.items():
+            self.parameters[parameter_to_disable].disable(default_value)
+
     def add_parameter(self, parameter: Parameter) -> None:
         if parameter.name in self.parameters.keys():
             raise ValueError(
@@ -458,6 +539,14 @@ class SearchSpace(Base):
                     "`intercept` argument in a derived parameter can be used "
                     "to add an fixed value to a derived parameter."
                 )
+
+    def backfill_values(self) -> TParameterization:
+        """Backfill values for parameters that have a backfill value."""
+        return {
+            name: parameter.backfill_value
+            for name, parameter in self.parameters.items()
+            if parameter.backfill_value is not None
+        }
 
     def __repr__(self) -> str:
         return (
