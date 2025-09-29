@@ -672,7 +672,7 @@ class Surrogate(Base):
             except UnsupportedError as e:
                 # If the block design conversion fails, use model-list.
                 logger.warning(
-                    "Conversion to block design failed. Using model-list instead."
+                    "Conversion to block design failed. Using model-list instead. "
                     f"Original error: {e}"
                 )
                 should_use_model_list = True

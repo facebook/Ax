@@ -149,10 +149,12 @@ def use_model_list(
 ) -> bool:
     model_configs = model_configs or []
     metric_to_model_configs = metric_to_model_configs or {}
+
     if len(datasets) == 1 and datasets[0].Y.shape[-1] == 1:
         # There is only one outcome, so we can use a single model.
         return False
-    elif (
+
+    if (
         len(model_configs) > 1
         or len(metric_to_model_configs) > 0
         or any(len(model_config) for model_config in metric_to_model_configs.values())
@@ -160,8 +162,13 @@ def use_model_list(
         # There are multiple outcomes and outcomes might be modeled with different
         # models
         return True
+
     if len({type(d) for d in datasets}) > 1:
         # Use a `ModelList` if there are multiple dataset classes.
+        return True
+
+    if 0 < len([d.Yvar for d in datasets if d.Yvar is not None]) < len(datasets):
+        # Use a `ModelList` if some datasets have Yvar and some do not.
         return True
 
     botorch_model_class_set = {mc.botorch_model_class for mc in model_configs}

@@ -32,7 +32,6 @@ from ax.generators.torch.botorch_modular.surrogate import (
     _construct_specified_input_transforms,
     _extract_model_kwargs,
     _make_botorch_input_transform,
-    logger,
     submodel_input_constructor,
     Surrogate,
     SurrogateSpec,
@@ -1182,15 +1181,7 @@ class SurrogateTest(TestCase):
                 outcome_names=["metric_noisy"],
             ),
         ]
-        # Should log a message about failure to convert to batched design
-        # and fit a model-list rather than batched model.
-        with self.assertLogs(logger=logger, level="WARNING") as logs:
-            surrogate.fit(
-                datasets=datasets, search_space_digest=self.search_space_digest
-            )
-        self.assertTrue(
-            any("Conversion to block design failed." in str(log) for log in logs)
-        )
+        surrogate.fit(datasets=datasets, search_space_digest=self.search_space_digest)
         m0, m1 = assert_is_instance(surrogate.model, ModelListGP).models
         # Model 0 should be noise free, model 1 should have known noise.
         self.assertIsInstance(m0.likelihood, GaussianLikelihood)
