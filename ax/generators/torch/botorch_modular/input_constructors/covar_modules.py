@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from logging import Logger
-from math import log
 from typing import Any
 
 import torch
 from ax.exceptions.core import UserInputError
 from ax.generators.torch.botorch_modular.kernels import (
+    default_loc_and_scale_for_lognormal_lengthscale_prior,
     DefaultMaternKernel,
     DefaultRBFKernel,
     ScaleMaternKernel,
@@ -25,7 +25,6 @@ from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models import MultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
-from botorch.models.utils.gpytorch_modules import SQRT2, SQRT3
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.transforms import normalize_indices
@@ -167,7 +166,7 @@ def _covar_module_argparse_linear(
 
 
 @covar_module_argparse.register((DefaultRBFKernel, DefaultMaternKernel))
-def _covar_module_argparse_default_rbf(
+def _covar_module_argparse_default_isotropic(
     covar_module_class: type[DefaultRBFKernel] | type[DefaultMaternKernel],
     botorch_model_class: type[Model],
     dataset: SupervisedDataset,
@@ -179,7 +178,7 @@ def _covar_module_argparse_default_rbf(
     lengthscale_prior_dict: dict[str, tuple[float, float]] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Constructs inputs for ``DefaultRBFKernel``.
+    """Constructs inputs for ``DefaultRBFKernel`` and ``DefaultMaternKernel``.
 
     The key feature of this helper is the support for ``inactive_features`` input,
     which is used to determine the ``active_dims`` input for the kernel by removing
@@ -215,10 +214,11 @@ def _covar_module_argparse_default_rbf(
     if ard_num_dims is DEFAULT:
         ard_num_dims = len(active_dims) if active_dims is not None else d
     if lengthscale_prior_dict:
-        default_loc = SQRT2 + log(assert_is_instance(ard_num_dims, int)) * 0.5
-        default_scale = SQRT3
+        default_loc_and_scale = default_loc_and_scale_for_lognormal_lengthscale_prior(
+            ard_num_dims=assert_is_instance(ard_num_dims, int)
+        )
         loc_scale = [
-            lengthscale_prior_dict.get(ft, (default_loc, default_scale))
+            lengthscale_prior_dict.get(ft, default_loc_and_scale)
             for ft in dataset.feature_names
         ]
         loc, scale = zip(*loc_scale)
