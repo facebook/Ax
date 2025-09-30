@@ -6,7 +6,6 @@
 # pyre-strict
 
 import torch
-from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_modular.input_constructors.outcome_transform import (
     outcome_transform_argparse,
 )
@@ -18,7 +17,6 @@ from botorch.models.transforms.outcome import (
 )
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from pyre_extensions import assert_is_instance
-from torch import Tensor
 
 
 class DummyOutcomeTransform(OutcomeTransform):
@@ -72,52 +70,39 @@ class OutcomeTransformArgparseTest(TestCase):
         X = self.dataset.X
         X[:5, 3] = 0
         X[5:, 3] = 1
-        ssd = SearchSpaceDigest(
-            feature_names=self.dataset.feature_names,
-            bounds=[(0.0, 1.0)] * 3 + [(0.0, 2.0)],
-            task_features=[3],
-            target_values={3: 1},
-        )
         mt_dataset = MultiTaskDataset.from_joint_dataset(
             dataset=self.dataset,
             task_feature_index=3,
             target_task_value=1,
         )
         outcome_transform_kwargs_a = outcome_transform_argparse(
-            StratifiedStandardize,
-            dataset=mt_dataset,
-            search_space_digest=ssd,
+            StratifiedStandardize, dataset=mt_dataset
         )
-        options_b = {"stratification_idx": 2, "default_task_value": 4}
+        options_b = {
+            "stratification_idx": 2,
+            "task_values": torch.tensor([0, 3]),
+        }
         outcome_transform_kwargs_b = outcome_transform_argparse(
             StratifiedStandardize,
             dataset=mt_dataset,
             outcome_transform_options=options_b,
-            search_space_digest=ssd,
         )
         expected_options_a = {
             "stratification_idx": 3,
-            "observed_task_values": torch.tensor([0, 1], dtype=torch.long),
-            "all_task_values": torch.tensor([0, 1, 2], dtype=torch.long),
-            "default_task_value": 1,
-        }
-        expected_options_b = {
-            "stratification_idx": 2,
-            "observed_task_values": torch.tensor([0, 1], dtype=torch.long),
-            "all_task_values": torch.tensor([0, 1, 2], dtype=torch.long),
-            "default_task_value": 4,
+            "task_values": torch.tensor([0, 1]),
         }
         for expected_options, actual_options in zip(
-            (expected_options_a, expected_options_b),
+            (expected_options_a, options_b),
             (outcome_transform_kwargs_a, outcome_transform_kwargs_b),
         ):
-            self.assertEqual(len(actual_options), 4)
-            for k in ("stratification_idx", "stratification_idx"):
-                self.assertEqual(actual_options[k], expected_options[k])
-            for k in ("observed_task_values", "all_task_values"):
-                self.assertTrue(
-                    torch.equal(
-                        actual_options[k],
-                        assert_is_instance(expected_options[k], Tensor),
-                    )
+            self.assertEqual(len(actual_options), 2)
+            self.assertEqual(
+                actual_options["stratification_idx"],
+                expected_options["stratification_idx"],
+            )
+            self.assertTrue(
+                torch.equal(
+                    actual_options["task_values"],
+                    assert_is_instance(expected_options["task_values"], torch.Tensor),
                 )
+            )
