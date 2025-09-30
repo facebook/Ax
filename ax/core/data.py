@@ -45,10 +45,24 @@ class Data(Base, SerializationMixin):
 
 
     Attributes:
-        df: DataFrame with underlying data, and required columns. For Data, the
-            required columns are "arm_name", "metric_name", "mean", and "sem", the
-            latter two of which must be numeric.
+        full_df: DataFrame with underlying data. For Data, the required columns
+            are "arm_name", "metric_name", "mean", and "sem", the latter two of
+            which must be numeric. This is close to the raw data input by the
+            user as ``df``; by contrast, in the ``Data`` subclass ``MapData``,
+            the property ``self.df`` may be a subset of the full data used for
+            modeling. Constructing ``df`` can be expensive, so it is better to
+            reference ``full_df`` than ``df`` for operations that do not require
+            scanning the full data, such as accessing the columns of the
+            DataFrame.
 
+    Properties:
+        df: Potentially smaller representation of the data used for modeling. In
+            the base class ``Data``, ``df`` equals ``full_df``. In the subclass
+            ``MapData``, ``df`` contains only the most recent ``step`` values
+            for each trial-arm-metric. Because constructing ``df`` can be
+            expensive, it is recommended to reference ``full_df`` for operations
+            that do not require scanning the full data, such as accessing the
+            columns of the DataFrame.
     """
 
     # Note: Although the SEM (standard error of the mean) is a required column,
@@ -86,7 +100,7 @@ class Data(Base, SerializationMixin):
         MAP_KEY: float,
     }
 
-    _df: pd.DataFrame
+    full_df: pd.DataFrame
 
     def __init__(
         self: TData,
@@ -104,9 +118,9 @@ class Data(Base, SerializationMixin):
         """
         if df is None:
             # Initialize with barebones DF.
-            self._df = pd.DataFrame(columns=list(self.required_columns()))
+            self.full_df = pd.DataFrame(columns=list(self.required_columns()))
         elif _skip_ordering_and_validation:
-            self._df = df
+            self.full_df = df
         else:
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
@@ -116,7 +130,7 @@ class Data(Base, SerializationMixin):
                 )
             df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
-            self._df = self._get_df_with_cols_in_expected_order(df=df)
+            self.full_df = self._get_df_with_cols_in_expected_order(df=df)
 
     @classmethod
     def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
@@ -191,20 +205,8 @@ class Data(Base, SerializationMixin):
         return extract_init_args(args=args, class_=cls)
 
     @property
-    def full_df(self) -> pd.DataFrame:
-        """
-        Return the ``DataFrame`` being used as the source of truth.
-
-        In the ``Data`` subclass ``MapData``, ``self.df`` may be a subset of the
-        full data used for modeling. Constructing ``df`` can be expensive, so it
-        is better to use ``full_df`` for operations that do not require scanning
-        the full data, such as accessing the columns of the DataFrame.
-        """
-        return self._df
-
-    @property
     def df(self) -> pd.DataFrame:
-        return self._df
+        return self.full_df
 
     @staticmethod
     def from_multiple(data: Iterable[TData]) -> TData:

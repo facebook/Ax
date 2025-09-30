@@ -54,6 +54,29 @@ class MapData(Data):
     The dataframe is retrieved via the `map_df` property. The data can be stored
     to an external store for future use by attaching it to an experiment using
     `experiment.attach_data()` (this requires a description to be set.)
+
+
+    Attributes:
+        full_df: DataFrame with underlying data. The required columns
+            are "arm_name", "metric_name", "mean", "sem", and "step", the latter
+            three of which must be numeric. This is close to the raw data input by the
+            user as ``df``; by contrast, the property ``self.df`` is be a subset
+            of the full data used for modeling. Constructing ``df`` can be
+            expensive, so it is better to reference ``full_df`` than ``df`` for
+            operations that do not require scanning the full data, such as
+            accessing the columns of the DataFrame.
+        _memo_df: Either ``None``, if ``self.df`` has never been accessed, or
+            equivalent to ``self.df``.
+
+    Properties:
+        df: Potentially smaller representation of the data used for modeling,
+            containing only the most recent ``step`` values
+            for each trial-arm-metric. Because constructing ``df`` can be
+            expensive, it is recommended to reference ``full_df`` for operations
+            that do not require scanning the full data, such as accessing the
+            columns of the DataFrame.
+        map_df: Equivalent to ``full_df``. ``map_df`` exists only on
+            ``MapData``, whereas ``full_df`` exists for any ``Data`` subclass.
     """
 
     DEDUPLICATE_BY_COLUMNS = [
@@ -63,7 +86,7 @@ class MapData(Data):
         "metric_signature",
     ]
 
-    _map_df: pd.DataFrame
+    full_df: pd.DataFrame
     _memo_df: pd.DataFrame | None
 
     def __init__(
@@ -86,14 +109,14 @@ class MapData(Data):
         """
         if df is None:  # If df is None create an empty dataframe with appropriate cols
             columns = list(self.required_columns())
-            self._map_df = pd.DataFrame.from_dict(
+            self.full_df = pd.DataFrame.from_dict(
                 {
                     col: pd.Series([], dtype=self.COLUMN_DATA_TYPES[col])
                     for col in columns
                 }
             )
         elif _skip_ordering_and_validation:
-            self._map_df = df
+            self.full_df = df
         else:
             if MAP_KEY not in df.columns:
                 df[MAP_KEY] = nan
@@ -110,8 +133,8 @@ class MapData(Data):
                 # mutate the original df
                 df = df.reset_index(drop=True)
 
-            self._map_df = self._safecast_df(df=df)
-            self._map_df = self._get_df_with_cols_in_expected_order(df=self._map_df)
+            self.full_df = self._safecast_df(df=df)
+            self.full_df = self._get_df_with_cols_in_expected_order(df=self.full_df)
 
         self._memo_df = None
 
@@ -128,18 +151,6 @@ class MapData(Data):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.map_df
-
-    @property
-    def full_df(self) -> pd.DataFrame:
-        """
-        Return the full ``DataFrame`` with step-level information.
-
-        By contrast, ``self.df`` is a subset of the data containing only recent
-        step(s). Because constructing ``df`` can be expensive, it is better to
-        use ``self.full_df`` for operations that do not require scanning the
-        full DataFrame, such as accessing the columns of the DataFrame.
-        """
         return self.map_df
 
     def required_columns(self) -> set[str]:
@@ -194,8 +205,10 @@ class MapData(Data):
 
     @property
     def map_df(self) -> pd.DataFrame:
-        return self._map_df
+        return self.full_df
 
+    # NOTE: ``self.map_df`` can easily be mutated, just not replaced, so this
+    # may not be a very helpful guardrail.
     @map_df.setter
     # pyre-fixme[3]: Return type must be annotated.
     def map_df(self, df: pd.DataFrame):
@@ -206,9 +219,10 @@ class MapData(Data):
 
     @classmethod
     def from_multiple_data(cls, data: Iterable[Data]) -> MapData:
-        """Downcast instances of Data into instances of MapData with empty
-        map_key_infos if necessary then combine as usual (filling in empty cells with
-        default values).
+        """
+        Downcast instances of Data into instances of MapData.
+
+        If no "step" column is present, it will be filled in with NaNs.
         """
         map_datas = [
             (cls(df=datum.df) if not isinstance(datum, MapData) else datum)
