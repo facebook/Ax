@@ -385,3 +385,24 @@ class DataTest(TestCase):
         filtered = data.filter(metric_names=["a"])
         self.assertEqual(len(filtered.df), 3)
         self.assertEqual(set(filtered.df["metric_name"]), {"a"})
+
+    def test_safecast_df(self) -> None:
+        # Create a df with unexpected index ([1])
+        df = pd.DataFrame.from_records(
+            [
+                {
+                    "index": 1,
+                    "arm_name": "0_0",
+                    "trial_index": 0.0,
+                    "metric_name": "m",
+                    "metric_signature": "m",
+                    "mean": 0.0,
+                    "sem": None,
+                }
+            ]
+        ).set_index("index")
+        self.assertEqual(df.index.get_level_values(0).tolist(), [1])
+
+        safecast_df = Data._safecast_df(df=df)
+        self.assertEqual(safecast_df.index.get_level_values(0).to_list(), [0])
+        self.assertEqual(df["trial_index"].dtype, int)
