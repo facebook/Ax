@@ -618,9 +618,7 @@ class HierarchicalSearchSpace(SearchSpace):
         return self.__class__(
             parameters=[p.clone() for p in self._parameters.values()],
             parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
-            # Use `getattr` for backward compatibility, because hierarchical search
-            # spaces loaded from existing checkpoints do not have `.requires_root`.
-            requires_root=getattr(self, "requires_root", True),
+            requires_root=self.requires_root,
         )
 
     def flatten(self) -> SearchSpace:
