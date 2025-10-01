@@ -63,6 +63,12 @@ class Summary(Analysis):
         if experiment is None:
             raise UserInputError("`Summary` analysis requires an `Experiment` input")
 
+        # Determine if we should relativize based on:
+        # (1) experiment has metrics and (2) experiment has status quo
+        should_relativize = (
+            len(experiment.metrics) > 0 and experiment.status_quo is not None
+        )
+
         return self._create_analysis_card(
             title=(
                 "Summary for "
@@ -73,5 +79,6 @@ class Summary(Analysis):
                 trial_indices=self.trial_indices,
                 omit_empty_columns=self.omit_empty_columns,
                 trial_statuses=self.trial_statuses,
+                relativize=should_relativize,
             ),
         )
