@@ -224,6 +224,12 @@ class TestDataBase(TestCase):
             )
             self.assertIs(df, re_ordered)
 
+    def test_equality(self) -> None:
+        self.assertEqual(self.data_with_df, self.data_with_df)
+        self.assertEqual(
+            self.data_with_df, type(self.data_with_df)(df=self.data_with_df.full_df)
+        )
+
 
 class DataTest(TestCase):
     """Tests that are specific to Data and not shared with MapData."""

@@ -23,7 +23,6 @@ from ax.core.data import _filter_df, Data, MAP_KEY
 from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     serialize_init_args,
@@ -113,9 +112,6 @@ class MapData(Data):
             df=df, _skip_ordering_and_validation=_skip_ordering_and_validation
         )
         self._memo_df = None
-
-    def __eq__(self, o: MapData) -> bool:
-        return dataframe_equals(self.map_df, o.map_df)
 
     # true_df is being deprecated after the release of Ax 1.1.2, so it will
     # surface in Ax 1.1.3 or 1.2.0, so it can be removed in the minor release
