@@ -117,8 +117,13 @@ class Data(Base, SerializationMixin):
                 of the DataFrame are known to be ordered and valid.
         """
         if df is None:
-            # Initialize with barebones DF.
-            self.full_df = pd.DataFrame(columns=list(self.required_columns()))
+            # Initialize with barebones DF with expected dtypes
+            self.full_df = pd.DataFrame.from_dict(
+                {
+                    col: pd.Series([], dtype=self.COLUMN_DATA_TYPES[col])
+                    for col in self.required_columns()
+                }
+            )
         elif _skip_ordering_and_validation:
             self.full_df = df
         else:
@@ -128,7 +133,10 @@ class Data(Base, SerializationMixin):
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            df = df.dropna(axis=0, how="all", ignore_index=True)
+            # Drop rows where every input is null. Since `dropna` can be slow, first
+            # check trial index to see if dropping nulls might be needed.
+            if df["trial_index"].isnull().any():
+                df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
             self.full_df = self._get_df_with_cols_in_expected_order(df=df)
 
@@ -169,6 +177,7 @@ class Data(Base, SerializationMixin):
                     coltype is int and df.loc[:, col].isnull().any()
                 ):
                     df[col] = df[col].astype(dtype)
+        df.reset_index(inplace=True, drop=True)
         return df
 
     def required_columns(self) -> set[str]:
