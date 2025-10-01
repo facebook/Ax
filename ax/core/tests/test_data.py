@@ -205,6 +205,25 @@ class TestDataBase(TestCase):
         self.assertIn("foo", data.df.columns)
         self.assertTrue((data.full_df["foo"] == value).all())
 
+    def test_get_df_with_cols_in_expected_order(self) -> None:
+        with self.subTest("Wrong order"):
+            df = pd.DataFrame(columns=["mean", "trial_index", "hat"], data=[[0] * 3])
+            re_ordered = Data._get_df_with_cols_in_expected_order(df=df)
+            self.assertEqual(
+                re_ordered.columns.to_list(), ["trial_index", "mean", "hat"]
+            )
+            self.assertIsNot(df, re_ordered)
+
+        with self.subTest("Correct order"):
+            df = pd.DataFrame(
+                columns=["trial_index", "mean", "hat"], data=[[0 for _ in range(3)]]
+            )
+            re_ordered = Data._get_df_with_cols_in_expected_order(df=df)
+            self.assertEqual(
+                re_ordered.columns.to_list(), ["trial_index", "mean", "hat"]
+            )
+            self.assertIs(df, re_ordered)
+
 
 class DataTest(TestCase):
     """Tests that are specific to Data and not shared with MapData."""
