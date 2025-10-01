@@ -107,35 +107,11 @@ class MapData(Data):
                 Intended only for use in `MapData.filter`, where the contents
                 of the DataFrame are known to be ordered and valid.
         """
-        if df is None:  # If df is None create an empty dataframe with appropriate cols
-            columns = list(self.required_columns())
-            self.full_df = pd.DataFrame.from_dict(
-                {
-                    col: pd.Series([], dtype=self.COLUMN_DATA_TYPES[col])
-                    for col in columns
-                }
-            )
-        elif _skip_ordering_and_validation:
-            self.full_df = df
-        else:
-            if MAP_KEY not in df.columns:
-                df[MAP_KEY] = nan
-            columns = set(df.columns)
-            missing_columns = self.required_columns() - columns
-            if missing_columns:
-                raise ValueError(
-                    f"Dataframe must contain required columns {missing_columns}."
-                )
-            if df["trial_index"].isnull().any():
-                df = df.dropna(axis=0, how="all", ignore_index=True)
-            else:
-                # Don't do this in place so that we now have a copy, so we won't
-                # mutate the original df
-                df = df.reset_index(drop=True)
-
-            self.full_df = self._safecast_df(df=df)
-            self.full_df = self._get_df_with_cols_in_expected_order(df=self.full_df)
-
+        if df is not None and MAP_KEY not in df.columns:
+            df[MAP_KEY] = nan
+        super().__init__(
+            df=df, _skip_ordering_and_validation=_skip_ordering_and_validation
+        )
         self._memo_df = None
 
     def __eq__(self, o: MapData) -> bool:
