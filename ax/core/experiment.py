@@ -126,12 +126,11 @@ class Experiment(Base):
         # pyre-fixme[13]: Attribute `_search_space` is never initialized.
         self._search_space: SearchSpace
         self._status_quo: Arm | None = None
-        self._is_test: bool = False
 
         self._name = name
         self.description = description
         self.runner = runner
-        self.is_test = is_test
+        self.is_test: bool = is_test
 
         self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: str | None = experiment_type
@@ -202,16 +201,6 @@ class Experiment(Base):
     def name(self, name: str) -> None:
         """Set experiment name."""
         self._name = name
-
-    @property
-    def is_test(self) -> bool:
-        """Get whether the experiment is a test."""
-        return self._is_test
-
-    @is_test.setter
-    def is_test(self, is_test: bool) -> None:
-        """Set whether the experiment is a test."""
-        self._is_test = is_test
 
     @property
     def time_created(self) -> datetime:
