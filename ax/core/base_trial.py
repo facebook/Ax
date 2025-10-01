@@ -450,7 +450,7 @@ class BaseTrial(ABC, SortableBase):
             results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
         if not isinstance(data, MapData):
-            data._df = sort_by_trial_index_and_arm_name(data._df)
+            data.full_df = sort_by_trial_index_and_arm_name(data.full_df)
 
         return data
 
