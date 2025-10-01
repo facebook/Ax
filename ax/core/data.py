@@ -19,6 +19,7 @@ import pandas as pd
 from ax.core.types import TTrialEvaluation
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
+from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     extract_init_args,
@@ -406,6 +407,9 @@ class Data(Base, SerializationMixin):
     def clone(self) -> Data:
         """Returns a new Data object with the same underlying dataframe."""
         return Data(df=deepcopy(self.df))
+
+    def __eq__(self, o: Data) -> bool:
+        return type(self) is type(o) and dataframe_equals(self.full_df, o.full_df)
 
 
 def _ms_epoch_to_isoformat(epoch: int) -> str:
