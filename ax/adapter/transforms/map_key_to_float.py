@@ -8,7 +8,8 @@
 
 from __future__ import annotations
 
-import warnings
+from copy import deepcopy
+
 from math import isnan
 from typing import Any, TYPE_CHECKING
 
@@ -17,7 +18,6 @@ from ax.adapter.transforms.metadata_to_float import MetadataToFloat
 from ax.core.map_data import MAP_KEY
 from ax.core.observation import ObservationFeatures
 from ax.core.search_space import SearchSpace
-from ax.core.utils import has_map_metrics
 from ax.generators.types import TConfig
 from pandas import Index, MultiIndex
 from pyre_extensions import none_throws
@@ -50,27 +50,47 @@ class MapKeyToFloat(MetadataToFloat):
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
+        # Make sure "config" has parameters without modifying it in place or
+        # losing existing parameters
         config = config or {}
-        if "parameters" not in config:
-            # Extract map keys from the optimization config, if no parameters are
-            # specified in the config.
-            if (
-                adapter is not None
-                and adapter._optimization_config is not None
-                and has_map_metrics(optimization_config=adapter._optimization_config)
-            ):
-                config["parameters"] = {MAP_KEY: {}}
-            else:
-                warnings.warn(
-                    (
-                        f"{self.__class__.__name__} is unable to identify `parameters` "
-                        "in the transform config or an adapter with an "
-                        "optimization config from which the map keys can be inferred; "
-                        "this transform will not perform any operations and behave as "
-                        "a no-op."
-                    ),
-                    stacklevel=2,
+        # pyre-fixme[9]: Incompatible variable type [9]: parameters is declared
+        # to have type `Dict[str, Dict[str, typing.Any]]` but is used as type
+        # `Union[None, Dict[int, typing.Any], Dict[str, typing.Any], List[int],
+        # List[str], OptimizationConfig, WinsorizationConfig,
+        # AcquisitionFunction, float, int, str]`.
+        parameters: dict[str, dict[str, Any]] = deepcopy(config.get("parameters", {}))
+
+        is_map_data = (
+            # Note: experiment_data can't be None because
+            # `requires_data_for_initialization` is True; if it is None, there
+            # will be an error in super().__init__
+            experiment_data is not None
+            and MAP_KEY in experiment_data.observation_data.index.names
+        )
+
+        # Check if any disallowed parameters were provided.
+        # The only parameter allowed is "step" (MAP_KEY)
+        received_parameters = set(parameters)
+        if is_map_data:
+            needed_parameters = {MAP_KEY} if is_map_data else set()
+            disallowed_parameters = received_parameters - needed_parameters
+            if len(disallowed_parameters) > 0:
+                raise ValueError(
+                    "The only allowed key in `config['parameters']` is "
+                    f"{MAP_KEY}. Got {disallowed_parameters}."
                 )
+        elif len(parameters) > 0:
+            raise ValueError(
+                "No parameters may be provided to MapKeyToFloat with non-map "
+                f"data. Got {received_parameters}."
+            )
+
+        # Add MAP_KEY to the parameters if it is needed and not provided
+        if is_map_data and MAP_KEY not in parameters:
+            parameters = {MAP_KEY: {}}
+
+        config = {"parameters": parameters}
+
         super().__init__(
             search_space=search_space,
             experiment_data=experiment_data,

@@ -14,7 +14,7 @@ import numpy as np
 from ax.adapter import Adapter
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.cross_validation import cross_validate
-from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
@@ -303,9 +303,28 @@ class MapKeyToFloatTransformTest(TestCase):
         )
 
     def test_Init(self) -> None:
-        # Check for error if adapter & parameters are not provided.
-        with self.assertWarnsRegex(Warning, "optimization config"):
-            MapKeyToFloat(experiment_data=self.experiment_data)
+        # No opt config or adapter -- map data case
+        t = MapKeyToFloat(experiment_data=self.experiment_data)
+        (p,) = self.t._parameter_list
+        self.assertEqual(p.name, self.map_key)
+
+        # No opt config or adapter -- non-map data case
+        non_map_obs_data = self.experiment_data.observation_data.groupby(
+            level=["trial_index", "arm_name"]
+        ).first()
+        non_map_exp_data = ExperimentData(
+            arm_data=self.experiment_data.arm_data, observation_data=non_map_obs_data
+        )
+        t = MapKeyToFloat(experiment_data=non_map_exp_data)
+        self.assertEqual(t._parameter_list, [])
+
+        # Providing map key when it is not needed
+        with self.assertRaisesRegex(
+            ValueError, "No parameters may be provided to MapKeyToFloat with"
+        ):
+            MapKeyToFloat(
+                experiment_data=non_map_exp_data, config={"parameters": {"baz": {}}}
+            )
 
         # Check for default initialization
         self.assertEqual(len(self.t._parameter_list), 1)
@@ -317,7 +336,7 @@ class MapKeyToFloatTransformTest(TestCase):
         self.assertFalse(p.log_scale)
 
         # specifying a parameter name that is not in the observation features' metadata
-        with self.assertRaisesRegex(ValueError, "Parameter baz"):
+        with self.assertRaisesRegex(ValueError, "The only allowed key in"):
             MapKeyToFloat(
                 experiment_data=self.experiment_data,
                 config={"parameters": {"baz": {}}},
