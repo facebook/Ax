@@ -473,8 +473,15 @@ class Data(Base, SerializationMixin):
                     axis=1,
                 )
             )
+        if not dfs:
+            raise ValueError(
+                f"Relativization not possible: status quo arm '{status_quo_name}' "
+                f"not found or dataset contains no data."
+            )
         df_rel = pd.concat(dfs, axis=0)
         if include_sq:
+            # Set status quo to exactly 0 mean and 0 SEM to avoid negative zero display
+            df_rel.loc[df_rel["arm_name"] == status_quo_name, "mean"] = 0.0
             df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0
         return Data(df_rel)
 
