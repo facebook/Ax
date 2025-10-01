@@ -136,12 +136,12 @@ class Data(Base, SerializationMixin):
     def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
         """Reorder the columns for easier viewing"""
         current_order = list(df.columns)  # Surprisingly slow, so do it once
-        expected_order = list(cls.COLUMN_DATA_TYPES)
-        col_order = [c for c in expected_order if c in current_order] + [
-            c for c in current_order if c not in expected_order
+        overall_order = list(cls.COLUMN_DATA_TYPES)
+        desired_order = [c for c in overall_order if c in current_order] + [
+            c for c in current_order if c not in overall_order
         ]
-        if current_order != expected_order:
-            return df.reindex(columns=col_order, copy=False)
+        if current_order != desired_order:
+            return df.reindex(columns=desired_order, copy=False)
         return df
 
     @classmethod
