@@ -41,7 +41,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.parameter_constraint import SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.core.utils import get_target_trial_index
@@ -895,7 +895,7 @@ class BaseAdapterTest(TestCase):
 
     def test_set_model_space(self) -> None:
         # Set up experiment
-        experiment = get_branin_experiment()
+        experiment = get_branin_experiment(with_choice_parameter=True)
         # SQ values are OOD
         sq_vals = {"x1": 5.0, "x2": 20.0}
         # SQ is specified OOD
@@ -914,9 +914,8 @@ class BaseAdapterTest(TestCase):
         ss = experiment.search_space.clone()
         ss.set_parameter_constraints(
             [
-                SumConstraint(
-                    parameters=list(ss.parameters.values()),
-                    is_upper_bound=True,
+                ParameterConstraint(
+                    constraint_dict={"x1": 1.0, "x2": 1.0},
                     bound=30.0,
                 )
             ]
@@ -936,7 +935,7 @@ class BaseAdapterTest(TestCase):
         )
         self.assertEqual(set(ood_arms), {"status_quo", "custom"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -5.0)  # pyre-ignore[16]
-        self.assertEqual(m.model_space.parameters["x2"].upper, 15.0)  # pyre-ignore[16]
+        self.assertFalse(20.0 in m.model_space.parameters["x2"].values)
         self.assertEqual(len(m.model_space.parameter_constraints), 1)
 
         # With expand model space, custom is not OOD, and model space is expanded
@@ -953,7 +952,7 @@ class BaseAdapterTest(TestCase):
         )
         self.assertEqual(set(ood_arms), {"status_quo"})
         self.assertEqual(m.model_space.parameters["x1"].lower, -20.0)
-        self.assertEqual(m.model_space.parameters["x2"].upper, 18.0)
+        self.assertTrue(18.0 in m.model_space.parameters["x2"].values)
         self.assertEqual(m.model_space.parameter_constraints, [])
 
         # With fill values, SQ is also in design, and x2 is further expanded
@@ -982,7 +981,7 @@ class BaseAdapterTest(TestCase):
             search_space=ss,
         )
         self.assertEqual(sum(m.training_in_design), 7)
-        self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+        self.assertTrue(20.0 in m.model_space.parameters["x2"].values)
         self.assertEqual(m.model_space.parameter_constraints, [])
 
     @mock.patch(

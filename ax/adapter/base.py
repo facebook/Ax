@@ -36,7 +36,7 @@ from ax.core.observation import (
     recombine_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
 from ax.core.utils import get_target_trial_index, has_map_metrics
@@ -414,17 +414,19 @@ class Adapter:
         ]
 
     def _set_model_space(self, arm_data: DataFrame) -> None:
-        """Set model space, possibly expanding range parameters to cover data."""
+        """Set model space, possibly expanding parameters to cover data.
+        For range parameters, expand bounds to cover the range of values found.
+        For choice parameters, include all values found in the data."""
         # If fill for missing values, include those in expansion.
         t = FillMissingParameters(
             search_space=self._model_space,
             config=self._transform_configs.get("FillMissingParameters", None),
         )
         fill_values = t._fill_values
-        # Update model space. Expand bounds as needed to cover the values found
-        # in the data. Only applies to range parameters.
+        # Update model space. Expand bounds/choices as needed to cover the values
+        # found in the data. Only applies to range and choice parameters.
         for p_name, p in self._model_space.parameters.items():
-            if not isinstance(p, RangeParameter):
+            if not isinstance(p, RangeParameter) and not isinstance(p, ChoiceParameter):
                 continue
             if p_name in arm_data:
                 param_vals = arm_data[p_name].dropna().tolist()
@@ -434,8 +436,12 @@ class Adapter:
                 param_vals.append(fill_values[p_name])
             if len(param_vals) == 0:
                 continue
-            p.lower = min(p.lower, min(param_vals))
-            p.upper = max(p.upper, max(param_vals))
+            if isinstance(p, ChoiceParameter):
+                all_choices = list(set(p.values).union(set(param_vals)))
+                p.set_values(all_choices)
+            else:  # RangeParameter
+                p.lower = min(p.lower, min(param_vals))
+                p.upper = max(p.upper, max(param_vals))
         # Remove parameter constraints from the model space.
         self._model_space.set_parameter_constraints([])
 
