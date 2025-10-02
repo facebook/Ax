@@ -10,6 +10,7 @@ from typing import Mapping, Sequence
 
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
+from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.scatter import ScatterPlot
 from ax.analysis.utils import extract_relevant_adapter
@@ -46,7 +47,7 @@ OBJ_PFEAS_CARDGROUP_SUBTITLE = (
 )
 
 
-class ObjectivePFeasibleFrontierPlot(ScatterPlot):
+class ObjectivePFeasibleFrontierPlot(Analysis):
     """
     Plotly Scatter plot for the objective vs p(feasible). Each arm is represented by
     a single point with 95% confidence intervals if the data is available. Effects are
@@ -80,8 +81,6 @@ class ObjectivePFeasibleFrontierPlot(ScatterPlot):
                 Ideally this should be sufficiently large to provide a frontier with
                 reasonably good coverage.
         """
-
-        self.y_metric_name = "p_feasible"
         self.use_model_predictions = True
         self.relativize = relativize
         self.trial_index = trial_index
@@ -94,10 +93,6 @@ class ObjectivePFeasibleFrontierPlot(ScatterPlot):
         self.labels.setdefault("p_feasible", "% Chance of Satisfying the Constraints")
         self.show_pareto_frontier = show_pareto_frontier
         self.num_points_to_generate = num_points_to_generate
-        self.title = (
-            f"Modeled {'Relativized ' if self.relativize else ''} Effect on the"
-            " Objective vs  % Chance of Satisfying the Constraints"
-        )
 
     @override
     def compute(
@@ -128,7 +123,6 @@ class ObjectivePFeasibleFrontierPlot(ScatterPlot):
             raise UnsupportedError(
                 "Scalarized outcome constraints are not supported yet."
             )
-        self.x_metric_name = experiment.optimization_config.objective.metric.name
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -168,4 +162,19 @@ class ObjectivePFeasibleFrontierPlot(ScatterPlot):
             Arm(name=f"frontier_{i}", parameters=a.parameters)
             for i, a in enumerate(frontier_gr.arms)
         ]
-        return super().compute(experiment=experiment, adapter=relevant_adapter)
+        scatter_plot = ScatterPlot(
+            x_metric_name=experiment.optimization_config.objective.metric.name,
+            y_metric_name="p_feasible",
+            use_model_predictions=self.use_model_predictions,
+            relativize=self.relativize,
+            trial_index=self.trial_index,
+            trial_statuses=self.trial_statuses,
+            additional_arms=self.additional_arms,
+            labels=self.labels,
+            show_pareto_frontier=self.show_pareto_frontier,
+            title=(
+                f"Modeled {'Relativized ' if self.relativize else ''} Effect on the"
+                " Objective vs % Chance of Satisfying the Constraints"
+            ),
+        )
+        return scatter_plot.compute(experiment=experiment, adapter=relevant_adapter)

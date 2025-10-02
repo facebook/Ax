@@ -109,7 +109,11 @@ class TestOverview(TestCase):
             )
             self.assertEqual(
                 any(
-                    card.name == "ObjectivePFeasibleFrontierPlot"
+                    (
+                        "Effect on the"
+                        " Objective vs % Chance of Satisfying the Constraints"
+                    )
+                    in card.title
                     for card_group in overview_card.children
                     for card in card_group.flatten()
                 ),
