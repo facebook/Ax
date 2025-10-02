@@ -789,47 +789,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         )
         logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
 
-    def update_trial_data(
-        self,
-        trial_index: int,
-        raw_data: TEvaluationOutcome,
-        metadata: dict[str, str | int] | None = None,
-    ) -> None:
-        """
-        Attaches additional data or updates the existing data for a trial in a
-        terminal state. For example, if trial was completed with data for only
-        one of the required metrics, this can be used to attach data for the
-        remaining metrics.
-
-        NOTE: This does not change the trial status.
-
-        Args:
-            trial_index: Index of trial within the experiment.
-            raw_data: Evaluation data for the trial. Can be a mapping from
-                metric name to a tuple of mean and SEM, just a tuple of mean and
-                SEM if only one metric in optimization, or just the mean if there
-                is no SEM.  Can also be a list of (fidelities, mapping from
-                metric name to a tuple of mean and SEM).
-            metadata: Additional metadata to track about this run.
-        """
-        if not isinstance(trial_index, int):
-            raise ValueError(f"Trial index must be an int, got: {trial_index}.")
-        trial = self.get_trial(trial_index)
-        if not trial.status.is_terminal:
-            raise ValueError(
-                f"Trial {trial.index} is not in a terminal state. Use "
-                "`ax_client.complete_trial` to complete the trial with new data "
-                "or use `ax_client.update_running_trial_with_intermediate_data` "
-                "to attach intermediate data to a running trial."
-            )
-        data_update_repr = self._update_trial_with_raw_data(
-            trial_index=trial_index,
-            raw_data=raw_data,
-            metadata=metadata,
-            combine_with_last_data=True,
-        )
-        logger.info(f"Added data: {data_update_repr} to trial {trial.index}.")
-
     def log_trial_failure(
         self, trial_index: int, metadata: dict[str, str] | None = None
     ) -> None:
