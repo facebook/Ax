@@ -1902,11 +1902,6 @@ class Orchestrator(AnalysisBase, BestPointMixin):
             kwargs = deepcopy(self.options.fetch_kwargs)
             for k, v in self.DEFAULT_FETCH_KWARGS.items():
                 kwargs.setdefault(k, v)
-            if kwargs.get("overwrite_existing_data") and kwargs.get(
-                "combine_with_last_data"
-            ):
-                # to avoid error https://fburl.com/code/ilix4okj
-                kwargs["overwrite_existing_data"] = False
             if self.trial_type is not None:
                 metrics = assert_is_instance(
                     self.experiment, MultiTypeExperiment

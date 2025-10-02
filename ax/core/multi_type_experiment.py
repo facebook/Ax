@@ -253,7 +253,7 @@ class MultiTypeExperiment(Experiment):
         self,
         trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
@@ -263,7 +263,12 @@ class MultiTypeExperiment(Experiment):
         return self.default_data_constructor.from_multiple_data(
             [
                 (
-                    trial.fetch_data(**kwargs, metrics=metrics)
+                    trial.fetch_data(
+                        **kwargs,
+                        metrics=metrics,
+                        overwrite_existing_data=overwrite_existing_data,
+                        combine_with_last_data=combine_with_last_data,
+                    )
                     if trial.status.expecting_data
                     else Data()
                 )

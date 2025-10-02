@@ -2074,9 +2074,6 @@ class TestAxOrchestrator(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
-                fetch_kwargs={
-                    "combine_with_last_data": True,
-                },
                 **self.orchestrator_options_kwargs,
             ),
             db_settings=self.db_settings_if_always_needed,

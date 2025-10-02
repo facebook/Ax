@@ -639,7 +639,7 @@ class ExperimentTest(TestCase):
                 ]
             )
         )
-        t3 = exp.attach_data(new_data, combine_with_last_data=True)
+        t3 = exp.attach_data(new_data)
         # still 6 data objs, since we combined last one
         self.assertEqual(len(full_dict[0]), 6)
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
@@ -675,12 +675,6 @@ class ExperimentTest(TestCase):
 
         # automatically attaches data
         data = exp.fetch_data()
-
-        # can't set both combine_with_last_data and overwrite_existing_data
-        with self.assertRaises(UnsupportedError):
-            exp.attach_data(
-                data, combine_with_last_data=True, overwrite_existing_data=True
-            )
 
         # data exists for two trials
         # data has been attached once for each trial
