@@ -273,7 +273,7 @@ class Trial(BaseTrial):
         self,
         raw_data: TEvaluationOutcome,
         metadata: dict[str, str | int] | None = None,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
     ) -> str:
         """Utility method that attaches data to a trial and
         returns an update message.
@@ -286,8 +286,8 @@ class Trial(BaseTrial):
                 Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
             metadata: Additional metadata to track about this run, optional.
-            combine_with_last_data: Whether to combine the given data with the
-                data that was previously attached to the trial. See
+            combine_with_last_data [DEPRECATED]: Whether to combine the given data
+                with the data that was previously attached to the trial. See
                 `Experiment.attach_data` for a detailed explanation.
 
         Returns:

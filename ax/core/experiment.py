@@ -630,7 +630,7 @@ class Experiment(Base):
     def fetch_data_results(
         self,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
@@ -668,7 +668,7 @@ class Experiment(Base):
         self,
         trial_indices: Iterable[int],
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
@@ -704,7 +704,7 @@ class Experiment(Base):
         self,
         trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
@@ -751,7 +751,7 @@ class Experiment(Base):
         self,
         trials: list[BaseTrial],
         metrics: Iterable[Metric] | None = None,
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
@@ -830,7 +830,8 @@ class Experiment(Base):
     def attach_data(
         self,
         data: Data,
-        combine_with_last_data: bool = False,
+        # TODO[bbeckerman]: Deprecate this argument.
+        combine_with_last_data: bool | None = None,
         overwrite_existing_data: bool = False,
     ) -> int:
         """Attach data to experiment. Stores data in `experiment._data_by_trial`,
@@ -838,7 +839,10 @@ class Experiment(Base):
 
         Args:
             data: Data object to store.
-            combine_with_last_data: By default, when attaching data, it's identified
+            combine_with_last_data [DEPRECATED]: This argument will be removed in Ax
+                1.3.0. Please leave this as ``None``, in which case it will be assigned
+                as ``not overwrite_existing_data``.
+                By default, when attaching data, it's identified
                 by its timestamp, and `experiment.lookup_data_for_trial` returns
                 data by most recent timestamp. Sometimes, however, we want to combine
                 the data from multiple calls to `attach_data` into one dataframe.
@@ -846,7 +850,7 @@ class Experiment(Base):
                     - We attached data for some metrics at one point and data for
                     the rest of the metrics later on.
                     - We attached data for some fidelity at one point and data for
-                    another fidelity later one.
+                    another fidelity later on.
                 To achieve that goal, set `combine_with_last_data` to `True`.
                 In this case, we will take the most recent previously attached
                 data, append the newly attached data to it, attach a new
@@ -860,15 +864,33 @@ class Experiment(Base):
                 the incoming data contains all the information we need for a given
                 trial, we can replace the existing data for that trial, thereby
                 reducing the amount we need to store in the database.
+                If set to False, we will combine the data in the present call with that
+                from prior calls to `attach_data`, into one dataframe. Reasons to do
+                this may include:
+                    - We attached data for some metrics at one point and data for
+                    the rest of the metrics later on.
+                    - We attached data for some fidelity at one point and data for
+                    another fidelity later on.
+                In this case, we will take the most recent previously attached
+                data, append the newly attached data to it, and attach a new
+                Data object with the merged result and delete the old one.
+                Afterwards, calls to `lookup_data_for_trial` will return this
+                new combined data object. This operation will also validate that the
+                newly added data does not contain observations for metrics that
+                already have observations at the same fidelity in the most recent data.
+
 
         Returns:
             Timestamp of storage in millis.
         """
-        if combine_with_last_data and overwrite_existing_data:
-            raise UnsupportedError(
-                "Cannot set both combine_with_last_data=True and "
-                "overwrite_existing_data=True. Data can either be "
-                "combined, or overwritten, or neither."
+        if combine_with_last_data is None:
+            combine_with_last_data = not overwrite_existing_data
+        else:
+            # logger.warning(
+            raise DeprecationWarning(
+                "The `combine_with_last_data` argument is deprecated and will be "
+                "removed soon. Please leave this as None, in which case it will be "
+                "assigned as `not overwrite_existing_data`."
             )
         data_type = type(data)
         data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
@@ -992,7 +1014,7 @@ class Experiment(Base):
     def attach_fetch_results(
         self,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
-        combine_with_last_data: bool = False,
+        combine_with_last_data: bool | None = None,
         overwrite_existing_data: bool = False,
     ) -> int | None:
         """

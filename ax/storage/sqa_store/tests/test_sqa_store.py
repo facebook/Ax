@@ -878,9 +878,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(self.experiment, loaded_experiment)
 
         # Update a trial by attaching data again
-        self.experiment.attach_data(
-            get_data(trial_index=trial.index), combine_with_last_data=True
-        )
+        self.experiment.attach_data(get_data(trial_index=trial.index))
         save_or_update_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
