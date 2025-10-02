@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 import logging
 import re
 import warnings
@@ -626,6 +628,51 @@ class Experiment(Base):
                 "One of the requested metrics was not present on the "
                 f"experiment; original error: {e}."
             )
+
+    def bulk_configure_metrics(
+        self,
+        metric_class_to_update_dict: dict[type[Metric], dict[str, Any]],
+    ) -> None:
+        """Apply the same set of updates to all metrics of specificed types at once.
+
+        Args:
+            metric_class_to_update_dict: A dictionary that maps of the metric class
+            type to a set of updates. These updates are represented by another
+            dictionary that maps the parameter to be updated with it's new value
+
+        Raises:
+            * If there are no metrics of the specified class on the experiment
+            * If any of the specified parameter to update are not args in the
+            metric class's initialization method
+
+        Note: All metrics of the specificed class will recieve the same update. For
+        custom updates to specific metrics, use `update_tracking_metric`
+        """
+        metrics_by_class = self._metrics_by_class(metrics=list(self.metrics.values()))
+        for metric_class, updates in metric_class_to_update_dict.items():
+            metrics_of_class = metrics_by_class[metric_class]
+            if len(metrics_of_class) == 0:
+                raise UserInputError(
+                    f"No metrics of class {metric_class} found on experiment."
+                )
+            if not set(updates.keys()).issubset(
+                set(inspect.signature(metric_class.__init__).parameters.keys())
+            ):
+                raise (
+                    UserInputError(
+                        f"Metric class {metric_class} does not have the following "
+                    )
+                )
+
+            # Update each metric on the experiment with the specified new values
+            # for each parameter to update
+            for metric in metrics_of_class:
+                new_metric = metric
+                for param_name, param_value in updates.items():
+                    setattr(new_metric, param_name, param_value)
+                self.metrics[metric.name] = new_metric
+
+        return
 
     def fetch_data_results(
         self,
