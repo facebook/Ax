@@ -254,8 +254,6 @@ class Data(Base, SerializationMixin):
         evaluations: Mapping[str, TTrialEvaluation],
         metric_name_to_signature: Mapping[str, str],
         trial_index: int,
-        start_time: int | str | None = None,
-        end_time: int | str | None = None,
     ) -> TData:
         """
         Convert dict of evaluations to Ax data object.
@@ -270,14 +268,6 @@ class Data(Base, SerializationMixin):
                 while signatures are used under the hood to maintain consistency and
                 adhere to external naming requirements. This mapping is needed to
                 construct the Data object correctly.
-            start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds or iso format.  Milliseconds will be automatically
-                converted to iso format because iso format automatically works with the
-                pandas column type `Timestamp`.
-            end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds or iso format.  Milliseconds will be automatically
-                converted to iso format because iso format automatically works with the
-                pandas column type `Timestamp`.
 
         Returns:
             Ax object of the enclosing class.
@@ -287,32 +277,7 @@ class Data(Base, SerializationMixin):
             trial_index=trial_index,
             metric_name_to_signature=metric_name_to_signature,
         )
-        records = cls._add_cols_to_records(
-            records=records,
-            start_time=start_time,
-            end_time=end_time,
-        )
         return cls(df=pd.DataFrame(records))
-
-    @staticmethod
-    def _add_cols_to_records(
-        records: list[dict[str, Any]],
-        start_time: int | str | None = None,
-        end_time: int | str | None = None,
-    ) -> list[dict[str, Any]]:
-        """Adds to records metadata columns that are available for all
-        Data subclasses.
-        """
-        if start_time is not None or end_time is not None:
-            if isinstance(start_time, int):
-                start_time = _ms_epoch_to_isoformat(start_time)
-            if isinstance(end_time, int):
-                end_time = _ms_epoch_to_isoformat(end_time)
-
-            for record in records:
-                record.update({"start_time": start_time, "end_time": end_time})
-
-        return records
 
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
@@ -410,10 +375,6 @@ class Data(Base, SerializationMixin):
 
     def __eq__(self, o: Data) -> bool:
         return type(self) is type(o) and dataframe_equals(self.full_df, o.full_df)
-
-
-def _ms_epoch_to_isoformat(epoch: int) -> str:
-    return pd.Timestamp(epoch, unit="ms").isoformat()
 
 
 def _filter_df(
