@@ -24,7 +24,6 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     extract_init_args,
     SerializationMixin,
-    serialize_init_args,
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
@@ -191,9 +190,7 @@ class Data(Base, SerializationMixin):
         Used for storage and to help construct new similar Data.
         """
         data = assert_is_instance(obj, cls)
-        return serialize_init_args(
-            obj=data, exclude_fields=["_skip_ordering_and_validation"]
-        )
+        return {"df": data.full_df}
 
     @classmethod
     def deserialize_init_args(
@@ -348,7 +345,7 @@ class Data(Base, SerializationMixin):
 
         return self.__class__(
             df=_filter_df(
-                df=self.df,
+                df=self.full_df,
                 trial_indices=trial_indices,
                 metric_names=metric_names,
                 metric_signatures=metric_signatures,
@@ -369,9 +366,9 @@ class Data(Base, SerializationMixin):
         """
         return cls.from_multiple(data=data)
 
-    def clone(self) -> Data:
+    def clone(self: TData) -> TData:
         """Returns a new Data object with the same underlying dataframe."""
-        return Data(df=deepcopy(self.df))
+        return self.__class__(df=deepcopy(self.full_df))
 
     def __eq__(self, o: Data) -> bool:
         return type(self) is type(o) and dataframe_equals(self.full_df, o.full_df)
