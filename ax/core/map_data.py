@@ -11,7 +11,6 @@ import warnings
 
 from bisect import bisect_right
 from collections.abc import Iterable, Mapping, Sequence
-from copy import deepcopy
 from logging import Logger
 from math import nan
 from typing import Any
@@ -22,14 +21,8 @@ import pandas as pd
 from ax.core.data import _filter_df, Data, MAP_KEY
 from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import (
-    serialize_init_args,
-    TClassDecoderRegistry,
-    TDecoderRegistry,
-)
-from pyre_extensions import assert_is_instance
+from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 
 logger: Logger = get_logger(__name__)
 
@@ -179,16 +172,6 @@ class MapData(Data):
     def map_df(self) -> pd.DataFrame:
         return self.full_df
 
-    # NOTE: ``self.map_df`` can easily be mutated, just not replaced, so this
-    # may not be a very helpful guardrail.
-    @map_df.setter
-    # pyre-fixme[3]: Return type must be annotated.
-    def map_df(self, df: pd.DataFrame):
-        raise UnsupportedError(
-            "MapData's underlying DataFrame is immutable; create a new"
-            + " MapData via `__init__` or `from_multiple_data`."
-        )
-
     @classmethod
     def from_multiple_data(cls, data: Iterable[Data]) -> MapData:
         """
@@ -213,38 +196,6 @@ class MapData(Data):
 
         self._memo_df = _tail(map_df=self.map_df, n=1, sort=True)
         return self._memo_df
-
-    @copy_doc(Data.filter)
-    def filter(
-        self,
-        trial_indices: Iterable[int] | None = None,
-        metric_names: Iterable[str] | None = None,
-        metric_signatures: Iterable[str] | None = None,
-    ) -> MapData:
-        if metric_names and metric_signatures:
-            raise UserInputError(
-                "Cannot filter by both metric names and metric signatures. "
-                "Please filter by one or the other."
-            )
-
-        return MapData(
-            df=_filter_df(
-                df=self.map_df,
-                trial_indices=trial_indices,
-                metric_names=metric_names,
-                metric_signatures=metric_signatures,
-            ),
-            _skip_ordering_and_validation=True,
-        )
-
-    @classmethod
-    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
-        map_data = assert_is_instance(obj, MapData)
-        properties = serialize_init_args(
-            obj=map_data, exclude_fields=["_skip_ordering_and_validation"]
-        )
-        properties["df"] = map_data.map_df
-        return properties
 
     @classmethod
     def deserialize_init_args(
@@ -301,12 +252,6 @@ class MapData(Data):
                     df.rename(columns={key_to_rename: MAP_KEY}, inplace=True)
 
         return deserialized
-
-    def clone(self) -> MapData:
-        """Returns a new ``MapData`` object with the same underlying dataframe
-        and map key infos.
-        """
-        return MapData(df=deepcopy(self.map_df))
 
     def latest(self, rows_per_group: int = 1) -> MapData:
         """Return a new MapData with the most recently observed `rows_per_group`
