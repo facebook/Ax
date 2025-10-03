@@ -43,6 +43,7 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
+from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
@@ -192,6 +193,10 @@ def use_model_list(
     botorch_model_class = none_throws(next(iter(botorch_model_class_set)))
     if issubclass(botorch_model_class, FullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
+        # Use model list if there are multiple outcomes.
+        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
+    elif issubclass(botorch_model_class, EnsembleMapSaasSingleTaskGP):
+        # Ensemble MAP SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
     elif issubclass(botorch_model_class, MultiTaskGP):
