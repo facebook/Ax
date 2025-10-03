@@ -11,8 +11,6 @@ from typing import Any
 import numpy as np
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def numpy_type_to_python_type(value: Any) -> Any:
     """If `value` is a Numpy int or float, coerce to a Python int or float.
     This is necessary because some of our transforms return Numpy values.
