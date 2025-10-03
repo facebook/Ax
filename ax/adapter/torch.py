@@ -68,7 +68,6 @@ from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputErr
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
 from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
@@ -226,17 +225,13 @@ class TorchAdapter(Adapter):
                 "`infer_objective_thresholds` does not support risk measures."
             )
         # Infer objective thresholds.
-        if isinstance(self.generator, MultiObjectiveLegacyBoTorchGenerator):
-            model = self.generator.model
-            Xs = self.generator.Xs
-        elif isinstance(self.generator, BoTorchGenerator):
+        if isinstance(self.generator, BoTorchGenerator):
             model = self.generator.surrogate.model
             Xs = self.generator.surrogate.Xs
         else:
             raise UnsupportedError(
-                "Generator must be a MultiObjectiveLegacyBoTorchGenerator or an "
-                "appropriate Modular Botorch Generator to infer_objective_thresholds. "
-                f"Found {type(self.generator)}."
+                "Generator must be a Modular Botorch Generator to "
+                f"infer_objective_thresholds. Found {type(self.generator)}."
             )
 
         obj_thresholds = infer_objective_thresholds(
