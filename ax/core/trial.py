@@ -290,18 +290,15 @@ class Trial(BaseTrial):
             A string message summarizing the update.
         """
         arm_name = none_throws(self.arm).name
-        raw_data_by_arm = {arm_name: raw_data}
-
-        evaluations, data = self._make_evaluations_and_data(raw_data=raw_data_by_arm)
+        data = self._raw_evaluations_to_data(raw_data={arm_name: raw_data})
 
         self.validate_data_for_trial(data=data)
         self.experiment.attach_data(
             data=data, combine_with_last_data=combine_with_last_data
         )
 
-        return str(
-            round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
-        )
+        evaluations = dict(zip(data.df["metric_name"], data.df["mean"]))
+        return str(round_floats_for_logging(item=evaluations))
 
     def clone_to(
         self,
