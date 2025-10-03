@@ -11,7 +11,12 @@ from typing import Optional, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationFeatures, separate_observations
-from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    PARAMETER_PYTHON_TYPE_MAP,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
@@ -93,6 +98,26 @@ class Cast(Transform):
             raise UserInputError(
                 f"Unexpected config parameters for `Cast` transform: {config}."
             )
+
+        # Raise errors for unsupported hierarchical search space functionalities.
+        if isinstance(search_space, HierarchicalSearchSpace) and not self.flatten_hss:
+            for p_name, p in self.search_space.parameters.items():
+                if isinstance(p, ChoiceParameter) and p.is_hierarchical:
+                    if len(p.dependents) >= 3:
+                        raise NotImplementedError(
+                            f"Found {len(p.dependents)} different values in the "
+                            f"hierarchical choice parameter {p_name}. However, as of "
+                            "now, hierarchical choice parameters only support two "
+                            "different choices."
+                        )
+
+                    if p.parameter_type == ParameterType.FLOAT:
+                        raise NotImplementedError(
+                            f"{p_name} is a float-valued hierarchical choice parameter."
+                            " This is not supported yet. All hierarchical parameters "
+                            "have to be integer-valued after all Ax transforms. But "
+                            "This parameter will be skipped by ChoiceToNumericalChoice."
+                        )
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Flattens the hierarchical search space and returns the flat
