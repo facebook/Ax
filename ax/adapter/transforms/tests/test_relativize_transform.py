@@ -23,13 +23,8 @@ from ax.adapter.transforms.relativize import (
 )
 from ax.core import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    observations_from_data,
-    recombine_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import observations_from_data, recombine_observations
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
