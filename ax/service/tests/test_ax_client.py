@@ -16,9 +16,7 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 import numpy as np
-import pandas as pd
 import torch
-from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
@@ -91,10 +89,6 @@ if TYPE_CHECKING:
 
 
 RANDOM_SEED = 239
-DUMMY_RUN_METADATA = {
-    "TEST_KEY": "TEST_VALUE",
-    "abc": {123: 456},
-}
 ARM_NAME = "test_arm_name"
 
 
@@ -1685,15 +1679,8 @@ class TestAxClient(TestCase):
         ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
         self.assertEqual(ax_client.get_best_parameters()[0], params2)
         params3, idx3 = ax_client.get_next_trial()
-        ax_client.complete_trial(
-            trial_index=idx3, raw_data=-2, metadata={"dummy": "test"}
-        )
+        ax_client.complete_trial(trial_index=idx3, raw_data=-2)
         self.assertEqual(ax_client.get_best_parameters()[0], params3)
-        self.assertEqual(
-            # pyre-fixme[16]: `Optional` has no attribute `run_metadata`.
-            ax_client.experiment.trials.get(2).run_metadata.get("dummy"),
-            "test",
-        )
         best_trial_values = ax_client.get_best_parameters()[1]
         self.assertEqual(best_trial_values[0], {"branin": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
@@ -1763,35 +1750,6 @@ class TestAxClient(TestCase):
         )
         self.assertTrue(ax_client.get_trial(idx).status.is_failed)
 
-    def test_trial_completion_with_metadata_times(self) -> None:
-        for milisecond in (True, False):
-            if milisecond:
-                metadata: dict[str, str | int] = {
-                    "start_time": int(pd.Timestamp("2020-01-01").timestamp() * 1000),
-                    "end_time": int(pd.Timestamp("2020-01-05").timestamp() * 1000),
-                }
-            else:
-                metadata: dict[str, str | int] = {
-                    "start_time": "2020-01-01",
-                    "end_time": "2020-01-05 00:00:00",
-                }
-            ax_client = get_branin_optimization()
-            _, idx = ax_client.get_next_trial()
-            ax_client.complete_trial(
-                trial_index=idx, raw_data={"branin": (0, 0.0)}, metadata=metadata
-            )
-            with patch.object(
-                RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
-            ) as mock_fit:
-                ax_client.get_next_trial()
-                self.assertEqual(mock_fit.call_count, 1)
-                obs_data = mock_fit.call_args.kwargs["experiment_data"].observation_data
-                start_time = obs_data[("metadata", "start_time")].item()
-                end_time = obs_data[("metadata", "end_time")].item()
-                # Check that the data is carried on as timestamps.
-                self.assertEqual(start_time.day, 1)
-                self.assertEqual(end_time.day, 5)
-
     def test_abandon_trial(self) -> None:
         ax_client = get_branin_optimization()
 
@@ -1825,27 +1783,6 @@ class TestAxClient(TestCase):
         ax_client.complete_trial(trial_index=idx, raw_data=(0, 0.0))
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params)
-
-    def test_start_and_end_time_in_trial_completion(self) -> None:
-        start_time = pd.Timestamp.now().isoformat()
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-        )
-        params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(
-            trial_index=idx,
-            raw_data=1.0,
-            metadata={
-                "start_time": start_time,
-                "end_time": pd.Timestamp.now().isoformat(),
-            },
-        )
-        dat = ax_client.experiment.fetch_data().df
-        self.assertGreater(dat["end_time"][0], dat["start_time"][0])
 
     def test_fail_on_batch(self) -> None:
         ax_client = AxClient()
@@ -1899,9 +1836,7 @@ class TestAxClient(TestCase):
             ],
         )
         params, idx = ax_client.attach_trial(
-            parameters={"x": 0.0, "y": 1.0},
-            run_metadata=DUMMY_RUN_METADATA,
-            arm_name=ARM_NAME,
+            parameters={"x": 0.0, "y": 1.0}, arm_name=ARM_NAME
         )
         ax_client.complete_trial(trial_index=idx, raw_data=5)
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
