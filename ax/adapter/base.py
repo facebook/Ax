@@ -381,7 +381,7 @@ class Adapter:
                 search_space=search_space, experiment_data=experiment_data
             )
         return self.get_training_data(
-            filter_in_design=self._data_loader_config.fit_out_of_design
+            filter_in_design=not self._data_loader_config.fit_out_of_design
         )
 
     def _compute_in_design(
