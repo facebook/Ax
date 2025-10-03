@@ -1164,3 +1164,65 @@ class BaseAdapterTest(TestCase):
         self.assertListEqual(
             list(data.arm_data.columns), ["x1", "x2", "x3", "metadata"]
         )
+
+    def test_set_and_filter_training_data_fit_out_of_design(self) -> None:
+        """Test that _set_and_filter_training_data correctly filters data based on
+        fit_out_of_design setting."""
+        # Search space is x, y; both are range parameters in [0, 1].
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0], [4.0]],
+            parameterizations=[
+                {"x": 0.0, "y": 0.0},
+                {"x": 0.5, "y": 1.0},
+                {"x": 2.0, "y": 1.0},
+                {"x": 0.5, "y": -1.0},
+            ],
+        )
+
+        # Test when DataLoaderConfig.fit_out_of_design = False
+        with mock.patch.object(
+            Adapter, "_transform_data", return_value=(None, None)
+        ) as mock_transform:
+            adapter_exclude_ood = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                data_loader_config=DataLoaderConfig(fit_out_of_design=False),
+                expand_model_space=False,
+            )
+            filtered_data = mock_transform.call_args.kwargs["experiment_data"]
+
+            self.assertEqual(len(filtered_data.arm_data), 2)
+            expected_arm_names = {"0_0", "1_0"}
+            actual_arm_names = set(
+                filtered_data.arm_data.index.get_level_values("arm_name")
+            )
+            self.assertEqual(actual_arm_names, expected_arm_names)
+
+            expected_in_design = [True, True, False, False]
+            self.assertEqual(adapter_exclude_ood.training_in_design, expected_in_design)
+
+        # Test when DataLoaderConfig.fit_out_of_design = True
+        with mock.patch.object(
+            Adapter, "_transform_data", return_value=(None, None)
+        ) as mock_transform:
+            adapter_include_ood = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                data_loader_config=DataLoaderConfig(fit_out_of_design=True),
+                expand_model_space=False,
+            )
+
+            all_data = mock_transform.call_args.kwargs["experiment_data"]
+
+            self.assertEqual(len(all_data.arm_data), 4)
+            all_arm_names = {"0_0", "1_0", "2_0", "3_0"}
+            actual_all_arm_names = set(
+                all_data.arm_data.index.get_level_values("arm_name")
+            )
+            self.assertEqual(actual_all_arm_names, all_arm_names)
+
+            expected_all_in_design = [True, True, True, True]
+            self.assertEqual(
+                adapter_include_ood.training_in_design, expected_all_in_design
+            )
+            self.assertEqual(len(all_data.observation_data), 4)
