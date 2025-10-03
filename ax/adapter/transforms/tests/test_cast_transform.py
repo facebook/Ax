@@ -142,6 +142,43 @@ class CastTransformTest(TestCase):
         self.assertFalse(self.t.flatten_hss)  # `self.t` does not have HSS
         self.assertTrue(self.t_hss.flatten_hss)  # `self.t_hss` does have HSS
 
+    def test_error_out_unsupported_hss_funcionalities(self) -> None:
+        hss = HierarchicalSearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="x0",
+                    parameter_type=ParameterType.INT,
+                    values=[1, 2, 3],
+                    dependents={1: ["x1"], 2: ["x2"], 3: ["x3"]},
+                ),
+                FixedParameter(name="x1", parameter_type=ParameterType.INT, value=1),
+                FixedParameter(name="x2", parameter_type=ParameterType.INT, value=2),
+                FixedParameter(name="x3", parameter_type=ParameterType.INT, value=3),
+            ]
+        )
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Found 3 different values in the hierarchical choice parameter x0.*",
+        ):
+            Cast(search_space=hss, config={"flatten_hss": False})
+
+        hss2 = HierarchicalSearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="x0",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[1.0, 2.0],
+                    dependents={1.0: ["x1"], 2.0: ["x2"]},
+                ),
+                FixedParameter(name="x1", parameter_type=ParameterType.INT, value=1),
+                FixedParameter(name="x2", parameter_type=ParameterType.INT, value=2),
+            ]
+        )
+        with self.assertRaisesRegex(
+            NotImplementedError, "x0 is a float-valued hierarchical choice parameter.*"
+        ):
+            Cast(search_space=hss2, config={"flatten_hss": False})
+
     def test_transform_search_space_HSS(self) -> None:
         with patch.object(
             self.hss, "flatten", wraps=self.hss.flatten
