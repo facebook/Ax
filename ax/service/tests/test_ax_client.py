@@ -372,7 +372,6 @@ class TestAxClient(TestCase):
             "foo",
         )
         self.assertEqual(
-            # pyre-fixme[16]: `Optional` has no attribute `objective`.
             opt_config.objective.objectives[0].metric.name,
             "foo",
         )
@@ -1539,9 +1538,13 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "Raw data does not conform to the expected structure."
         ):
-            # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
-            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
-            ax_client.update_trial_data(trial_index, raw_data="invalid_data")
+            ax_client._update_trial_with_raw_data(
+                # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
+                trial_index=trial_index,
+                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[...
+                raw_data="invalid data",
+                combine_with_last_data=True,
+            )
 
     @mock_botorch_optimize
     def test_raw_data_format_with_map_results(self) -> None:
@@ -1697,26 +1700,13 @@ class TestAxClient(TestCase):
 
     def test_update_trial_data(self) -> None:
         ax_client = get_branin_optimization(support_intermediate_data=True)
-        params, idx = ax_client.get_next_trial()
-        # Can't update before completing.
-        with self.assertRaisesRegex(ValueError, ".* not in a terminal state"):
-            ax_client.update_trial_data(
-                trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})]
-            )
+        _, idx = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})])
         # Cannot complete a trial twice, should use `update_trial_data`.
         with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
             ax_client.complete_trial(
                 trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})]
             )
-        # Check that the update changes the data.
-        ax_client.update_trial_data(
-            trial_index=idx, raw_data=[(0, {"branin": (1, 0.0)})]
-        )
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
-        self.assertEqual(len(df), 1)
-        self.assertEqual(df["mean"].item(), 1.0)
-        self.assertTrue(ax_client.get_trial(idx).status.is_completed)
 
         # With early stopped trial.
         params, idx = ax_client.get_next_trial()
@@ -1728,25 +1718,20 @@ class TestAxClient(TestCase):
         ax_client.stop_trial_early(trial_index=idx)
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(len(df), 1)
-        ax_client.update_trial_data(
-            trial_index=idx, raw_data=[(0, {"branin": (2, 0.0)})]
-        )
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
-        self.assertEqual(len(df), 1)
-        self.assertEqual(df["mean"].item(), 2.0)
-        self.assertTrue(ax_client.get_trial(idx).status.is_early_stopped)
 
         # Failed trial.
-        params, idx = ax_client.get_next_trial()
+        _, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(trial_index=idx)
-        ax_client.update_trial_data(
-            trial_index=idx, raw_data=[(0, {"branin": (3, 0.0)})]
+        ax_client._update_trial_with_raw_data(
+            trial_index=idx,
+            raw_data=[(0, {"branin": (3, 0.0)})],
+            combine_with_last_data=True,
         )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(df["mean"].item(), 3.0)
 
         # Incomplete trial fails
-        params, idx = ax_client.get_next_trial()
+        _, idx = ax_client.get_next_trial()
         ax_client.add_tracking_metrics(metric_names=["missing_metric"])
         ax_client.complete_trial(
             trial_index=idx, raw_data=[(0, {"missing_metric": (0, 0.0)})]
