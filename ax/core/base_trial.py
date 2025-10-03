@@ -18,7 +18,7 @@ import pandas as pd
 
 from ax.core.arm import Arm
 from ax.core.data import Data
-from ax.core.formatting_utils import data_and_evaluations_from_raw_data
+from ax.core.formatting_utils import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -833,16 +833,12 @@ class BaseTrial(ABC, SortableBase):
     def _unique_id(self) -> str:
         return str(self.index)
 
-    def _make_evaluations_and_data(
-        self,
-        raw_data: dict[str, TEvaluationOutcome],
-    ) -> tuple[dict[str, TEvaluationOutcome], Data]:
-        """Formats given raw data as Ax evaluations and `Data`.
+    def _raw_evaluations_to_data(self, raw_data: dict[str, TEvaluationOutcome]) -> Data:
+        """Formats given raw data as Ax `Data`.
 
         Args:
             raw_data: Map from arm name to
                 metric outcomes.
-            metadata: Additional metadata to track about this run.
         """
 
         metric_name_to_signature = {
@@ -850,13 +846,12 @@ class BaseTrial(ABC, SortableBase):
         }
 
         try:
-            evaluations, data = data_and_evaluations_from_raw_data(
+            return raw_evaluations_to_data(
                 raw_data=raw_data,
                 metric_name_to_signature=metric_name_to_signature,
                 trial_index=self.index,
                 data_type=self.experiment.default_data_type,
             )
-            return evaluations, data
         except UserInputError as e:
             if "not found in metric_name_to_signature." in str(e):
                 raise UserInputError(

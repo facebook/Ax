@@ -22,7 +22,7 @@ from ax.adapter.prediction_utils import predict_by_features
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
-from ax.core.formatting_utils import data_and_evaluations_from_raw_data
+from ax.core.formatting_utils import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -1668,7 +1668,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             metric_name: metric.signature
             for metric_name, metric in self.experiment.metrics.items()
         }
-        _, data = data_and_evaluations_from_raw_data(
+        data = raw_evaluations_to_data(
             raw_data={"data": raw_data},
             trial_index=trial_index,
             data_type=self.experiment.default_data_type,

@@ -366,7 +366,8 @@ class TrialTest(TestCase):
         self.assertEqual(len(data), 0)
 
         # Attach data
-        self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
+        result = self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
+        self.assertEqual(result, str({"m1": 1.0, "m2": 2.0}))
 
         # Confirm the expected state after attaching data
         data = (
@@ -399,7 +400,8 @@ class TrialTest(TestCase):
                 BraninMetric(name="m1", param_names=["x1", "x2"]),
             ]
         )
-        map_trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
+        result = map_trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
+        self.assertEqual(result, str({"m1": 1.0}))
 
         with self.assertRaisesRegex(
             UserInputError,

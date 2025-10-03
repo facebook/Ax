@@ -100,12 +100,12 @@ def raw_data_to_evaluation(
         )
 
 
-def data_and_evaluations_from_raw_data(
+def raw_evaluations_to_data(
     raw_data: Mapping[str, TEvaluationOutcome],
     metric_name_to_signature: Mapping[str, str],
     trial_index: int,
     data_type: DataType,
-) -> tuple[dict[str, TEvaluationOutcome], Data]:
+) -> Data:
     """Transforms evaluations into Ax Data.
 
     Each evaluation is either a trial evaluation: {metric_name -> (mean, SEM)}
@@ -118,7 +118,6 @@ def data_and_evaluations_from_raw_data(
             transform raw data to evaluations.
         trial_index: Index of the trial, for which the evaluations are.
         data_type: An element of the ``DataType`` enum.
-
     """
     evaluations = {
         arm_name: raw_data_to_evaluation(
@@ -163,4 +162,4 @@ def data_and_evaluations_from_raw_data(
             "Evaluations included a mixture of no-fidelity and with-fidelity "
             "evaluations, which is not currently supported."
         )
-    return evaluations, data
+    return data

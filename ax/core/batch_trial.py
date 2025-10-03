@@ -30,7 +30,7 @@ from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
-from ax.utils.common.logger import _round_floats_for_logging, get_logger
+from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -556,16 +556,9 @@ class BatchTrial(BaseTrial):
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 
-        evaluations, data = self._make_evaluations_and_data(raw_data=raw_data)
+        data = self._raw_evaluations_to_data(raw_data=raw_data)
         self._validate_batch_trial_data(data=data)
         self.experiment.attach_data(data)
-
-        data_for_logging = _round_floats_for_logging(item=evaluations)
-
-        logger.debug(
-            f"Updated trial {self.index} with data: "
-            f"{_round_floats_for_logging(item=data_for_logging)}."
-        )
 
     def __repr__(self) -> str:
         return (
