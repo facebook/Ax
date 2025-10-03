@@ -836,7 +836,6 @@ class BaseTrial(ABC, SortableBase):
     def _make_evaluations_and_data(
         self,
         raw_data: dict[str, TEvaluationOutcome],
-        metadata: dict[str, str | int] | None,
     ) -> tuple[dict[str, TEvaluationOutcome], Data]:
         """Formats given raw data as Ax evaluations and `Data`.
 
@@ -845,8 +844,6 @@ class BaseTrial(ABC, SortableBase):
                 metric outcomes.
             metadata: Additional metadata to track about this run.
         """
-
-        metadata = metadata if metadata is not None else {}
 
         metric_name_to_signature = {
             name: metric.signature for name, metric in self.experiment.metrics.items()
@@ -858,8 +855,6 @@ class BaseTrial(ABC, SortableBase):
                 metric_name_to_signature=metric_name_to_signature,
                 trial_index=self.index,
                 data_type=self.experiment.default_data_type,
-                start_time=metadata.get("start_time"),
-                end_time=metadata.get("end_time"),
             )
             return evaluations, data
         except UserInputError as e:

@@ -13,7 +13,6 @@ from ax.core.data import Data
 from ax.core.map_data import MAP_KEY, MapData
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.timeutils import current_timestamp_in_millis
 from pyre_extensions import assert_is_instance
 
 REPR_500: str = (
@@ -255,41 +254,17 @@ class DataTest(TestCase):
         data = CustomData(df=self.df)
         self.assertNotEqual(data, Data(self.df))
 
-    def test_FromEvaluationsIsoFormat(self) -> None:
-        now = pd.Timestamp.now()
-        day = now.day
+    def test_FromEvaluations(self) -> None:
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
                 metric_name_to_signature=self.metric_name_to_signature,
                 trial_index=0,
-                start_time=now.isoformat(),
-                end_time=now.isoformat(),
             )
             self.assertEqual(data.df["sem"].isnull()[0], sem is None)
             self.assertEqual(len(data.df), 1)
             self.assertNotEqual(data, Data(self.df))
-            self.assertEqual(data.df["start_time"][0].day, day)
-            self.assertEqual(data.df["end_time"][0].day, day)
-
-    def test_FromEvaluationsMillisecondFormat(self) -> None:
-        now_ms = current_timestamp_in_millis()
-        day = pd.Timestamp(now_ms, unit="ms").day
-        for sem in (0.5, None):
-            eval1 = (3.7, sem) if sem is not None else 3.7
-            data = Data.from_evaluations(
-                evaluations={"0_1": {"b": eval1}},
-                metric_name_to_signature=self.metric_name_to_signature,
-                trial_index=0,
-                start_time=now_ms,
-                end_time=now_ms,
-            )
-            self.assertEqual(data.df["sem"].isnull()[0], sem is None)
-            self.assertEqual(len(data.df), 1)
-            self.assertNotEqual(data, Data(self.df))
-            self.assertEqual(data.df["start_time"][0].day, day)
-            self.assertEqual(data.df["end_time"][0].day, day)
 
     def test_FromEvaluationsNameAndSignature(self) -> None:
         data = Data.from_evaluations(

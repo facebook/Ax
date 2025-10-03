@@ -530,19 +530,11 @@ class BatchTrial(BaseTrial):
         self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial
 
-    def attach_batch_trial_data(
-        self,
-        raw_data: dict[str, TEvaluationOutcome],
-        metadata: dict[str, str | int] | None = None,
-    ) -> None:
-        """Attaches data to the trial
+    def attach_batch_trial_data(self, raw_data: dict[str, TEvaluationOutcome]) -> None:
+        """Attach data to the trial.
 
         Args:
             raw_data: Map from arm name to metric outcomes.
-            metadata: Additional metadata to track about this run.
-                importantly the start_date and end_date
-            complete_trial: Whether to mark trial as complete after
-                attaching data. Defaults to False.
         """
         # Validate type of raw_data
         if not isinstance(raw_data, dict):
@@ -564,12 +556,8 @@ class BatchTrial(BaseTrial):
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 
-        evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data, metadata=metadata
-        )
+        evaluations, data = self._make_evaluations_and_data(raw_data=raw_data)
         self._validate_batch_trial_data(data=data)
-
-        self._run_metadata = self._run_metadata if metadata is None else metadata
         self.experiment.attach_data(data)
 
         data_for_logging = _round_floats_for_logging(item=evaluations)
