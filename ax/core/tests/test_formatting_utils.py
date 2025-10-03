@@ -6,7 +6,12 @@
 
 # pyre-strict
 
-from ax.core.formatting_utils import raw_data_to_evaluation
+import numpy as np
+from ax.core.formatting_utils import (
+    DataType,
+    raw_data_to_evaluation,
+    raw_evaluations_to_data,
+)
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -98,3 +103,29 @@ class TestRawDataToEvaluation(TestCase):
                 raw_data="1.6",
                 metric_names=["objective_a"],
             )
+
+    def test_numpy_types(self) -> None:
+        arm_name = "0_0"
+        inputs = {
+            "float64": np.float64(1.6),
+            "float32": np.float32(1.6),
+            "float16": np.float16(1.6),
+            "int64": np.int64(1),
+        }
+        for np_dtype, number in inputs.items():
+            formats = {
+                "Scalar": number,
+                "Non-map": {"m": number},
+                "Map": [(0, {"m": number}), (1, {"m": number})],
+            }
+            for format_name, evaluation in formats.items():
+                data_type = DataType.MAP_DATA if format_name == "Map" else DataType.DATA
+                with self.subTest(f"{np_dtype}, {format_name}"):
+                    data = raw_evaluations_to_data(
+                        raw_data={arm_name: evaluation},
+                        metric_name_to_signature={"m": "m"},
+                        trial_index=0,
+                        data_type=data_type,
+                    )
+                    self.assertEqual(data.df.dtypes["mean"], float)
+                    self.assertEqual(data.df["mean"].iloc[0].item(), float(number))
