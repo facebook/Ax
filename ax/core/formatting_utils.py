@@ -105,8 +105,6 @@ def data_and_evaluations_from_raw_data(
     metric_name_to_signature: Mapping[str, str],
     trial_index: int,
     data_type: DataType,
-    start_time: int | str | None = None,
-    end_time: int | str | None = None,
 ) -> tuple[dict[str, TEvaluationOutcome], Data]:
     """Transforms evaluations into Ax Data.
 
@@ -119,14 +117,8 @@ def data_and_evaluations_from_raw_data(
         metric_name_to_signature: Mapping of metric names to signatures used to
             transform raw data to evaluations.
         trial_index: Index of the trial, for which the evaluations are.
-        start_time: Optional start time of run of the trial that produced this
-            data, in milliseconds or iso format.  Milliseconds will eventually be
-            converted to iso format because iso format automatically works with the
-            pandas column type `Timestamp`.
-        end_time: Optional end time of run of the trial that produced this
-            data, in milliseconds or iso format.  Milliseconds will eventually be
-            converted to iso format because iso format automatically works with the
-            pandas column type `Timestamp`.
+        data_type: An element of the ``DataType`` enum.
+
     """
     evaluations = {
         arm_name: raw_data_to_evaluation(
@@ -151,8 +143,6 @@ def data_and_evaluations_from_raw_data(
             evaluations=cast(dict[str, TTrialEvaluation], evaluations),
             metric_name_to_signature=metric_name_to_signature,
             trial_index=trial_index,
-            start_time=start_time,
-            end_time=end_time,
         )
     elif all(isinstance(evaluations[x], list) for x in evaluations.keys()):
         if data_type is DataType.DATA:
