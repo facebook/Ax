@@ -11,12 +11,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import separate_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace

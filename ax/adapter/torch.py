@@ -46,12 +46,8 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions
 from ax.core.metric import Metric
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import separate_observations
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,

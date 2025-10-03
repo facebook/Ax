@@ -14,7 +14,7 @@ from ax.adapter.registry import rel_EB_ashr_trans
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.discrete.eb_ashr import EBAshr
