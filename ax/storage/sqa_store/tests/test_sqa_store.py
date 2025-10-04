@@ -27,6 +27,10 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.runner import Runner
@@ -1218,6 +1222,166 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
+    def test_ExperimentTargetArm(self) -> None:
+        experiment = get_experiment_with_batch_trial()
+        target_arm = next(iter(experiment.arms_by_name.values())).clone()
+        none_throws(experiment.optimization_config).target_arm = target_arm
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertEqual(
+            none_throws(loaded_experiment.optimization_config).target_arm, target_arm
+        )
+
+    def test_optimization_config_target_arm_sqa_roundtrip(self) -> None:
+        # Setup: create experiment with basic OptimizationConfig and target_arm
+        experiment = get_experiment_with_batch_trial()
+        target_arm = Arm(parameters={"w": 1.5, "x": 2.5, "y": "choice_1", "z": False})
+
+        optimization_config = OptimizationConfig(
+            objective=get_objective(),
+            outcome_constraints=[get_outcome_constraint()],
+            target_arm=target_arm,
+        )
+        experiment.optimization_config = optimization_config
+
+        # Execute: save and load experiment through SQA store
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm target_arm is preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(loaded_experiment.optimization_config).target_arm
+        )
+        self.assertEqual(
+            none_throws(experiment.optimization_config).target_arm,
+            none_throws(loaded_experiment.optimization_config).target_arm,
+        )
+        # Verify the target arm parameters are correct
+        loaded_target_arm = none_throws(
+            none_throws(loaded_experiment.optimization_config).target_arm
+        )
+        self.assertEqual(loaded_target_arm.parameters["w"], 1.5)
+        self.assertEqual(loaded_target_arm.parameters["x"], 2.5)
+        self.assertEqual(loaded_target_arm.parameters["y"], "choice_1")
+        self.assertEqual(loaded_target_arm.parameters["z"], False)
+
+    def test_multi_objective_optimization_config_target_arm_sqa_roundtrip(self) -> None:
+        # Test that MultiObjectiveOptimizationConfig with target_arm can be
+        # saved/loaded correctly
+
+        # Setup: create experiment with MultiObjectiveOptimizationConfig and target_arm
+        experiment = get_experiment_with_batch_trial()
+        target_arm = next(iter(experiment.arms_by_name.values())).clone()
+
+        multi_objective_config = MultiObjectiveOptimizationConfig(
+            objective=get_multi_objective_optimization_config().objective,
+            target_arm=target_arm,
+        )
+        # Can't use experiment.clone_with_args, so create new experiment
+        experiment = Experiment(
+            name=experiment.name,
+            search_space=experiment.search_space,
+            optimization_config=multi_objective_config,
+            description=experiment.description,
+            is_test=experiment.is_test,
+        )
+        # Copy trials from original experiment
+        for trial_idx, trial in experiment.trials.items():
+            experiment._trials[trial_idx] = trial
+
+        # Execute: save and load experiment through SQA store
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm target_arm is preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(loaded_experiment.optimization_config).target_arm
+        )
+        self.assertEqual(
+            none_throws(experiment.optimization_config).target_arm,
+            none_throws(loaded_experiment.optimization_config).target_arm,
+        )
+
+    def test_target_arm_update_sqa_roundtrip(self) -> None:
+        # Test that target_arm can be updated and modifications are preserved
+
+        # Setup: create experiment with initial target_arm
+        experiment = get_experiment_with_batch_trial()
+        initial_target_arm = next(iter(experiment.arms_by_name.values())).clone()
+        none_throws(experiment.optimization_config).target_arm = initial_target_arm
+        save_experiment(experiment)
+
+        # Execute: update target_arm with different parameters
+
+        updated_target_arm = Arm(parameters={"x1": 999.0, "x2": 888.0})
+        none_throws(experiment.optimization_config).target_arm = updated_target_arm
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm updated target_arm is preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(loaded_experiment.optimization_config).target_arm
+        )
+        self.assertEqual(
+            none_throws(loaded_experiment.optimization_config).target_arm,
+            updated_target_arm,
+        )
+        # Confirm it's different from initial target_arm
+        self.assertNotEqual(
+            none_throws(loaded_experiment.optimization_config).target_arm,
+            initial_target_arm,
+        )
+
+    def test_target_arm_none_to_arm_sqa_roundtrip(self) -> None:
+        # Test that target_arm can be set from None to a valid arm
+
+        # Setup: create experiment without target_arm
+        experiment = get_experiment_with_batch_trial()
+        none_throws(experiment.optimization_config).target_arm = None
+        save_experiment(experiment)
+
+        # Execute: set target_arm to a valid arm
+        new_target_arm = next(iter(experiment.arms_by_name.values())).clone()
+        none_throws(experiment.optimization_config).target_arm = new_target_arm
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm target_arm is correctly set
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(loaded_experiment.optimization_config).target_arm
+        )
+        self.assertEqual(
+            none_throws(loaded_experiment.optimization_config).target_arm,
+            new_target_arm,
+        )
+
+    def test_target_arm_arm_to_none_sqa_roundtrip(self) -> None:
+        # Test that target_arm can be set from a valid arm to None
+
+        # Setup: create experiment with target_arm
+        experiment = get_experiment_with_batch_trial()
+        initial_target_arm = next(iter(experiment.arms_by_name.values())).clone()
+        none_throws(experiment.optimization_config).target_arm = initial_target_arm
+        save_experiment(experiment)
+
+        # Execute: set target_arm to None
+        none_throws(experiment.optimization_config).target_arm = None
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm target_arm is correctly set to None
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNone(none_throws(loaded_experiment.optimization_config).target_arm)
+
     def test_ExperimentObjectiveThresholdUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
@@ -1397,13 +1561,11 @@ class SQAStoreTest(TestCase):
         # this will also replace the status quo generator run,
         # since the weight of the status quo will have changed
         trial = experiment.trials[0]
-        # pyre-fixme[16]: `BaseTrial` has no attribute `add_arm`.
         trial.add_arm(get_arm())
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 3)
 
         generator_run = get_generator_run()
-        # pyre-fixme[16]: `BaseTrial` has no attribute `add_generator_run`.
         trial.add_generator_run(generator_run=generator_run)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 4)

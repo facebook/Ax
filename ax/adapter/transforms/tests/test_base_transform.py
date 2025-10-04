@@ -13,13 +13,28 @@ import numpy as np
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.base import Transform
+from ax.core.arm import Arm
+from ax.core.metric import Metric
+from ax.core.objective import Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class SomeTransform(Transform):
     pass
+
+
+# Create a custom transform that doubles parameter values
+class DoubleParameterTransform(Transform):
+    def transform_observation_features(
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
+        for obs_feat in observation_features:
+            for param_name, param_value in obs_feat.parameters.items():
+                obs_feat.parameters[param_name] = float(param_value) * 2
+        return observation_features
 
 
 class TransformsTest(TestCase):
@@ -29,7 +44,6 @@ class TransformsTest(TestCase):
         x = MagicMock()
         ys = []
         ys.append(t.transform_search_space(x))
-        ys.append(t.transform_optimization_config(x, x, x))
         ys.append(t.transform_observation_features(x))
         ys.append(t._transform_observation_data(x))
         ys.append(t.untransform_observation_features(x))
@@ -37,6 +51,15 @@ class TransformsTest(TestCase):
         self.assertEqual(len(x.mock_calls), 0)
         for y in ys:
             self.assertEqual(y, x)
+
+        # Test transform_optimization_config separately since it has special behavior
+        # for target_arm
+        x_opt_config = MagicMock()
+        x_opt_config.target_arm = None  # No target arm means no transformation
+        y_opt_config = t.transform_optimization_config(x_opt_config, x, x)
+        self.assertEqual(y_opt_config, x_opt_config)
+        # Only check that target_arm attribute was accessed, not that no calls were made
+        x_opt_config.target_arm  # This should not cause any transformation calls
 
     def test_TransformObservations(self) -> None:
         # Test that this is an identity transform
@@ -84,3 +107,80 @@ class TransformsTest(TestCase):
             t.transform_experiment_data(experiment_data=experiment_data),
             experiment_data,
         )
+
+    def test_transform_optimization_config_with_target_arm(self) -> None:
+        # Setup: create optimization config with target arm and transform that
+        # modifies parameters
+        target_arm = Arm(parameters={"x1": 2.5, "x2": 7.5})
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("m1"), minimize=False),
+            target_arm=target_arm,
+        )
+
+        transform = DoubleParameterTransform()
+
+        # Execute: transform the optimization config
+        transformed_config = transform.transform_optimization_config(
+            optimization_config
+        )
+
+        # Assert: confirm target arm parameters are correctly transformed
+        self.assertIsNotNone(transformed_config.target_arm)
+        expected_parameters = {"x1": 5.0, "x2": 15.0}  # doubled values
+        self.assertEqual(transformed_config.target_arm.parameters, expected_parameters)
+        # Confirm the optimization config object is the same (in-place transformation)
+        self.assertIs(transformed_config, optimization_config)
+
+    def test_transform_optimization_config_without_target_arm(self) -> None:
+        # Setup: create optimization config without target arm
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("m1"), minimize=False),
+            target_arm=None,
+        )
+
+        transform = Transform()
+
+        # Execute: transform the optimization config
+        transformed_config = transform.transform_optimization_config(
+            optimization_config
+        )
+
+        # Assert: confirm no target arm exists and config remains unchanged
+        self.assertIsNone(transformed_config.target_arm)
+        self.assertIs(transformed_config, optimization_config)
+
+    def test_transform_optimization_config_preserves_other_fields(self) -> None:
+        # Setup: create optimization config with target arm and other fields
+        from ax.core.outcome_constraint import OutcomeConstraint
+        from ax.core.types import ComparisonOp
+
+        target_arm = Arm(parameters={"x1": 1.0, "x2": 2.0})
+        outcome_constraints = [
+            OutcomeConstraint(
+                metric=Metric("m2"), op=ComparisonOp.LEQ, bound=10.0, relative=False
+            )
+        ]
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("m1"), minimize=True),
+            outcome_constraints=outcome_constraints,
+            target_arm=target_arm,
+        )
+
+        transform = DoubleParameterTransform()
+
+        # Execute: transform the optimization config
+        transformed_config = transform.transform_optimization_config(
+            optimization_config
+        )
+
+        # Assert: confirm target arm is transformed but other fields are preserved
+        self.assertIsNotNone(transformed_config.target_arm)
+        expected_parameters = {"x1": 2.0, "x2": 4.0}  # incremented values
+        self.assertEqual(transformed_config.target_arm.parameters, expected_parameters)
+
+        # Confirm other fields are preserved
+        self.assertEqual(transformed_config.objective.metric.name, "m1")
+        self.assertTrue(transformed_config.objective.minimize)
+        self.assertEqual(len(transformed_config.outcome_constraints), 1)
+        self.assertEqual(transformed_config.outcome_constraints[0].metric.name, "m2")
+        self.assertEqual(transformed_config.outcome_constraints[0].bound, 10.0)

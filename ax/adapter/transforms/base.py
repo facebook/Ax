@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
+from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import separate_observations
 from ax.core.optimization_config import OptimizationConfig
@@ -130,6 +131,16 @@ class Transform:
 
         Returns: transformed optimization config.
         """
+        if optimization_config.target_arm is not None:
+            optimization_config.target_arm = Arm(
+                parameters=self.transform_observation_features(
+                    observation_features=[
+                        ObservationFeatures(
+                            parameters=optimization_config.target_arm.parameters
+                        )
+                    ]
+                )[0].parameters
+            )
         return optimization_config
 
     def transform_observations(

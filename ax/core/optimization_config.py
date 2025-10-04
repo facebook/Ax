@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from itertools import groupby
 
+from ax.core.arm import Arm
+
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.outcome_constraint import (
@@ -35,6 +37,8 @@ _NO_OBJECTIVE_THRESHOLDS = [
 ]
 _NO_RISK_MEASURE = RiskMeasure("placeholder", {})
 
+_NO_TARGET_ARM = Arm(parameters={})
+
 
 class OptimizationConfig(Base):
     """An optimization configuration, which comprises an objective,
@@ -50,6 +54,7 @@ class OptimizationConfig(Base):
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
         risk_measure: RiskMeasure | None = None,
+        target_arm: Arm | None = None,
     ) -> None:
         """Inits OptimizationConfig.
 
@@ -58,6 +63,8 @@ class OptimizationConfig(Base):
             outcome_constraints: Constraints on metrics.
             risk_measure: An optional risk measure, used for robust optimization.
                 Must be used with a `RobustSearchSpace`.
+            target_arm: Arm containing the target values for
+                irrelevant parameters.
         """
         constraints: list[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
@@ -70,6 +77,7 @@ class OptimizationConfig(Base):
         self._objective: Objective = objective
         self._outcome_constraints: list[OutcomeConstraint] = constraints
         self.risk_measure: RiskMeasure | None = risk_measure
+        self.target_arm = target_arm
 
     def clone(self) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
@@ -80,6 +88,7 @@ class OptimizationConfig(Base):
         objective: Objective | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
         risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
+        target_arm: Arm | None = _NO_TARGET_ARM,
     ) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
         objective = self.objective.clone() if objective is None else objective
@@ -91,11 +100,13 @@ class OptimizationConfig(Base):
         risk_measure = (
             self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
         )
+        target_arm = self.target_arm if target_arm is _NO_TARGET_ARM else target_arm
 
         return OptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
             risk_measure=risk_measure,
+            target_arm=target_arm,
         )
 
     @property
@@ -278,8 +289,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints: list[OutcomeConstraint] | None = None,
         objective_thresholds: list[ObjectiveThreshold] | None = None,
         risk_measure: RiskMeasure | None = None,
+        target_arm: Arm | None = None,
     ) -> None:
-        """Inits OptimizationConfig.
+        """Inits MultiObjectiveOptimizationConfig.
 
         Args:
             objective: Metric+direction to use for the optimization. Should be either a
@@ -290,6 +302,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
                 and hypervolumes.
             risk_measure: An optional risk measure, used for robust optimization.
                 Must be used with a `RobustSearchSpace`.
+            target_arm: Arm containing the target values for
+                irrelevant parameters.
         """
         constraints: list[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
@@ -305,6 +319,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         self._outcome_constraints: list[OutcomeConstraint] = constraints
         self._objective_thresholds: list[ObjectiveThreshold] = objective_thresholds
         self.risk_measure: RiskMeasure | None = risk_measure
+        self.target_arm = target_arm
 
     # pyre-fixme[14]: Inconsistent override.
     def clone_with_args(
@@ -314,6 +329,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective_thresholds: None
         | (list[ObjectiveThreshold]) = _NO_OBJECTIVE_THRESHOLDS,
         risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
+        target_arm: Arm | None = _NO_TARGET_ARM,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""
         objective = self.objective.clone() if objective is None else objective
@@ -330,12 +346,13 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         risk_measure = (
             self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
         )
-
+        target_arm = self.target_arm if target_arm is _NO_TARGET_ARM else target_arm
         return MultiObjectiveOptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
             risk_measure=risk_measure,
+            target_arm=target_arm,
         )
 
     @property
@@ -484,6 +501,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         objective: MultiObjective,
         preference_profile_name: str,
         outcome_constraints: list[OutcomeConstraint] | None = None,
+        target_arm: Arm | None = None,
     ) -> None:
         """Inits PreferenceOptimizationConfig.
 
@@ -495,6 +513,8 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
                 this name and purpose PE_EXPERIMENT should be attached to
                 the experiment.
             outcome_constraints: Constraints on metrics. Not yet supported.
+            target_arm: Arm containing the target values for
+                irrelevant parameters.
         """
         if outcome_constraints:
             raise NotImplementedError(
@@ -508,6 +528,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
             outcome_constraints=outcome_constraints,
             objective_thresholds=None,
             risk_measure=None,
+            target_arm=target_arm,
         )
         self.preference_profile_name = preference_profile_name
 
@@ -516,7 +537,8 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         self,
         objective: MultiObjective | None = None,
         preference_profile_name: str | None = None,
-        outcome_constraints: list[OutcomeConstraint] | None = None,
+        outcome_constraints: list[OutcomeConstraint] | None = _NO_OUTCOME_CONSTRAINTS,
+        target_arm: Arm | None = _NO_TARGET_ARM,
     ) -> PreferenceOptimizationConfig:
         """Make a copy of this optimization config."""
         objective = (
@@ -532,14 +554,16 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         )
         outcome_constraints = (
             [constraint.clone() for constraint in self.outcome_constraints]
-            if outcome_constraints is None
+            if outcome_constraints is _NO_OUTCOME_CONSTRAINTS
             else outcome_constraints
         )
+        target_arm = self.target_arm if target_arm is _NO_TARGET_ARM else target_arm
 
         return PreferenceOptimizationConfig(
             objective=objective,
             preference_profile_name=preference_profile_name,
             outcome_constraints=outcome_constraints,
+            target_arm=target_arm,
         )
 
     def __repr__(self) -> str:
