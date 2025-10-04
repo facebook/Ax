@@ -140,8 +140,6 @@ class MultiTypeExperiment(Experiment):
         self._trial_type_to_runner[trial_type] = runner
         return self
 
-    # pyre-fixme[14]: `add_tracking_metric` overrides method defined in `Experiment`
-    #  inconsistently.
     def add_tracking_metric(
         self,
         metric: Metric,

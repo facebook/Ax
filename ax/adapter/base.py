@@ -29,12 +29,8 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
 from ax.core.map_data import MAP_KEY
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    recombine_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
