@@ -11,7 +11,7 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Callable, cast, Union
+from typing import Any, Callable, cast, Union
 
 import pandas as pd
 from ax.analysis.analysis_card import (
@@ -173,6 +173,16 @@ class Decoder:
                 auxiliary_experiments_by_purpose[purpose].append(aux_experiment)
         return auxiliary_experiments_by_purpose
 
+    def _get_target_arm_from_experiment_properties(
+        self, properties: dict[str, Any]
+    ) -> Arm | None:
+        target_arm = properties.pop("target_arm", None)
+        if target_arm is not None:
+            target_arm = assert_is_instance(
+                object_from_json(object_json=target_arm), Arm
+            )
+        return target_arm
+
     def _init_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
@@ -180,8 +190,14 @@ class Decoder:
         reduced_state: bool = False,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
+        # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
+        # so need to convert it to regular dict.
+        properties = dict(experiment_sqa.properties or {})
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics
+            metrics_sqa=experiment_sqa.metrics,
+            target_arm=self._get_target_arm_from_experiment_properties(
+                properties=properties
+            ),
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -207,9 +223,6 @@ class Decoder:
                 "only supported for MultiTypeExperiment."
             )
 
-        # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
-        # so need to convert it to regular dict.
-        properties = dict(experiment_sqa.properties or {})
         default_data_type = experiment_sqa.default_data_type
 
         auxiliary_experiments_by_purpose = (
@@ -242,8 +255,12 @@ class Decoder:
         experiment_sqa: SQAExperiment,
     ) -> MultiTypeExperiment:
         """First step of conversion within experiment_from_sqa."""
+        properties = dict(experiment_sqa.properties or {})
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics
+            metrics_sqa=experiment_sqa.metrics,
+            target_arm=self._get_target_arm_from_experiment_properties(
+                properties=properties
+            ),
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -278,7 +295,7 @@ class Decoder:
             trial_type_to_runner.update(
                 {t_type: None for t_type in trial_types_with_metrics}
             )
-        properties = dict(experiment_sqa.properties or {})
+
         default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
@@ -655,7 +672,7 @@ class Decoder:
             )
 
     def opt_config_and_tracking_metrics_from_sqa(
-        self, metrics_sqa: list[SQAMetric]
+        self, metrics_sqa: list[SQAMetric], target_arm: Arm | None
     ) -> tuple[OptimizationConfig | None, list[Metric]]:
         """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
         and tracking metrics.
@@ -689,12 +706,14 @@ class Decoder:
                 outcome_constraints=outcome_constraints,
                 objective_thresholds=objective_thresholds,
                 risk_measure=risk_measure,
+                target_arm=target_arm,
             )
         else:
             optimization_config = OptimizationConfig(
                 objective=objective,
                 outcome_constraints=outcome_constraints,
                 risk_measure=risk_measure,
+                target_arm=target_arm,
             )
         return (optimization_config, tracking_metrics)
 
@@ -752,7 +771,7 @@ class Decoder:
                     opt_config,
                     tracking_metrics,
                 ) = self.opt_config_and_tracking_metrics_from_sqa(
-                    metrics_sqa=generator_run_sqa.metrics
+                    metrics_sqa=generator_run_sqa.metrics, target_arm=None
                 )
                 if len(tracking_metrics) > 0:
                     raise SQADecodeError(
