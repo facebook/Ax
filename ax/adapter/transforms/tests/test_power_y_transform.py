@@ -21,7 +21,7 @@ from ax.adapter.transforms.power_transform_y import (
 )
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp

@@ -37,6 +37,11 @@ from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+    PreferenceOptimizationConfig,
+)
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning, UnsupportedError
@@ -1322,6 +1327,181 @@ class JSONStoreTest(TestCase):
         deserialized_object = object_from_json(object_json)
         expected_object = get_multi_objective()
         self.assertEqual(deserialized_object, expected_object)
+
+    def test_optimization_config_with_target_arm_json_roundtrip(self) -> None:
+        # Test that OptimizationConfig with target_arm can be
+        # serialized/deserialized correctly
+
+        # Setup: create OptimizationConfig with target_arm
+        target_arm = get_arm()
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("test_metric"), minimize=False),
+            target_arm=target_arm,
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            optimization_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm target_arm is preserved correctly
+        self.assertEqual(optimization_config, deserialized_config)
+        self.assertIsNotNone(deserialized_config.target_arm)
+        self.assertEqual(optimization_config.target_arm, deserialized_config.target_arm)
+
+    def test_multi_objective_optimization_config_with_target_arm_json_roundtrip(
+        self,
+    ) -> None:
+        # Test that MultiObjectiveOptimizationConfig with target_arm can be
+        # serialized/deserialized correctly
+
+        # Setup: create MultiObjectiveOptimizationConfig with target_arm
+        target_arm = get_arm()
+        multi_objective_config = MultiObjectiveOptimizationConfig(
+            objective=get_multi_objective(),
+            target_arm=target_arm,
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            multi_objective_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm target_arm is preserved correctly
+        self.assertEqual(multi_objective_config, deserialized_config)
+        self.assertIsNotNone(deserialized_config.target_arm)
+        self.assertEqual(
+            multi_objective_config.target_arm, deserialized_config.target_arm
+        )
+
+    def test_preference_optimization_config_with_target_arm_json_roundtrip(
+        self,
+    ) -> None:
+        # Test that PreferenceOptimizationConfig with target_arm can be
+        # serialized/deserialized correctly
+
+        # Setup: create PreferenceOptimizationConfig with target_arm
+        target_arm = get_arm()
+        preference_config = PreferenceOptimizationConfig(
+            objective=get_multi_objective(),
+            target_arm=target_arm,
+            preference_profile_name="default",
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            preference_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm target_arm is preserved correctly
+        self.assertEqual(preference_config, deserialized_config)
+        self.assertIsNotNone(deserialized_config.target_arm)
+        self.assertEqual(preference_config.target_arm, deserialized_config.target_arm)
+
+    def test_optimization_config_with_none_target_arm_json_roundtrip(self) -> None:
+        # Test that OptimizationConfig with target_arm=None is handled correctly
+
+        # Setup: create OptimizationConfig without target_arm
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("test_metric"), minimize=False),
+            target_arm=None,
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            optimization_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm target_arm remains None
+        self.assertEqual(optimization_config, deserialized_config)
+        self.assertIsNone(deserialized_config.target_arm)
+
+    def test_experiment_with_target_arm_json_roundtrip(self) -> None:
+        # Test that Experiment with optimization_config containing target_arm is
+        # serialized correctly
+
+        # Setup: create experiment with target_arm in optimization config
+        experiment = get_branin_experiment()
+        target_arm = get_arm()
+        optimization_config = none_throws(
+            experiment.optimization_config
+        ).clone_with_args(target_arm=target_arm)
+        experiment.optimization_config = optimization_config
+
+        # Execute: save and load experiment through JSON
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(
+                experiment,
+                f.name,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
+            loaded_experiment = load_experiment(
+                f.name,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Cleanup
+        os.remove(f.name)
+
+        # Assert: confirm experiment and target_arm are preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(loaded_experiment.optimization_config).target_arm
+        )
+        self.assertEqual(
+            none_throws(experiment.optimization_config).target_arm,
+            none_throws(loaded_experiment.optimization_config).target_arm,
+        )
 
     def test_multi_objective_from_json_warning(self) -> None:
         objectives = [get_objective()]

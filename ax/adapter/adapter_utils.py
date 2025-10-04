@@ -21,6 +21,7 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
+from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -496,18 +497,37 @@ def extract_outcome_constraints(
     return (A, b)
 
 
+def extract_target_point(
+    target_arm: Arm | None, parameters: list[str]
+) -> npt.NDArray | None:
+    """Extracts the target point, in the order of `parameters`.
+
+    Args:
+        target_arm: Target point to extract values from.
+        parameters: n-length list of names of parameters.
+
+    Returns:
+        n-length array of target values.
+    """
+    if target_arm is None:
+        return None
+    return np.array([target_arm.parameters[p_name] for p_name in parameters])
+
+
 def validate_and_apply_final_transform(
     objective_weights: npt.NDArray,
     outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None,
     linear_constraints: tuple[npt.NDArray, npt.NDArray] | None,
     pending_observations: list[npt.NDArray] | None,
     objective_thresholds: npt.NDArray | None = None,
+    target_point: npt.NDArray | None = None,
     final_transform: Callable[[npt.NDArray], Tensor] = torch.tensor,
 ) -> tuple[
     Tensor,
     tuple[Tensor, Tensor] | None,
     tuple[Tensor, Tensor] | None,
     list[Tensor] | None,
+    Tensor | None,
     Tensor | None,
 ]:
     # TODO: use some container down the road (similar to
@@ -534,12 +554,16 @@ def validate_and_apply_final_transform(
     if objective_thresholds is not None:
         # pyre-fixme[35]: Target cannot be annotated.
         objective_thresholds: Tensor = final_transform(objective_thresholds)
+    if target_point is not None:
+        # pyre-fixme[35]: Target cannot be annotated.
+        target_point: Tensor = final_transform(target_point)
     return (
         objective_weights,
         outcome_constraints,
         linear_constraints,
         pending_observations,
         objective_thresholds,
+        target_point,
     )
 
 
@@ -797,7 +821,7 @@ def get_pareto_frontier_and_configs(
     if obj_t is not None:
         obj_t = array_to_tensor(obj_t)
     # Transform to tensors.
-    obj_w, oc_c, _, _, _ = validate_and_apply_final_transform(
+    obj_w, oc_c, _, _, _, _ = validate_and_apply_final_transform(
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
         linear_constraints=None,

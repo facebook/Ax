@@ -25,6 +25,7 @@ from ax.adapter.adapter_utils import (
     extract_parameter_constraints,
     extract_risk_measure,
     extract_search_space_digest,
+    extract_target_point,
     get_fixed_features,
     observation_data_to_array,
     observation_features_to_array,
@@ -46,12 +47,8 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions
 from ax.core.metric import Metric
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import separate_observations
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -948,6 +945,10 @@ class TorchAdapter(Adapter):
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
         )
+        target_point = extract_target_point(
+            target_arm=optimization_config.target_arm,
+            parameters=self.parameters,
+        )
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
@@ -966,13 +967,16 @@ class TorchAdapter(Adapter):
         pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
         )
-        obj_w, out_c, lin_c, pend_o, obj_t = validate_and_apply_final_transform(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            pending_observations=pending_array,
-            objective_thresholds=objective_thresholds,
-            final_transform=self._array_to_tensor,
+        obj_w, out_c, lin_c, pend_o, obj_t, target_p = (
+            validate_and_apply_final_transform(
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                linear_constraints=linear_constraints,
+                pending_observations=pending_array,
+                objective_thresholds=objective_thresholds,
+                target_point=target_point,
+                final_transform=self._array_to_tensor,
+            )
         )
         rounding_func = self._array_callable_to_tensor_callable(
             transform_callback(self.parameters, self.transforms)
@@ -1009,6 +1013,7 @@ class TorchAdapter(Adapter):
             risk_measure=risk_measure,
             fit_out_of_design=self._data_loader_config.fit_out_of_design,
             use_learned_objective=use_learned_objective,
+            target_point=target_p,
         )
         return search_space_digest, torch_opt_config
 

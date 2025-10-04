@@ -10,7 +10,7 @@ from copy import deepcopy
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.metadata_to_task import MetadataToTask
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig

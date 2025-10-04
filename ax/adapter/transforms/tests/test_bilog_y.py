@@ -18,7 +18,7 @@ from ax.adapter.base import Adapter, DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.bilog_y import bilog_transform, BilogY, inv_bilog_transform
 from ax.adapter.transforms.log_y import match_ci_width
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

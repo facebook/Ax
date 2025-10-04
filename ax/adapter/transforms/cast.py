@@ -10,7 +10,8 @@ from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.observation import Observation, ObservationFeatures, separate_observations
+from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation_utils import separate_observations
 from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError

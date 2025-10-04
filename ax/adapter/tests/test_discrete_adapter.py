@@ -15,11 +15,8 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import (
-    ObservationFeatures,
-    observations_from_data,
-    separate_observations,
-)
+from ax.core.observation import ObservationFeatures
+from ax.core.observation_utils import observations_from_data, separate_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import (

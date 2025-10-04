@@ -22,7 +22,8 @@ from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.api.utils.generation_strategy_dispatch import _get_sobol_node
 from ax.core.map_data import MAP_KEY, MapData
-from ax.core.observation import ObservationFeatures, observations_from_data
+from ax.core.observation import ObservationFeatures
+from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial

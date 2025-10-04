@@ -18,7 +18,7 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.tests.test_relativize_transform import RelativizeDataTest
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.core.batch_trial import BatchTrial
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase

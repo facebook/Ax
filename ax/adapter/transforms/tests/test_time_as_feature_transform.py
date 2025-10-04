@@ -13,7 +13,8 @@ import pandas as pd
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.time_as_feature import TimeAsFeature
-from ax.core.observation import ObservationFeatures, observations_from_data
+from ax.core.observation import ObservationFeatures
+from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError

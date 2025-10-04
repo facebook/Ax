@@ -59,6 +59,7 @@ from ax.exceptions.core import UnsupportedError
 from ax.exceptions.storage import SQAEncodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.encoders import arm_to_dict
 from ax.storage.sqa_store.load import _get_experiment_id
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -210,7 +211,11 @@ class Encoder:
             ]
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
 
-        properties = experiment._properties
+        properties = experiment._properties.copy()
+        if (
+            oc := experiment.optimization_config
+        ) is not None and oc.target_arm is not None:
+            properties["target_arm"] = arm_to_dict(oc.target_arm)
         runners = []
         if isinstance(experiment, MultiTypeExperiment):
             properties[Keys.SUBCLASS] = "MultiTypeExperiment"

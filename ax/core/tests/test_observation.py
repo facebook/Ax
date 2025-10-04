@@ -18,11 +18,9 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.observation import (
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import (
     _filter_data_on_status,
-    Observation,
-    ObservationData,
-    ObservationFeatures,
     observations_from_data,
     recombine_observations,
     separate_observations,
@@ -573,7 +571,7 @@ class ObservationsTest(TestCase):
         data = Data(df=df)
 
         # Data includes metric "c" not attached to the experiment.
-        with patch("ax.core.observation.logger.exception") as mock_logger:
+        with patch("ax.core.observation_utils.logger.exception") as mock_logger:
             observations_from_data(experiment, data)
         mock_logger.assert_called_once()
         call_str = mock_logger.call_args.args[0]
