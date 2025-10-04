@@ -731,6 +731,26 @@ class Adapter:
                     )
             optimization_config = optimization_config.clone()
 
+        # set target features on optimization config as SQ, if target_features
+        # have not been specified and the SQ is in design
+        if (
+            optimization_config is not None
+            and optimization_config.target_arm is None
+            and (sq_arm := self._experiment.status_quo) is not None
+        ):
+            sq_features = ObservationFeatures(parameters=sq_arm.parameters.copy())
+            if "FillMissingParameters" in self._transform_configs:
+                t = FillMissingParameters(
+                    config=self._transform_configs["FillMissingParameters"]
+                )
+                sq_features = t.transform_observation_features(
+                    observation_features=[sq_features]
+                )[0]
+            if search_space.check_membership(parameterization=sq_features.parameters):
+                optimization_config = optimization_config.clone_with_args(
+                    target_arm=Arm(parameters=sq_features.parameters)
+                )
+
         pending_observations = deepcopy(pending_observations)
         fixed_features = (
             ObservationFeatures(parameters={})
