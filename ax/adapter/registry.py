@@ -65,7 +65,6 @@ from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
-from ax.generators.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -268,11 +267,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
                 ]
             )
         },
-    ),
-    "Contextual_SACBO": ModelSetup(
-        adapter_class=TorchAdapter,
-        model_class=SACBO,
-        transforms=Cont_X_trans + Y_trans,
     ),
 }
 
@@ -495,7 +489,6 @@ class Generators(GeneratorRegistryBase):
     UNIFORM = "Uniform"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
-    CONTEXT_SACBO = "Contextual_SACBO"
 
 
 class ModelsMetaClass(type):

@@ -13,7 +13,6 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_defaults import get_qLogNEI
-from ax.generators.torch.cbo_sac import generate_model_space_decomposition
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from botorch.fit import fit_gpytorch_mll
@@ -26,6 +25,23 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
+
+
+def generate_model_space_decomposition(
+    decomposition: dict[str, list[str]], feature_names: list[str]
+) -> dict[str, list[int]]:
+    # validate input decomposition
+    for param_list in decomposition.values():
+        for param in param_list:
+            assert (
+                param in feature_names
+            ), f"cannot find parameter {param} in search space"
+
+    # generate parameter index list align with the input arrays
+    decomp_index = {}
+    for context, param_names in decomposition.items():
+        decomp_index[context] = [feature_names.index(p) for p in param_names]
+    return decomp_index
 
 
 def get_map_model(
