@@ -16,7 +16,6 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import (
     get_outcome_constraint_transforms,
     get_qLogEHVI,
@@ -31,12 +30,10 @@ from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize_context_manager
 from botorch.models.gp_regression import SingleTaskGP
-from botorch.models.model import Model
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.testing import MockModel, MockPosterior
 from gpytorch.utils.warnings import NumericalWarning
-from torch._tensor import Tensor
 
 
 MOO_DEFAULTS_PATH: str = "ax.generators.torch.botorch_moo_defaults"
@@ -89,7 +86,7 @@ class FrontierEvaluatorTest(TestCase):
     def test_pareto_frontier_raise_error_when_missing_data(self) -> None:
         with self.assertRaises(ValueError):
             pareto_frontier_evaluator(
-                model=MultiObjectiveLegacyBoTorchGenerator(),
+                model=BoTorchGenerator(),
                 objective_thresholds=self.objective_thresholds,
                 objective_weights=self.objective_weights,
                 Yvar=self.Yvar,
@@ -151,17 +148,7 @@ class FrontierEvaluatorTest(TestCase):
         self.assertTrue(torch.equal(torch.tensor([], dtype=torch.long), indx))
 
     def test_pareto_frontier_evaluator_predict(self) -> None:
-        def dummy_predict(
-            model: Model,
-            X: Tensor,
-            use_posterior_predictive: bool = False,
-        ) -> tuple[Tensor, Tensor]:
-            # Add column to X that is a product of previous elements.
-            mean = torch.cat([X, torch.prod(X, dim=1).reshape(-1, 1)], dim=1)
-            cov = torch.zeros(mean.shape[0], mean.shape[1], mean.shape[1])
-            return mean, cov
-
-        model = MultiObjectiveLegacyBoTorchGenerator(model_predictor=dummy_predict)
+        model = BoTorchGenerator()
         _fit_model(model=model, X=self.X, Y=self.Y, Yvar=self.Yvar)
 
         Y, _, indx = pareto_frontier_evaluator(
@@ -171,11 +158,11 @@ class FrontierEvaluatorTest(TestCase):
             X=self.X,
         )
         pred = self.Y[2:4]
-        self.assertAllClose(Y, pred)
+        self.assertAllClose(Y, pred, rtol=1e-3)
         self.assertTrue(torch.equal(torch.arange(2, 4), indx))
 
     def test_pareto_frontier_evaluator_with_outcome_constraints(self) -> None:
-        model = MultiObjectiveLegacyBoTorchGenerator()
+        model = BoTorchGenerator()
         Y, _, indx = pareto_frontier_evaluator(
             model=model,
             objective_weights=self.objective_weights,

@@ -32,7 +32,6 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
@@ -104,7 +103,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         adapter = TorchAdapter(
             experiment=exp,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
         )
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
@@ -272,7 +271,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             experiment=exp,
             search_space=exp.search_space,
             data=exp.fetch_data(),
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             transforms=[],
         )
         observation_features = [
@@ -351,7 +350,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             adapter = TorchAdapter(
                 search_space=exp.search_space,
-                generator=MultiObjectiveLegacyBoTorchGenerator(),
+                generator=BoTorchGenerator(),
                 optimization_config=optimization_config,
                 transforms=[],
                 experiment=exp,
@@ -437,7 +436,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         data = exp.fetch_data()
         adapter = TorchAdapter(
             search_space=exp.search_space,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -569,7 +568,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         set_rng_seed(0)  # make model fitting deterministic
         adapter = TorchAdapter(
             search_space=exp.search_space,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=ST_MTGP_trans,
             experiment=exp,
@@ -633,7 +632,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         exp._trials = get_hss_trials_with_fixed_parameter(exp=exp)
         adapter = TorchAdapter(
             search_space=hss,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
@@ -716,7 +715,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         adapter = TorchAdapter(
             search_space=exp.search_space,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[],
             experiment=exp,
