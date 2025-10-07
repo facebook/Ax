@@ -7,102 +7,116 @@
 # pyre-strict
 
 import numpy as np
-from ax.core.formatting_utils import (
-    DataType,
-    raw_data_to_evaluation,
-    raw_evaluations_to_data,
-)
+from ax.core.formatting_utils import DataType, raw_evaluations_to_data
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
-class TestRawDataToEvaluation(TestCase):
-    def test_raw_data_is_not_dict_of_dicts(self) -> None:
-        with self.assertRaisesRegex(
-            UserInputError,
-            "Raw data is expected to be just for one arm.",
+class TestRawEvaluationsToData(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.metric_name_to_signature = {"a": "a_signature", "b": "b_signature"}
+
+    def test_single_arm_single_metric(self) -> None:
+        with self.subTest("No metric name provided"):
+            signature = "objective_a_longname"
+            for eval in [3.7, (3.7, None), (3.7, 0.5)]:
+                data = raw_evaluations_to_data(
+                    raw_data={"0_0": eval},
+                    metric_name_to_signature={"a": signature},
+                    trial_index=0,
+                    data_type=DataType.DATA,
+                )
+                df = data.df
+                self.assertEqual(df["mean"].iloc[0], 3.7)
+                self.assertEqual(df["arm_name"].iloc[0], "0_0")
+                self.assertEqual(df["trial_index"].iloc[0], 0)
+                self.assertEqual(df["metric_signature"].iloc[0], signature)
+
+        with self.subTest(
+            "No metric name in eval and multiple in " "metric_name_to_signature"
         ):
-            raw_data_to_evaluation(
-                # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
-                raw_data={"arm_0": {"objective_a": 6}},
-                metric_names=["objective_a"],
+            with self.assertRaisesRegex(
+                UserInputError,
+                "Metric name must be provided in `raw_data` if there are "
+                "multiple metrics",
+            ):
+                raw_evaluations_to_data(
+                    raw_data={"0_0": 3.7},
+                    metric_name_to_signature=self.metric_name_to_signature,
+                    trial_index=0,
+                    data_type=DataType.DATA,
+                )
+
+        with self.subTest("Invalid DataType"):
+            with self.assertRaisesRegex(
+                UserInputError, "not compatible with `MapData`"
+            ):
+                raw_evaluations_to_data(
+                    raw_data={"0_0": 5.0},
+                    metric_name_to_signature=self.metric_name_to_signature,
+                    trial_index=0,
+                    data_type=DataType.MAP_DATA,
+                )
+        with self.subTest("missing signature"):
+            data = raw_evaluations_to_data(
+                raw_data={"0_0": {"b": 5.0}},
+                metric_name_to_signature=self.metric_name_to_signature,
+                trial_index=0,
+                data_type=DataType.DATA,
             )
 
-    def test_it_converts_to_floats_in_dict_and_leaves_tuples(self) -> None:
-        result = raw_data_to_evaluation(
-            # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[Unio...
+    def test_single_arm_multiple_metrics(self) -> None:
+        data = raw_evaluations_to_data(
+            raw_data={"arm_0": {"a": 5.0, "b": (2.0, 0.1)}},
+            metric_name_to_signature=self.metric_name_to_signature,
+            trial_index=1,
+            data_type=DataType.DATA,
+        )
+        df = data.df
+        self.assertEqual(df["metric_name"].tolist(), ["a", "b"])
+        self.assertEqual(
+            df["metric_signature"].tolist(), ["a_signature", "b_signature"]
+        )
+        self.assertEqual(df["mean"].tolist(), [5.0, 2.0])
+        self.assertTrue(np.isnan(df["sem"].iloc[0]))
+        self.assertEqual(df["sem"].iloc[1], 0.1)
+
+    def test_multiple_arms(self) -> None:
+        data = raw_evaluations_to_data(
             raw_data={
-                "objective_a": 6,
-                "objective_b": 1.0,
-                "objective_c": ("some", "tuple"),
+                "arm_0": {"a": 1.0},
+                "arm_1": {"b": 2.0},
             },
-            metric_names=["objective_a", "objective_b"],
+            metric_name_to_signature=self.metric_name_to_signature,
+            trial_index=2,
+            data_type=DataType.DATA,
         )
-        # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
-        self.assertEqual(result["objective_a"], (6.0, None))
-        # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
-        self.assertEqual(result["objective_b"], (1.0, None))
-        # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
-        self.assertEqual(result["objective_c"], ("some", "tuple"))
+        df = data.df
+        self.assertSetEqual(set(df["arm_name"]), {"arm_0", "arm_1"})
+        self.assertSetEqual(set(df["mean"]), {1.0, 2.0})
 
-    def test_dict_entries_must_be_int_float_or_tuple(self) -> None:
-        with self.assertRaisesRegex(UserInputError, "Raw data for an arm is expected "):
-            raw_data_to_evaluation(
-                # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
-                raw_data={"objective_a": [6.0, None]},
-                metric_names=["objective_a"],
-            )
-
-    def test_it_requires_a_dict_for_multi_objectives(self) -> None:
-        with self.assertRaisesRegex(
-            UserInputError,
-            "experiments with multiple metrics attached.",
-        ):
-            raw_data_to_evaluation(
-                raw_data=(6.0, None),
-                metric_names=["objective_a", "objective_b"],
-            )
-
-    def test_it_accepts_a_list_for_map_evaluations(self) -> None:
-        raw_data = [(0.0, {"objective_a": (0, 1)}), (1.0, {"objective_a": (1.4, None)})]
-        result = raw_data_to_evaluation(raw_data=raw_data, metric_names=["objective_a"])
-        self.assertEqual(raw_data, result)
-
-    def test_it_turns_a_tuple_into_a_dict(self) -> None:
-        raw_data = (1.4, None)
-        result = raw_data_to_evaluation(
+    def test_map_data(self) -> None:
+        raw_data = {"arm_0": [(0, {"a": (1.0, 0.1)}), (1, {"b": (2.0, 0.2)})]}
+        data = raw_evaluations_to_data(
             raw_data=raw_data,
-            metric_names=["objective_a"],
+            metric_name_to_signature=self.metric_name_to_signature,
+            trial_index=3,
+            data_type=DataType.MAP_DATA,
         )
-        # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
-        self.assertEqual(result["objective_a"], raw_data)
+        df = data.full_df
+        self.assertEqual(len(df), 2)
+        self.assertEqual(df["mean"].tolist(), [1.0, 2.0])
+        self.assertEqual(df["sem"].tolist(), [0.1, 0.2])
 
-    def test_it_turns_an_int_into_a_dict_of_tuple(self) -> None:
-        result = raw_data_to_evaluation(
-            raw_data=1,
-            metric_names=["objective_a"],
-        )
-        # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
-        self.assertEqual(result["objective_a"], (1.0, None))
-
-    def test_it_turns_a_float_into_a_dict_of_tuple(self) -> None:
-        result = raw_data_to_evaluation(
-            raw_data=1.6,
-            metric_names=["objective_a"],
-        )
-        # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
-        self.assertEqual(result["objective_a"], (1.6, None))
-
-    def test_it_raises_for_unexpected_types(self) -> None:
-        with self.assertRaisesRegex(
-            UserInputError,
-            "Raw data does not conform to the expected structure.",
-        ):
-            raw_data_to_evaluation(
-                # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
-                raw_data="1.6",
-                metric_names=["objective_a"],
-            )
+        with self.subTest("Invalid data type"):
+            with self.assertRaisesRegex(UserInputError, "not compatible with `Data`"):
+                raw_evaluations_to_data(
+                    raw_data=raw_data,
+                    metric_name_to_signature=self.metric_name_to_signature,
+                    trial_index=3,
+                    data_type=DataType.DATA,
+                )
 
     def test_numpy_types(self) -> None:
         arm_name = "0_0"

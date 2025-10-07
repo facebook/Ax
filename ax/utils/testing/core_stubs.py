@@ -29,7 +29,8 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import Experiment
+from ax.core.formatting_utils import DataType, raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -2760,10 +2761,17 @@ def get_map_data(trial_index: int = 0) -> MapData:
             (4, {"ax_test_metric": (1.0, 0.5)}),
         ],
     }
-    return MapData.from_map_evaluations(
-        evaluations=evaluations,
-        trial_index=trial_index,
-        metric_name_to_signature={"ax_test_metric": "ax_test_metric", "epoch": "epoch"},
+    return assert_is_instance(
+        raw_evaluations_to_data(
+            raw_data=evaluations,
+            trial_index=trial_index,
+            metric_name_to_signature={
+                "ax_test_metric": "ax_test_metric",
+                "epoch": "epoch",
+            },
+            data_type=DataType.MAP_DATA,
+        ),
+        MapData,
     )
 
 

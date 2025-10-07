@@ -18,6 +18,7 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import sort_by_trial_index_and_arm_name
+from ax.core.formatting_utils import DataType, raw_evaluations_to_data
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -1675,8 +1676,8 @@ class ExperimentWithMapDataTest(TestCase):
         )
         self.experiment.new_trial()
         self.experiment.trials[0].mark_running(no_runner_required=True)
-        first_epoch = MapData.from_map_evaluations(
-            evaluations={
+        first_epoch = raw_evaluations_to_data(
+            raw_data={
                 arm_name: partial_results[0:1]
                 for arm_name, partial_results in evaluations.items()
             },
@@ -1684,10 +1685,11 @@ class ExperimentWithMapDataTest(TestCase):
             metric_name_to_signature={
                 "no_fetch_impl_metric": "no_fetch_impl_metric_signature",
             },
+            data_type=DataType.MAP_DATA,
         )
         self.experiment.attach_data(first_epoch)
-        remaining_epochs = MapData.from_map_evaluations(
-            evaluations={
+        remaining_epochs = raw_evaluations_to_data(
+            raw_data={
                 arm_name: partial_results[1:4]
                 for arm_name, partial_results in evaluations.items()
             },
@@ -1695,6 +1697,7 @@ class ExperimentWithMapDataTest(TestCase):
             metric_name_to_signature={
                 "no_fetch_impl_metric": "no_fetch_impl_metric_signature",
             },
+            data_type=DataType.MAP_DATA,
         )
         self.experiment.attach_data(remaining_epochs)
         self.experiment.trials[0].mark_completed()
