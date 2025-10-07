@@ -17,7 +17,7 @@ from ax.adapter.adapter_utils import (
 )
 from ax.adapter.registry import Generators
 from ax.core.arm import Arm
-from ax.core.data import Data
+from ax.core.formatting_utils import DataType, raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -255,10 +255,11 @@ class TestAdapterUtils(TestCase):
             [[TEST_PARAMETERIZATON_LIST], [TEST_PARAMETERIZATON_LIST]],
         )
         self.experiment.attach_data(
-            Data.from_evaluations(
+            raw_evaluations_to_data(
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
+                data_type=DataType.DATA,
             )
         )
         # With `fetch_data` on trial returning data for metric "m2", that metric
@@ -266,10 +267,11 @@ class TestAdapterUtils(TestCase):
         with patch.object(
             self.trial,
             "fetch_data",
-            return_value=Data.from_evaluations(
+            return_value=raw_evaluations_to_data(
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
+                data_type=DataType.DATA,
             ),
         ):
             pending = none_throws(get_pending_observation_features(self.experiment))

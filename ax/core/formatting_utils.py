@@ -6,19 +6,13 @@
 
 # pyre-strict
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from enum import Enum
-from typing import cast
 
-import numpy as np
-from ax.core.data import Data
+import pandas as pd
+from ax.core.data import Data, MAP_KEY
 from ax.core.map_data import MapData
-from ax.core.types import (
-    TEvaluationOutcome,
-    TMapTrialEvaluation,
-    TTrialEvaluation,
-    validate_evaluation_outcome,
-)
+from ax.core.types import FloatLike, SingleMetricData, TEvaluationOutcome
 from ax.exceptions.core import UserInputError
 
 
@@ -36,64 +30,25 @@ DATA_TYPE_LOOKUP: dict[DataType, type[Data]] = {
 }
 
 
-def raw_data_to_evaluation(
-    raw_data: TEvaluationOutcome, metric_names: Sequence[str]
-) -> TEvaluationOutcome:
-    """Format the trial evaluation data to a standard `TTrialEvaluation`
-    (mapping from metric names to a tuple of mean and SEM) representation, or
-    to a TMapTrialEvaluation.
-
-    Note: this function expects raw_data to be data for a `Trial`, not a
-    `BatchedTrial`.
-    """
-    # TTrialEvaluation case
-    if isinstance(raw_data, dict):
-        if any(isinstance(x, dict) for x in raw_data.values()):
-            raise UserInputError("Raw data is expected to be just for one arm.")
-        for metric_name, dat in raw_data.items():
-            if not isinstance(dat, tuple):
-                if not isinstance(dat, (float, int, np.floating, np.integer)):
-                    raise UserInputError(
-                        "Raw data for an arm is expected to either be a tuple of "
-                        "numerical mean and SEM or just a numerical mean. "
-                        f"Got: {dat} for metric '{metric_name}'."
-                    )
-                raw_data[metric_name] = (float(dat), None)
-        return raw_data
-    try:
-        validate_evaluation_outcome(outcome=raw_data)
-    except Exception as e:
-        raise UserInputError(
-            "Raw data does not conform to the expected structure. For simple "
-            "evaluations of one or more metrics, `raw_data` is expected to be "
-            "a dictionary of the form `{metric_name -> mean}` or `{metric_name "
-            "-> (mean, SEM)}`. For mapping (e.g., early stopping) evaluation, "
-            "the expected format is `[({mapping_key, mapping_value}, "
-            "{metric_name  -> (mean, SEM)})]`."
-            f"Received {raw_data=}. Original validation error: {e}."
-        )
-    # TMapTrialEvaluation case
-    if isinstance(raw_data, list):
-        validate_evaluation_outcome(raw_data)
-        return raw_data
-    elif len(metric_names) > 1:
-        raise UserInputError(
-            "Raw data must be a dictionary of metric names to mean "
-            "for experiments with multiple metrics attached. "
-            f"Got {raw_data=} for {metric_names=}."
-        )
-    # SingleMetricData tuple case
-    elif isinstance(raw_data, tuple):
-        return {metric_names[0]: raw_data}
-    # SingleMetricData Python scalar case
-    elif isinstance(raw_data, (float, int, np.floating, np.integer)):
-        return {metric_names[0]: (raw_data, None)}
-    else:
-        raise UserInputError(
-            "Raw data has an invalid type. The data must either be in the form "
-            "of a dictionary of metric names to mean, sem tuples, "
-            "or a single mean, sem tuple, or a single mean."
-        )
+def _validate_and_extract_single_metric_data(
+    dat: SingleMetricData,
+) -> tuple[float, float | None]:
+    error_message = (
+        "Raw data does not conform to the expected structure. Expected either a"
+        f" tuple of (mean, SEM) or a float, but got {dat}."
+    )
+    if isinstance(dat, tuple):
+        if len(dat) != 2:
+            raise UserInputError(error_message)
+        mean, sem = dat
+        if not isinstance(mean, FloatLike) or not (
+            sem is None or isinstance(sem, FloatLike)
+        ):
+            raise UserInputError(error_message)
+        return mean, sem
+    if not isinstance(dat, FloatLike):
+        raise UserInputError(error_message)
+    return dat, None
 
 
 def raw_evaluations_to_data(
@@ -104,58 +59,103 @@ def raw_evaluations_to_data(
 ) -> Data:
     """Transforms evaluations into Ax Data.
 
-    Each evaluation is either a trial evaluation: {metric_name -> (mean, SEM)}
-    or a fidelity trial evaluation for multi-fidelity optimizations:
-    [(fidelities, {metric_name -> (mean, SEM)})].
+    Each value in ``raw_data`` is one of the following:
+    - ``TTrialEvaluation``: {metric_name -> (mean, SEM)}
+    - ``TMapTrialEvaluation``: [(step, TTrialEvaluation)]
+    - ``SingleMetricData``: (mean, SEM) or mean. This is a
+        ``TTrialEvaluation`` that is missing a metric name and possibly an SEM.
+        As long as there is only one element in ``metric_name_to_signature``,
+        this will be assigned that one metric name. If the SEM is missing, it
+        will be inferred to be None.
 
     Args:
-        raw_data: Mapping from arm name to raw_data.
+        raw_data: Mapping from arm name to raw evaluations.
         metric_name_to_signature: Mapping of metric names to signatures used to
             transform raw data to evaluations.
         trial_index: Index of the trial, for which the evaluations are.
         data_type: An element of the ``DataType`` enum.
     """
-    evaluations = {
-        arm_name: raw_data_to_evaluation(
-            raw_data=raw_data[arm_name],
-            metric_names=list(metric_name_to_signature.keys()),
-        )
-        for arm_name in raw_data
-    }
+    records = []
+    for arm_name, evaluation in raw_data.items():
+        # TTrialEvaluation case ({metric_name -> (mean, SEM) or metric_name -> mean})
+        if isinstance(evaluation, dict):
+            if data_type is DataType.MAP_DATA:
+                raise UserInputError(
+                    "The format of the `raw_data` is not compatible with `MapData`. "
+                    f"Received: {raw_data=}"
+                )
+            for metric_name, outcome in evaluation.items():
+                mean, sem = _validate_and_extract_single_metric_data(dat=outcome)
+                records.append(
+                    {
+                        "arm_name": arm_name,
+                        "metric_name": metric_name,
+                        "mean": mean,
+                        "sem": sem,
+                    }
+                )
+        elif isinstance(evaluation, list):
+            # TMapTrialEvaluation case [(step, TTrialEvaluation)]
+            if data_type is DataType.DATA:
+                raise UserInputError(
+                    "The format of the `raw_data` is not compatible with `Data`. "
+                    f"Received: {raw_data=}"
+                )
+            for step, step_eval in evaluation:
+                if not isinstance(step, FloatLike):
+                    raise UserInputError(
+                        "Raw data does not conform to the expected structure. Expected "
+                        f"step to be a float, but got {step}."
+                    )
+                for metric_name, outcome in step_eval.items():
+                    mean, sem = _validate_and_extract_single_metric_data(dat=outcome)
+                    records.append(
+                        {
+                            "arm_name": arm_name,
+                            "metric_name": metric_name,
+                            "mean": mean,
+                            "sem": sem,
+                            MAP_KEY: step,
+                        }
+                    )
+        # SingleMetricData case: (mean, SEM) or mean
+        else:
+            if data_type is DataType.MAP_DATA:
+                raise UserInputError(
+                    "The format of the `raw_data` is not compatible with `MapData`. "
+                    f"Received: {raw_data=}"
+                )
+            if len(metric_name_to_signature) != 1:
+                raise UserInputError(
+                    "Metric name must be provided in `raw_data` if there are "
+                    "multiple metrics."
+                )
+            metric_name = next(iter(metric_name_to_signature.keys()))
+            # pyre-fixme[6]: Incmopatible parameter type (Pyre doesn't know that
+            # this is in fact a SingleMetricData)
+            mean, sem = _validate_and_extract_single_metric_data(dat=evaluation)
+            records.append(
+                {
+                    "arm_name": arm_name,
+                    "metric_name": metric_name,
+                    "mean": mean,
+                    "sem": sem,
+                }
+            )
 
-    if all(isinstance(evaluations[x], dict) for x in evaluations.keys()):
-        if data_type is DataType.MAP_DATA:
-            raise UserInputError(
-                "The format of the `raw_data` is not compatible with `MapData`. "
-                "Possible cause: Did you set default data type to `MapData`, e.g., "
-                "for early stopping, but forgot to provide the `raw_data` "
-                "in the form of `[(fidelities, {metric_name -> (mean, SEM)})]` or "
-                "`[({mapping_key, mapping_value}, {metric_name -> (mean, SEM)})]`? "
-                f"Received: {raw_data=}"
-            )
-        # All evaluations are no-fidelity evaluations.
-        data = Data.from_evaluations(
-            evaluations=cast(dict[str, TTrialEvaluation], evaluations),
-            metric_name_to_signature=metric_name_to_signature,
-            trial_index=trial_index,
+    df = pd.DataFrame.from_records(records)
+    metrics_missing_signatures = set(df["metric_name"].unique()) - set(
+        metric_name_to_signature.keys()
+    )
+    if len(metrics_missing_signatures) > 0:
+        raise UserInputError(
+            f"Metric(s) {metrics_missing_signatures} not found in "
+            "metric_name_to_signature. Please provide a mapping for all metric "
+            "names present in the evaluations to their respective signatures."
         )
-    elif all(isinstance(evaluations[x], list) for x in evaluations.keys()):
-        if data_type is DataType.DATA:
-            raise UserInputError(
-                "The format of the `raw_data` is not compatible with `Data`. "
-                "Possible cause: Did you provide data for multi-fidelity evaluations, "
-                "e.g., for early stopping, but forgot to set the default data type "
-                f"to `MapData`? Received: {raw_data=}"
-            )
-        # All evaluations are map evaluations.
-        data = MapData.from_map_evaluations(
-            evaluations=cast(dict[str, TMapTrialEvaluation], evaluations),
-            trial_index=trial_index,
-            metric_name_to_signature=metric_name_to_signature,
-        )
-    else:
-        raise ValueError(
-            "Evaluations included a mixture of no-fidelity and with-fidelity "
-            "evaluations, which is not currently supported."
-        )
-    return data
+    df["metric_signature"] = df["metric_name"].map(metric_name_to_signature)
+    df["trial_index"] = trial_index
+
+    if data_type == DataType.MAP_DATA:
+        return MapData(df=df)
+    return Data(df=df)

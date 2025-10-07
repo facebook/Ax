@@ -10,7 +10,7 @@ from __future__ import annotations
 import warnings
 
 from bisect import bisect_right
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from logging import Logger
 from math import nan
 from typing import Any
@@ -19,8 +19,6 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.data import _filter_df, Data, MAP_KEY
-from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
-from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 
@@ -137,36 +135,6 @@ class MapData(Data):
         )
 
         return MapData(df=df)
-
-    @staticmethod
-    def from_map_evaluations(
-        evaluations: Mapping[str, TMapTrialEvaluation],
-        trial_index: int,
-        metric_name_to_signature: Mapping[str, str],
-    ) -> MapData:
-        records = []
-        for name, map_dict_and_metrics_list in evaluations.items():
-            for step, evaluation in map_dict_and_metrics_list:
-                for metric_name, value in evaluation.items():
-                    if metric_name not in metric_name_to_signature:
-                        raise UserInputError(
-                            f"Metric {metric_name} not found in "
-                            "metric_name_to_signature. "
-                            "Please provide a mapping for all metric names "
-                            "present in the evaluations to their respective "
-                            "signatures."
-                        )
-                    record = {
-                        "arm_name": name,
-                        "metric_name": metric_name,
-                        "mean": value[0] if isinstance(value, tuple) else value,
-                        "sem": value[1] if isinstance(value, tuple) else None,
-                        "trial_index": trial_index,
-                        "metric_signature": metric_name_to_signature[metric_name],
-                        MAP_KEY: step,
-                    }
-                    records.append(record)
-        return MapData(df=pd.DataFrame(records))
 
     @property
     def map_df(self) -> pd.DataFrame:
@@ -329,22 +297,6 @@ class MapData(Data):
             )
         subsampled_df: pd.DataFrame = pd.concat(subsampled_metric_dfs)
         return MapData(df=subsampled_df)
-
-    @classmethod
-    def from_evaluations(
-        cls,
-        evaluations: Mapping[str, TTrialEvaluation],
-        metric_name_to_signature: Mapping[str, str],
-        trial_index: int,
-        sample_sizes: Mapping[str, int] | None = None,
-        start_time: int | str | None = None,
-        end_time: int | str | None = None,
-    ) -> MapData:
-        """Not supported for MapData."""
-        raise UnsupportedError(
-            "MapData.from_evaluations is not supported. "
-            "Please use MapData.from_map_evaluations instead."
-        )
 
 
 def _ceil_divide(

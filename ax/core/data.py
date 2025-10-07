@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from copy import deepcopy
 from io import StringIO
 from logging import Logger
@@ -16,7 +16,6 @@ from typing import Any, cast, TypeVar
 
 import numpy as np
 import pandas as pd
-from ax.core.types import TTrialEvaluation
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.equality import dataframe_equals
@@ -245,71 +244,12 @@ class Data(Base, SerializationMixin):
 
         return cls(df=pd.concat(dfs, axis=0, sort=True))
 
-    @classmethod
-    def from_evaluations(
-        cls: type[TData],
-        evaluations: Mapping[str, TTrialEvaluation],
-        metric_name_to_signature: Mapping[str, str],
-        trial_index: int,
-    ) -> TData:
-        """
-        Convert dict of evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from arm name to outcomes, which itself is a mapping of
-                outcome names to values, means, or tuples of mean and SEM. If SEM is
-                not specified, it will be set to None and inferred from data.
-            trial_index: Trial index to which this data belongs.
-            metric_name_to_signature: Map from metric name to signature
-                (canonical name). Metric names are primarily for display purposes,
-                while signatures are used under the hood to maintain consistency and
-                adhere to external naming requirements. This mapping is needed to
-                construct the Data object correctly.
-
-        Returns:
-            Ax object of the enclosing class.
-        """
-        records = cls._get_records(
-            evaluations=evaluations,
-            trial_index=trial_index,
-            metric_name_to_signature=metric_name_to_signature,
-        )
-        return cls(df=pd.DataFrame(records))
-
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
         df_markdown = self.df.to_markdown()
         if len(df_markdown) > DF_REPR_MAX_LENGTH:
             df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
         return f"{self.__class__.__name__}(df=\n{df_markdown})"
-
-    @staticmethod
-    def _get_records(
-        evaluations: Mapping[str, TTrialEvaluation],
-        trial_index: int,
-        metric_name_to_signature: Mapping[str, str],
-    ) -> list[dict[str, Any]]:
-        records = []
-        for name, evaluation in evaluations.items():
-            for metric_name, value in evaluation.items():
-                if metric_name not in metric_name_to_signature:
-                    raise UserInputError(
-                        f"Metric {metric_name} not found in metric_name_to_signature. "
-                        "Please provide a mapping for all metric names "
-                        "present in the evaluations to their respective "
-                        "signatures."
-                    )
-                records.append(
-                    {
-                        "arm_name": name,
-                        "metric_name": metric_name,
-                        "mean": value[0] if isinstance(value, tuple) else value,
-                        "sem": value[1] if isinstance(value, tuple) else None,
-                        "trial_index": trial_index,
-                        "metric_signature": metric_name_to_signature[metric_name],
-                    }
-                )
-        return records
 
     @property
     def metric_names(self) -> set[str]:
