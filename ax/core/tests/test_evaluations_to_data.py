@@ -7,7 +7,7 @@
 # pyre-strict
 
 import numpy as np
-from ax.core.formatting_utils import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 

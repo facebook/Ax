@@ -6,8 +6,8 @@
 from ax.api.utils.instantiation.from_config import parameter_from_config
 from ax.api.utils.instantiation.from_string import parse_parameter_constraint
 from ax.api.utils.structs import ExperimentStruct
+from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
-from ax.core.formatting_utils import DataType
 from ax.core.parameter_constraint import validate_constraint_parameters
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 

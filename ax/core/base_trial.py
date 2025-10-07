@@ -18,7 +18,7 @@ import pandas as pd
 
 from ax.core.arm import Arm
 from ax.core.data import Data
-from ax.core.formatting_utils import raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric

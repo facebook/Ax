@@ -21,8 +21,8 @@ import torch
 from ax.adapter.prediction_utils import predict_by_features
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import DataType, Experiment
-from ax.core.formatting_utils import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
