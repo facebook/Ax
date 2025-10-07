@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from itertools import chain
-
 from typing import Any
 
 import torch
@@ -22,7 +21,12 @@ from botorch.models.transforms.input import (
     Normalize,
     Warp,
 )
-from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
+from botorch.utils.datasets import (
+    ContextualDataset,
+    MultiTaskDataset,
+    RankingDataset,
+    SupervisedDataset,
+)
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.transforms import normalize_indices
 from pyre_extensions import none_throws
@@ -173,6 +177,20 @@ def _input_transform_argparse_normalize(
     if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
         # set d to number of features in the full feature space
         d = len(set(chain(*(ds.feature_names for ds in dataset.datasets.values()))))
+    elif isinstance(dataset, ContextualDataset):
+        # The dataset & SSD has num contexts * num parameters total parameters.
+        # The model internally reshapes the inputs before applying the transform.
+        context_params = next(iter(dataset.parameter_decomposition.values()))
+        d = len(context_params) + 1
+        # Last index will be made into task feature. Remove it from indices.
+        input_transform_options["indices"] = list(range(d - 1))
+        # Extract the subset of bounds that correspond unique parameters.
+        context_params = next(iter(dataset.parameter_decomposition.values()))
+        param_indices = [dataset.feature_names.index(p) for p in context_params]
+        bounds = [search_space_digest.bounds[i] for i in param_indices]
+        input_transform_options["bounds"] = torch.as_tensor(
+            bounds, dtype=torch_dtype, device=torch_device
+        ).T
     else:
         d = input_transform_options.get("d", len(dataset.feature_names))
     input_transform_options["d"] = d
