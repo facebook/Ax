@@ -29,8 +29,8 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
+from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
 from ax.core.experiment import Experiment
-from ax.core.formatting_utils import DataType, raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric

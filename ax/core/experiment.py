@@ -24,7 +24,7 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
+from ax.core.evaluations_to_data import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric

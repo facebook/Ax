@@ -17,7 +17,7 @@ from ax.adapter.adapter_utils import (
 )
 from ax.adapter.registry import Generators
 from ax.core.arm import Arm
-from ax.core.formatting_utils import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
