@@ -9,13 +9,13 @@
 import copy
 import math
 from typing import cast
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch
 
 import torch
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
-from ax.generators.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
@@ -36,36 +36,25 @@ from ax.utils.sensitivity.sobol_measures import (
 )
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
-from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
-from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.transforms import unnormalize
 from gpytorch.distributions import MultivariateNormal
 from torch import Tensor
 
 
 @mock_botorch_optimize
-def get_adapter(modular: bool = False, saasbo: bool = False) -> Adapter:
+def get_adapter(saasbo: bool = False) -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    if modular:
-        return Generators.BOTORCH_MODULAR(
-            experiment=exp,
-            data=exp.fetch_data(),
-        )
     if saasbo:
-        return Generators.SAASBO(
-            experiment=exp,
-            data=exp.fetch_data(),
-        )
-    else:
-        return Generators.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
+        return Generators.SAASBO(experiment=exp, data=exp.fetch_data())
+    return Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
 
 
 class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        torch.manual_seed(0)
-        self.model = get_adapter().generator.model
+        set_rng_seed(0)
+        self.model = get_adapter().generator.surrogate.model
         self.saas_model = get_adapter(saasbo=True).generator.surrogate.model
 
     def test_DgsmGpMean(self) -> None:
@@ -181,13 +170,9 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean,
-            expected_first_order=torch.tensor(
-                [-0.463695, -0.359848], dtype=torch.float64
-            ),
-            expected_total_order=torch.tensor(
-                [1.015421, 1.052340], dtype=torch.float64
-            ),
-            expected_second_order=torch.tensor([0.823334], dtype=torch.float64),
+            expected_first_order=torch.tensor([1.1547, -0.4024], dtype=torch.float64),
+            expected_total_order=torch.tensor([0.4299, 0.4894], dtype=torch.float64),
+            expected_second_order=torch.tensor([-1.4845], dtype=torch.float64),
         )
 
     def test_SobolGPMean_SAASBO(self) -> None:
@@ -199,7 +184,7 @@ class SensitivityAnalysisTest(TestCase):
             sensitivity=sensitivity_mean_saas,
             expected_first_order=torch.tensor([0.5752, 0.5143], dtype=torch.double),
             expected_total_order=torch.tensor([0.9897, 0.0979], dtype=torch.float64),
-            expected_second_order=torch.tensor([0.8300], dtype=torch.double),
+            expected_second_order=torch.tensor([0.8332], dtype=torch.double),
         )
 
         sensitivity_mean_bootstrap = SobolSensitivityGPMean(
@@ -213,15 +198,15 @@ class SensitivityAnalysisTest(TestCase):
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_bootstrap,
             expected_first_order=torch.tensor(
-                [[0.5511, 0.0237, 0.0487], [0.0878, 0.2175, 0.1475]],
+                [[0.6327, 10.0889, 1.0044], [0.2089, 0.7322, 0.2706]],
                 dtype=torch.float64,
             ),
             expected_total_order=torch.tensor(
-                [[0.6946, 0.0242, 0.0497], [0.8412, 0.1112, 0.1062]],
+                [[0.8013, 0.1824, 0.1351], [0.2203, 0.0304, 0.0551]],
                 dtype=torch.float64,
             ),
             expected_second_order=torch.tensor(
-                [[0.3119, 0.5284, 0.2299]], dtype=torch.float64
+                [[0.7978, 22.6598, 1.5053]], dtype=torch.float64
             ),
         )
 
@@ -236,15 +221,15 @@ class SensitivityAnalysisTest(TestCase):
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_bootstrap,
             expected_first_order=torch.tensor(
-                [[0.4812, 0.1397, 0.1182], [1.9419, 2.7505, 0.5245]],
+                [[3.4512, 32.4428, 1.8012], [0.2069, 121.8610, 3.4909]],
                 dtype=torch.float64,
             ),
             expected_total_order=torch.tensor(
-                [[0.2238, 0.0941, 0.0970], [0.6736, 0.2878, 0.1697]],
+                [[0.4288, 0.0903, 0.0950], [0.7923, 0.2218, 0.1489]],
                 dtype=torch.float64,
             ),
             expected_second_order=torch.tensor(
-                [[0.8344, 7.9860, 0.8936]], dtype=torch.float64
+                [[-6.3790, 397.4363, 6.3043]], dtype=torch.float64
             ),
         )
 
@@ -253,8 +238,8 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean,
-            expected_first_order=torch.tensor([-0.0408, 0.4454], dtype=torch.float64),
-            expected_total_order=torch.tensor([0.4405, 0.6326], dtype=torch.float64),
+            expected_first_order=torch.tensor([0.9566, -0.4183], dtype=torch.float64),
+            expected_total_order=torch.tensor([0.3440, 0.3685], dtype=torch.float64),
         )
 
         with self.assertRaisesRegex(ValueError, "Second order indices"):
@@ -295,120 +280,101 @@ class SensitivityAnalysisTest(TestCase):
 
     def test_SobolGPMean_SAASBO_Ax_utils(self) -> None:
         num_mc_samples = 10
-        for modular in [False, True]:
-            adapter = cast(TorchAdapter, get_adapter(modular=modular))
+        adapter = cast(TorchAdapter, get_adapter())
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "but only TorchAdapter is supported",
+        ):
+            # pyre-ignore
+            ax_parameter_sens(1, adapter.outcomes)
+
+        with patch.object(adapter, "generator", return_value=None):
             with self.assertRaisesRegex(
                 NotImplementedError,
-                "but only TorchAdapter is supported",
+                "but only BoTorchGenerator",
             ):
-                # pyre-ignore
-                ax_parameter_sens(1, adapter.outcomes)
+                ax_parameter_sens(adapter, adapter.outcomes)
 
-            with patch.object(adapter, "generator", return_value=None):
-                with self.assertRaisesRegex(
-                    NotImplementedError,
-                    "but only LegacyBoTorchGenerator and ModularBoTorchGenerator",
-                ):
-                    ax_parameter_sens(adapter, adapter.outcomes)
-
-            torch_model = cast(LegacyBoTorchGenerator, adapter.generator)
-            if not modular:
-                with self.assertRaisesRegex(
-                    NotImplementedError,
-                    "but only ModelList is supported",
-                ):
-                    # only applies if the number of outputs of model is greater than 1
-                    with patch.object(
-                        BatchedMultiOutputGPyTorchModel,
-                        "num_outputs",
-                        new_callable=PropertyMock,
-                    ) as mock:
-                        mock.return_value = 2
-                        ax_parameter_sens(adapter, adapter.outcomes)
-
-                # since only ModelList is supported for LegacyBoTorchGenerator:
-                gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
-                torch_model.model = gpytorch_model
-
-            for order in ["first", "total"]:
-                with self.subTest(order=order):
-                    ind_dict = ax_parameter_sens(
-                        adapter,
-                        input_qmc=True,
-                        num_mc_samples=num_mc_samples,
-                        order=order,
-                        signed=False,
-                    )
-                    self.assertIsInstance(ind_dict, dict)
-
-                    ind_tnsr = compute_sobol_indices_from_model_list(
-                        _get_model_per_metric(torch_model, adapter.outcomes),
-                        torch.tensor(torch_model.search_space_digest.bounds).T,
-                        input_qmc=True,
-                        num_mc_samples=num_mc_samples,
-                        order=order,
-                    )
-                    self.assertIsInstance(ind_tnsr, Tensor)
-
-                    # can compare values because we sample with deterministic seeds
-                    for i, row in enumerate(ind_dict):
-                        for j, col in enumerate(ind_dict[row]):
-                            self.assertAlmostEqual(
-                                ind_dict[row][col],
-                                # pyre-fixme[6]: For 2nd argument expected
-                                #  `SupportsRSub[Variable[_T],
-                                #  SupportsAbs[SupportsRound[object]]]` but got
-                                #  `Union[bool, float, int]`.
-                                ind_tnsr[i, j].item(),
-                            )
-            with self.subTest(order="second"):
-                second_ind_dict = ax_parameter_sens(
+        torch_model = cast(BoTorchGenerator, adapter.generator)
+        for order in ["first", "total"]:
+            with self.subTest(order=order):
+                ind_dict = ax_parameter_sens(
                     adapter,
                     input_qmc=True,
                     num_mc_samples=num_mc_samples,
-                    order="second",
+                    order=order,
                     signed=False,
                 )
+                self.assertIsInstance(ind_dict, dict)
 
-                so_ind_tnsr = compute_sobol_indices_from_model_list(
+                ind_tnsr = compute_sobol_indices_from_model_list(
                     _get_model_per_metric(torch_model, adapter.outcomes),
                     torch.tensor(torch_model.search_space_digest.bounds).T,
                     input_qmc=True,
                     num_mc_samples=num_mc_samples,
-                    order="second",
+                    order=order,
                 )
-                fo_ind_tnsr = compute_sobol_indices_from_model_list(
-                    _get_model_per_metric(torch_model, adapter.outcomes),
-                    torch.tensor(torch_model.search_space_digest.bounds).T,
-                    input_qmc=True,
-                    num_mc_samples=num_mc_samples,
-                    order="first",
-                )
-                # check that the first and second order indices are the same
-                self.assertAlmostEqual(
-                    second_ind_dict["branin"]["x1"],
-                    # pyre-fixme[6]: For 2nd argument expected
-                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
-                    #  but got `Union[bool, float, int]`.
-                    fo_ind_tnsr[0, 0].item(),
-                )
-                self.assertAlmostEqual(
-                    second_ind_dict["branin"]["x2"],
-                    # pyre-fixme[6]: For 2nd argument expected
-                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
-                    #  but got `Union[bool, float, int]`.
-                    fo_ind_tnsr[0, -1].item(),
-                )
-                self.assertAlmostEqual(
-                    second_ind_dict["branin"]["x1 & x2"],
-                    # pyre-fixme[6]: For 2nd argument expected
-                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
-                    #  but got `Union[bool, float, int]`.
-                    so_ind_tnsr[0, 0].item(),
-                )
+                self.assertIsInstance(ind_tnsr, Tensor)
+
+                # can compare values because we sample with deterministic seeds
+                for i, row in enumerate(ind_dict):
+                    for j, col in enumerate(ind_dict[row]):
+                        self.assertAlmostEqual(
+                            ind_dict[row][col],
+                            # pyre-fixme[6]: For 2nd argument expected
+                            #  `SupportsRSub[Variable[_T],
+                            #  SupportsAbs[SupportsRound[object]]]` but got
+                            #  `Union[bool, float, int]`.
+                            ind_tnsr[i, j].item(),
+                        )
+        with self.subTest(order="second"):
+            second_ind_dict = ax_parameter_sens(
+                adapter,
+                input_qmc=True,
+                num_mc_samples=num_mc_samples,
+                order="second",
+                signed=False,
+            )
+
+            so_ind_tnsr = compute_sobol_indices_from_model_list(
+                _get_model_per_metric(torch_model, adapter.outcomes),
+                torch.tensor(torch_model.search_space_digest.bounds).T,
+                input_qmc=True,
+                num_mc_samples=num_mc_samples,
+                order="second",
+            )
+            fo_ind_tnsr = compute_sobol_indices_from_model_list(
+                _get_model_per_metric(torch_model, adapter.outcomes),
+                torch.tensor(torch_model.search_space_digest.bounds).T,
+                input_qmc=True,
+                num_mc_samples=num_mc_samples,
+                order="first",
+            )
+            # check that the first and second order indices are the same
+            self.assertAlmostEqual(
+                second_ind_dict["branin"]["x1"],
+                # pyre-fixme[6]: For 2nd argument expected
+                #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                #  but got `Union[bool, float, int]`.
+                fo_ind_tnsr[0, 0].item(),
+            )
+            self.assertAlmostEqual(
+                second_ind_dict["branin"]["x2"],
+                # pyre-fixme[6]: For 2nd argument expected
+                #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                #  but got `Union[bool, float, int]`.
+                fo_ind_tnsr[0, -1].item(),
+            )
+            self.assertAlmostEqual(
+                second_ind_dict["branin"]["x1 & x2"],
+                # pyre-fixme[6]: For 2nd argument expected
+                #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                #  but got `Union[bool, float, int]`.
+                so_ind_tnsr[0, 0].item(),
+            )
 
         # Test with signed
-        base_adapter = get_adapter(modular=True)
+        base_adapter = get_adapter()
 
         # adding a categorical feature
         cat_adapter = copy.deepcopy(base_adapter)
@@ -534,7 +500,7 @@ class SensitivityAnalysisTest(TestCase):
         self.assertFalse(torch.allclose(Brnd, B))
 
     def test_Sobol_raises(self) -> None:
-        adapter = get_adapter(modular=True)
+        adapter = get_adapter()
         with self.assertRaisesRegex(
             NotImplementedError,
             "Order third and fourth is not supported. Plese choose one of"

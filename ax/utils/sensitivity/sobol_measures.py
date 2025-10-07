@@ -14,20 +14,16 @@ import numpy.typing as npt
 import torch
 from ax.adapter.torch import TorchAdapter
 from ax.core.search_space import SearchSpaceDigest
-from ax.generators.torch.botorch import LegacyBoTorchGenerator
-from ax.generators.torch.botorch_modular.generator import (
-    BoTorchGenerator as ModularBoTorchGenerator,
-)
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     sample_discrete_parameters,
 )
 from botorch.models.gpytorch import GPyTorchModel
-from botorch.models.model import Model, ModelList
+from botorch.models.model import Model
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
-from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -941,7 +937,7 @@ def ax_parameter_sens(
 
 def _get_generator_and_digest(
     adapter: TorchAdapter,
-) -> tuple[LegacyBoTorchGenerator | ModularBoTorchGenerator, SearchSpaceDigest]:
+) -> tuple[BoTorchGenerator, SearchSpaceDigest]:
     """Returns the generator of the adapter and the SearchSpaceDigest
     that was used to fit the adapter.
     """
@@ -950,46 +946,32 @@ def _get_generator_and_digest(
             f"{type(adapter)=}, but only TorchAdapter is supported."
         )
     generator = adapter.generator
-    if not isinstance(generator, (LegacyBoTorchGenerator, ModularBoTorchGenerator)):
+    if not isinstance(generator, (BoTorchGenerator)):
         raise NotImplementedError(
-            f"{type(generator)=}, but only LegacyBoTorchGenerator and "
-            "ModularBoTorchGenerator are supported."
+            f"{type(generator)=}, but only BoTorchGenerator is supported."
         )
     return generator, generator.search_space_digest
 
 
 def _get_model_per_metric(
-    generator: LegacyBoTorchGenerator | ModularBoTorchGenerator, metrics: list[str]
+    generator: BoTorchGenerator, metrics: list[str]
 ) -> list[GPyTorchModel]:
-    """For a given TorchGenerator model, returns a list of botorch.models.model.Model
+    """For a given BoTorchGenerator model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
-    if isinstance(generator, LegacyBoTorchGenerator):
-        # guaranteed not to be None after accessing search_space_digest
-        gp_model = generator.model
-        model_idx = [generator.metric_signatures.index(m) for m in metrics]
-        if not isinstance(gp_model, ModelList):
-            if gp_model.num_outputs == 1:  # can accept single output models
-                return [assert_is_instance(gp_model, GPyTorchModel) for _ in model_idx]
-            raise NotImplementedError(
-                f"type(adapter.generator.model) = {type(gp_model)}, "
-                "but only ModelList is supported."
-            )
-        return [gp_model.models[i] for i in model_idx]
-    else:  # isinstance(model, ModularBoTorchGenerator):
-        surrogate = generator.surrogate
-        outcomes = surrogate.outcomes
-        model_list = []
-        for m in metrics:  # for each metric, find a corresponding surrogate
-            i = outcomes.index(m)
-            metric_model = surrogate.model
-            # since model is a ModularBoTorchGenerator, metric_model will be a
-            # `botorch.models.model.Model` object, which have the `num_outputs`
-            # property and `subset_outputs` method.
-            if metric_model.num_outputs > 1:  # subset to relevant output
-                metric_model = metric_model.subset_output([i])
-            model_list.append(metric_model)
-        return model_list
+    surrogate = generator.surrogate
+    outcomes = surrogate.outcomes
+    model_list = []
+    for m in metrics:  # for each metric, find a corresponding surrogate
+        i = outcomes.index(m)
+        metric_model = surrogate.model
+        # since model is a BoTorchGenerator, metric_model will be a
+        # `botorch.models.model.Model` object, which have the `num_outputs`
+        # property and `subset_outputs` method.
+        if metric_model.num_outputs > 1:  # subset to relevant output
+            metric_model = metric_model.subset_output([i])
+        model_list.append(metric_model)
+    return model_list
 
 
 def array_with_string_indices_to_dict(
