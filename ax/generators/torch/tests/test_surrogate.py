@@ -7,6 +7,7 @@
 # pyre-strict
 
 import dataclasses
+import inspect
 import math
 import warnings
 from contextlib import ExitStack
@@ -182,6 +183,21 @@ class SurrogateInputConstructorsTest(TestCase):
             )
             self.assertEqual(model_kwargs["fidelity_features"], [0])
             self.assertEqual(model_kwargs["categorical_features"], [1])
+
+        with self.subTest("MTGP without task feature input"):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names, bounds=bounds
+            )
+            # Mock signature to remove task_feature.
+            with patch(
+                "ax.generators.torch.botorch_modular.surrogate.inspect.signature",
+                return_value=inspect.signature(SingleTaskGP),
+            ):
+                model_kwargs = _extract_model_kwargs(
+                    search_space_digest=search_space_digest,
+                    botorch_model_class=MultiTaskGP,
+                )
+            self.assertEqual(len(model_kwargs.keys()), 0)
 
     def test__make_botorch_input_transform(self) -> None:
         feature_names = ["a", "b"]
