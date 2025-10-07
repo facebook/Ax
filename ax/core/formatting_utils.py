@@ -20,7 +20,6 @@ from ax.core.types import (
     validate_evaluation_outcome,
 )
 from ax.exceptions.core import UserInputError
-from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 
 
 # -------------------- Data formatting utils. ---------------------
@@ -53,7 +52,7 @@ def raw_data_to_evaluation(
             raise UserInputError("Raw data is expected to be just for one arm.")
         for metric_name, dat in raw_data.items():
             if not isinstance(dat, tuple):
-                if not isinstance(dat, (float, int)):
+                if not isinstance(dat, (float, int, np.floating, np.integer)):
                     raise UserInputError(
                         "Raw data for an arm is expected to either be a tuple of "
                         "numerical mean and SEM or just a numerical mean. "
@@ -87,11 +86,8 @@ def raw_data_to_evaluation(
     elif isinstance(raw_data, tuple):
         return {metric_names[0]: raw_data}
     # SingleMetricData Python scalar case
-    elif isinstance(raw_data, (float, int)):
+    elif isinstance(raw_data, (float, int, np.floating, np.integer)):
         return {metric_names[0]: (raw_data, None)}
-    # SingleMetricData Numpy scalar case
-    elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
-        return {metric_names[0]: (numpy_type_to_python_type(raw_data), None)}
     else:
         raise UserInputError(
             "Raw data has an invalid type. The data must either be in the form "
