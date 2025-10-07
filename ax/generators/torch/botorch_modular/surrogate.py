@@ -117,6 +117,7 @@ def _extract_model_kwargs(
         A dict of fidelity features, categorical features, and, if present, task
         features.
     """
+    signature = inspect.signature(botorch_model_class)
     fidelity_features = search_space_digest.fidelity_features
     task_features = search_space_digest.task_features
     if len(fidelity_features) > 0 and len(task_features) > 0:
@@ -126,9 +127,15 @@ def _extract_model_kwargs(
         )
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
-    elif len(task_features) == 0 and issubclass(botorch_model_class, MultiTaskGP):
+    elif (
+        len(task_features) == 0
+        and issubclass(botorch_model_class, MultiTaskGP)
+        and "task_feature" in signature.parameters.keys()
+    ):
         # This is handled in Surrogate.model_selection and the MTGP will be
         # skipped if there is no task feature.
+        # Some MTGP subclasses do not use task_feature, so we check for the class
+        # signature before erroring out.
         raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
     kwargs: dict[str, list[int] | dict[int, dict[int, list[int]]] | int] = {}
