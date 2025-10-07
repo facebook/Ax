@@ -254,50 +254,6 @@ class DataTest(TestCase):
         data = CustomData(df=self.df)
         self.assertNotEqual(data, Data(self.df))
 
-    def test_FromEvaluations(self) -> None:
-        for sem in (0.5, None):
-            eval1 = (3.7, sem) if sem is not None else 3.7
-            data = Data.from_evaluations(
-                evaluations={"0_1": {"b": eval1}},
-                metric_name_to_signature=self.metric_name_to_signature,
-                trial_index=0,
-            )
-            self.assertEqual(data.df["sem"].isnull()[0], sem is None)
-            self.assertEqual(len(data.df), 1)
-            self.assertNotEqual(data, Data(self.df))
-
-    def test_FromEvaluationsNameAndSignature(self) -> None:
-        data = Data.from_evaluations(
-            evaluations={"0_1": {"a": (3.7, 0.5)}},
-            metric_name_to_signature=self.metric_name_to_signature,
-            trial_index=0,
-        )
-
-        self.assertEqual(data.df["metric_name"][0], "a")
-        self.assertEqual(data.df["metric_signature"][0], "a_signature")
-
-    def test_FromEvaluationsMissingMetricSigMappingEntry(self) -> None:
-        eval1 = (3.7, 0.5)
-        with self.assertRaisesRegex(
-            UserInputError, "Metric b not found in metric_name_to_signature"
-        ):
-            Data.from_evaluations(
-                evaluations={"0_1": {"b": eval1}},
-                metric_name_to_signature={"a": "a"},
-                trial_index=0,
-            )
-
-    def test_FromEvaluationsExtraMetricSigMappingEntry(self) -> None:
-        eval1 = (3.7, 0.5)
-        extra_metric_name_to_signature = self.metric_name_to_signature
-        extra_metric_name_to_signature["c"] = "c_signature"
-        data = Data.from_evaluations(
-            evaluations={"0_1": {"b": eval1}},
-            metric_name_to_signature=extra_metric_name_to_signature,
-            trial_index=0,
-        )
-        self.assertEqual(set(data.df["metric_signature"]), {"b_signature"})
-
     def test_from_multiple(self) -> None:
         with self.subTest("Combinining non-empty Data"):
             data = Data.from_multiple_data([Data(df=self.df), Data(df=self.df)])

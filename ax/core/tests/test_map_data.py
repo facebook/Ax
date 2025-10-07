@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.tests.test_data import TestDataBase
-from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 
 
@@ -107,14 +106,6 @@ class MapDataTest(TestCase):
         )
         self.assertEqual(set(empty.map_df.columns), empty.required_columns())
 
-    def test_from_evaluations(self) -> None:
-        with self.assertRaisesRegex(
-            UnsupportedError, "MapData.from_evaluations is not supported"
-        ):
-            MapData.from_evaluations(
-                evaluations={}, metric_name_to_signature={}, trial_index=0
-            )
-
     def test_combine(self) -> None:
         with self.subTest("From no MapDatas"):
             data = MapData.from_multiple_map_data([])
@@ -123,19 +114,6 @@ class MapDataTest(TestCase):
         with self.subTest("From two MapDatas"):
             mmd_double = MapData.from_multiple_map_data([self.mmd, self.mmd])
             self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
-
-    def test_from_map_evaluations(self) -> None:
-        metric_name_to_signature = {"b": "b_signature"}
-        for sem in (0.5, None):
-            eval1 = (3.7, sem) if sem is not None else 3.7
-            eval2 = (3.8, sem) if sem is not None else 3.8
-            map_data = MapData.from_map_evaluations(
-                evaluations={"0_1": [(1.0, {"b": eval1}), (1.0, {"b": eval2})]},
-                trial_index=0,
-                metric_name_to_signature=metric_name_to_signature,
-            )
-            self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
-            self.assertEqual(len(map_data.map_df), 2)
 
     def test_upcast(self) -> None:
         fresh = MapData(df=self.df)
