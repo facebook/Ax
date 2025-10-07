@@ -88,6 +88,7 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
     "ST_MTGP_LEGACY": "ST_MTGP",
     "ST_MTGP_NEHVI": "ST_MTGP",
     "CONTEXT_SACBO": "BOTORCH_MODULAR",
+    "LEGACY_BOTORCH": "BOTORCH_MODULAR",
 }
 
 # Deprecated model kwargs, to be removed from GStep / GNodes.

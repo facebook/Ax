@@ -11,7 +11,7 @@ import json
 import torch
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-from ax.generators.torch.botorch import LegacyBoTorchGenerator
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.plot.base import AxPlotConfig
 from ax.plot.feature_importances import (
     plot_feature_importance_by_feature,
@@ -33,11 +33,7 @@ DUMMY_CAPTION = "test_caption"
 def get_adapter() -> Adapter:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    return Generators.LEGACY_BOTORCH(
-        # Adapter kwargs
-        experiment=exp,
-        data=exp.fetch_data(),
-    )
+    return Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
 
 
 # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
@@ -48,13 +44,14 @@ def get_sensitivity_values(ax_model: Adapter) -> dict:
 
     Returns map {'metric_name': {'parameter_name': sensitivity_value}}
     """
-    generator = assert_is_instance(ax_model.generator, LegacyBoTorchGenerator)
-    if hasattr(generator.model.covar_module, "outputscale"):
+    generator = assert_is_instance(ax_model.generator, BoTorchGenerator)
+    model = generator.surrogate.model
+    if hasattr(model.covar_module, "outputscale"):
         # pyre-ignore [16]: Covar modules are difficult to type.
-        ls = generator.model.covar_module.base_kernel.lengthscale.squeeze()
+        ls = model.covar_module.base_kernel.lengthscale.squeeze()
     else:
         # pyre-ignore [16]: Covar modules are difficult to type.
-        ls = generator.model.covar_module.lengthscale.squeeze()
+        ls = model.covar_module.lengthscale.squeeze()
     if len(ls.shape) > 1:
         ls = ls.mean(dim=0)
     # pyre-fixme[16]: `float` has no attribute `detach`.
