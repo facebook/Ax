@@ -13,14 +13,11 @@ from random import randint
 from typing import Any, Protocol
 
 import torch
-from ax.generators.model_utils import best_observed_point
 from ax.generators.torch.botorch_modular.optimizer_defaults import (
     BATCH_LIMIT,
     INIT_BATCH_LIMIT,
     MAX_OPT_AGG_SIZE,
 )
-from ax.generators.torch_base import TorchGenerator
-from ax.generators.types import TConfig
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
@@ -525,62 +522,6 @@ def scipy_optimizer(
         post_processing_func=rounding_func,
     )
     return X, expected_acquisition_value
-
-
-def recommend_best_observed_point(
-    model: TorchGenerator,
-    bounds: list[tuple[float, float]],
-    objective_weights: Tensor,
-    outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    linear_constraints: tuple[Tensor, Tensor] | None = None,
-    fixed_features: dict[int, float] | None = None,
-    model_gen_options: TConfig | None = None,
-    target_fidelities: dict[int, float] | None = None,
-) -> Tensor | None:
-    """
-    A wrapper around `ax.generators.model_utils.best_observed_point` for TorchGenerator
-    that recommends a best point from previously observed points using either a
-    "max_utility" or "feasible_threshold" strategy.
-
-    Args:
-        model: A TorchGenerator.
-        bounds: A list of (lower, upper) tuples for each column of X.
-        objective_weights: The objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
-        outcome_constraints: A tuple of (A, b). For k outcome constraints
-            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-            A f(x) <= b.
-        linear_constraints: A tuple of (A, b). For k linear constraints on
-            d-dimensional x, A is (k x d) and b is (k x 1) such that
-            A x <= b.
-        fixed_features: A map {feature_index: value} for features that
-            should be fixed to a particular value in the best point.
-        model_gen_options: A config dictionary that can contain
-            model-specific options. See `TorchOptConfig` for details.
-        target_fidelities: A map {feature_index: value} of fidelity feature
-            column indices to their respective target fidelities. Used for
-            multi-fidelity optimization.
-
-    Returns:
-        A d-array of the best point, or None if no feasible point was observed.
-    """
-    if target_fidelities:
-        raise NotImplementedError(
-            "target_fidelities not implemented for base LegacyBoTorchGenerator"
-        )
-
-    x_best = best_observed_point(
-        model=model,
-        bounds=bounds,
-        objective_weights=objective_weights,
-        outcome_constraints=outcome_constraints,
-        linear_constraints=linear_constraints,
-        fixed_features=fixed_features,
-        options=model_gen_options,
-    )
-    if x_best is None:
-        return None
-    return x_best.to(dtype=model.dtype, device=torch.device("cpu"))
 
 
 def _get_model(

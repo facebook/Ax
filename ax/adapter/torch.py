@@ -63,7 +63,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
-from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
@@ -727,10 +726,7 @@ class TorchAdapter(Adapter):
             parameters=self.parameters,
             search_space_digest=search_space_digest,
         )
-
-        # Do not support handling of auxiliary datasets in legacy BoTorch generators
-        if not isinstance(self.generator, LegacyBoTorchGenerator):
-            datasets = self._update_w_aux_exp_datasets(datasets=datasets)
+        datasets = self._update_w_aux_exp_datasets(datasets=datasets)
 
         if update_outcomes_and_parameters:
             self.outcomes = ordered_outcomes
