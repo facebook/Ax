@@ -13,7 +13,6 @@ from ax.adapter.registry import (
     Cont_X_trans,
     Generators,
     MODEL_KEY_TO_MODEL_SETUP,
-    Models,
 )
 from ax.adapter.torch import TorchAdapter
 from ax.core.observation import ObservationFeatures
@@ -332,15 +331,6 @@ class ModelRegistryTest(TestCase):
             generator_run=gr, model_class=SobolGenerator
         )
         self.assertEqual(extracted, {})
-
-    def test_deprecation_warning(self) -> None:
-        """Tests deprecation warning"""
-        with self.assertRaisesRegex(
-            DeprecationWarning,
-            r"Models is deprecated, use \`ax.adapter.registry.Generators\`"
-            r" instead.",
-        ):
-            Models.BOTORCH_MODULAR
 
     def test_initialize_from_search_space(self) -> None:
         search_space = get_branin_search_space()
