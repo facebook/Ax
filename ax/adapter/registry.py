@@ -479,21 +479,6 @@ class Generators(GeneratorRegistryBase):
     BO_MIXED = "BO_MIXED"
 
 
-class ModelsMetaClass(type):
-    """Metaclass to override `__getattr__` for the Models class."""
-
-    def __getattr__(self, name: str) -> None:
-        raise DeprecationWarning(
-            "Models is deprecated, use `ax.adapter.registry.Generators` instead."
-        )
-
-
-class Models(metaclass=ModelsMetaClass):
-    """This is deprecated. Use Generators instead."""
-
-    pass
-
-
 def _extract_model_state_after_gen(
     generator_run: GeneratorRun, model_class: type[Generator]
 ) -> dict[str, Any]:
