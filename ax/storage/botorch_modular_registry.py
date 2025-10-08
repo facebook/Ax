@@ -46,6 +46,7 @@ from botorch.acquisition.max_value_entropy_search import (
 from botorch.acquisition.monte_carlo import (
     qExpectedImprovement,
     qNoisyExpectedImprovement,
+    qUpperConfidenceBound,
 )
 from botorch.acquisition.multi_objective.logei import (
     qLogExpectedHypervolumeImprovement,
@@ -156,6 +157,7 @@ ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
     qMultiFidelityKnowledgeGradient: "qMultiFidelityKnowledgeGradient",
     qMultiFidelityMaxValueEntropy: "qMultiFidelityMaxValueEntropy",
     qNoisyExpectedImprovement: "qNoisyExpectedImprovement",
+    qUpperConfidenceBound: "qUpperConfidenceBound",
     # LogEI family below:
     LogExpectedImprovement: "LogExpectedImprovement",
     LogNoisyExpectedImprovement: "LogNoisyExpectedImprovement",
