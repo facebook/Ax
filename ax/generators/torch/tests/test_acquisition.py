@@ -192,7 +192,10 @@ class AcquisitionTest(TestCase):
         ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
 
     def get_acquisition_function(
-        self, fixed_features: dict[int, float] | None = None, one_shot: bool = False
+        self,
+        fixed_features: dict[int, float] | None = None,
+        one_shot: bool = False,
+        target_point: Tensor | None = None,
     ) -> Acquisition:
         return self.acquisition_class(
             botorch_acqf_class=(
@@ -201,7 +204,9 @@ class AcquisitionTest(TestCase):
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
-                self.torch_opt_config, fixed_features=fixed_features or {}
+                self.torch_opt_config,
+                fixed_features=fixed_features or {},
+                pruning_target_point=target_point,
             ),
             options=self.options,
             botorch_acqf_options=self.botorch_acqf_options,
@@ -329,12 +334,12 @@ class AcquisitionTest(TestCase):
             if prune_irrelevant_parameters:
                 self.options = {
                     "prune_irrelevant_parameters": True,
-                    "target_point": torch.zeros(3, dtype=torch.double),
                 }
             else:
                 self.options = {}
             acquisition = self.get_acquisition_function(
-                fixed_features=self.fixed_features
+                fixed_features=self.fixed_features,
+                target_point=torch.zeros(3, dtype=torch.double),
             )
             n = 5
             with mock.patch(
@@ -1125,7 +1130,10 @@ class AcquisitionTest(TestCase):
 
         candidates = torch.tensor([[0.9, 0.1]])
 
-        with self.assertRaisesRegex(ValueError, "Must specify target_point"):
+        with self.assertRaisesRegex(
+            AssertionError,
+            "Must specify pruning_target_point to prune irrelevant parameters",
+        ):
             acq._prune_irrelevant_parameters(
                 candidates=candidates, search_space_digest=self.search_space_digest
             )
@@ -1154,12 +1162,10 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.5, 0.5])
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.5, 0.5]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
 
         # Create mock acquisition function with log transformation
@@ -1187,12 +1193,10 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.5, 0.5])
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.5, 0.5]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
 
         mock_acqf = Mock()
@@ -1225,12 +1229,10 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=search_space_digest_1d,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.5])
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.5]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
 
         mock_acqf = Mock()
@@ -1258,12 +1260,11 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.5, 0.5, 0.5]),
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.5, 0.5, 0.5]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
 
         mock_acqf = Mock()
@@ -1293,6 +1294,45 @@ class AcquisitionTest(TestCase):
         self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.9, 0.5, 0.8]])))
         self.assertTrue(torch.equal(pruned_values, torch.tensor([1.0])))
 
+    def test_prune_irrelevant_parameters_with_custom_threshold(self) -> None:
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2", "x3"],
+            bounds=[(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)],
+        )
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.5, 0.5, 0.5]),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+            options={"irrelevance_pruning_rtol": 1.0},
+        )
+        # with a rtol of 1, we should prune the first two dimensions
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        mock_evaluate = Mock(
+            side_effect=[
+                # baseline value is zero, since X_observed is empty
+                torch.tensor([1.0]),  # dense value
+                torch.tensor([0.3, 0.2, 0.1]),  # pruned values
+                torch.tensor([0.2, 0.1]),  # pruned values
+            ]
+        )
+        acq.evaluate = mock_evaluate
+        acq.acqf = mock_acqf
+        acq._instantiate_acquisition = Mock()
+
+        candidates = torch.tensor([[0.9, 0.1, 0.8]])
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates, search_space_digest=search_space_digest
+        )
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.5, 0.5, 0.8]])))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([0.2])))
+
     def test_prune_irrelevant_parameters_with_inequality_constraints(self) -> None:
         # Test pruning with inequality constraints that filter out infeasible candidates
         search_space_digest = SearchSpaceDigest(
@@ -1302,12 +1342,10 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.2, 0.2])
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.2, 0.2]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
         mock_acqf = Mock()
         mock_acqf._log = False
@@ -1342,12 +1380,11 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.5, 0.5, 0.5]),
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.5, 0.5, 0.5]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
 
         mock_acqf = Mock()
@@ -1379,12 +1416,11 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.2, 0.8], dtype=torch.double),
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.2, 0.8], dtype=torch.double),
-                "irrelevance_pruning_rtol": 0.1,  # 10% tolerance
-            },
         )
         mock_acqf = Mock()
         mock_acqf._log = False
@@ -1423,12 +1459,10 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.2, 0.8])
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.2, 0.8]),
-                "irrelevance_pruning_rtol": 0.1,  # 10% tolerance
-            },
         )
 
         mock_acqf = Mock()
@@ -1460,12 +1494,10 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.2, 0.8])
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.2, 0.8]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
         mock_acqf = Mock()
         mock_acqf._log = False
@@ -1504,12 +1536,10 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.1, 0.1])
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.1, 0.1]),
-                "irrelevance_pruning_rtol": 0.1,
-            },
         )
         mock_acqf = Mock()
         mock_acqf._log = False
@@ -1553,13 +1583,11 @@ class AcquisitionTest(TestCase):
         acq = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.2, 0.0, 0.8, 0.2]),
+            ),
             botorch_acqf_class=DummyAcquisitionFunction,
-            options={
-                "target_point": torch.tensor([0.2, 0.0, 0.8, 0.2]),
-                "irrelevance_pruning_rtol": 0.1,
-                "prune_irrelevant_parameters": True,
-            },
         )
 
         mock_acqf = Mock()

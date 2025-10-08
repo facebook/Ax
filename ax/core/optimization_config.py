@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from itertools import groupby
 
+from ax.core.arm import Arm
+
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.outcome_constraint import (
@@ -35,6 +37,8 @@ _NO_OBJECTIVE_THRESHOLDS = [
 ]
 _NO_RISK_MEASURE = RiskMeasure("placeholder", {})
 
+_NO_PRUNING_TARGET_PARAMETERIZATION = Arm(parameters={})
+
 
 class OptimizationConfig(Base):
     """An optimization configuration, which comprises an objective,
@@ -50,6 +54,7 @@ class OptimizationConfig(Base):
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
         risk_measure: RiskMeasure | None = None,
+        pruning_target_parameterization: Arm | None = None,
     ) -> None:
         """Inits OptimizationConfig.
 
@@ -58,6 +63,17 @@ class OptimizationConfig(Base):
             outcome_constraints: Constraints on metrics.
             risk_measure: An optional risk measure, used for robust optimization.
                 Must be used with a `RobustSearchSpace`.
+            pruning_target_parameterization: Arm containing the target values for
+                irrelevant parameters. The target values are used to prune irrelevant
+                parameters from candidates generated via Bayesian optimization: when
+                Ax considers arms to suggest for the next trial, it will seek to have
+                the proposed arms differ from the target arm as little as possible,
+                without a loss in optimization performance. I.e. when suggested arms
+                include parameter values that differ from the corresponding value in
+                the target arm, the pruning methodology will check if that difference
+                is expected to be meaningful w.r.t. the performance of the arm in
+                consideration, and if not, the parameter value will be replaced with
+                the corresponding value in the target arm.
         """
         constraints: list[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
@@ -70,6 +86,7 @@ class OptimizationConfig(Base):
         self._objective: Objective = objective
         self._outcome_constraints: list[OutcomeConstraint] = constraints
         self.risk_measure: RiskMeasure | None = risk_measure
+        self.pruning_target_parameterization = pruning_target_parameterization
 
     def clone(self) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
@@ -80,6 +97,8 @@ class OptimizationConfig(Base):
         objective: Objective | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
         risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
+        pruning_target_parameterization: Arm
+        | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
         objective = self.objective.clone() if objective is None else objective
@@ -91,11 +110,17 @@ class OptimizationConfig(Base):
         risk_measure = (
             self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
         )
+        pruning_target_parameterization = (
+            self.pruning_target_parameterization
+            if pruning_target_parameterization is _NO_PRUNING_TARGET_PARAMETERIZATION
+            else pruning_target_parameterization
+        )
 
         return OptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
             risk_measure=risk_measure,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
 
     @property
@@ -278,8 +303,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints: list[OutcomeConstraint] | None = None,
         objective_thresholds: list[ObjectiveThreshold] | None = None,
         risk_measure: RiskMeasure | None = None,
+        pruning_target_parameterization: Arm | None = None,
     ) -> None:
-        """Inits OptimizationConfig.
+        """Inits MultiObjectiveOptimizationConfig.
 
         Args:
             objective: Metric+direction to use for the optimization. Should be either a
@@ -290,6 +316,17 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
                 and hypervolumes.
             risk_measure: An optional risk measure, used for robust optimization.
                 Must be used with a `RobustSearchSpace`.
+            pruning_target_parameterization: Arm containing the target values for
+                irrelevant parameters. The target values are used to prune irrelevant
+                parameters from candidates generated via Bayesian optimization: when
+                Ax considers arms to suggest for the next trial, it will seek to have
+                the proposed arms differ from the target arm as little as possible,
+                without a loss in optimization performance. I.e. when suggested arms
+                include parameter values that differ from the corresponding value in
+                the target arm, the pruning methodology will check if that difference
+                is expected to be meaningful w.r.t. the performance of the arm in
+                consideration, and if not, the parameter value will be replaced with
+                the corresponding value in the target arm.
         """
         constraints: list[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
@@ -305,6 +342,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         self._outcome_constraints: list[OutcomeConstraint] = constraints
         self._objective_thresholds: list[ObjectiveThreshold] = objective_thresholds
         self.risk_measure: RiskMeasure | None = risk_measure
+        self.pruning_target_parameterization = pruning_target_parameterization
 
     # pyre-fixme[14]: Inconsistent override.
     def clone_with_args(
@@ -314,6 +352,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective_thresholds: None
         | (list[ObjectiveThreshold]) = _NO_OBJECTIVE_THRESHOLDS,
         risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
+        pruning_target_parameterization: Arm
+        | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""
         objective = self.objective.clone() if objective is None else objective
@@ -330,12 +370,17 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         risk_measure = (
             self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
         )
-
+        pruning_target_parameterization = (
+            self.pruning_target_parameterization
+            if pruning_target_parameterization is _NO_PRUNING_TARGET_PARAMETERIZATION
+            else pruning_target_parameterization
+        )
         return MultiObjectiveOptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
             risk_measure=risk_measure,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
 
     @property
@@ -484,6 +529,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         objective: MultiObjective,
         preference_profile_name: str,
         outcome_constraints: list[OutcomeConstraint] | None = None,
+        pruning_target_parameterization: Arm | None = None,
     ) -> None:
         """Inits PreferenceOptimizationConfig.
 
@@ -495,6 +541,17 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
                 this name and purpose PE_EXPERIMENT should be attached to
                 the experiment.
             outcome_constraints: Constraints on metrics. Not yet supported.
+            pruning_target_parameterization: Arm containing the target values for
+                irrelevant parameters. The target values are used to prune irrelevant
+                parameters from candidates generated via Bayesian optimization: when
+                Ax considers arms to suggest for the next trial, it will seek to have
+                the proposed arms differ from the target arm as little as possible,
+                without a loss in optimization performance. I.e. when suggested arms
+                include parameter values that differ from the corresponding value in
+                the target arm, the pruning methodology will check if that difference
+                is expected to be meaningful w.r.t. the performance of the arm in
+                consideration, and if not, the parameter value will be replaced with
+                the corresponding value in the target arm.
         """
         if outcome_constraints:
             raise NotImplementedError(
@@ -508,6 +565,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
             outcome_constraints=outcome_constraints,
             objective_thresholds=None,
             risk_measure=None,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
         self.preference_profile_name = preference_profile_name
 
@@ -516,7 +574,9 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         self,
         objective: MultiObjective | None = None,
         preference_profile_name: str | None = None,
-        outcome_constraints: list[OutcomeConstraint] | None = None,
+        outcome_constraints: list[OutcomeConstraint] | None = _NO_OUTCOME_CONSTRAINTS,
+        pruning_target_parameterization: Arm
+        | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> PreferenceOptimizationConfig:
         """Make a copy of this optimization config."""
         objective = (
@@ -532,14 +592,20 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         )
         outcome_constraints = (
             [constraint.clone() for constraint in self.outcome_constraints]
-            if outcome_constraints is None
+            if outcome_constraints is _NO_OUTCOME_CONSTRAINTS
             else outcome_constraints
+        )
+        pruning_target_parameterization = (
+            self.pruning_target_parameterization
+            if pruning_target_parameterization is _NO_PRUNING_TARGET_PARAMETERIZATION
+            else pruning_target_parameterization
         )
 
         return PreferenceOptimizationConfig(
             objective=objective,
             preference_profile_name=preference_profile_name,
             outcome_constraints=outcome_constraints,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
 
     def __repr__(self) -> str:

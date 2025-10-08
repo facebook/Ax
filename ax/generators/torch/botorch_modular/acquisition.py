@@ -172,6 +172,7 @@ class Acquisition(Base):
     _risk_measure: RiskMeasureMCObjective | None
     _learned_objective_preference_model: Model | None
     _subset_idcs: Tensor | None
+    _pruning_target_point: Tensor | None
 
     def __init__(
         self,
@@ -196,6 +197,7 @@ class Acquisition(Base):
         self._learned_objective_preference_model = None
         self._subset_idcs = None
         self._risk_measure = torch_opt_config.risk_measure
+        self._pruning_target_point = torch_opt_config.pruning_target_point
 
         # Extract pending and observed points.
         X_pending, X_observed = _get_X_pending_and_observed(
@@ -675,12 +677,18 @@ class Acquisition(Base):
                     "prune_irrelevant_parameters is not supported for hierarchical "
                     "search spaces."
                 )
-            candidates, acqf_values = self._prune_irrelevant_parameters(
-                candidates=candidates,
-                search_space_digest=search_space_digest,
-                inequality_constraints=inequality_constraints,
-                fixed_features=fixed_features,
-            )
+            if self._pruning_target_point is None:
+                logger.warning(
+                    "Must specify pruning_target_point to prune irrelevant "
+                    "parameters. Skipping pruning irrelevant parameters."
+                )
+            else:
+                candidates, acqf_values = self._prune_irrelevant_parameters(
+                    candidates=candidates,
+                    search_space_digest=search_space_digest,
+                    inequality_constraints=inequality_constraints,
+                    fixed_features=fixed_features,
+                )
         return candidates, acqf_values, arm_weights
 
     def evaluate(self, X: Tensor) -> Tensor:
@@ -823,9 +831,10 @@ class Acquisition(Base):
             A three-element tuple containing an `q x d`-dim tensor of generated
             candidates and a `q`-dim tensor with the associated acquisition values.
         """
-        target_point = self.options.get("target_point")
-        if target_point is None:
-            raise ValueError("Must specify target_point to prune irrelevant parameters")
+        target_point = none_throws(
+            self._pruning_target_point,
+            message="Must specify pruning_target_point to prune irrelevant parameters",
+        )
         irrelevance_pruning_rtol = self.options.get("irrelevance_pruning_rtol", 0.1)
         initial_X_pending = self.X_pending
         pruned_af_vals = []

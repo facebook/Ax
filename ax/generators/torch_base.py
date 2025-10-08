@@ -76,6 +76,8 @@ class TorchOptConfig:
             the optimization config.
         is_moo: A boolean denoting whether this is for an MOO problem.
         risk_measure: An optional risk measure, used for robust optimization.
+        pruning_target_point: A `d`-dim tensor that specifies values that irrelevant
+            parameters should be set to.
     """
 
     objective_weights: Tensor
@@ -91,6 +93,7 @@ class TorchOptConfig:
     risk_measure: RiskMeasureMCObjective | None = None
     fit_out_of_design: bool = False
     use_learned_objective: bool = False
+    pruning_target_point: Tensor | None = None
 
 
 @dataclass(frozen=True)

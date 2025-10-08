@@ -59,6 +59,7 @@ from ax.exceptions.core import UnsupportedError
 from ax.exceptions.storage import SQAEncodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.encoders import arm_to_dict
 from ax.storage.sqa_store.load import _get_experiment_id
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -209,11 +210,9 @@ class Encoder:
                 self.encode_auxiliary_experiment(aux_exp) for aux_exp in aux_exps
             ]
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
-
-        properties = experiment._properties
         runners = []
         if isinstance(experiment, MultiTypeExperiment):
-            properties[Keys.SUBCLASS] = "MultiTypeExperiment"
+            experiment._properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             for trial_type, runner in experiment._trial_type_to_runner.items():
                 runner_sqa = self.runner_to_sqa(none_throws(runner), trial_type)
                 runners.append(runner_sqa)
@@ -226,6 +225,13 @@ class Encoder:
                     ]
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
+        properties = experiment._properties.copy()
+        if (
+            oc := experiment.optimization_config
+        ) is not None and oc.pruning_target_parameterization is not None:
+            properties["pruning_target_parameterization"] = arm_to_dict(
+                oc.pruning_target_parameterization
+            )
 
         # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: type[SQAExperiment] = self.config.class_to_sqa_class[

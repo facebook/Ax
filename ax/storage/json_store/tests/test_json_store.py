@@ -37,6 +37,11 @@ from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+    PreferenceOptimizationConfig,
+)
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning, UnsupportedError
@@ -1322,6 +1327,203 @@ class JSONStoreTest(TestCase):
         deserialized_object = object_from_json(object_json)
         expected_object = get_multi_objective()
         self.assertEqual(deserialized_object, expected_object)
+
+    def test_optimization_config_with_pruning_target_json_roundtrip(self) -> None:
+        # Test that OptimizationConfig with pruning_target_parameterization can
+        # be serialized/deserialized correctly
+
+        # Setup: create OptimizationConfig with pruning_target_parameterization
+        pruning_target_parameterization = get_arm()
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("test_metric"), minimize=False),
+            pruning_target_parameterization=pruning_target_parameterization,
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            optimization_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm pruning_target_parameterization is preserved correctly
+        self.assertEqual(optimization_config, deserialized_config)
+        self.assertIsNotNone(deserialized_config.pruning_target_parameterization)
+        self.assertEqual(
+            optimization_config.pruning_target_parameterization,
+            deserialized_config.pruning_target_parameterization,
+        )
+
+    def test_multi_objective_optimization_config_with_pruning_target_json_roundtrip(
+        self,
+    ) -> None:
+        # Test that MultiObjectiveOptimizationConfig with
+        # pruning_target_parameterization can be
+        # serialized/deserialized correctly
+
+        # Setup: create MultiObjectiveOptimizationConfig with
+        # pruning_target_parameterization
+        pruning_target_parameterization = get_arm()
+        multi_objective_config = MultiObjectiveOptimizationConfig(
+            objective=get_multi_objective(),
+            pruning_target_parameterization=pruning_target_parameterization,
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            multi_objective_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm pruning_target_parameterization is preserved correctly
+        self.assertEqual(multi_objective_config, deserialized_config)
+        self.assertIsNotNone(deserialized_config.pruning_target_parameterization)
+        self.assertEqual(
+            multi_objective_config.pruning_target_parameterization,
+            deserialized_config.pruning_target_parameterization,
+        )
+
+    def test_preference_optimization_config_with_pruning_target_json_roundtrip(
+        self,
+    ) -> None:
+        # Test that PreferenceOptimizationConfig with
+        # pruning_target_parameterization can be
+        # serialized/deserialized correctly
+
+        # Setup: create PreferenceOptimizationConfig with
+        # pruning_target_parameterization
+        pruning_target_parameterization = get_arm()
+        preference_config = PreferenceOptimizationConfig(
+            objective=get_multi_objective(),
+            pruning_target_parameterization=pruning_target_parameterization,
+            preference_profile_name="default",
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            preference_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm pruning_target_parameterization is preserved correctly
+        self.assertEqual(preference_config, deserialized_config)
+        self.assertIsNotNone(deserialized_config.pruning_target_parameterization)
+        self.assertEqual(
+            preference_config.pruning_target_parameterization,
+            deserialized_config.pruning_target_parameterization,
+        )
+
+    def test_optimization_config_with_none_pruning_target_json_roundtrip(self) -> None:
+        # Test that OptimizationConfig with
+        # pruning_target_parameterization=None is handled correctly
+
+        # Setup: create OptimizationConfig without
+        # pruning_target_parameterization
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("test_metric"), minimize=False),
+            pruning_target_parameterization=None,
+        )
+
+        # Execute: serialize and deserialize through JSON
+        json_data = object_to_json(
+            optimization_config,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Simulate full serialization round-trip
+        json_str = json.dumps(json_data)
+        json_data = json.loads(json_str)
+
+        deserialized_config = object_from_json(
+            json_data,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Assert: confirm pruning_target_parameterization remains None
+        self.assertEqual(optimization_config, deserialized_config)
+        self.assertIsNone(deserialized_config.pruning_target_parameterization)
+
+    def test_experiment_with_pruning_target_json_roundtrip(self) -> None:
+        # Test that Experiment with optimization_config containing
+        # pruning_target_parameterization is
+        # serialized correctly
+
+        # Setup: create experiment with pruning_target_parameterization in optimization
+        # config
+        experiment = get_branin_experiment()
+        pruning_target_parameterization = get_arm()
+        optimization_config = none_throws(
+            experiment.optimization_config
+        ).clone_with_args(
+            pruning_target_parameterization=pruning_target_parameterization
+        )
+        experiment.optimization_config = optimization_config
+
+        # Execute: save and load experiment through JSON
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(
+                experiment,
+                f.name,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
+            loaded_experiment = load_experiment(
+                f.name,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Cleanup
+        os.remove(f.name)
+
+        # Assert: confirm experiment and pruning_target_parameterization
+        # are preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization
+        )
+        self.assertEqual(
+            none_throws(experiment.optimization_config).pruning_target_parameterization,
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization,
+        )
 
     def test_multi_objective_from_json_warning(self) -> None:
         objectives = [get_objective()]

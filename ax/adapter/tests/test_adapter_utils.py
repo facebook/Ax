@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from ax.adapter.adapter_utils import (
     _get_adapter_training_data,
+    arm_to_np_array,
     extract_risk_measure,
     extract_robust_digest,
     extract_search_space_digest,
@@ -18,10 +19,12 @@ from ax.adapter.adapter_utils import (
     process_contextual_datasets,
     RISK_MEASURE_NAME_TO_CLASS,
     transform_search_space,
+    validate_and_apply_final_transform,
 )
 from ax.adapter.registry import Cont_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
+from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -424,3 +427,110 @@ class TestAdapterUtils(TestCase):
         self.assertEqual(len(in_design_obs_feats), 0)
         self.assertEqual(len(in_design_obs_data), 0)
         self.assertEqual(len(in_design_arm_names), 0)
+
+    def test_arm_to_np_array(self) -> None:
+        # Test extracting target point from arm with valid parameters
+
+        # Setup: create arm with target parameter values
+        target_arm = Arm(parameters={"x1": 0.5, "x2": 1.5, "x3": 2.5})
+        parameters = ["x1", "x2", "x3"]
+
+        # Execute: extract target point
+        actual = arm_to_np_array(arm=target_arm, parameters=parameters)
+
+        # Assert: confirm extracted values match expected order
+        expected = np.array([0.5, 1.5, 2.5])
+        self.assertIsNotNone(actual)
+        np.testing.assert_array_equal(actual, expected)
+
+    def test_extract_arm_to_np_array_different_parameter_order(self) -> None:
+        # Test extracting target point with different parameter ordering
+
+        # Setup: create arm and specify parameters in different order
+        target_arm = Arm(parameters={"x1": 0.5, "x2": 1.5, "x3": 2.5})
+        parameters = ["x3", "x1", "x2"]
+
+        # Execute: extract target point
+        actual = arm_to_np_array(arm=target_arm, parameters=parameters)
+
+        # Assert: confirm values are extracted in specified parameter order
+        expected = np.array([2.5, 0.5, 1.5])
+        self.assertIsNotNone(actual)
+        np.testing.assert_array_equal(actual, expected)
+
+    def test_arm_to_np_array_none(self) -> None:
+        # Test that None is returned when target_arm is None
+        parameters = ["x1", "x2"]
+
+        # Execute: extract target point from None arm
+        actual = arm_to_np_array(arm=None, parameters=parameters)
+
+        # Assert: confirm None is returned
+        self.assertIsNone(actual)
+
+    def test_validate_and_apply_final_transform_with_target_point(self) -> None:
+        # Test validate_and_apply_final_transform includes target_point in output
+
+        # Setup: create input data with target point
+        objective_weights = np.array([1.0, -1.0])
+        outcome_constraints = (np.array([[1.0, 0.0]]), np.array([2.0]))
+        linear_constraints = (np.array([[1.0, 1.0]]), np.array([1.0]))
+        pending_observations = [np.array([[0.5, 0.5]])]
+        objective_thresholds = np.array([1.0, 2.0])
+        target_point = np.array([0.2, 0.8])
+
+        # Execute: apply final transform with target point
+        (
+            _,
+            _,
+            _,
+            _,
+            _,
+            target_p,
+        ) = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            pending_observations=pending_observations,
+            objective_thresholds=objective_thresholds,
+            pruning_target_point=target_point,
+            final_transform=torch.tensor,
+        )
+
+        # Assert: confirm target point is correctly transformed
+        self.assertIsInstance(target_p, torch.Tensor)
+        torch.testing.assert_close(
+            target_p, torch.tensor([0.2, 0.8], dtype=torch.double)
+        )
+
+    def test_validate_and_apply_final_transform_none_target_point(self) -> None:
+        # Test validate_and_apply_final_transform with None target_point
+
+        # Setup: create input data without target point
+        objective_weights = np.array([1.0, -1.0])
+        outcome_constraints = (np.array([[1.0, 0.0]]), np.array([2.0]))
+        linear_constraints = (np.array([[1.0, 1.0]]), np.array([1.0]))
+        pending_observations = [np.array([[0.5, 0.5]])]
+        objective_thresholds = np.array([1.0, 2.0])
+        target_point = None
+
+        # Execute: apply final transform without target point
+        (
+            _,
+            _,
+            _,
+            _,
+            _,
+            target_p,
+        ) = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            pending_observations=pending_observations,
+            objective_thresholds=objective_thresholds,
+            pruning_target_point=target_point,
+            final_transform=torch.tensor,
+        )
+
+        # Assert: confirm target point remains None
+        self.assertIsNone(target_p)
