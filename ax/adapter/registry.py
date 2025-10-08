@@ -20,7 +20,7 @@ from inspect import isfunction, signature
 from logging import Logger
 from typing import Any, NamedTuple
 
-from ax.adapter.base import Adapter, DataLoaderConfig
+from ax.adapter.base import Adapter
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.torch import TorchAdapter
@@ -60,7 +60,6 @@ from ax.generators.discrete.full_factorial import FullFactorialGenerator
 from ax.generators.discrete.thompson import ThompsonSampler
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.random.uniform import UniformGenerator
-from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
@@ -188,16 +187,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         adapter_class=TorchAdapter,
         model_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
-    ),
-    "Legacy_GPEI": ModelSetup(
-        adapter_class=TorchAdapter,
-        standard_bridge_kwargs={
-            "data_loader_config": DataLoaderConfig(
-                fit_only_completed_map_metrics=True,
-            ),
-        },
-        model_class=LegacyBoTorchGenerator,
-        transforms=Cont_X_trans + Y_trans,
     ),
     "EB": ModelSetup(
         adapter_class=DiscreteAdapter,
@@ -482,7 +471,6 @@ class Generators(GeneratorRegistryBase):
     SAASBO = "SAASBO"
     SAAS_MTGP = "SAAS_MTGP"
     THOMPSON = "Thompson"
-    LEGACY_BOTORCH = "Legacy_GPEI"
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     EB_ASHR = "EB_Ashr"

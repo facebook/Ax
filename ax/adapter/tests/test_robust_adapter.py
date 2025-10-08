@@ -17,7 +17,6 @@ from ax.core.optimization_config import (
 )
 from ax.core.risk_measures import RiskMeasure
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UnsupportedError
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.metrics.branin import BraninMetric
 from ax.utils.common.testutils import TestCase
@@ -122,11 +121,3 @@ class TestRobust(TestCase):
             optimization_config,
             acqf_class=qNoisyExpectedImprovement,
         )
-
-    def test_unsupported_model(self) -> None:
-        exp = get_robust_branin_experiment()
-        with self.assertRaisesRegex(UnsupportedError, "support robust"):
-            Generators.LEGACY_BOTORCH(
-                experiment=exp,
-                data=exp.fetch_data(),
-            ).gen(n=1)
