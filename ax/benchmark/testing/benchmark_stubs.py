@@ -164,12 +164,12 @@ def get_moo_surrogate() -> BenchmarkProblem:
     )
 
 
-def get_benchmark_result() -> BenchmarkResult:
+def get_benchmark_result(seed: int = 0) -> BenchmarkResult:
     problem = get_single_objective_benchmark_problem()
 
     return BenchmarkResult(
         name="test_benchmarking_result",
-        seed=0,
+        seed=seed,
         experiment=Experiment(
             name="test_benchmarking_experiment",
             search_space=problem.search_space,
