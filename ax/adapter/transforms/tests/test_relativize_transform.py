@@ -31,7 +31,6 @@ from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.metrics.branin import BraninMetric
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
@@ -341,8 +340,7 @@ class RelativizeDataTest(TestCase):
         )
         relative_observations = observations_from_data(
             experiment=experiment,
-            data=relativize_data(
-                data=data,
+            data=data.relativize(
                 status_quo_name="status_quo",
                 as_percent=True,
                 include_sq=True,
@@ -376,7 +374,7 @@ class RelativizeDataTest(TestCase):
         )
 
         # not checking RelativizeWithConstantControl here
-        # because relativize_data uses delta method
+        # because data.relativize uses delta method
         transform = Relativize(search_space=None, adapter=adapter)
 
         relative_obs_t = transform.transform_observations(observations)

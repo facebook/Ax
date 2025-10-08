@@ -27,7 +27,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
-from ax.utils.stats.statstools import relativize, unrelativize
+from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import none_throws
 
 if TYPE_CHECKING:

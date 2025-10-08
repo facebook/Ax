@@ -8,6 +8,8 @@
 
 from unittest.mock import patch
 
+import numpy as np
+
 import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MAP_KEY, MapData
@@ -343,3 +345,141 @@ class DataTest(TestCase):
         safecast_df = Data._safecast_df(df=df)
         self.assertEqual(safecast_df.index.get_level_values(0).to_list(), [0])
         self.assertEqual(df["trial_index"].dtype, int)
+
+
+class RelativizeDataTest(TestCase):
+    def setUp(self) -> None:
+        self.df = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "mean": 2,
+                    "sem": 0,
+                    "metric_name": "foobar",
+                    "metric_signature": "foobar",
+                    "arm_name": "status_quo",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 5,
+                    "sem": 0,
+                    "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
+                    "arm_name": "status_quo",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 1,
+                    "sem": 0,
+                    "metric_name": "foobar",
+                    "metric_signature": "foobar",
+                    "arm_name": "0_0",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 10,
+                    "sem": 0,
+                    "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
+                    "arm_name": "0_0",
+                },
+            ]
+        )
+
+        self.expected_relativized_df = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "mean": -0.5,
+                    "sem": 0,
+                    "metric_name": "foobar",
+                    "metric_signature": "foobar",
+                    "arm_name": "0_0",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 1,
+                    "sem": 0,
+                    "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
+                    "arm_name": "0_0",
+                },
+            ]
+        )
+        self.expected_relativized_df_with_sq = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "mean": 0,
+                    "sem": 0,
+                    "metric_name": "foobar",
+                    "metric_signature": "foobar",
+                    "arm_name": "status_quo",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": -0.5,
+                    "sem": 0,
+                    "metric_name": "foobar",
+                    "metric_signature": "foobar",
+                    "arm_name": "0_0",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 0,
+                    "sem": 0,
+                    "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
+                    "arm_name": "status_quo",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 1,
+                    "sem": 0,
+                    "metric_name": "foobaz",
+                    "metric_signature": "foobaz",
+                    "arm_name": "0_0",
+                },
+            ]
+        )
+
+    def test_relativize_data(self) -> None:
+        data = Data(
+            df=self.df,
+        )
+        expected_relativized_data = Data(df=self.expected_relativized_df)
+
+        expected_relativized_data_with_sq = Data(
+            df=self.expected_relativized_df_with_sq
+        )
+
+        actual_relativized_data = data.relativize()
+        self.assertEqual(expected_relativized_data, actual_relativized_data)
+
+        actual_relativized_data_with_sq = data.relativize(include_sq=True)
+        self.assertEqual(
+            expected_relativized_data_with_sq, actual_relativized_data_with_sq
+        )
+
+    def test_relativize_data_no_sem(self) -> None:
+        df = self.df.copy()
+        df["sem"] = np.nan
+        data = Data(df=df)
+
+        expected_relativized_df = self.expected_relativized_df.copy()
+        expected_relativized_df["sem"] = np.nan
+        expected_relativized_data = Data(df=expected_relativized_df)
+
+        expected_relativized_df_with_sq = self.expected_relativized_df_with_sq.copy()
+        expected_relativized_df_with_sq.loc[
+            expected_relativized_df_with_sq["arm_name"] != "status_quo", "sem"
+        ] = np.nan
+        expected_relativized_data_with_sq = Data(df=expected_relativized_df_with_sq)
+
+        actual_relativized_data = data.relativize()
+        self.assertEqual(expected_relativized_data, actual_relativized_data)
+
+        actual_relativized_data_with_sq = data.relativize(include_sq=True)
+        self.assertEqual(
+            expected_relativized_data_with_sq, actual_relativized_data_with_sq
+        )

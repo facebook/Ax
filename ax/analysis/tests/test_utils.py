@@ -20,7 +20,6 @@ from ax.core.metric import Metric
 from ax.core.trial_status import TrialStatus  # noqa
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
@@ -676,7 +675,7 @@ class TestUtils(TestCase):
         # resemble those we see in an online setting.
         for experiment in get_online_experiments():
             data = experiment.lookup_data()
-            rel_df = relativize_data(data).df
+            rel_df = data.relativize().df
             raw_df = data.df
             metric_name = next(iter(experiment.metrics.keys()))
             raw_arm_value = raw_df[

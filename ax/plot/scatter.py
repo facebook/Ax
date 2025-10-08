@@ -45,7 +45,7 @@ from ax.plot.helper import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_optional
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.math_utils import relativize
 from plotly import subplots
 
 logger: Logger = get_logger(__name__)

@@ -27,7 +27,7 @@ from ax.exceptions.core import AxError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.math_utils import relativize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
