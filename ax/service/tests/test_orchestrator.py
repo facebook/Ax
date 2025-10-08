@@ -166,7 +166,7 @@ class TestAxOrchestrator(TestCase):
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
         "validate_metrics=True, status_quo_weight=0.0, "
         "enforce_immutable_search_space_and_opt_config=True, "
-        "mt_experiment_trial_type=None, force_candidate_generation=False))"
+        "mt_experiment_trial_type=None)"
     )
 
     def setUp(self) -> None:

@@ -146,7 +146,6 @@ class OrchestratorOptions:
     status_quo_weight: float = 0.0
     enforce_immutable_search_space_and_opt_config: bool = True
     mt_experiment_trial_type: str | None = None
-    force_candidate_generation: bool = False
 
     def __post_init__(self) -> None:
         if self.early_stopping_strategy is not None:
