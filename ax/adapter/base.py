@@ -710,13 +710,7 @@ class Adapter:
     ) -> BaseGenArgs:
         if pending_observations is None:
             pending_observations = {}
-        if optimization_config is None:
-            optimization_config = (
-                self._optimization_config.clone()
-                if self._optimization_config is not None
-                else None
-            )
-        else:
+        if optimization_config is not None:
             if not self._fit_tracking_metrics:
                 # Check that the optimization config has the same metrics as
                 # the original one. Otherwise, we may attempt to optimize over
@@ -729,6 +723,32 @@ class Adapter:
                         "optimization config used while initializing the Adapter. "
                         f"Metrics {outcomes} is not a subset of {self.outcomes}."
                     )
+        else:
+            optimization_config = self._optimization_config
+
+        # set target features on optimization config as SQ, if target_features
+        # have not been specified and the SQ is in design
+        cloned_oc = False
+        if (
+            optimization_config is not None
+            and optimization_config.pruning_target_parameterization is None
+            and (sq_arm := self._experiment.status_quo) is not None
+        ):
+            sq_features = ObservationFeatures(parameters=sq_arm.parameters.copy())
+            for t in self.transforms.values():
+                if not isinstance(t, FillMissingParameters):
+                    continue
+                sq_features = t.transform_observation_features(
+                    observation_features=[sq_features]
+                )[0]
+            if search_space.check_membership(parameterization=sq_features.parameters):
+                cloned_oc = True
+                optimization_config = optimization_config.clone_with_args(
+                    pruning_target_parameterization=Arm(
+                        parameters=sq_features.parameters
+                    )
+                )
+        if not cloned_oc and optimization_config is not None:
             optimization_config = optimization_config.clone()
 
         pending_observations = deepcopy(pending_observations)
@@ -886,7 +906,18 @@ class Adapter:
         immutable = getattr(
             self, "_experiment_has_immutable_search_space_and_opt_config", False
         )
-        optimization_config = None if immutable else base_gen_args.optimization_config
+        # Don't store pruning_target_parameterization on the GeneratorRun's
+        # OptimizationConfig:
+        # storage of pruning_target_parameterization is not yet fully enabled.
+        # TODO[@mpolson64]: Stop storing optimization config and search space copies
+        # on generator runs, as part of the upcoming storage refactor.
+        optimization_config = (
+            None
+            if (immutable or (base_gen_args.optimization_config is None))
+            else base_gen_args.optimization_config.clone_with_args(
+                pruning_target_parameterization=None
+            )
+        )
         # Remove information about the objective thresholds - we do not want to save
         # these as `ObjectiveThreshold` objects, as this causes storage headaches.
         gen_metadata = gen_results.gen_metadata
