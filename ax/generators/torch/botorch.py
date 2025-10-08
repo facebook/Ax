@@ -46,7 +46,6 @@ from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
 
-# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TModelConstructor = Callable[
     [
         list[Tensor],
@@ -63,7 +62,6 @@ TModelConstructor = Callable[
 TModelPredictor = Callable[[Model, Tensor, bool], tuple[Tensor, Tensor]]
 
 
-# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizer = Callable[
     [
         AcquisitionFunction,
