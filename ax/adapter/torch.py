@@ -18,6 +18,7 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.adapter.adapter_utils import (
+    arm_to_np_array,
     array_to_observation_data,
     extract_objective_thresholds,
     extract_objective_weights,
@@ -939,6 +940,10 @@ class TorchAdapter(Adapter):
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
         )
+        pruning_target_point = arm_to_np_array(
+            arm=optimization_config.pruning_target_parameterization,
+            parameters=self.parameters,
+        )
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
@@ -957,13 +962,16 @@ class TorchAdapter(Adapter):
         pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
         )
-        obj_w, out_c, lin_c, pend_o, obj_t = validate_and_apply_final_transform(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            pending_observations=pending_array,
-            objective_thresholds=objective_thresholds,
-            final_transform=self._array_to_tensor,
+        obj_w, out_c, lin_c, pend_o, obj_t, pruning_target_p = (
+            validate_and_apply_final_transform(
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                linear_constraints=linear_constraints,
+                pending_observations=pending_array,
+                objective_thresholds=objective_thresholds,
+                pruning_target_point=pruning_target_point,
+                final_transform=self._array_to_tensor,
+            )
         )
         rounding_func = self._array_callable_to_tensor_callable(
             transform_callback(self.parameters, self.transforms)
@@ -1000,6 +1008,7 @@ class TorchAdapter(Adapter):
             risk_measure=risk_measure,
             fit_out_of_design=self._data_loader_config.fit_out_of_design,
             use_learned_objective=use_learned_objective,
+            pruning_target_point=pruning_target_p,
         )
         return search_space_digest, torch_opt_config
 

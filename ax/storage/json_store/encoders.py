@@ -359,6 +359,9 @@ def optimization_config_to_dict(
         "objective": optimization_config.objective,
         "outcome_constraints": optimization_config.outcome_constraints,
         "risk_measure": optimization_config.risk_measure,
+        "pruning_target_parameterization": (
+            optimization_config.pruning_target_parameterization
+        ),
     }
 
 
@@ -372,6 +375,9 @@ def preference_optimization_config_to_dict(
         "objective": preference_optimization_config.objective,
         "outcome_constraints": preference_optimization_config.outcome_constraints,
         "preference_profile_name": pref_profile_name,
+        "pruning_target_parameterization": (
+            preference_optimization_config.pruning_target_parameterization
+        ),
     }
 
 
@@ -385,6 +391,9 @@ def multi_objective_optimization_config_to_dict(
         "outcome_constraints": multi_objective_optimization_config.outcome_constraints,
         "objective_thresholds": multi_objective_optimization_config.objective_thresholds,  # noqa E501
         "risk_measure": multi_objective_optimization_config.risk_measure,
+        "pruning_target_parameterization": (
+            multi_objective_optimization_config.pruning_target_parameterization
+        ),
     }
 
 
