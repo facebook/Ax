@@ -12,10 +12,7 @@ from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
-from ax.analysis.plotly.color_constants import (
-    BOTORCH_COLOR_SCALE,
-    CONSTRAINT_VIOLATION_RED,
-)
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
     get_arm_tooltip,
@@ -30,12 +27,7 @@ from ax.analysis.plotly.utils import (
     X_TICKER_SCALING_FACTOR,
     Z_SCORE_95_CI,
 )
-from ax.analysis.utils import (
-    extract_relevant_adapter,
-    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
-    prepare_arm_data,
-    update_metric_names_if_using_p_feasible,
-)
+from ax.analysis.utils import extract_relevant_adapter, prepare_arm_data
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
@@ -90,8 +82,6 @@ class ArmEffectsPlot(Analysis):
         - trial_status: The status of the trial
         - arm_name: The name of the arm
         - generation_node: The name of the ``GenerationNode`` that generated the arm
-        - p_feasible: The probability that the arm is feasible (does not violate any
-            constraints)
         - **METRIC_NAME_mean: The observed mean of the metric specified
         - **METRIC_NAME_sem: The observed sem of the metric specified
     """
@@ -163,12 +153,7 @@ class ArmEffectsPlot(Analysis):
             )
         else:
             relevant_adapter = None
-        metric_names_to_plot = metric_names
-        # if using p_feasible, we need to get the data for the metrics involved
-        # in constraints even though we don't plot them
-        metric_names = update_metric_names_if_using_p_feasible(
-            metric_names=metric_names_to_plot, experiment=experiment
-        )
+
         df = prepare_arm_data(
             experiment=experiment,
             metric_names=metric_names,
@@ -212,16 +197,12 @@ class ArmEffectsPlot(Analysis):
                         "arm_name",
                         "fail_reason",
                         "generation_node",
-                        "p_feasible_mean",
-                        "p_feasible_sem",
                     ]
                     + (
                         [
                             f"{metric_name}_mean",
                             f"{metric_name}_sem",
                         ]
-                        if metric_name != "p_feasible"
-                        else []
                     )
                 ].copy(),
                 fig=_prepare_figure(
@@ -234,7 +215,7 @@ class ArmEffectsPlot(Analysis):
                     metric_label=metric_labels[metric_name],
                 ),
             )
-            for metric_name in metric_names_to_plot
+            for metric_name in metric_names
         ]
 
         return self._create_analysis_card_group_or_card(
@@ -371,15 +352,6 @@ def _prepare_figure(
                 trial_index=trial_index,
                 transparent=False,
             ),
-            "line": {
-                "width": trial_df.apply(
-                    lambda row: 2
-                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                    else 0,
-                    axis=1,
-                ),
-                "color": CONSTRAINT_VIOLATION_RED,
-            },
         }
 
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
@@ -507,22 +479,6 @@ def _prepare_figure(
             y1=y,
             line={"color": "gray", "dash": "dot"},
         )
-
-    # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
-        legend_trace = go.Scatter(
-            # None here allows us to place a legend item without corresponding points
-            x=[None],
-            y=[None],
-            mode="markers",
-            marker={
-                "color": "rgba(0, 0, 0, 0)",
-                "line": {"width": 2, "color": "red"},
-            },
-            name="Possible Constraint Violation",
-        )
-
-        figure.add_trace(legend_trace)
 
     return figure
 
