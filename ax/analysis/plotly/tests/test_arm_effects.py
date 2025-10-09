@@ -13,8 +13,7 @@ from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_a
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
-from ax.core.metric import Metric
-from ax.exceptions.core import AxError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -109,8 +108,6 @@ class TestArmEffectsPlot(TestCase):
                 "trial_status",
                 "fail_reason",
                 "generation_node",
-                "p_feasible_mean",
-                "p_feasible_sem",
                 "bar_mean",
                 "bar_sem",
             },
@@ -124,8 +121,6 @@ class TestArmEffectsPlot(TestCase):
                 "trial_status",
                 "fail_reason",
                 "generation_node",
-                "p_feasible_mean",
-                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
             },
@@ -160,8 +155,6 @@ class TestArmEffectsPlot(TestCase):
                 "trial_status",
                 "fail_reason",
                 "generation_node",
-                "p_feasible_mean",
-                "p_feasible_sem",
                 "bar_mean",
                 "bar_sem",
             },
@@ -175,8 +168,6 @@ class TestArmEffectsPlot(TestCase):
                 "trial_status",
                 "fail_reason",
                 "generation_node",
-                "p_feasible_mean",
-                "p_feasible_sem",
                 "foo_mean",
                 "foo_sem",
             },
@@ -191,69 +182,6 @@ class TestArmEffectsPlot(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(cards[0].df["bar_sem"].isna().any())
         self.assertFalse(cards[1].df["foo_sem"].isna().any())
-
-    def test_plot_p_feasible(self) -> None:
-        default_analysis = ArmEffectsPlot(
-            metric_names=["p_feasible", "foo"], use_model_predictions=True
-        )
-
-        cards = default_analysis.compute(
-            experiment=self.client._experiment,
-            generation_strategy=self.client._generation_strategy,
-        ).flatten()
-
-        # Check that we have cards for both metrics
-        self.assertEqual(len(cards), 2)
-
-        self.assertEqual(
-            set(cards[0].df.columns),
-            {
-                "trial_index",
-                "arm_name",
-                "trial_status",
-                "fail_reason",
-                "generation_node",
-                "p_feasible_mean",
-                "p_feasible_sem",
-            },
-        )
-        self.assertEqual(
-            set(cards[1].df.columns),
-            {
-                "trial_index",
-                "arm_name",
-                "trial_status",
-                "fail_reason",
-                "generation_node",
-                "p_feasible_mean",
-                "p_feasible_sem",
-                "foo_mean",
-                "foo_sem",
-            },
-        )
-
-        for card in cards:
-            # Check that we have one row per arm and that each arm appears only once
-            self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-            for arm_name in self.client._experiment.arms_by_name:
-                self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
-
-        # Check that all SEMs are not NaN
-        self.assertTrue(cards[0].df["p_feasible_sem"].isna().all())
-        self.assertFalse(cards[1].df["foo_sem"].isna().any())
-        self.assertEqual(
-            json.loads(cards[0].blob)["layout"]["yaxis"]["title"]["text"], "p_feasible"
-        )
-
-        # test that plot errors if p_feasible is a metric on the experiment
-        self.client._experiment.add_tracking_metric(Metric(name="p_feasible"))
-        with self.assertRaisesRegex(
-            AxError, "p_feasible is reserved for plotting the probability"
-        ):
-            default_analysis.compute(
-                experiment=self.client._experiment,
-                generation_strategy=self.client._generation_strategy,
-            )
 
     def test_compute_adhoc(self) -> None:
         # Use the same kwargs for typical and adhoc
@@ -313,7 +241,7 @@ class TestArmEffectsPlot(TestCase):
                     for signature in adapter.metric_signatures
                 ]
                 analysis = ArmEffectsPlot(
-                    metric_names=model_metric_names + ["p_feasible"],
+                    metric_names=model_metric_names,
                     use_model_predictions=use_model_predictions,
                     trial_index=trial_index,
                     additional_arms=additional_arms,
@@ -323,7 +251,7 @@ class TestArmEffectsPlot(TestCase):
                     experiment=experiment,
                     adapter=adapter,
                 )
-                self.assertEqual(len(cards.flatten()), len(model_metric_names) + 1)
+                self.assertEqual(len(cards.flatten()), len(model_metric_names))
                 if with_additional_arms and use_model_predictions:
                     # validate that we plotted the additional arm
                     self.assertTrue(
@@ -424,8 +352,6 @@ class TestArmEffectsPlotRel(TestCase):
                         "trial_status",
                         "fail_reason",
                         "generation_node",
-                        "p_feasible_mean",
-                        "p_feasible_sem",
                         "branin_mean",
                         "branin_sem",
                     },
