@@ -263,10 +263,15 @@ class DataTest(TestCase):
             data = Data.from_multiple_data([Data(), Data()])
             self.assertEqual(data, Data())
 
-        with self.subTest("Can't combine different types"):
+        with self.subTest("Can't use different types"):
 
             class CustomData(Data):
                 pass
+
+            with self.assertRaisesRegex(
+                TypeError, "All data objects must be instances of"
+            ):
+                Data.from_multiple_data([CustomData(), CustomData()])
 
             with self.assertRaisesRegex(
                 TypeError, "All data objects must be instances of"
