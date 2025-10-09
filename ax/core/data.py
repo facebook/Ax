@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 from io import StringIO
 from logging import Logger
-from typing import Any, cast, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -214,8 +214,8 @@ class Data(Base, SerializationMixin):
     def df(self) -> pd.DataFrame:
         return self.full_df
 
-    @staticmethod
-    def from_multiple(data: Iterable[TData]) -> TData:
+    @classmethod
+    def from_multiple_data(cls: type[TData], data: Iterable[TData]) -> TData:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
@@ -224,20 +224,14 @@ class Data(Base, SerializationMixin):
         """
         dfs = []
 
-        cls = None
-
         for datum in data:
-            if cls is None:
-                cls = type(datum)
             if type(datum) is not cls:
                 raise TypeError(
-                    f"All data objects must be instances of the same class. Got "
+                    f"All data objects must be instances of {cls}. Got "
                     f"{cls} and {type(datum)}."
                 )
-            if len(datum.df) > 0:
+            if not datum.full_df.empty:
                 dfs.append(datum.df)
-
-        cls = cls or cast(type[TData], Data)
 
         if len(dfs) == 0:
             return cls()
@@ -292,19 +286,6 @@ class Data(Base, SerializationMixin):
             ),
             _skip_ordering_and_validation=True,
         )
-
-    @classmethod
-    def from_multiple_data(cls, data: Iterable[Data]) -> Data:
-        """Combines multiple objects into one (with the concatenated
-        underlying dataframe).
-
-        Args:
-            data: Iterable of Ax objects of this class to combine.
-            subset_metrics: If specified, combined object will only contain
-                metrics, names of which appear in this iterable,
-                in the underlying dataframe.
-        """
-        return cls.from_multiple(data=data)
 
     def clone(self: TData) -> TData:
         """Returns a new Data object with the same underlying dataframe."""
