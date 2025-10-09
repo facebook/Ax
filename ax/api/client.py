@@ -183,6 +183,7 @@ class Client(WithDBSettingsBase):
         allow_exceeding_initialization_budget: bool = False,
         # Misc options
         torch_device: str | None = None,
+        simplify_parameter_changes: bool = False,
     ) -> None:
         """
         Optional method to configure the way candidate parameterizations are generated
@@ -190,6 +191,29 @@ class Client(WithDBSettingsBase):
         used.
 
         Saves to database on completion if ``storage_config`` is present.
+
+        Args:
+            method: The method to use for generating candidates. Options are:
+                - "fast": Uses Bayesian optimization, configured specifically for
+                  the current experiment.
+                - "random_search": Uses random search.
+            initialization_budget: Number of initialization trials. If None, will be
+                automatically determined based on the search space.
+            initialization_random_seed: Random seed for initialization. If None, no
+                seed will be set.
+            initialize_with_center: Whether to include the center of the search space
+                in the initialization trials.
+            use_existing_trials_for_initialization: Whether to use existing trials
+                for initialization.
+            min_observed_initialization_trials: Minimum number of observed
+                init trials required before moving to the next generation step.
+            allow_exceeding_initialization_budget: Whether to allow exceeding the
+                initialization budget if more trials are needed.
+            torch_device: The torch device to use for model fitting. If None, will
+                use the default device.
+            simplify_parameter_changes: Whether to simplify parameter changes in
+                arms generated via Bayesian Optimization by pruning irrelevant
+                parameter changes.
         """
         generation_strategy = self._choose_generation_strategy(
             method=method,
@@ -200,6 +224,7 @@ class Client(WithDBSettingsBase):
             min_observed_initialization_trials=min_observed_initialization_trials,
             allow_exceeding_initialization_budget=allow_exceeding_initialization_budget,
             torch_device=torch_device,
+            simplify_parameter_changes=simplify_parameter_changes,
         )
         self.set_generation_strategy(generation_strategy=generation_strategy)
 
@@ -1095,6 +1120,7 @@ class Client(WithDBSettingsBase):
         allow_exceeding_initialization_budget: bool = False,
         # Misc options
         torch_device: str | None = None,
+        simplify_parameter_changes: bool = False,
     ) -> GenerationStrategy:
         """
         Choose a generation strategy based on the provided method and options.
@@ -1118,6 +1144,10 @@ class Client(WithDBSettingsBase):
                 initialization budget if more trials are needed.
             torch_device: The torch device to use for model fitting. If None, will
                 use the default device.
+            simplify_parameter_changes: Whether to simplify parameter changes in
+                arms generated via Bayesian Optimization by pruning irrelevant
+                parameter changes.
+
 
         Returns:
             A GenerationStrategy instance configured according to the specified options.
@@ -1136,6 +1166,7 @@ class Client(WithDBSettingsBase):
                     allow_exceeding_initialization_budget
                 ),
                 torch_device=torch_device,
+                simplify_parameter_changes=simplify_parameter_changes,
             )
         )
 

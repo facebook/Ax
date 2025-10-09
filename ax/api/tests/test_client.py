@@ -1480,6 +1480,33 @@ class TestClient(TestCase):
         )
         self.assertIn(qux_metric_scalar, scalar.metrics)
 
+    def test_configure_generation_strategy_with_simplify(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
+        )
+
+        # Test with no generation strategy
+        client.configure_optimization(objective="foo")
+
+        # Test with generation strategy
+        client.configure_generation_strategy()
+        self.assertFalse(
+            client._generation_strategy._nodes[2]
+            .generator_specs[0]
+            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+        )
+        client.configure_generation_strategy(simplify_parameter_changes=True)
+        self.assertTrue(
+            client._generation_strategy._nodes[2]
+            .generator_specs[0]
+            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+        )
+
 
 class DummyRunner(IRunner):
     @override

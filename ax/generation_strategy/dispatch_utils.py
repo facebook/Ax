@@ -311,6 +311,7 @@ def choose_generation_strategy_legacy(
     suggested_model_override: GeneratorRegistryBase | None = None,
     fit_out_of_design: bool = False,
     use_input_warping: bool = False,
+    simplify_parameter_changes: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -404,6 +405,9 @@ def choose_generation_strategy_legacy(
         fit_out_of_design: Whether to include out-of-design points in the model.
         use_input_warping: Whether to use input warping in the model. This is only
             supported in conjunction with use_saasbo=True.
+        simplify_parameter_changes: Whether to simplify parameter changes in
+            arms generated via Bayesian Optimization by pruning irrelevant
+            parameter changes.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
@@ -490,6 +494,10 @@ def choose_generation_strategy_legacy(
                 fit_out_of_design=fit_out_of_design,
             ),
         }
+        if suggested_model is Generators.BOTORCH_MODULAR:
+            model_kwargs["acquisition_options"] = {
+                "prune_irrelevant_parameters": simplify_parameter_changes
+            }
 
         # Create `generation_strategy`, adding Sobol step first.
         if num_initialization_trials > max(0, num_completed_initialization_trials):
