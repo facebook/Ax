@@ -259,7 +259,6 @@ class ArmEffectsPair(Analysis):
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
         labels: Mapping[str, str] | None = None,
-        show_cumulative_best: bool = False,
     ) -> None:
         """
         Args:
@@ -274,8 +273,6 @@ class ArmEffectsPair(Analysis):
                 trial with index -1.
             labels: A mapping from metric names to labels to use in the plot. If a label
                 is not provided for a metric, the metric name will be used.
-            show_cumulative_best: Whether to draw a line through the best point seen so
-                far during the optimization.
         """
 
         self.metric_names = metric_names
@@ -284,7 +281,6 @@ class ArmEffectsPair(Analysis):
         self.trial_statuses = trial_statuses
         self.additional_arms = additional_arms
         self.labels: Mapping[str, str] = labels or {}
-        self.show_cumulative_best = show_cumulative_best
 
     @override
     def compute(
@@ -313,7 +309,6 @@ class ArmEffectsPair(Analysis):
                 trial_statuses=self.trial_statuses,
                 additional_arms=self.additional_arms,
                 labels=self.labels,
-                show_cumulative_best=self.show_cumulative_best,
             )
 
             raw_analysis = ArmEffectsPlot(
@@ -324,7 +319,6 @@ class ArmEffectsPair(Analysis):
                 trial_statuses=self.trial_statuses,
                 additional_arms=self.additional_arms,
                 labels=self.labels,
-                show_cumulative_best=self.show_cumulative_best,
             )
 
             pair = AnalysisCardGroup(
