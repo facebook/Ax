@@ -8,6 +8,7 @@
 
 import warnings
 from collections import OrderedDict
+from typing import Any
 from unittest.mock import Mock
 
 import numpy as np
@@ -27,7 +28,12 @@ from ax.generators.torch.botorch_modular.utils import (
     subset_state_dict,
     use_model_list,
 )
-from ax.generators.torch.utils import _to_inequality_constraints, predict_from_model
+from ax.generators.torch.utils import (
+    _to_inequality_constraints,
+    get_feature_importances_from_botorch_model,
+    get_rounding_func,
+    predict_from_model,
+)
 from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -47,7 +53,9 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.utils.datasets import SupervisedDataset
+from gpytorch.kernels.constant_kernel import ConstantKernel
 from pyre_extensions import assert_is_instance, none_throws
+from torch import Tensor
 
 
 class BoTorchGeneratorUtilsTest(TestCase):
@@ -766,3 +774,36 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(mean.shape, (2, 2))  # (n_points, n_outputs)
         self.assertEqual(cov.shape, (2, 2, 2))  # (n_points, n_outputs, n_outputs)
         self.assertTrue(torch.all(cov >= 0))  # Ensure covariance is positive
+
+    def test_get_feature_importances_from_botorch_model(self) -> None:
+        tkwargs: dict[str, Any] = {"dtype": torch.double}
+        train_X = torch.rand(5, 3, **tkwargs)
+        train_Y = train_X.sum(dim=-1, keepdim=True)
+        simple_gp = SingleTaskGP(train_X=train_X, train_Y=train_Y)
+        # pyre-fixme[16]: `Module` has no attribute `lengthscale`.
+        simple_gp.covar_module.lengthscale = torch.tensor([1, 3, 5], **tkwargs)
+        importances = get_feature_importances_from_botorch_model(simple_gp)
+        self.assertTrue(np.allclose(importances, np.array([15 / 23, 5 / 23, 3 / 23])))
+        self.assertEqual(importances.shape, (1, 1, 3))
+        # Model with kernel that has no lengthscales
+        simple_gp.covar_module = ConstantKernel()
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Failed to extract lengthscales from `m.covar_module` and "
+            "`m.covar_module.base_kernel`",
+        ):
+            get_feature_importances_from_botorch_model(simple_gp)
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Cannot calculate feature_importances without a fitted model",
+        ):
+            get_feature_importances_from_botorch_model(None)
+
+    def test_get_rounding_func(self) -> None:
+        def rounding_func(x: Tensor) -> Tensor:
+            return torch.round(x)
+
+        dummy_rounding = none_throws(get_rounding_func(rounding_func=rounding_func))
+        X_temp = torch.rand(1, 2, 3, 4)
+        self.assertTrue(torch.equal(torch.round(X_temp), dummy_rounding(X_temp)))

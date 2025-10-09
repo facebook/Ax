@@ -18,10 +18,6 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
-from ax.generators.torch.botorch import (
-    get_feature_importances_from_botorch_model,
-    get_rounding_func,
-)
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -30,7 +26,11 @@ from ax.generators.torch.botorch_modular.utils import (
     construct_acquisition_and_optimizer_options,
     ModelConfig,
 )
-from ax.generators.torch.utils import _to_inequality_constraints
+from ax.generators.torch.utils import (
+    _to_inequality_constraints,
+    get_feature_importances_from_botorch_model,
+    get_rounding_func,
+)
 from ax.generators.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
