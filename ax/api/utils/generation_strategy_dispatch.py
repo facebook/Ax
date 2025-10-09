@@ -95,6 +95,7 @@ def _get_sobol_node(
 def _get_mbm_node(
     method: str,
     torch_device: str | None,
+    simplify_parameter_changes: bool,
 ) -> GenerationNode:
     """Constructs an MBM node based on the method specified in
     ``struct``.
@@ -134,6 +135,9 @@ def _get_mbm_node(
                     "transform_configs": get_derelativize_config(
                         derelativize_with_raw_status_quo=True
                     ),
+                    "acquisition_options": {
+                        "prune_irrelevant_parameters": simplify_parameter_changes
+                    },
                 },
             )
         ],
@@ -177,6 +181,7 @@ def choose_generation_strategy(
         mbm_node = _get_mbm_node(
             method=struct.method,
             torch_device=struct.torch_device,
+            simplify_parameter_changes=struct.simplify_parameter_changes,
         )
         if (
             struct.initialization_budget is None

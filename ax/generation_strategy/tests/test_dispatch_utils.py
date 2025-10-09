@@ -58,6 +58,7 @@ class TestDispatchUtils(TestCase):
                 "torch_device": None,
                 "transform_configs": expected_transform_configs,
                 "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             }
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
@@ -110,6 +111,7 @@ class TestDispatchUtils(TestCase):
             sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 optimization_config=optimization_config,
+                simplify_parameter_changes=True,
             )
             self.assertEqual(sobol_gpei._steps[0].generator, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
@@ -121,7 +123,11 @@ class TestDispatchUtils(TestCase):
                     "torch_device",
                     "transform_configs",
                     "data_loader_config",
+                    "acquisition_options",
                 },
+            )
+            self.assertTrue(
+                model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
             )
         with self.subTest("Sobol (we can try every option)"):
             sobol = choose_generation_strategy_legacy(

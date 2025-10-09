@@ -7,6 +7,7 @@
 # pyre-unsafe
 
 
+from itertools import product
 from typing import Any
 
 import torch
@@ -125,6 +126,7 @@ class TestDispatchUtils(TestCase):
                 "transform_configs": get_derelativize_config(
                     derelativize_with_raw_status_quo=True
                 ),
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
@@ -192,6 +194,7 @@ class TestDispatchUtils(TestCase):
                 "transform_configs": get_derelativize_config(
                     derelativize_with_raw_status_quo=True
                 ),
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
@@ -229,3 +232,23 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(sobol_node.node_name, "Sobol")
         mbm_node = gs._nodes[1]
         self.assertEqual(mbm_node.node_name, "MBM")
+
+    def test_gs_simplify_parameter_changes(self) -> None:
+        for simplify, method in product((True, False), ("fast", "quality")):
+            struct = GenerationStrategyDispatchStruct(
+                # pyre-fixme [6]: In call
+                # `GenerationStrategyDispatchStruct.__init__`, for argument
+                # `method`, expected `Union[typing_extensions.Literal['fast'],
+                # typing_extensions.Literal['quality'],
+                # typing_extensions.Literal['random_search']]` but got `str`
+                method=method,
+                simplify_parameter_changes=simplify,
+            )
+            gs = choose_generation_strategy(struct=struct)
+            self.assertEqual(gs.name, f"Center+Sobol+MBM:{method}")
+            mbm_node = gs._nodes[2]
+            mbm_spec = mbm_node.generator_specs[0]
+            self.assertEqual(
+                mbm_spec.model_kwargs["acquisition_options"],
+                {"prune_irrelevant_parameters": simplify},
+            )
