@@ -14,10 +14,7 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import Analysis
-from ax.analysis.plotly.color_constants import (
-    BOTORCH_COLOR_SCALE,
-    CONSTRAINT_VIOLATION_RED,
-)
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
@@ -31,7 +28,6 @@ from ax.analysis.plotly.utils import (
     MARGIN_REDUCUTION,
     MULTIPLE_CANDIDATE_TRIALS_LEGEND,
     SINGLE_CANDIDATE_TRIAL_LEGEND,
-    STALE_FAIL_REASON,
     trial_index_to_color,
     truncate_label,
     Z_SCORE_95_CI,
@@ -39,13 +35,12 @@ from ax.analysis.plotly.utils import (
 from ax.analysis.utils import (
     extract_relevant_adapter,
     get_lower_is_better,
-    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
     prepare_arm_data,
     update_metric_names_if_using_p_feasible,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import STALE_ABANDONED_CANDIDATE_STATUSES, TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
@@ -123,7 +118,15 @@ class ScatterPlot(Analysis):
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-        self.trial_statuses = trial_statuses
+        # By default, include all trials except those that are abandoned or stale.
+        if trial_statuses is not None:
+            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
+        elif self.trial_index is not None:
+            self.trial_statuses: list[TrialStatus] | None = None
+        else:
+            self.trial_statuses: list[TrialStatus] | None = [
+                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+            ]
         self.additional_arms = additional_arms
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
         self.show_pareto_frontier = show_pareto_frontier
@@ -334,17 +337,8 @@ def _prepare_figure(
     candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
     ].unique()
-    # Filter out undesired trials like STALE and ABANDONED trials from plot.
-    status_filter = ~df["trial_status"].isin(
-        [ts.name for ts in STALE_ABANDONED_CANDIDATE_STATUSES]
-    )
-    # Also filter out failed trials that failed with STALE_FAIL_REASON.
-    stale_failed_filter = ~(
-        (df["trial_status"] == TrialStatus.FAILED.name)
-        & (df["fail_reason"].notna())
-        & (df["fail_reason"] == STALE_FAIL_REASON)
-    )
-    trials = df[status_filter & stale_failed_filter]["trial_index"].unique()
+
+    trials = df["trial_index"].unique()
 
     trials_list = trials.tolist()
     trial_indices = trials_list.copy()
@@ -384,15 +378,6 @@ def _prepare_figure(
                 trial_index=trial_index,
                 transparent=False,
             ),
-            "line": {
-                "width": trial_df.apply(
-                    lambda row: 2
-                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                    else 0,
-                    axis=1,
-                ),
-                "color": CONSTRAINT_VIOLATION_RED,
-            },
         }
 
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
@@ -499,22 +484,6 @@ def _prepare_figure(
             )
         )
 
-    # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
-        legend_trace = go.Scatter(
-            # None here allows us to place a legend item without corresponding points
-            x=[None],
-            y=[None],
-            mode="markers",
-            marker={
-                "color": "rgba(0, 0, 0, 0)",
-                "line": {"width": 2, "color": "red"},
-            },
-            name="Possible Constraint Violation",
-        )
-
-        figure.add_trace(legend_trace)
-
     # Add horizontal and vertical lines for the status quo.
     if "status_quo" in df["arm_name"].values:
         x = df[df["arm_name"] == "status_quo"][f"{x_metric_name}_mean"].iloc[0]
@@ -541,17 +510,12 @@ def _prepare_figure(
             )
 
     if show_pareto_frontier:
-        # Infeasible arms are not included in the Pareto frontier
-        eligable_arms = df[
-            df["p_feasible_mean"] >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-        ]
-
         # If there are no arms which are not likely to violate constraints, return the
         # figure as is, without adding a Pareto frontier line.
-        if len(eligable_arms) == 0:
+        if len(df) == 0:
             return figure
 
-        sorted_df = eligable_arms.sort_values(
+        sorted_df = df.sort_values(
             by=f"{x_metric_name}_mean", ascending=x_lower_is_better
         )
 
