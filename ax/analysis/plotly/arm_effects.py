@@ -7,20 +7,14 @@
 
 from typing import Mapping, Sequence
 
-import numpy as np
-
 import pandas as pd
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
-from ax.analysis.plotly.color_constants import (
-    BOTORCH_COLOR_SCALE,
-    CONSTRAINT_VIOLATION_RED,
-)
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
-    BEST_LINE_SETTINGS,
     get_arm_tooltip,
     get_trial_trace_name,
     LEGEND_BASE_OFFSET,
@@ -28,23 +22,16 @@ from ax.analysis.plotly.utils import (
     MARGIN_REDUCUTION,
     MULTIPLE_CANDIDATE_TRIALS_LEGEND,
     SINGLE_CANDIDATE_TRIAL_LEGEND,
-    STALE_FAIL_REASON,
     trial_index_to_color,
     truncate_label,
     X_TICKER_SCALING_FACTOR,
     Z_SCORE_95_CI,
 )
-from ax.analysis.utils import (
-    extract_relevant_adapter,
-    get_lower_is_better,
-    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
-    prepare_arm_data,
-    update_metric_names_if_using_p_feasible,
-)
+from ax.analysis.utils import extract_relevant_adapter, prepare_arm_data
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
-from ax.core.trial_status import STALE_ABANDONED_CANDIDATE_STATUSES, TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -95,8 +82,6 @@ class ArmEffectsPlot(Analysis):
         - trial_status: The status of the trial
         - arm_name: The name of the arm
         - generation_node: The name of the ``GenerationNode`` that generated the arm
-        - p_feasible: The probability that the arm is feasible (does not violate any
-            constraints)
         - **METRIC_NAME_mean: The observed mean of the metric specified
         - **METRIC_NAME_sem: The observed sem of the metric specified
     """
@@ -110,7 +95,6 @@ class ArmEffectsPlot(Analysis):
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
         labels: Mapping[str, str] | None = None,
-        show_cumulative_best: bool = False,
     ) -> None:
         """
         Args:
@@ -130,18 +114,24 @@ class ArmEffectsPlot(Analysis):
                 trial with index -1.
             labels: A mapping from metric names to labels to use in the plot. If a label
                 is not provided for a metric, the metric name will be used.
-            show_cumulative_best: Whether to draw a line through the best point seen so
-                far during the optimization.
         """
 
         self.metric_names = metric_names
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-        self.trial_statuses = trial_statuses
+
+        # By default, include all trials except those that are abandoned or stale.
+        if trial_statuses is not None:
+            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
+        elif self.trial_index is not None:
+            self.trial_statuses: list[TrialStatus] | None = None
+        else:
+            self.trial_statuses: list[TrialStatus] | None = [
+                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+            ]
         self.additional_arms = additional_arms
         self.labels: Mapping[str, str] = labels or {}
-        self.show_cumulative_best = show_cumulative_best
 
     @override
     def compute(
@@ -163,12 +153,7 @@ class ArmEffectsPlot(Analysis):
             )
         else:
             relevant_adapter = None
-        metric_names_to_plot = metric_names
-        # if using p_feasible, we need to get the data for the metrics involved
-        # in constraints even though we don't plot them
-        metric_names = update_metric_names_if_using_p_feasible(
-            metric_names=metric_names_to_plot, experiment=experiment
-        )
+
         df = prepare_arm_data(
             experiment=experiment,
             metric_names=metric_names,
@@ -212,16 +197,12 @@ class ArmEffectsPlot(Analysis):
                         "arm_name",
                         "fail_reason",
                         "generation_node",
-                        "p_feasible_mean",
-                        "p_feasible_sem",
                     ]
                     + (
                         [
                             f"{metric_name}_mean",
                             f"{metric_name}_sem",
                         ]
-                        if metric_name != "p_feasible"
-                        else []
                     )
                 ].copy(),
                 fig=_prepare_figure(
@@ -232,14 +213,9 @@ class ArmEffectsPlot(Analysis):
                     if experiment.status_quo
                     else None,
                     metric_label=metric_labels[metric_name],
-                    show_cumulative_best=self.show_cumulative_best,
-                    lower_is_better=get_lower_is_better(
-                        experiment=experiment, metric_name=metric_name
-                    )
-                    or False,
                 ),
             )
-            for metric_name in metric_names_to_plot
+            for metric_name in metric_names
         ]
 
         return self._create_analysis_card_group_or_card(
@@ -262,7 +238,6 @@ def compute_arm_effects_adhoc(
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     labels: Mapping[str, str] | None = None,
-    show_cumulative_best: bool = False,
 ) -> AnalysisCardBase:
     """
     Compute ArmEffectsPlot cards for the given experiment and either Adapter or
@@ -292,8 +267,6 @@ def compute_arm_effects_adhoc(
             trial with index -1.
         labels: A mapping from metric names to labels to use in the plot. If a label
             is not provided for a metric, the metric name will be used.
-        show_cumulative_best: Whether to draw a line through the best point seen so
-            far during the optimization.
     """
 
     analysis = ArmEffectsPlot(
@@ -304,7 +277,6 @@ def compute_arm_effects_adhoc(
         trial_statuses=trial_statuses,
         additional_arms=additional_arms,
         labels=labels,
-        show_cumulative_best=show_cumulative_best,
     )
 
     return analysis.compute(
@@ -320,27 +292,15 @@ def _prepare_figure(
     is_relative: bool,
     status_quo_arm_name: str | None,
     metric_label: str,
-    show_cumulative_best: bool,
-    lower_is_better: bool,
 ) -> go.Figure:
     # Prepare separate scatter traces for each trial index. Each trace has (x, y)
     # points for the arms which we have a mean for in the provided dataframe.
     candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
     ].unique()
-    # Filter out undesired trials like STALE and ABANDONED trials from plot.
-    status_filter = ~df["trial_status"].isin(
-        [ts.name for ts in STALE_ABANDONED_CANDIDATE_STATUSES]
-    )
-    # Also filter out failed trials that failed with STALE_FAIL_REASON.
-    stale_failed_filter = ~(
-        (df["trial_status"] == TrialStatus.FAILED.name)
-        & (df["fail_reason"].notna())
-        & (df["fail_reason"] == STALE_FAIL_REASON)
-    )
-    trials = df[status_filter & stale_failed_filter]["trial_index"].unique()
 
-    # Check if candidate_trial is NaN and handle it
+    trials = df["trial_index"].unique()
+
     trial_indices = list(trials)
     trial_indices.extend(candidate_trials)
 
@@ -392,15 +352,6 @@ def _prepare_figure(
                 trial_index=trial_index,
                 transparent=False,
             ),
-            "line": {
-                "width": trial_df.apply(
-                    lambda row: 2
-                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                    else 0,
-                    axis=1,
-                ),
-                "color": CONSTRAINT_VIOLATION_RED,
-            },
         }
 
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
@@ -528,55 +479,6 @@ def _prepare_figure(
             y1=y,
             line={"color": "gray", "dash": "dot"},
         )
-
-    # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
-        legend_trace = go.Scatter(
-            # None here allows us to place a legend item without corresponding points
-            x=[None],
-            y=[None],
-            mode="markers",
-            marker={
-                "color": "rgba(0, 0, 0, 0)",
-                "line": {"width": 2, "color": "red"},
-            },
-            name="Possible Constraint Violation",
-        )
-
-        figure.add_trace(legend_trace)
-
-    if show_cumulative_best:
-        # Sort and filter arms which are eligable to the best point (i.e. that are not
-        # likely to violate constraints).
-        zipped = [
-            *zip(
-                *[
-                    (
-                        arm_name,
-                        df[df["arm_name"] == arm_name][f"{metric_name}_mean"].iloc[0],
-                    )
-                    for arm_name in arm_label
-                    if df[df["arm_name"] == arm_name]["p_feasible_mean"].iloc[0]
-                    >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                ]
-            )
-        ]
-
-        # If there are no arms which are not likely to violate constraints, return the
-        # figure as is, without adding a best point line.
-        if len(zipped) != 2:
-            return figure
-
-        sorted_arms, sorted_y = zipped
-
-        best_y = (
-            np.minimum.accumulate(sorted_y)
-            if lower_is_better
-            else np.maximum.accumulate(sorted_y)
-        )
-
-        # Add a line for the best point seen so far.
-        figure.add_trace(go.Scatter(x=sorted_arms, y=best_y, **BEST_LINE_SETTINGS))
 
     return figure
 
