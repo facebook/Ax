@@ -7,8 +7,6 @@
 
 from typing import Mapping, Sequence
 
-import numpy as np
-
 import pandas as pd
 from ax.adapter.base import Adapter
 
@@ -20,7 +18,6 @@ from ax.analysis.plotly.color_constants import (
 )
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
-    BEST_LINE_SETTINGS,
     get_arm_tooltip,
     get_trial_trace_name,
     LEGEND_BASE_OFFSET,
@@ -35,7 +32,6 @@ from ax.analysis.plotly.utils import (
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
-    get_lower_is_better,
     POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
     prepare_arm_data,
     update_metric_names_if_using_p_feasible,
@@ -109,7 +105,6 @@ class ArmEffectsPlot(Analysis):
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
         labels: Mapping[str, str] | None = None,
-        show_cumulative_best: bool = False,
     ) -> None:
         """
         Args:
@@ -129,8 +124,6 @@ class ArmEffectsPlot(Analysis):
                 trial with index -1.
             labels: A mapping from metric names to labels to use in the plot. If a label
                 is not provided for a metric, the metric name will be used.
-            show_cumulative_best: Whether to draw a line through the best point seen so
-                far during the optimization.
         """
 
         self.metric_names = metric_names
@@ -149,7 +142,6 @@ class ArmEffectsPlot(Analysis):
             ]
         self.additional_arms = additional_arms
         self.labels: Mapping[str, str] = labels or {}
-        self.show_cumulative_best = show_cumulative_best
 
     @override
     def compute(
@@ -240,11 +232,6 @@ class ArmEffectsPlot(Analysis):
                     if experiment.status_quo
                     else None,
                     metric_label=metric_labels[metric_name],
-                    show_cumulative_best=self.show_cumulative_best,
-                    lower_is_better=get_lower_is_better(
-                        experiment=experiment, metric_name=metric_name
-                    )
-                    or False,
                 ),
             )
             for metric_name in metric_names_to_plot
@@ -270,7 +257,6 @@ def compute_arm_effects_adhoc(
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     labels: Mapping[str, str] | None = None,
-    show_cumulative_best: bool = False,
 ) -> AnalysisCardBase:
     """
     Compute ArmEffectsPlot cards for the given experiment and either Adapter or
@@ -300,8 +286,6 @@ def compute_arm_effects_adhoc(
             trial with index -1.
         labels: A mapping from metric names to labels to use in the plot. If a label
             is not provided for a metric, the metric name will be used.
-        show_cumulative_best: Whether to draw a line through the best point seen so
-            far during the optimization.
     """
 
     analysis = ArmEffectsPlot(
@@ -312,7 +296,6 @@ def compute_arm_effects_adhoc(
         trial_statuses=trial_statuses,
         additional_arms=additional_arms,
         labels=labels,
-        show_cumulative_best=show_cumulative_best,
     )
 
     return analysis.compute(
@@ -328,8 +311,6 @@ def _prepare_figure(
     is_relative: bool,
     status_quo_arm_name: str | None,
     metric_label: str,
-    show_cumulative_best: bool,
-    lower_is_better: bool,
 ) -> go.Figure:
     # Prepare separate scatter traces for each trial index. Each trace has (x, y)
     # points for the arms which we have a mean for in the provided dataframe.
@@ -542,39 +523,6 @@ def _prepare_figure(
         )
 
         figure.add_trace(legend_trace)
-
-    if show_cumulative_best:
-        # Sort and filter arms which are eligable to the best point (i.e. that are not
-        # likely to violate constraints).
-        zipped = [
-            *zip(
-                *[
-                    (
-                        arm_name,
-                        df[df["arm_name"] == arm_name][f"{metric_name}_mean"].iloc[0],
-                    )
-                    for arm_name in arm_label
-                    if df[df["arm_name"] == arm_name]["p_feasible_mean"].iloc[0]
-                    >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                ]
-            )
-        ]
-
-        # If there are no arms which are not likely to violate constraints, return the
-        # figure as is, without adding a best point line.
-        if len(zipped) != 2:
-            return figure
-
-        sorted_arms, sorted_y = zipped
-
-        best_y = (
-            np.minimum.accumulate(sorted_y)
-            if lower_is_better
-            else np.maximum.accumulate(sorted_y)
-        )
-
-        # Add a line for the best point seen so far.
-        figure.add_trace(go.Scatter(x=sorted_arms, y=best_y, **BEST_LINE_SETTINGS))
 
     return figure
 
