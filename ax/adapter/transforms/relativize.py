@@ -27,8 +27,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
-from ax.utils.stats.math_utils import relativize
-from ax.utils.stats.statstools import unrelativize
+from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
@@ -340,7 +339,7 @@ class Relativize(BaseRelativize):
 
     Note that not all valid-valued relativized mean and
     standard error can be unrelativized when control_as_constant=True.
-    See utils.stats.statstools.unrelativize for more details.
+    See utils.stats.math_utils.unrelativize for more details.
     """
 
     @property
