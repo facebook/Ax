@@ -2039,6 +2039,7 @@ class Experiment(Base):
         trial_indices: Iterable[int] | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         omit_empty_columns: bool = True,
+        relativize: bool = False,
     ) -> pd.DataFrame:
         """
         High-level summary of the Experiment with one row per arm. Any values missing at
@@ -2060,10 +2061,30 @@ class Experiment(Base):
             trial_indices: If specified, only include these trial indices.
             omit_empty_columns: If True, omit columns where every value is None.
             trial_status: If specified, only include trials with this status.
+            relativize: If True and experiment has a status quo along with all of its
+            trials, relativize metrics against the status quo.
         """
 
         records = []
-        data_df = self.lookup_data(trial_indices=trial_indices).df
+        data = self.lookup_data(trial_indices=trial_indices)
+
+        # Relativize metrics if requested
+        if relativize:
+            if self.status_quo is None:
+                raise UserInputError(
+                    "Attempting to relativize the experiment data, however, "
+                    "the experiment status quo is None. Please set the experiment "
+                    "status quo, or set `relativize` = False"
+                )
+
+            data_df = data.relativize(
+                status_quo_name=self.status_quo.name,
+                as_percent=True,
+                include_sq=True,
+            ).df
+        else:
+            data_df = data.df
+
         trials = (
             self.get_trials_by_indices(trial_indices=trial_indices)
             if trial_indices
@@ -2125,6 +2146,16 @@ class Experiment(Base):
         df = pd.DataFrame(records)
         if omit_empty_columns:
             df = df.loc[:, df.notnull().any()]
+
+        # Format metric columns as percentages with 4 significant figures when
+        # relativized
+        if relativize:
+            for metric_name in self.metrics.keys():
+                if metric_name in df.columns:
+                    df[metric_name] = df[metric_name].apply(
+                        lambda x: f"{x:.4g}%" if pd.notna(x) else None
+                    )
+
         return df
 
     def add_auxiliary_experiment(
