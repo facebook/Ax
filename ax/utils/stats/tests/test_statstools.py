@@ -12,10 +12,10 @@ import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.math_utils import relativize
 from ax.utils.stats.statstools import (
     inverse_variance_weight,
     marginal_effects,
-    relativize,
     relativize_data,
     unrelativize,
 )
