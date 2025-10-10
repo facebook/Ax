@@ -10,7 +10,7 @@ from itertools import product
 
 import numpy as np
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.math_utils import relativize
+from ax.utils.stats.math_utils import relativize, unrelativize
 
 
 class RelativizeTest(TestCase):
@@ -294,3 +294,50 @@ class RelativizeTest(TestCase):
         # For means_t=[1.0, 3.0] and mean_c=-2.0: (1-(-2))/2 = 1.5, (3-(-2))/2 = 2.5
         expected_rel_means = np.array([1.5, 2.5])
         self.assertAllClose(rel_means, expected_rel_means)
+
+
+class UnrelativizeTest(TestCase):
+    def test_unrelativize(self) -> None:
+        means_t = np.array([-100.0, 101.0, 200.0, 300.0, 400.0])
+        sems_t = np.array([2.0, 3.0, 2.0, 4.0, 0.0])
+        mean_c = 200.0
+        sem_c = 2.0
+
+        for bias_correction, cov_means, as_percent, control_as_constant in product(
+            (True, False, None),
+            (0.5, 0.0),
+            (True, False, None),
+            (True, False, None),
+        ):
+            # When None is passed, use function defaults (True for bias_correction,
+            # False for as_percent and control_as_constant)
+            bias_correction_val = (
+                bias_correction if bias_correction is not None else True
+            )
+            as_percent_val = as_percent if as_percent is not None else False
+            control_as_constant_val = (
+                control_as_constant if control_as_constant is not None else False
+            )
+
+            rel_mean_t, rel_sems_t = relativize(
+                means_t,
+                sems_t,
+                mean_c,
+                sem_c,
+                cov_means=cov_means,
+                bias_correction=bias_correction_val,
+                as_percent=as_percent_val,
+                control_as_constant=control_as_constant_val,
+            )
+            unrel_mean_t, unrel_sems_t = unrelativize(
+                rel_mean_t,
+                rel_sems_t,
+                mean_c,
+                sem_c,
+                cov_means=cov_means,
+                bias_correction=bias_correction_val,
+                as_percent=as_percent_val,
+                control_as_constant=control_as_constant_val,
+            )
+            self.assertTrue(np.allclose(means_t, unrel_mean_t))
+            self.assertTrue(np.allclose(sems_t, unrel_sems_t))
