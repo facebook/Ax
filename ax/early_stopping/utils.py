@@ -86,7 +86,7 @@ def align_partial_results(
     for arm_name, arm_group in df.groupby("arm_name"):
         if len(arm_group["trial_index"].unique()) != 1:
             raise UnsupportedError(
-                f"Arm {arm_name} has multiple tiral indices: "
+                f"Arm {arm_name} has multiple trial indices: "
                 f"{arm_group['trial_index'].unique()}."
             )
 

@@ -229,6 +229,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         )
 
         if should_early_stop:
-            logger.info(f"Early stoppinging trial {trial_index}: {reason}.")
+            logger.info(f"Early stopping trial {trial_index}: {reason}.")
 
         return should_early_stop, reason
