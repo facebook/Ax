@@ -10,7 +10,7 @@ from __future__ import annotations
 import warnings
 
 from bisect import bisect_right
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from logging import Logger
 from math import nan
 from typing import Any
@@ -119,23 +119,6 @@ class MapData(Data):
     def required_columns(self) -> set[str]:
         return super().required_columns().union({MAP_KEY})
 
-    @staticmethod
-    def from_multiple_map_data(data: Sequence[MapData]) -> MapData:
-        if len(data) == 0:
-            return MapData()
-
-        # Avoid concatenating empty dataframes which logs a warning.
-        non_empty_dfs = [datum.map_df for datum in data if not datum.map_df.empty]
-        df = (
-            pd.concat(non_empty_dfs)
-            if len(non_empty_dfs) > 0
-            else pd.DataFrame(
-                columns=[*{col for datum in data for col in datum.required_columns()}]
-            )
-        )
-
-        return MapData(df=df)
-
     @property
     def map_df(self) -> pd.DataFrame:
         return self.full_df
@@ -147,12 +130,18 @@ class MapData(Data):
 
         If no "step" column is present, it will be filled in with NaNs.
         """
-        map_datas = [
-            (cls(df=datum.df) if not isinstance(datum, MapData) else datum)
+        map_dfs = [
+            datum.full_df
+            if isinstance(datum, MapData)
+            else datum.df.assign(**{MAP_KEY: nan})
             for datum in data
+            if not datum.full_df.empty
         ]
 
-        return cls.from_multiple_map_data(data=map_datas)
+        if len(map_dfs) == 0:
+            return MapData()
+
+        return MapData(df=pd.concat(map_dfs))
 
     @property
     def df(self) -> pd.DataFrame:
