@@ -104,7 +104,6 @@ from ax.generators.torch.botorch_modular.kernels import (
     DefaultRBFKernel,
     ScaleMaternKernel,
 )
-from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
 from ax.generators.torch.botorch_modular.surrogate import (
     ModelConfig,
     Surrogate,
@@ -3104,10 +3103,6 @@ def get_mll_type() -> type[MarginalLogLikelihood]:
 
 def get_acquisition_function_type() -> type[AcquisitionFunction]:
     return qExpectedImprovement
-
-
-def get_sebo_acquisition_class() -> type[SEBOAcquisition]:
-    return SEBOAcquisition
 
 
 def get_winsorization_config() -> WinsorizationConfig:
