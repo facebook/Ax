@@ -130,7 +130,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
                 datas.append(MapData(df=df))
 
-            return Ok(value=MapData.from_multiple_map_data(datas))
+            return Ok(value=MapData.from_multiple_data(data=datas))
 
         except Exception as e:
             return Err(
