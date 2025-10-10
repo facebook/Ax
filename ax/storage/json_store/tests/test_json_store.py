@@ -139,7 +139,6 @@ from ax.utils.testing.core_stubs import (
     get_robust_search_space,
     get_scalarized_objective,
     get_search_space,
-    get_sebo_acquisition_class,
     get_sorted_choice_parameter,
     get_sum_constraint1,
     get_sum_constraint2,
@@ -352,7 +351,6 @@ TEST_CASES = [
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
     ("WinsorizationConfig", get_winsorization_config),
-    ("SEBOAcquisition", get_sebo_acquisition_class),
 ]
 
 

@@ -19,7 +19,6 @@ from ax.generators.torch.botorch_modular.kernels import (
 )
 
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
-from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -328,6 +327,3 @@ def register_mll(mll_class: type[MarginalLogLikelihood]) -> None:
     class_name = mll_class.__name__
     CLASS_TO_REGISTRY[MarginalLogLikelihood].update({mll_class: class_name})
     CLASS_TO_REVERSE_REGISTRY[MarginalLogLikelihood].update({class_name: mll_class})
-
-
-register_acquisition(SEBOAcquisition)
