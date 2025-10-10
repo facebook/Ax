@@ -564,7 +564,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         df_with_single_arm_name["arm_name"] = "0_0"
         with self.assertRaisesRegex(
             UnsupportedError,
-            "Arm 0_0 has multiple tiral indices",
+            "Arm 0_0 has multiple trial indices",
         ):
             align_partial_results(df=df_with_single_arm_name, metrics=["branin_map"])
 
