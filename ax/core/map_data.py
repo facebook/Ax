@@ -287,6 +287,22 @@ class MapData(Data):
         subsampled_df: pd.DataFrame = pd.concat(subsampled_metric_dfs)
         return MapData(df=subsampled_df)
 
+    def relativize(
+        self,
+        status_quo_name: str = "status_quo",
+        as_percent: bool = False,
+        include_sq: bool = False,
+        bias_correction: bool = True,
+        control_as_constant: bool = False,
+    ) -> MapData:
+        """MapData relativization is not currently supported.
+
+        Raises:
+            NotImplementedError: Always raised as relativize is not
+                supported for MapData.
+        """
+        raise NotImplementedError("relativize is currently not supported for MapData.")
+
 
 def _ceil_divide(
     a: int | np.int_ | npt.NDArray[np.int_], b: int | np.int_ | npt.NDArray[np.int_]
