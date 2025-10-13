@@ -672,11 +672,6 @@ class Acquisition(Base):
             )
         # prune irrelevant parameters post-hoc
         if self.options.get("prune_irrelevant_parameters", False):
-            if search_space_digest.hierarchical_dependencies is not None:
-                raise NotImplementedError(
-                    "prune_irrelevant_parameters is not supported for hierarchical "
-                    "search spaces."
-                )
             if self._pruning_target_point is None:
                 logger.warning(
                     "Must specify pruning_target_point to prune irrelevant "

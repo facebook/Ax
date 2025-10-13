@@ -1138,24 +1138,6 @@ class AcquisitionTest(TestCase):
                 candidates=candidates, search_space_digest=self.search_space_digest
             )
 
-    def test_optimize_pruning_hierarchical_error(self) -> None:
-        ssd = dataclasses.replace(
-            self.search_space_digest, hierarchical_dependencies={0: [1]}
-        )
-        acq = Acquisition(
-            surrogate=self.surrogate,
-            search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
-            botorch_acqf_class=DummyAcquisitionFunction,
-            options={"prune_irrelevant_parameters": True},  # No target_point
-        )
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "prune_irrelevant_parameters is not supported for hierarchical "
-            "search spaces.",
-        ):
-            acq.optimize(n=1, search_space_digest=ssd)
-
     def test_prune_irrelevant_parameters_with_log_acquisition(self) -> None:
         # Test pruning with log-transformed acquisition function
 
@@ -1621,6 +1603,56 @@ class AcquisitionTest(TestCase):
         expected_candidate = torch.tensor([[0.9, 0.5, 0.8, 0.3]])
         self.assertTrue(torch.equal(pruned_candidates, expected_candidate))
         self.assertTrue(torch.equal(pruned_values, torch.tensor([0.92])))
+
+    def test_prune_irrelevant_parameters_hss(self) -> None:
+        # Test with HSS. HSS shouldn't change the behavior
+        # of pruning
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.2, 0.8], dtype=torch.double),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        # Test case where first dimension should be pruned but second shouldn't
+        original_candidate = torch.tensor([[0.9, 0.1]], dtype=torch.double)
+        # Mock acquisition function responses:
+        # 1. Original candidate value: 1.0
+        # 2. Pruning dimension 0 to target: 0.95 (5% reduction - below 10% threshold)
+        # 3. Pruning dimension 1 to target: 0.85 (15% reduction - above 10% threshold)
+        acq.evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0], dtype=torch.double),  # baseline acquisition value
+                torch.tensor(
+                    [1.0], dtype=torch.double
+                ),  # original dense acquisition value
+                torch.tensor(
+                    [0.95, 0.85], dtype=torch.double
+                ),  # pruning dim 0: 5% reduction (should prune)
+            ]
+        )
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=original_candidate,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=[(0.0, 1.0), (0.0, 10.0)],
+                ordinal_features=[0],
+                hierarchical_dependencies={0: {0: [1]}},
+            ),
+        )
+        self.assertTrue(
+            torch.equal(
+                pruned_candidates, torch.tensor([[0.2, 0.1]], dtype=torch.double)
+            )
+        )
+        self.assertTrue(
+            torch.equal(pruned_values, torch.tensor([0.95], dtype=torch.double))
+        )
 
 
 class MultiAcquisitionTest(AcquisitionTest):
