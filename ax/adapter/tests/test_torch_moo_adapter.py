@@ -36,6 +36,7 @@ from ax.generators.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
 )
+from ax.generators.torch.utils import _get_X_pending_and_observed
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -422,26 +423,16 @@ class MultiObjectiveTorchAdapterTest(TestCase):
     )
     @mock_botorch_optimize
     def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
-        # lightweight test
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True,
-            with_batch=True,
+            with_completed_batch=True,
             with_status_quo=True,
         )
-        for trial in exp.trials.values():
-            trial.mark_running(no_runner_required=True).mark_completed()
-        exp.attach_data(
-            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
-        )
-        data = exp.fetch_data()
         adapter = TorchAdapter(
-            search_space=exp.search_space,
+            experiment=exp,
             generator=BoTorchGenerator(),
-            optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
-            experiment=exp,
-            data=data,
         )
         fixed_features = ObservationFeatures(parameters={"x1": 0.0})
         search_space = exp.search_space.clone()
@@ -470,6 +461,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                 fixed_features=fixed_features,
             )
             with ExitStack() as es:
+                mock_get_X_pending_and_observed = es.enter_context(
+                    patch(
+                        "ax.adapter.torch._get_X_pending_and_observed",
+                        wraps=_get_X_pending_and_observed,
+                    )
+                )
                 mock_model_infer_obj_t = es.enter_context(
                     patch(
                         "ax.adapter.torch.infer_objective_thresholds",
@@ -503,11 +500,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                     fixed_features=fixed_features,
                 )
                 expected_obj_weights = torch.tensor([-1.0, -1.0], dtype=torch.double)
-                ckwargs = mock_model_infer_obj_t.call_args[1]
+                ckwargs = mock_model_infer_obj_t.call_args.kwargs
                 self.assertTrue(
                     torch.equal(ckwargs["objective_weights"], expected_obj_weights)
                 )
-                # check that transforms have been applied (at least UnitX)
+                # check that transforms have been applied (UnitX).
+                ckwargs = mock_get_X_pending_and_observed.call_args.kwargs
                 self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
                 lc = ckwargs["linear_constraints"]
                 self.assertTrue(
@@ -581,6 +579,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             fixed_features=fixed_features,
         )
         with ExitStack() as es:
+            mock_get_X_pending_and_observed = es.enter_context(
+                patch(
+                    "ax.adapter.torch._get_X_pending_and_observed",
+                    wraps=_get_X_pending_and_observed,
+                )
+            )
             mock_model_infer_obj_t = es.enter_context(
                 patch(
                     "ax.adapter.torch.infer_objective_thresholds",
@@ -599,7 +603,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                 optimization_config=exp.optimization_config,
                 fixed_features=fixed_features,
             )
-            ckwargs = mock_model_infer_obj_t.call_args[1]
+            mock_model_infer_obj_t.assert_called_once()
+            ckwargs = mock_get_X_pending_and_observed.call_args.kwargs
             self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
             mock_untransform_objective_thresholds.assert_called_once()
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")

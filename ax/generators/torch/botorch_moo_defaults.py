@@ -28,7 +28,6 @@ References
 from __future__ import annotations
 
 from collections.abc import Callable
-
 from typing import cast, Optional, Union
 
 import torch
@@ -38,11 +37,7 @@ from ax.generators.torch.botorch_modular.optimizer_defaults import (
     BATCH_LIMIT,
     INIT_BATCH_LIMIT,
 )
-from ax.generators.torch.utils import (
-    _get_X_pending_and_observed,
-    get_outcome_constraint_transforms,
-    subset_model,
-)
+from ax.generators.torch.utils import get_outcome_constraint_transforms, subset_model
 from ax.generators.torch_base import TorchGenerator
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -666,13 +661,9 @@ def pareto_frontier_evaluator(
 def infer_objective_thresholds(
     model: Model,
     objective_weights: Tensor,  # objective_directions
-    bounds: list[tuple[float, float]] | None = None,
+    X_observed: Tensor,
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    linear_constraints: tuple[Tensor, Tensor] | None = None,
-    fixed_features: dict[int, float] | None = None,
     subset_idcs: Tensor | None = None,
-    Xs: list[Tensor] | None = None,
-    X_observed: Tensor | None = None,
     objective_thresholds: Tensor | None = None,
 ) -> Tensor:
     """Infer objective thresholds.
@@ -692,22 +683,14 @@ def infer_objective_thresholds(
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights. These should not
             be subsetted.
-        bounds: A list of (lower, upper) tuples for each column of X.
+        X_observed: A `n x d`-dim tensor of in-sample points to use for
+            determining the current in-sample Pareto frontier.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. These should not be subsetted.
-        linear_constraints: A tuple of (A, b). For k linear constraints on
-            d-dimensional x, A is (k x d) and b is (k x 1) such that
-            A x <= b.
-        fixed_features: A map {feature_index: value} for features that
-            should be fixed to a particular value during generation.
         subset_idcs: The indices of the outcomes that are modeled by the
             provided model. If subset_idcs not None, this method infers
             whether the model is subsetted.
-        Xs: A list of m (k_i x d) feature tensors X. Number of rows k_i can
-            vary from i=1,...,m.
-        X_observed: A `n x d`-dim tensor of in-sample points to use for
-            determining the current in-sample Pareto frontier.
         objective_thresholds: Any known objective thresholds to pass to
             `infer_reference_point` heuristic. This should not be subsetted.
             If only a subset of the objectives have known thresholds, the
@@ -718,19 +701,6 @@ def infer_objective_thresholds(
         A `m`-dim tensor of objective thresholds, where the objective
             threshold is `nan` if the outcome is not an objective.
     """
-    if X_observed is None:
-        if bounds is None:
-            raise ValueError("bounds is required if X_observed is None.")
-        elif Xs is None:
-            raise ValueError("Xs is required if X_observed is None.")
-        _, X_observed = _get_X_pending_and_observed(
-            Xs=Xs,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            bounds=bounds,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-        )
     num_outcomes = objective_weights.shape[0]
     if subset_idcs is None:
         # Subset the model so that we only compute the posterior
