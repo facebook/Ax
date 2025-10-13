@@ -38,7 +38,7 @@ from ax.plot.pareto_utils import (
 )
 
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.math_utils import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
