@@ -41,7 +41,7 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchGenerator
 from ax.utils.common.logger import get_logger
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.math_utils import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
