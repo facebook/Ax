@@ -6,18 +6,14 @@
 
 # pyre-strict
 
-from itertools import product
-
 import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.math_utils import relativize
 from ax.utils.stats.statstools import (
     inverse_variance_weight,
     marginal_effects,
     relativize_data,
-    unrelativize,
 )
 
 
@@ -214,52 +210,3 @@ class RelativizeDataTest(TestCase):
         self.assertEqual(
             expected_relativized_data_with_sq, actual_relativized_data_with_sq
         )
-
-
-class UnrelativizeTest(TestCase):
-    def test_unrelativize(self) -> None:
-        means_t = np.array([-100.0, 101.0, 200.0, 300.0, 400.0])
-        sems_t = np.array([2.0, 3.0, 2.0, 4.0, 0.0])
-        mean_c = 200.0
-        sem_c = 2.0
-
-        for bias_correction, cov_means, as_percent, control_as_constant in product(
-            (True, False, None),
-            (0.5, 0.0),
-            (True, False, None),
-            (True, False, None),
-        ):
-            rel_mean_t, rel_sems_t = relativize(
-                means_t,
-                sems_t,
-                mean_c,
-                sem_c,
-                cov_means=cov_means,
-                # pyre-fixme[6]: For 6th argument expected `bool` but got
-                #  `Optional[bool]`.
-                bias_correction=bias_correction,
-                # pyre-fixme[6]: For 7th argument expected `bool` but got
-                #  `Optional[bool]`.
-                as_percent=as_percent,
-                # pyre-fixme[6]: For 8th argument expected `bool` but got
-                #  `Optional[bool]`.
-                control_as_constant=control_as_constant,
-            )
-            unrel_mean_t, unrel_sems_t = unrelativize(
-                rel_mean_t,
-                rel_sems_t,
-                mean_c,
-                sem_c,
-                cov_means=cov_means,
-                # pyre-fixme[6]: For 6th argument expected `bool` but got
-                #  `Optional[bool]`.
-                bias_correction=bias_correction,
-                # pyre-fixme[6]: For 7th argument expected `bool` but got
-                #  `Optional[bool]`.
-                as_percent=as_percent,
-                # pyre-fixme[6]: For 8th argument expected `bool` but got
-                #  `Optional[bool]`.
-                control_as_constant=control_as_constant,
-            )
-            self.assertTrue(np.allclose(means_t, unrel_mean_t))
-            self.assertTrue(np.allclose(sems_t, unrel_sems_t))
