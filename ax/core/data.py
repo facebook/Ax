@@ -26,6 +26,7 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
+from ax.utils.stats.math_utils import relativize as relativize_func
 from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
@@ -294,6 +295,44 @@ class Data(Base, SerializationMixin):
     def __eq__(self, o: Data) -> bool:
         return type(self) is type(o) and dataframe_equals(self.full_df, o.full_df)
 
+    def relativize(
+        self: TData,
+        status_quo_name: str = "status_quo",
+        as_percent: bool = False,
+        include_sq: bool = False,
+        bias_correction: bool = True,
+        control_as_constant: bool = False,
+    ) -> TData:
+        """Relativize a data object w.r.t. a status_quo arm.
+
+        Args:
+            data: The data object to be relativized.
+            status_quo_name: The name of the status_quo arm.
+            as_percent: If True, return results as percentage change.
+            include_sq: Include status quo in final df.
+            bias_correction: Whether to apply bias correction when computing relativized
+                metric values. Uses a second-order Taylor expansion for approximating
+                the means and standard errors or the ratios, see
+                ax.utils.stats.math_utils.relativize for more details.
+            control_as_constant: If true, control is treated as a constant.
+                bias_correction is ignored when this is true.
+
+        Returns:
+            The new data object with the relativized metrics (excluding the
+                status_quo arm)
+
+        """
+        df = self.df.copy()
+        df_rel = relativize_dataframe(
+            df=df,
+            status_quo_name=status_quo_name,
+            as_percent=as_percent,
+            include_sq=include_sq,
+            bias_correction=bias_correction,
+            control_as_constant=control_as_constant,
+        )
+        return self.__class__(df=df_rel)
+
 
 def _filter_df(
     df: pd.DataFrame,
@@ -333,3 +372,71 @@ def _filter_df(
         return df.loc[metric_signatures_mask]
     # All three are None, return the dataframe as is.
     return df
+
+
+def relativize_dataframe(
+    df: pd.DataFrame,
+    status_quo_name: str = "status_quo",
+    as_percent: bool = False,
+    include_sq: bool = False,
+    bias_correction: bool = True,
+    control_as_constant: bool = False,
+) -> pd.DataFrame:
+    """Relativize a dataframe w.r.t. a status_quo arm.
+
+    Args:
+        df: The dataframe to be relativized.
+        status_quo_name: The name of the status_quo arm.
+        as_percent: If True, return results as percentage change.
+        include_sq: Include status quo in final df.
+        bias_correction: Whether to apply bias correction when computing relativized
+            metric values. Uses a second-order Taylor expansion for approximating
+            the means and standard errors or the ratios, see
+            ax.utils.stats.math_utils.relativize for more details.
+        control_as_constant: If true, control is treated as a constant.
+            bias_correction is ignored when this is true.
+
+    Returns:
+        The new dataframe with the relativized metrics (excluding the
+            status_quo arm)
+
+    """
+    grp_cols = list(
+        {"trial_index", "metric_name", "random_split"}.intersection(df.columns.values)
+    )
+
+    grouped_df = df.groupby(grp_cols)
+    dfs = []
+    for grp in grouped_df.groups.keys():
+        subgroup_df = grouped_df.get_group(grp)
+        is_sq = subgroup_df["arm_name"] == status_quo_name
+        sq_mean, sq_sem = (
+            subgroup_df[is_sq][["mean", "sem"]].drop_duplicates().values.flatten()
+        )
+
+        # rm status quo from final df to relativize
+        if not include_sq:
+            subgroup_df = subgroup_df[~is_sq]
+        means_rel, sems_rel = relativize_func(
+            means_t=subgroup_df["mean"].values,
+            sems_t=subgroup_df["sem"].values,
+            mean_c=sq_mean,
+            sem_c=sq_sem,
+            as_percent=as_percent,
+            bias_correction=bias_correction,
+            control_as_constant=control_as_constant,
+        )
+        # Make a copy to avoid modifying the original dataframe
+        subgroup_df_rel = subgroup_df.copy()
+        # Update mean and sem columns with relativized values
+        # Direct assignment is more efficient than pd.concat
+        subgroup_df_rel["mean"] = means_rel
+        subgroup_df_rel["sem"] = sems_rel
+        dfs.append(subgroup_df_rel)
+    df_rel = pd.concat(dfs, axis=0)
+    if include_sq:
+        df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0
+    df_rel.reset_index(inplace=True, drop=True)
+    # Reorder columns to match expected order (reuses Data class logic)
+    df_rel = Data._get_df_with_cols_in_expected_order(df_rel)
+    return df_rel
