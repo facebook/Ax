@@ -23,8 +23,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.stats.math_utils import relativize
-from ax.utils.stats.statstools import unrelativize
+from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
