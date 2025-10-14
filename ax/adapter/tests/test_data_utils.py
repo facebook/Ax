@@ -38,7 +38,6 @@ class TestDataUtils(TestCase):
     def test_data_loader_config(self) -> None:
         # Defaults
         config = DataLoaderConfig()
-        self.assertFalse(config.fit_out_of_design)
         self.assertFalse(config.fit_abandoned)
         self.assertFalse(config.fit_only_completed_map_metrics)
         self.assertEqual(config.latest_rows_per_group, 1)
@@ -50,15 +49,17 @@ class TestDataUtils(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "must be None if either of"):
             DataLoaderConfig(latest_rows_per_group=1, limit_rows_per_metric=5)
         # With a bunch of modifications.
-        config = DataLoaderConfig(
-            fit_out_of_design=True,
-            fit_abandoned=True,
-            fit_only_completed_map_metrics=False,
-            latest_rows_per_group=None,
-            limit_rows_per_metric=10,
-            limit_rows_per_group=20,
-        )
-        self.assertTrue(config.fit_out_of_design)
+        with self.assertWarnsRegex(
+            DeprecationWarning, "`fit_out_of_design` is deprecated"
+        ):
+            config = DataLoaderConfig(
+                fit_out_of_design=True,
+                fit_abandoned=True,
+                fit_only_completed_map_metrics=False,
+                latest_rows_per_group=None,
+                limit_rows_per_metric=10,
+                limit_rows_per_group=20,
+            )
         self.assertTrue(config.fit_abandoned)
         self.assertFalse(config.fit_only_completed_map_metrics)
         self.assertIsNone(config.latest_rows_per_group)

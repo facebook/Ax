@@ -109,7 +109,6 @@ class TorchAdapter(Adapter):
         default_model_gen_options: TConfig | None = None,
         torch_device: torch.device | None = None,
         data_loader_config: DataLoaderConfig | None = None,
-        fit_out_of_design: bool | None = None,
         fit_abandoned: bool | None = None,
         fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
@@ -124,8 +123,6 @@ class TorchAdapter(Adapter):
                 on these tensors.
             data_loader_config: A DataLoaderConfig of options for loading data. See the
                 docstring of DataLoaderConfig for more details.
-            fit_out_of_design: Overwrites `data_loader_config.fit_out_of_design` if
-                not None.
             fit_abandoned: Overwrites `data_loader_config.fit_abandoned` if not None.
             fit_only_completed_map_metrics: If not None, overwrites
                 `data_loader_config.fit_only_completed_map_metrics`.
@@ -167,7 +164,6 @@ class TorchAdapter(Adapter):
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
             data_loader_config=data_loader_config,
-            fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
             fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
@@ -239,7 +235,6 @@ class TorchAdapter(Adapter):
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
-            fit_out_of_design=torch_opt_config.fit_out_of_design,
         )
         if X_observed is None:
             raise DataRequiredError(
@@ -1015,7 +1010,6 @@ class TorchAdapter(Adapter):
             opt_config_metrics=opt_config_metrics,
             is_moo=optimization_config.is_moo_problem,
             risk_measure=risk_measure,
-            fit_out_of_design=self._data_loader_config.fit_out_of_design,
             use_learned_objective=use_learned_objective,
             pruning_target_point=pruning_target_p,
         )
@@ -1113,8 +1107,7 @@ class TorchAdapter(Adapter):
             raise ValueError(
                 "Torch generators cannot be fit without observation data. Possible "
                 "reasons include empty data being passed to the generator's constructor"
-                " or data being excluded because it is out-of-design. Try setting "
-                "`fit_out_of_design`=True during construction to fix the latter."
+                " or data being excluded because it is out-of-design. "
             )
 
     def _extract_observation_data(
