@@ -639,7 +639,7 @@ class BaseTrial(ABC, SortableBase):
         in experiment after their abandonment to avoid Ax models suggesting
         the same arm again as a new candidate. Arms in abandoned trials are
         also excluded from model training data unless ``fit_abandoned`` option
-        is specified to adapter.
+        is specified to adapter via ``DataLoaderConfig``.
 
         Args:
             abandoned_reason: The reason the trial was abandoned.

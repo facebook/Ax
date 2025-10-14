@@ -109,8 +109,6 @@ class TorchAdapter(Adapter):
         default_model_gen_options: TConfig | None = None,
         torch_device: torch.device | None = None,
         data_loader_config: DataLoaderConfig | None = None,
-        fit_abandoned: bool | None = None,
-        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """In addition to common arguments documented in the base ``Adapter`` class,
         ``TorchAdapter`` accepts the following arguments.
@@ -123,9 +121,6 @@ class TorchAdapter(Adapter):
                 on these tensors.
             data_loader_config: A DataLoaderConfig of options for loading data. See the
                 docstring of DataLoaderConfig for more details.
-            fit_abandoned: Overwrites `data_loader_config.fit_abandoned` if not None.
-            fit_only_completed_map_metrics: If not None, overwrites
-                `data_loader_config.fit_only_completed_map_metrics`.
         """
         self.device: torch.device | None = torch_device
         self._default_model_gen_options: TConfig = default_model_gen_options or {}
@@ -164,8 +159,6 @@ class TorchAdapter(Adapter):
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
             data_loader_config=data_loader_config,
-            fit_abandoned=fit_abandoned,
-            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
 
         # Re-assign self.generator for more precise typing.

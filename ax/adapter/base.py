@@ -113,10 +113,6 @@ class Adapter:
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         data_loader_config: DataLoaderConfig | None = None,
-        # fit_abandoned, and fit_only_completed_map_metrics
-        # were deprecated in Ax 1.0.0, so they can now be reaped.
-        fit_abandoned: bool | None = None,
-        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """
         Applies transforms and fits the generator.
@@ -162,21 +158,10 @@ class Adapter:
                 the transformed inputs.
             data_loader_config: A DataLoaderConfig of options for loading data. See the
                 docstring of DataLoaderConfig for more details.
-            fit_abandoned: Deprecation warning: `fit_abandoned` is deprecated.
-                Overwrites `data_loader_config.fit_abandoned` if not None.
-            fit_only_completed_map_metrics: `fit_only_completed_map_metrics`
-                is deprecated. If not None, overwrites
-                `data_loader_config.fit_only_completed_map_metrics`.
         """
         if data_loader_config is None:
             data_loader_config = DataLoaderConfig()
-        self._data_loader_config: DataLoaderConfig = (
-            _legacy_overwrite_data_loader_config(
-                data_loader_config=data_loader_config,
-                fit_abandoned=fit_abandoned,
-                fit_only_completed_map_metrics=fit_only_completed_map_metrics,
-            )
-        )
+        self._data_loader_config: DataLoaderConfig = data_loader_config
 
         t_fit_start = time.monotonic()
         transforms = transforms or []
@@ -1213,47 +1198,6 @@ def clamp_observation_features(
                 )
                 obsf.parameters[p.name] = p.upper
     return observation_features
-
-
-def _legacy_overwrite_data_loader_config(
-    data_loader_config: DataLoaderConfig,
-    fit_abandoned: bool | None = None,
-    fit_only_completed_map_metrics: bool | None = None,
-    warn_if_legacy: bool = True,
-) -> DataLoaderConfig:
-    """Overwrites data loader config with legacy keyword arguments.
-
-    Args:
-        data_loader_config: Data loader config.
-        fit_abandoned: Whether to fit abandoned arms.
-        fit_only_completed_map_metrics: Whether to fit only completed map metrics.
-        warn_if_legacy: Whether to warn if legacy keyword arguments are used.
-
-    Returns:
-        Updated data loader config.
-    """
-    data_loader_config_dict = {}
-    for var_name, deprecated_var in (
-        ("fit_abandoned", fit_abandoned),
-        ("fit_only_completed_map_metrics", fit_only_completed_map_metrics),
-    ):
-        if deprecated_var is not None:
-            if warn_if_legacy:
-                logger.warning(
-                    f"`{var_name}` is deprecated. Please pass as "
-                    f"`data_loader_config.{var_name}` instead."
-                )
-            data_loader_config_dict[var_name] = deprecated_var
-        else:
-            data_loader_config_dict[var_name] = getattr(data_loader_config, var_name)
-
-    data_loader_config = DataLoaderConfig(
-        latest_rows_per_group=data_loader_config.latest_rows_per_group,
-        limit_rows_per_metric=data_loader_config.limit_rows_per_metric,
-        limit_rows_per_group=data_loader_config.limit_rows_per_group,
-        **data_loader_config_dict,
-    )
-    return data_loader_config
 
 
 def _combine_multiple_status_quo_observations(
