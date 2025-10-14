@@ -173,6 +173,7 @@ class Acquisition(Base):
     _learned_objective_preference_model: Model | None
     _subset_idcs: Tensor | None
     _pruning_target_point: Tensor | None
+    num_pruned_dims: list[int] | None
 
     def __init__(
         self,
@@ -198,6 +199,7 @@ class Acquisition(Base):
         self._subset_idcs = None
         self._risk_measure = torch_opt_config.risk_measure
         self._pruning_target_point = torch_opt_config.pruning_target_point
+        self.num_pruned_dims = None
 
         # Extract pending and observed points.
         X_pending, X_observed = _get_X_pending_and_observed(
@@ -823,7 +825,7 @@ class Acquisition(Base):
                 should be fixed to a particular value during generation.
 
         Returns:
-            A three-element tuple containing an `q x d`-dim tensor of generated
+            A two-element tuple containing an `q x d`-dim tensor of generated
             candidates and a `q`-dim tensor with the associated acquisition values.
         """
         target_point = none_throws(
@@ -839,6 +841,7 @@ class Acquisition(Base):
             excluded_indices.update(set(fixed_features.keys()))
         orig_acqf = self.acqf
         # iterate over points in the batch and prune each point
+        initial_active_dims = (candidates != target_point).sum(dim=-1)
         for i in range(candidates.shape[0]):
             # condition on previous pruned points
             self._condition_on_prev_candidates(
@@ -915,9 +918,14 @@ class Acquisition(Base):
                         # the relative tolerance threshold, so we stop pruning
                         # this candidate
                         break
-            # TODO: log when we prune parameters in gen_metadata
             pruned_af_vals.append(final_af_val)
         self.acqf = orig_acqf
+        # store the number of pruned dimensions for each candidate to return
+        # this via gen_metadata
+        self.num_pruned_dims = (
+            initial_active_dims - (candidates != target_point).sum(dim=-1)
+        ).tolist()
+
         return candidates, torch.cat(pruned_af_vals, dim=0)
 
     def _get_best_pruned_candidate(

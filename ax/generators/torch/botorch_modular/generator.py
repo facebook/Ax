@@ -327,6 +327,8 @@ class BoTorchGenerator(TorchGenerator, Base):
                 FixedSingleSampleModel,
             ):
                 gen_metadata["outcome_model_fixed_draw_weights"] = outcome_model.w
+
+        gen_metadata["num_pruned_dims"] = acqf.num_pruned_dims
         gen_metadata["models_used"] = acqf.models_used
         return gen_metadata
 
