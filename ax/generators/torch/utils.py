@@ -10,17 +10,13 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
 
-import numpy as np
 import numpy.typing as npt
 import torch
-from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError
 from ax.generators.model_utils import (
     filter_constraints_and_fixed_features,
     get_observed,
 )
-from ax.generators.random.sobol import SobolGenerator
-from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
@@ -60,7 +56,7 @@ from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
-from botorch.utils.sampling import sample_hypersphere, sample_simplex
+from botorch.utils.sampling import sample_simplex
 from botorch.utils.transforms import is_ensemble
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
@@ -200,41 +196,6 @@ def _get_X_pending_and_observed(
             fit_out_of_design=fit_out_of_design,
         )
         return X_pending, unfiltered_X_observed
-
-
-def _generate_sobol_points(
-    n_sobol: int,
-    search_space_digest: SearchSpaceDigest,
-    device: torch.device,
-    linear_constraints: tuple[Tensor, Tensor] | None = None,
-    fixed_features: dict[int, float] | None = None,
-    rounding_func: Callable[[Tensor], Tensor] | None = None,
-    model_gen_options: TConfig | None = None,
-) -> Tensor:
-    linear_constraints_array = None
-
-    if linear_constraints is not None:
-        linear_constraints_array = (
-            linear_constraints[0].detach().cpu().numpy(),
-            linear_constraints[1].detach().cpu().numpy(),
-        )
-
-    array_rounding_func = None
-    if rounding_func is not None:
-        array_rounding_func = tensor_callable_to_array_callable(
-            tensor_func=rounding_func, device=device
-        )
-
-    sobol = SobolGenerator(deduplicate=False, seed=np.random.randint(10000))
-    array_X, _ = sobol.gen(
-        n=n_sobol,
-        search_space_digest=search_space_digest,
-        linear_constraints=linear_constraints_array,
-        fixed_features=fixed_features,
-        rounding_func=array_rounding_func,
-        model_gen_options=model_gen_options,
-    )
-    return torch.from_numpy(array_X).to(device)
 
 
 def subset_model(
@@ -558,39 +519,6 @@ def predict_from_model(
         var = torch.cat(variances, dim=0)
     cov = torch.diag_embed(var)
     return mean, cov
-
-
-# TODO(jej): Possibly refactor to use "objective_directions".
-def randomize_objective_weights(
-    objective_weights: Tensor,
-    random_scalarization_distribution: str = SIMPLEX,
-) -> Tensor:
-    """Generate a random weighting based on acquisition function settings.
-
-    Args:
-        objective_weights: Base weights to multiply by random values.
-        random_scalarization_distribution: "simplex" or "hypersphere".
-
-    Returns:
-        A normalized list of indices such that each index is between `0` and `d-1`.
-    """
-    # Set distribution and sample weights.
-    distribution = random_scalarization_distribution
-    dtype = objective_weights.dtype
-    device = objective_weights.device
-    if distribution == SIMPLEX:
-        random_weights = sample_simplex(
-            len(objective_weights), dtype=dtype, device=device
-        ).squeeze()
-    elif distribution == HYPERSPHERE:
-        random_weights = torch.abs(
-            sample_hypersphere(
-                len(objective_weights), dtype=dtype, device=device
-            ).squeeze()
-        )
-    # pyre-fixme[61]: `random_weights` may not be initialized here.
-    objective_weights = torch.mul(objective_weights, random_weights)
-    return objective_weights
 
 
 def _datasets_to_legacy_inputs(

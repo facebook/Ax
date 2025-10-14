@@ -48,7 +48,7 @@ from ax.core.search_space import (
 )
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.generators.torch.botorch_moo_defaults import (
+from ax.generators.torch.botorch_moo_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
     pareto_frontier_evaluator,
 )

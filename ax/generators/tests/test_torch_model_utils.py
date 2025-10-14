@@ -10,12 +10,7 @@ from unittest import mock
 
 import numpy as np
 import torch
-from ax.core.search_space import SearchSpaceDigest
-from ax.generators.torch.utils import (
-    _generate_sobol_points,
-    subset_model,
-    tensor_callable_to_array_callable,
-)
+from ax.generators.torch.utils import subset_model, tensor_callable_to_array_callable
 from ax.utils.common.testutils import TestCase
 from botorch.models import SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
@@ -27,28 +22,6 @@ from torch import Tensor
 
 
 class TorchUtilsTest(TestCase):
-    def test_GenerateSobolPoints(self) -> None:
-        bounds = [(0.0, 1.0) for _ in range(3)]
-        linear_constraints = (
-            torch.tensor([[1, -1, 0]], dtype=torch.double),
-            torch.tensor([[0]], dtype=torch.double),
-        )
-
-        def test_rounding_func(x: Tensor) -> Tensor:
-            return x
-
-        gen_sobol = _generate_sobol_points(
-            n_sobol=100,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=["a", "b", "c"], bounds=bounds
-            ),
-            device=torch.device("cpu"),
-            linear_constraints=linear_constraints,
-            rounding_func=test_rounding_func,
-        )
-        self.assertEqual(len(gen_sobol), 100)
-        self.assertIsInstance(gen_sobol, Tensor)
-
     def test_TensorCallableToArrayCallable(self) -> None:
         def tensor_func(x: Tensor) -> Tensor:
             return torch.pow(x, 2)
