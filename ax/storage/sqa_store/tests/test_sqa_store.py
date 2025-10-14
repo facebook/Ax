@@ -37,7 +37,6 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
-
 from ax.exceptions.core import ObjectNotFoundError, TrialMutationError, UnsupportedError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
@@ -705,7 +704,7 @@ class SQAStoreTest(TestCase):
             self.assertEqual(len(mkw), 6)
             bkw = gr._bridge_kwargs
             self.assertIsNotNone(bkw)
-            self.assertEqual(len(bkw), 8)
+            self.assertEqual(len(bkw), 7)
             # This has seed and init position.
             ms = gr._model_state_after_gen
             self.assertIsNotNone(ms)

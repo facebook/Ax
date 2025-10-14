@@ -20,7 +20,6 @@ from ax.adapter.adapter_utils import (
     get_pareto_frontier_and_configs,
     observed_pareto_frontier,
 )
-from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import Generators, MBM_X_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.derelativize import derelativize_bound
@@ -342,9 +341,6 @@ def get_tensor_converter_adapter(
         data=data,
         generator=TorchGenerator(),
         transforms=MBM_X_trans,
-        data_loader_config=DataLoaderConfig(
-            fit_out_of_design=True,
-        ),
     )
 
 

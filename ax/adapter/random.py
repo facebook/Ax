@@ -49,7 +49,6 @@ class RandomAdapter(Adapter):
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         data_loader_config: DataLoaderConfig | None = None,
-        fit_out_of_design: bool | None = None,
         fit_abandoned: bool | None = None,
     ) -> None:
         self.parameters: list[str] = []
@@ -63,7 +62,6 @@ class RandomAdapter(Adapter):
             optimization_config=optimization_config,
             expand_model_space=False,
             data_loader_config=data_loader_config,
-            fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,

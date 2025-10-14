@@ -218,7 +218,10 @@ TEST_CASES = [
         partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.STRING),
     ),
     # testing with non-default argument
-    ("DataLoaderConfig", partial(DataLoaderConfig, fit_out_of_design=True)),
+    (
+        "DataLoaderConfig",
+        partial(DataLoaderConfig, fit_only_completed_map_metrics=True),
+    ),
     ("DerivedParameter", get_derived_parameter),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
@@ -997,6 +1000,7 @@ class JSONStoreTest(TestCase):
                 "status_quo_name": "status_quo",
                 "status_quo_features": None,
                 "other_kwarg": 5,
+                "fit_out_of_design": True,
             },
             "model_gen_kwargs": {},
             "index": -1,
@@ -1069,7 +1073,6 @@ class JSONStoreTest(TestCase):
                 "transforms": {},
                 "transform_configs": None,
                 "optimization_config": None,
-                "fit_out_of_design": False,
                 "fit_abandoned": False,
                 "fit_tracking_metrics": True,
                 "fit_on_init": True,

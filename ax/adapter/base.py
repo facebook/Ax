@@ -113,9 +113,8 @@ class Adapter:
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         data_loader_config: DataLoaderConfig | None = None,
-        # fit_out_of_design, fit_abandoned, and fit_only_completed_map_metrics
+        # fit_abandoned, and fit_only_completed_map_metrics
         # were deprecated in Ax 1.0.0, so they can now be reaped.
-        fit_out_of_design: bool | None = None,
         fit_abandoned: bool | None = None,
         fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
@@ -163,11 +162,9 @@ class Adapter:
                 the transformed inputs.
             data_loader_config: A DataLoaderConfig of options for loading data. See the
                 docstring of DataLoaderConfig for more details.
-            fit_out_of_design: Deprecation warning: `fit_out_of_design` is deprecated.
-                Overwrites `data_loader_config.fit_out_of_design` if not None.
-            fit_abandoned: Deprecation warning: `fit_out_of_design` is deprecated.
+            fit_abandoned: Deprecation warning: `fit_abandoned` is deprecated.
                 Overwrites `data_loader_config.fit_abandoned` if not None.
-            fit_only_completed_map_metrics: Deprecation warning: `fit_out_of_design`
+            fit_only_completed_map_metrics: `fit_only_completed_map_metrics`
                 is deprecated. If not None, overwrites
                 `data_loader_config.fit_only_completed_map_metrics`.
         """
@@ -176,7 +173,6 @@ class Adapter:
         self._data_loader_config: DataLoaderConfig = (
             _legacy_overwrite_data_loader_config(
                 data_loader_config=data_loader_config,
-                fit_out_of_design=fit_out_of_design,
                 fit_abandoned=fit_abandoned,
                 fit_only_completed_map_metrics=fit_only_completed_map_metrics,
             )
@@ -363,22 +359,16 @@ class Adapter:
         self, experiment_data: ExperimentData, search_space: SearchSpace
     ) -> ExperimentData:
         """Store non-transformed training data, and return it after filtering to
-        include only in-design points if
-        ``self._data_loader_config._fit_out_of_design=True``.
+        include only in-design points.
         """
         # NOTE: This is copied in get_training_data, so it won't be modified in-place.
         self._training_data = experiment_data
         self._metric_signatures: set[str] = set(experiment_data.metric_signatures)
-        # Filter out-of-design points if `fit_out_of_design` is False.
-        if self._data_loader_config.fit_out_of_design:
-            self._training_in_design_idx = [True] * len(experiment_data.arm_data)
-        else:
-            self._training_in_design_idx = self._compute_in_design(
-                search_space=search_space, experiment_data=experiment_data
-            )
-        return self.get_training_data(
-            filter_in_design=not self._data_loader_config.fit_out_of_design
+        # Filter out-of-design points.
+        self._training_in_design_idx = self._compute_in_design(
+            search_space=search_space, experiment_data=experiment_data
         )
+        return self.get_training_data(filter_in_design=True)
 
     def _compute_in_design(
         self,
@@ -555,12 +545,10 @@ class Adapter:
 
         Args:
             filter_in_design: If True, the data is filtered by
-                ``self.training_in_design``. Note that this will include all
-                points if ``self._data_loader_config.fit_out_of_design is True``,
-                since all points will be marked as in-design.
+                ``self.training_in_design``.
         """
         experiment_data = deepcopy(self._training_data)
-        if not filter_in_design or self._data_loader_config.fit_out_of_design:
+        if not filter_in_design:
             return experiment_data
         arm_data = experiment_data.arm_data.loc[self.training_in_design]
         obs_data = experiment_data.observation_data
@@ -868,14 +856,11 @@ class Adapter:
 
         # Clamp the untransformed data to the original search space if
         # we don't fit/gen OOD points
-        if not self._data_loader_config.fit_out_of_design:
-            observation_features = clamp_observation_features(
-                observation_features, orig_search_space
-            )
-            if best_obsf is not None:
-                best_obsf = clamp_observation_features([best_obsf], orig_search_space)[
-                    0
-                ]
+        observation_features = clamp_observation_features(
+            observation_features, orig_search_space
+        )
+        if best_obsf is not None:
+            best_obsf = clamp_observation_features([best_obsf], orig_search_space)[0]
         best_point_predictions = None
         try:
             model_predictions = self.predict(observation_features)
@@ -1232,7 +1217,6 @@ def clamp_observation_features(
 
 def _legacy_overwrite_data_loader_config(
     data_loader_config: DataLoaderConfig,
-    fit_out_of_design: bool | None = None,
     fit_abandoned: bool | None = None,
     fit_only_completed_map_metrics: bool | None = None,
     warn_if_legacy: bool = True,
@@ -1241,7 +1225,6 @@ def _legacy_overwrite_data_loader_config(
 
     Args:
         data_loader_config: Data loader config.
-        fit_out_of_design: Whether to fit out-of-design points.
         fit_abandoned: Whether to fit abandoned arms.
         fit_only_completed_map_metrics: Whether to fit only completed map metrics.
         warn_if_legacy: Whether to warn if legacy keyword arguments are used.
@@ -1251,7 +1234,6 @@ def _legacy_overwrite_data_loader_config(
     """
     data_loader_config_dict = {}
     for var_name, deprecated_var in (
-        ("fit_out_of_design", fit_out_of_design),
         ("fit_abandoned", fit_abandoned),
         ("fit_only_completed_map_metrics", fit_only_completed_map_metrics),
     ):
