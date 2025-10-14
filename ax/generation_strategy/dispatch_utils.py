@@ -11,7 +11,6 @@ from math import ceil
 from typing import Any
 
 import torch
-from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
@@ -80,7 +79,6 @@ def _make_botorch_step(
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
     derelativize_with_raw_status_quo: bool = False,
-    fit_out_of_design: bool = False,
     use_saasbo: bool = False,
     use_input_warping: bool = False,
 ) -> GenerationStep:
@@ -101,9 +99,6 @@ def _make_botorch_step(
         model_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
             winsorization_config
         )
-    model_kwargs["data_loader_config"] = DataLoaderConfig(
-        fit_out_of_design=fit_out_of_design
-    )
 
     if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
         model_kwargs["surrogate_spec"] = SurrogateSpec(
@@ -309,7 +304,6 @@ def choose_generation_strategy_legacy(
     jit_compile: bool | None = None,
     experiment: Experiment | None = None,
     suggested_model_override: GeneratorRegistryBase | None = None,
-    fit_out_of_design: bool = False,
     use_input_warping: bool = False,
     simplify_parameter_changes: bool = False,
 ) -> GenerationStrategy:
@@ -402,7 +396,6 @@ def choose_generation_strategy_legacy(
             provided as an arg to this function.
         suggested_model_override: If specified, this model will be used for the GP
             step and automatic selection will be skipped.
-        fit_out_of_design: Whether to include out-of-design points in the model.
         use_input_warping: Whether to use input warping in the model. This is only
             supported in conjunction with use_saasbo=True.
         simplify_parameter_changes: Whether to simplify parameter changes in
@@ -488,12 +481,7 @@ def choose_generation_strategy_legacy(
             )
             jit_compile = None
 
-        model_kwargs: dict[str, Any] = {
-            "torch_device": torch_device,
-            "data_loader_config": DataLoaderConfig(
-                fit_out_of_design=fit_out_of_design,
-            ),
-        }
+        model_kwargs: dict[str, Any] = {"torch_device": torch_device}
         if suggested_model is Generators.BOTORCH_MODULAR:
             model_kwargs["acquisition_options"] = {
                 "prune_irrelevant_parameters": simplify_parameter_changes
