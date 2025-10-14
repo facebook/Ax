@@ -1233,3 +1233,29 @@ class BoTorchGeneratorTest(TestCase):
         self.assertIsInstance(
             ckwargs["posterior_transform"], ScalarizedPosteriorTransform
         )
+
+    @mock_botorch_optimize
+    def test_get_gen_metadata_from_acqf(self) -> None:
+        for prune in (True, False):
+            model = BoTorchGenerator(
+                surrogate=Surrogate(),
+                acquisition_class=Acquisition,
+                botorch_acqf_options=self.botorch_acqf_options,
+                acquisition_options={"prune_irrelevant_parameters": prune},
+            )
+            model.fit(
+                datasets=self.block_design_training_data,
+                search_space_digest=self.search_space_digest,
+            )
+            gen_results = model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    self.torch_opt_config, pruning_target_point=self.X_test[0]
+                ),
+            )
+            num_pruned_dims = gen_results.gen_metadata.get("num_pruned_dims")
+            if prune:
+                self.assertIsNotNone(num_pruned_dims)
+            else:
+                self.assertIsNone(num_pruned_dims)

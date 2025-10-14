@@ -390,8 +390,10 @@ class AcquisitionTest(TestCase):
                     "fixed_features",
                 ):
                     self.assertIsNotNone(call_kwargs[kw_name])
+                self.assertIsNotNone(acquisition.num_pruned_dims)
             else:
                 mock_prune_irrelevant_parameters.assert_not_called()
+                self.assertIsNone(acquisition.num_pruned_dims)
             # can't use assert_called_with on bounds due to ambiguous bool comparison
             expected_bounds = torch.tensor(
                 self.search_space_digest.bounds,
@@ -1435,6 +1437,7 @@ class AcquisitionTest(TestCase):
         self.assertTrue(
             torch.equal(pruned_values, torch.tensor([0.95], dtype=torch.double))
         )
+        self.assertEqual(acq.num_pruned_dims, [1])
 
     def test_prune_irrelevant_parameters_no_pruning_above_threshold(self) -> None:
         # Test that no pruning occurs when all reductions are above threshold
@@ -1511,6 +1514,7 @@ class AcquisitionTest(TestCase):
         )
         self.assertTrue(torch.equal(pruned_candidates, expected_candidates))
         self.assertTrue(torch.equal(pruned_values, torch.tensor([0.98, 0.75])))
+        self.assertEqual(acq.num_pruned_dims, [1, 1])
 
     def test_prune_irrelevant_parameters_with_constraints_exact_values(self) -> None:
         # Test exact pruned values when constraints filter out some candidates
