@@ -32,7 +32,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_moo_defaults import (
+from ax.generators.torch.botorch_moo_utils import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
 )

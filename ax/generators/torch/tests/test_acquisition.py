@@ -916,7 +916,7 @@ class AcquisitionTest(TestCase):
 
     @mock_botorch_optimize
     @mock.patch(  # pyre-ignore
-        "ax.generators.torch.botorch_moo_defaults._check_posterior_type",
+        "ax.generators.torch.botorch_moo_utils._check_posterior_type",
         wraps=lambda y: y,
     )
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")

@@ -25,7 +25,7 @@ from ax.generators.model_utils import (
 )
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
-from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
+from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     get_botorch_objective_and_transform,

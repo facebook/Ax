@@ -7,36 +7,30 @@
 # pyre-strict
 
 from contextlib import ExitStack
-from typing import Any, cast
+from typing import Any
 from unittest import mock
 from warnings import catch_warnings, simplefilter
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.generators.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_moo_defaults import (
-    get_outcome_constraint_transforms,
-    get_qLogEHVI,
-    get_qLogNEHVI,
+from ax.generators.torch.botorch_moo_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
     infer_objective_thresholds,
     pareto_frontier_evaluator,
 )
 from ax.generators.torch_base import TorchGenerator
-from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize_context_manager
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
-from botorch.utils.testing import MockModel, MockPosterior
+from botorch.utils.testing import MockPosterior
 from gpytorch.utils.warnings import NumericalWarning
 
 
-MOO_DEFAULTS_PATH: str = "ax.generators.torch.botorch_moo_defaults"
-GET_ACQF_PATH: str = MOO_DEFAULTS_PATH + ".get_acquisition_function"
+MOO_DEFAULTS_PATH: str = "ax.generators.torch.botorch_moo_utils"
 GET_CONSTRAINT_PATH: str = MOO_DEFAULTS_PATH + ".get_outcome_constraint_transforms"
 GET_OBJ_PATH: str = (
     MOO_DEFAULTS_PATH + ".get_weighted_mc_objective_and_objective_thresholds"
@@ -223,20 +217,7 @@ class FrontierEvaluatorTest(TestCase):
         self.assertEqual(idx.tolist(), [4])
 
 
-class BotorchMOODefaultsTest(TestCase):
-    def test_get_qLogEHVI_input_validation_errors(self) -> None:
-        weights = torch.ones(2)
-        objective_thresholds = torch.zeros(2)
-        # Note: this is a real BoTorch `Model` with a real `Posterior`, not a
-        # `unittest.mock.Mock`
-        mm = MockModel(posterior=MockPosterior())
-        with self.assertRaisesRegex(ValueError, NO_OBSERVED_POINTS_MESSAGE):
-            get_qLogEHVI(
-                model=mm,
-                objective_weights=weights,
-                objective_thresholds=objective_thresholds,
-            )
-
+class BotorchMOOUtilsTest(TestCase):
     def test_get_weighted_mc_objective_and_objective_thresholds(self) -> None:
         objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
         objective_thresholds = torch.arange(4, dtype=torch.float)
@@ -251,71 +232,9 @@ class BotorchMOODefaultsTest(TestCase):
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
         self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
 
-    def test_get_qLogNEHVI_input_validation_errors(self) -> None:
-        weights = torch.ones(2)
-        objective_thresholds = torch.zeros(2)
-        with self.assertRaisesRegex(ValueError, NO_OBSERVED_POINTS_MESSAGE):
-            get_qLogNEHVI(
-                # pyre-fixme[6] In call `get_qLogNEHVI`, for argument `model`,
-                # expected `Model` but got `None`.
-                model=None,
-                objective_weights=weights,
-                objective_thresholds=objective_thresholds,
-            )
-
-    @mock.patch(  # pyre-ignore
-        "ax.generators.torch.botorch_moo_defaults._check_posterior_type",
-        wraps=lambda y: y,
-    )
-    def test_get_qLogEHVI(self, _) -> None:
-        weights = torch.tensor([0.0, 1.0, 1.0])
-        X_observed = torch.rand(4, 3)
-        X_pending = torch.rand(1, 3)
-        constraints = (torch.tensor([1.0, 0.0, 0.0]), torch.tensor([[10.0]]))
-        Y = torch.rand(4, 3)
-        mm = MockModel(MockPosterior(mean=Y))
-        objective_thresholds = torch.arange(3, dtype=torch.float)
-        obj_and_obj_t = get_weighted_mc_objective_and_objective_thresholds(
-            objective_weights=weights,
-            objective_thresholds=objective_thresholds,
-        )
-        (weighted_obj, new_obj_thresholds) = obj_and_obj_t
-        cons_tfs = get_outcome_constraint_transforms(constraints)
-        with with_rng_seed(0):
-            seed = torch.randint(1, 10000, (1,)).item()
-        with ExitStack() as es:
-            mock_get_acqf = es.enter_context(mock.patch(GET_ACQF_PATH))
-            es.enter_context(
-                mock.patch(MOO_DEFAULTS_PATH + ".assert_is_instance", wraps=cast)
-            )
-            es.enter_context(mock.patch(GET_CONSTRAINT_PATH, return_value=cons_tfs))
-            es.enter_context(mock.patch(GET_OBJ_PATH, return_value=obj_and_obj_t))
-            es.enter_context(with_rng_seed(0))
-            get_qLogEHVI(
-                model=mm,
-                objective_weights=weights,
-                outcome_constraints=constraints,
-                objective_thresholds=objective_thresholds,
-                X_observed=X_observed,
-                X_pending=X_pending,
-            )
-            mock_get_acqf.assert_called_once_with(
-                acquisition_function_name="qLogEHVI",
-                model=mm,
-                objective=weighted_obj,
-                X_observed=X_observed,
-                X_pending=X_pending,
-                constraints=cons_tfs,
-                mc_samples=128,
-                alpha=0.0,
-                seed=seed,
-                ref_point=new_obj_thresholds.tolist(),
-                Y=Y,
-            )
-
     # test infer objective thresholds alone
     @mock.patch(  # pyre-ignore
-        "ax.generators.torch.botorch_moo_defaults._check_posterior_type",
+        "ax.generators.torch.botorch_moo_utils._check_posterior_type",
         wraps=lambda y: y,
     )
     def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
@@ -342,7 +261,7 @@ class BotorchMOODefaultsTest(TestCase):
             with ExitStack() as es:
                 _mock_infer_reference_point = es.enter_context(
                     mock.patch(
-                        "ax.generators.torch.botorch_moo_defaults"
+                        "ax.generators.torch.botorch_moo_utils"
                         ".infer_reference_point",
                         wraps=infer_reference_point,
                     )
@@ -410,7 +329,7 @@ class BotorchMOODefaultsTest(TestCase):
             with ExitStack() as es:
                 _mock_infer_reference_point = es.enter_context(
                     mock.patch(
-                        "ax.generators.torch.botorch_moo_defaults"
+                        "ax.generators.torch.botorch_moo_utils"
                         ".infer_reference_point",
                         wraps=infer_reference_point,
                     )
