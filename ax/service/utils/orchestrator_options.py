@@ -117,10 +117,6 @@ class OrchestratorOptions:
             is currently required for MultiTypeExperiments. This is ignored for
             "regular" or single type experiments. If you don't know what a single type
             experiment is, you don't need this.
-        force_candidate_generation: Whether to force candidate generation even if the
-            generation strategy is not ready to generate candidates, meaning one of the
-            transition criteria with block_gen_if_met is met.
-            **This is not yet implemented.**
     """
 
     max_pending_trials: int = 10
@@ -146,7 +142,6 @@ class OrchestratorOptions:
     status_quo_weight: float = 0.0
     enforce_immutable_search_space_and_opt_config: bool = True
     mt_experiment_trial_type: str | None = None
-    force_candidate_generation: bool = False
 
     def __post_init__(self) -> None:
         if self.early_stopping_strategy is not None:
