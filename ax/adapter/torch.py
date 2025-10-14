@@ -65,6 +65,7 @@ from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputErr
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
+from ax.generators.torch.utils import _get_X_pending_and_observed
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -230,14 +231,26 @@ class TorchAdapter(Adapter):
                 f"infer_objective_thresholds. Found {type(self.generator)}."
             )
 
-        obj_thresholds = infer_objective_thresholds(
-            model=none_throws(model),
+        _, X_observed = _get_X_pending_and_observed(
+            Xs=Xs,
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
+            pending_observations=torch_opt_config.pending_observations,
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
-            Xs=Xs,
+            fit_out_of_design=torch_opt_config.fit_out_of_design,
+        )
+        if X_observed is None:
+            raise DataRequiredError(
+                "No complete observations found for the given optimization config. "
+                "Cannot infer objective thresholds."
+            )
+        obj_thresholds = infer_objective_thresholds(
+            model=none_throws(model),
+            objective_weights=torch_opt_config.objective_weights,
+            X_observed=X_observed,
+            outcome_constraints=torch_opt_config.outcome_constraints,
         )
 
         return self._untransform_objective_thresholds(

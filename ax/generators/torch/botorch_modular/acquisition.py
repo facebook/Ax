@@ -306,8 +306,8 @@ class Acquisition(Base):
             self._full_objective_thresholds = infer_objective_thresholds(
                 model=self._model,
                 objective_weights=self._full_objective_weights,
-                outcome_constraints=torch_opt_config.outcome_constraints,
                 X_observed=self.X_observed,
+                outcome_constraints=torch_opt_config.outcome_constraints,
                 subset_idcs=self._subset_idcs,
                 objective_thresholds=self._full_objective_thresholds,
             )
