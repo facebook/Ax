@@ -185,7 +185,6 @@ class ModelRegistryTest(TestCase):
                     "optimization_config": None,
                     "transforms": Cont_X_trans,
                     "transform_configs": None,
-                    "fit_out_of_design": None,  # False by DataLoaderConfig default
                     "fit_abandoned": None,  # False by DataLoaderConfig default
                     "data_loader_config": None,
                     "fit_tracking_metrics": True,
@@ -208,7 +207,6 @@ class ModelRegistryTest(TestCase):
                     "data",
                     "transform_configs",
                     "expand_model_space",
-                    "fit_out_of_design",
                     "fit_abandoned",
                     "fit_tracking_metrics",
                     "fit_on_init",

@@ -1999,35 +1999,6 @@ def get_trial() -> Trial:
     return trial
 
 
-def get_hss_trials_with_fixed_parameter(exp: Experiment) -> dict[int, BaseTrial]:
-    return {
-        0: Trial(experiment=exp).add_arm(
-            arm=Arm(
-                parameters={
-                    "model": "Linear",
-                    "learning_rate": 0.05,
-                    "l2_reg_weight": 1e-4,
-                    "num_boost_rounds": 15,
-                    "z": True,
-                },
-                name="0_0",
-            )
-        ),
-        1: Trial(experiment=exp).add_arm(
-            arm=Arm(
-                parameters={
-                    "model": "XGBoost",
-                    "learning_rate": 0.05,
-                    "l2_reg_weight": 1e-4,
-                    "num_boost_rounds": 15,
-                    "z": True,
-                },
-                name="1_0",
-            )
-        ),
-    }
-
-
 class TestTrial(BaseTrial):
     "Trial class to test unsupported trial type error"
 

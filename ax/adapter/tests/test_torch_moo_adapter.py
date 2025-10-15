@@ -42,8 +42,9 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
+    get_branin_multi_objective_optimization_config,
+    get_experiment_with_observations,
     get_hierarchical_search_space,
-    get_hss_trials_with_fixed_parameter,
     TEST_SOBOL_SEED,
 )
 from ax.utils.testing.mock import mock_botorch_optimize, skip_fit_gpytorch_mll
@@ -629,22 +630,16 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
 
         # test with HSS
-        hss = get_hierarchical_search_space(with_fixed_parameter=True)
-        exp = get_branin_experiment_with_multi_objective(has_optimization_config=True)
-        data = get_branin_data_multi_objective(trial_indices=[0, 1])
-        # Update trials to match the search space.
-        exp._search_space = hss
-        exp._trials = get_hss_trials_with_fixed_parameter(exp=exp)
+        exp = get_experiment_with_observations(
+            observations=[[0.0, 0.5], [1.0, 1.5]],
+            search_space=get_hierarchical_search_space(with_fixed_parameter=True),
+            optimization_config=get_branin_multi_objective_optimization_config(),
+        )
         adapter = TorchAdapter(
-            search_space=hss,
+            experiment=exp,
             generator=BoTorchGenerator(),
-            optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
-            experiment=exp,
-            data=data,
-            # [T143911996] The trials get ignored without fit_out_of_design.
-            fit_out_of_design=True,
         )
         self.assertIn("Cast", adapter.transforms)
         with patch.object(
@@ -657,7 +652,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             wraps=adapter.transforms["Cast"].untransform_observation_features,
         ) as wrapped_cast:
             obj_thresholds = adapter.infer_objective_thresholds(
-                search_space=hss,
+                search_space=exp.search_space,
                 optimization_config=exp.optimization_config,
                 fixed_features=None,
             )
@@ -685,15 +680,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         data = exp.fetch_data()
         adapter = TorchAdapter(
-            search_space=exp.search_space,
+            experiment=exp,
             generator=BoTorchGenerator(),
-            optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
-            experiment=exp,
-            data=data,
-            # [T143911996] The trials get ignored without fit_out_of_design.
-            fit_out_of_design=True,
         )
         obj_thresholds = adapter.infer_objective_thresholds(
             search_space=exp.search_space,

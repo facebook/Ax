@@ -15,9 +15,10 @@ parameterizations and the metric observations (from a Data object).
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
 from typing import Any
 
 import numpy as np
@@ -40,9 +41,6 @@ class DataLoaderConfig:
     of `Adapter._set_and_filter_training_data`.
 
     Args:
-        fit_out_of_design: If specified, all training data are used.
-            Otherwise, only in design points are used. Note that in-design-ness is
-            determined after expanding the modeling space, if applicable.
         fit_abandoned: Whether data for abandoned arms or trials should be included in
             model training data. If `False`, only non-abandoned points are returned.
         fit_only_completed_map_metrics: Whether to fit a model to map metrics only when
@@ -58,14 +56,15 @@ class DataLoaderConfig:
             in the `MAP_KEY` column for each (arm, metric) is limited by this value.
     """
 
-    fit_out_of_design: bool = False
+    # pyre-ignore [16]: Pyre doesn't understand InitVar.
+    fit_out_of_design: InitVar[bool | None] = None
     fit_abandoned: bool = False
     fit_only_completed_map_metrics: bool = False
     latest_rows_per_group: int | None = 1
     limit_rows_per_metric: int | None = None
     limit_rows_per_group: int | None = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, fit_out_of_design: bool | None) -> None:
         if self.latest_rows_per_group is not None and (
             self.limit_rows_per_metric is not None
             or self.limit_rows_per_group is not None
@@ -73,6 +72,14 @@ class DataLoaderConfig:
             raise UnsupportedError(
                 "`latest_rows_per_group` must be None if either of "
                 "`limit_rows_per_metric` or `limit_rows_per_group` is specified."
+            )
+        if fit_out_of_design is not None:
+            warnings.warn(
+                # Deprecated after Ax 1.1.2. Can be removed with Ax 1.3.0.
+                "`fit_out_of_design` is deprecated and will be removed in the future. "
+                "Please remove it from your inputs to avoid future errors.",
+                DeprecationWarning,
+                stacklevel=2,
             )
 
     @property
