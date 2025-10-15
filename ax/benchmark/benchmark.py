@@ -730,7 +730,7 @@ def compute_baseline_value_from_sobol(
         )
         values[i] = result.optimization_trace[-1]
 
-    return values.mean()
+    return values.mean().item()
 
 
 def benchmark_one_method_problem(

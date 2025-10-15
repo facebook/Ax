@@ -24,6 +24,7 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
+from botorch.test_functions import synthetic
 from botorch.test_functions.base import (
     BaseTestProblem,
     ConstrainedBaseTestProblem,
@@ -33,7 +34,7 @@ from botorch.test_functions.multi_fidelity import AugmentedBranin
 from pyre_extensions import assert_is_instance
 
 # A mapping from (BoTorch problem class name, dim | None) to baseline value
-# Obtained using `get_baseline_value_from_sobol`
+# Obtained using `compute_baseline_value_from_sobol()`
 BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("Ackley", 4): 19.837273921447853,
     ("Branin", None): 10.930455126654936,
@@ -53,6 +54,7 @@ BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("Rosenbrock", 4): 30143.767857949348,
     ("SixHumpCamel", None): 0.45755007063109004,
     ("SpeedReducer", None): float("inf"),
+    ("StyblinskiTang", 2): -50.22278471716156,
     ("TensionCompressionString", None): float("inf"),
     ("ThreeHumpCamel", None): 3.7321680621434155,
     ("WeldedBeamSO", None): float("inf"),
@@ -82,7 +84,7 @@ def _get_name(
 
 def create_problem_from_botorch(
     *,
-    test_problem_class: type[BaseTestProblem],
+    test_problem_class: type[BaseTestProblem] | str,
     test_problem_kwargs: dict[str, Any],
     noise_std: float | list[float] = 0.0,
     num_trials: int,
@@ -114,6 +116,9 @@ def create_problem_from_botorch(
     Args:
         test_problem_class: The BoTorch test problem class which will be used
             to define the `search_space`, `optimization_config`, and `runner`.
+            If the test function class name is provided as a string, the class
+            will be loaded dynamically via `getattr` from the module
+            `botorch.test_functions.synthetic`.
         test_problem_kwargs: Keyword arguments used to instantiate the
             `test_problem_class`. This should *not* include `noise_std` or
             `negate`, since these are handled through Ax benchmarking (as the
@@ -176,7 +181,9 @@ def create_problem_from_botorch(
         ...    step_runtime_function=lambda params: 1 / params["fidelity"],
         ... )
     """
-    # pyre-fixme [45]: Invalid class instantiation
+    if isinstance(test_problem_class, str):
+        test_problem_class = getattr(synthetic, test_problem_class)
+
     test_problem = test_problem_class(**test_problem_kwargs)
     is_constrained = isinstance(test_problem, ConstrainedBaseTestProblem)
 
@@ -204,14 +211,10 @@ def create_problem_from_botorch(
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
     if isinstance(test_problem, MultiObjectiveTestProblem):
-        # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got
-        #  `Union[Tensor, Module]`.
         objective_names = [f"{name}_{i}" for i in range(n_obj)]
     else:
         objective_names = [name]
 
-    # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got `Union[int,
-    #  Tensor, Module]`.
     constraint_names = [f"constraint_slack_{i}" for i in range(num_constraints)]
     outcome_names = objective_names + constraint_names
 
@@ -227,8 +230,6 @@ def create_problem_from_botorch(
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
         optimization_config = get_moo_opt_config(
-            # pyre-fixme[6]: For 1st argument expected `int` but got `Union[int,
-            #  Tensor, Module]`.
             num_constraints=num_constraints,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
