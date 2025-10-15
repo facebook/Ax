@@ -144,10 +144,13 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
         # LogProbabilityOfFeasibility using MOO.
         generator = relevant_adapter.generator
         orig_acquisition_class = generator.acquisition_class
+
+        orig_acquisition_options = generator.acquisition_options
         orig_botorch_acqf_classes_with_options = (
             generator._botorch_acqf_classes_with_options
         )
         generator.acquisition_class = MultiAcquisition
+        generator.acquisition_options = {}
         generator._botorch_acqf_classes_with_options = [
             (PosteriorMean, {}),
             (LogProbabilityOfFeasibility, {}),
@@ -155,6 +158,7 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
         frontier_gr = relevant_adapter.gen(n=self.num_points_to_generate)
         # in case this generator is used again, restore the original settings
         generator.acquisition_class = orig_acquisition_class
+        generator.acquisition_options = orig_acquisition_options
         generator._botorch_acqf_classes_with_options = (
             orig_botorch_acqf_classes_with_options
         )
