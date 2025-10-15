@@ -6,7 +6,7 @@
 # pyre-strict
 
 import itertools
-from typing import Mapping, Sequence
+from typing import Sequence
 
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
@@ -258,7 +258,7 @@ class ArmEffectsPair(Analysis):
         trial_index: int | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
-        labels: Mapping[str, str] | None = None,
+        label: str | None = None,
     ) -> None:
         """
         Args:
@@ -271,8 +271,7 @@ class ArmEffectsPair(Analysis):
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
-            labels: A mapping from metric names to labels to use in the plot. If a label
-                is not provided for a metric, the metric name will be used.
+            label: A label to use in the plot in place of the metric name.
         """
 
         self.metric_names = metric_names
@@ -280,7 +279,7 @@ class ArmEffectsPair(Analysis):
         self.trial_index = trial_index
         self.trial_statuses = trial_statuses
         self.additional_arms = additional_arms
-        self.labels: Mapping[str, str] = labels or {}
+        self.label = label
 
     @override
     def compute(
@@ -302,23 +301,23 @@ class ArmEffectsPair(Analysis):
         for metric_name in self.metric_names or [*experiment.metrics.keys()]:
             # TODO: Test for no effects and render a message instead of a flat line.
             predicted_analysis = ArmEffectsPlot(
-                metric_names=[metric_name],
+                metric_name=metric_name,
                 use_model_predictions=True,
                 relativize=self.relativize,
                 trial_index=self.trial_index,
                 trial_statuses=self.trial_statuses,
                 additional_arms=self.additional_arms,
-                labels=self.labels,
+                label=self.label,
             )
 
             raw_analysis = ArmEffectsPlot(
-                metric_names=[metric_name],
+                metric_name=metric_name,
                 use_model_predictions=False,
                 relativize=self.relativize,
                 trial_index=self.trial_index,
                 trial_statuses=self.trial_statuses,
                 additional_arms=self.additional_arms,
-                labels=self.labels,
+                label=self.label,
             )
 
             pair = AnalysisCardGroup(

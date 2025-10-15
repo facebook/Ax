@@ -111,13 +111,13 @@ class TrialAnalysis(Analysis):
         )
         analyses = [
             ArmEffectsPlot(
-                metric_names=[*objective_names, *constraint_names],
+                metric_name=metric_name,
                 use_model_predictions=True,
                 relativize=relativize,
                 trial_index=self.trial.index,
             )
+            for metric_name in [*objective_names, *constraint_names]
             if self.trial.status == TrialStatus.CANDIDATE
-            else None
         ]
         return AnalysisCardGroup(
             name=f"{self.trial.index}",
