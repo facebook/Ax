@@ -1167,7 +1167,13 @@ class DerivedParameter(Parameter):
                 )
             return False
         expected_value = self.compute(parameters=parameters)
-        is_valid = expected_value == value
+        is_valid = (
+            abs(
+                assert_is_instance(expected_value, TNumeric)
+                - assert_is_instance(value, TNumeric)
+            )
+            < EPS
+        )
         if raises and not is_valid:
             raise UserInputError(
                 f"Value {value} is not equal to the expected derived"
