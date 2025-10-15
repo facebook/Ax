@@ -7,6 +7,7 @@
 # pyre-strict
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -39,6 +40,7 @@ class SobolGenerator(RandomGenerator):
         scramble: bool = True,
         generated_points: npt.NDArray | None = None,
         fallback_to_sample_polytope: bool = False,
+        polytope_sampler_kwargs: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
             deduplicate=deduplicate,
@@ -46,6 +48,7 @@ class SobolGenerator(RandomGenerator):
             init_position=init_position,
             generated_points=generated_points,
             fallback_to_sample_polytope=fallback_to_sample_polytope,
+            polytope_sampler_kwargs=polytope_sampler_kwargs,
         )
         self.scramble = scramble
         # Initialize engine on gen.

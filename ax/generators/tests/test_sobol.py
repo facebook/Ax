@@ -190,7 +190,11 @@ class SobolGeneratorTest(TestCase):
         # Ten parameters with sum less than 1. In this example, the rejection
         # sampler gives a search space exhausted error.  Testing fallback to
         # polytope sampler when encountering this error.
-        generator = SobolGenerator(seed=0, fallback_to_sample_polytope=True)
+        generator = SobolGenerator(
+            seed=0,
+            fallback_to_sample_polytope=True,
+            polytope_sampler_kwargs={"n_thinning": 3},
+        )
         ssd = self._create_ssd(n_tunable=10, n_fixed=0)
         A = np.ones((1, 10))
         b = np.array([1]).reshape((1, 1))
@@ -235,6 +239,8 @@ class SobolGeneratorTest(TestCase):
             )
         # last call for (6th generated point) uses seed=5
         self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 5)
+        self.assertEqual(wrapped_sampler.call_args.kwargs["n_thinning"], 3)
+
         rounding_func.assert_called()
 
     def test_SobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:

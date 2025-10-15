@@ -548,6 +548,7 @@ class TestGenerationStrategy(TestCase):
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
+                        "polytope_sampler_kwargs": None,
                         "generated_points": None,
                     },
                 )
@@ -1512,6 +1513,7 @@ class TestGenerationStrategy(TestCase):
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
+                        "polytope_sampler_kwargs": None,
                         "generated_points": None,
                     },
                 )
