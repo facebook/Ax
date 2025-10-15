@@ -180,6 +180,7 @@ class ModelRegistryTest(TestCase):
                     "scramble": True,
                     "generated_points": None,
                     "fallback_to_sample_polytope": False,
+                    "polytope_sampler_kwargs": None,
                 },
                 {
                     "optimization_config": None,

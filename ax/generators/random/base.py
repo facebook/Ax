@@ -72,6 +72,7 @@ class RandomGenerator(Generator):
         init_position: int = 0,
         generated_points: npt.NDArray | None = None,
         fallback_to_sample_polytope: bool = False,
+        polytope_sampler_kwargs: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.deduplicate = deduplicate
@@ -83,6 +84,7 @@ class RandomGenerator(Generator):
         self.init_position = init_position
         # Used for deduplication.
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
+        self.polytope_sampler_kwargs: dict[str, Any] = polytope_sampler_kwargs or {}
         self.attempted_draws: int = 0
         if generated_points is not None:
             # generated_points was deprecated in Ax 1.0.0, so it can now be reaped.
@@ -204,6 +206,8 @@ class RandomGenerator(Generator):
                     if generated_points is not None
                     else None
                 )
+                kwargs = {"n_burnin": 100, "n_thinning": 20}
+                kwargs.update(self.polytope_sampler_kwargs)
                 polytope_sampler: HitAndRunPolytopeSampler = HitAndRunPolytopeSampler(
                     inequality_constraints=self._convert_inequality_constraints(
                         linear_constraints,
@@ -214,9 +218,8 @@ class RandomGenerator(Generator):
                     ),
                     bounds=self._convert_bounds(bounds=search_space_digest.bounds),
                     interior_point=interior_point,
-                    n_burnin=100,
-                    n_thinning=20,
                     seed=self.seed + num_generated,
+                    **kwargs,
                 )
 
                 def gen_polytope_sampler(
