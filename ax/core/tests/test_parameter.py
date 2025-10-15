@@ -842,6 +842,9 @@ class DerivedParameterTest(TestCase):
         self.assertTrue(
             self.param1.validate(value=3.0, parameters={"a": 1.0}, raises=True)
         )
+        self.assertTrue(
+            self.param1.validate(value=3.0 + 1e-9, parameters={"a": 1.0}, raises=True)
+        )
 
     def test_set_parameter_names_to_weights(self) -> None:
         new_expression_str = "5.0 * c"
