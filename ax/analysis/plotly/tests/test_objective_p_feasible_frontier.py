@@ -12,6 +12,7 @@ from ax.adapter.registry import Generators
 from ax.analysis.plotly.objective_p_feasible_frontier import (
     ObjectivePFeasibleFrontierPlot,
 )
+from ax.core.arm import Arm
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -55,19 +56,24 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         # reimport it here
         import pymoo  # noqa: F401
 
-        adapter = Generators.BOTORCH_MODULAR(experiment=self.experiment)
-        card = ObjectivePFeasibleFrontierPlot().compute(
-            experiment=self.experiment, adapter=adapter
-        )
-        self.assertEqual(
-            json.loads(card.blob)["layout"]["xaxis"]["title"]["text"], "branin_a"
-        )
-        self.assertEqual(
-            json.loads(card.blob)["layout"]["yaxis"]["title"]["text"],
-            "% Chance of Satisfying the Constraints",
-        )
-        self.assertFalse(card.df["branin_a_sem"].isna().any())
-        self.assertTrue(card.df["p_feasible_sem"].isna().all())
+        for pruning in (False, True):
+            target = Arm(parameters={"x1": 0.0, "x2": 0.0}) if pruning else None
+            self.experiment.optimization_config.pruning_target_parameterization = target
+            adapter = Generators.BOTORCH_MODULAR(
+                experiment=self.experiment,
+                acquisition_options={"prune_irrelevant_parameters": pruning},
+            )
+            card = ObjectivePFeasibleFrontierPlot().compute(
+                experiment=self.experiment, adapter=adapter
+            )
+            layout = json.loads(card.blob)["layout"]
+            self.assertEqual(layout["xaxis"]["title"]["text"], "branin_a")
+            self.assertEqual(
+                layout["yaxis"]["title"]["text"],
+                "% Chance of Satisfying the Constraints",
+            )
+            self.assertFalse(card.df["branin_a_sem"].isna().any())
+            self.assertTrue(card.df["p_feasible_sem"].isna().all())
 
     def test_no_exceptions(self) -> None:
         with self.assertRaisesRegex(
