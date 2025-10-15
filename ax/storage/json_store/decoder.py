@@ -95,6 +95,8 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
 _DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
     "fit_on_update",
     "fit_out_of_design",
+    "fit_abandoned",
+    "fit_only_completed_map_metrics",
     "torch_dtype",
     "status_quo_name",
     "status_quo_features",

@@ -54,8 +54,6 @@ class DiscreteAdapter(Adapter):
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         data_loader_config: DataLoaderConfig | None = None,
-        fit_abandoned: bool | None = None,
-        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         # These are set in _fit.
         self.parameters: list[str] = []
@@ -70,10 +68,8 @@ class DiscreteAdapter(Adapter):
             optimization_config=optimization_config,
             expand_model_space=expand_model_space,
             data_loader_config=data_loader_config,
-            fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
-            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
         # Re-assign for more precise typing.
         self.generator: DiscreteGenerator = generator

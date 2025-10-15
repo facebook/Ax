@@ -557,7 +557,6 @@ class TestGenerationStrategy(TestCase):
                         "optimization_config": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
-                        "fit_abandoned": None,  # False by DataLoaderConfig default
                         "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
@@ -1522,7 +1521,6 @@ class TestGenerationStrategy(TestCase):
                         "optimization_config": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
-                        "fit_abandoned": None,  # False by DataLoaderConfig default
                         "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
