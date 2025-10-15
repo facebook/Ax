@@ -28,7 +28,6 @@ from ax.analysis.plotly.utils import (
     MARGIN_REDUCUTION,
     MULTIPLE_CANDIDATE_TRIALS_LEGEND,
     SINGLE_CANDIDATE_TRIAL_LEGEND,
-    STALE_FAIL_REASON,
     trial_index_to_color,
     truncate_label,
     X_TICKER_SCALING_FACTOR,
@@ -44,7 +43,7 @@ from ax.analysis.utils import (
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
-from ax.core.trial_status import STALE_ABANDONED_CANDIDATE_STATUSES, TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -138,7 +137,16 @@ class ArmEffectsPlot(Analysis):
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-        self.trial_statuses = trial_statuses
+
+        # By default, include all trials except those that are abandoned or stale.
+        if trial_statuses is not None:
+            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
+        elif self.trial_index is not None:
+            self.trial_statuses: list[TrialStatus] | None = None
+        else:
+            self.trial_statuses: list[TrialStatus] | None = [
+                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+            ]
         self.additional_arms = additional_arms
         self.labels: Mapping[str, str] = labels or {}
         self.show_cumulative_best = show_cumulative_best
@@ -328,19 +336,9 @@ def _prepare_figure(
     candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
     ].unique()
-    # Filter out undesired trials like STALE and ABANDONED trials from plot.
-    status_filter = ~df["trial_status"].isin(
-        [ts.name for ts in STALE_ABANDONED_CANDIDATE_STATUSES]
-    )
-    # Also filter out failed trials that failed with STALE_FAIL_REASON.
-    stale_failed_filter = ~(
-        (df["trial_status"] == TrialStatus.FAILED.name)
-        & (df["fail_reason"].notna())
-        & (df["fail_reason"] == STALE_FAIL_REASON)
-    )
-    trials = df[status_filter & stale_failed_filter]["trial_index"].unique()
 
-    # Check if candidate_trial is NaN and handle it
+    trials = df["trial_index"].unique()
+
     trial_indices = list(trials)
     trial_indices.extend(candidate_trials)
 
