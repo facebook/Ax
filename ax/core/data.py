@@ -426,13 +426,7 @@ def relativize_dataframe(
             bias_correction=bias_correction,
             control_as_constant=control_as_constant,
         )
-        # Make a copy to avoid modifying the original dataframe
-        subgroup_df_rel = subgroup_df.copy()
-        # Update mean and sem columns with relativized values
-        # Direct assignment is more efficient than pd.concat
-        subgroup_df_rel["mean"] = means_rel
-        subgroup_df_rel["sem"] = sems_rel
-        dfs.append(subgroup_df_rel)
+        dfs.append(subgroup_df.assign(mean=means_rel, sem=sems_rel))
     df_rel = pd.concat(dfs, axis=0)
     if include_sq:
         df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0
