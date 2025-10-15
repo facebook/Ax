@@ -36,7 +36,6 @@ from ax.analysis.utils import (
     extract_relevant_adapter,
     get_lower_is_better,
     prepare_arm_data,
-    update_metric_names_if_using_p_feasible,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
@@ -166,14 +165,9 @@ class ScatterPlot(Analysis):
         else:
             relevant_adapter = None
 
-        # if using p_feasible, we need to get the data for the metrics involved
-        # in constraints even though we don't plot them
-        metric_names = update_metric_names_if_using_p_feasible(
-            metric_names=[self.x_metric_name, self.y_metric_name], experiment=experiment
-        )
         df = prepare_arm_data(
             experiment=experiment,
-            metric_names=metric_names,
+            metric_names=[self.x_metric_name, self.y_metric_name],
             use_model_predictions=self.use_model_predictions,
             adapter=relevant_adapter,
             trial_index=self.trial_index,
