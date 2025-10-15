@@ -59,6 +59,15 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
     "Bandit": BenchmarkProblemRegistryEntry(
         factory_fn=get_bandit_problem, factory_kwargs={}
     ),
+    "botorch_synthetic": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        # NOTE: This is the only problem that require a mandatory argument,
+        # in this case `test_problem_class`.
+        factory_kwargs={
+            "test_problem_kwargs": {},
+            "num_trials": 30,
+        },
+    ),
     "branin": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
         factory_kwargs={
