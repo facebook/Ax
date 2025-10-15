@@ -14,10 +14,7 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import Analysis
-from ax.analysis.plotly.color_constants import (
-    BOTORCH_COLOR_SCALE,
-    CONSTRAINT_VIOLATION_RED,
-)
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
@@ -38,7 +35,6 @@ from ax.analysis.plotly.utils import (
 from ax.analysis.utils import (
     extract_relevant_adapter,
     get_lower_is_better,
-    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
     prepare_arm_data,
     update_metric_names_if_using_p_feasible,
 )
@@ -382,15 +378,6 @@ def _prepare_figure(
                 trial_index=trial_index,
                 transparent=False,
             ),
-            "line": {
-                "width": trial_df.apply(
-                    lambda row: 2
-                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                    else 0,
-                    axis=1,
-                ),
-                "color": CONSTRAINT_VIOLATION_RED,
-            },
         }
 
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
@@ -497,22 +484,6 @@ def _prepare_figure(
             )
         )
 
-    # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
-        legend_trace = go.Scatter(
-            # None here allows us to place a legend item without corresponding points
-            x=[None],
-            y=[None],
-            mode="markers",
-            marker={
-                "color": "rgba(0, 0, 0, 0)",
-                "line": {"width": 2, "color": "red"},
-            },
-            name="Possible Constraint Violation",
-        )
-
-        figure.add_trace(legend_trace)
-
     # Add horizontal and vertical lines for the status quo.
     if "status_quo" in df["arm_name"].values:
         x = df[df["arm_name"] == "status_quo"][f"{x_metric_name}_mean"].iloc[0]
@@ -539,17 +510,12 @@ def _prepare_figure(
             )
 
     if show_pareto_frontier:
-        # Infeasible arms are not included in the Pareto frontier
-        eligable_arms = df[
-            df["p_feasible_mean"] >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-        ]
-
         # If there are no arms which are not likely to violate constraints, return the
         # figure as is, without adding a Pareto frontier line.
-        if len(eligable_arms) == 0:
+        if len(df) == 0:
             return figure
 
-        sorted_df = eligable_arms.sort_values(
+        sorted_df = df.sort_values(
             by=f"{x_metric_name}_mean", ascending=x_lower_is_better
         )
 

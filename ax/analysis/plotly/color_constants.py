@@ -34,7 +34,6 @@ BOTORCH_COLOR_SCALE = [
 AX_BLUE = "#5078f9"  # rgb code: rgb(80, 120, 249)
 LIGHT_AX_BLUE = "#adc0fd"  # rgb(173, 192, 253)
 
-CONSTRAINT_VIOLATION_RED = "red"
 
 # Use the same continuous sequential color scale for all plots. PRGn uses purples for
 # low values and transitions to greens for high values.
