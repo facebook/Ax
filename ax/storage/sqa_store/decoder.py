@@ -1457,7 +1457,7 @@ class Decoder:
         except DetachedInstanceError:
             children_metrics_sqa = fallback_function(parent_metric_sqa.id, self)
 
-        if children_metrics_sqa is None:
+        if not children_metrics_sqa:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric to {metric_type_name} "
                 "because the parent metric has no children metrics."
