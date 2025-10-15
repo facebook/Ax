@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-unsafe
+# pyre-safe
 
 import json
 from itertools import product
@@ -76,7 +76,7 @@ class TestArmEffectsPlot(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "Requested metrics .* are not present in the experiment."
         ):
-            ArmEffectsPlot(metric_names=["foo", "bar", "baz"]).compute(
+            ArmEffectsPlot(metric_name="baz").compute(
                 experiment=self.client._experiment,
                 generation_strategy=self.client._generation_strategy,
             )
@@ -84,37 +84,22 @@ class TestArmEffectsPlot(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "Trial with index .* not found in experiment."
         ):
-            ArmEffectsPlot(trial_index=1998).compute(
+            ArmEffectsPlot(metric_name="foo", trial_index=1998).compute(
                 experiment=self.client._experiment,
                 generation_strategy=self.client._generation_strategy,
             )
 
     def test_compute_raw(self) -> None:
-        default_analysis = ArmEffectsPlot(use_model_predictions=False)
-
-        cards = default_analysis.compute(
-            experiment=self.client._experiment,
-            generation_strategy=self.client._generation_strategy,
-        ).flatten()
-
-        # Check that we have cards for both metrics
-        self.assertEqual(len(cards), 2)
-
-        self.assertEqual(
-            set(cards[0].df.columns),
-            {
-                "trial_index",
-                "arm_name",
-                "trial_status",
-                "fail_reason",
-                "generation_node",
-                "bar_mean",
-                "bar_sem",
-            },
+        default_analysis = ArmEffectsPlot(
+            metric_name="foo", use_model_predictions=False
         )
 
+        card = default_analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
         self.assertEqual(
-            set(cards[1].df.columns),
+            set(card.df.columns),
             {
                 "trial_index",
                 "arm_name",
@@ -126,42 +111,24 @@ class TestArmEffectsPlot(TestCase):
             },
         )
 
-        for card in cards:
-            # Check that we have one row per arm and that each arm appears only once
-            self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-            for arm_name in self.client._experiment.arms_by_name:
-                self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
+        # Check that we have one row per arm and that each arm appears only once
+        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
+        for arm_name in self.client._experiment.arms_by_name:
+            self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are NaN
-        self.assertTrue(cards[0].df["bar_sem"].isna().all())
-        self.assertTrue(cards[1].df["foo_sem"].isna().all())
+        self.assertTrue(card.df["foo_sem"].isna().all())
 
     def test_compute_with_modeled(self) -> None:
-        default_analysis = ArmEffectsPlot(use_model_predictions=True)
+        default_analysis = ArmEffectsPlot(metric_name="foo", use_model_predictions=True)
 
-        cards = default_analysis.compute(
+        card = default_analysis.compute(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
-        ).flatten()
-
-        # Check that we have cards for both metrics
-        self.assertEqual(len(cards), 2)
-
-        self.assertEqual(
-            set(cards[0].df.columns),
-            {
-                "trial_index",
-                "arm_name",
-                "trial_status",
-                "fail_reason",
-                "generation_node",
-                "bar_mean",
-                "bar_sem",
-            },
         )
 
         self.assertEqual(
-            set(cards[1].df.columns),
+            set(card.df.columns),
             {
                 "trial_index",
                 "arm_name",
@@ -173,23 +140,21 @@ class TestArmEffectsPlot(TestCase):
             },
         )
 
-        for card in cards:
-            # Check that we have one row per arm and that each arm appears only once
-            self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-            for arm_name in self.client._experiment.arms_by_name:
-                self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
+        # Check that we have one row per arm and that each arm appears only once
+        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
+        for arm_name in self.client._experiment.arms_by_name:
+            self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are not NaN
-        self.assertFalse(cards[0].df["bar_sem"].isna().any())
-        self.assertFalse(cards[1].df["foo_sem"].isna().any())
+        self.assertFalse(card.df["foo_sem"].isna().any())
 
     def test_compute_adhoc(self) -> None:
         # Use the same kwargs for typical and adhoc
         kwargs = {
-            "metric_names": ["foo", "bar"],
+            "metric_name": "foo",
             "use_model_predictions": True,
             "additional_arms": [Arm(parameters={"x1": 0, "x2": 0})],
-            "labels": {"foo": "f"},
+            "label": "f",
         }
         # pyre-ignore[6]: Unsafe kwargs usage on purpose
         analysis = ArmEffectsPlot(**kwargs)
@@ -199,14 +164,17 @@ class TestArmEffectsPlot(TestCase):
             generation_strategy=self.client._generation_strategy,
         )
 
+        metric_name = assert_is_instance(kwargs.pop("metric_name"), str)
         adhoc_cards = compute_arm_effects_adhoc(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
+            metric_names=[metric_name],
+            labels={metric_name: assert_is_instance(kwargs.pop("label"), str)},
             # pyre-ignore[6]: Unsafe kwargs usage on purpose
             **kwargs,
         )
 
-        self.assertEqual(cards, adhoc_cards)
+        self.assertEqual(cards, adhoc_cards.children[0])
 
     @TestCase.ax_long_test(
         reason=(
@@ -240,27 +208,24 @@ class TestArmEffectsPlot(TestCase):
                     adapter._experiment.signature_to_metric[signature].name
                     for signature in adapter.metric_signatures
                 ]
-                analysis = ArmEffectsPlot(
-                    metric_names=model_metric_names,
-                    use_model_predictions=use_model_predictions,
-                    trial_index=trial_index,
-                    additional_arms=additional_arms,
-                )
-
-                cards = analysis.compute(
-                    experiment=experiment,
-                    adapter=adapter,
-                )
-                self.assertEqual(len(cards.flatten()), len(model_metric_names))
-                if with_additional_arms and use_model_predictions:
-                    # validate that we plotted the additional arm
-                    self.assertTrue(
-                        all(
-                            arm.name
-                            in json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
-                            for card in cards.flatten()
-                        )
+                for metric_name in model_metric_names:
+                    analysis = ArmEffectsPlot(
+                        metric_name=metric_name,
+                        use_model_predictions=use_model_predictions,
+                        trial_index=trial_index,
+                        additional_arms=additional_arms,
                     )
+
+                    card = analysis.compute(
+                        experiment=experiment,
+                        adapter=adapter,
+                    )
+                    if with_additional_arms and use_model_predictions:
+                        # validate that we plotted the additional arm
+                        self.assertIn(
+                            arm.name,
+                            json.loads(card.blob)["layout"]["xaxis"]["ticktext"],
+                        )
 
     @TestCase.ax_long_test(
         reason=(
@@ -302,17 +267,18 @@ class TestArmEffectsPlot(TestCase):
                             adapter._experiment.signature_to_metric[signature].name
                             for signature in adapter.metric_signatures
                         ]
-                        analysis = ArmEffectsPlot(
-                            metric_names=model_metric_names,
-                            use_model_predictions=use_model_predictions,
-                            trial_index=trial_index,
-                            additional_arms=additional_arms,
-                        )
+                        for metric_name in model_metric_names:
+                            analysis = ArmEffectsPlot(
+                                metric_name=metric_name,
+                                use_model_predictions=use_model_predictions,
+                                trial_index=trial_index,
+                                additional_arms=additional_arms,
+                            )
 
-                        _ = analysis.compute(
-                            experiment=experiment,
-                            adapter=adapter,
-                        )
+                            _ = analysis.compute(
+                                experiment=experiment,
+                                adapter=adapter,
+                            )
 
 
 class TestArmEffectsPlotRel(TestCase):
@@ -334,7 +300,9 @@ class TestArmEffectsPlotRel(TestCase):
         for use_model_predictions in [True, False]:
             with self.subTest(use_model_predictions=use_model_predictions):
                 analysis = ArmEffectsPlot(
-                    use_model_predictions=use_model_predictions, relativize=True
+                    metric_name="branin",
+                    use_model_predictions=use_model_predictions,
+                    relativize=True,
                 )
 
                 cards = analysis.compute(
