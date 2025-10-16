@@ -287,7 +287,7 @@ class ModelRegistryTest(TestCase):
                         model,
                         SaasFullyBayesianMultiTaskGP if use_saas else MultiTaskGP,
                     )
-                    data_covar_module, task_covar_module = model.covar_module.kernels
+                    data_covar_module, _ = model.covar_module.kernels
                     if use_saas is False and default_model is False:
                         self.assertIsInstance(data_covar_module, ScaleKernel)
                         base_kernel = data_covar_module.base_kernel

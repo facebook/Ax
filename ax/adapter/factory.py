@@ -17,7 +17,6 @@ from pyre_extensions import assert_is_instance
 
 
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
-DEFAULT_EHVI_BATCH_LIMIT = 5
 
 
 """

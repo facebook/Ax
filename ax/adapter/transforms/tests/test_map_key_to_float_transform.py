@@ -287,9 +287,6 @@ class MapKeyToFloatTransformTest(TestCase):
         self.hss_experiment = get_hierarchical_search_space_experiment(
             num_observations=5, use_map_data=True
         )
-        self.hss_observations = observations_from_data(
-            experiment=self.hss_experiment, data=self.hss_experiment.lookup_data()
-        )
         self.hss_experiment_data = extract_experiment_data(
             experiment=self.hss_experiment,
             data_loader_config=DataLoaderConfig(),

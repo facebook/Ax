@@ -1093,16 +1093,6 @@ class TorchAdapter(Adapter):
 
         return thresholds
 
-    def _validate_observation_data(
-        self, observation_data: list[ObservationData]
-    ) -> None:
-        if len(observation_data) == 0:
-            raise ValueError(
-                "Torch generators cannot be fit without observation data. Possible "
-                "reasons include empty data being passed to the generator's constructor"
-                " or data being excluded because it is out-of-design. "
-            )
-
     def _extract_observation_data(
         self,
         observation_data: list[ObservationData],
