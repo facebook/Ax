@@ -173,7 +173,7 @@ class CrossValidationPlot(Analysis):
 
             cards.append(card)
 
-        return self._create_analysis_card_group_or_card(
+        return self._create_analysis_card_group(
             title=CV_CARDGROUP_TITLE,
             subtitle=CV_CARDGROUP_SUBTITLE,
             children=cards,
