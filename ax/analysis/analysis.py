@@ -20,6 +20,7 @@ from ax.analysis.analysis_card import (
     ErrorAnalysisCard,
 )
 from ax.core.experiment import Experiment
+from ax.exceptions.analysis import AnalysisNotApplicableStateError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
@@ -58,6 +59,24 @@ class Analysis(Protocol):
         # generation.
         ...
 
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        Validates that the Experiment, GenerationStrategy, and/or Adapter are in an
+        applicable state to compute this Analysis for its given settings. If the state
+        is not applicable, returns a string describing why; if the state is applicable,
+        returns None.
+
+        Example: if ArmEffectsPlot(metric_name="foo").validate_applicable_state(...) is
+        called on an Experiment with no data for metric "foo", it will return a string
+        clearly stating that the Experiment is still waiting for data for "foo".
+        """
+        ...
+
     def compute_result(
         self,
         experiment: Experiment | None = None,
@@ -68,6 +87,21 @@ class Analysis(Protocol):
         Utility method to compute an AnalysisCard as a Result. This can be useful for
         computing many Analyses at once and handling Exceptions later.
         """
+        not_applicable_explanation = self.validate_applicable_state(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+        if not_applicable_explanation is not None:
+            return Err(
+                value=AnalysisE(
+                    message="Analysis is not applicable to given state",
+                    exception=AnalysisNotApplicableStateError(
+                        not_applicable_explanation
+                    ),
+                    analysis=self,
+                )
+            )
 
         try:
             card = self.compute(
