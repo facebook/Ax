@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Literal
+from typing import final, Literal
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
@@ -46,6 +46,7 @@ TS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class TopSurfacesAnalysis(Analysis):
     def __init__(
         self,
@@ -79,17 +80,14 @@ class TopSurfacesAnalysis(Analysis):
         # Process the sensitivity analysis card to find the top K surfaces which
         # consist exclusively of tunable parameters (i.e. no fixed parameters, task
         # parameters, or OneHot parameters).
-        sensitivity_analysis_card = assert_is_instance(
-            SensitivityAnalysisPlot(
-                metric_names=[metric_name],
-                order=self.order,
-                top_k=self.top_k,
-            ).compute(
-                experiment=experiment,
-                generation_strategy=generation_strategy,
-                adapter=adapter,
-            ),
-            AnalysisCard,
+        sensitivity_analysis_card = SensitivityAnalysisPlot(
+            metric_name=metric_name,
+            order=self.order,
+            top_k=self.top_k,
+        ).compute(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
         )
         children: list[AnalysisCardBase] = [sensitivity_analysis_card]
 

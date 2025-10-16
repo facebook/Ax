@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -43,6 +44,7 @@ CONTOUR_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ContourPlot(Analysis):
     """
     Plot a 2D surface of the surrogate model's predicted outcomes for a given pair of

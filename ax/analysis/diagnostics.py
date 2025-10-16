@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
@@ -24,6 +26,7 @@ DIAGNOSTICS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class DiagnosticAnalysis(Analysis):
     """
     An Analysis that provides diagnostic information about the optimization process.
