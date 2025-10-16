@@ -31,11 +31,6 @@ from gpytorch.utils.warnings import NumericalWarning
 
 
 MOO_DEFAULTS_PATH: str = "ax.generators.torch.botorch_moo_utils"
-GET_CONSTRAINT_PATH: str = MOO_DEFAULTS_PATH + ".get_outcome_constraint_transforms"
-GET_OBJ_PATH: str = (
-    MOO_DEFAULTS_PATH + ".get_weighted_mc_objective_and_objective_thresholds"
-)
-FIT_MODEL_MO_PATH = "ax.generators.torch.botorch_defaults.fit_gpytorch_mll"
 
 
 def _fit_model(
