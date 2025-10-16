@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -19,6 +20,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
+@final
 class ShouldGenerateCandidates(Analysis):
     def __init__(
         self,

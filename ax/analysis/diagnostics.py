@@ -5,13 +5,15 @@
 
 # pyre-strict
 
+from typing import final
+
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
 
@@ -24,6 +26,7 @@ DIAGNOSTICS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class DiagnosticAnalysis(Analysis):
     """
     An Analysis that provides diagnostic information about the optimization process.
@@ -32,14 +35,26 @@ class DiagnosticAnalysis(Analysis):
     """
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=False,
+            require_data=False,
+        )
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCardGroup:
-        if experiment is None:
-            raise UserInputError("DiagnosticAnalysis requires an Experiment.")
+        experiment = none_throws(experiment)
 
         # Extract all metric names from the OptimizationConfig.
         metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
