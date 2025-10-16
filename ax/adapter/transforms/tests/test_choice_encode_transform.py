@@ -6,10 +6,8 @@
 
 # pyre-strict
 
-from collections.abc import Sized
 from copy import deepcopy
 
-import numpy as np
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.choice_encode import (
@@ -445,11 +443,3 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTes
         Skip the HSS test. `OrderedChoiceToIntegerRange` cannot support hierarchical
         search spaces, because range parameters cannot have dependents.
         """
-
-
-def normalize_values(values: Sized) -> list[float]:
-    values = np.array(values, dtype=float)
-    vmin, vmax = values.min(), values.max()
-    if len(values) > 1:
-        values = (values - vmin) / (vmax - vmin)
-    return values.tolist()

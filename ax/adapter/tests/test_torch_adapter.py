@@ -550,10 +550,7 @@ class TorchAdapterTest(TestCase):
         # Check that no candidate metadata is handled correctly.
         exp = get_branin_experiment(with_status_quo=True, with_completed_trial=True)
         generator = TorchGenerator()
-        with mock.patch(
-            f"{TorchAdapter.__module__}." "TorchAdapter._validate_observation_data",
-            autospec=True,
-        ), mock.patch.object(
+        with mock.patch.object(
             generator, "fit", wraps=generator.fit
         ) as mock_generator_fit:
             adapter = TorchAdapter(experiment=exp, generator=generator)

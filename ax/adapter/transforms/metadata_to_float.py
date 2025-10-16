@@ -45,7 +45,6 @@ class MetadataToFloat(MetadataToParameterMixin, Transform):
     requires_data_for_initialization: bool = True
 
     DEFAULT_IS_FIDELITY: bool = False
-    ENFORCE_BOUNDS: bool = False
 
     def __init__(
         self,
