@@ -62,11 +62,6 @@ from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
 
-# Distributions
-SIMPLEX = "simplex"
-HYPERSPHERE = "hypersphere"
-
-
 @dataclass
 class SubsetModelData:
     model: Model

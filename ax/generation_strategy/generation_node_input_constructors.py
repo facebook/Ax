@@ -64,8 +64,6 @@ class NodeInputConstructors(FuncEnum):
     REMAINING_N = "remaining_n"
     TARGET_TRIAL_FIXED_FEATURES = "set_target_trial"
 
-    # pyre-ignore[3]: Input constructors will be used to make different inputs,
-    # so we need to allow `Any` return type here.
     def __call__(
         self,
         previous_node: GenerationNode | None,

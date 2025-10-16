@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from logging import Logger
 from typing import Any, cast, TYPE_CHECKING, Union
 
@@ -58,7 +58,6 @@ from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
-TModelFactory = Callable[..., Adapter]
 MISSING_MODEL_SELECTOR_MESSAGE = (
     "A `BestModelSelector` must be provided when using multiple "
     "`GeneratorSpec`s in a `GenerationNode`. After fitting all `GeneratorSpec`s, "

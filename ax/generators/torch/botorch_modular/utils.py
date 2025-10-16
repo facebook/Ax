@@ -61,7 +61,6 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
-MIN_OBSERVED_NOISE_LEVEL = 1e-7
 logger: Logger = get_logger(__name__)
 
 

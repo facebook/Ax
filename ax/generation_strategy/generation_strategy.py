@@ -38,7 +38,6 @@ from pyre_extensions import none_throws
 logger: Logger = get_logger(__name__)
 
 
-MAX_CONDITIONS_GENERATED = 10000
 T = TypeVar("T")
 
 

@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import Any, get_type_hints
 
 from ax.adapter.registry import Generators
-
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -567,9 +566,6 @@ class TestInstantiationFromNodeInputConstructor(TestCase):
             "ALl_N": NodeInputConstructors.ALL_N,
             "REPEAT_N": NodeInputConstructors.REPEAT_N,
             "REMAINING_N": NodeInputConstructors.REMAINING_N,
-        }
-        self.purpose_cases = {
-            "N": InputConstructorPurpose.N,
         }
 
     def test_all_constructors_have_same_signature(self) -> None:
