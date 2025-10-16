@@ -4,11 +4,14 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+from typing import final
+
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
-from ax.analysis.utils import extract_relevant_adapter
+
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -24,6 +27,7 @@ TRIALS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class AllTrialsAnalysis(Analysis):
     """
     An Analysis that provides detailed information about all trials in an experiment.
@@ -32,6 +36,19 @@ class AllTrialsAnalysis(Analysis):
     into separate card groups. Each child in the card group represents the output of
     TrialAnalysis for a specific trial in the experiment.
     """
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=False,
+        )
 
     @override
     def compute(
@@ -63,6 +80,7 @@ class AllTrialsAnalysis(Analysis):
         )
 
 
+@final
 class TrialAnalysis(Analysis):
     """
     An Analysis that provides detailed information about a specific trial.
@@ -77,6 +95,19 @@ class TrialAnalysis(Analysis):
         trial: BaseTrial,
     ) -> None:
         self.trial = trial
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=False,
+        )
 
     @override
     def compute(
@@ -133,6 +164,5 @@ class TrialAnalysis(Analysis):
                     adapter=relevant_adapter,
                 )
                 for analysis in analyses
-                if analysis is not None
             ],
         )

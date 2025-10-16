@@ -78,8 +78,20 @@ def extract_relevant_adapter(
         )
 
     generation_strategy.current_node._fit(experiment=experiment)
+    adapter = generation_strategy.adapter
 
-    return none_throws(generation_strategy.adapter)
+    if adapter is None:
+        raise UserInputError(
+            "Currently, Ax has not yet reached a GenerationNode that involves fitting "
+            "a surrogate model, from which it can make predictions about points in the "
+            "search space (current GenerationNode: "
+            f"{generation_strategy.current_node}). This analysis will become available "
+            "once that optimization state is reached, later in the course of the "
+            "experiment. To generate this analysis on-demand when interacting with the "
+            "Analysis directly, please provide an Adapter."
+        )
+
+    return adapter
 
 
 def prepare_arm_data(
@@ -809,3 +821,20 @@ def get_lower_is_better(experiment: Experiment, metric_name: str) -> bool | None
     if metric_name == "p_feasible":
         return False
     return experiment.metrics[metric_name].lower_is_better
+
+
+def validate_experiment(
+    experiment: Experiment | None,
+    require_trials: bool = False,
+    require_data: bool = False,
+) -> str | None:
+    if experiment is None:
+        return "Requires an Experiment."
+
+    if require_trials:
+        if len(experiment.trials) == 0:
+            return "Experiment has no trials."
+
+    if require_data:
+        if experiment.lookup_data().df.empty:
+            return "Experiment has no data."

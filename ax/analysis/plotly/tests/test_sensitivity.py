@@ -80,7 +80,7 @@ class TestSensitivityAnalysisPlot(TestCase):
                     },
                 )
 
-        analysis = SensitivityAnalysisPlot(metric_names=["bar"], order="first")
+        analysis = SensitivityAnalysisPlot(metric_name="bar", order="first")
 
         with self.assertRaisesRegex(
             UserInputError, "Must provide either a GenerationStrategy or an Adapter"
@@ -107,7 +107,7 @@ class TestSensitivityAnalysisPlot(TestCase):
         self.assertEqual(len(card.df), 2)
         self.assertIsNotNone(card.blob)
 
-        second_order = SensitivityAnalysisPlot(metric_names=["bar"], order="second")
+        second_order = SensitivityAnalysisPlot(metric_name="bar", order="second")
         (card,) = second_order.compute(
             generation_strategy=client._generation_strategy
         ).flatten()
@@ -135,12 +135,12 @@ class TestSensitivityAnalysisPlot(TestCase):
                 experiment=experiment
             )
             # Select an arbitrary metric from the optimization config
-            metric_names = [
-                none_throws(experiment.optimization_config).objective.metric_names[0]
-            ]
+            metric_name = none_throws(
+                experiment.optimization_config
+            ).objective.metric_names[0]
             for order, top_k in product(["first", "second", "total"], [None, 1]):
                 analysis = SensitivityAnalysisPlot(
-                    metric_names=metric_names,
+                    metric_name=metric_name,
                     # pyre-fixme: Incompatible parameter type [6]: It isn't sure
                     # if "order" has one of the values specified by the Literal
                     order=order,
@@ -159,12 +159,12 @@ class TestSensitivityAnalysisPlot(TestCase):
                 experiment=experiment
             )
             # Select an arbitrary metric from the optimization config
-            metric_names = [
-                none_throws(experiment.optimization_config).objective.metric_names[0]
-            ]
+            metric_name = none_throws(
+                experiment.optimization_config
+            ).objective.metric_names[0]
             for order, top_k in product(["first", "second", "total"], [None, 1]):
                 analysis = SensitivityAnalysisPlot(
-                    metric_names=metric_names,
+                    metric_name=metric_name,
                     # pyre-fixme: Incompatible parameter type [6]: It isn't sure
                     # if "order" has one of the values specified by the Literal
                     order=order,

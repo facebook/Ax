@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
@@ -33,6 +35,7 @@ MARGINAL_EFFECTS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class MarginalEffectsPlot(Analysis):
     """
     Plotly bar charts showing the marginal effect of each factor level of
@@ -128,7 +131,7 @@ class MarginalEffectsPlot(Analysis):
                     fig=fig,
                 )
             )
-        return self._create_analysis_card_group_or_card(
+        return self._create_analysis_card_group(
             title=MARGINAL_EFFECTS_CARDGROUP_TITLE,
             subtitle=MARGINAL_EFFECTS_CARDGROUP_SUBTITLE,
             children=cards,
