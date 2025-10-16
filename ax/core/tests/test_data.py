@@ -9,7 +9,6 @@
 from unittest.mock import patch
 
 import numpy as np
-
 import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MAP_KEY, MapData
@@ -237,7 +236,6 @@ class DataTest(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.df_hash = "be6ca1edb2d83e08c460665476d32caa"
         self.df = get_test_dataframe()
         self.metric_name_to_signature = {"a": "a_signature", "b": "b_signature"}
 

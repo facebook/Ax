@@ -680,35 +680,6 @@ def get_multi_type_experiment(
     return experiment
 
 
-def get_multi_type_experiment_with_multi_objective(
-    add_trials: bool = False,
-) -> MultiTypeExperiment:
-    oc = get_branin_multi_objective_optimization_config()
-    experiment = MultiTypeExperiment(
-        name="test_exp",
-        search_space=get_branin_search_space(),
-        default_trial_type="type1",
-        default_runner=SyntheticRunner(dummy_metadata="dummy1"),
-        optimization_config=oc,
-    )
-    experiment._properties = {"owners": [DEFAULT_USER]}
-    experiment.add_trial_type(
-        trial_type="type2", runner=SyntheticRunner(dummy_metadata="dummy2")
-    )
-
-    if add_trials:
-        generator = get_sobol(experiment.search_space)
-        gr = generator.gen(10)
-        t1 = experiment.new_batch_trial(generator_run=gr, trial_type="type1")
-        t2 = experiment.new_batch_trial(generator_run=gr, trial_type="type2")
-        t1.add_status_quo_arm(weight=0.5)
-        t2.add_status_quo_arm(weight=0.5)
-        t1.run()
-        t2.run()
-
-    return experiment
-
-
 def get_factorial_experiment(
     has_optimization_config: bool = True,
     with_batch: bool = False,
@@ -752,84 +723,6 @@ def get_factorial_experiment(
         )
 
     return exp
-
-
-def get_experiment_with_repeated_arms(
-    with_data: bool = False, num_repeated_arms: int = 2
-) -> Experiment:
-    """Create an experiment with a batch that contains both new arms and N
-    arms from the last existed trial in the experiment, where N is equal to
-    the input argument 'num_repeated_arms'.
-    """
-    experiment = get_experiment_with_batch_trial()
-    assert len(experiment.trials) > 0
-    # Get last (previous) trial.
-    prev_trial = experiment.trials[len(experiment.trials) - 1]
-    # Take the first N arms, where N is num_repeated_arms.
-
-    if len(prev_trial.arms) < num_repeated_arms:
-        logger.warning(
-            "There are less arms in the previous trial than the value of "
-            "input parameter 'num_repeated_arms'. Thus all the arms from "
-            "the last trial will be repeated in the new trial."
-        )
-    prev_arms = prev_trial.arms[:num_repeated_arms]
-    if isinstance(prev_trial, BatchTrial):
-        prev_weights = prev_trial.weights[:num_repeated_arms]
-    else:
-        prev_weights = [1] * len(prev_arms)
-
-    # Create new (next) arms.
-    next_arms = get_arms_from_dict(get_arm_weights2())
-    next_weights = get_weights_from_dict(get_arm_weights2())
-
-    # Add num_repeated_arms to the new trial.
-    arms = prev_arms + next_arms
-    weights = prev_weights + next_weights
-    batch = experiment.new_batch_trial()
-    batch.add_arms_and_weights(arms=arms, weights=weights)
-    batch.runner = SyntheticRunner()
-    experiment = batch.experiment
-    if with_data:
-        data = Data(
-            df=pd.DataFrame.from_records(
-                [
-                    {
-                        "arm_name": arm_name,
-                        "metric_name": metric_name,
-                        "mean": mean,
-                        "sem": sem,
-                        "trial_index": trial_index,
-                        "metric_signature": metric_name,
-                    }
-                    for arm_name, metric_name, mean, sem, trial_index in (
-                        ("0_0", "a", 2.0, 1.0, 0),
-                        ("0_0", "b", 4.0, 4.0, 0),
-                        ("0_0", "a", 2.0, 1.0, 1),
-                        ("0_0", "b", 4.0, 4.0, 1),
-                        ("0_1", "a", 2.0, 1.0, 0),
-                        ("0_1", "b", 4.0, 4.0, 0),
-                        ("0_1", "a", 2.0, 1.0, 1),
-                        ("0_1", "b", 1.0, 5.0, 1),
-                        ("status_quo", "a", 2.0, 1.0, 0),
-                        ("status_quo", "b", 6.0, 4.0, 0),
-                        ("status_quo", "a", 2.0, 1.0, 1),
-                        ("status_quo", "b", 8.0, 3.0, 1),
-                    )
-                ]
-            )
-        )
-        experiment.attach_data(data)
-        # Also add optimization config to prevent data from being thrown out.
-        experiment.optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(
-                objectives=[
-                    Objective(Metric(name="a", lower_is_better=True)),
-                    Objective(Metric(name="b", lower_is_better=True)),
-                ]
-            )
-        )
-    return experiment
 
 
 def get_experiment_with_trial() -> Experiment:
@@ -1765,28 +1658,6 @@ def get_large_ordinal_search_space(
             for i in range(n_ordinal_choice_parameters)
         ]
     )
-
-
-def get_hartmann_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
-    parameters = [
-        RangeParameter(
-            name=f"x{idx + 1}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
-        )
-        for idx in range(6)
-    ]
-    if with_fidelity_parameter:
-        parameters.append(
-            RangeParameter(
-                name="fidelity",
-                parameter_type=ParameterType.FLOAT,
-                lower=0.0,
-                upper=1.0,
-                is_fidelity=True,
-                target_value=1.0,
-            )
-        )
-
-    return SearchSpace(parameters=cast(list[Parameter], parameters))
 
 
 def get_search_space_for_value(val: float = 3.0) -> SearchSpace:
@@ -3180,9 +3051,7 @@ def get_dataset(
     )
 
 
-def get_online_sobol_mbm_generation_strategy(
-    sobol_steps: int = 1,
-) -> GenerationStrategy:
+def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
     """Constructs a GenerationStrategy with Sobol and MBM nodes for simulating
     online optimization.
     """

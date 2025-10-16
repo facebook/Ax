@@ -353,8 +353,8 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(message, "")
 
-        top, message = gss.should_stop_optimization(experiment=exp, trial_to_check=5)
-        self.assertFalse(stop)
+        stop, message = gss.should_stop_optimization(experiment=exp, trial_to_check=5)
+        self.assertTrue(stop)
         self.assertEqual(
             message,
             "The improvement in best objective in the past 3 trials (=0.000) is "
