@@ -20,7 +20,7 @@ import pandas as pd
 import torch
 from ax.adapter.prediction_utils import predict_by_features
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.base_trial import BaseTrial
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
@@ -30,6 +30,7 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
