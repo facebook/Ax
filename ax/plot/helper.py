@@ -136,13 +136,6 @@ def resize_subtitles(figure: dict[str, Any], size: int) -> dict[str, Any]:
     return figure
 
 
-def _filter_dict(
-    param_dict: TParameterization, subset_keys: list[str]
-) -> TParameterization:
-    """Filter a dictionary to keys present in a given list."""
-    return {k: v for k, v in param_dict.items() if k in subset_keys}
-
-
 def _get_in_sample_arms(
     model: Adapter,
     metric_names: set[str],
@@ -966,15 +959,6 @@ def slice_config_to_trace(
         )
 
     return traces
-
-
-def build_filter_trial(keep_trial_indices: list[int]) -> Callable[[Observation], bool]:
-    """Creates a callable that filters observations based on trial_index"""
-
-    def trial_filter(obs: Observation) -> bool:
-        return obs.features.trial_index in keep_trial_indices
-
-    return trial_filter
 
 
 def compose_annotation(

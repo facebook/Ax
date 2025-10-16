@@ -12,8 +12,6 @@ from typing import Any
 import numpy as np
 import plotly.graph_objs as go
 from ax.adapter.cross_validation import CVResult
-from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation
 from ax.plot.base import (
@@ -26,8 +24,6 @@ from ax.plot.base import (
 )
 from ax.plot.helper import compose_annotation
 from ax.plot.scatter import _error_scatter_data, _error_scatter_trace
-from plotly import subplots
-from pyre_extensions import none_throws
 
 
 # type alias
@@ -438,68 +434,6 @@ def _get_cv_plot_data(
     )
 
 
-def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlotConfig:
-    """Compare the model predictions for the batch arms against observed data.
-
-    Relies on the model predictions stored on the generator_runs of batch.
-
-    Args:
-        batch: Batch on which to perform analysis.
-        data: Observed data for the batch.
-    Returns:
-        AxPlotConfig for the plot.
-    """
-    insample_data: dict[str, PlotInSampleArm] = {}
-    metric_names = list(data.df["metric_name"].unique())
-    for generator_run in batch.generator_runs:
-        if generator_run.model_predictions is None:
-            continue
-        for i, arm in enumerate(generator_run.arms):
-            arm_data = {
-                "name": arm.name_or_short_signature,
-                "y": {},
-                "se": {},
-                "parameters": arm.parameters,
-                "y_hat": {},
-                "se_hat": {},
-                "context_stratum": None,
-            }
-            predictions = generator_run.model_predictions
-            for _, row in data.df[
-                data.df["arm_name"] == arm.name_or_short_signature
-            ].iterrows():
-                metric_name = row["metric_name"]
-                # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
-                arm_data["y"][metric_name] = row["mean"]
-                # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
-                #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]],
-                #  str]` has no attribute `__setitem__`.
-                arm_data["se"][metric_name] = row["sem"]
-                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-                arm_data["y_hat"][metric_name] = predictions[0][metric_name][i]
-                # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
-                #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]],
-                #  str]` has no attribute `__setitem__`.
-                arm_data["se_hat"][metric_name] = predictions[1][metric_name][
-                    metric_name
-                ][i]
-            # pyre-fixme[6]: Expected `Optional[Dict[str, Union[float, str]]]` for 1s...
-            insample_data[arm.name_or_short_signature] = PlotInSampleArm(**arm_data)
-    if not insample_data:
-        raise ValueError("No model predictions present on the batch.")
-    plot_data = PlotData(
-        metrics=metric_names,
-        in_sample=insample_data,
-        out_of_sample=None,
-        status_quo_name=None,
-    )
-
-    fig = _obs_vs_pred_dropdown_plot(data=plot_data, rel=False)
-    fig["layout"]["title"] = "Cross-validation"
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
-
-
 def interact_cross_validation_plotly(
     cv_results: list[CVResult],
     show_context: bool = True,
@@ -570,151 +504,3 @@ def interact_cross_validation(
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
-
-
-def tile_cross_validation(
-    cv_results: list[CVResult],
-    show_arm_details_on_hover: bool = True,
-    show_context: bool = True,
-    label_dict: dict[str, str] | None = None,
-) -> AxPlotConfig:
-    """Tile version of CV plots; sorted by 'best fitting' outcomes.
-
-    Plots are sorted in decreasing order using the p-value of a Fisher exact
-    test statistic.
-
-    Args:
-        cv_results: cross-validation results.
-        include_measurement_error: if True, include
-            measurement_error metrics in plot.
-        show_arm_details_on_hover: if True, display
-            parameterizations of arms on hover. Default is True.
-        show_context: if True (default), display context on
-            hover.
-        label_dict: optional map from real metric names to shortened names
-
-    Returns a plotly.graph_objects.Figure
-    """
-    data = _get_cv_plot_data(cv_results, label_dict=label_dict)
-    metrics = data.metrics
-
-    # make subplots (2 plots per row)
-    nrows = int(np.ceil(len(metrics) / 2))
-    ncols = min(len(metrics), 2)
-    fig = subplots.make_subplots(
-        rows=nrows,
-        cols=ncols,
-        print_grid=False,
-        subplot_titles=tuple(metrics),
-        horizontal_spacing=0.15,
-        vertical_spacing=0.30 / nrows,
-    )
-
-    for i, metric in enumerate(metrics):
-        y_hat = []
-        se_hat = []
-        y_raw = []
-        se_raw = []
-        for arm in data.in_sample.values():
-            y_hat.append(arm.y_hat[metric])
-            se_hat.append(arm.se_hat[metric])
-            y_raw.append(arm.y[metric])
-            se_raw.append(arm.se[metric])
-        se_raw = (
-            [0.0 if np.isnan(se) else se for se in se_raw]
-            if se_raw is not None
-            else [0.0] * len(y_raw)
-        )
-        min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
-        fig.append_trace(
-            _diagonal_trace(min_, max_), int(np.floor(i / 2)) + 1, i % 2 + 1
-        )
-        fig.append_trace(
-            _error_scatter_trace(
-                list(data.in_sample.values()),
-                y_axis_var=PlotMetric(metric, pred=True, rel=False),
-                x_axis_var=PlotMetric(metric, pred=False, rel=False),
-                y_axis_label="Predicted",
-                x_axis_label="Actual",
-                hoverinfo="text",
-                show_arm_details_on_hover=show_arm_details_on_hover,
-                show_context=show_context,
-            ),
-            int(np.floor(i / 2)) + 1,
-            i % 2 + 1,
-        )
-
-    # if odd number of plots, need to manually remove the last blank subplot
-    # generated by `subplots.make_subplots`
-    if len(metrics) % 2 == 1:
-        fig["layout"].pop(f"xaxis{nrows * ncols}")
-        fig["layout"].pop(f"yaxis{nrows * ncols}")
-
-    # allocate 400 px per plot (equal aspect ratio)
-    fig["layout"].update(
-        title="Cross-Validation",  # What should I replace this with?
-        hovermode="closest",
-        width=800,
-        height=400 * nrows,
-        font={"size": 10},
-        showlegend=False,
-    )
-
-    # update subplot title size and the axis labels
-    for i, ant in enumerate(fig["layout"]["annotations"]):
-        ant["font"].update(size=12)
-        fig["layout"][f"xaxis{i + 1}"].update(
-            title="Actual Outcome", mirror=True, linecolor="black", linewidth=0.5
-        )
-        fig["layout"][f"yaxis{i + 1}"].update(
-            title="Predicted Outcome", mirror=True, linecolor="black", linewidth=0.5
-        )
-
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
-
-
-def interact_batch_comparison(
-    observations: list[Observation],
-    experiment: Experiment,
-    batch_x: int,
-    batch_y: int,
-    rel: bool = False,
-    status_quo_name: str | None = None,
-    x_label: str | None = None,
-    y_label: str | None = None,
-) -> AxPlotConfig:
-    """Compare repeated arms from two trials; select metric via dropdown.
-
-    Args:
-        observations: List of observations to compute comparison.
-        batch_x: Index of batch for x-axis.
-        batch_y: Index of bach for y-axis.
-        rel: Whether to relativize data against status_quo arm.
-        status_quo_name: Name of the status_quo arm.
-        x_label: Label for the x-axis.
-        y_label: Label for the y-axis.
-    """
-    if not status_quo_name and experiment.status_quo:
-        status_quo_name = none_throws(experiment.status_quo).name
-    plot_data = _get_batch_comparison_plot_data(
-        observations=observations,
-        experiment=experiment,
-        batch_x=batch_x,
-        batch_y=batch_y,
-        rel=rel,
-        status_quo_name=status_quo_name,
-    )
-    if x_label is None:
-        x_label = f"Batch {batch_x}"
-    if y_label is None:
-        y_label = f"Batch {batch_y}"
-    fig = _obs_vs_pred_dropdown_plot(
-        data=plot_data,
-        rel=rel,
-        xlabel=x_label,
-        ylabel=y_label,
-    )
-    fig["layout"]["title"] = "Repeated arms across trials"
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
-    return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
