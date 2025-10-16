@@ -11,10 +11,10 @@ from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 
 @final
@@ -34,16 +34,26 @@ class MetricSummary(Analysis):
     """
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_data=False,
+        )
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCard:
-        if experiment is None:
-            raise UserInputError(
-                "`MetricSummary` analysis requires an `Experiment` input"
-            )
+        experiment = none_throws(experiment)
+
         return self._create_analysis_card(
             title=f"MetricSummary for `{experiment.name}`",
             subtitle="High-level summary of the `Metric`-s in this `Experiment`",
