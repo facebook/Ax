@@ -91,11 +91,6 @@ class UtilsTest(TestCase):
             trial_index=self.hss_trial.index,
             metadata=self.hss_cand_metadata,
         )
-        self.hss_obs_feat_all_params = ObservationFeatures.from_arm(
-            arm=Arm(self.hss_full_parameterization),
-            trial_index=self.hss_trial.index,
-            metadata={Keys.FULL_PARAMETERIZATION: self.hss_full_parameterization},
-        )
         self.df = pd.DataFrame(
             [
                 {

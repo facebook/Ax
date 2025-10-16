@@ -83,7 +83,6 @@ def assert_is_instance_of_tuple(val: V, typ: tuple[type[V], ...]) -> T:
     return val
 
 
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
 def _argparse_type_encoder(arg: Any) -> type:

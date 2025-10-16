@@ -54,7 +54,6 @@ class Generator:
         """
         return {}
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def feature_importances(self) -> Any:
         raise NotImplementedError(
             "Feature importance not available for this Model type"
