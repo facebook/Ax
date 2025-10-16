@@ -10,17 +10,22 @@ from ax.analysis.plotly.progression import (
     _calculate_wallclock_timeseries,
     ProgressionPlot,
 )
-from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_test_map_data_experiment
+from pyre_extensions import none_throws
 
 
 class TestProgression(TestCase):
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(
+                ProgressionPlot(metric_name="branin_map").validate_applicable_state()
+            ),
+        )
+
     def test_compute(self) -> None:
         analysis = ProgressionPlot(metric_name="branin_map")
-
-        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
-            analysis.compute()
 
         experiment = get_test_map_data_experiment(
             num_trials=2, num_fetches=5, num_complete=2

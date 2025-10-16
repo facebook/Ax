@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Mapping, Sequence
+from typing import final, Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -27,17 +27,23 @@ from ax.analysis.plotly.utils import (
     X_TICKER_SCALING_FACTOR,
     Z_SCORE_95_CI,
 )
-from ax.analysis.utils import extract_relevant_adapter, prepare_arm_data
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    prepare_arm_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+    validate_experiment_has_trials,
+)
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 
+@final
 class ArmEffectsPlot(Analysis):
     """
     Plot the effects of each arm in an experiment on a given metric. Effects may be
@@ -107,14 +113,56 @@ class ArmEffectsPlot(Analysis):
         self.label = label
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        experiment_validation_str = validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=True,
+        )
+
+        if experiment_validation_str is not None:
+            return experiment_validation_str
+
+        experiment = none_throws(experiment)
+
+        if self.use_model_predictions:
+            adapter_can_predict_validation_str = validate_adapter_can_predict(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+                required_metric_names=[self.metric_name],
+            )
+            if adapter_can_predict_validation_str is not None:
+                return adapter_can_predict_validation_str
+
+        else:
+            trials_validation_str = validate_experiment_has_trials(
+                experiment=experiment,
+                trial_indices=[self.trial_index]
+                if self.trial_index is not None
+                else None,
+                trial_statuses=self.trial_statuses,
+                required_metric_names=[self.metric_name],
+            )
+
+            if trials_validation_str is not None:
+                return trials_validation_str
+
+        return None
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCard:
-        if experiment is None:
-            raise UserInputError("ArmEffectsPlot requires an Experiment.")
+        experiment = none_throws(experiment)
 
         if self.use_model_predictions:
             relevant_adapter = extract_relevant_adapter(
