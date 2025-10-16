@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
 from ax.analysis.analysis_card import AnalysisCardGroup
@@ -22,6 +24,7 @@ from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCan
 from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.analysis.trials import AllTrialsAnalysis
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -47,6 +50,7 @@ OVERVIEW_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class OverviewAnalysis(Analysis):
     """
     Top-level Analysis that provides an overview of the entire optimization process,
@@ -95,6 +99,19 @@ class OverviewAnalysis(Analysis):
         self.can_generate_days_till_fail = can_generate_days_till_fail
         self.should_generate = should_generate
         self.should_generate_reason = should_generate_reason
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=False,
+            require_data=False,
+        )
 
     @override
     def compute(

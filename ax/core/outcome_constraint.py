@@ -332,14 +332,20 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         )
 
     def __repr__(self) -> str:
+        terms = []
+        for metric, weight in zip(self.metrics, self.weights):
+            # For the first term, keep the sign only if it's negative
+            if len(terms) == 0:
+                terms.append(f"{weight} * {metric.name}")
+            else:
+                if weight < 0:
+                    terms.append(f"- {abs(weight)} * {metric.name}")
+                else:
+                    terms.append(f"+ {weight} * {metric.name}")
+
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
         relative = "%" if self.relative else ""
         return (
-            "ScalarizedOutcomeConstraint(metric_names={}, weights={}, {} {}{})".format(
-                [metric.name for metric in self.metrics],
-                self.weights,
-                op,
-                self.bound,
-                relative,
-            )
+            "ScalarizedOutcomeConstraint("
+            f"{' '.join(terms)} {op} {self.bound}{relative})"
         )

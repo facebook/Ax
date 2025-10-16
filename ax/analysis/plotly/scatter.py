@@ -6,10 +6,9 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Mapping, Sequence
+from typing import Any, final, Mapping, Sequence
 
 import numpy as np
-
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
@@ -36,6 +35,9 @@ from ax.analysis.utils import (
     extract_relevant_adapter,
     get_lower_is_better,
     prepare_arm_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+    validate_experiment_has_trials,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
@@ -44,7 +46,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
 from plotly import graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 logger: Logger = get_logger(__name__)
 
@@ -56,6 +58,7 @@ SCATTER_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ScatterPlot(Analysis):
     """
     Plotly Scatter plot for any two metrics. Each arm is represented by a single point
@@ -75,6 +78,49 @@ class ScatterPlot(Analysis):
         - **METRIC_NAME_mean: The observed mean of the metric specified
         - **METRIC_NAME_sem: The observed sem of the metric specified
     """
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        experiment_validation_str = validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=True,
+        )
+
+        if experiment_validation_str is not None:
+            return experiment_validation_str
+
+        experiment = none_throws(experiment)
+
+        if self.use_model_predictions:
+            adapter_can_predict_validation_str = validate_adapter_can_predict(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+                required_metric_names=[self.x_metric_name, self.y_metric_name],
+            )
+            if adapter_can_predict_validation_str is not None:
+                return adapter_can_predict_validation_str
+
+        else:
+            trials_validation_str = validate_experiment_has_trials(
+                experiment=experiment,
+                trial_indices=[self.trial_index]
+                if self.trial_index is not None
+                else None,
+                trial_statuses=self.trial_statuses,
+                required_metric_names=[self.x_metric_name, self.y_metric_name],
+            )
+
+            if trials_validation_str is not None:
+                return trials_validation_str
+
+        return None
 
     def __init__(
         self,

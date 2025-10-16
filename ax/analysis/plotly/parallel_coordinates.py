@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any
+from typing import Any, final
 
 import numpy as np
 import pandas as pd
@@ -17,13 +17,14 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.utils import select_metric, truncate_label
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 
+@final
 class ParallelCoordinatesPlot(Analysis):
     """
     Plotly Parcoords plot for a single metric, with one line per arm and dimensions for
@@ -49,14 +50,29 @@ class ParallelCoordinatesPlot(Analysis):
         self.metric_name = metric_name
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        validate_experiment_str = validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=True,
+        )
+
+        if validate_experiment_str is not None:
+            return validate_experiment_str
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
-        if experiment is None:
-            raise UserInputError("ParallelCoordinatesPlot requires an Experiment")
+        experiment = none_throws(experiment)
 
         metric_name = self.metric_name or select_metric(experiment=experiment)
 

@@ -7,7 +7,7 @@
 
 from collections.abc import Callable
 from logging import Logger
-from typing import Any, Union
+from typing import Any, final, Union
 
 import pandas as pd
 from ax.adapter import Adapter
@@ -26,6 +26,7 @@ from pyre_extensions import override
 logger: Logger = get_logger(__name__)
 
 
+@final
 class MetricFetchingErrorsAnalysis(Analysis):
     """
     Analysis to check if any metric fetch errors occurred.

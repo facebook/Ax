@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
@@ -25,6 +27,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, override
 
 
+@final
 class ConstraintsFeasibilityAnalysis(Analysis):
     """
     Analysis for checking the feasibility of the constraints for the experiment.
