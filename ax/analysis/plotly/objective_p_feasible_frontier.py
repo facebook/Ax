@@ -6,7 +6,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Sequence
+from typing import final, Sequence
 
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
@@ -49,6 +49,7 @@ OBJ_PFEAS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ObjectivePFeasibleFrontierPlot(Analysis):
     """
     Plotly Scatter plot for the objective vs p(feasible). Each arm is represented by

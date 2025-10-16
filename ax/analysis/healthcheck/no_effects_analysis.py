@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
@@ -22,6 +23,7 @@ from ax.utils.stats.no_effects import check_experiment_effects_per_metric
 from pyre_extensions import override
 
 
+@final
 class TestOfNoEffectAnalysis(Analysis):
     """
     Analysis for checking whether a randomization test can show that there are any

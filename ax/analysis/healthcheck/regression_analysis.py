@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
@@ -22,6 +24,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
 
 
+@final
 class RegressionAnalysis(Analysis):
     r"""
     Analysis for detecting the regressing arm, metric pairs across all trials with data.

@@ -4,6 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+from typing import final
+
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
@@ -24,6 +26,7 @@ TRIALS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class AllTrialsAnalysis(Analysis):
     """
     An Analysis that provides detailed information about all trials in an experiment.
@@ -63,6 +66,7 @@ class AllTrialsAnalysis(Analysis):
         )
 
 
+@final
 class TrialAnalysis(Analysis):
     """
     An Analysis that provides detailed information about a specific trial.
