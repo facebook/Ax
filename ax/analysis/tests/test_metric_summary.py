@@ -9,9 +9,9 @@ import pandas as pd
 from ax.analysis.metric_summary import MetricSummary
 from ax.api.client import Client
 from ax.core.metric import Metric
-from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from pyre_extensions import none_throws
 
 
 class TestMetricSummary(TestCase):
@@ -30,9 +30,6 @@ class TestMetricSummary(TestCase):
         client._experiment._tracking_metrics = {"qux": Metric(name="qux")}
 
         analysis = MetricSummary()
-
-        with self.assertRaisesRegex(UserInputError, "requires an `Experiment`"):
-            analysis.compute()
 
         experiment = client._experiment
         card = analysis.compute(experiment=experiment)
@@ -79,6 +76,12 @@ class TestMetricSummary(TestCase):
             }
         )
         pd.testing.assert_frame_equal(card.df, expected)
+
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(MetricSummary().validate_applicable_state()),
+        )
 
     def test_online(self) -> None:
         # Test MetricSummary can be computed for a variety of experiments which

@@ -24,7 +24,7 @@ from ax.analysis.plotly.scatter import (
     ScatterPlot,
 )
 from ax.analysis.summary import Summary
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -34,7 +34,7 @@ from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 RESULTS_CARDGROUP_TITLE = "Results Analysis"
 
@@ -63,16 +63,26 @@ class ResultsAnalysis(Analysis):
     """
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=True,
+        )
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCardGroup:
-        # Ensure we have an Experiment provided by the user to extract the relevant
-        # metric names from.
-        if experiment is None:
-            raise UserInputError("ResultsAnalysis requires an Experiment.")
+        experiment = none_throws(experiment)
 
         # If the Experiment has an OptimizationConfig set, extract the objective and
         # constraint names.
