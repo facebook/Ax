@@ -73,21 +73,6 @@ def get_observation_features() -> ObservationFeatures:
     return ObservationFeatures(parameters={"x": 2.0, "y": 10.0}, trial_index=0)
 
 
-def get_observation(
-    first_metric_signature: str = "a",
-    second_metric_signature: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}, trial_index=0),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_signatures=[first_metric_signature, second_metric_signature],
-        ),
-        arm_name="1_1",
-    )
-
-
 def get_observation1(
     first_metric_signature: str = "a",
     second_metric_signature: str = "b",
@@ -100,24 +85,6 @@ def get_observation1(
             metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
-    )
-
-
-def get_observation_status_quo0(
-    first_metric_signature: str = "a",
-    second_metric_signature: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(
-            parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-            trial_index=0,
-        ),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_signatures=[first_metric_signature, second_metric_signature],
-        ),
-        arm_name="0_0",
     )
 
 
@@ -144,21 +111,6 @@ def get_observation2(
         features=ObservationFeatures(parameters={"x": 3.0, "y": 2.0}, trial_index=1),
         data=ObservationData(
             means=np.array([2.0, 1.0]),
-            covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
-            metric_signatures=[first_metric_signature, second_metric_signature],
-        ),
-        arm_name="1_1",
-    )
-
-
-def get_observation2trans(
-    first_metric_signature: str = "a",
-    second_metric_signature: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(parameters={"x": 16.0, "y": 9.0}, trial_index=1),
-        data=ObservationData(
-            means=np.array([9.0, 4.0]),
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
             metric_signatures=[first_metric_signature, second_metric_signature],
         ),
