@@ -633,14 +633,17 @@ def contour_config_to_trace(config) -> list[dict[str, Any]]:
 
     # get in-sample arms
     arm_names = list(arm_data["in_sample"].keys())
-    arm_x = [
-        arm_data["in_sample"][arm_name]["parameters"][xvar] for arm_name in arm_names
-    ]
-    arm_y = [
-        arm_data["in_sample"][arm_name]["parameters"][yvar] for arm_name in arm_names
-    ]
+    complete_arms = []
+    arm_x = []
+    arm_y = []
+    for arm in arm_names:
+        params = arm_data["in_sample"][arm]["parameters"]
+        if xvar in params and yvar in params:
+            arm_x.append(params[xvar])
+            arm_y.append(params[yvar])
+            complete_arms.append(arm)
     arm_text = []
-    for arm_name in arm_names:
+    for arm_name in complete_arms:
         atext = f"Arm {arm_name}"
         params = arm_data["in_sample"][arm_name]["parameters"]
         ys = arm_data["in_sample"][arm_name]["y"]
@@ -856,7 +859,7 @@ def slice_config_to_trace(
         parameters = arm_name_to_parameters[row["arm_name"]]
         plot = True
         for p in setx.keys():
-            if p != param and parameters[p] != setx[p]:
+            if p != param and parameters.get(p, None) != setx[p]:
                 plot = False
         if plot:
             arm_x.append(parameters[param])
