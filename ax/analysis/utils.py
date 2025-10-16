@@ -129,9 +129,7 @@ def prepare_arm_data(
     if len(metric_names) < 1:
         raise UserInputError("Must provide at least one metric name.")
 
-    missing_metrics = (
-        set(metric_names) - set(experiment.metrics.keys()) - {"p_feasible"}
-    )
+    missing_metrics = set(metric_names) - set(experiment.metrics.keys())
     if missing_metrics:
         raise UserInputError(
             f"Requested metrics {missing_metrics} are not present in the experiment."
@@ -156,7 +154,6 @@ def prepare_arm_data(
     # during prediction if using model predictions, and to relativize against the
     # status quo arm from the target trial if relativizing.
     target_trial_index = get_target_trial_index(experiment=experiment)
-    filtered_metric_names = [name for name in metric_names if name != "p_feasible"]
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
@@ -182,7 +179,7 @@ def prepare_arm_data(
 
         df = _prepare_modeled_arm_data(
             experiment=experiment,
-            metric_names=filtered_metric_names,
+            metric_names=metric_names,
             adapter=adapter,
             trial_index=trial_index,
             trial_statuses=trial_statuses,
@@ -198,7 +195,7 @@ def prepare_arm_data(
             )
 
         df = _prepare_raw_arm_data(
-            metric_names=filtered_metric_names,
+            metric_names=metric_names,
             experiment=experiment,
             trial_index=trial_index,
             trial_statuses=trial_statuses,
@@ -224,7 +221,7 @@ def prepare_arm_data(
             df = relativize_data(
                 experiment=experiment,
                 df=df,
-                metric_names=filtered_metric_names,
+                metric_names=metric_names,
                 is_raw_data=is_raw_data,
                 trial_index=trial_index,
                 trial_statuses=trial_statuses,
@@ -368,7 +365,6 @@ def _prepare_modeled_arm_data(
             for _, arm in predictable_pairs
         ]
     )
-    filtered_metric_names = [name for name in metric_names if name != "p_feasible"]
     records = [
         *[
             {
@@ -378,12 +374,12 @@ def _prepare_modeled_arm_data(
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
                 **{
                     f"{metric_name}_mean": predictions[0][metric_name][i]
-                    for metric_name in filtered_metric_names
+                    for metric_name in metric_names
                 },
                 **{
                     f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
                     ** 0.5
-                    for metric_name in filtered_metric_names
+                    for metric_name in metric_names
                 },
             }
             for i in range(len(predictable_pairs))
@@ -394,10 +390,8 @@ def _prepare_modeled_arm_data(
                 "arm_name": unpredictable_pairs[i][1].name
                 if unpredictable_pairs[i][1].has_name
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
-                **{
-                    f"{metric_name}_mean": None for metric_name in filtered_metric_names
-                },
-                **{f"{metric_name}_sem": None for metric_name in filtered_metric_names},
+                **{f"{metric_name}_mean": None for metric_name in metric_names},
+                **{f"{metric_name}_sem": None for metric_name in metric_names},
             }
             for i in range(len(unpredictable_pairs))
         ],
@@ -423,9 +417,18 @@ def _prepare_raw_arm_data(
         - METRIC_NAME_sem for each metric_name in metric_names
     """
     # Trial index of -1 indicates candidate arms, we don't have observed data for
-    # hypothetical arms so return an empty df
-    if trial_index == -1:
-        return pd.DataFrame()
+    # hypothetical arms so return an empty df.
+    if trial_index == -1 and target_trial_index is None:
+        return pd.DataFrame(
+            columns=(
+                [
+                    "trial_index",
+                    "arm_name",
+                    *[f"{metric_name}_mean" for metric_name in metric_names],
+                    *[f"{metric_name}_sem" for metric_name in metric_names],
+                ]
+            )
+        )
     else:
         trials = [
             trial
@@ -795,8 +798,8 @@ def _get_status_quo_df(
         status_quo_df = pd.DataFrame(status_quo_rows)[
             [
                 "trial_index",
-                *[f"{name}_mean" for name in metric_names if name != "p_feasible"],
-                *[f"{name}_sem" for name in metric_names if name != "p_feasible"],
+                *[f"{name}_mean" for name in metric_names],
+                *[f"{name}_sem" for name in metric_names],
             ]
         ]
     return status_quo_df
@@ -806,27 +809,3 @@ def get_lower_is_better(experiment: Experiment, metric_name: str) -> bool | None
     if metric_name == "p_feasible":
         return False
     return experiment.metrics[metric_name].lower_is_better
-
-
-def update_metric_names_if_using_p_feasible(
-    metric_names: Sequence[str], experiment: Experiment
-) -> list[str]:
-    """Return a new list of unique metric names including metrics in
-    metric_names and metrics involved in constraints if using p(feasible).
-    """
-    unique_metric_names = set(metric_names)
-    if "p_feasible" in unique_metric_names:
-        if "p_feasible" in experiment.metrics.keys():
-            raise AxError(
-                "p_feasible is reserved for plotting the probability of"
-                " feasibility of an arm with respect to outcome constraints"
-                " in Ax AnalysisCards, but there is a name collision with a "
-                " metric named p_feasible on the experiment."
-            )
-        optimization_config = none_throws(
-            experiment.optimization_config,
-            "Cannot compute p_feasible without an optimization config.",
-        )
-        for oc in optimization_config.outcome_constraints:
-            unique_metric_names.add(oc.metric.name)
-    return list(unique_metric_names)
