@@ -11,7 +11,7 @@ import pandas as pd
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
@@ -36,31 +36,6 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import override
-
-CARDGROUP_TITLE = "Metric Effects: Values of key metrics for all arms in the experiment"
-
-PREDICTED_EFFECTS_CARDGROUP_SUBTITLE = (
-    "These plots visualize predictions of the 'true' metric changes for each arm, "
-    "based on Ax's model. Since Ax applies Empirical Bayes shrinkage to adjust for "
-    "noise and also accounts for non-stationarity in the data, predicted metric "
-    "effects will not match raw observed data perfectly, but will be more "
-    "representative of the reproducible effects that will manifest in a long-term "
-    "validation experiment. <br><br>"
-    "NOTE: Flat predictions across arms indicate that the model predicts that "
-    "none of the arms had a sufficient effect on the metric, meaning that if you "
-    "re-ran the experiment, the delta you would see would be small and fall "
-    "within the confidence interval indicated in the plot. In other words, this "
-    "indicates that according to the model, the raw observed effects on this metric "
-    "are primarily noise."
-)
-
-RAW_EFFECTS_CARDGROUP_SUBTITLE = (
-    "These plots visualize the raw data on the effects we observed from "
-    "previously-run arms on a specific metric, providing insights into "
-    "their performance. These plots allow one to compare and contrast the "
-    "effectiveness of different arms, highlighting which configurations have yielded "
-    "the most favorable outcomes."
-)
 
 
 class ArmEffectsPlot(Analysis):
@@ -88,18 +63,17 @@ class ArmEffectsPlot(Analysis):
 
     def __init__(
         self,
-        metric_names: Sequence[str] | None = None,
+        metric_name: str,
         use_model_predictions: bool = True,
         relativize: bool = False,
         trial_index: int | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
-        labels: Mapping[str, str] | None = None,
+        label: str | None = None,
     ) -> None:
         """
         Args:
-            metric_names: The names of the metrics to include in the plot. If not
-                specified, all metrics in the experiment will be used.
+            metric_name: The name of the metrics to include in the plot.
             use_model_predictions: Whether to use model predictions or observed data.
                 If ``True``, the plot will show the predicted effects of each arm based
                 on the model. If ``False``, the plot will show the observed effects of
@@ -112,11 +86,10 @@ class ArmEffectsPlot(Analysis):
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
-            labels: A mapping from metric names to labels to use in the plot. If a label
-                is not provided for a metric, the metric name will be used.
+            label: A label to use in the plot in place of the metric name.
         """
 
-        self.metric_names = metric_names
+        self.metric_name = metric_name
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
@@ -131,7 +104,7 @@ class ArmEffectsPlot(Analysis):
                 *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
             ]
         self.additional_arms = additional_arms
-        self.labels: Mapping[str, str] = labels or {}
+        self.label = label
 
     @override
     def compute(
@@ -139,11 +112,9 @@ class ArmEffectsPlot(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCardBase:
+    ) -> AnalysisCard:
         if experiment is None:
             raise UserInputError("ArmEffectsPlot requires an Experiment.")
-
-        metric_names = self.metric_names or [*experiment.metrics.keys()]
 
         if self.use_model_predictions:
             relevant_adapter = extract_relevant_adapter(
@@ -156,7 +127,7 @@ class ArmEffectsPlot(Analysis):
 
         df = prepare_arm_data(
             experiment=experiment,
-            metric_names=metric_names,
+            metric_names=[self.metric_name],
             use_model_predictions=self.use_model_predictions,
             adapter=relevant_adapter,
             trial_index=self.trial_index,
@@ -165,65 +136,49 @@ class ArmEffectsPlot(Analysis):
             relativize=self.relativize,
         )
 
-        # Retrieve the metric labels from the mapping provided by the user, defaulting
-        # to the metric name if no label is provided, truncated.
-        metric_labels = {
-            metric_name: self.labels.get(metric_name, truncate_label(label=metric_name))
-            for metric_name in metric_names
-        }
+        metric_label = (
+            self.label
+            if self.label is not None
+            else truncate_label(label=self.metric_name)
+        )
 
-        cards = [
-            create_plotly_analysis_card(
-                name=self.__class__.__name__,
-                title=(
-                    f"{'Modeled' if self.use_model_predictions else 'Observed'} "
-                    f"{'Relativized ' if self.relativize else ''}Arm "
-                    f"Effects on {metric_labels[metric_name]}"
-                    + (
-                        f" for trial {self.trial_index}"
-                        if self.trial_index is not None
-                        else ""
-                    )
-                ),
-                subtitle=_get_subtitle(
-                    metric_label=metric_labels[metric_name],
-                    use_model_predictions=self.use_model_predictions,
-                    trial_index=self.trial_index,
-                ),
-                df=df[
-                    [
-                        "trial_index",
-                        "trial_status",
-                        "arm_name",
-                        "fail_reason",
-                        "generation_node",
-                    ]
-                    + (
-                        [
-                            f"{metric_name}_mean",
-                            f"{metric_name}_sem",
-                        ]
-                    )
-                ].copy(),
-                fig=_prepare_figure(
-                    df=df,
-                    metric_name=metric_name,
-                    is_relative=self.relativize,
-                    status_quo_arm_name=experiment.status_quo.name
-                    if experiment.status_quo
-                    else None,
-                    metric_label=metric_labels[metric_name],
-                ),
-            )
-            for metric_name in metric_names
-        ]
-
-        return self._create_analysis_card_group_or_card(
-            title=CARDGROUP_TITLE,
-            subtitle=PREDICTED_EFFECTS_CARDGROUP_SUBTITLE
-            if self.use_model_predictions
-            else RAW_EFFECTS_CARDGROUP_SUBTITLE,
-            children=cards,
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
+            title=(
+                f"{'Modeled' if self.use_model_predictions else 'Observed'} "
+                f"{'Relativized ' if self.relativize else ''}Arm "
+                f"Effects on {metric_label}"
+                + (
+                    f" for trial {self.trial_index}"
+                    if self.trial_index is not None
+                    else ""
+                )
+            ),
+            subtitle=_get_subtitle(
+                metric_label=metric_label,
+                use_model_predictions=self.use_model_predictions,
+                trial_index=self.trial_index,
+            ),
+            df=df[
+                [
+                    "trial_index",
+                    "trial_status",
+                    "arm_name",
+                    "fail_reason",
+                    "generation_node",
+                    f"{self.metric_name}_mean",
+                    f"{self.metric_name}_sem",
+                ]
+            ].copy(),
+            fig=_prepare_figure(
+                df=df,
+                metric_name=self.metric_name,
+                is_relative=self.relativize,
+                status_quo_arm_name=experiment.status_quo.name
+                if experiment.status_quo
+                else None,
+                metric_label=metric_label,
+            ),
         )
 
 
@@ -238,7 +193,7 @@ def compute_arm_effects_adhoc(
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     labels: Mapping[str, str] | None = None,
-) -> AnalysisCardBase:
+) -> AnalysisCardGroup:
     """
     Compute ArmEffectsPlot cards for the given experiment and either Adapter or
     GenerationStrategy.
@@ -269,20 +224,30 @@ def compute_arm_effects_adhoc(
             is not provided for a metric, the metric name will be used.
     """
 
-    analysis = ArmEffectsPlot(
-        metric_names=metric_names,
-        use_model_predictions=use_model_predictions,
-        relativize=relativize,
-        trial_index=trial_index,
-        trial_statuses=trial_statuses,
-        additional_arms=additional_arms,
-        labels=labels,
-    )
-
-    return analysis.compute(
-        experiment=experiment,
-        generation_strategy=generation_strategy,
-        adapter=adapter,
+    return AnalysisCardGroup(
+        name="ArmEffectsPlot",
+        title="Adhoc Arm Effects Plots",
+        subtitle=None,
+        children=[
+            ArmEffectsPlot(
+                metric_name=metric_name,
+                use_model_predictions=use_model_predictions,
+                relativize=relativize,
+                trial_index=trial_index,
+                trial_statuses=trial_statuses,
+                additional_arms=additional_arms,
+                label=labels.get(metric_name) if labels is not None else None,
+            ).compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            for metric_name in (
+                metric_names
+                if metric_names is not None
+                else [*experiment.metrics.keys()]
+            )
+        ],
     )
 
 
