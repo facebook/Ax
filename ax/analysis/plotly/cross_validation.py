@@ -6,7 +6,7 @@
 # pyre-strict
 
 
-from typing import Mapping, Sequence
+from typing import final, Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -41,6 +41,7 @@ CV_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class CrossValidationPlot(Analysis):
     """
     Plotly Scatter plot for cross validation for model predictions using the current
@@ -173,7 +174,7 @@ class CrossValidationPlot(Analysis):
 
             cards.append(card)
 
-        return self._create_analysis_card_group_or_card(
+        return self._create_analysis_card_group(
             title=CV_CARDGROUP_TITLE,
             subtitle=CV_CARDGROUP_SUBTITLE,
             children=cards,

@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Mapping, Sequence
+from typing import final, Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -38,6 +38,7 @@ from plotly import graph_objects as go
 from pyre_extensions import override
 
 
+@final
 class ArmEffectsPlot(Analysis):
     """
     Plot the effects of each arm in an experiment on a given metric. Effects may be

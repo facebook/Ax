@@ -6,7 +6,7 @@
 # pyre-strict
 
 import itertools
-from typing import Sequence
+from typing import final, Sequence
 
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
@@ -55,6 +55,7 @@ ARM_EFFECTS_PAIR_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ResultsAnalysis(Analysis):
     """
     An Analysis that provides a high-level overview of the results of the optimization
@@ -245,6 +246,7 @@ class ResultsAnalysis(Analysis):
         )
 
 
+@final
 class ArmEffectsPair(Analysis):
     """
     Compute two ArmEffectsPlots in a single AnalysisCardGroup, one plotting model

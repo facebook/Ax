@@ -6,7 +6,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Mapping, Sequence
+from typing import Any, final, Mapping, Sequence
 
 import numpy as np
 
@@ -56,6 +56,7 @@ SCATTER_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ScatterPlot(Analysis):
     """
     Plotly Scatter plot for any two metrics. Each arm is represented by a single point

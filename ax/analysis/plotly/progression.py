@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 import numpy as np
 import plotly.express as px
 from ax.adapter.base import Adapter
@@ -24,6 +26,7 @@ from plotly import graph_objects as go
 from pyre_extensions import assert_is_instance, override
 
 
+@final
 class ProgressionPlot(Analysis):
     """
     Plotly Scatter showing a timerseries-like metric's progression, with one line for

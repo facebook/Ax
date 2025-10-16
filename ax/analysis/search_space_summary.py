@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
@@ -15,6 +17,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
+@final
 class SearchSpaceSummary(Analysis):
     """
     Creates a dataframe with information about each parameter in the given

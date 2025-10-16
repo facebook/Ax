@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
@@ -27,6 +29,7 @@ INSIGHTS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class InsightsAnalysis(Analysis):
     """
     An Analysis that provides insights into the optimization process.
