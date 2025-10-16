@@ -6,6 +6,7 @@
 # pyre-strict
 
 from datetime import datetime
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -21,6 +22,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
 
 
+@final
 class CanGenerateCandidatesAnalysis(Analysis):
     REASON_PREFIX: str = "This experiment cannot generate candidates.\nREASON: "
     LAST_RUN_TEMPLATE: str = "\n\nLAST TRIAL RUN: {days} day(s) ago"

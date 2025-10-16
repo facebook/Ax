@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -48,6 +49,7 @@ SLICE_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class SlicePlot(Analysis):
     """
     Plot a 1D "slice" of the surrogate model's predicted outcomes for a given

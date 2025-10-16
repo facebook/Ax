@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from typing import Literal, Mapping, Sequence
+from typing import final, Literal, Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -47,6 +47,7 @@ SENSITIVITY_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class SensitivityAnalysisPlot(Analysis):
     """
     Compute sensitivity for all metrics on a TorchAdapter.

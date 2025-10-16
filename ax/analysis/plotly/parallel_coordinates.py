@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any
+from typing import Any, final
 
 import numpy as np
 import pandas as pd
@@ -24,6 +24,7 @@ from plotly import graph_objects as go
 from pyre_extensions import override
 
 
+@final
 class ParallelCoordinatesPlot(Analysis):
     """
     Plotly Parcoords plot for a single metric, with one line per arm and dimensions for
