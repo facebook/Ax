@@ -435,6 +435,7 @@ def get_pending_observation_features_based_on_trial_status(
         TrialStatus.CANDIDATE,
         TrialStatus.STAGED,
         TrialStatus.RUNNING,
+        TrialStatus.EARLY_STOPPED,
         TrialStatus.ABANDONED,
     ]:
         for trial in experiment.trials_by_status[status]:
