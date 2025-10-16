@@ -34,7 +34,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         noise_sd: float = 0.0,
         lower_is_better: bool | None = None,
         rate: float | None = None,
-        cache_evaluations: bool = True,
         decay_function_name: str = "exp_decay",
     ) -> None:
         """A Branin map metric with an optional multiplicative factor of
@@ -78,7 +77,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             param_names=param_names,
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
-            cache_evaluations=cache_evaluations,
         )
 
     def __eq__(self, o: BraninTimestampMapMetric) -> bool:

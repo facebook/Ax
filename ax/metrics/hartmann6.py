@@ -8,15 +8,10 @@
 
 import numpy.typing as npt
 from ax.metrics.noisy_function import NoisyFunctionMetric
-from ax.utils.measurement.synthetic_functions import aug_hartmann6, hartmann6
+from ax.utils.measurement.synthetic_functions import hartmann6
 from pyre_extensions import assert_is_instance
 
 
 class Hartmann6Metric(NoisyFunctionMetric):
     def f(self, x: npt.NDArray) -> float:
         return assert_is_instance(hartmann6(x), float)
-
-
-class AugmentedHartmann6Metric(NoisyFunctionMetric):
-    def f(self, x: npt.NDArray) -> float:
-        return assert_is_instance(aug_hartmann6(x), float)
