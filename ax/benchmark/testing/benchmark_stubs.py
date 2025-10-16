@@ -34,7 +34,6 @@ from ax.benchmark.problems.surrogate.lcbench.utils import get_lcbench_parameters
 from ax.benchmark.problems.synthetic.from_botorch import create_problem_from_botorch
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
 from ax.core.arm import Arm
-from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter, ParameterType
@@ -235,14 +234,6 @@ def get_jenatton_trials(n_trials: int) -> dict[int, Trial]:
     # pyre-fixme: Incompatible return type [7]: Expected `Dict[int, Trial]` but
     # got `Dict[int, BaseTrial]`.
     return experiment.trials
-
-
-def get_jenatton_batch_trial() -> BatchTrial:
-    experiment = get_jenatton_experiment()
-    trial = experiment.new_batch_trial()
-    trial.add_arm(get_jenatton_arm(0))
-    trial.add_arm(get_jenatton_arm(1))
-    return trial
 
 
 class DeterministicGenerationNode(ExternalGenerationNode):
