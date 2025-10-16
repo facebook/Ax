@@ -29,7 +29,12 @@ from ax.analysis.plotly.utils import (
     truncate_label,
     Z_SCORE_95_CI,
 )
-from ax.analysis.utils import extract_relevant_adapter, relativize_data
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    relativize_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+)
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
@@ -83,6 +88,36 @@ class SlicePlot(Analysis):
         self.metric_name = metric_name
         self._display_sampled = display_sampled
         self.relativize = relativize
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        experiment_validation_str = validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=True,
+        )
+
+        if experiment_validation_str is not None:
+            return experiment_validation_str
+
+        experiment = none_throws(experiment)
+
+        adapter_can_predict_validation_str = validate_adapter_can_predict(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+            required_metric_names=[
+                self.metric_name or select_metric(experiment=experiment)
+            ],
+        )
+
+        if adapter_can_predict_validation_str is not None:
+            return adapter_can_predict_validation_str
 
     @override
     def compute(
