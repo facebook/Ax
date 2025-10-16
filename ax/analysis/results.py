@@ -26,10 +26,10 @@ from ax.analysis.plotly.scatter import (
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy

@@ -21,7 +21,7 @@ import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
 from ax.analysis.plotly.utils import STALE_FAIL_REASON
-from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
@@ -31,6 +31,7 @@ from ax.core.multi_type_experiment import (
     MultiTypeExperiment,
 )
 from ax.core.runner import Runner
+from ax.core.trial_status import TrialStatus
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.exceptions.core import (
     AxError,
