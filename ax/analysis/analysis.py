@@ -140,26 +140,6 @@ class Analysis(Protocol):
             children=children,
         )
 
-    def _create_analysis_card_group_or_card(
-        self,
-        title: str,
-        subtitle: str,
-        children: Sequence[AnalysisCardBase],
-    ) -> AnalysisCardBase:
-        """
-        Make an AnalysisCardGroup from this Analysis using provided fields and
-        details about the Analysis class. If there is only one child, return the child
-        directly instead of wrapping it in a group.
-        """
-        if len(children) == 1:
-            return children[0]
-
-        return self._create_analysis_card_group(
-            title=title,
-            subtitle=subtitle,
-            children=children,
-        )
-
 
 class AnalysisE(ExceptionE):
     analysis: Analysis
