@@ -16,9 +16,9 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
-from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_discrete_search_space, get_sobol
+from pyre_extensions import none_throws
 
 
 class TestMarginalEffectsPlot(TestCase):
@@ -61,21 +61,33 @@ class TestMarginalEffectsPlot(TestCase):
         )
         self.analysis_default_params = MarginalEffectsPlot(metric_name="metric_1")
 
-    def test_compute(self) -> None:
-        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
-            self.analysis_default_params.compute()
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(
+                MarginalEffectsPlot(metric_name="foo").validate_applicable_state()
+            ),
+        )
 
         adapter = get_thompson(
             experiment=self.experiment,
             data=self.experiment.lookup_data(trial_indices=[0]),
         )
 
-        with self.assertRaisesRegex(
-            UserInputError, "MarginalEffectsPlot is only for `ChoiceParameter`s"
-        ):
-            self.analysis_all_variables.compute(
-                experiment=self.experiment, adapter=adapter
-            )
+        self.assertIn(
+            "MarginalEffectsPlot is only for `ChoiceParameter`s",
+            none_throws(
+                self.analysis_all_variables.validate_applicable_state(
+                    experiment=self.experiment, adapter=adapter
+                )
+            ),
+        )
+
+    def test_compute(self) -> None:
+        adapter = get_thompson(
+            experiment=self.experiment,
+            data=self.experiment.lookup_data(trial_indices=[0]),
+        )
 
         cards = self.analysis_default_params.compute(
             experiment=self.experiment, adapter=adapter
