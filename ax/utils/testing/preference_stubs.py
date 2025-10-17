@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -18,10 +17,6 @@ from ax.utils.common.constants import Keys
 from botorch.utils.sampling import draw_sobol_samples
 from pyre_extensions import assert_is_instance, none_throws
 
-# from ExperimentType in ae/lazarus/fb/utils/if/ae.thrift
-PBO_EXPERIMENT_TYPE: str = "PREFERENCE_LEARNING"
-PE_EXPERIMENT_TYPE: str = "PREFERENCE_EXPLORATION"
-
 
 def sum_utility(parameters: TParameterization) -> float:
     """Test utility function that sums over parameter values"""
@@ -31,7 +26,6 @@ def sum_utility(parameters: TParameterization) -> float:
 
 def pairwise_pref_metric_eval(
     parameters: dict[str, TParameterization],
-    utility_func: Callable[[TParameterization], float] = sum_utility,
 ) -> dict[str, TEvaluationOutcome]:
     """evaluating pairwise comparisons using utility_func"""
     assert len(parameters.keys()) == 2

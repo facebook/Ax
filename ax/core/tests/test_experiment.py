@@ -896,7 +896,7 @@ class ExperimentTest(TestCase):
     def test_AttachBatchTrialNoArmNames(self) -> None:
         num_trials = len(self.experiment.trials)
 
-        attached_parameterizations, trial_index = self.experiment.attach_trial(
+        _, trial_index = self.experiment.attach_trial(
             parameterizations=[
                 {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
                 {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
@@ -916,7 +916,7 @@ class ExperimentTest(TestCase):
     def test_AttachBatchTrialWithArmNames(self) -> None:
         num_trials = len(self.experiment.trials)
 
-        attached_parameterizations, trial_index = self.experiment.attach_trial(
+        _, trial_index = self.experiment.attach_trial(
             parameterizations=[
                 {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
                 {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
@@ -941,7 +941,7 @@ class ExperimentTest(TestCase):
     def test_AttachSingleArmTrialNoArmName(self) -> None:
         num_trials = len(self.experiment.trials)
 
-        attached_parameterization, trial_index = self.experiment.attach_trial(
+        _, trial_index = self.experiment.attach_trial(
             parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
@@ -953,7 +953,7 @@ class ExperimentTest(TestCase):
     def test_AttachSingleArmTrialWithArmName(self) -> None:
         num_trials = len(self.experiment.trials)
 
-        attached_parameterization, trial_index = self.experiment.attach_trial(
+        _, trial_index = self.experiment.attach_trial(
             parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             arm_names=["arm1"],
             ttl_seconds=3600,

@@ -316,9 +316,6 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.multi_objective = MultiObjective(
             objectives=[self.objectives["o1"], self.objectives["o2"]]
         )
-        self.multi_objective_just_m2 = MultiObjective(
-            objectives=[self.objectives["o2"]]
-        )
         self.scalarized_objective = ScalarizedObjective(
             metrics=list(self.metrics.values()),
             weights=[-1.0, 1.0, 1.0],
@@ -347,9 +344,6 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 relative=True,
             ),
         ]
-        self.m1_constraint = OutcomeConstraint(
-            metric=self.metrics["m1"], op=ComparisonOp.LEQ, bound=0.1, relative=True
-        )
         self.m3_constraint = OutcomeConstraint(
             metric=self.metrics["m3"], op=ComparisonOp.GEQ, bound=0.1, relative=True
         )

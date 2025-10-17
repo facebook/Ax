@@ -45,7 +45,6 @@ class BatchTrialTest(TestCase):
         self.batch = self.experiment.new_batch_trial()
         arms = get_arms()
         weights = get_weights()
-        self.sq_weight = weights[0]
         self.new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
         self.arms = arms[1:]
         self.weights = weights[1:]
