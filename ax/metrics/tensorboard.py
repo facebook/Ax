@@ -14,7 +14,6 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MAP_KEY, MapData

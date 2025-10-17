@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from unittest import mock
 
 import numpy as np
-
 import pandas as pd
 from ax.core.map_data import MapData
 from ax.core.metric import MetricFetchE
