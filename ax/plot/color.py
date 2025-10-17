@@ -101,19 +101,3 @@ MIXED_SCALE = [
 def rgba(rgb_tuple: TRGB, alpha: float = 1) -> str:
     """Convert RGB tuple to an RGBA string."""
     return "rgba({},{},{},{alpha})".format(*rgb_tuple, alpha=alpha)
-
-
-def plotly_color_scale(
-    list_of_rgb_tuples: list[TRGB],
-    reverse: bool = False,
-    alpha: float = 1,
-) -> list[tuple[float, str]]:
-    """Convert list of RGB tuples to list of tuples, where each tuple is
-    break in [0, 1] and stringified RGBA color.
-    """
-    if reverse:
-        list_of_rgb_tuples = list_of_rgb_tuples[::-1]
-    return [
-        (round(i / (len(list_of_rgb_tuples) - 1), 3), rgba(rgb))
-        for i, rgb in enumerate(list_of_rgb_tuples)
-    ]

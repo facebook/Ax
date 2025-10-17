@@ -48,11 +48,6 @@ def _make_label(
     return f"{name}: {estimate}{perc} {ci}<br>"
 
 
-def _filter_outliers(Y: npt.NDArray, m: float = 2.0) -> npt.NDArray:
-    std_filter = abs(Y - np.median(Y, axis=0)) < m * np.std(Y, axis=0)
-    return Y[np.all(abs(std_filter), axis=1)]
-
-
 def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Figure:
     """
     Plots the hypervolume of the Pareto frontier after each iteration with the same
