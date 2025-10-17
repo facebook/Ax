@@ -190,7 +190,7 @@ class TestGenerationStrategy(TestCase):
                 ),
             },
         )
-        self.mock_in_registry = self.registry_setup_dict_patcher.start()
+        self.registry_setup_dict_patcher.start()
 
         # adapters are mocked, which makes kwargs' validation difficult,
         # so for now we will skip it in the generation strategy tests.

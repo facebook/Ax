@@ -1986,13 +1986,6 @@ class SurrogateWithModelListTest(TestCase):
         self.botorch_model_class = MultiTaskGP
         for submodel_cls in self.botorch_submodel_class_per_outcome.values():
             self.assertEqual(submodel_cls, MultiTaskGP)
-        self.ds3 = SupervisedDataset(
-            X=Xs1,
-            Y=Ys2,
-            Yvar=Yvars2,
-            feature_names=self.feature_names,
-            outcome_names=self.outcomes[1:],
-        )
         self.Xs = [Xs1, Xs2]
         self.Ys = [Ys1, Ys2]
         self.Yvars = [Yvars1, Yvars2]

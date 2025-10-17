@@ -88,7 +88,6 @@ class BoTorchGeneratorUtilsTest(TestCase):
             feature_names=self.feature_names,
             outcome_names=self.metric_signatures,
         )
-        self.none_Yvars = [torch.tensor([[np.nan], [np.nan]])]
         self.task_features = []
         self.objective_thresholds = torch.tensor([0.5, 1.5])
 
