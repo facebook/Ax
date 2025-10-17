@@ -128,7 +128,7 @@ class MarginalEffectsPlot(Analysis):
                     fig=fig,
                 )
             )
-        return self._create_analysis_card_group_or_card(
+        return self._create_analysis_card_group(
             title=MARGINAL_EFFECTS_CARDGROUP_TITLE,
             subtitle=MARGINAL_EFFECTS_CARDGROUP_SUBTITLE,
             children=cards,

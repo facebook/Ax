@@ -10,13 +10,14 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
     MAX_HOVER_LABEL_LEN,
+    select_metric,
     truncate_label,
 )
 from ax.analysis.utils import extract_relevant_adapter
@@ -60,23 +61,22 @@ class SensitivityAnalysisPlot(Analysis):
 
     def __init__(
         self,
-        metric_names: Sequence[str] | None = None,
+        metric_name: str | None = None,
         order: Literal["first", "second", "total"] = "total",
         top_k: int | None = 6,
         labels: Mapping[str, str] | None = None,
     ) -> None:
         """
         Args:
-            metric_names: The names of the metrics and outcomes for which to compute
-                sensitivities. This should preferably be metrics with a good model fit.
-                Defaults to all metrics in the experiment.
+            metric_name: The name of the metric to compute sensitivity analysis for.
+                If not provided, will compute sensitivity analysis for the objective.
             order: A string specifying the order of the Sobol indices to be computed.
                 Supports "first" and "total" and defaults to "first".
             top_k: Optional limit on the number of parameters to show in the plot.
             labels: A mapping from metric names to labels to use in the plot. If a label
                 is not provided for a metric, the metric name will be used.
         """
-        self.metric_names = metric_names
+        self.metric_name = metric_name
         self.order = order
         self.top_k = top_k
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
@@ -87,7 +87,18 @@ class SensitivityAnalysisPlot(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCardBase:
+    ) -> AnalysisCard:
+        if self.metric_name is None:
+            if experiment is None:
+                raise UserInputError(
+                    "SensitivityAnalysisPlot requires either an a metric name be "
+                    "provided or an Experiment be provided to infer the relevant "
+                    "metric name."
+                )
+            metric_name = select_metric(experiment=experiment)
+        else:
+            metric_name = self.metric_name
+
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -102,50 +113,40 @@ class SensitivityAnalysisPlot(Analysis):
 
         data = _prepare_data(
             adapter=relevant_adapter,
-            metric_names=self.metric_names,
+            metric_name=metric_name,
             order=self.order,
         )
 
-        cards = []
-        for metric_name in data["metric_name"].unique():
-            # If a human readable metric name is provided, use it
-            metric_label = self.labels.get(
-                metric_name, truncate_label(label=metric_name, n=MAX_LABEL_LEN)
-            )
-            df, fig = _prepare_card_components(
-                data=data,
-                metric_name=metric_name,
-                top_k=self.top_k,
-                metric_label=metric_label,
-            )
+        # If a human readable metric name is provided, use it
+        metric_label = self.labels.get(
+            metric_name, truncate_label(label=metric_name, n=MAX_LABEL_LEN)
+        )
+        df, fig = _prepare_card_components(
+            data=data,
+            metric_name=metric_name,
+            top_k=self.top_k,
+            metric_label=metric_label,
+        )
 
-            card = create_plotly_analysis_card(
-                name=self.__class__.__name__,
-                title=f"Sensitivity Analysis for {metric_label}",
-                subtitle=(
-                    f"Understand how each parameter affects {metric_label} according "
-                    f"to a {self.order}-order sensitivity analysis."
-                ),
-                df=df,
-                fig=fig,
-            )
-
-            cards.append(card)
-
-        return self._create_analysis_card_group_or_card(
-            title=SENSITIVITY_CARDGROUP_TITLE,
-            subtitle=SENSITIVITY_CARDGROUP_SUBTITLE,
-            children=cards,
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
+            title=f"Sensitivity Analysis for {metric_label}",
+            subtitle=(
+                f"Understand how each parameter affects {metric_label} according "
+                f"to a {self.order}-order sensitivity analysis."
+            ),
+            df=df,
+            fig=fig,
         )
 
 
 def compute_sensitivity_adhoc(
-    adapter: Adapter | None = None,
+    adapter: Adapter,
     metric_names: Sequence[str] | None = None,
     labels: Mapping[str, str] | None = None,
     order: Literal["first", "second", "total"] = "total",
     top_k: int | None = None,
-) -> AnalysisCardBase:
+) -> AnalysisCardGroup:
     """
     Compute SensitivityAnalysis cards for the given experiment and either Adapter or
     GenerationStrategy.
@@ -154,8 +155,7 @@ def compute_sensitivity_adhoc(
     saved when computed as part of call to ``Client.compute_analyses`` or equivalent.
 
     Args:
-        adapter: The adapter to use to compute the analysis. If not provided, will use
-            the current adapter on the ``GenerationStrategy``.
+        adapter: The adapter to use to compute the analysis.
         metric_names: The names of the metrics and outcomes for which to compute
                 sensitivities. This should preferably be metrics with a good model fit.
                 Defaults to all metrics in the experiment.
@@ -165,23 +165,34 @@ def compute_sensitivity_adhoc(
         labels: A mapping from metric names to labels to use in the plot. If a label
             is not provided for a metric, the metric name will be used.
     """
-    analysis = SensitivityAnalysisPlot(
-        metric_names=metric_names,
-        order=order,
-        top_k=top_k,
-        labels=labels,
+    analyis_cards = [
+        SensitivityAnalysisPlot(
+            metric_name=metric_name,
+            order=order,
+            top_k=top_k,
+            labels=labels,
+        ).compute_or_error_card(adapter=adapter)
+        for metric_name in (
+            metric_names if metric_names is not None else adapter.outcomes
+        )
+    ]
+
+    return AnalysisCardGroup(
+        name="SensitivityAnalysisAdhoc",
+        title="Adhoc Sensitivity Analysis",
+        subtitle=None,
+        children=analyis_cards,
     )
-    return analysis.compute(adapter=adapter)
 
 
 def _prepare_data(
     adapter: TorchAdapter,
-    metric_names: Sequence[str] | None,
+    metric_name: str,
     order: Literal["first", "second", "total"],
 ) -> pd.DataFrame:
     sensitivities = ax_parameter_sens(
         adapter=adapter,
-        metrics=[*metric_names] if metric_names is not None else None,
+        metrics=[metric_name],
         order=order,
     )
 

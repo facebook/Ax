@@ -204,11 +204,11 @@ class TestArmEffectsPlot(TestCase):
                 generation_strategy.current_node._fit(experiment=experiment)
                 adapter = none_throws(generation_strategy.adapter)
 
-                model_metric_names = [
-                    adapter._experiment.signature_to_metric[signature].name
-                    for signature in adapter.metric_signatures
-                ]
-                for metric_name in model_metric_names:
+                for signature in adapter.metric_signatures:
+                    metric_name = adapter._experiment.signature_to_metric[
+                        signature
+                    ].name
+
                     analysis = ArmEffectsPlot(
                         metric_name=metric_name,
                         use_model_predictions=use_model_predictions,

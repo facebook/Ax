@@ -133,6 +133,5 @@ class TrialAnalysis(Analysis):
                     adapter=relevant_adapter,
                 )
                 for analysis in analyses
-                if analysis is not None
             ],
         )
