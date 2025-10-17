@@ -7,10 +7,15 @@
 
 
 import numpy as np
-from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    DerivedParameterConfig,
+    RangeParameterConfig,
+)
 
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     Parameter,
     ParameterType as CoreParameterType,
@@ -20,10 +25,11 @@ from ax.exceptions.core import UserInputError
 
 
 def parameter_from_config(
-    config: RangeParameterConfig | ChoiceParameterConfig,
+    config: RangeParameterConfig | ChoiceParameterConfig | DerivedParameterConfig,
 ) -> Parameter:
     """
-    Create a RangeParameter, ChoiceParameter, or FixedParameter from a ParameterConfig.
+    Create a RangeParameter, ChoiceParameter, FixedParameter or DerivedParameter
+    from a ParameterConfig.
     """
 
     if isinstance(config, RangeParameterConfig):
@@ -59,7 +65,12 @@ def parameter_from_config(
             upper=upper,
             log_scale=config.scaling == "log",
         )
-
+    elif isinstance(config, DerivedParameterConfig):
+        return DerivedParameter(
+            name=config.name,
+            parameter_type=_parameter_type_converter(config.parameter_type),
+            expression_str=config.expression_str,
+        )
     else:
         # If there is only one value, create a FixedParameter instead of a
         # ChoiceParameter

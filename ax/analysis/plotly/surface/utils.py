@@ -7,13 +7,16 @@
 import math
 
 import numpy as np
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     Parameter,
     RangeParameter,
     TParamValue,
 )
+from ax.core.search_space import SearchSpace
 
 
 def get_parameter_values(parameter: Parameter, density: int = 100) -> list[TParamValue]:
@@ -60,3 +63,20 @@ def is_axis_log_scale(parameter: Parameter) -> bool:
     Check if the parameter is log scale.
     """
     return isinstance(parameter, RangeParameter) and parameter.log_scale
+
+
+def get_features_for_slice_or_contour(
+    parameters: dict[str, TParamValue],
+    search_space: SearchSpace,
+) -> ObservationFeatures:
+    derived_params = [
+        p for p in search_space.parameters.values() if isinstance(p, DerivedParameter)
+    ]
+    params = parameters.copy()
+    for parameter in search_space.parameters.values():
+        if parameter.name not in parameters:
+            if not isinstance(parameter, DerivedParameter):
+                params[parameter.name] = select_fixed_value(parameter=parameter)
+    for p in derived_params:
+        params[p.name] = p.compute(parameters=params)
+    return ObservationFeatures(parameters=params)

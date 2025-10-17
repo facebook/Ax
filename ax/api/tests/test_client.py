@@ -15,7 +15,12 @@ import pandas as pd
 from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
-from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    DerivedParameterConfig,
+    RangeParameterConfig,
+    StorageConfig,
+)
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
@@ -1506,6 +1511,205 @@ class TestClient(TestCase):
             .generator_specs[0]
             .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
         )
+
+    def test_configure_experiment_with_derived_parameter(self) -> None:
+        # Setup: Create parameters including a derived parameter
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x3",
+            expression_str="1.0 - x1 - x2",
+            parameter_type="float",
+        )
+
+        # Execute: Configure experiment with derived parameter
+        client.configure_experiment(
+            name="test_derived_param",
+            parameters=[x1, x2, derived],
+        )
+
+        # Assert: Verify derived parameter is correctly configured
+        experiment = client._experiment
+        self.assertEqual(len(experiment.search_space.parameters), 3)
+        from ax.core.parameter import DerivedParameter
+
+        self.assertIsInstance(
+            experiment.search_space.parameters["x3"], DerivedParameter
+        )
+
+    def test_configure_experiment_with_multiple_derived_parameters(self) -> None:
+        # Setup: Create multiple derived parameters
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived1 = DerivedParameterConfig(
+            name="sum_x1_x2",
+            expression_str="x1 + x2",
+            parameter_type="float",
+        )
+        derived2 = DerivedParameterConfig(
+            name="complement",
+            expression_str="1.0 - x1 - x2",
+            parameter_type="float",
+        )
+
+        # Execute: Configure with multiple derived parameters
+        client.configure_experiment(
+            name="test_multiple_derived",
+            parameters=[x1, x2, derived1, derived2],
+        )
+
+        # Assert: Verify all parameters exist
+        experiment = client._experiment
+        self.assertEqual(len(experiment.search_space.parameters), 4)
+        from ax.core.parameter import DerivedParameter
+
+        self.assertIsInstance(
+            experiment.search_space.parameters["sum_x1_x2"], DerivedParameter
+        )
+        self.assertIsInstance(
+            experiment.search_space.parameters["complement"], DerivedParameter
+        )
+
+    def test_get_next_trials_with_derived_parameters(self) -> None:
+        # Setup: Configure experiment with derived parameter
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x3",
+            expression_str="1.0 - x1 - x2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_trials_derived",
+            parameters=[x1, x2, derived],
+        )
+        client.configure_optimization(objective="objective")
+
+        # Execute: Generate trials
+        trials = client.get_next_trials(max_trials=3)
+
+        # Assert: Verify trials include derived parameter with correct values
+        self.assertEqual(len(trials), 3)
+        for trial_params in trials.values():
+            self.assertIn("x1", trial_params)
+            self.assertIn("x2", trial_params)
+            self.assertIn("x3", trial_params)
+            # Verify derived parameter is correctly computed
+            # pyre-fixme[58]: Arithmetic operations on TParameterValue
+            expected_x3 = 1.0 - trial_params["x1"] - trial_params["x2"]
+            # pyre-fixme[6]: Type mismatch on assertAlmostEqual
+            self.assertAlmostEqual(trial_params["x3"], expected_x3, places=6)
+
+    def test_complete_trial_with_derived_parameters(self) -> None:
+        # Setup: Configure experiment with derived parameter and generate trial
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x_sum",
+            expression_str="x1 + x2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_complete_trial",
+            parameters=[x1, x2, derived],
+        )
+        client.configure_optimization(objective="objective")
+        trials = client.get_next_trials(max_trials=1)
+        trial_index = list(trials.keys())[0]
+
+        # Execute: Complete trial with data
+        status = client.complete_trial(
+            trial_index=trial_index, raw_data={"objective": 0.5}
+        )
+
+        # Assert: Trial completed successfully
+        self.assertTrue(status.is_completed)
+
+    def test_get_best_parameterization_with_derived_parameters(self) -> None:
+        # Setup: Run experiment with derived parameters
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x_sum",
+            expression_str="x1 + x2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_best_param",
+            parameters=[x1, x2, derived],
+        )
+        client.configure_optimization(objective="loss")
+
+        # Generate and complete trials
+        for _ in range(3):
+            trials = client.get_next_trials(max_trials=1)
+            trial_index = list(trials.keys())[0]
+            client.complete_trial(
+                trial_index=trial_index, raw_data={"loss": float(trial_index)}
+            )
+
+        # Execute: Get best parameterization
+        best_params, best_values, best_trial, best_arm = (
+            client.get_best_parameterization(use_model_predictions=False)
+        )
+
+        # Assert: Best parameterization includes derived parameter
+        self.assertIn("x1", best_params)
+        self.assertIn("x2", best_params)
+        self.assertIn("x_sum", best_params)
+        self.assertIn("loss", best_values)
+
+    def test_summarize_with_derived_parameters(self) -> None:
+        # Setup: Run experiment with derived parameters
+
+        client = Client()
+        param1 = RangeParameterConfig(
+            name="param1", parameter_type="float", bounds=(0.0, 1.0)
+        )
+        param2 = RangeParameterConfig(
+            name="param2", parameter_type="float", bounds=(0.0, 1.0)
+        )
+        derived = DerivedParameterConfig(
+            name="param_sum",
+            expression_str="param1 + param2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_summarize",
+            parameters=[param1, param2, derived],
+        )
+        client.configure_optimization(objective="score")
+
+        # Complete some trials
+        for i in range(3):
+            trials = client.get_next_trials(max_trials=1)
+            trial_index = list(trials.keys())[0]
+            client.complete_trial(
+                trial_index=trial_index, raw_data={"score": float(i) * 0.1}
+            )
+
+        # Execute: Get summary
+        summary_df = client.summarize()
+
+        # Assert: Summary includes derived parameter
+        self.assertIn("param1", summary_df.columns)
+        self.assertIn("param2", summary_df.columns)
+        self.assertIn("param_sum", summary_df.columns)
+        self.assertEqual(len(summary_df), 3)
 
 
 class DummyRunner(IRunner):
