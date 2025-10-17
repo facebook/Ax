@@ -12,7 +12,12 @@ from dataclasses import dataclass
 from ax.adapter.registry import Generators
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    RangeParameter,
+)
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.generation_strategy import AxGenerationException
@@ -74,6 +79,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         """
         search_space = none_throws(self.search_space)
         parameters = {}
+        derived_params = []
         for name, p in search_space.parameters.items():
             if isinstance(p, RangeParameter):
                 if p.logit_scale:
@@ -87,8 +93,12 @@ class CenterGenerationNode(ExternalGenerationNode):
                 parameters[name] = p.values[int(len(p.values) / 2)]
             elif isinstance(p, FixedParameter):
                 parameters[name] = p.value
+            elif isinstance(p, DerivedParameter):
+                derived_params.append(p)
             else:
                 raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
+        for p in derived_params:
+            parameters[p.name] = p.compute(parameters=parameters)
         if isinstance(search_space, HierarchicalSearchSpace):
             parameters = search_space._cast_parameterization(parameters=parameters)
 
