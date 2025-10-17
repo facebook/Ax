@@ -31,6 +31,7 @@ dependencies = [
     "pyre-extensions",
     "sympy",
     "markdown",
+    "thrift",
 ]
 
 [project.optional-dependencies]
@@ -85,6 +86,9 @@ find = {}
 
 [tool.setuptools.package-data]
 "*" = ["*.js", "*.css", "*.html"]
+
+[tool.setuptools.cmdclass]
+build_py = "build_thrift:build_py"
 
 [tool.setuptools_scm]
 write_to = "ax/version.py"
