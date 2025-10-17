@@ -18,9 +18,9 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.surface.utils import (
+    get_features_for_slice_or_contour,
     get_parameter_values,
     is_axis_log_scale,
-    select_fixed_value,
 )
 from ax.analysis.plotly.utils import (
     get_scatter_point_color,
@@ -30,7 +30,7 @@ from ax.analysis.plotly.utils import (
 )
 from ax.analysis.utils import extract_relevant_adapter, relativize_data
 from ax.core.experiment import Experiment
-from ax.core.observation import ObservationFeatures
+from ax.core.parameter import DerivedParameter
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -91,6 +91,13 @@ class SlicePlot(Analysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("SlicePlot requires an Experiment")
+
+        if isinstance(
+            experiment.search_space.parameters[self.parameter_name], DerivedParameter
+        ):
+            raise UserInputError(
+                f"SlicePlot does not support derived parameters: {self.parameter_name}"
+            )
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
@@ -207,19 +214,12 @@ def _prepare_data(
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
     features = [
-        ObservationFeatures(
-            parameters={
-                parameter_name: x,
-                **{
-                    parameter.name: select_fixed_value(parameter=parameter)
-                    for parameter in experiment.search_space.parameters.values()
-                    if parameter.name != parameter_name
-                },
-            }
+        get_features_for_slice_or_contour(
+            parameters={parameter_name: x},
+            search_space=experiment.search_space,
         )
         for x in xs
     ]
-
     predictions = model.predict(observation_features=features)
 
     df = none_throws(
