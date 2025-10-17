@@ -16,7 +16,12 @@ from ax.analysis.analysis import Analysis, display_cards
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.summary import Summary
-from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    DerivedParameterConfig,
+    RangeParameterConfig,
+    StorageConfig,
+)
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TOutcome, TParameterization
@@ -98,7 +103,9 @@ class Client(WithDBSettingsBase):
     # -------------------- Section 1: Configure -------------------------------------
     def configure_experiment(
         self,
-        parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
+        parameters: Sequence[
+            RangeParameterConfig | ChoiceParameterConfig | DerivedParameterConfig
+        ],
         parameter_constraints: Sequence[str] | None = None,
         name: str | None = None,
         description: str | None = None,
