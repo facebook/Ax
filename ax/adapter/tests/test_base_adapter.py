@@ -635,17 +635,18 @@ class BaseAdapterTest(TestCase):
             # 3 for metric 'branin_map' with timestamp=0, 1, 2, and 1 for metric
             # 'branin' with timestamp=NaN
             self.assertEqual(
-                len(call_kwargs["status_quo_observations"]), 4 + additional_fetch
+                len(call_kwargs["status_quo_observations"]), 4 + additional_fetch * 2
             )
             if additional_fetch:
-                # Last observation should only include the constraint metric.
+                # Last observation includes the constraint metric and last observation
+                # from branin_map.
                 self.assertEqual(
                     set(
                         call_kwargs["status_quo_observations"][
                             -1
                         ].data.metric_signatures
                     ),
-                    {"branin_map_constraint"},
+                    {"branin_map", "branin_map_constraint"},
                 )
             opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
             self.assertEqual(call_kwargs["metrics"], opt_config_metrics)
