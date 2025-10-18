@@ -44,6 +44,18 @@ class ChoiceParameterConfig:
 
 
 @dataclass
+class DerivedParameterConfig:
+    """
+    Allows specifying a dimension of an experiment's search space and that is
+    derived from other parameters and internally validates the inputs.
+    """
+
+    name: str
+    expression_str: str
+    parameter_type: Literal["float", "int", "str", "bool"]
+
+
+@dataclass
 class StorageConfig:
     """
     Allows the user to configure how Ax should connect to a SQL database to store the

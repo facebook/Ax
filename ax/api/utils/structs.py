@@ -8,7 +8,11 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    DerivedParameterConfig,
+    RangeParameterConfig,
+)
 
 
 @dataclass
@@ -18,7 +22,9 @@ class ExperimentStruct:
     with other metadata.
     """
 
-    parameters: list[RangeParameterConfig | ChoiceParameterConfig]
+    parameters: list[
+        RangeParameterConfig | ChoiceParameterConfig | DerivedParameterConfig
+    ]
     # Parameter constraints will be parsed via SymPy
     # Ex: "num_layers1 <= num_layers2", "compound_a + compound_b <= 1"
     parameter_constraints: list[str]
