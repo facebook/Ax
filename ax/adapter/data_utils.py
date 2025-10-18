@@ -419,6 +419,7 @@ def _extract_observation_data(
             )
 
     df = data.full_df
+    df = _maybe_normalize_map_key(df)
     # Filter out rows for invalid statuses.
     to_keep = Series(index=df.index, data=False)
     trial_statuses = df["trial_index"].map(
@@ -485,3 +486,34 @@ def _extract_observation_data(
         observation_data = observation_data.join(metadata_df)
 
     return observation_data
+
+
+def _maybe_normalize_map_key(df: DataFrame) -> DataFrame:
+    """Normalizes the MAP_KEY column in the given dataframe.
+    For each metric, the values will be normalized to [0, 1] using the
+    largest & smallest values for that metric. If a metric has constant
+    values for MAP_KEY, it will be normalized to 1.0. Any NaN MAP_KEY
+    values will not be modified.
+
+    Args:
+        df: The dataframe to normalize the MAP_KEY column in.
+
+    Returns:
+        The normalized dataframe.
+    """
+    if len(df) == 0 or MAP_KEY not in df or df[MAP_KEY].isna().all():
+        return df
+    for metric in df["metric_signature"].unique():
+        # Only non-NaN rows corresponding to the particular metric.
+        mask = (df["metric_signature"] == metric) & ~df[MAP_KEY].isna()
+        map_values = df.loc[mask, MAP_KEY].unique()
+        if len(map_values) == 1:
+            df.loc[mask, MAP_KEY] = 1.0
+            continue
+        # Get the min and max values and use them to normalize to [0, 1].
+        map_key_min = df.loc[mask, MAP_KEY].min()
+        map_key_max = df.loc[mask, MAP_KEY].max()
+        df.loc[mask, MAP_KEY] = (df.loc[mask, MAP_KEY] - map_key_min) / (
+            map_key_max - map_key_min
+        )
+    return df
