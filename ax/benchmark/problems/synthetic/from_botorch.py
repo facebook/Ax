@@ -33,10 +33,12 @@ from botorch.test_functions.base import (
 from botorch.test_functions.multi_fidelity import AugmentedBranin
 from pyre_extensions import assert_is_instance
 
-# A mapping from (BoTorch problem class name, dim | None) to baseline value
-# Obtained using `compute_baseline_value_from_sobol()`
+# A mapping from (BoTorch problem class name, dim | None) to baseline value.
+# Obtained using `compute_baseline_value_from_sobol()` on the default bounds
+# of the problem.
 BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("Ackley", 4): 19.837273921447853,
+    ("Ackley", 100): 21.12704020210706,
     ("Branin", None): 10.930455126654936,
     ("BraninCurrin", None): 0.9820209831769217,
     ("BraninCurrin", 30): 3.0187520516793587,
@@ -49,9 +51,11 @@ BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("KeaneBumpFunction", 2): -0.0799243632005311,
     ("KeaneBumpFunction", 10): -0.13609325522288143,
     ("Levy", 4): 14.198811442165178,
+    ("Michalewicz", 10): -2.0764972759036535,
     ("Powell", 4): 932.3102865964689,
     ("PressureVessel", None): float("inf"),
     ("Rosenbrock", 4): 30143.767857949348,
+    ("Rosenbrock", 6): 139329.62994843526,
     ("SixHumpCamel", None): 0.45755007063109004,
     ("SpeedReducer", None): float("inf"),
     ("StyblinskiTang", 2): -50.22278471716156,
