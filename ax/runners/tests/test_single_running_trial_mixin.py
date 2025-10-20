@@ -25,7 +25,6 @@ class SingleRunningTrialMixinTest(TestCase):
         exp.runner = runner
         trials = exp.trials.values()
         for trial in trials:
-            trial.assign_runner()
             trial.run()
         trial_statuses = runner.poll_trial_status(trials=trials)
         self.assertEqual(trial_statuses[TrialStatus.COMPLETED], {0})
@@ -41,7 +40,6 @@ class SingleRunningTrialMixinTest(TestCase):
         exp = get_branin_experiment(with_trial=True)
         exp.runner = runner
         trial = exp.trials[0]
-        trial.assign_runner()
         trial.mark_abandoned()
         trial_statuses = runner.poll_trial_status(trials=[trial])
         self.assertEqual(trial_statuses, {})
