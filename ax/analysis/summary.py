@@ -12,6 +12,7 @@ from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
+from ax.analysis.utils import filter_trials_by_indices_and_statuses
 from ax.core.experiment import Experiment
 from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
@@ -63,15 +64,46 @@ class Summary(Analysis):
         if experiment is None:
             raise UserInputError("`Summary` analysis requires an `Experiment` input")
 
+        # Get the trials that will be included in the summary
+        trials = filter_trials_by_indices_and_statuses(
+            experiment=experiment,
+            trial_indices=self.trial_indices,
+            trial_statuses=self.trial_statuses,
+        )
+
+        # Check if all trials have status quo in their arms
+        all_trials_have_status_quo = all(
+            experiment.status_quo is not None
+            and experiment.status_quo.name in trial.arms_by_name
+            for trial in trials
+        )
+
+        # Determine if we should relativize based on:
+        # (1) experiment has metrics and (2) experiment has status quo
+        # (3) all trials being used have status quo
+        should_relativize = (
+            len(experiment.metrics) > 0
+            and experiment.status_quo is not None
+            and all_trials_have_status_quo
+        )
+
         return self._create_analysis_card(
             title=(
                 "Summary for "
                 f"{experiment.name if experiment.has_name else 'Experiment'}"
             ),
-            subtitle="High-level summary of the `Trial`-s in this `Experiment`",
+            subtitle=(
+                "High-level summary of the `Trial`-s in this `Experiment`"
+                if not should_relativize
+                else (
+                    "High-level summary of the `Trial`-s in this `Experiment` "
+                    "Metric results are relativized against status quo."
+                )
+            ),
             df=experiment.to_df(
                 trial_indices=self.trial_indices,
                 omit_empty_columns=self.omit_empty_columns,
                 trial_statuses=self.trial_statuses,
+                relativize=should_relativize,
             ),
         )

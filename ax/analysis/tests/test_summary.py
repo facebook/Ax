@@ -7,6 +7,8 @@
 
 import numpy as np
 import pandas as pd
+
+from ax.adapter.factory import get_sobol
 from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -14,14 +16,20 @@ from ax.core.base_trial import TrialStatus
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from ax.utils.testing.core_stubs import (
+    get_branin_data_batch,
+    get_branin_experiment,
+    get_offline_experiments,
+    get_online_experiments,
+)
 from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestSummary(TestCase):
-    def test_compute(self) -> None:
-        client = Client()
-        client.configure_experiment(
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = Client()
+        self.client.configure_experiment(
             name="test_experiment",
             parameters=[
                 RangeParameterConfig(
@@ -36,7 +44,10 @@ class TestSummary(TestCase):
                 ),
             ],
         )
-        client.configure_optimization(objective="foo, bar")
+        self.client.configure_optimization(objective="foo, bar")
+
+    def test_compute(self) -> None:
+        client = self.client
 
         # Get two trials and fail one, giving us a ragged structure
         client.get_next_trials(max_trials=2)
@@ -142,23 +153,7 @@ class TestSummary(TestCase):
 
     def test_trial_indices_filter(self) -> None:
         """Test that Client.summarize correctly uses Summary."""
-        client = Client()
-        client.configure_experiment(
-            name="test_experiment",
-            parameters=[
-                RangeParameterConfig(
-                    name="x1",
-                    parameter_type="float",
-                    bounds=(0, 1),
-                ),
-                RangeParameterConfig(
-                    name="x2",
-                    parameter_type="float",
-                    bounds=(0, 1),
-                ),
-            ],
-        )
-        client.configure_optimization(objective="foo")
+        client = self.client
 
         # Get a trial
         client.get_next_trials(max_trials=1)
@@ -228,19 +223,7 @@ class TestSummary(TestCase):
 
     def test_default_excludes_stale_trials(self) -> None:
         """Test that Summary defaults to excluding STALE trials."""
-        # Set up experiment with basic configuration
-        client = Client()
-        client.configure_experiment(
-            name="test_experiment",
-            parameters=[
-                RangeParameterConfig(
-                    name="x1",
-                    parameter_type="float",
-                    bounds=(0, 1),
-                ),
-            ],
-        )
-        client.configure_optimization(objective="foo")
+        client = self.client
 
         # Create 3 trials with different statuses to test default filtering behavior
         client.get_next_trials(max_trials=3)
@@ -275,3 +258,54 @@ class TestSummary(TestCase):
         # Verify that no trials in the output have STALE status
         stale_statuses = card.df[card.df["trial_status"] == "STALE"]
         self.assertEqual(len(stale_statuses), 0)
+
+    def test_metrics_relativized_with_status_quo(self) -> None:
+        """Test that Summary relativizes metrics by default when status
+        quos are present."""
+        experiment = get_branin_experiment(with_status_quo=True, named=True)
+        experiment.name = "test_experiment_relativize"
+
+        # Create batch trials with status quo
+        for _ in range(2):
+            sobol_generator = get_sobol(search_space=experiment.search_space)
+            trial = experiment.new_batch_trial(should_add_status_quo_arm=True)
+            trial.add_generator_run(sobol_generator.gen(n=1))
+            trial.mark_running(no_runner_required=True)
+            experiment.attach_data(
+                get_branin_data_batch(batch=trial, metrics=[*experiment.metrics.keys()])
+            )
+            trial.mark_completed()
+
+        analysis = Summary()
+        card = analysis.compute(experiment=experiment)
+
+        with self.subTest("subtitle_indicates_relativization"):
+            self.assertIn("relativized", card.subtitle.lower())
+
+        with self.subTest("metric_values_formatted_as_percentages"):
+            metric_values = card.df["branin"].dropna()
+            self.assertGreater(len(metric_values), 0)
+            for val in metric_values:
+                self.assertIsInstance(val, str)
+                self.assertTrue(val.endswith("%"))
+
+        with self.subTest("relativization_calculation_correct"):
+            raw_data = experiment.lookup_data().df
+            sq_name = none_throws(experiment.status_quo).name
+            trial_0_data = raw_data[raw_data["trial_index"] == 0]
+            treatment_arm = [a for a in experiment.trials[0].arms if a.name != sq_name][
+                0
+            ]
+
+            sq_val = trial_0_data[trial_0_data["arm_name"] == sq_name]["mean"].values[0]
+            arm_val = trial_0_data[trial_0_data["arm_name"] == treatment_arm.name][
+                "mean"
+            ].values[0]
+            expected = ((arm_val - sq_val) / sq_val) * 100
+
+            actual = float(
+                card.df[card.df["arm_name"] == treatment_arm.name]["branin"]
+                .values[0]
+                .rstrip("%")
+            )
+            self.assertAlmostEqual(actual, expected, places=1)
