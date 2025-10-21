@@ -136,7 +136,10 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     def is_valid_type(self, value: TParamValue) -> bool:
         """Whether a given value's type is allowed by this parameter."""
-        return type(value) is self.python_type
+        return type(value) is self.python_type or (
+            # ints are floats
+            type(value) is int and self.python_type is float
+        )
 
     @property
     def is_numeric(self) -> bool:
