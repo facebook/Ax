@@ -16,6 +16,7 @@ from logging import Logger
 from typing import Any, cast, Mapping
 
 import torch
+from ax.core.map_data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchOptConfig
@@ -303,6 +304,7 @@ def choose_model_class(
 
 
 def choose_botorch_acqf_class(
+    search_space_digest: SearchSpaceDigest,
     torch_opt_config: TorchOptConfig,
     datasets: Sequence[SupervisedDataset] | None,
     use_p_feasible: bool = True,
@@ -310,6 +312,7 @@ def choose_botorch_acqf_class(
     """Chooses the most suitable BoTorch `AcquisitionFunction` class.
 
     Args:
+        search_space_digest: The search space digest.
         torch_opt_config: The torch optimization config.
         datasets: The datasets that were used to fit the model.
         use_p_feasible: Whether we dispatch to `qLogProbabilityOfFeasibility` when
@@ -339,7 +342,12 @@ def choose_botorch_acqf_class(
         # NOTE: `convert_to_block_design` will drop points that are only observed by
         # some of the metrics which is natural as we are using observed values to
         # determine feasibility.
-        dataset = convert_to_block_design(datasets=datasets, force=True)[0]
+        dataset = convert_to_block_design(
+            datasets=datasets,
+            force=True,
+            fixed_features=torch_opt_config.fixed_features,
+            fix_map_key_to_target=True,
+        )[0]
         con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
         feas_point_found = (con_observed <= 0).all(dim=-1).any().item()
 
@@ -442,9 +450,44 @@ def construct_acquisition_and_optimizer_options(
     )
 
 
+def _fix_map_key_to_target(
+    Xs: list[Tensor],
+    feature_names: list[str],
+    fixed_features: dict[int, float] | None,
+) -> list[Tensor]:
+    """Fixes MAP_KEY feature to the target value in a list of tensors.
+
+    This is used to avoid points getting discarded due to metrics being observed
+    at different progressions.
+
+    Args:
+        Xs: A list of tensors to fix.
+        feature_names: The feature names corresponding to the columns in the tensors.
+        fixed_features: A dictionary mapping feature indices to fixed values.
+            If the index of MAP_KEY is not in the dictionary, this is a no-op.
+
+    Returns:
+        The tensors with MAP_KEY fixed to the target value (if applicable).
+    """
+    try:
+        map_index = feature_names.index(MAP_KEY)
+    except ValueError:
+        return Xs
+
+    if fixed_features is not None and map_index in fixed_features:
+        map_value = fixed_features[map_index]
+        Xs = [X.clone() for X in Xs]
+        for X in Xs:
+            X[..., map_index] = map_value
+
+    return Xs
+
+
 def convert_to_block_design(
     datasets: Sequence[SupervisedDataset],
     force: bool = False,
+    fixed_features: dict[int, float] | None = None,
+    fix_map_key_to_target: bool = False,
 ) -> list[SupervisedDataset]:
     """Converts a list of datasets to a single block-design dataset that contains
     all outcomes.
@@ -456,6 +499,12 @@ def convert_to_block_design(
             between outcomes.
             If only a subset of the outcomes have noise observations, all noise
             observations will be dropped.
+        fixed_features: A dictionary mapping feature indices to fixed values. Used
+            to fix MAP_KEY to the target value if `fix_map_key_to_target` is True.
+        fix_map_key_to_target: If True, will fix MAP_KEY to the target value in
+            the datasets before merging them.
+            NOTE: This should not be done for modeling. It is only implemented to
+            support acquisition related utilities.
 
     Returns:
         A single element list containing the merged dataset.
@@ -480,6 +529,12 @@ def convert_to_block_design(
                 "Feature names must be the same across all datasets, "
                 f"got {dset.feature_names} and {datasets[0].feature_names}"
             )
+    if fix_map_key_to_target:
+        Xs = _fix_map_key_to_target(
+            Xs=Xs,
+            feature_names=datasets[0].feature_names,
+            fixed_features=fixed_features,
+        )
 
     # Join the outcome names of datasets.
     outcome_names = sum([ds.outcome_names for ds in datasets], [])

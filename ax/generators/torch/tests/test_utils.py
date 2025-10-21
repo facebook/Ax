@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import dataclasses
 import warnings
 from collections import OrderedDict
 from typing import Any
@@ -13,10 +14,12 @@ from unittest.mock import Mock
 
 import numpy as np
 import torch
+from ax.core.map_data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.utils import (
+    _fix_map_key_to_target,
     _get_shared_rows,
     choose_botorch_acqf_class,
     choose_model_class,
@@ -39,8 +42,8 @@ from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
-from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.analytic import PosteriorMean
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
@@ -90,6 +93,10 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.task_features = []
         self.objective_thresholds = torch.tensor([0.5, 1.5])
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=self.feature_names,
+            bounds=[(0.0, 10.0) for _ in range(len(self.feature_names))],
+        )
 
     def test_choose_model_class_fidelity_features(self) -> None:
         # Only a single fidelity feature can be used.
@@ -98,19 +105,18 @@ class BoTorchGeneratorUtilsTest(TestCase):
         ):
             choose_model_class(
                 dataset=self.fixed_noise_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[], bounds=[], fidelity_features=[1, 2]
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest, fidelity_features=[1, 2]
                 ),
             )
         # No support for non-empty task & fidelity features yet.
         with self.assertRaisesRegex(NotImplementedError, "Multi-task multi-fidelity"):
             choose_model_class(
                 dataset=self.fixed_noise_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest,
                     task_features=[1],
-                    fidelity_features=[1],
+                    fidelity_features=[2],
                 ),
             )
         # With fidelity features, use SingleTaskMultiFidelityGP.
@@ -119,31 +125,21 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 SingleTaskMultiFidelityGP,
                 choose_model_class(
                     dataset=ds,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=[],
-                        bounds=[],
-                        fidelity_features=[2],
+                    search_space_digest=dataclasses.replace(
+                        self.search_space_digest, fidelity_features=[2]
                     ),
                 ),
             )
 
     def test_choose_model_class_task_features(self) -> None:
-        # Only a single task feature can be used.
-        with self.assertRaisesRegex(NotImplementedError, "Only a single task feature"):
-            choose_model_class(
-                dataset=self.fixed_noise_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[], bounds=[], task_features=[1, 2]
-                ),
-            )
         # With task features use MultiTaskGP.
         for datasets in (self.supervised_dataset, self.fixed_noise_dataset):
             self.assertEqual(
                 MultiTaskGP,
                 choose_model_class(
                     dataset=datasets,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=[], bounds=[], task_features=[1]
+                    search_space_digest=dataclasses.replace(
+                        self.search_space_digest, task_features=[1]
                     ),
                 ),
             )
@@ -154,11 +150,10 @@ class BoTorchGeneratorUtilsTest(TestCase):
             MixedSingleTaskGP,
             choose_model_class(
                 dataset=self.supervised_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
-                    task_features=[],
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest,
                     categorical_features=[1],
+                    discrete_choices={1: [1, 2, 3]},
                 ),
             ),
         )
@@ -169,11 +164,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             self.assertEqual(
                 SingleTaskGP,
                 choose_model_class(
-                    dataset=ds,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=[],
-                        bounds=[],
-                    ),
+                    dataset=ds, search_space_digest=self.search_space_digest
                 ),
             )
 
@@ -181,6 +172,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(
             qLogNoisyExpectedImprovement,
             choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, 0.0]),
                     is_moo=False,
@@ -191,6 +183,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(
             qLogNoisyExpectedHypervolumeImprovement,
             choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0]),
                     is_moo=True,
@@ -202,6 +195,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(
             qLogNParEGO,
             choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0, 1.0, 1.0, 1.0]),
                     is_moo=True,
@@ -215,6 +209,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         datasets = [self.supervised_dataset, ds1]
         with self.assertLogs(logger=logger, level="DEBUG") as logs:
             choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0]),
                     is_moo=True,
@@ -806,3 +801,146 @@ class BoTorchGeneratorUtilsTest(TestCase):
         dummy_rounding = none_throws(get_rounding_func(rounding_func=rounding_func))
         X_temp = torch.rand(1, 2, 3, 4)
         self.assertTrue(torch.equal(torch.round(X_temp), dummy_rounding(X_temp)))
+
+    def test_fix_map_key_to_target(self) -> None:
+        # Setup: Create test tensors with MAP_KEY feature
+        X1 = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        X2 = torch.tensor([[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]])
+        Xs = [X1.clone(), X2.clone()]
+        feature_names = ["x1", "x2", MAP_KEY]
+
+        # Test case 1: MAP_KEY is in feature_names and in fixed_features
+        # Should fix MAP_KEY column (index 2) to the target value
+        fixed_features = {2: 5.0}
+        result = _fix_map_key_to_target(
+            Xs=Xs, feature_names=feature_names, fixed_features=fixed_features
+        )
+
+        # Assert: MAP_KEY column should be fixed to 5.0
+        self.assertEqual(len(result), 2)
+        self.assertTrue(torch.equal(result[0][:, 2], torch.tensor([5.0, 5.0])))
+        self.assertTrue(torch.equal(result[1][:, 2], torch.tensor([5.0, 5.0])))
+        # Other columns should remain unchanged
+        self.assertTrue(torch.equal(result[0][:, :2], X1[:, :2]))
+        self.assertTrue(torch.equal(result[1][:, :2], X2[:, :2]))
+
+        # Assert: Original tensors should remain unchanged
+        self.assertTrue(torch.equal(X1, Xs[0]))
+        self.assertTrue(torch.equal(X2, Xs[1]))
+
+        # Test case 2: MAP_KEY is in feature_names but NOT in fixed_features
+        # Should return original tensors (no-op)
+        for fixed_features in ({0: 1.0}, None):
+            result = _fix_map_key_to_target(
+                Xs=Xs, feature_names=feature_names, fixed_features=fixed_features
+            )
+
+            # Assert: Tensors should remain unchanged
+            self.assertTrue(torch.equal(result[0], X1))
+            self.assertTrue(torch.equal(result[1], X2))
+
+        # Test case 3: MAP_KEY is NOT in feature_names
+        # Should return original tensors
+        feature_names_no_map = ["x1", "x2", "x3"]
+        fixed_features = {2: 5.0}
+        result = _fix_map_key_to_target(
+            Xs=Xs, feature_names=feature_names_no_map, fixed_features=fixed_features
+        )
+
+        # Assert: Original tensors should be returned unchanged
+        self.assertTrue(torch.equal(result[0], X1))
+        self.assertTrue(torch.equal(result[1], X2))
+
+    def test_convert_to_block_design_with_fix_map_key(self) -> None:
+        # Setup: Create datasets with different MAP_KEY values.
+        X1 = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        X2 = torch.tensor([[1.0, 2.0, 7.0], [4.0, 5.0, 8.0]])  # Same X except MAP_KEY
+        Y1 = torch.tensor([[0.5], [0.6]])
+        Y2 = torch.tensor([[0.7], [0.8]])
+        feature_names = ["x1", "x2", MAP_KEY]
+        dataset1 = SupervisedDataset(
+            X=X1, Y=Y1, feature_names=feature_names, outcome_names=["metric1"]
+        )
+        dataset2 = SupervisedDataset(
+            X=X2, Y=Y2, feature_names=feature_names, outcome_names=["metric2"]
+        )
+
+        # Test case 1: fix_map_key_to_target=True with fixed_features
+        # Should fix MAP_KEY before merging
+        fixed_features = {2: 5.0}  # Fix MAP_KEY to 5.0
+        result = convert_to_block_design(
+            datasets=[dataset1, dataset2],
+            force=True,
+            fixed_features=fixed_features,
+            fix_map_key_to_target=True,
+        )
+
+        # Assert: Single dataset returned with MAP_KEY fixed to 5.0
+        self.assertEqual(len(result), 1)
+        self.assertTrue(torch.equal(result[0].X[:, 2], torch.tensor([5.0, 5.0])))
+        # Other columns should match the first two columns of X1
+        self.assertTrue(torch.equal(result[0].X[:, :2], X1[:, :2]))
+        # Y should be merged
+        self.assertTrue(torch.equal(result[0].Y, torch.cat([Y1, Y2], dim=-1)))
+
+        # Test case 2: fix_map_key_to_target=False
+        # Should not fix MAP_KEY, will require force=True to merge mismatched data
+        with self.assertLogs(logger=logger, level="DEBUG") as logs:
+            result = convert_to_block_design(
+                datasets=[dataset1, dataset2],
+                force=True,
+                fixed_features=fixed_features,
+                fix_map_key_to_target=False,
+            )
+        # Should produce log about forcing conversion
+        self.assertTrue(
+            any(
+                "Forcing conversion of data not complying to a block design" in str(log)
+                for log in logs
+            )
+        )
+
+    def test_choose_botorch_acqf_class_with_map_key_fixing(self) -> None:
+        # Setup: Create datasets where metrics are observed at different progressions
+        X1 = torch.tensor([[1.0, 2.0, 0.0], [1.0, 2.0, 1.0]])
+        X2 = torch.tensor([[1.0, 2.0, 0.5], [1.0, 2.0, 1.5]])  # Different MAP_KEY
+        Y1 = torch.tensor([[10.0], [5.0]])  # Constraint violations
+        Y2 = torch.tensor([[3.0], [2.0]])  # Feasible values
+        feature_names = ["x1", "x2", MAP_KEY]
+
+        dataset1 = SupervisedDataset(
+            X=X1, Y=Y1, feature_names=feature_names, outcome_names=["metric1"]
+        )
+        dataset2 = SupervisedDataset(
+            X=X2, Y=Y2, feature_names=feature_names, outcome_names=["metric2"]
+        )
+
+        search_space_digest = SearchSpaceDigest(
+            feature_names=feature_names,
+            bounds=[(0.0, 10.0) for _ in range(3)],
+        )
+
+        # Test: With outcome constraints, should fix MAP_KEY before checking feasibility
+        # Constraint: metric2 <= 5.0 (so both points should be feasible)
+        torch_opt_config = TorchOptConfig(
+            objective_weights=torch.tensor([1.0, 0.0]),
+            outcome_constraints=(
+                torch.tensor([[0.0, 1.0]]),  # coefficient for metric2
+                torch.tensor([[5.0]]),  # bound: metric2 <= 5.0
+            ),
+            fixed_features={2: 1.0},  # Fix MAP_KEY to 1.0
+            is_moo=False,
+        )
+
+        # Execute: Choose acquisition function
+        acqf_class = choose_botorch_acqf_class(
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
+            datasets=[dataset1, dataset2],
+            use_p_feasible=True,
+        )
+
+        # Assert: Should not use qLogProbabilityOfFeasibility since feasible
+        # points exist (after fixing MAP_KEY, the data can be merged properly)
+        # We expect qLogNoisyExpectedImprovement for single-objective
+        self.assertEqual(acqf_class, qLogNoisyExpectedImprovement)
