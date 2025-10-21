@@ -10,7 +10,11 @@ from itertools import product
 import numpy as np
 import pandas as pd
 from ax.analysis.plotly.utils import STALE_FAIL_REASON, truncate_label
-from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
+from ax.analysis.utils import (
+    _relativize_df_with_sq,
+    filter_trials_by_indices_and_statuses,
+    prepare_arm_data,
+)
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
@@ -21,7 +25,11 @@ from ax.core.metric import Metric
 from ax.core.trial_status import TrialStatus  # noqa
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_offline_experiments,
+    get_online_experiments,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 from pyre_extensions import assert_is_instance, none_throws
@@ -791,3 +799,62 @@ class TestUtils(TestCase):
                             trial_index=trial_index,
                             additional_arms=additional_arms,
                         )
+
+    def test_filter_trials_by_indices_and_statuses(self) -> None:
+        experiment = get_branin_experiment(with_completed_trial=True)  # 0 - COMPLETED
+        experiment.new_trial().mark_running(no_runner_required=True)  # 1 - RUNNING
+        experiment.new_trial().mark_running(
+            no_runner_required=True
+        ).mark_failed()  # 2 - FAILED
+        experiment.new_trial()  # 3 - CANDIDATE
+
+        with self.subTest("No filters returns all trials"):
+            trials = filter_trials_by_indices_and_statuses(experiment=experiment)
+            self.assertEqual(len(trials), 4)
+
+        with self.subTest("Filter by trial indices"):
+            trials = filter_trials_by_indices_and_statuses(
+                experiment=experiment, trial_indices=[0, 2]
+            )
+            self.assertEqual({t.index for t in trials}, {0, 2})
+
+        with self.subTest("Filter by trial statuses"):
+            trials = filter_trials_by_indices_and_statuses(
+                experiment=experiment,
+                trial_indices=None,
+                trial_statuses=[TrialStatus.COMPLETED, TrialStatus.FAILED],
+            )
+            self.assertEqual({t.index for t in trials}, {0, 2})
+
+        with self.subTest("Filter by both indices and statuses"):
+            trials = filter_trials_by_indices_and_statuses(
+                experiment=experiment,
+                trial_indices=[0, 1, 2],
+                trial_statuses=[TrialStatus.COMPLETED],
+            )
+            self.assertEqual(len(trials), 1)
+            self.assertEqual(trials[0].index, 0)
+
+        with self.subTest("Target trial included when specified"):
+            trials = filter_trials_by_indices_and_statuses(
+                experiment=experiment,
+                trial_indices=None,
+                trial_statuses=[TrialStatus.COMPLETED],
+                target_trial_index=1,
+            )
+            self.assertEqual({t.index for t in trials}, {0, 1})
+
+        with self.subTest("Target trial not duplicated"):
+            trials = filter_trials_by_indices_and_statuses(
+                experiment=experiment,
+                trial_indices=None,
+                trial_statuses=[TrialStatus.COMPLETED],
+                target_trial_index=0,
+            )
+            self.assertEqual([t.index for t in trials].count(0), 1)
+
+        with self.subTest("Empty trial_indices returns no trials"):
+            trials = filter_trials_by_indices_and_statuses(
+                experiment=experiment, trial_indices=[]
+            )
+            self.assertEqual(len(trials), 0)
