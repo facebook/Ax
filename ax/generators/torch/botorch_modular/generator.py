@@ -457,6 +457,7 @@ class BoTorchGenerator(TorchGenerator, Base):
                     "`botorch_acqf_class` as part of `model_kwargs`."
                 )
             self._botorch_acqf_class = choose_botorch_acqf_class(
+                search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
                 datasets=self.surrogate.training_data,
                 use_p_feasible=self.use_p_feasible,

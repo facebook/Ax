@@ -25,6 +25,7 @@ from ax.generators.model_utils import (
 )
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.utils import _fix_map_key_to_target
 from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
@@ -202,8 +203,15 @@ class Acquisition(Base):
         self.num_pruned_dims = None
 
         # Extract pending and observed points.
-        X_pending, X_observed = _get_X_pending_and_observed(
+        # We fix MAP_KEY to the fixed value (if given) to avoid points getting
+        # discarded due to metrics being observed at different progressions.
+        Xs = _fix_map_key_to_target(
             Xs=surrogate.Xs,
+            feature_names=search_space_digest.feature_names,
+            fixed_features=torch_opt_config.fixed_features,
+        )
+        X_pending, X_observed = _get_X_pending_and_observed(
+            Xs=Xs,
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
             pending_observations=torch_opt_config.pending_observations,
