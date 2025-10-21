@@ -6,7 +6,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Sequence
+from typing import Iterable, Sequence
 
 import numpy as np
 
@@ -296,18 +296,12 @@ def _prepare_modeled_arm_data(
     # Extract the information necessary to construct each row of the DataFrame.
 
     # Filter trials by trial_index, target_trial_index, and trial_statuses
-    filtered_trials = [
-        trial
-        for trial in experiment.trials.values()
-        if (
-            (
-                (trial.index == trial_index)
-                or (trial_index is None)
-                or (trial.index == target_trial_index)
-            )
-            and ((trial_statuses is None) or (trial.status in trial_statuses))
-        )
-    ]
+    filtered_trials = filter_trials_by_indices_and_statuses(
+        experiment=experiment,
+        trial_indices=[trial_index] if trial_index is not None else None,
+        trial_statuses=trial_statuses,
+        target_trial_index=target_trial_index,
+    )
 
     # Exclude abandoned arms if the trial is of type BatchTrial
     # https://www.internalfb.com/code/fbsource/[a19525e3f9e6]/fbcode/ax/core/batch_trial.py?lines=51
@@ -430,13 +424,12 @@ def _prepare_raw_arm_data(
             )
         )
     else:
-        trials = [
-            trial
-            for trial in experiment.trials.values()
-            if (trial.index == trial_index or trial_index is None)
-            and ((trial_statuses is None) or (trial.status in trial_statuses))
-            or (trial.index == target_trial_index)
-        ]
+        trials = filter_trials_by_indices_and_statuses(
+            experiment=experiment,
+            trial_indices=[trial_index] if trial_index is not None else None,
+            trial_statuses=trial_statuses,
+            target_trial_index=target_trial_index,
+        )
         data_df = experiment.lookup_data(
             trial_indices=[trial.index for trial in trials]
         ).df
@@ -809,3 +802,50 @@ def get_lower_is_better(experiment: Experiment, metric_name: str) -> bool | None
     if metric_name == "p_feasible":
         return False
     return experiment.metrics[metric_name].lower_is_better
+
+
+def filter_trials_by_indices_and_statuses(
+    experiment: Experiment,
+    trial_indices: Iterable[int] | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
+    target_trial_index: int | None = None,
+) -> list[BaseTrial]:
+    """
+    Filter trials from an experiment based on trial indices and/or statuses.
+
+    This utility function provides a consistent way to filter trials across different
+    analyses that accept trial_indices and trial_statuses parameters.
+
+    Args:
+        experiment: The experiment to filter trials from.
+        trial_indices: If specified, only include trials with these indices. An
+            empty iterable fetches no trials (except the target trial). -1 is a
+            special value for "no trials" and will be filtered out.
+        trial_statuses: If specified, only include trials with these statuses.
+        target_trial_index: If specified, include this trial regardless of other
+            filters.
+
+    Returns:
+        A list of trials that match the specified filters. If no filters are provided,
+        returns all trials from the experiment.
+    """
+    # Build the complete set of trial indices to fetch upfront
+    if trial_indices is not None:
+        # Convert to set and filter out -1 (special value meaning "no trials")
+        indices_to_fetch = {idx for idx in trial_indices if idx != -1}
+        # Include target trial in the fetch set
+        if target_trial_index is not None:
+            indices_to_fetch.add(target_trial_index)
+        trials = list(experiment.get_trials_by_indices(trial_indices=indices_to_fetch))
+    else:
+        trials = list(experiment.trials.values())
+
+    # Filter by status, but preserve target trial regardless of its status
+    if trial_statuses is not None:
+        trials = [
+            trial
+            for trial in trials
+            if trial.status in trial_statuses or trial.index == target_trial_index
+        ]
+
+    return trials
