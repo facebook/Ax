@@ -245,7 +245,7 @@ class ClientTest(TestCase):
         candidate_metadata = none_throws(candidate_metadata_by_arm_signature[signature])
 
         # check that candidate is generated at the target progression
-        self.assertEqual(int(candidate_metadata["step"]), self.max_steps)
+        self.assertEqual(int(candidate_metadata["step"]), 1.0)
 
         # Check that cross validation works.
         cross_validate(model=adapter)
@@ -330,7 +330,7 @@ class MapKeyToFloatTransformTest(TestCase):
         self.assertEqual(p.name, self.map_key)
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
-        self.assertEqual(p.upper, 4.0)
+        self.assertEqual(p.upper, 1.0)
         self.assertFalse(p.log_scale)
 
         # specifying a parameter name that is not in the observation features' metadata
@@ -354,7 +354,7 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(p.name, self.map_key)
             self.assertEqual(p.parameter_type, ParameterType.FLOAT)
             self.assertEqual(p.lower, 0.1)
-            self.assertEqual(p.upper, 4.0)
+            self.assertEqual(p.upper, 1.0)
             self.assertFalse(p.log_scale)
 
     def test_TransformSearchSpace(self) -> None:
@@ -366,7 +366,7 @@ class MapKeyToFloatTransformTest(TestCase):
         self.assertEqual(p.name, self.map_key)
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
-        self.assertEqual(p.upper, 4.0)
+        self.assertEqual(p.upper, 1.0)
         self.assertFalse(p.log_scale)
 
         # Test if the hierarchical search space is transformed correctly.
@@ -419,7 +419,7 @@ class MapKeyToFloatTransformTest(TestCase):
             for i in keep_indices:
                 obs = self.observations[i]
                 obsf = obs.features.clone()
-                obsf.parameters[self.map_key] = 4.0
+                obsf.parameters[self.map_key] = 1.0
                 obsf.metadata = {}
                 expected.append(obsf)
 
@@ -427,7 +427,7 @@ class MapKeyToFloatTransformTest(TestCase):
             untransformed = self.t.untransform_observation_features(obs_ft2)
             expected = observation_features
             for obs in expected:
-                obs.metadata["step"] = 4
+                obs.metadata["step"] = 1.0
 
             self.assertEqual(untransformed, observation_features)
 
@@ -435,7 +435,7 @@ class MapKeyToFloatTransformTest(TestCase):
         observation_features = [
             ObservationFeatures(
                 parameters={"x1": 5.0, "x2": 2.0},
-                metadata={self.map_key: 2.0},
+                metadata={self.map_key: 0.5},
             ),
             ObservationFeatures(
                 parameters={"x1": 5.0, "x2": 2.0},
@@ -443,7 +443,7 @@ class MapKeyToFloatTransformTest(TestCase):
             ),
             ObservationFeatures(
                 parameters={"x1": 5.0, "x2": 2.0},
-                metadata={self.map_key: 4.0},
+                metadata={self.map_key: 1.0},
             ),
         ]
         obs_ft2 = self.t.transform_observation_features(observation_features)
@@ -451,15 +451,15 @@ class MapKeyToFloatTransformTest(TestCase):
             obs_ft2,
             [
                 ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 2.0},
+                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 0.5},
                     metadata={},
                 ),
                 ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 4.0},
+                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 1.0},
                     metadata={},
                 ),
                 ObservationFeatures(
-                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 4.0},
+                    parameters={"x1": 5.0, "x2": 2.0, self.map_key: 1.0},
                     metadata={},
                 ),
             ],
@@ -514,7 +514,7 @@ class MapKeyToFloatTransformTest(TestCase):
             obsf,
             ObservationFeatures(
                 trial_index=42,
-                parameters={"x1": 1.0, "x2": 2.0, self.map_key: 4.0},
+                parameters={"x1": 1.0, "x2": 2.0, self.map_key: 1.0},
                 metadata={},
             ),
         )
@@ -529,7 +529,7 @@ class MapKeyToFloatTransformTest(TestCase):
             obsf,
             ObservationFeatures(
                 trial_index=42,
-                parameters={"x1": 1.0, "x2": 2.0, self.map_key: 4.0},
+                parameters={"x1": 1.0, "x2": 2.0, self.map_key: 1.0},
                 metadata={},
             ),
         )
@@ -572,7 +572,7 @@ class MapKeyToFloatTransformTest(TestCase):
         actual = experiment_data.observation_data.index.get_level_values(
             "step"
         ).to_numpy()
-        expected_timestamp = np.array([nan, 4.0, nan, 2.0, nan, 0.0])
+        expected_timestamp = np.array([nan, 1.0, nan, 0.5, nan, 0.0])
         self.assertTrue(np.array_equal(actual, expected_timestamp, equal_nan=True))
         # Transform and check that the index is filled with the upper bound.
         transformed_data = self.t.transform_experiment_data(
@@ -582,5 +582,5 @@ class MapKeyToFloatTransformTest(TestCase):
             transformed_data.observation_data.index.get_level_values("step").tolist()
         )
         upper = self.t._parameter_list[0].upper
-        expected_trans_timestamp = [upper, 4.0, upper, 2.0, upper, 0.0]
+        expected_trans_timestamp = [upper, 1.0, upper, 0.5, upper, 0.0]
         self.assertEqual(transformed_timestamp, expected_trans_timestamp)
