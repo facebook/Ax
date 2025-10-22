@@ -35,7 +35,7 @@ from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 
 @final
@@ -108,14 +108,95 @@ class ArmEffectsPlot(Analysis):
         self.label = label
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        if experiment is None:
+            return "ArmEffectsPlot requires an Experiment."
+
+        if self.metric_name not in {*experiment.metrics.keys()}:
+            return f"Experiment does not contain metric {self.metric_name}."
+
+        if self.trial_index is not None and self.trial_index not in experiment.trials:
+            return f"Trial index {self.trial_index} not found in experiment."
+
+        if len(experiment.trials) == 0:
+            return "Experiment does not contain any trials."
+
+        if (trial_statuses := self.trial_statuses) is not None:
+            num_trials = sum(
+                [len(experiment.trials_by_status[status]) for status in trial_statuses]
+            )
+
+            if num_trials == 0:
+                return (
+                    "Experiment does not contain any trials with statuses "
+                    f"{', '.join(status.name for status in trial_statuses)}."
+                )
+
+        if self.use_model_predictions:
+            # If using model predictions ensure we have an Adapter which can predict
+            try:
+                adapter = extract_relevant_adapter(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                    adapter=adapter,
+                )
+
+                if not adapter.can_predict:
+                    return (
+                        f"Adapter {adapter} does not support predictions, please "
+                        "use use_model_predictions=False, provide a suitable "
+                        "Adapter, or wait until GenerationStrategy reaches a "
+                        "GenerationNode with an adapter that is able to predict."
+                    )
+            except UserInputError as e:
+                return e.message
+        else:
+            # If using raw data ensure we have data for the specified metrics
+            trial_indices_for_status = (
+                [
+                    t.index
+                    for status in self.trial_statuses
+                    for t in experiment.trials_by_status[status]
+                ]
+                if self.trial_statuses is not None
+                else [*experiment.trials.keys()]
+            )
+            trial_indices = [
+                index
+                for index in trial_indices_for_status
+                if self.trial_index is None or index == self.trial_index
+            ]
+
+            data = experiment.lookup_data(trial_indices=trial_indices)
+
+            if data.df.empty:
+                return (
+                    "Experiment does not contain any data for trials "
+                    f"{', '.join(str(i) for i in trial_indices)}."
+                )
+
+            if self.metric_name not in data.df["metric_name"].unique().tolist():
+                return (
+                    "Experiment does not contain data for trials "
+                    f"{', '.join(str(i) for i in trial_indices)} for metric "
+                    f"{self.metric_name}."
+                )
+
+        return None
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCard:
-        if experiment is None:
-            raise UserInputError("ArmEffectsPlot requires an Experiment.")
+        experiment = none_throws(experiment)
 
         if self.use_model_predictions:
             relevant_adapter = extract_relevant_adapter(
