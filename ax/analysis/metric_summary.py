@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from typing import final
 
 from ax.adapter.base import Adapter
 
@@ -16,6 +17,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
+@final
 class MetricSummary(Analysis):
     """
     Creates a dataframe with information about each metric in the

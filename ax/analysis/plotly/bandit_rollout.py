@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import List
+from typing import final, List
 
 import pandas as pd
 import plotly.express as px
@@ -26,6 +26,7 @@ from plotly import graph_objects as go
 from pyre_extensions import override
 
 
+@final
 class BanditRollout(Analysis):
     """
     BanditRollout visualizes the distribution of weights across different trials

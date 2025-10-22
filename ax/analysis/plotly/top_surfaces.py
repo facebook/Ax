@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Literal
+from typing import final, Literal
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
@@ -46,6 +46,7 @@ TS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class TopSurfacesAnalysis(Analysis):
     def __init__(
         self,

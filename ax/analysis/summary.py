@@ -6,7 +6,7 @@
 # pyre-strict
 
 
-from typing import Iterable, Sequence
+from typing import final, Iterable, Sequence
 
 from ax.adapter.base import Adapter
 
@@ -19,6 +19,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
+@final
 class Summary(Analysis):
     """
     High-level summary of the Experiment with one row per arm. Any values missing at
