@@ -12,6 +12,7 @@ from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
 from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
@@ -53,6 +54,19 @@ class Summary(Analysis):
             trial_statuses if trial_statuses is not None else list(NON_STALE_STATUSES)
         )
         self.omit_empty_columns = omit_empty_columns
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=False,
+            require_data=True,
+        )
 
     @override
     def compute(
