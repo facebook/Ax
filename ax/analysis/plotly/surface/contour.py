@@ -19,14 +19,14 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.surface.utils import (
+    get_features_for_slice_or_contour,
     get_parameter_values,
     is_axis_log_scale,
-    select_fixed_value,
 )
 from ax.analysis.plotly.utils import select_metric, truncate_label
 from ax.analysis.utils import extract_relevant_adapter, relativize_data
 from ax.core.experiment import Experiment
-from ax.core.observation import ObservationFeatures
+from ax.core.parameter import DerivedParameter
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -90,6 +90,11 @@ class ContourPlot(Analysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")
+        for name in (self.x_parameter_name, self.y_parameter_name):
+            if isinstance(experiment.search_space.parameters[name], DerivedParameter):
+                raise UserInputError(
+                    f"ContourPlot does not support derived parameters: {name}"
+                )
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
@@ -225,20 +230,13 @@ def _prepare_data(
 
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
-    features = [
-        ObservationFeatures(
+    features = features = [
+        get_features_for_slice_or_contour(
             parameters={
                 x_parameter_name: x,
                 y_parameter_name: y,
-                **{
-                    parameter.name: select_fixed_value(parameter=parameter)
-                    for parameter in experiment.search_space.parameters.values()
-                    if not (
-                        parameter.name == x_parameter_name
-                        or parameter.name == y_parameter_name
-                    )
-                },
-            }
+            },
+            search_space=experiment.search_space,
         )
         for x in xs
         for y in ys
