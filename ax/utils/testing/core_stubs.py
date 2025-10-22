@@ -312,6 +312,7 @@ def get_branin_experiment(
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
+    with_derived_parameter: bool = False,
     with_parameter_constraint: bool = False,
     search_space: SearchSpace | None = None,
     minimize: bool = False,
@@ -328,17 +329,20 @@ def get_branin_experiment(
         with_fidelity_parameter=with_fidelity_parameter,
         with_choice_parameter=with_choice_parameter,
         with_str_choice_param=with_str_choice_param,
+        with_derived_parameter=with_derived_parameter,
         with_parameter_constraint=with_parameter_constraint,
     )
 
-    if with_status_quo:
-        val = None if status_quo_unknown_parameters else 0.0
-        status_quo = Arm(
-            parameters={"x1": val, "x2": val},
-            name="status_quo",
+    status_quo = (
+        get_status_quo_branin(
+            with_fidelity_parameter=with_fidelity_parameter,
+            with_derived_parameter=with_derived_parameter,
+            with_str_choice_param=with_str_choice_param,
+            status_quo_unknown_parameters=status_quo_unknown_parameters,
         )
-    else:
-        status_quo = None
+        if with_status_quo
+        else None
+    )
 
     exp = Experiment(
         name="branin_test_experiment" if named else None,
@@ -787,6 +791,28 @@ def get_experiment_with_multi_objective() -> Experiment:
     return exp
 
 
+def get_status_quo_branin(
+    with_fidelity_parameter: bool = False,
+    with_str_choice_param: bool = False,
+    with_derived_parameter: bool = False,
+    with_fixed_parameter: bool = False,
+    status_quo_unknown_parameters: bool = False,
+) -> Arm:
+    params: dict[str, TParamValue] = {"x1": 0.0, "x2": 0.0}
+    if with_fixed_parameter:
+        params["z"] = True
+    if with_str_choice_param:
+        params["str_param"] = "foo"
+    if with_fidelity_parameter:
+        params["fidelity"] = 1.0
+    if with_derived_parameter:
+        params["derived"] = 0.0
+    if status_quo_unknown_parameters:
+        params = {k: None for k in params}
+
+    return Arm(name="status_quo", parameters=params)
+
+
 def get_branin_experiment_with_multi_objective(
     has_optimization_config: bool = True,
     has_objective_thresholds: bool = False,
@@ -803,6 +829,7 @@ def get_branin_experiment_with_multi_objective(
     with_absolute_constraint: bool = False,
     with_choice_parameter: bool = False,
     with_fixed_parameter: bool = False,
+    with_derived_parameter: bool = False,
 ) -> Experiment:
     optimization_config = (
         get_branin_multi_objective_optimization_config(
@@ -820,6 +847,7 @@ def get_branin_experiment_with_multi_objective(
             with_fidelity_parameter=with_fidelity_parameter,
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
+            with_derived_parameter=with_derived_parameter,
         ),
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
@@ -827,33 +855,18 @@ def get_branin_experiment_with_multi_objective(
     )
     exp._properties = {"owners": [DEFAULT_USER]}
 
-    if with_status_quo:
-        if status_quo_unknown_parameters:
-            if with_fixed_parameter:
-                status_quo = Arm(
-                    parameters={"x1": None, "x2": None, "z": True},
-                    name="status_quo",
-                )
-            else:
-                status_quo = Arm(
-                    parameters={"x1": None, "x2": None},
-                    name="status_quo",
-                )
-        else:
-            if with_fixed_parameter:
-                status_quo = Arm(
-                    parameters={"x1": 0.0, "x2": 0.0, "z": True},
-                    name="status_quo",
-                )
-            else:
-                status_quo = Arm(
-                    parameters={"x1": 0.0, "x2": 0.0},
-                    name="status_quo",
-                )
+    status_quo = (
+        get_status_quo_branin(
+            with_fidelity_parameter=with_fidelity_parameter,
+            with_derived_parameter=with_derived_parameter,
+            with_fixed_parameter=with_fixed_parameter,
+            status_quo_unknown_parameters=status_quo_unknown_parameters,
+        )
+        if with_status_quo
+        else None
+    )
 
-        exp.status_quo = status_quo
-    else:
-        status_quo = None
+    exp.status_quo = status_quo
     outcome_names = list(exp.metrics)
     if with_batch or with_completed_batch:
         sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
@@ -1240,6 +1253,7 @@ def get_online_experiments() -> list[Experiment]:
             with_completed_batch=True,
             with_status_quo=True,
             status_quo_unknown_parameters=True,
+            with_derived_parameter=True,
             with_choice_parameter=with_choice_parameter,
             with_parameter_constraint=with_parameter_constraint,
             with_relative_constraint=True,
@@ -1259,6 +1273,7 @@ def get_online_experiments() -> list[Experiment]:
             has_objective_thresholds=has_objective_thresholds,
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
+            with_derived_parameter=True,
             with_relative_constraint=True,
             with_absolute_constraint=False,
         )
@@ -1295,6 +1310,7 @@ def get_online_experiments_subset() -> list[Experiment]:
             with_choice_parameter=True,
             with_parameter_constraint=True,
             with_relative_constraint=True,
+            with_derived_parameter=True,
         )
     )
     experiments.append(
@@ -1392,6 +1408,7 @@ def get_offline_experiments() -> list[Experiment]:
             with_status_quo=False,
             with_choice_parameter=with_choice_parameter,
             with_parameter_constraint=with_parameter_constraint,
+            with_derived_parameter=True,
         )
         for (
             with_choice_parameter,
@@ -1410,6 +1427,7 @@ def get_offline_experiments() -> list[Experiment]:
             with_absolute_constraint=with_absolute_constraint,
             with_choice_parameter=with_choice_parameter,
             with_fixed_parameter=with_fixed_parameter,
+            with_derived_parameter=True,
         )
         for (
             has_objective_thresholds,
@@ -1546,6 +1564,7 @@ def get_branin_search_space(
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
+    with_derived_parameter: bool = False,
     with_parameter_constraint: bool = False,
     with_fixed_parameter: bool = False,
 ) -> SearchSpace:
@@ -1587,6 +1606,14 @@ def get_branin_search_space(
 
     if with_fixed_parameter:
         parameters.append(get_fixed_parameter())
+    if with_derived_parameter:
+        parameters.append(
+            DerivedParameter(
+                name="derived",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="x1 + x2",
+            )
+        )
 
     if with_parameter_constraint:
         constraints = [
