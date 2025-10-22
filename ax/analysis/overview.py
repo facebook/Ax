@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
 from ax.analysis.analysis_card import AnalysisCardGroup
@@ -47,6 +49,7 @@ OVERVIEW_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class OverviewAnalysis(Analysis):
     """
     Top-level Analysis that provides an overview of the entire optimization process,

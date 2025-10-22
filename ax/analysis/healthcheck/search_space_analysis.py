@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Union
+from typing import final, Union
 
 import numpy as np
 import pandas as pd
@@ -27,6 +27,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, override
 
 
+@final
 class SearchSpaceAnalysis(Analysis):
     r"""
     Analysis for checking wehther the search space of the experiment should be expanded.
