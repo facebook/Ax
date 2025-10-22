@@ -12,12 +12,12 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.marginal_effects import MarginalEffectsPlot
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
+from ax.analysis.utils import validate_experiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
-from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 
 INSIGHTS_CARDGROUP_TITLE = "Insights Analysis"
@@ -41,19 +41,26 @@ class InsightsAnalysis(Analysis):
     """
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=False,
+            require_data=False,
+        )
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCardGroup:
-        if experiment is None:
-            raise UserInputError("InsightsAnalysis requires an Experiment.")
-
-        if experiment.lookup_data().df.empty:
-            raise DataRequiredError(
-                "Cannot compute InsightsAnalysis, Experiment has no data."
-            )
+        experiment = none_throws(experiment)
 
         # Relativize the effects if the status quo is set and there are BatchTrials
         # present.

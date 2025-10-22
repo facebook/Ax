@@ -821,3 +821,28 @@ def get_lower_is_better(experiment: Experiment, metric_name: str) -> bool | None
     if metric_name == "p_feasible":
         return False
     return experiment.metrics[metric_name].lower_is_better
+
+
+def validate_experiment(
+    experiment: Experiment | None,
+    require_trials: bool = False,
+    require_data: bool = False,
+) -> str | None:
+    """
+    Validate that the Analysis has been provided an Experiment, and optionally check if
+    the Experiment has trials and data.
+
+    Typically used in Analysis.validate_applicable_state(...), which is called before
+    Analysis.compute(...) in Analysis.compute_result(...).
+    """
+
+    if experiment is None:
+        return "Requires an Experiment."
+
+    if require_trials:
+        if len(experiment.trials) == 0:
+            return "Experiment has no trials."
+
+    if require_data:
+        if experiment.lookup_data().df.empty:
+            return "Experiment has no data."
