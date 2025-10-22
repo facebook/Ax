@@ -9,16 +9,20 @@
 from __future__ import annotations
 
 from copy import deepcopy
-
+from logging import Logger
 from math import isnan
 from typing import Any, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
-from ax.adapter.transforms.metadata_to_float import MetadataToFloat
+from ax.adapter.transforms.base import Transform
+from ax.adapter.transforms.metadata_to_parameter import MetadataToParameterMixin
 from ax.core.map_data import MAP_KEY
 from ax.core.observation import ObservationFeatures
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
+from ax.utils.common.logger import get_logger
 from pandas import Index, MultiIndex
 from pyre_extensions import none_throws
 
@@ -27,21 +31,28 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
-class MapKeyToFloat(MetadataToFloat):
-    """
-    This transform extracts the entry from the metadata field of the observation
-    features corresponding to the `parameters` specified in the transform config
-    and inserts it into the parameter field. If no parameters are specified in the
-    config, the transform will extract the map key name from the optimization config.
+logger: Logger = get_logger(__name__)
 
-    Inheriting from the `MetadataToFloat` transform, this transform also adds a range
-    (float) parameter to the search space. Similarly, users can override the default
-    behavior by specifying the `config` with `parameters` as the key, where each entry
-    maps a metadata key to a dictionary of keyword arguments for the corresponding
-    RangeParameter constructor. NOTE: log and logit-scale options are not supported.
+
+class MapKeyToFloat(MetadataToParameterMixin, Transform):
+    """
+    This transform is used to extract the progression and convert it into a feature for
+    for modeling. For observation features, it is extracted from the metadata field and
+    inserted into the parameter field. For ``ExperimentData``, not much is done since
+    the corresponding feature is extracted directly from the index of
+    ``observation_data`` when extracting the datasets in ``TorchAdapter``.
+    A parameter corresponding to the map key is added to the search space, to ensure
+    that all features have a corresponding parameter in the search space.
+
+    The user can optionally specify ``config`` with ``parameters`` as the key, where
+    the entry maps the MAP_KEY (step) to a dictionary of keyword arguments for the
+    corresponding ``RangeParameter`` constructor.
+    NOTE: log and logit-scale options are not supported for the ``RangeParameter``.
 
     Transform is done in-place.
     """
+
+    requires_data_for_initialization: bool = True
 
     def __init__(
         self,
@@ -50,8 +61,13 @@ class MapKeyToFloat(MetadataToFloat):
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        # Make sure "config" has parameters without modifying it in place or
-        # losing existing parameters
+        Transform.__init__(
+            self,
+            search_space=search_space,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
         config = config or {}
         # pyre-fixme[9]: Incompatible variable type [9]: parameters is declared
         # to have type `Dict[str, Dict[str, typing.Any]]` but is used as type
@@ -59,7 +75,6 @@ class MapKeyToFloat(MetadataToFloat):
         # List[str], OptimizationConfig, WinsorizationConfig,
         # AcquisitionFunction, float, int, str]`.
         parameters: dict[str, dict[str, Any]] = deepcopy(config.get("parameters", {}))
-
         is_map_data = (
             # Note: experiment_data can't be None because
             # `requires_data_for_initialization` is True; if it is None, there
@@ -68,6 +83,12 @@ class MapKeyToFloat(MetadataToFloat):
             and MAP_KEY in experiment_data.observation_data.index.names
         )
 
+        # Check if config contains unsupported config options.
+        if set(config.keys()).difference({"parameters"}):
+            raise UserInputError(
+                "MapKeyToFloat only supports the `parameters` key in the config. "
+                f"Got {config=}."
+            )
         # Check if any disallowed parameters were provided.
         # The only parameter allowed is "step" (MAP_KEY)
         received_parameters = set(parameters)
@@ -85,30 +106,52 @@ class MapKeyToFloat(MetadataToFloat):
                 f"data. Got {received_parameters}."
             )
 
-        # Add MAP_KEY to the parameters if it is needed and not provided
+        # Add MAP_KEY to the parameters if it is needed and not provided.
         if is_map_data and MAP_KEY not in parameters:
             parameters = {MAP_KEY: {}}
 
-        config = {"parameters": parameters}
+        self.parameters: dict[str, dict[str, Any]] = parameters
+        self._parameter_list: list[RangeParameter] = []
+        # Construct the parameter if needed.
+        if is_map_data:
+            values: set[float] = self._get_map_key_values(
+                experiment_data=none_throws(experiment_data)
+            )
 
-        super().__init__(
-            search_space=search_space,
-            experiment_data=experiment_data,
-            adapter=adapter,
-            config=config,
-        )
+            if len(values) == 0:
+                logger.debug(
+                    f"Did not encounter any non-NaN values for "
+                    f"'{MAP_KEY=}'. Not adding to parameters."
+                )
+                return
+            if len(values) == 1:
+                logger.debug(
+                    f"Encountered only a single unique value {values.pop()} for "
+                    f"'{MAP_KEY=}'. Not adding to parameters."
+                )
+                return
 
-    def _get_values_for_parameter(
+            p_config = self.parameters[MAP_KEY]
+            self._parameter_list.append(
+                RangeParameter(
+                    name=MAP_KEY,
+                    parameter_type=ParameterType.FLOAT,
+                    lower=p_config.get("lower", min(values)),
+                    upper=p_config.get("upper", max(values)),
+                    digits=p_config.get("digits", None),
+                    is_fidelity=p_config.get("is_fidelity", False),
+                    target_value=p_config.get("target_value", None),
+                )
+            )
+
+    def _get_map_key_values(
         self,
-        name: str,
         experiment_data: ExperimentData,
     ) -> set[float]:
         obs_data = experiment_data.observation_data
-        if name not in obs_data.index.names:
-            raise ValueError(
-                f"Parameter {name} is not in the index of the observation data."
-            )
-        return set(obs_data.index.unique(level=name).dropna().astype(float).tolist())
+        if MAP_KEY not in obs_data.index.names:
+            raise ValueError(f"{MAP_KEY=} is not in the index of the observation data.")
+        return set(obs_data.index.unique(level=MAP_KEY).dropna().astype(float).tolist())
 
     def _transform_observation_feature(self, obsf: ObservationFeatures) -> None:
         if len(obsf.parameters) == 0:
