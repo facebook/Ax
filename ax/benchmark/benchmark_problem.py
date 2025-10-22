@@ -15,7 +15,7 @@ from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.metric import Metric
 
-from ax.core.objective import MultiObjective, Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     ObjectiveThreshold,
@@ -167,6 +167,8 @@ class BenchmarkProblem(Base):
         objective = self.optimization_config.objective
         if isinstance(objective, MultiObjective):
             objective_names = {obj.metric.name for obj in objective.objectives}
+        elif isinstance(objective, ScalarizedObjective):
+            objective_names = {metric.name for metric in objective.metrics}
         else:
             objective_names = {objective.metric.name}
 
