@@ -1,6 +1,29 @@
 # Changelog
 
 The release log for Ax.
+## [1.2.0] -- Oct 24, 2025
+#### New features
+* `DerivedParameterConfig` allows users to specify parameters which are not tuned,
+    instead taking the value of some expression of other tunable parameters (#4454)
+* New argument `simplify_parameter_changes` in `client.configure_generation_strategy`
+    (defaulted to `False`) which when `True` informs Ax to change as few parameters as
+    possible relative to the status quo without degrading optimization performance. Has
+    a near-zero effect on generation time (#4409)
+* Default to `qLogNParEgo` acquisition function for multi-objective optimization in
+    multi-objective optimization when the number of objectives is > 4, leading to
+    improved walltime performance (#4347)
+
+#### Bug fixes
+* Fix issue during candidate generation involving `MapMetrics` providing progressions
+    at different scales i.e. one progression goes up to 10^9 and the other goes up to
+    10^6 by normalizing to [0, 1] (#4458)
+
+#### Other changes
+* Improve visual clarity in `ArmEffectsPlot` by removing certain elements including
+    red "infeasibility" halos and optional cumulative best line (#4397, #4398)
+* Instructions on citing Ax included in README.md and [ax.dev](https://ax.dev/) (#4317, #4357)
+* New "Using external methods for candidate generation in Ax" tutorial on website (#4298)
+
 ## [1.1.2] -- Sept 9, 2025
 #### Bug fixes
 * Fixed rendering issue in ArmEffectsPlot when the number of arms displayed is greater
