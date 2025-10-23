@@ -24,7 +24,7 @@ class BaseGeneratorSpecTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_branin_experiment()
-        sobol = Generators.SOBOL(search_space=self.experiment.search_space)
+        sobol = Generators.SOBOL(experiment=self.experiment)
         sobol_run = sobol.gen(n=20)
         self.experiment.new_batch_trial().add_generator_run(
             sobol_run
