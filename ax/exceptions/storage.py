@@ -10,10 +10,11 @@
 from ax.exceptions.core import AxError
 
 
-STORAGE_DOCS_SUFFIX = (
-    "Please see our storage tutorial (https://ax.dev/docs/storage.html) "
-    "for more details ('Customizing' section will be "
-    "relevant for saving Ax object subclasses)."
+JSON_STORAGE_DOCS_SUFFIX = (
+    "Please see our JSON storage tutorial "
+    "(https://ax.dev/docs/recipes/experiment-to-json) for more details. "
+    "The 'Customizing the Serialization Process' section will be "
+    "relevant for saving Ax object subclasses."
 )
 
 
