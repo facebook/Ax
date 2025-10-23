@@ -50,7 +50,7 @@ from ax.early_stopping.strategies import (
     ThresholdEarlyStoppingStrategy,
 )
 from ax.exceptions.core import AxStorageWarning, UnsupportedError
-from ax.exceptions.storage import JSONEncodeError, STORAGE_DOCS_SUFFIX
+from ax.exceptions.storage import JSON_STORAGE_DOCS_SUFFIX, JSONEncodeError
 from ax.generation_strategy.best_model_selector import BestModelSelector
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generation_strategy import (
@@ -615,7 +615,7 @@ def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
                     f"Class `{class_type.__name__}` not in Type[{_class.__name__}] "
                     "registry, please add it. BoTorch object registries are "
                     "located in `ax/storage/botorch_modular_registry.py`. "
-                    f"{STORAGE_DOCS_SUFFIX}"
+                    f"{JSON_STORAGE_DOCS_SUFFIX}"
                 )
             return {
                 "__type": f"Type[{_class.__name__}]",
@@ -624,7 +624,7 @@ def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
             }
     raise ValueError(
         f"{class_type} does not have a corresponding parent class in "
-        f"CLASS_TO_REGISTRY. {STORAGE_DOCS_SUFFIX}"
+        f"CLASS_TO_REGISTRY. {JSON_STORAGE_DOCS_SUFFIX}"
     )
 
 

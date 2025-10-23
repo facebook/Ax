@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from ax.exceptions.storage import JSONEncodeError, STORAGE_DOCS_SUFFIX
+from ax.exceptions.storage import JSON_STORAGE_DOCS_SUFFIX, JSONEncodeError
 from ax.storage.json_store.encoders import tensor_to_dict
 from ax.storage.json_store.registry import (
     CORE_CLASS_ENCODER_REGISTRY,
@@ -128,6 +128,6 @@ def object_to_json(
     err = (
         f"Object {obj} passed to `object_to_json` (of type {_type}, module: "
         f"{_type.__module__}) is not registered with a corresponding encoder "
-        f"in ENCODER_REGISTRY. {STORAGE_DOCS_SUFFIX}"
+        f"in ENCODER_REGISTRY. {JSON_STORAGE_DOCS_SUFFIX}"
     )
     raise JSONEncodeError(err)
