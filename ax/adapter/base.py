@@ -405,7 +405,18 @@ class Adapter:
                 param_vals.append(fill_values[p_name])
             if len(param_vals) == 0:
                 continue
-            p.lower = min(p.lower, min(param_vals))
+            # For log_scale parameters, ensure lower bound is > 0
+            # as OOD arms may have values <= 0
+            if p.log_scale:
+                # Find the smallest positive value from param_vals
+                positive_vals = [v for v in param_vals if v > 0]
+                if positive_vals:
+                    p.lower = min(p.lower, min(positive_vals))
+                else:
+                    # keep original lower bound
+                    continue
+            else:
+                p.lower = min(p.lower, min(param_vals))
             p.upper = max(p.upper, max(param_vals))
         # Remove parameter constraints from the model space.
         self._model_space.set_parameter_constraints([])
