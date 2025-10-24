@@ -37,8 +37,7 @@ OC_STR = (
     'OptimizationConfig(objective=Objective(metric_name="m1", minimize=False), '
     "outcome_constraints=[OutcomeConstraint(m3 >= -0.25%), "
     "OutcomeConstraint(m4 <= 0.25%), "
-    "ScalarizedOutcomeConstraint(metric_names=['m3', 'm4'], "
-    "weights=[0.5, 0.5], >= -0.25%)])"
+    "ScalarizedOutcomeConstraint(0.5 * m3 + 0.5 * m4 >= -0.25%)])"
 )
 
 MOOC_STR = (

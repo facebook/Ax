@@ -9,6 +9,7 @@ from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.plotly.marginal_effects import MarginalEffectsPlot
+from ax.analysis.plotly.p_feasible import PFeasiblePlot
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.progression import ProgressionPlot
@@ -25,6 +26,7 @@ __all__ = [
     "CrossValidationPlot",
     "MarginalEffectsPlot",
     "ParallelCoordinatesPlot",
+    "PFeasiblePlot",
     "PlotlyAnalysisCard",
     "ProgressionPlot",
     "ScatterPlot",
