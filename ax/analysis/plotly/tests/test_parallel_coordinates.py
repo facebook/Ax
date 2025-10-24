@@ -11,7 +11,7 @@ from ax.analysis.plotly.parallel_coordinates import (
     ParallelCoordinatesPlot,
 )
 from ax.analysis.plotly.utils import select_metric
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -24,12 +24,15 @@ from pyre_extensions import none_throws
 
 
 class TestParallelCoordinatesPlot(TestCase):
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(ParallelCoordinatesPlot("branin").validate_applicable_state()),
+        )
+
     def test_compute(self) -> None:
         analysis = ParallelCoordinatesPlot("branin")
         experiment = get_branin_experiment(with_completed_trial=True)
-
-        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
-            analysis.compute()
 
         card = analysis.compute(experiment=experiment)
         self.assertEqual(card.name, "ParallelCoordinatesPlot")

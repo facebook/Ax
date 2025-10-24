@@ -1080,21 +1080,22 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
         client.configure_generation_strategy()
 
-        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-            analysis = ParallelCoordinatesPlot()
-            cards = client.compute_analyses(analyses=[analysis])
+        # Test Analysis when Experiment is not in applicable state
+        analysis = ParallelCoordinatesPlot()
+        cards = client.compute_analyses(analyses=[analysis])
 
-            self.assertEqual(len(cards), 1)
-            self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-            self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
-            self.assertEqual(
-                cards[0].subtitle,
-                "ValueError encountered while computing ParallelCoordinatesPlot.",
-            )
-            self.assertIn("Traceback", assert_is_instance(cards[0], AnalysisCard).blob)
-            self.assertTrue(
-                any(("No data found for metric") in msg for msg in lg.output)
-            )
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+        self.assertEqual(
+            cards[0].subtitle,
+            "AnalysisNotApplicableStateError encountered while computing "
+            "ParallelCoordinatesPlot.",
+        )
+        self.assertIn(
+            "Experiment has no trials",
+            assert_is_instance(cards[0], AnalysisCard).blob,
+        )
 
         for trial_index, _ in client.get_next_trials(max_trials=1).items():
             client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})

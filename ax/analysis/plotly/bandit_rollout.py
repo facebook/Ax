@@ -17,13 +17,14 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.utils import STALE_FAIL_REASON
+
+from ax.analysis.utils import validate_experiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import assert_is_instance, none_throws, override
 
 
 @final
@@ -53,6 +54,32 @@ class BanditRollout(Analysis):
         """
         super().__init__()
 
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        BanditRollout requires an Experiment with BatchTrials.
+        """
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=False,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
+
+        if not all(
+            isinstance(trial, BatchTrial) for trial in experiment.trials.values()
+        ):
+            return "Only Experiments with BatchTrials are supported."
+
     def _prepare_data(self, experiment: Experiment) -> pd.DataFrame:
         """
         Prepare the data for plotting.
@@ -76,20 +103,17 @@ class BanditRollout(Analysis):
         arm_weight: List[float] = []
 
         for trial in experiment.trials.values():
-            if not isinstance(trial, BatchTrial):
-                raise NotImplementedError(
-                    "Only experiments with multi-arm trials are currently supported."
-                )
-            if trial.status in {TrialStatus.STALE, TrialStatus.ABANDONED}:
+            batch_trial = assert_is_instance(trial, BatchTrial)
+            if batch_trial.status in {TrialStatus.STALE, TrialStatus.ABANDONED}:
                 continue
             # Also exclude failed trials that failed due to staleness
             if (
-                trial.status == TrialStatus.FAILED
-                and trial.failed_reason is not None
-                and trial.failed_reason == STALE_FAIL_REASON
+                batch_trial.status == TrialStatus.FAILED
+                and batch_trial.failed_reason is not None
+                and batch_trial.failed_reason == STALE_FAIL_REASON
             ):
                 continue
-            for arm, weight in trial.arm_weights.items():
+            for arm, weight in batch_trial.arm_weights.items():
                 trial_index.append(trial.index)
                 arm_name.append(arm.name)
                 arm_weight.append(weight)
@@ -97,13 +121,6 @@ class BanditRollout(Analysis):
         data_df["trial_index"] = trial_index
         data_df["arm_name"] = arm_name
         data_df["arm_weight"] = arm_weight
-
-        # Normalize weights
-        total_weight = data_df["arm_weight"].sum()
-        if total_weight == 0:
-            raise UserInputError(
-                "All weights are zero. Please check your experiment and try again."
-            )
 
         data_df["normalized_weight"] = data_df.groupby("trial_index")[
             "arm_weight"
@@ -150,8 +167,7 @@ class BanditRollout(Analysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
-        if experiment is None:
-            raise UserInputError("BanditRollout requires an Experiment")
+        experiment = none_throws(experiment)
 
         df = self._prepare_data(
             experiment=experiment,
