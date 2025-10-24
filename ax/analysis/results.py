@@ -9,15 +9,10 @@ import itertools
 from typing import final, Sequence
 
 from ax.adapter.base import Adapter
-from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
-from ax.analysis.plotly.objective_p_feasible_frontier import (
-    OBJ_PFEAS_CARDGROUP_SUBTITLE,
-    ObjectivePFeasibleFrontierPlot,
-)
 from ax.analysis.plotly.scatter import (
     SCATTER_CARDGROUP_SUBTITLE,
     SCATTER_CARDGROUP_TITLE,
@@ -33,7 +28,6 @@ from ax.core.trial_status import TrialStatus
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from pyre_extensions import none_throws, override
 
 RESULTS_CARDGROUP_TITLE = "Results Analysis"
@@ -115,7 +109,7 @@ class ResultsAnalysis(Analysis):
             ).compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
-                adapter=adapter,
+                adapter=relevant_adapter,
             )
             if len(objective_names) > 0
             else None
@@ -136,7 +130,7 @@ class ResultsAnalysis(Analysis):
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,
-                        adapter=adapter,
+                        adapter=relevant_adapter,
                     )
                     for x, y in itertools.combinations(objective_names, 2)
                 ],
@@ -161,7 +155,7 @@ class ResultsAnalysis(Analysis):
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,
-                        adapter=adapter,
+                        adapter=relevant_adapter,
                     )
                     for objective_name in objective_names
                     for constraint_name in constraint_names
@@ -170,35 +164,6 @@ class ResultsAnalysis(Analysis):
             if len(objective_names) > 0 and len(constraint_names) > 0
             else None
         )
-
-        objective_p_feasible_group = None
-        if (
-            len(objective_names) == 1
-            and len(constraint_names) > 0
-            # check that the adapter has a BoTorchGenerator
-            and (
-                relevant_adapter is not None
-                and isinstance(relevant_adapter, TorchAdapter)
-                and isinstance(relevant_adapter.generator, BoTorchGenerator)
-            )
-        ):
-            objective_p_feasible_group = AnalysisCardGroup(
-                name="Objective vs P(feasible)",
-                title=(
-                    "Model-Estimated Pareto-Frontier Between the Objective"
-                    " and the Probability of Satisfying the Constraints"
-                ),
-                subtitle=OBJ_PFEAS_CARDGROUP_SUBTITLE,
-                children=[
-                    ObjectivePFeasibleFrontierPlot(
-                        relativize=relativize
-                    ).compute_or_error_card(
-                        experiment=experiment,
-                        generation_strategy=generation_strategy,
-                        adapter=adapter,
-                    )
-                ],
-            )
 
         # Produce a parallel coordinates plot for each objective.
         # TODO: mpolson mgarrard bring back parallel coordinates after fixing
@@ -245,7 +210,6 @@ class ResultsAnalysis(Analysis):
                 child
                 for child in (
                     arm_effect_pair_group,
-                    objective_p_feasible_group,
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,
