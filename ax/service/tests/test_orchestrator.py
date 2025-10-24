@@ -2668,22 +2668,23 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings,
         )
 
-        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-            analysis = ParallelCoordinatesPlot()
-            cards = orchestrator.compute_analyses(analyses=[analysis])
+        # Test Analysis when Experiment is not in applicable state
+        analysis = ParallelCoordinatesPlot()
+        cards = orchestrator.compute_analyses(analyses=[analysis])
 
-            self.assertEqual(len(cards), 1)
-            # TODO[mpolson64] Rethink these tests as we work on storage
-            # it saved the error card
-            # self.assertIsNotNone(cards[0].db_id)
-            self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-            self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
-            self.assertEqual(
-                cards[0].subtitle,
-                "ValueError encountered while computing ParallelCoordinatesPlot.",
-            )
-            self.assertIn("Traceback", assert_is_instance(cards[0], AnalysisCard).blob)
-            self.assertTrue(any("No data found for metric" in msg for msg in lg.output))
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+        self.assertEqual(
+            cards[0].subtitle,
+            "AnalysisNotApplicableStateError encountered while computing "
+            "ParallelCoordinatesPlot.",
+        )
+        self.assertIn(
+            "Experiment has no trials",
+            assert_is_instance(cards[0], AnalysisCard).blob,
+        )
+
         sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
         sobol_run = sobol_generator.gen(n=1)
         trial = self.branin_experiment.new_trial(generator_run=sobol_run)

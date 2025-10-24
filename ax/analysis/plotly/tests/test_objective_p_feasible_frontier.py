@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+
 import json
 
 import torch
@@ -20,7 +21,6 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
@@ -75,17 +75,23 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
             self.assertFalse(card.df["branin_a_sem"].isna().any())
             self.assertTrue(card.df["p_feasible_sem"].isna().all())
 
-    def test_no_exceptions(self) -> None:
-        with self.assertRaisesRegex(
-            UserInputError, "ObjectivePFeasibleFrontierPlot requires an Experiment."
-        ):
-            ObjectivePFeasibleFrontierPlot().compute(experiment=None)
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment.",
+            none_throws(ObjectivePFeasibleFrontierPlot().validate_applicable_state()),
+        )
+
         opt_config = self.experiment.optimization_config
         self.experiment._optimization_config = None
-        with self.assertRaisesRegex(
-            UserInputError, "Optimization_config must be set to compute frontier."
-        ):
-            ObjectivePFeasibleFrontierPlot().compute(experiment=self.experiment)
+        self.assertIn(
+            "Optimization_config must be set to compute frontier",
+            none_throws(
+                ObjectivePFeasibleFrontierPlot().validate_applicable_state(
+                    experiment=self.experiment
+                )
+            ),
+        )
+
         self.experiment.optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 objectives=[
@@ -93,18 +99,26 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
                 ]
             )
         )
-        with self.assertRaisesRegex(
-            UnsupportedError, "Multi-objective optimization is not supported."
-        ):
-            ObjectivePFeasibleFrontierPlot().compute(experiment=self.experiment)
+
+        self.assertIn(
+            "Multi-objective optimization is not supported.",
+            none_throws(
+                ObjectivePFeasibleFrontierPlot().validate_applicable_state(
+                    experiment=self.experiment
+                )
+            ),
+        )
+
         self.experiment.optimization_config = opt_config
         opt_config.outcome_constraints = []
-        with self.assertRaisesRegex(
-            UserInputError,
-            r"Plotting the objective-p\(feasible\) frontier requires at least one "
-            "outcome constraint.",
-        ):
-            ObjectivePFeasibleFrontierPlot().compute(experiment=self.experiment)
+        self.assertIn(
+            "requires at least one outcome constraint.",
+            none_throws(
+                ObjectivePFeasibleFrontierPlot().validate_applicable_state(
+                    experiment=self.experiment
+                )
+            ),
+        )
         self.experiment.add_tracking_metric(get_branin_metric("branin2"))
         # Get only tracking metrics, excluding the objective metric to avoid
         # "Cannot constrain on objective metric" error
@@ -121,8 +135,11 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
                 op=ComparisonOp.LEQ,
             )
         ]
-        with self.assertRaisesRegex(
-            UnsupportedError,
+        self.assertIn(
             "Scalarized outcome constraints are not supported yet.",
-        ):
-            ObjectivePFeasibleFrontierPlot().compute(experiment=self.experiment)
+            none_throws(
+                ObjectivePFeasibleFrontierPlot().validate_applicable_state(
+                    experiment=self.experiment
+                )
+            ),
+        )

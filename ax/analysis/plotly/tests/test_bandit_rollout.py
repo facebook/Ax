@@ -13,13 +13,13 @@ from ax.core.metric import Metric
 from ax.core.optimization_config import Objective, OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_discrete_search_space,
     get_online_experiments,
     get_sobol,
 )
+from pyre_extensions import none_throws
 
 
 class TestBanditRollout(TestCase):
@@ -36,11 +36,14 @@ class TestBanditRollout(TestCase):
             self.experiment.new_batch_trial(generator_run=gr)
             self.experiment.new_batch_trial(generator_run=gr)
 
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(BanditRollout().validate_applicable_state()),
+        )
+
     def test_compute(self) -> None:
         analysis = BanditRollout()
-
-        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
-            analysis.compute()
 
         card = analysis.compute(experiment=self.experiment)
 

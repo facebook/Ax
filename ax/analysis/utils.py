@@ -823,6 +823,31 @@ def get_lower_is_better(experiment: Experiment, metric_name: str) -> bool | None
     return experiment.metrics[metric_name].lower_is_better
 
 
+def extract_relevant_trial_indices(
+    experiment: Experiment,
+    trial_indices: Sequence[int] | None = None,
+    trial_statuses: Sequence[TrialStatus] | None = None,
+) -> list[int]:
+    """
+    Find the indices of trials on the experiment which meet both the trial_indices
+    filtering condition and the trial_statuses filtering condition. If None is
+    provided for either condition, the condition is not applied.
+    """
+    trials = (
+        [experiment.trials[i] for i in trial_indices]
+        if trial_indices
+        else [*experiment.trials.values()]
+    )
+
+    filtered_by_status = [
+        trial
+        for trial in trials
+        if (trial_statuses is None or trial.status in trial_statuses)
+    ]
+
+    return [trial.index for trial in filtered_by_status]
+
+
 def validate_experiment(
     experiment: Experiment | None,
     require_trials: bool = False,
@@ -846,3 +871,84 @@ def validate_experiment(
     if require_data:
         if experiment.lookup_data().df.empty:
             return "Experiment has no data."
+
+
+def validate_experiment_has_trials(
+    experiment: Experiment,
+    trial_indices: Sequence[int] | None,
+    trial_statuses: Sequence[TrialStatus] | None,
+    required_metric_names: Sequence[str] | None,
+) -> str | None:
+    filtered_trial_indices = extract_relevant_trial_indices(
+        experiment=experiment,
+        trial_indices=trial_indices,
+        trial_statuses=trial_statuses,
+    )
+
+    if len(filtered_trial_indices) == 0:
+        return f"Experiment has no trials in {trial_indices=} with {trial_statuses=}."
+
+    if required_metric_names is not None:
+        metric_names = (
+            experiment.lookup_data(trial_indices=filtered_trial_indices)
+            .df["metric_name"]
+            .unique()
+        )
+
+        missing_metrics = {*required_metric_names} - {*metric_names}
+
+        if len(missing_metrics) > 0:
+            return (
+                f"Experiment has no data for metrics {missing_metrics} in "
+                f"{trial_indices=} with {trial_statuses=}."
+            )
+
+
+def validate_adapter_can_predict(
+    experiment: Experiment | None,
+    generation_strategy: GenerationStrategy | None,
+    adapter: Adapter | None,
+    required_metric_names: Sequence[str] | None,
+) -> str | None:
+    # If using model predictions ensure we have an Adapter which can predict
+    try:
+        adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+
+        if not adapter.can_predict:
+            return (
+                f"Adapter {adapter} does not support predictions, please "
+                "use use_model_predictions=False, provide a suitable "
+                "Adapter, or wait until GenerationStrategy reaches a "
+                "GenerationNode with an adapter that is able to predict."
+            )
+
+        if required_metric_names is not None:
+            experiment = none_throws(experiment)
+
+            required_metric_signatures = [
+                experiment.metrics[name].signature for name in required_metric_names
+            ]
+
+            missing_metric_signatures = {*required_metric_signatures} - {
+                *adapter.metric_signatures
+            }
+
+            missing_metric_names = [
+                experiment.signature_to_metric[signature].name
+                for signature in missing_metric_signatures
+            ]
+
+            if len(missing_metric_names) > 0:
+                return (
+                    f"Adapter {adapter} does not support metrics "
+                    f"{missing_metric_names}."
+                )
+
+    except UserInputError as e:
+        return e.message
+
+    return None
