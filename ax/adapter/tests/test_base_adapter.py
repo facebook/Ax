@@ -976,6 +976,49 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)
         self.assertEqual(m.model_space.parameter_constraints, [])
 
+        # Check log scale expansion with OOD trial having parameter value == 0
+        log_range_param = RangeParameter(
+            name="x1",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0001,
+            upper=1,
+            log_scale=True,
+        )
+        x2 = RangeParameter(
+            name="x2",
+            parameter_type=ParameterType.FLOAT,
+            lower=0,
+            upper=1,
+        )
+        ss_with_log_param = SearchSpace(parameters=[log_range_param, x2])
+        experiment = get_branin_experiment()
+        experiment._search_space = ss_with_log_param
+
+        # Create a trial with an OOD arm that has x1=0 (invalid for log scale)
+        trial = experiment.new_batch_trial()
+        trial.add_arm(Arm(name="ood", parameters={"x1": 0.0, "x2": 2.0}))
+        trial.mark_running(no_runner_required=True)
+        trial.mark_completed()
+        experiment.attach_data(get_branin_data_batch(batch=trial))
+
+        m = Adapter(
+            experiment=experiment,
+            generator=Generator(),
+            search_space=ss_with_log_param,
+            expand_model_space=True,
+        )
+
+        # Assert that the expanded model space did not include 0.0
+        self.assertEqual(
+            m.model_space.parameters["x1"].lower,
+            0.0001,
+        )
+        # x2 model space should still be expanded
+        self.assertEqual(
+            m.model_space.parameters["x2"].upper,
+            2.0,
+        )
+
     @mock.patch(
         "ax.adapter.base.extract_experiment_data", wraps=extract_experiment_data
     )
