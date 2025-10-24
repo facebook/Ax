@@ -587,7 +587,7 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
-        if self._runner is None and not no_runner_required:
+        if self.runner is None and not no_runner_required:
             raise ValueError("Cannot mark trial running without setting runner.")
 
         prev_step = (
