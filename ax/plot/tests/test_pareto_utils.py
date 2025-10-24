@@ -55,7 +55,7 @@ class ParetoUtilsTest(TestCase):
         experiment.add_tracking_metric(
             BraninMetric(name="m2", param_names=["x1", "x2"])
         )
-        sobol = Generators.SOBOL(experiment.search_space)
+        sobol = Generators.SOBOL(experiment)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
         self.experiment = experiment
@@ -183,7 +183,7 @@ class ParetoUtilsTest(TestCase):
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
         )
-        sobol = Generators.SOBOL(experiment.search_space)
+        sobol = Generators.SOBOL(experiment)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
         experiment.fetch_data()

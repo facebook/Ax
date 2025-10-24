@@ -38,7 +38,7 @@ class TestAdapterFactorySingleObjective(TestCase):
     def test_factorial(self) -> None:
         """Tests factorial instantiation."""
         exp = get_factorial_experiment()
-        factorial = get_factorial(exp.search_space)
+        factorial = get_factorial(exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
@@ -46,7 +46,7 @@ class TestAdapterFactorySingleObjective(TestCase):
     def test_empirical_bayes_thompson(self) -> None:
         """Tests EB/TS instantiation."""
         exp = get_factorial_experiment()
-        factorial = get_factorial(exp.search_space)
+        factorial = get_factorial(exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
@@ -62,7 +62,7 @@ class TestAdapterFactorySingleObjective(TestCase):
     def test_thompson(self) -> None:
         """Tests TS instantiation."""
         exp = get_factorial_experiment()
-        factorial = get_factorial(exp.search_space)
+        factorial = get_factorial(exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()

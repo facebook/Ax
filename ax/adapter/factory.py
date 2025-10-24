@@ -61,10 +61,10 @@ def get_sobol(
     )
 
 
-def get_factorial(search_space: SearchSpace) -> DiscreteAdapter:
+def get_factorial(experiment: Experiment) -> DiscreteAdapter:
     """Instantiates a factorial generator."""
     return assert_is_instance(
-        Generators.FACTORIAL(search_space=search_space),
+        Generators.FACTORIAL(experiment=experiment),
         DiscreteAdapter,
     )
 
