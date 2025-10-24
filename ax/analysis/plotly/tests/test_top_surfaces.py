@@ -7,7 +7,6 @@
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.api.client import Client
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
-from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_offline_experiments_subset,
@@ -19,6 +18,12 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestTopSurfacesAnalysis(TestCase):
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(TopSurfacesAnalysis().validate_applicable_state()),
+        )
+
     @mock_botorch_optimize
     def test_compute(self) -> None:
         client = Client()
@@ -52,14 +57,6 @@ class TestTopSurfacesAnalysis(TestCase):
                 )
 
         analysis = TopSurfacesAnalysis(metric_name="bar", order="first")
-
-        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
-            analysis.compute()
-
-        with self.assertRaisesRegex(
-            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
-        ):
-            analysis.compute(experiment=client._experiment)
 
         cards = analysis.compute(
             experiment=client._experiment,
