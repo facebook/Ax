@@ -44,6 +44,8 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.metrics.branin import BraninMetric
+from ax.metrics.hartmann6 import Hartmann6Metric
+from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
@@ -669,6 +671,42 @@ class ExperimentTest(TestCase):
         self.assertEqual(
             exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), Data()
         )
+
+    def test_bulk_configure_metrics(self) -> None:
+        exp = get_branin_experiment_with_multi_objective()
+        exp.add_tracking_metric(
+            metric=Hartmann6Metric(name="no update", param_names=["x"])
+        )
+        # apply update to metric properties manually
+        inital_metrics = exp.metrics
+        for metric in inital_metrics.values():
+            if isinstance(metric, BraninMetric):
+                metric.param_names = ["foo", "bar"]
+
+        with self.subTest("updates both brannin metrics, but not hartmann"):
+            exp.bulk_configure_metrics_of_class(
+                metric_class=BraninMetric,
+                attributes_to_update={"param_names": ["foo", "bar"]},
+            )
+            self.assertEqual(inital_metrics, exp.metrics)
+            # double check the change is populated in opt config too
+            inital_metrics.pop("no update")
+            self.assertIsNotNone(exp.optimization_config)
+            self.assertEqual(inital_metrics, exp.optimization_config.metrics)
+        with self.subTest("parameter not in initialization"):
+            with self.assertRaisesRegex(
+                UserInputError, "does not contain the requested "
+            ):
+                exp.bulk_configure_metrics_of_class(
+                    metric_class=BraninMetric,
+                    attributes_to_update={"fake": 1},
+                )
+        with self.subTest("no metrics to update"):
+            with self.assertRaisesRegex(UserInputError, "No metrics of class"):
+                exp.bulk_configure_metrics_of_class(
+                    metric_class=NoisyFunctionMetric,
+                    attributes_to_update={"fake": 1},
+                )
 
     def test_OverwriteExistingData(self) -> None:
         n = 10
