@@ -27,10 +27,10 @@ from ax.analysis.plotly.surface.slice import (
     SlicePlot,
 )
 from ax.analysis.plotly.utils import select_metric
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from pyre_extensions import assert_is_instance, override
+from pyre_extensions import assert_is_instance, none_throws, override
 
 TS_CARDGROUP_TITLE = (
     "Top Surfaces Analysis: Parameter sensitivity, slice, and contour plots"
@@ -61,17 +61,30 @@ class TopSurfacesAnalysis(Analysis):
         self.relativize = relativize
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        TopSurfacesAnalysis requires an experiment with trials and data.
+        """
+        if self.metric_name is None:
+            return validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCardGroup:
-        if experiment is None:
-            raise UserInputError(
-                "TopSurfacesAnalysis requires an Experiment to compute."
-            )
-
+        experiment = none_throws(experiment)
         if self.metric_name is not None:
             metric_name = self.metric_name
         else:

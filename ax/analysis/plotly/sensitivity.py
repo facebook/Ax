@@ -20,13 +20,12 @@ from ax.analysis.plotly.utils import (
     select_metric,
     truncate_label,
 )
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.experiment import Experiment
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from plotly import express as px, graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import assert_is_instance, none_throws, override
 
 # SensitivityAnalysisPlot uses a plotly bar chart which needs especially short labels
 MAX_LABEL_LEN: int = 20
@@ -83,22 +82,25 @@ class SensitivityAnalysisPlot(Analysis):
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
 
     @override
-    def compute(
+    def validate_applicable_state(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCard:
+    ) -> str | None:
+        """
+        SensitivityAnalysisPlot requires an experiment with trials and data as well as
+        a TorchAdapter.
+        """
         if self.metric_name is None:
-            if experiment is None:
-                raise UserInputError(
-                    "SensitivityAnalysisPlot requires either an a metric name be "
-                    "provided or an Experiment be provided to infer the relevant "
-                    "metric name."
+            if (
+                experiment_invalid_reason := validate_experiment(
+                    experiment=experiment,
+                    require_trials=True,
+                    require_data=True,
                 )
-            metric_name = select_metric(experiment=experiment)
-        else:
-            metric_name = self.metric_name
+            ) is not None:
+                return experiment_invalid_reason
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
@@ -107,10 +109,28 @@ class SensitivityAnalysisPlot(Analysis):
         )
 
         if not isinstance(relevant_adapter, TorchAdapter):
-            raise UserInputError(
-                "SensitivityAnalysisPlot requires a TorchAdapter, found "
-                f"{type(adapter)}."
-            )
+            return "TorchAdapter is required."
+
+    @override
+    def compute(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> AnalysisCard:
+        if self.metric_name is None:
+            metric_name = select_metric(experiment=none_throws(experiment))
+        else:
+            metric_name = self.metric_name
+
+        relevant_adapter = assert_is_instance(
+            extract_relevant_adapter(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            ),
+            TorchAdapter,
+        )
 
         data = _prepare_data(
             adapter=relevant_adapter,

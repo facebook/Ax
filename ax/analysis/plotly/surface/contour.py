@@ -24,7 +24,12 @@ from ax.analysis.plotly.surface.utils import (
     is_axis_log_scale,
 )
 from ax.analysis.plotly.utils import select_metric, truncate_label
-from ax.analysis.utils import extract_relevant_adapter, relativize_data
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    relativize_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+)
 from ax.core.experiment import Experiment
 from ax.core.parameter import DerivedParameter
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
@@ -68,7 +73,7 @@ class ContourPlot(Analysis):
     ) -> None:
         """
         Args:
-            y_parameter_name: The name of the parameter to plot on the x-axis.
+            x_parameter_name: The name of the parameter to plot on the x-axis.
             y_parameter_name: The name of the parameter to plot on the y-axis.
             metric_name: The name of the metric to plot
             display_sampled: If True, plot "x"s at x coordinates which have been
@@ -80,6 +85,41 @@ class ContourPlot(Analysis):
         self.metric_name = metric_name
         self._display_sampled = display_sampled
         self.relativize = relativize
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        ContourPlot requires an Experiment with at least one trial with data as well as
+        an Adapter which can predict out of sample points for the specified metric.
+        """
+
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
+
+        if (
+            adapter_cannot_predict_reason := validate_adapter_can_predict(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+                required_metric_names=[
+                    self.metric_name or select_metric(experiment=experiment)
+                ],
+            )
+        ) is not None:
+            return adapter_cannot_predict_reason
 
     @override
     def compute(

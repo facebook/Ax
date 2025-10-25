@@ -27,12 +27,17 @@ from ax.analysis.plotly.utils import (
     X_TICKER_SCALING_FACTOR,
     Z_SCORE_95_CI,
 )
-from ax.analysis.utils import extract_relevant_adapter, prepare_arm_data
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    prepare_arm_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+    validate_experiment_has_trials,
+)
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
@@ -114,80 +119,48 @@ class ArmEffectsPlot(Analysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> str | None:
-        if experiment is None:
-            return "ArmEffectsPlot requires an Experiment."
+        """
+        ArmEffectsPlot requires an Experiment with at least one trial with data which
+        and for at least one trial pass the trial index / trial status filtering. If
+        using model predictions, a suitable adapter must also be provided.
+        """
 
-        if self.metric_name not in {*experiment.metrics.keys()}:
-            return f"Experiment does not contain metric {self.metric_name}."
-
-        if self.trial_index is not None and self.trial_index not in experiment.trials:
-            return f"Trial index {self.trial_index} not found in experiment."
-
-        if len(experiment.trials) == 0:
-            return "Experiment does not contain any trials."
-
-        if (trial_statuses := self.trial_statuses) is not None:
-            num_trials = sum(
-                [len(experiment.trials_by_status[status]) for status in trial_statuses]
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
             )
+        ) is not None:
+            return experiment_invalid_reason
 
-            if num_trials == 0:
-                return (
-                    "Experiment does not contain any trials with statuses "
-                    f"{', '.join(status.name for status in trial_statuses)}."
-                )
+        experiment = none_throws(experiment)
+
+        if (
+            no_trials_reason := validate_experiment_has_trials(
+                experiment=experiment,
+                trial_indices=[self.trial_index]
+                if self.trial_index is not None
+                else None,
+                trial_statuses=self.trial_statuses,
+                # If using model predictions we do not need to have an observation
+                required_metric_names=(
+                    None if self.use_model_predictions else [self.metric_name]
+                ),
+            )
+        ) is not None:
+            return no_trials_reason
 
         if self.use_model_predictions:
-            # If using model predictions ensure we have an Adapter which can predict
-            try:
-                adapter = extract_relevant_adapter(
+            if (
+                adapter_cannot_predict_reason := validate_adapter_can_predict(
                     experiment=experiment,
                     generation_strategy=generation_strategy,
                     adapter=adapter,
+                    required_metric_names=[self.metric_name],
                 )
-
-                if not adapter.can_predict:
-                    return (
-                        f"Adapter {adapter} does not support predictions, please "
-                        "use use_model_predictions=False, provide a suitable "
-                        "Adapter, or wait until GenerationStrategy reaches a "
-                        "GenerationNode with an adapter that is able to predict."
-                    )
-            except UserInputError as e:
-                return e.message
-        else:
-            # If using raw data ensure we have data for the specified metrics
-            trial_indices_for_status = (
-                [
-                    t.index
-                    for status in self.trial_statuses
-                    for t in experiment.trials_by_status[status]
-                ]
-                if self.trial_statuses is not None
-                else [*experiment.trials.keys()]
-            )
-            trial_indices = [
-                index
-                for index in trial_indices_for_status
-                if self.trial_index is None or index == self.trial_index
-            ]
-
-            data = experiment.lookup_data(trial_indices=trial_indices)
-
-            if data.df.empty:
-                return (
-                    "Experiment does not contain any data for trials "
-                    f"{', '.join(str(i) for i in trial_indices)}."
-                )
-
-            if self.metric_name not in data.df["metric_name"].unique().tolist():
-                return (
-                    "Experiment does not contain data for trials "
-                    f"{', '.join(str(i) for i in trial_indices)} for metric "
-                    f"{self.metric_name}."
-                )
-
-        return None
+            ) is not None:
+                return adapter_cannot_predict_reason
 
     @override
     def compute(

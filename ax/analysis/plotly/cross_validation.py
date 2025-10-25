@@ -14,15 +14,13 @@ from ax.adapter.cross_validation import cross_validate, CVResult
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
-
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
-
 from ax.analysis.plotly.utils import get_scatter_point_color, Z_SCORE_95_CI
-
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, validate_adapter_can_predict
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
+from pyre_extensions import override
 
 CV_CARDGROUP_TITLE = "Cross Validation: Assessing model fit"
 
@@ -102,6 +100,23 @@ class CrossValidationPlot(Analysis):
         self.untransform = untransform
         self.trial_index = trial_index
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        CrossValidationPlot requires only an Adapter which can predict.
+        """
+        return validate_adapter_can_predict(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+            required_metric_names=None,
+        )
 
     def compute(
         self,

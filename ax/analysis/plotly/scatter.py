@@ -9,7 +9,6 @@ from logging import Logger
 from typing import Any, final, Mapping, Sequence
 
 import numpy as np
-
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
@@ -36,6 +35,9 @@ from ax.analysis.utils import (
     extract_relevant_adapter,
     get_lower_is_better,
     prepare_arm_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+    validate_experiment_has_trials,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
@@ -44,7 +46,7 @@ from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
 from plotly import graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 logger: Logger = get_logger(__name__)
 
@@ -76,6 +78,52 @@ class ScatterPlot(Analysis):
         - **METRIC_NAME_mean: The observed mean of the metric specified
         - **METRIC_NAME_sem: The observed sem of the metric specified
     """
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        ScatterPlot requires an Experiment with at least one trial with data which
+        and for at least one trial pass the trial index / trial status filtering. If
+        using model predictions, a suitable adapter must also be provided.
+        """
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
+
+        if (
+            no_trials_reason := validate_experiment_has_trials(
+                experiment=experiment,
+                trial_indices=[self.trial_index]
+                if self.trial_index is not None
+                else None,
+                trial_statuses=self.trial_statuses,
+                required_metric_names=[self.x_metric_name, self.y_metric_name],
+            )
+        ) is not None:
+            return no_trials_reason
+
+        if self.use_model_predictions:
+            if (
+                adapter_cannot_predict_reason := validate_adapter_can_predict(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                    adapter=adapter,
+                    required_metric_names=[self.x_metric_name, self.y_metric_name],
+                )
+            ) is not None:
+                return adapter_cannot_predict_reason
 
     def __init__(
         self,
