@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 import logging
 import re
 import warnings
@@ -626,6 +628,54 @@ class Experiment(Base):
                 "One of the requested metrics was not present on the "
                 f"experiment; original error: {e}."
             )
+
+    def bulk_configure_metrics_of_class(
+        self,
+        metric_class: type[Metric],
+        attributes_to_update: dict[str, Any],
+    ) -> None:
+        """Apply the same set of updates to all metrics of a specificed type at once.
+
+        Args:
+            metric_class: the class of metric to update
+            attributes_to_update: A dictionary that maps the parameter to be updated
+                with it's new value.
+
+        Raises:
+            * If there are no metrics of the specified class on the experiment
+            * If any of the specified parameters to update are not args in the
+            metric class's initialization method
+
+        Note: All metrics of the specificed class will recieve the same update. For
+        custom updates to specific metrics, use `update_tracking_metric`
+        """
+        metrics_of_class = self._metrics_by_class(metrics=list(self.metrics.values()))[
+            metric_class
+        ]
+        if len(metrics_of_class) == 0:
+            raise UserInputError(
+                f"No metrics of class {metric_class} found on experiment."
+            )
+        metric_attributes = set(
+            inspect.signature(metric_class.__init__).parameters.keys()
+        )
+        if not set(attributes_to_update.keys()).issubset(metric_attributes):
+            raise (
+                UserInputError(
+                    f"Metric class {metric_class} does not contain the requested "
+                    "attributes to update. Requested updates to attributes: "
+                    f"{set(attributes_to_update.keys())} but metric class defines"
+                    f"{metric_attributes}."
+                )
+            )
+        # Update each metric on the experiment with the specified new values
+        # for each parameter to update
+        for metric in metrics_of_class:
+            new_metric = metric
+            for param_name, param_value in attributes_to_update.items():
+                setattr(new_metric, param_name, param_value)
+            self.metrics[metric.name] = new_metric
+        return
 
     def fetch_data_results(
         self,
