@@ -634,7 +634,7 @@ class Experiment(Base):
         metric_class: type[Metric],
         attributes_to_update: dict[str, Any],
     ) -> None:
-        """Apply the same set of updates to all metrics of a specificed type at once.
+        """Apply the same set of updates to all metrics of a specified type at once.
 
         Args:
             metric_class: the class of metric to update
@@ -646,7 +646,7 @@ class Experiment(Base):
             * If any of the specified parameters to update are not args in the
             metric class's initialization method
 
-        Note: All metrics of the specificed class will recieve the same update. For
+        Note: All metrics of the specified class will receive the same update. For
         custom updates to specific metrics, use `update_tracking_metric`
         """
         metrics_of_class = self._metrics_by_class(metrics=list(self.metrics.values()))[
@@ -1049,7 +1049,7 @@ class Experiment(Base):
         UNSAFE: Prefer to use attach_data directly instead.
 
         Attach fetched data results to the Experiment so they will not have to be
-        fetched again. Addtionally caches any metric fetching errors that occured
+        fetched again. Additionally caches any metric fetching errors that occurred
         to the experiment. Returns the timestamp from attachment, which is used
         as a dict key for _data_by_trial.
 

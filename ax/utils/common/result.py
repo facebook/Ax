@@ -255,7 +255,7 @@ class UnwrapError(Exception):
     """
     Exception that indicates something has gone wrong in an unwrap call.
 
-    This should not happen in real world use and indicates a user has impropperly
+    This should not happen in real world use and indicates a user has improperly
     or unsafely used the Result abstraction.
     """
 
