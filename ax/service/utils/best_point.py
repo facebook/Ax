@@ -470,7 +470,7 @@ def get_pareto_optimal_parameters(
     )
 
     # Insert observations into OrderedDict in order of descending individual
-    # hypervolume, formated as
+    # hypervolume, formatted as
     # { trial_index --> (parameterization, (means, covariances) }
     res: dict[int, tuple[TParameterization, TModelPredictArm]] = OrderedDict()
     for obs in pareto_optimal_observations:
