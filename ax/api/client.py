@@ -384,9 +384,7 @@ class Client(WithDBSettingsBase):
 
         trials: list[Trial] = []
         with with_rng_seed(seed=self._random_seed):
-            gs = self._generation_strategy_or_choose()
-
-            generator_runs = gs.gen(
+            grs_for_trials = self._generation_strategy_or_choose().gen(
                 experiment=self._experiment,
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(
@@ -404,14 +402,9 @@ class Client(WithDBSettingsBase):
                 num_trials=max_trials,
             )
 
-        for generator_run in generator_runs:
-            trial = assert_is_instance(
-                self._experiment.new_trial(
-                    generator_run=generator_run[0],
-                ),
-                Trial,
-            )
-
+        for trial_grs in grs_for_trials:
+            assert len(trial_grs) == 1
+            trial = self._experiment.new_trial(generator_run=trial_grs[0])
             logger.info(
                 f"Generated new trial {trial.index} with parameters "
                 + str(
@@ -420,12 +413,16 @@ class Client(WithDBSettingsBase):
                         decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
                     )
                 )
-                + f" using GenerationNode {generator_run[0]._generation_node_name}."
+                + f" using GenerationNode {trial_grs[0]._generation_node_name}."
             )
-
             trial.mark_running(no_runner_required=True)
-
             trials.append(trial)
+
+        if len(trials) < max_trials:
+            logger.warning(
+                f"{max_trials} trials requested but only {len(trials)} could be "
+                "generated."
+            )
 
         # Save GS to db
         self._save_generation_strategy_to_db_if_possible(
@@ -437,17 +434,9 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trials=trials
         )
 
-        res = {trial.index: none_throws(trial.arm).parameters for trial in trials}
-
-        if len(res) != max_trials:
-            logger.warning(
-                f"{max_trials} trials requested but only {len(res)} could be "
-                "generated."
-            )
-
         # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
         # None, but we do not allow this in the API.
-        return res
+        return {trial.index: none_throws(trial.arm).parameters for trial in trials}
 
     def complete_trial(
         self,
