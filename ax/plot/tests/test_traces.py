@@ -77,7 +77,7 @@ class TracesTest(TestCase):
         # Generate some trials with different model types, including batch trial.
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].mark_completed(unsafe=True)
-        sobol = Generators.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp)
         for _ in range(2):
             t = exp.new_trial(sobol.gen(1)).run()
             t.mark_completed()

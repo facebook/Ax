@@ -17,7 +17,6 @@ from ax.adapter.registry import (
 from ax.adapter.torch import TorchAdapter
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.exceptions.core import UserInputError
 from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.generators.discrete.thompson import ThompsonSampler
 from ax.generators.random.sobol import SobolGenerator
@@ -34,7 +33,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_status_quo_trials,
-    get_branin_search_space,
     get_factorial_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -328,17 +326,3 @@ class ModelRegistryTest(TestCase):
             generator_run=gr, model_class=SobolGenerator
         )
         self.assertEqual(extracted, {})
-
-    def test_initialize_from_search_space(self) -> None:
-        search_space = get_branin_search_space()
-        with self.assertWarnsRegex(
-            DeprecationWarning, "Passing in a `search_space` to initialize"
-        ):
-            adapter = Generators.SOBOL(search_space=search_space)
-        self.assertEqual(adapter._model_space, search_space)
-        self.assertIsNotNone(adapter._experiment)
-        with self.assertRaisesRegex(
-            UserInputError,
-            "`experiment` is required to initialize a model from registry.",
-        ):
-            Generators.BOTORCH_MODULAR(search_space=search_space)

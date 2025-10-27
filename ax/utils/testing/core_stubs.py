@@ -715,7 +715,7 @@ def get_factorial_experiment(
         )
 
     if with_batch:
-        factorial_generator = get_factorial(search_space=exp.search_space)
+        factorial_generator = get_factorial(experiment=exp)
         # compute cardinality of discrete search space
         n = prod(
             len(assert_is_instance(p, ChoiceParameter).values)

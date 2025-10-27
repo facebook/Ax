@@ -915,7 +915,7 @@ class SQAStoreTest(TestCase):
 
         exp = get_branin_experiment_with_timestamp_map_metric()
         save_experiment(exp)
-        generator_run = Generators.SOBOL(search_space=exp.search_space).gen(n=1)
+        generator_run = Generators.SOBOL(experiment=exp).gen(n=1)
         trial = exp.new_trial(generator_run=generator_run)
         exp.attach_data(trial.run().fetch_data())
         save_or_update_trials(

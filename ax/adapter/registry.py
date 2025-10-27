@@ -13,7 +13,6 @@ such as Sobol generator, GP+EI, Thompson sampler, etc.
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from inspect import isfunction, signature
@@ -51,7 +50,6 @@ from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.base import Generator
 from ax.generators.discrete.eb_ashr import EBAshr
@@ -281,8 +279,7 @@ class GeneratorRegistryBase(Enum):
 
     def __call__(
         self,
-        search_space: SearchSpace | None = None,
-        experiment: Experiment | None = None,
+        experiment: Experiment,
         data: Data | None = None,
         silently_filter_kwargs: bool = False,
         model_key_override: str | None = None,
@@ -293,29 +290,7 @@ class GeneratorRegistryBase(Enum):
         model_setup_info = self.model_key_to_model_setup[self.value]
         model_class = model_setup_info.model_class
         adapter_class = model_setup_info.adapter_class
-        if experiment is None:
-            # Some Adapters used to accept search_space as the only input.
-            # Temporarily support it with a deprecation warning.
-            if (
-                issubclass(adapter_class, (RandomAdapter, DiscreteAdapter))
-                and search_space is not None
-            ):
-                warnings.warn(
-                    "Passing in a `search_space` to initialize a generator from a "
-                    "registry is being deprecated. `experiment` is now a required "
-                    "input for initializing `Adapters`. Please use `experiment` "
-                    "when initializing generators going forward. "
-                    "Support for `search_space` will be removed in Ax 0.7.0.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                # Construct a dummy experiment for temporary support.
-                experiment = Experiment(search_space=search_space)
-            else:
-                raise UserInputError(
-                    "`experiment` is required to initialize a model from registry."
-                )
-        search_space = search_space or none_throws(experiment).search_space
+        search_space = experiment.search_space
 
         if not silently_filter_kwargs:
             # Check correct kwargs are present
@@ -371,7 +346,7 @@ class GeneratorRegistryBase(Enum):
 
         # Create adapter with the consolidated kwargs.
         adapter = adapter_class(
-            search_space=search_space or none_throws(experiment).search_space,
+            search_space=search_space,
             experiment=experiment,
             data=data,
             generator=generator,

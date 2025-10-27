@@ -478,9 +478,7 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
         exp.new_trial().add_arm(exp.status_quo)
         exp.trials[0].run()
-        exp.new_trial(
-            generator_run=Generators.SOBOL(search_space=exp.search_space).gen(n=1)
-        )
+        exp.new_trial(generator_run=Generators.SOBOL(experiment=exp).gen(n=1))
         exp.trials[1].run()
         for t in exp.trials.values():
             t.mark_completed()
@@ -510,7 +508,7 @@ class ReportUtilsTest(TestCase):
     def test_skip_contour_high_dimensional(self) -> None:
         exp = get_high_dimensional_branin_experiment()
         # Initial Sobol points
-        sobol = Generators.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp)
         for _ in range(1):
             exp.new_trial(sobol.gen(1)).run()
         model = Generators.BOTORCH_MODULAR(
