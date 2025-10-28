@@ -1852,6 +1852,36 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(ValueError):
             self.decoder.metric_from_sqa(sqa_metric)
 
+    def test_ObjectiveThresholdFromSQAWithRelativeNone(self) -> None:
+        # Setup: Create a metric and metric_sqa with relative set to None
+        metric = get_branin_metric()
+        metric_sqa = SQAMetric(
+            name="test_metric",
+            intent=MetricIntent.OBJECTIVE_THRESHOLD,
+            metric_type=CORE_METRIC_REGISTRY[BraninMetric],
+            signature="test_metric",
+            bound=Decimal(10.0),
+            relative=None,  # Set relative to None
+        )
+
+        # Execute: Call _objective_threshold_from_sqa and verify it logs a warning
+        with self.assertLogs("ax", level=logging.WARNING) as logs:
+            objective_threshold = self.decoder._objective_threshold_from_sqa(
+                metric=metric, metric_sqa=metric_sqa
+            )
+
+        # Assert: Verify the warning message appears in logs
+        self.assertTrue(
+            any("When decoding SQAMetric" in output for output in logs.output),
+            f"Expected warning log not found. Logs: {logs.output}",
+        )
+
+        # Assert: Verify the returned ObjectiveThreshold has relative set to False
+        # (not None)
+        self.assertIsNotNone(objective_threshold)
+        self.assertEqual(objective_threshold.relative, False)
+        self.assertEqual(objective_threshold.bound, 10.0)
+
     def test_RunnerDecodeFailure(self) -> None:
         runner = get_synthetic_runner()
         sqa_runner = self.encoder.runner_to_sqa(runner)

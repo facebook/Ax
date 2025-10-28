@@ -1398,15 +1398,24 @@ class Decoder:
     def _objective_threshold_from_sqa(
         self, metric: Metric, metric_sqa: SQAMetric
     ) -> ObjectiveThreshold:
-        if metric_sqa.bound is None or metric_sqa.relative is None:
+        if metric_sqa.bound is None:
             raise SQADecodeError(
                 "Cannot decode SQAMetric to ObjectiveThreshold because "
-                "bound, op, or relative is None."
+                "bound is None."
             )
+
+        if metric_sqa.relative is None:
+            logger.warning(
+                f"When decoding SQAMetric {metric.name} to ObjectiveThreshold, "
+                f"'relative' is set to None. Overwriting 'relative' to False"
+                " to prevent downstream experiment errors.  "
+            )
+        relative = metric_sqa.relative if metric_sqa.relative is not None else False
+
         ot = ObjectiveThreshold(
             metric=metric,
             bound=float(none_throws(metric_sqa.bound)),
-            relative=none_throws(metric_sqa.relative),
+            relative=relative,
             op=metric_sqa.op,
         )
         # ObjectiveThreshold constructor clones the passed-in metric, which means
