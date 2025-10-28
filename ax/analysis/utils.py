@@ -346,25 +346,17 @@ def _prepare_modeled_arm_data(
     trial_index_arm_pairs += [(-1, arm) for arm in additional_arms or []]
 
     # Remove arms with missing parameters since we cannot predict for them.
-    predictable_pairs = [
-        (trial_index, arm)
-        for trial_index, arm in trial_index_arm_pairs
-        # Remove arms outside of the search space since we cannot predict for them.
-        if experiment.search_space.check_membership(
+    predictable_pairs = []
+    unpredictable_pairs = []
+    for trial_index, arm in trial_index_arm_pairs:
+        if adapter.model_space.check_membership(
             parameterization=arm.parameters,
             raise_error=False,
             check_all_parameters_present=True,
-        )
-    ]
-    unpredictable_pairs = [
-        (trial_index, arm)
-        for trial_index, arm in trial_index_arm_pairs
-        if not experiment.search_space.check_membership(
-            parameterization=arm.parameters,
-            raise_error=False,
-            check_all_parameters_present=True,
-        )
-    ]
+        ):
+            predictable_pairs.append((trial_index, arm))
+        else:
+            unpredictable_pairs.append((trial_index, arm))
 
     # Batch predict for efficiency.
     predictions = adapter.predict(
