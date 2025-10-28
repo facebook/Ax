@@ -524,6 +524,34 @@ class TestUtils(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
 
+        # add an arm that is not in the search space
+        trial = self.client._experiment.new_trial()
+        trial.add_arm(Arm(name="ood_arm", parameters={"x1": 0.5, "x2": 2.0}))
+        trial.mark_running(no_runner_required=True)
+        self.client.complete_trial(
+            trial_index=trial.index,
+            raw_data={
+                "foo": (0.5, 0.1),
+                "bar": (-3.5, 0.1),
+                "baz": (3.0, 0.1),
+                "qux": (4.0, 0.1),
+            },
+        )
+        gen_spec = self.client._generation_strategy._curr.generator_specs[0]
+        adapter = gen_spec.generator_enum(
+            experiment=self.client._experiment, **gen_spec.model_kwargs
+        )
+        df = prepare_arm_data(
+            experiment=self.client._experiment,
+            metric_names=["foo"],
+            use_model_predictions=True,
+            adapter=adapter,
+        )
+        ood_df = df[df.arm_name == "ood_arm"]
+        # a NaN would indicate that we did not make a prediction
+        self.assertFalse(np.isnan(ood_df.foo_mean.iloc[0]))
+        self.assertFalse(np.isnan(ood_df.foo_sem.iloc[0]))
+
     def test_prepare_arm_data_includes_failure_reasons(self) -> None:
         """Test that the fail_reason column is properly populated."""
         client = Client()
