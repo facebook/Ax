@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import final, List
+from typing import final
 
 import pandas as pd
 import plotly.express as px
@@ -98,9 +98,9 @@ class BanditRollout(Analysis):
         """
 
         data_df: pd.DataFrame = pd.DataFrame()
-        trial_index: List[int] = []
-        arm_name: List[str] = []
-        arm_weight: List[float] = []
+        trial_index: list[int] = []
+        arm_name: list[str] = []
+        arm_weight: list[float] = []
 
         for trial in experiment.trials.values():
             batch_trial = assert_is_instance(trial, BatchTrial)
