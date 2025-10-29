@@ -53,8 +53,8 @@ class MapData(Data):
             user as ``df``; by contrast, the property ``self.df`` is be a subset
             of the full data used for modeling. Constructing ``df`` can be
             expensive, so it is better to reference ``full_df`` than ``df`` for
-            operations that do not require scanning the full data, such as
-            accessing the columns of the DataFrame.
+            operations that do not require scanning the full data, such as accessing the
+            columns of the DataFrame.
         _memo_df: Either ``None``, if ``self.df`` has never been accessed, or
             equivalent to ``self.df``.
 
@@ -68,6 +68,9 @@ class MapData(Data):
         map_df: Equivalent to ``full_df``. ``map_df`` exists only on
             ``MapData``, whereas ``full_df`` exists for any ``Data`` subclass.
     """
+
+    # Override to indicate MapData does not support relativization
+    supports_relativization: bool = False
 
     DEDUPLICATE_BY_COLUMNS = [
         "trial_index",

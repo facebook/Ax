@@ -254,6 +254,14 @@ class DataTest(TestCase):
         data = CustomData(df=self.df)
         self.assertNotEqual(data, Data(self.df))
 
+    def test_supports_relativization(self) -> None:
+        # Execute: Check supports_relativization attribute on Data class and instance
+        data = Data(df=self.df)
+
+        # Assert: Data should support relativization by default
+        self.assertTrue(Data.supports_relativization)
+        self.assertTrue(data.supports_relativization)
+
     def test_from_multiple(self) -> None:
         with self.subTest("Combinining non-empty Data"):
             data = Data.from_multiple_data([Data(df=self.df), Data(df=self.df)])
