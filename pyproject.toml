@@ -31,6 +31,7 @@ dependencies = [
     "pyre-extensions",
     "sympy",
     "markdown",
+    "thrift",
 ]
 
 [project.optional-dependencies]
@@ -80,8 +81,8 @@ tutorial = [
 Homepage = "https://ax.dev/"
 Repository = "https://github.com/facebook/Ax"
 
-[tool.setuptools.packages]
-find = {}
+[tool.setuptools.packages.find]
+where = ["ax", "gen-py"]
 
 [tool.setuptools.package-data]
 "*" = ["*.js", "*.css", "*.html"]
