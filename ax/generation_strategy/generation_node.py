@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
 from logging import Logger
-from typing import Any, cast, TYPE_CHECKING, Union
+from typing import Any, cast, Self, TYPE_CHECKING, Union
 
 # TODO[@mgarrard, @drfreund]: Remove this when we streamline `apply_input_
 # constructors`, such that they no longer need to access individual
@@ -27,6 +28,17 @@ from ax.exceptions.core import AxError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.exceptions.model import ModelError
 from ax.generation_strategy.best_model_selector import BestModelSelector
+
+from ax.thrift.agnostic_thrift_serializable import (
+    AgnosticStruct,
+    AgnosticThriftSerializable,
+)
+
+from ax.thrift.generation_strategy.generation_node.thrift_types import (
+    GenerationNode as ThriftGenerationNode,
+)
+
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     from ax.generation_strategy.generation_node_input_constructors import (
@@ -1216,3 +1228,20 @@ class GenerationStep(GenerationNode, SortableBase):
             )
         gr._generation_step_index = self.index
         return gr
+
+
+@dataclass
+class DemoGenerationNode(AgnosticThriftSerializable):
+    name: str
+
+    @classmethod
+    def thrift_type(cls) -> type[AgnosticStruct]:
+        return ThriftGenerationNode
+
+    def serialize(self) -> ThriftGenerationNode:
+        return ThriftGenerationNode(name=self.name)
+
+    @classmethod
+    def deserialize(cls, struct: AgnosticStruct) -> Self:
+        node_struct = assert_is_instance(struct, ThriftGenerationNode)
+        return cls(name=node_struct.name)
