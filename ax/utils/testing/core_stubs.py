@@ -1030,6 +1030,7 @@ def get_experiment_with_observations(
     candidate_metadata: Sequence[TCandidateMetadata] | None = None,
     additional_data_columns: Sequence[Mapping[str, Any]] | None = None,
     signature_suffix: bool = False,
+    status_quo: Arm | None = None,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
@@ -1134,6 +1135,7 @@ def get_experiment_with_observations(
         ),
         runner=SyntheticRunner(),
         is_test=True,
+        status_quo=status_quo,
     )
     metrics = sorted(exp.metrics)
     metric_to_signature_map = {name: m.signature for name, m in exp.metrics.items()}
