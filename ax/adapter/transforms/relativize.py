@@ -132,15 +132,14 @@ class BaseRelativize(Transform, ABC):
                     )
                 obj_threshold.relative = False
 
-            new_optimization_config = MultiObjectiveOptimizationConfig(
+            new_optimization_config = optimization_config.clone_with_args(
                 objective=optimization_config.objective,
                 outcome_constraints=constraints,
                 objective_thresholds=obj_thresholds,
             )
         else:
-            new_optimization_config = OptimizationConfig(
-                objective=optimization_config.objective,
-                outcome_constraints=constraints,
+            new_optimization_config = optimization_config.clone_with_args(
+                objective=optimization_config.objective, outcome_constraints=constraints
             )
 
         return new_optimization_config
