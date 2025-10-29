@@ -6,6 +6,7 @@
 # pyre-strict
 
 from copy import deepcopy
+from itertools import product
 from unittest.mock import Mock
 
 import numpy as np
@@ -22,6 +23,7 @@ from ax.adapter.transforms.relativize import (
     RelativizeWithConstantControl,
 )
 from ax.core import BatchTrial
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import observations_from_data, recombine_observations
@@ -465,26 +467,28 @@ class RelativizeDataOptConfigTest(TestCase):
         self.model.status_quo_data_by_trial = {0: None}
 
     def test_transform_optimization_config_without_constraints(self) -> None:
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            relativize = relativize_cls(
-                search_space=None,
-                adapter=self.model,
-            )
+        for relativize_cls, pruning_target in product(
+            [Relativize, RelativizeWithConstantControl],
+            (None, Arm(parameters={"x0": 0.0, "x1": 0.0})),
+        ):
+            relativize = relativize_cls(search_space=None, adapter=self.model)
             optimization_config = get_branin_optimization_config()
+            optimization_config.pruning_target_parameterization = pruning_target
             new_config = relativize.transform_optimization_config(
                 optimization_config=optimization_config,
                 adapter=None,
                 fixed_features=Mock(),
             )
-            self.assertEqual(new_config.objective, optimization_config.objective)
+            self.assertEqual(new_config, optimization_config)
 
     def test_transform_optimization_config_with_relative_constraints(self) -> None:
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            relativize = relativize_cls(
-                search_space=None,
-                adapter=self.model,
-            )
+        for relativize_cls, pruning_target in product(
+            [Relativize, RelativizeWithConstantControl],
+            (None, Arm(parameters={"x0": 0.0, "x1": 0.0})),
+        ):
+            relativize = relativize_cls(search_space=None, adapter=self.model)
             optimization_config = get_branin_optimization_config()
+            optimization_config.pruning_target_parameterization = pruning_target
             optimization_config.outcome_constraints = [
                 OutcomeConstraint(
                     metric=BraninMetric("b2", ["x2", "x1"]),
@@ -500,6 +504,10 @@ class RelativizeDataOptConfigTest(TestCase):
             )
             self.assertEqual(new_config.objective, optimization_config.objective)
             self.assertEqual(
+                new_config.pruning_target_parameterization,
+                optimization_config.pruning_target_parameterization,
+            )
+            self.assertEqual(
                 new_config.outcome_constraints[0].bound,
                 optimization_config.outcome_constraints[0].bound,
             )
@@ -513,10 +521,7 @@ class RelativizeDataOptConfigTest(TestCase):
 
     def test_transform_optimization_config_with_non_relative_constraints(self) -> None:
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            relativize = relativize_cls(
-                search_space=None,
-                adapter=self.model,
-            )
+            relativize = relativize_cls(search_space=None, adapter=self.model)
             optimization_config = get_branin_optimization_config()
             optimization_config.outcome_constraints = [
                 OutcomeConstraint(
