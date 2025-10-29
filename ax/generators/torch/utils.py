@@ -13,10 +13,7 @@ from typing import Any, cast
 import numpy.typing as npt
 import torch
 from ax.exceptions.core import UnsupportedError
-from ax.generators.model_utils import (
-    filter_constraints_and_fixed_features,
-    get_observed,
-)
+from ax.generators.utils import filter_constraints_and_fixed_features, get_observed
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean

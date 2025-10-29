@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 from ax.core.search_space import SearchSpaceDigest
-from ax.generators.model_utils import (
+from ax.generators.utils import (
     best_observed_point,
     enumerate_discrete_combinations,
     mk_discrete_choices,
@@ -20,7 +20,7 @@ from ax.generators.model_utils import (
 from ax.utils.common.testutils import TestCase
 
 
-class ModelUtilsTest(TestCase):
+class UtilsTest(TestCase):
     def test_BestObservedPoint(self) -> None:
         model = MagicMock()
 

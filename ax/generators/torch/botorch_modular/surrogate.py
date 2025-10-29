@@ -22,7 +22,6 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
-from ax.generators.model_utils import best_in_sample_point
 from ax.generators.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
 )
@@ -49,6 +48,7 @@ from ax.generators.torch.utils import (
 )
 from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
+from ax.generators.utils import best_in_sample_point
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
