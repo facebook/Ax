@@ -380,7 +380,7 @@ def _prepare_figure(
         else:
             num_non_candidate_trials += 1
 
-        text = trial_df.apply(
+        text = xy_df.apply(
             lambda row: get_arm_tooltip(row=row, metric_names=[metric_name]), axis=1
         )
 
