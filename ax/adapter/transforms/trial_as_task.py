@@ -17,6 +17,7 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
@@ -107,9 +108,19 @@ class TrialAsTask(Transform):
                         f"Not all trials in data ({trials}) contained "
                         f"in trial level map for {_p_name} ({level_map})"
                     )
+        elif config is not None and config.get("trial_type_as_task", False):
+            # map long run trials to 0 and short run trials to 1
+            self.trial_level_map = {TRIAL_PARAM: {}}
+            for trial_index in trials:
+                trial_type = adapter._experiment.trials[trial_index].trial_type
+                if trial_type is not None and trial_type == Keys.LONG_RUN:
+                    self.trial_level_map[TRIAL_PARAM][trial_index] = "0"
+                else:
+                    self.trial_level_map[TRIAL_PARAM][trial_index] = "1"
         else:
             # Set TRIAL_PARAM for each trial to the corresponding trial_index.
             self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
+
         if len(self.trial_level_map) == 1:
             level_dict = next(iter(self.trial_level_map.values()))
             self.inverse_map: dict[int | str, int] | None = {
