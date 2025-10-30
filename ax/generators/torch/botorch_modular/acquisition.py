@@ -19,10 +19,6 @@ from typing import Any, Mapping, Sequence
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, DataRequiredError, SearchSpaceExhausted
-from ax.generators.model_utils import (
-    enumerate_discrete_combinations,
-    mk_discrete_choices,
-)
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.torch.botorch_modular.utils import _fix_map_key_to_target
@@ -33,6 +29,7 @@ from ax.generators.torch.utils import (
     subset_model,
 )
 from ax.generators.torch_base import TorchOptConfig
+from ax.generators.utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger

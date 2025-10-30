@@ -13,9 +13,9 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.generators.model_utils import tunable_feature_indices
 from ax.generators.random.base import RandomGenerator
 from ax.generators.types import TConfig
+from ax.generators.utils import tunable_feature_indices
 from pyre_extensions import none_throws
 from torch.quasirandom import SobolEngine
 

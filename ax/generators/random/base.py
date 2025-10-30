@@ -17,14 +17,14 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.base import Generator
-from ax.generators.model_utils import (
+from ax.generators.types import TConfig
+from ax.generators.utils import (
     add_fixed_features,
     DEFAULT_MAX_RS_DRAWS,
     rejection_sample,
     tunable_feature_indices,
     validate_bounds,
 )
-from ax.generators.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_of_tuple

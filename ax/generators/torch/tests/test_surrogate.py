@@ -22,7 +22,6 @@ import torch
 from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
-from ax.generators.model_utils import best_in_sample_point
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.kernels import (
     default_loc_and_scale_for_lognormal_lengthscale_prior,
@@ -45,6 +44,7 @@ from ax.generators.torch.botorch_modular.utils import (
 )
 from ax.generators.torch.utils import predict_from_model
 from ax.generators.torch_base import TorchOptConfig
+from ax.generators.utils import best_in_sample_point
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import DIAGNOSTIC_FNS

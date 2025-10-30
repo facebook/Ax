@@ -31,7 +31,7 @@ TTensoray = TypeVar("TTensoray", bound=Tensoray)
 
 
 class TorchGeneratorLike(Protocol):
-    """A protocol that stands in for ``TorchModel`` like objects that
+    """A protocol that stands in for ``TorchGenerator`` like objects that
     have a ``predict`` method.
     """
 
