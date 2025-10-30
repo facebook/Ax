@@ -422,7 +422,7 @@ class WinsorizeTransformTest(TestCase):
             )
         # Multi-objective without objective thresholds should warn and winsorize
         moo_objective = MultiObjective(
-            [Objective(m1, minimize=False), Objective(m2, minimize=True)]
+            [Objective(metric=m1, minimize=False), Objective(metric=m2, minimize=True)]
         )
         optimization_config = MultiObjectiveOptimizationConfig(objective=moo_objective)
         experiment._optimization_config = optimization_config
@@ -441,8 +441,8 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Add relative objective thresholds. Should warn and skip.
         objective_thresholds = [
-            ObjectiveThreshold(m1, 3, relative=True),
-            ObjectiveThreshold(m2, 4, relative=True),
+            ObjectiveThreshold(metric=m1, bound=3, relative=True),
+            ObjectiveThreshold(metric=m2, bound=4, relative=True),
         ]
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=moo_objective,
@@ -480,22 +480,26 @@ class WinsorizeTransformTest(TestCase):
         # Adapter with in-design status quo
         search_space = SearchSpace(
             parameters=[
-                RangeParameter("x", ParameterType.FLOAT, 0, 20),
-                RangeParameter("y", ParameterType.FLOAT, 0, 20),
+                RangeParameter(
+                    name="x", parameter_type=ParameterType.FLOAT, lower=0, upper=20
+                ),
+                RangeParameter(
+                    name="y", parameter_type=ParameterType.FLOAT, lower=0, upper=20
+                ),
             ]
         )
         # Test with relative constraint, in-design status quo
         oc = OptimizationConfig(
-            objective=Objective(Metric("c"), minimize=False),
+            objective=Objective(Metric(name="c"), minimize=False),
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
+                    Metric(name="a"), ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("b"), ComparisonOp.LEQ, bound=-10, relative=True
+                    Metric(name="b"), ComparisonOp.LEQ, bound=-10, relative=True
                 ),
                 ScalarizedOutcomeConstraint(
-                    metrics=[Metric("a"), Metric("b")],
+                    metrics=[Metric(name="a"), Metric(name="b")],
                     weights=[0.0, 1.0],
                     op=ComparisonOp.LEQ,
                     bound=-10,

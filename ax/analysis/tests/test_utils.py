@@ -280,7 +280,7 @@ class TestUtils(TestCase):
             ],
             is_test=True,
         )
-        trial = BatchTrial(test_exp)
+        trial = BatchTrial(experiment=test_exp)
 
         # set 2 arms and abandon one
         trial.add_arms_and_weights(

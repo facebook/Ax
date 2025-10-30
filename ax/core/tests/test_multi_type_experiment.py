@@ -63,7 +63,7 @@ class MultiTypeExperimentTest(TestCase):
         self.assertEqual(self.experiment.default_trials, {0})
         # Set 2 metrics to be equal
         self.experiment.update_tracking_metric(
-            BraninMetric("m2", ["x1", "x2"]), trial_type="type2"
+            BraninMetric(name="m2", param_names=["x1", "x2"]), trial_type="type2"
         )
         df = self.experiment.fetch_data().df
         arm_0_slice = df.loc[df["arm_name"] == "0_0"]
@@ -83,21 +83,27 @@ class MultiTypeExperimentTest(TestCase):
         self.assertTrue(self.experiment == exp2)
 
         self.experiment.add_tracking_metric(
-            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m4"
+            BraninMetric(name="m3", param_names=["x2", "x1"]),
+            trial_type="type1",
+            canonical_name="m4",
         )
 
         # Test different set of metrics
         self.assertFalse(self.experiment == exp2)
 
         exp2.add_tracking_metric(
-            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m5"
+            BraninMetric(name="m3", param_names=["x2", "x1"]),
+            trial_type="type1",
+            canonical_name="m5",
         )
 
         # Test different metric definitions
         self.assertFalse(self.experiment == exp2)
 
         exp2.update_tracking_metric(
-            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m4"
+            BraninMetric(name="m3", param_names=["x2", "x1"]),
+            trial_type="type1",
+            canonical_name="m4",
         )
 
         # Should be the same
@@ -118,7 +124,7 @@ class MultiTypeExperimentTest(TestCase):
         # Add metric for trial_type that doesn't exist
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metric(
-                BraninMetric("m2", ["x1", "x2"]), "type3"
+                BraninMetric(name="m2", param_names=["x1", "x2"]), "type3"
             )
 
         # Try to remove metric that doesn't exist
@@ -128,13 +134,13 @@ class MultiTypeExperimentTest(TestCase):
         # Try to change optimization metric to non-primary trial type
         with self.assertRaises(ValueError):
             self.experiment.update_tracking_metric(
-                BraninMetric("m1", ["x1", "x2"]), "type2"
+                BraninMetric(name="m1", param_names=["x1", "x2"]), "type2"
             )
 
         # Update metric definition for trial_type that doesn't exist
         with self.assertRaises(ValueError):
             self.experiment.update_tracking_metric(
-                BraninMetric("m2", ["x1", "x2"]), "type3"
+                BraninMetric(name="m2", param_names=["x1", "x2"]), "type3"
             )
 
         # Try to get runner for trial_type that's not supported
@@ -156,7 +162,10 @@ class MultiTypeExperimentTest(TestCase):
             self.experiment._metric_to_trial_type, {"m1": "type1", "m2": "type2"}
         )
         self.experiment.optimization_config = OptimizationConfig(
-            Objective(BraninMetric("m3", ["x1", "x2"]), minimize=True)
+            objective=Objective(
+                metric=BraninMetric(name="m3", param_names=["x1", "x2"]),
+                minimize=True,
+            )
         )
         self.assertDictEqual(
             self.experiment._metric_to_trial_type,
@@ -173,15 +182,15 @@ class MultiTypeExperimentTest(TestCase):
 
     def test_add_tracking_metrics(self) -> None:
         type1_metrics = [
-            BraninMetric("m3_type1", ["x1", "x2"]),
-            BraninMetric("m4_type1", ["x1", "x2"]),
+            BraninMetric(name="m3_type1", param_names=["x1", "x2"]),
+            BraninMetric(name="m4_type1", param_names=["x1", "x2"]),
         ]
         type2_metrics = [
-            BraninMetric("m3_type2", ["x1", "x2"]),
-            BraninMetric("m4_type2", ["x1", "x2"]),
+            BraninMetric(name="m3_type2", param_names=["x1", "x2"]),
+            BraninMetric(name="m4_type2", param_names=["x1", "x2"]),
         ]
         default_type_metrics = [
-            BraninMetric("m5_default_type", ["x1", "x2"]),
+            BraninMetric(name="m5_default_type", param_names=["x1", "x2"]),
         ]
         self.experiment.add_tracking_metrics(
             metrics=type1_metrics + type2_metrics + default_type_metrics,

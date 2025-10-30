@@ -74,7 +74,7 @@ class Objective(SortableBase):
 
     def clone(self) -> Objective:
         """Create a copy of the objective."""
-        return Objective(self.metric.clone(), self.minimize)
+        return Objective(metric=self.metric.clone(), minimize=self.minimize)
 
     def __repr__(self) -> str:
         return 'Objective(metric_name="{}", minimize={})'.format(

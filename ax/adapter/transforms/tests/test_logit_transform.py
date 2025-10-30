@@ -30,13 +30,15 @@ class LogitTransformTest(TestCase):
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x",
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
                     lower=0.9,
                     upper=0.999,
-                    parameter_type=ParameterType.FLOAT,
                     logit_scale=True,
                 ),
-                RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
+                RangeParameter(
+                    name="a", parameter_type=ParameterType.INT, lower=1, upper=2
+                ),
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
@@ -46,10 +48,10 @@ class LogitTransformTest(TestCase):
         self.search_space_with_target = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x",
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
                     lower=0.1,
                     upper=0.3,
-                    parameter_type=ParameterType.FLOAT,
                     logit_scale=True,
                     is_fidelity=True,
                     target_value=0.123,
@@ -61,10 +63,10 @@ class LogitTransformTest(TestCase):
         self, lower: float, upper: float, log_scale: bool = False
     ) -> RangeParameter:
         return RangeParameter(
-            "x",
+            name="x",
+            parameter_type=ParameterType.FLOAT,
             lower=lower,
             upper=upper,
-            parameter_type=ParameterType.FLOAT,
             log_scale=log_scale,
             logit_scale=True,
         )

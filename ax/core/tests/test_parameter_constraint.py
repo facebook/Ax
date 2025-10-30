@@ -100,8 +100,12 @@ class ParameterConstraintTest(TestCase):
 class OrderConstraintTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.x = RangeParameter("x", ParameterType.INT, lower=0, upper=1)
-        self.y = RangeParameter("y", ParameterType.INT, lower=0, upper=1)
+        self.x = RangeParameter(
+            name="x", parameter_type=ParameterType.INT, lower=0, upper=1
+        )
+        self.y = RangeParameter(
+            name="y", parameter_type=ParameterType.INT, lower=0, upper=1
+        )
         self.constraint = OrderConstraint(
             lower_parameter=self.x, upper_parameter=self.y
         )
@@ -144,11 +148,13 @@ class OrderConstraintTest(TestCase):
         )
 
     def test_InvalidSetup(self) -> None:
-        z = FixedParameter("z", ParameterType.INT, 0)
+        z = FixedParameter(name="z", parameter_type=ParameterType.INT, value=0)
         with self.assertRaises(ValueError):
             self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
 
-        z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
+        z = ChoiceParameter(
+            name="z", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
+        )
         with self.assertRaises(ValueError):
             self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
 
@@ -156,8 +162,12 @@ class OrderConstraintTest(TestCase):
 class SumConstraintTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.x = RangeParameter("x", ParameterType.INT, lower=-5, upper=5)
-        self.y = RangeParameter("y", ParameterType.INT, lower=-5, upper=5)
+        self.x = RangeParameter(
+            name="x", parameter_type=ParameterType.INT, lower=-5, upper=5
+        )
+        self.y = RangeParameter(
+            name="y", parameter_type=ParameterType.INT, lower=-5, upper=5
+        )
         self.constraint1 = SumConstraint(
             parameters=[self.x, self.y], is_upper_bound=True, bound=5
         )
@@ -171,7 +181,9 @@ class SumConstraintTest(TestCase):
     def test_BadConstruct(self) -> None:
         with self.assertRaises(ValueError):
             SumConstraint(parameters=[self.x, self.x], is_upper_bound=False, bound=-5.0)
-        z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
+        z = ChoiceParameter(
+            name="z", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
+        )
         with self.assertRaises(ValueError):
             # pyre-fixme[16]: `SumConstraintTest` has no attribute `constraint`.
             self.constraint = SumConstraint(

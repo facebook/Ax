@@ -171,9 +171,9 @@ def get_pbo_experiment(
             arm[param_name] = none_throws(X)[t, i].item()
         gr = (
             # pyre-ignore: Incompatible parameter type [6]
-            GeneratorRun([Arm(arm), Arm(sq)])
+            GeneratorRun(arms=[Arm(parameters=arm), Arm(parameters=sq)])
             if include_sq
-            else GeneratorRun([Arm(arm)])
+            else GeneratorRun(arms=[Arm(parameters=arm)])
         )
         trial = experiment.new_batch_trial(generator_run=gr)
         raw_data = experimental_metric_eval(
@@ -207,7 +207,7 @@ def get_pbo_experiment(
                 else:
                     param_dict[param_name] = none_throws(X)[t * 2 + j, i].item()
             arms.append(Arm(parameters=param_dict))
-        gr = GeneratorRun(arms)
+        gr = GeneratorRun(arms=arms)
 
         trial = experiment.new_batch_trial(generator_run=gr)
         trial.attach_batch_trial_data(

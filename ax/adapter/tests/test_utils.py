@@ -46,9 +46,11 @@ class TestAdapterUtils(TestCase):
         super().setUp()
         self.experiment = get_experiment()
         self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
-        self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
+        self.trial = self.experiment.new_trial(GeneratorRun(arms=[self.arm]))
         self.experiment_2 = get_experiment()
-        self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
+        self.batch_trial = self.experiment_2.new_batch_trial(
+            GeneratorRun(arms=[self.arm])
+        )
         self.batch_trial.add_status_quo_arm(1)
         self.obs_feat = ObservationFeatures.from_arm(
             arm=self.trial.arm, trial_index=self.trial.index
@@ -82,7 +84,7 @@ class TestAdapterUtils(TestCase):
         self.assertIsNone(extract_outcome_constraints([], outcomes))
 
         outcome_constraints = [
-            OutcomeConstraint(metric=Metric("m1"), op=ComparisonOp.LEQ, bound=0)
+            OutcomeConstraint(metric=Metric(name="m1"), op=ComparisonOp.LEQ, bound=0)
         ]
         res = extract_outcome_constraints(outcome_constraints, outcomes)
         # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
@@ -91,9 +93,9 @@ class TestAdapterUtils(TestCase):
         self.assertEqual(res[1][0][0], 0)
 
         outcome_constraints = [
-            OutcomeConstraint(metric=Metric("m1"), op=ComparisonOp.LEQ, bound=0),
+            OutcomeConstraint(metric=Metric(name="m1"), op=ComparisonOp.LEQ, bound=0),
             ScalarizedOutcomeConstraint(
-                metrics=[Metric("m2"), Metric("m3")],
+                metrics=[Metric(name="m2"), Metric(name="m3")],
                 weights=[0.5, 0.5],
                 op=ComparisonOp.GEQ,
                 bound=1,
@@ -153,7 +155,7 @@ class TestAdapterUtils(TestCase):
         self.assertTrue(np.isnan(obj_t[-2:]).all())
 
         # Fails if a threshold does not have a corresponding metric.
-        objective2 = Objective(Metric("m1"), minimize=False)
+        objective2 = Objective(Metric(name="m1"), minimize=False)
         with self.assertRaisesRegex(ValueError, "corresponding metrics"):
             extract_objective_thresholds(
                 objective_thresholds=objective_thresholds,
@@ -173,7 +175,7 @@ class TestAdapterUtils(TestCase):
 
         # Fails if relative
         objective_thresholds[2] = ObjectiveThreshold(
-            metric=Metric("m3"), op=ComparisonOp.LEQ, bound=3
+            metric=Metric(name="m3"), op=ComparisonOp.LEQ, bound=3
         )
         with self.assertRaises(ValueError):
             extract_objective_thresholds(
@@ -182,7 +184,7 @@ class TestAdapterUtils(TestCase):
                 outcomes=outcomes,
             )
         objective_thresholds[2] = ObjectiveThreshold(
-            metric=Metric("m3"), op=ComparisonOp.LEQ, bound=3, relative=True
+            metric=Metric(name="m3"), op=ComparisonOp.LEQ, bound=3, relative=True
         )
         with self.assertRaises(ValueError):
             extract_objective_thresholds(

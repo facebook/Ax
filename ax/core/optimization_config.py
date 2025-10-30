@@ -30,10 +30,14 @@ TRefPoint = list[ObjectiveThreshold]
 
 # Sentinels for default arguments when None is a valid input
 _NO_OUTCOME_CONSTRAINTS = [
-    OutcomeConstraint(Metric("placeholder", lower_is_better=True), ComparisonOp.GEQ, 0)
+    OutcomeConstraint(
+        metric=Metric(name="placeholder", lower_is_better=True),
+        op=ComparisonOp.GEQ,
+        bound=0,
+    )
 ]
 _NO_OBJECTIVE_THRESHOLDS = [
-    ObjectiveThreshold(Metric("placeholder", lower_is_better=True), 0)
+    ObjectiveThreshold(metric=Metric(name="placeholder", lower_is_better=True), bound=0)
 ]
 _NO_RISK_MEASURE = RiskMeasure("placeholder", {})
 

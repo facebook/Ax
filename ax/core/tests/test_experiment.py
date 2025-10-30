@@ -358,7 +358,9 @@ class ExperimentTest(TestCase):
 
         # Try search space with additional parameters
         extra_param_ss = get_search_space()
-        extra_param_ss.add_parameter(FixedParameter("l", ParameterType.FLOAT, 0.5))
+        extra_param_ss.add_parameter(
+            FixedParameter(name="l", parameter_type=ParameterType.FLOAT, value=0.5)
+        )
         with self.assertRaises(ValueError):
             self.experiment.search_space = extra_param_ss
 
@@ -1501,7 +1503,7 @@ class ExperimentTest(TestCase):
             self.assertEqual(trials, {0})
         with self.subTest("all metrics, no data"):
             # add tracking metric and require all metrics, should be empty set
-            exp.add_tracking_metric(metric=Metric("test", lower_is_better=True))
+            exp.add_tracking_metric(metric=Metric(name="test", lower_is_better=True))
             trials = exp.trial_indices_with_data(critical_metrics_only=False)
             self.assertEqual(len(trials), 0)
         with self.subTest(

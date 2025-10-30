@@ -456,7 +456,9 @@ class BatchTrialTest(TestCase):
         # Insufficient factors
         small_experiment = Experiment(
             name="small_test",
-            search_space=SearchSpace([FixedParameter("a", ParameterType.INT, 4)]),
+            search_space=SearchSpace(
+                [FixedParameter(name="a", parameter_type=ParameterType.INT, value=4)]
+            ),
         )
         small_trial = small_experiment.new_batch_trial().add_arm(Arm({"a": 4}))
         self.assertFalse(small_trial.is_factorial)

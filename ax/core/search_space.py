@@ -415,7 +415,7 @@ class SearchSpace(Base):
                 new_parameters[name] = value
             else:
                 new_parameters[name] = self.parameters[name].cast(value)
-        return Arm(new_parameters, arm.name if arm.has_name else None)
+        return Arm(parameters=new_parameters, name=arm.name if arm.has_name else None)
 
     def out_of_design_arm(self) -> Arm:
         """Create a default out-of-design arm.

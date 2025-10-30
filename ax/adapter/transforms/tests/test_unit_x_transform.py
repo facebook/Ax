@@ -33,19 +33,21 @@ class UnitXTransformTest(TestCase):
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                    name="x", parameter_type=ParameterType.FLOAT, lower=1, upper=3
                 ),
                 RangeParameter(
-                    "y", lower=1, upper=2, parameter_type=ParameterType.FLOAT
+                    name="y", parameter_type=ParameterType.FLOAT, lower=1, upper=2
                 ),
                 RangeParameter(
-                    "z",
+                    name="z",
+                    parameter_type=ParameterType.FLOAT,
                     lower=1,
                     upper=2,
-                    parameter_type=ParameterType.FLOAT,
                     log_scale=True,
                 ),
-                RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
+                RangeParameter(
+                    name="a", parameter_type=ParameterType.INT, lower=1, upper=2
+                ),
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
@@ -59,10 +61,10 @@ class UnitXTransformTest(TestCase):
         self.search_space_with_target = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x",
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
                     lower=1,
                     upper=3,
-                    parameter_type=ParameterType.FLOAT,
                     is_fidelity=True,
                     target_value=3,
                 )
@@ -142,20 +144,20 @@ class UnitXTransformTest(TestCase):
         new_ss = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x", lower=1.5, upper=2.0, parameter_type=ParameterType.FLOAT
+                    name="x", parameter_type=ParameterType.FLOAT, lower=1.5, upper=2.0
                 ),
                 RangeParameter(
-                    "y", lower=1.25, upper=2.0, parameter_type=ParameterType.FLOAT
+                    name="y", parameter_type=ParameterType.FLOAT, lower=1.25, upper=2.0
                 ),
                 RangeParameter(
-                    "z",
+                    name="z",
+                    parameter_type=ParameterType.FLOAT,
                     lower=1.0,
                     upper=1.5,
-                    parameter_type=ParameterType.FLOAT,
                     log_scale=True,
                 ),
                 RangeParameter(
-                    "a", lower=0.0, upper=2, parameter_type=ParameterType.INT
+                    name="a", parameter_type=ParameterType.INT, lower=0.0, upper=2
                 ),
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
@@ -198,10 +200,10 @@ class UnitXTransformTest(TestCase):
         new_search_space_with_target = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x",
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
                     lower=1,
                     upper=2,
-                    parameter_type=ParameterType.FLOAT,
                     is_fidelity=True,
                     target_value=2,
                 )
