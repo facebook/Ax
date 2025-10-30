@@ -17,6 +17,8 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.exceptions.core import UnsupportedError
 from ax.generators.base import Generator
+
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment, get_robust_search_space
 from pandas.testing import assert_frame_equal
@@ -324,3 +326,26 @@ class TrialAsTaskTransformTest(TestCase):
             transformed_data.arm_data["bp2"].to_list(),
             make_expected(values=("u1", "u1", "u2")),
         )
+
+    def test_trial_type_as_task(self) -> None:
+        # Test that trial_level_map is properly constructed when
+        #  trial_type_as_task is True.
+
+        # Set trial types: trial 0 as LONG_RUN, trials 1 and 2
+        # as short run (None or other).
+        self.exp.trials[0]._trial_type = Keys.LONG_RUN
+        self.exp.trials[1]._trial_type = None  # Short run trial
+        self.exp.trials[2]._trial_type = "SHORT_RUN"  # Any non-LONG_RUN type
+
+        # Create transform with trial_type_as_task config.
+        t_trial_type = TrialAsTask(
+            search_space=self.exp.search_space,
+            experiment_data=self.experiment_data,
+            adapter=self.adapter,
+            config={"trial_type_as_task": True},
+        )
+
+        # Assert that trial_level_map correctly maps LONG_RUN
+        # trials to "0" and others to "1".
+        expected_trial_level_map = {"TRIAL_PARAM": {0: "0", 1: "1", 2: "1"}}
+        self.assertEqual(t_trial_type.trial_level_map, expected_trial_level_map)
