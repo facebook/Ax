@@ -36,7 +36,7 @@ class TestBenchmarkProblem(TestCase):
 
     def test_mismatch_of_names_on_test_function_and_opt_config_raises(self) -> None:
         objectives = [
-            Objective(metric=BenchmarkMetric(name, lower_is_better=True))
+            Objective(metric=BenchmarkMetric(name=name, lower_is_better=True))
             for name in ["Branin", "Currin"]
         ]
         test_function = BoTorchTestFunction(
@@ -65,7 +65,7 @@ class TestBenchmarkProblem(TestCase):
             objective=objectives[0],
             outcome_constraints=[
                 OutcomeConstraint(
-                    BenchmarkMetric("c", lower_is_better=False),
+                    BenchmarkMetric(name="c", lower_is_better=False),
                     ComparisonOp.LEQ,
                     0.0,
                 )
@@ -91,7 +91,7 @@ class TestBenchmarkProblem(TestCase):
     def test_missing_names_on_test_function_with_scalarized_objective(self) -> None:
         objective = ScalarizedObjective(
             metrics=[
-                BenchmarkMetric(name, lower_is_better=True)
+                BenchmarkMetric(name=name, lower_is_better=True)
                 for name in ["BraninCurrin_0", "BraninCurrin_missing"]
             ],
             weights=[1.0, 1.0],

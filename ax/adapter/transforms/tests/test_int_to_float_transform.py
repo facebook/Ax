@@ -31,9 +31,15 @@ class IntToFloatTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         parameters: list[Parameter] = [
-            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
-            RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
-            RangeParameter("d", lower=1, upper=3, parameter_type=ParameterType.INT),
+            RangeParameter(
+                name="x", parameter_type=ParameterType.FLOAT, lower=1, upper=3
+            ),
+            RangeParameter(
+                name="a", parameter_type=ParameterType.INT, lower=1, upper=2
+            ),
+            RangeParameter(
+                name="d", parameter_type=ParameterType.INT, lower=1, upper=3
+            ),
             ChoiceParameter(
                 "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
             ),
@@ -242,8 +248,12 @@ class IntToFloatTransformTest(TestCase):
 
     def test_RoundingWithConstrainedIntRanges(self) -> None:
         parameters = [
-            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
-            RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
+            RangeParameter(
+                name="x", parameter_type=ParameterType.INT, lower=1, upper=3
+            ),
+            RangeParameter(
+                name="y", parameter_type=ParameterType.INT, lower=1, upper=3
+            ),
         ]
         constrained_int_search_space = SearchSpace(
             parameters=parameters,
@@ -291,8 +301,12 @@ class IntToFloatTransformTest(TestCase):
     @mock.patch("ax.adapter.transforms.int_to_float.DEFAULT_MAX_ROUND_ATTEMPTS", 100)
     def test_RoundingWithImpossiblyConstrainedIntRanges(self) -> None:
         parameters = [
-            RangeParameter("x", lower=1, upper=5, parameter_type=ParameterType.INT),
-            RangeParameter("y", lower=1, upper=5, parameter_type=ParameterType.INT),
+            RangeParameter(
+                name="x", parameter_type=ParameterType.INT, lower=1, upper=5
+            ),
+            RangeParameter(
+                name="y", parameter_type=ParameterType.INT, lower=1, upper=5
+            ),
         ]
         constrained_int_search_space = SearchSpace(
             parameters=parameters,

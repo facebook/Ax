@@ -33,21 +33,23 @@ class LogTransformTest(TestCase):
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x",
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
                     lower=1,
                     upper=3,
-                    parameter_type=ParameterType.FLOAT,
                     log_scale=True,
                     digits=3,
                 ),
                 RangeParameter(
-                    "y",
+                    name="y",
+                    parameter_type=ParameterType.INT,
                     lower=1,
                     upper=10,
-                    parameter_type=ParameterType.INT,
                     log_scale=True,
                 ),
-                RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
+                RangeParameter(
+                    name="a", parameter_type=ParameterType.INT, lower=1, upper=2
+                ),
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
@@ -58,19 +60,19 @@ class LogTransformTest(TestCase):
         self.search_space_with_target = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x",
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
                     lower=1,
                     upper=3,
-                    parameter_type=ParameterType.FLOAT,
                     log_scale=True,
                     is_fidelity=True,
                     target_value=3,
                 ),
                 RangeParameter(
-                    "y",
+                    name="y",
+                    parameter_type=ParameterType.INT,
                     lower=1,
                     upper=10,
-                    parameter_type=ParameterType.INT,
                     log_scale=True,
                     is_fidelity=True,
                     target_value=5,

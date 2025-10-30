@@ -57,9 +57,11 @@ class UtilsTest(TestCase):
         self.empty_experiment = get_experiment()
         self.experiment = get_experiment()
         self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
-        self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
+        self.trial = self.experiment.new_trial(GeneratorRun(arms=[self.arm]))
         self.experiment_2 = get_experiment()
-        self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
+        self.batch_trial = self.experiment_2.new_batch_trial(
+            GeneratorRun(arms=[self.arm])
+        )
         self.batch_trial.add_status_quo_arm(weight=1)
         self.obs_feat = ObservationFeatures.from_arm(
             arm=self.trial.arm, trial_index=self.trial.index
@@ -328,7 +330,7 @@ class UtilsTest(TestCase):
 
         # Make sure optimization_config is not None
         self.assertIsNotNone(experiment.optimization_config)
-        trial = experiment.new_trial(GeneratorRun([self.arm]))
+        trial = experiment.new_trial(GeneratorRun(arms=[self.arm]))
         trial.mark_running(no_runner_required=True)
 
         # Attach data for only one metric (not all required by optimization config)
@@ -372,7 +374,7 @@ class UtilsTest(TestCase):
             experiment._optimization_config = None
             self.assertIsNone(experiment.optimization_config)
 
-            trial = experiment.new_trial(GeneratorRun([self.arm]))
+            trial = experiment.new_trial(GeneratorRun(arms=[self.arm]))
             trial.mark_running(no_runner_required=True)
             original_status = trial.status
 
@@ -408,7 +410,7 @@ class UtilsTest(TestCase):
 
         # Make sure that trial_index is set correctly
         other_obs_feat = ObservationFeatures.from_arm(arm=self.trial.arm, trial_index=1)
-        other_trial = self.experiment.new_trial(GeneratorRun([self.arm]))
+        other_trial = self.experiment.new_trial(GeneratorRun(arms=[self.arm]))
         other_trial.mark_running(no_runner_required=True)
 
         with patch.object(

@@ -2808,7 +2808,9 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.branin_experiment = get_multi_type_experiment()
         self.branin_experiment.name = "branin_test_experiment"
         self.branin_experiment.optimization_config = OptimizationConfig(
-            objective=Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
+            objective=Objective(
+                metric=BraninMetric(name="m1", param_names=["x1", "x2"]), minimize=True
+            )
         )
 
         self.runner = SyntheticRunnerWithStatusPolling()
@@ -2922,7 +2924,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     ) -> None:
         # add a tracking metric
         self.branin_timestamp_map_metric_experiment.add_tracking_metric(
-            BraninMetric("branin", ["x1", "x2"]), trial_type="type1"
+            BraninMetric(name="branin", param_names=["x1", "x2"]), trial_type="type1"
         )
         super().test_fetch_and_process_trials_data_results_failed_non_objective()
 

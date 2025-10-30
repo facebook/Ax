@@ -40,7 +40,7 @@ class DiscreteAdapterTest(TestCase):
         self.parameters = [
             ChoiceParameter("x", ParameterType.FLOAT, values=[0, 1]),
             ChoiceParameter("y", ParameterType.STRING, values=["foo", "bar"]),
-            FixedParameter("z", ParameterType.BOOL, value=True),
+            FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True),
         ]
         self.search_space = SearchSpace(parameters=self.parameters)
         self.parameterizations: list[TParameterization] = [
@@ -143,9 +143,14 @@ class DiscreteAdapterTest(TestCase):
     def test_gen(self) -> None:
         # Test with constraints
         optimization_config = OptimizationConfig(
-            objective=Objective(Metric("m1"), minimize=True),
+            objective=Objective(metric=Metric(name="m1"), minimize=True),
             outcome_constraints=[
-                OutcomeConstraint(Metric("m2"), ComparisonOp.GEQ, 2, False)
+                OutcomeConstraint(
+                    metric=Metric(name="m2"),
+                    op=ComparisonOp.GEQ,
+                    bound=2,
+                    relative=False,
+                )
             ],
         )
         with mock.patch("ax.generators.discrete_base.DiscreteGenerator.fit"):
@@ -229,9 +234,14 @@ class DiscreteAdapterTest(TestCase):
 
         # Test validation
         optimization_config = OptimizationConfig(
-            objective=Objective(Metric("m1"), minimize=False),
+            objective=Objective(metric=Metric(name="m1"), minimize=False),
             outcome_constraints=[
-                OutcomeConstraint(Metric("m2"), ComparisonOp.GEQ, 2, True)
+                OutcomeConstraint(
+                    metric=Metric(name="m2"),
+                    op=ComparisonOp.GEQ,
+                    bound=2,
+                    relative=True,
+                )
             ],
         )
         with self.assertRaisesRegex(ValueError, "relative constraint"):

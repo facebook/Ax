@@ -33,14 +33,14 @@ class FixedToTunableTransformTest(TestCase):
         self.search_space_with_fixed = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "a", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                    name="a", parameter_type=ParameterType.FLOAT, lower=1, upper=3
                 ),
-                FixedParameter("b", parameter_type=ParameterType.FLOAT, value=2.0),
+                FixedParameter(name="b", parameter_type=ParameterType.FLOAT, value=2.0),
                 ChoiceParameter(
                     "c", parameter_type=ParameterType.STRING, values=["x", "y", "z"]
                 ),
-                FixedParameter("d", parameter_type=ParameterType.INT, value=5),
-                FixedParameter("e", parameter_type=ParameterType.FLOAT, value=3.0),
+                FixedParameter(name="d", parameter_type=ParameterType.INT, value=5),
+                FixedParameter(name="e", parameter_type=ParameterType.FLOAT, value=3.0),
             ]
         )
 
@@ -48,18 +48,18 @@ class FixedToTunableTransformTest(TestCase):
         self.joint_search_space = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "a", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                    name="a", parameter_type=ParameterType.FLOAT, lower=1, upper=3
                 ),
                 RangeParameter(
-                    "b", lower=1, upper=5, parameter_type=ParameterType.FLOAT
+                    name="b", parameter_type=ParameterType.FLOAT, lower=1, upper=5
                 ),
                 ChoiceParameter(
                     "c", parameter_type=ParameterType.STRING, values=["x", "y", "z"]
                 ),
                 RangeParameter(
-                    "d", lower=1, upper=10, parameter_type=ParameterType.INT
+                    name="d", parameter_type=ParameterType.INT, lower=1, upper=10
                 ),
-                FixedParameter("e", parameter_type=ParameterType.FLOAT, value=4.0),
+                FixedParameter(name="e", parameter_type=ParameterType.FLOAT, value=4.0),
             ]
         )
 
@@ -114,9 +114,13 @@ class FixedToTunableTransformTest(TestCase):
     def test_transform_search_space_with_constraints(self) -> None:
         # Create search space with parameter constraints
         parameters = [
-            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
-            RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
-            FixedParameter("z", parameter_type=ParameterType.FLOAT, value=2.0),
+            RangeParameter(
+                name="x", parameter_type=ParameterType.FLOAT, lower=1, upper=3
+            ),
+            RangeParameter(
+                name="y", parameter_type=ParameterType.FLOAT, lower=1, upper=3
+            ),
+            FixedParameter(name="z", parameter_type=ParameterType.FLOAT, value=2.0),
         ]
         search_space_with_constraints = SearchSpace(
             parameters=parameters,
@@ -131,13 +135,13 @@ class FixedToTunableTransformTest(TestCase):
         joint_space_with_y_range = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                    name="x", parameter_type=ParameterType.FLOAT, lower=1, upper=3
                 ),
                 RangeParameter(
-                    "y", lower=1, upper=5, parameter_type=ParameterType.FLOAT
+                    name="y", parameter_type=ParameterType.FLOAT, lower=1, upper=5
                 ),
                 RangeParameter(
-                    "z", lower=1, upper=5, parameter_type=ParameterType.FLOAT
+                    name="z", parameter_type=ParameterType.FLOAT, lower=1, upper=5
                 ),
             ]
         )

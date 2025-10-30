@@ -38,13 +38,19 @@ from ax.utils.testing.core_stubs import (
 class RandomAdapterTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
-        y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
-        z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
+        x = RangeParameter(
+            name="x", parameter_type=ParameterType.FLOAT, lower=0, upper=1
+        )
+        y = RangeParameter(
+            name="y", parameter_type=ParameterType.FLOAT, lower=1, upper=2
+        )
+        z = RangeParameter(
+            name="z", parameter_type=ParameterType.FLOAT, lower=0, upper=5
+        )
         self.parameters = [x, y, z]
         parameter_constraints: list[ParameterConstraint] = [
-            OrderConstraint(x, y),
-            SumConstraint([x, z], False, 3.5),
+            OrderConstraint(lower_parameter=x, upper_parameter=y),
+            SumConstraint(parameters=[x, z], is_upper_bound=False, bound=3.5),
         ]
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
         self.experiment = Experiment(search_space=self.search_space)
@@ -177,7 +183,7 @@ class RandomAdapterTest(TestCase):
         trial.add_arm(sq_arm)
         trial.mark_running(no_runner_required=True)
         trial.mark_completed()
-        experiment.add_tracking_metric(metric=Metric("ax_test_metric"))
+        experiment.add_tracking_metric(metric=Metric(name="ax_test_metric"))
         sobol = RandomAdapter(
             search_space=self.search_space,
             generator=SobolGenerator(),

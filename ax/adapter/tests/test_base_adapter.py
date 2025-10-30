@@ -505,7 +505,13 @@ class BaseAdapterTest(TestCase):
         self.assertAlmostEqual(adapter.fit_time_since_gen, 0.0, places=1)
 
     def test_ood_gen(self) -> None:
-        ss = SearchSpace([RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0)])
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                )
+            ]
+        )
         experiment = Experiment(search_space=ss)
         adapter = Adapter(experiment=experiment, generator=Generator())
         obs = ObservationFeatures(parameters={"x": 3.0})

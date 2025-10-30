@@ -42,30 +42,32 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
-                    "x", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                    name="x", parameter_type=ParameterType.FLOAT, lower=1, upper=3
                 ),
-                RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
+                RangeParameter(
+                    name="a", parameter_type=ParameterType.INT, lower=1, upper=2
+                ),
                 ChoiceParameter(
-                    "b",
+                    name="b",
                     parameter_type=ParameterType.FLOAT,
                     values=[1.0, 10.0, 100.0],
                     is_ordered=True,
                 ),
                 ChoiceParameter(
-                    "c",
+                    name="c",
                     parameter_type=ParameterType.FLOAT,
                     values=[10.0, 100.0, 1000.0],
                     is_ordered=True,
                     sort_values=False,
                 ),
                 ChoiceParameter(
-                    "d",
+                    name="d",
                     parameter_type=ParameterType.STRING,
                     values=["r", "q", "z"],
                     sort_values=True,
                 ),
                 ChoiceParameter(
-                    "e",
+                    name="e",
                     parameter_type=ParameterType.STRING,
                     values=["r", "q", "z"],
                     is_ordered=False,
@@ -172,7 +174,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         ss3 = SearchSpace(
             parameters=[
                 ChoiceParameter(
-                    "b",
+                    name="b",
                     parameter_type=ParameterType.STRING,
                     values=["a", "b", "c"],
                     is_ordered=True,
@@ -188,7 +190,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
             SearchSpace(
                 parameters=[
                     ChoiceParameter(
-                        "b",
+                        name="b",
                         parameter_type=ParameterType.INT,
                         values=[0, 1, 2],
                         is_ordered=True,
@@ -215,13 +217,13 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                     dependents={True: ["x1", "x2"]},
                 ),
                 RangeParameter(
-                    "x1",
+                    name="x1",
                     parameter_type=ParameterType.FLOAT,
                     lower=0.0,
                     upper=1.0,
                 ),
                 ChoiceParameter(
-                    "x2",
+                    name="x2",
                     parameter_type=ParameterType.STRING,
                     values=["NO", "YES"],
                     is_ordered=True,
@@ -229,7 +231,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                     dependents={"NO": [], "YES": ["x3"]},
                 ),
                 RangeParameter(
-                    "x3",
+                    name="x3",
                     parameter_type=ParameterType.FLOAT,
                     lower=0.0,
                     upper=1.0,
@@ -392,7 +394,7 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTes
         ss3 = SearchSpace(
             parameters=[
                 ChoiceParameter(
-                    "b",
+                    name="b",
                     parameter_type=ParameterType.FLOAT,
                     values=[1.0, 10.0, 100.0],
                     is_ordered=True,

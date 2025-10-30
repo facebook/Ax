@@ -39,7 +39,9 @@ class RemoveFixedTransformTest(TestCase):
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
-                FixedParameter("c", parameter_type=ParameterType.STRING, value="a"),
+                FixedParameter(
+                    name="c", parameter_type=ParameterType.STRING, value="a"
+                ),
                 DerivedParameter(
                     "d",
                     parameter_type=ParameterType.FLOAT,
@@ -185,7 +187,7 @@ class RemoveFixedTransformTest(TestCase):
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         rss.add_parameter(
-            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
+            FixedParameter(name="d", parameter_type=ParameterType.STRING, value="a"),
         )
         # Transform a non-distributional parameter.
         t = RemoveFixed(search_space=rss)
@@ -206,7 +208,7 @@ class RemoveFixedTransformTest(TestCase):
             environmental_variables=all_params[:2],
         )
         rss.add_parameter(
-            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
+            FixedParameter(name="d", parameter_type=ParameterType.STRING, value="a"),
         )
         t = RemoveFixed(search_space=rss)
         rss = t.transform_search_space(rss)

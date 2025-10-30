@@ -384,9 +384,13 @@ class SearchSpaceTest(TestCase):
         self.assertTrue(isinstance(new_arm.parameters["q"], int))
 
     def test_Copy(self) -> None:
-        a = RangeParameter("a", ParameterType.FLOAT, 1.0, 5.5)
-        b = RangeParameter("b", ParameterType.FLOAT, 2.0, 5.5)
-        c = ChoiceParameter("c", ParameterType.INT, [2, 3])
+        a = RangeParameter(
+            name="a", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5.5
+        )
+        b = RangeParameter(
+            name="b", parameter_type=ParameterType.FLOAT, lower=2.0, upper=5.5
+        )
+        c = ChoiceParameter(name="c", parameter_type=ParameterType.INT, values=[2, 3])
         ss = SearchSpace(
             parameters=[a, b, c],
             parameter_constraints=[
@@ -399,7 +403,9 @@ class SearchSpaceTest(TestCase):
             len(ss_copy.parameter_constraints), len(ss_copy.parameter_constraints)
         )
 
-        ss_copy.add_parameter(FixedParameter("d", ParameterType.STRING, "h"))
+        ss_copy.add_parameter(
+            FixedParameter(name="d", parameter_type=ParameterType.STRING, value="h")
+        )
         self.assertNotEqual(len(ss_copy.parameters), len(ss.parameters))
 
     def test_OutOfDesignArm(self) -> None:
@@ -462,16 +468,18 @@ class SearchSpaceTest(TestCase):
                     is_fidelity=True,
                     target_value=10,
                 ),
-                FixedParameter("x3", parameter_type=ParameterType.BOOL, value=True),
+                FixedParameter(
+                    name="x3", parameter_type=ParameterType.BOOL, value=True
+                ),
                 ChoiceParameter(
-                    "x4",
+                    name="x4",
                     parameter_type=ParameterType.STRING,
                     values=["a", "b", "c"],
                     is_ordered=False,
                     dependents={"a": ["x1", "x2"], "b": ["x4", "x5"], "c": ["x6"]},
                 ),
                 ChoiceParameter(
-                    "x5",
+                    name="x5",
                     parameter_type=ParameterType.STRING,
                     values=["d", "e", "f"],
                     is_ordered=True,
