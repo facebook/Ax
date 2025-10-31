@@ -680,7 +680,7 @@ class Acquisition(Base):
         # prune irrelevant parameters post-hoc
         if self.options.get("prune_irrelevant_parameters", False):
             if self._pruning_target_point is None:
-                logger.warning(
+                logger.info(
                     "Must specify pruning_target_point to prune irrelevant "
                     "parameters. Skipping pruning irrelevant parameters."
                 )
