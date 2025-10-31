@@ -7,6 +7,8 @@
 # pyre-strict
 
 
+from unittest.mock import patch
+
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.parameter import (
@@ -31,8 +33,9 @@ from pyre_extensions import none_throws
 
 
 class TestCenterGenerationNode(TestCase):
-    def test_center_generation(self) -> None:
-        ss = SearchSpace(
+    def setUp(self) -> None:
+        super().setUp()
+        self.complex_ss = SearchSpace(
             parameters=[
                 RangeParameter(  # Simple float.
                     name="x1",
@@ -65,6 +68,8 @@ class TestCenterGenerationNode(TestCase):
                 ),
             ]
         )
+
+    def test_center_generation(self) -> None:
         node = CenterGenerationNode(next_node_name="test")
         self.assertEqual(node.next_node_name, "test")
         self.assertEqual(
@@ -75,13 +80,13 @@ class TestCenterGenerationNode(TestCase):
                 )
             ],
         )
-        experiment = Experiment(search_space=ss)
+        experiment = Experiment(search_space=self.complex_ss)
         params = (
             none_throws(node.gen(experiment=experiment, pending_observations=None))
             .arms[0]
             .parameters
         )
-        self.assertEqual(node.search_space, ss)
+        self.assertEqual(node.search_space, self.complex_ss)
         self.assertEqual(
             params, {"x1": 2.5, "x2": 31, "x3": "c", "x4": True, "x5": 33.5}
         )
@@ -114,7 +119,35 @@ class TestCenterGenerationNode(TestCase):
         node.gen(experiment=exp, pending_observations=None)
         self.assertEqual(node, node2)
 
-    def test_with_constraints(self) -> None:
+    def test_with_infeasible_constraints_and_multitype_ss(self) -> None:
+        ss = self.complex_ss
+        ss.add_parameter_constraints(
+            # x1 <= 0
+            parameter_constraints=[
+                ParameterConstraint(constraint_dict={"x1": 1.0}, bound=0.0)
+            ]
+        )
+        node = CenterGenerationNode(next_node_name="test")
+        self.assertEqual(
+            set(node.fallback_specs.keys()),
+            {AxGenerationException, GenerationStrategyRepeatedPoints},
+        )
+        exp = Experiment(search_space=ss)
+        params = (
+            none_throws(node.gen(experiment=exp, pending_observations=None))
+            .arms[0]
+            .parameters
+        )
+        self.assertEqual(node.search_space, ss)
+        # -2.5 is chebyshev center of [-5, 0]
+        # x2, x3, x4 are all types of params which will not use chebyshev
+        # (logscale, choice, fixed)
+        # x5 is x1+x2, validates incorporates updated value of x1 w/ chebyshev
+        self.assertEqual(
+            params, {"x1": -2.5, "x2": 31, "x3": "c", "x4": True, "x5": 28.5}
+        )
+
+    def test_chebyshev_center_returns_none_fallback_to_sobol(self) -> None:
         ss = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -125,25 +158,23 @@ class TestCenterGenerationNode(TestCase):
                 ),
                 RangeParameter(
                     name="x2",
-                    parameter_type=ParameterType.INT,
+                    parameter_type=ParameterType.FLOAT,
                     lower=10.0,
                     upper=100.0,
-                    log_scale=True,
                 ),
             ],
-            parameter_constraints=[  # x1 <= 0
+            parameter_constraints=[
                 ParameterConstraint(constraint_dict={"x1": 1.0}, bound=0.0)
             ],
         )
         node = CenterGenerationNode(next_node_name="test")
-        self.assertEqual(
-            set(node.fallback_specs.keys()),
-            {AxGenerationException, GenerationStrategyRepeatedPoints},
-        )
-        # Generate and check for Sobol fallback.
         exp = Experiment(search_space=ss)
-        with self.assertLogs(logger=logger) as logs:
-            gr = none_throws(node.gen(experiment=exp, pending_observations=None))
+
+        # this will force a log and fallback because we mock return none from chebyshev
+        with patch.object(node, "_compute_chebyshev_center", return_value=None):
+            with self.assertLogs(logger=logger) as logs:
+                gr = none_throws(node.gen(experiment=exp, pending_observations=None))
+
         self.assertTrue(
             any(
                 "Center of the search space does not satisfy parameter constraints."
