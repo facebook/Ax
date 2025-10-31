@@ -911,7 +911,6 @@ class Experiment(Base):
                 "combined, or overwritten, or neither."
             )
         data_type = type(data)
-        data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
         if data.full_df.empty:
             raise ValueError("Data to attach is empty.")
         metrics_not_on_exp = set(data.full_df["metric_name"].values) - set(
@@ -930,8 +929,6 @@ class Experiment(Base):
         for trial_index, trial_df in data.full_df.groupby(data.full_df["trial_index"]):
             if not isinstance(data, MapData):
                 trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
-            # Overwrite `df` so that `data` only has current trial data.
-            data_init_args["df"] = trial_df
             current_trial_data = (
                 self._data_by_trial[trial_index]
                 if trial_index in self._data_by_trial
@@ -943,10 +940,7 @@ class Experiment(Base):
                 )
                 current_trial_data.popitem()
                 current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
-                    [
-                        last_data,
-                        last_data_type(**data_init_args),
-                    ]
+                    [last_data, last_data_type(df=trial_df)]
                 )
             elif overwrite_existing_data:
                 if len(current_trial_data) > 0:
@@ -969,10 +963,10 @@ class Experiment(Base):
                             f"previous data. Missing metrics: {difference}"
                         )
                 current_trial_data = OrderedDict(
-                    {cur_time_millis: data_type(**data_init_args)}
+                    {cur_time_millis: data_type(df=trial_df)}
                 )
             else:
-                current_trial_data[cur_time_millis] = data_type(**data_init_args)
+                current_trial_data[cur_time_millis] = data_type(df=trial_df)
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis
