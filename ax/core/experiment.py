@@ -484,16 +484,6 @@ class Experiment(Base):
         return none_throws(self.optimization_config).is_moo_problem
 
     @property
-    def data_by_trial(self) -> dict[int, OrderedDict[int, Data]]:
-        """Data stored on the experiment, indexed by trial index and storage time.
-
-        First key is trial index and second key is storage time in milliseconds.
-        For a given trial, data is ordered by storage time, so first added data
-        will appear first in the list.
-        """
-        return self._data_by_trial
-
-    @property
     def immutable_search_space_and_opt_config(self) -> bool:
         """Boolean representing whether search space and metrics on this experiment
         are mutable (by default they are).

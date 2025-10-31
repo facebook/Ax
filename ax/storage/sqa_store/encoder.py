@@ -1087,7 +1087,7 @@ class Encoder:
 
         return [
             self.data_to_sqa(data=data, trial_index=trial_index, timestamp=timestamp)
-            for trial_index, data_by_timestamp in experiment.data_by_trial.items()
+            for trial_index, data_by_timestamp in experiment._data_by_trial.items()
             for timestamp, data in data_by_timestamp.items()
         ]
 

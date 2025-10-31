@@ -294,7 +294,7 @@ def save_or_update_data_for_trials(
     )
     for trial in trials:
         trial_idcs.append(trial.index)
-        trial_datas = experiment.data_by_trial.get(trial.index, {})
+        trial_datas = experiment._data_by_trial.get(trial.index, {})
         for ts, data in trial_datas.items():
             if data.db_id is None:
                 # This is data we have not saved before; we should add it to the

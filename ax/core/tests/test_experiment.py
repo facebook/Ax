@@ -607,7 +607,7 @@ class ExperimentTest(TestCase):
         t1 = exp.attach_data(batch_data)
         t2 = exp.attach_data(exp_data)
 
-        full_dict = exp.data_by_trial
+        full_dict = exp._data_by_trial
         self.assertEqual(len(full_dict), 2)  # data for 2 trials
         self.assertEqual(len(full_dict[0]), 6)  # 6 data objs for batch 0
 
@@ -898,7 +898,7 @@ class ExperimentTest(TestCase):
         )
         for trial_index in [0, 1]:
             assert_frame_equal(
-                list(exp.data_by_trial[trial_index].values())[0].df,
+                list(exp._data_by_trial[trial_index].values())[0].df,
                 sorted_dfs[trial_index],
             )
 
@@ -1299,7 +1299,7 @@ class ExperimentTest(TestCase):
                 expected_data_by_trial[trial_index] = OrderedDict(
                     list(original_trial_data.items())[-1:]
                 )
-        self.assertEqual(cloned_experiment.data_by_trial, expected_data_by_trial)
+        self.assertEqual(cloned_experiment._data_by_trial, expected_data_by_trial)
 
         experiment = get_experiment()
         cloned_experiment = experiment.clone_with()
