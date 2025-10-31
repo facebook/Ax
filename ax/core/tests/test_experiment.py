@@ -1679,6 +1679,72 @@ class ExperimentTest(TestCase):
         )
         self.assertTrue(df_completed.equals(expected_completed_df))
 
+    def test_to_df_with_relativize(self) -> None:
+        """Test the relativize flag in to_df method with status quo."""
+        # Create an experiment with status quo and completed trials
+        experiment = get_branin_experiment(
+            with_status_quo=True, with_completed_batch=True
+        )
+
+        with self.subTest("without relativization"):
+            df_no_rel = experiment.to_df(relativize=False)
+
+            # Verify dataframe has expected structure
+            self.assertGreater(len(df_no_rel), 0)
+            self.assertIn("trial_index", df_no_rel.columns)
+            self.assertIn("arm_name", df_no_rel.columns)
+
+            # Branin experiment has a single metric named "branin"
+            metric_name = "branin"
+            self.assertIn(metric_name, df_no_rel.columns)
+
+            # Verify metric values are numeric, not percentage strings
+            values = df_no_rel[metric_name]
+            for val in values:
+                self.assertIsInstance(
+                    val, float, "Non-relativized values should be floats"
+                )
+
+        with self.subTest("with relativization"):
+            df_with_rel = experiment.to_df(relativize=True)
+            df_no_rel = experiment.to_df(relativize=False)
+
+            # Verify structure is preserved
+            self.assertEqual(len(df_with_rel), len(df_no_rel))
+            self.assertEqual(set(df_with_rel.columns), set(df_no_rel.columns))
+
+            # Branin experiment has a single metric named "branin"
+            metric_name = "branin"
+
+            # Verify relativization for the metric
+            self.assertIsNotNone(experiment.status_quo)
+            status_quo_name = experiment.status_quo.name
+
+            # Status quo should be 0% after relativization (using .4g format)
+            sq_rel_values = df_with_rel[df_with_rel["arm_name"] == status_quo_name][
+                metric_name
+            ]
+            for val in sq_rel_values:
+                self.assertEqual(val, "0%", "Status quo should be relativized to 0%")
+
+            # Non-status-quo arms should have percentage strings
+            non_sq_rel_values = df_with_rel[df_with_rel["arm_name"] != status_quo_name][
+                metric_name
+            ]
+            for val in non_sq_rel_values:
+                self.assertIsInstance(val, str, "Relativized values should be strings")
+                self.assertTrue(
+                    val.endswith("%"), "Relativized values should end with %"
+                )
+
+            # Verify at least one non-status-quo value is non-zero
+            has_nonzero = any(float(v.rstrip("%")) != 0.0 for v in non_sq_rel_values)
+            self.assertTrue(
+                has_nonzero,
+                "At least one non-status-quo arm should have non-zero "
+                "relativized value",
+            )
+
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self) -> None:

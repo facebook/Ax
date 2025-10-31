@@ -410,9 +410,21 @@ def relativize_dataframe(
     for grp in grouped_df.groups.keys():
         subgroup_df = grouped_df.get_group(grp)
         is_sq = subgroup_df["arm_name"] == status_quo_name
-        sq_mean, sq_sem = (
-            subgroup_df[is_sq][["mean", "sem"]].drop_duplicates().values.flatten()
-        )
+
+        # Check if status quo exists in this subgroup (trial)
+        sq_data = subgroup_df[is_sq][["mean", "sem"]].drop_duplicates().values
+        if len(sq_data) == 0:
+            # No status quo in this trial - skip relativization and include raw data
+            logger.debug(
+                "Status quo '%s' not found in trial group %s - "
+                "skipping relativization for this group",
+                status_quo_name,
+                grp,
+            )
+            dfs.append(subgroup_df)
+            continue
+
+        sq_mean, sq_sem = sq_data.flatten()
 
         # rm status quo from final df to relativize
         if not include_sq:
