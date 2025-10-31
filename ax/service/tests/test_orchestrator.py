@@ -531,12 +531,10 @@ class TestAxOrchestrator(TestCase):
         trial.mark_running(no_runner_required=True)
         trial.mark_completed()
         trial0 = self.branin_experiment.trials[0]
-        trial0.assign_runner()
         sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
         sobol_run = sobol_generator.gen(n=15)
         trial1 = self.branin_experiment.new_batch_trial()
         trial1.add_generator_run(sobol_run)
-        trial1.assign_runner()
         trial1.mark_running()
         if all_completed_trials:
             trial1.mark_completed()
@@ -1089,6 +1087,7 @@ class TestAxOrchestrator(TestCase):
 
     def test_from_stored_experiment(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
+        self.branin_experiment.runner = self.runner
         save_experiment(self.branin_experiment, config=self.db_config)
         with self.subTest("it errors by default without a generation strategy"):
             with self.assertRaisesRegex(
@@ -2655,6 +2654,7 @@ class TestAxOrchestrator(TestCase):
 
     def test_compute_analyses(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
+        self.branin_experiment.runner = self.runner
         gs = get_generation_strategy()
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,

@@ -141,15 +141,11 @@ class MultiTypeExperimentTest(TestCase):
         batch = self.experiment.new_batch_trial()
         batch._trial_type = "type3"  # Force override trial type
         with self.assertRaises(ValueError):
-            self.experiment.runner_for_trial(batch)
+            self.experiment.runner_for_trial_type(batch.trial_type)
 
         # Try making trial with unsupported trial type
         with self.assertRaises(ValueError):
             self.experiment.new_batch_trial(trial_type="type3")
-
-        # Try resetting runners.
-        with self.assertRaises(NotImplementedError):
-            self.experiment.reset_runners(SyntheticRunner())
 
     def test_setting_opt_config(self) -> None:
         self.assertDictEqual(
