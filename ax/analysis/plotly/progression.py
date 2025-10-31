@@ -101,13 +101,13 @@ class ProgressionPlot(Analysis):
 
         # Get the terminal step of each trial that was early stopped so we can place a
         # marker to inform the user.
+        early_stopped_trials = experiment.extract_relevant_trials(
+            trial_statuses=[TrialStatus.EARLY_STOPPED]
+        )
         data_df = data.df  # Collect dataframe with only the terminal observations
         terminal_points = data_df.loc[
             data_df["trial_index"].isin(
-                [
-                    trial.index
-                    for trial in experiment.trials_by_status[TrialStatus.EARLY_STOPPED]
-                ]
+                [trial.index for trial in early_stopped_trials]
             ),
             ["trial_index", "mean", MAP_KEY],
         ].rename(columns={MAP_KEY: "progression", "mean": metric_name})
