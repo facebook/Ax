@@ -340,7 +340,7 @@ class TrialBasedCriterion(TransitionCriterion):
                 for trial_index in all_trials_to_check
                 # TODO[@mgarrard]: determine if we need to actually check data with
                 # more granularity, e.g. number of days of data, etc.
-                if trial_index in experiment.data_by_trial
+                if trial_index in experiment._data_by_trial
             }
         # Some criteria may rely on experiment level data, instead of only trials
         # generated from the node associated with the criterion.

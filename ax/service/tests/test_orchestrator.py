@@ -1022,7 +1022,7 @@ class TestAxOrchestrator(TestCase):
         # There should only be one data object for each trial, since by default the
         # `Orchestrator` should override previous data objects when it gets new ones in
         # a subsequent `fetch` call.
-        for _, datas in exp.data_by_trial.items():
+        for _, datas in exp._data_by_trial.items():
             self.assertEqual(len(datas), 1)
 
         # We also should have attempted the fetch more times
@@ -1035,7 +1035,7 @@ class TestAxOrchestrator(TestCase):
         num_attach_calls = mock_experiment_attach_data.call_count
         expected_ts_last_trial = len(exp.trials) * 1000 + num_attach_calls
         self.assertEqual(
-            next(iter(exp.data_by_trial[len(exp.trials) - 1])),
+            next(iter(exp._data_by_trial[len(exp.trials) - 1])),
             expected_ts_last_trial,
         )
 
@@ -1254,7 +1254,7 @@ class TestAxOrchestrator(TestCase):
 
         # There should be 3 dataframes for Trial 0 -- one from its *last* intermediate
         # poll and one from when the trial was completed.
-        self.assertEqual(len(orchestrator.experiment.data_by_trial[0]), 3)
+        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 3)
 
         looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
@@ -1320,7 +1320,7 @@ class TestAxOrchestrator(TestCase):
         # the first iteration.
         # If it's 1 it means period_of_new_data_after_trial_completion is
         # being disregarded.
-        self.assertGreater(len(orchestrator.experiment.data_by_trial[0]), 1)
+        self.assertGreater(len(orchestrator.experiment._data_by_trial[0]), 1)
 
     def test_run_trials_in_batches(self) -> None:
         gs = self.two_sobol_steps_GS
