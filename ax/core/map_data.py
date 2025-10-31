@@ -151,7 +151,20 @@ class MapData(Data):
         if self._memo_df is not None:
             return self._memo_df
 
-        self._memo_df = _tail(map_df=self.map_df, n=1, sort=True)
+        good_rows = self.true_df.loc[
+            self.true_df.groupby(self.DEDUPLICATE_BY_COLUMNS)[MAP_KEY].idxmax().dropna()
+        ]
+
+        # If Data has a mix of Metric and MapMetric, then the idxmax may be NaN and not
+        # valid within loc. For these groups, get the first row where step is NaN.
+        nan_rows = (
+            self.true_df[self.true_df["step"].isna()]
+            .groupby(self.DEDUPLICATE_BY_COLUMNS)
+            .head(1)
+        )
+
+        self._memo_df = pd.concat([good_rows, nan_rows])
+
         return self._memo_df
 
     @classmethod
@@ -220,9 +233,24 @@ class MapData(Data):
 
         If `rows_per_group` is greater than the number of rows in a given
         (arm, metric) group, then all rows are returned.
+
+        Note: Normally, a groupby-apply automatically returns a DataFrame that is
+        sorted by the group keys, but this is not true when using filtrations like
+        "tail."
+
+        Optimizer beware: This is slow and it has proven difficult to speed it
+        up. `latest` takes up a large portion of the time, and so does the groupby;
+        sorting can take ~40% of the time. If you find this to be a bottleneck, it
+        may be better to avoid unnecessary calls.
         """
+
         return MapData(
-            df=_tail(map_df=self.map_df, n=rows_per_group, sort=True),
+            df=(
+                self.map_df.sort_values(MAP_KEY)
+                .groupby(self.DEDUPLICATE_BY_COLUMNS)
+                .tail(rows_per_group)
+                .sort_values(self.DEDUPLICATE_BY_COLUMNS)
+            )
         )
 
     def subsample(
@@ -344,29 +372,6 @@ def _subsample_rate(
         "at least one of `keep_every`, `limit_rows_per_group`, "
         "or `limit_rows_per_metric` must be specified."
     )
-
-
-def _tail(
-    map_df: pd.DataFrame,
-    n: int = 1,
-    sort: bool = True,
-) -> pd.DataFrame:
-    """
-    Note: Normally, a groupby-apply automatically returns a DataFrame that is
-    sorted by the group keys, but this is not true when using filtrations like
-    "tail."
-
-    Note: Optimizer beware: This is slow and it has proven difficult to speed it
-    up. `tail` takes up a large portion of the time, and so does the groupby;
-    sorting can take ~40% of the time. If you find this to be a bottleneck, it
-    may be better to avoid unnecessary calls to `.df`.
-    """
-    if len(map_df) == 0:
-        return map_df
-    df = map_df.sort_values(MAP_KEY).groupby(MapData.DEDUPLICATE_BY_COLUMNS).tail(n)
-    if sort:
-        df.sort_values(MapData.DEDUPLICATE_BY_COLUMNS, inplace=True)
-    return df
 
 
 def _subsample_one_metric(
