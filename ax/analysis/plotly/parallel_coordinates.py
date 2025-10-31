@@ -19,6 +19,7 @@ from ax.analysis.plotly.plotly_analysis import (
 from ax.analysis.plotly.utils import select_metric, truncate_label
 from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
+from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
@@ -105,6 +106,7 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
     if filtered_df.empty:
         raise ValueError(f"No data found for metric {metric}")
 
+    trials = experiment.extract_relevant_trials(trial_statuses=[TrialStatus.COMPLETED])
     records = [
         {
             "trial_index": trial.index,
@@ -114,9 +116,8 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
                 df=filtered_df, trial_index=trial.index, arm_name=arm.name
             ),
         }
-        for trial in experiment.trials.values()
+        for trial in trials
         for arm in trial.arms
-        if trial.status.is_completed  # Only include completed trials
     ]
 
     return pd.DataFrame.from_records(records).dropna()

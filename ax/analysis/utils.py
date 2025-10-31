@@ -308,18 +308,24 @@ def _prepare_modeled_arm_data(
     # Extract the information necessary to construct each row of the DataFrame.
 
     # Filter trials by trial_index, target_trial_index, and trial_statuses
-    filtered_trials = [
-        trial
-        for trial in experiment.trials.values()
-        if (
-            (
-                (trial.index == trial_index)
-                or (trial_index is None)
-                or (trial.index == target_trial_index)
-            )
-            and ((trial_statuses is None) or (trial.status in trial_statuses))
-        )
-    ]
+    # Determine what to pass to extract_relevant_trials:
+    # - None: no filtering, get all trials (when trial_index is None)
+    # - []: no trials (when trial_index=-1 and no target_trial_index)
+    # - [indices]: specific trials (when trial_index is specified and not None)
+    if trial_index is None:
+        trial_indices_arg = None
+    else:
+        trial_indices_to_filter: set[int] = set()
+        if trial_index != -1:
+            trial_indices_to_filter.add(trial_index)
+        if target_trial_index is not None:
+            trial_indices_to_filter.add(target_trial_index)
+        trial_indices_arg = list(trial_indices_to_filter)
+
+    filtered_trials = experiment.extract_relevant_trials(
+        trial_indices=trial_indices_arg,
+        trial_statuses=trial_statuses,
+    )
 
     # Exclude abandoned arms if the trial is of type BatchTrial
     # https://www.internalfb.com/code/fbsource/[a19525e3f9e6]/fbcode/ax/core/batch_trial.py?lines=51
@@ -434,13 +440,25 @@ def _prepare_raw_arm_data(
             )
         )
     else:
-        trials = [
-            trial
-            for trial in experiment.trials.values()
-            if (trial.index == trial_index or trial_index is None)
-            and ((trial_statuses is None) or (trial.status in trial_statuses))
-            or (trial.index == target_trial_index)
-        ]
+        # Filter trials by trial_index, target_trial_index, and trial_statuses
+        # Determine what to pass to extract_relevant_trials:
+        # - None: no filtering, get all trials (when trial_index is None)
+        # - []: no trials (when trial_index=-1 and no target_trial_index)
+        # - [indices]: specific trials (when trial_index is specified and not None)
+        if trial_index is None:
+            trial_indices_arg = None
+        else:
+            trial_indices_to_filter: set[int] = set()
+            if trial_index != -1:
+                trial_indices_to_filter.add(trial_index)
+            if target_trial_index is not None:
+                trial_indices_to_filter.add(target_trial_index)
+            trial_indices_arg = list(trial_indices_to_filter)
+
+        trials = experiment.extract_relevant_trials(
+            trial_indices=trial_indices_arg,
+            trial_statuses=trial_statuses,
+        )
         data_df = experiment.lookup_data(
             trial_indices=[trial.index for trial in trials]
         ).df
@@ -815,31 +833,6 @@ def get_lower_is_better(experiment: Experiment, metric_name: str) -> bool | None
     return experiment.metrics[metric_name].lower_is_better
 
 
-def extract_relevant_trial_indices(
-    experiment: Experiment,
-    trial_indices: Sequence[int] | None = None,
-    trial_statuses: Sequence[TrialStatus] | None = None,
-) -> list[int]:
-    """
-    Find the indices of trials on the experiment which meet both the trial_indices
-    filtering condition and the trial_statuses filtering condition. If None is
-    provided for either condition, the condition is not applied.
-    """
-    trials = (
-        [experiment.trials[i] for i in trial_indices]
-        if trial_indices
-        else [*experiment.trials.values()]
-    )
-
-    filtered_by_status = [
-        trial
-        for trial in trials
-        if (trial_statuses is None or trial.status in trial_statuses)
-    ]
-
-    return [trial.index for trial in filtered_by_status]
-
-
 def validate_experiment(
     experiment: Experiment | None,
     require_trials: bool = False,
@@ -871,16 +864,16 @@ def validate_experiment_has_trials(
     trial_statuses: Sequence[TrialStatus] | None,
     required_metric_names: Sequence[str] | None,
 ) -> str | None:
-    filtered_trial_indices = extract_relevant_trial_indices(
-        experiment=experiment,
+    filtered_trials = experiment.extract_relevant_trials(
         trial_indices=trial_indices,
         trial_statuses=trial_statuses,
     )
 
-    if len(filtered_trial_indices) == 0:
+    if len(filtered_trials) == 0:
         return f"Experiment has no trials in {trial_indices=} with {trial_statuses=}."
 
     if required_metric_names is not None:
+        filtered_trial_indices = [trial.index for trial in filtered_trials]
         metric_names = (
             experiment.lookup_data(trial_indices=filtered_trial_indices)
             .df["metric_name"]

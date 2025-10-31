@@ -157,6 +157,11 @@ NON_ABANDONED_STATUSES: set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABAND
 
 NON_STALE_STATUSES: set[TrialStatus] = set(TrialStatus) - {TrialStatus.STALE}
 
+NON_STALE_ABANDONED_STATUSES: set[TrialStatus] = set(TrialStatus) - {
+    TrialStatus.STALE,
+    TrialStatus.ABANDONED,
+}
+
 STATUSES_EXPECTING_DATA: list[TrialStatus] = [
     TrialStatus.RUNNING,
     TrialStatus.COMPLETED,
