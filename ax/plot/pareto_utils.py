@@ -35,7 +35,6 @@ from ax.core.outcome_constraint import (
     ObjectiveThreshold,
     OutcomeConstraint,
 )
-from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchGenerator
@@ -299,22 +298,6 @@ def get_observed_pareto_frontiers(
     return pfr_list
 
 
-def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
-    """Reduces a RobustSearchSpace to a SearchSpace.
-
-    This is a no-op for all other search spaces.
-    """
-    if isinstance(search_space, RobustSearchSpace):
-        return SearchSpace(
-            parameters=[p.clone() for p in search_space._parameters.values()],
-            parameter_constraints=[
-                pc.clone() for pc in search_space._parameter_constraints
-            ],
-        )
-    else:
-        return search_space
-
-
 def get_tensor_converter_adapter(
     experiment: Experiment, data: Data | None = None
 ) -> TorchAdapter:
@@ -337,7 +320,6 @@ def get_tensor_converter_adapter(
     # space to tensors.
     return TorchAdapter(
         experiment=experiment,
-        search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
         generator=TorchGenerator(),
         transforms=MBM_X_trans,

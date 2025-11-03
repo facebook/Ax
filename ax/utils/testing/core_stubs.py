@@ -59,10 +59,8 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import (
@@ -84,7 +82,6 @@ from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
     OrEarlyStoppingStrategy,
 )
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
@@ -110,7 +107,6 @@ from ax.generators.torch.botorch_modular.surrogate import (
     Surrogate,
     SurrogateSpec,
 )
-
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
@@ -411,56 +407,6 @@ def get_branin_experiment_with_status_quo_trials(
         t.add_status_quo_arm(weight=0.5)
         exp.attach_data(get_branin_data_batch(batch=t))
         t.run().mark_completed()
-    return exp
-
-
-def get_robust_branin_experiment(
-    risk_measure: RiskMeasure | None = None,
-    optimization_config: OptimizationConfig | None = None,
-    num_sobol_trials: int = 2,
-) -> Experiment:
-    x1_dist = ParameterDistribution(
-        parameters=["x1"], distribution_class="norm", distribution_parameters={}
-    )
-    search_space = RobustSearchSpace(
-        parameters=[
-            RangeParameter(
-                name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
-            ),
-            RangeParameter(
-                name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
-            ),
-        ],
-        parameter_distributions=[x1_dist],
-        num_samples=16,
-    )
-
-    risk_measure = risk_measure or RiskMeasure(
-        risk_measure="CVaR",
-        options={"n_w": 16, "alpha": 0.8},
-    )
-
-    optimization_config = optimization_config or OptimizationConfig(
-        objective=Objective(
-            metric=BraninMetric(
-                name="branin_metric", param_names=["x1", "x2"], lower_is_better=True
-            ),
-            minimize=True,
-        ),
-        risk_measure=risk_measure,
-    )
-
-    exp = Experiment(
-        name="branin_experiment",
-        search_space=search_space,
-        optimization_config=optimization_config,
-        runner=SyntheticRunner(),
-    )
-    exp._properties = {"owners": [DEFAULT_USER]}
-
-    sobol = get_sobol(search_space=exp.search_space)
-    for _ in range(num_sobol_trials):
-        exp.new_trial(generator_run=sobol.gen(1)).run().mark_completed()
     return exp
 
 
@@ -1768,101 +1714,6 @@ def get_hierarchical_search_space(
     return HierarchicalSearchSpace(parameters=parameters)
 
 
-def get_robust_search_space(
-    lb: float = 0.0,
-    ub: float = 5.0,
-    multivariate: bool = False,
-    use_discrete: bool = False,
-    num_samples: int = 4,  # dummy
-) -> RobustSearchSpace:
-    parameters = [
-        RangeParameter("x", ParameterType.FLOAT, lb, ub),
-        RangeParameter("y", ParameterType.FLOAT, lb, ub),
-        RangeParameter("z", ParameterType.INT, lb, ub),
-        ChoiceParameter(
-            "c",
-            ParameterType.STRING,
-            ["red", "blue", "green"],
-            is_ordered=False,
-            sort_values=False,
-        ),
-    ]
-    if multivariate:
-        if use_discrete:
-            raise UserInputError(
-                "`multivariate` and `use_discrete` are not supported together."
-            )
-        distributions = [
-            ParameterDistribution(
-                parameters=["x", "y"],
-                distribution_class="multivariate_normal",
-                distribution_parameters={
-                    "mean": [0.1, 0.2],
-                    "cov": [[0.5, 0.1], [0.1, 0.3]],
-                },
-            )
-        ]
-    else:
-        distributions = []
-        distributions.append(
-            ParameterDistribution(
-                parameters=["x"],
-                distribution_class="norm",
-                distribution_parameters={"loc": 1.0, "scale": ub - lb},
-            )
-        )
-        if use_discrete:
-            distributions.append(
-                ParameterDistribution(
-                    parameters=["z"],
-                    distribution_class="binom",
-                    distribution_parameters={"n": 20, "p": 0.5},
-                )
-            )
-        else:
-            distributions.append(
-                ParameterDistribution(
-                    parameters=["y"],
-                    distribution_class="expon",
-                    distribution_parameters={},
-                )
-            )
-    return RobustSearchSpace(
-        # pyre-ignore Incompatible parameter type [6]
-        parameters=parameters,
-        parameter_distributions=distributions,
-        num_samples=num_samples,
-    )
-
-
-def get_robust_search_space_environmental(
-    lb: float = 0.0,
-    ub: float = 5.0,
-) -> RobustSearchSpace:
-    parameters = [
-        RangeParameter("x", ParameterType.FLOAT, lb, ub),
-        RangeParameter("y", ParameterType.FLOAT, lb, ub),
-    ]
-    environmental_variables = [
-        RangeParameter("z", ParameterType.INT, lb, ub),
-    ]
-    distributions = [
-        ParameterDistribution(
-            parameters=["z"],
-            distribution_class="binom",
-            distribution_parameters={"n": 5, "p": 0.5},
-        )
-    ]
-    return RobustSearchSpace(
-        # pyre-ignore Incompatible parameter type [6]
-        parameters=parameters,
-        parameter_distributions=distributions,
-        num_samples=4,
-        # pyre-ignore Incompatible parameter type [6]
-        environmental_variables=environmental_variables,
-    )
-
-
 ##############################
 # Trials
 ##############################
@@ -3022,18 +2873,6 @@ def get_orchestrator_options_batch_trial() -> OrchestratorOptions:
 ##############################
 # Other
 ##############################
-
-
-def get_risk_measure() -> RiskMeasure:
-    return RiskMeasure(risk_measure="Expectation", options={"n_w": 8})
-
-
-def get_parameter_distribution() -> ParameterDistribution:
-    return ParameterDistribution(
-        parameters=["x"],
-        distribution_class="norm",
-        distribution_parameters={"loc": 1.0, "scale": 0.5},
-    )
 
 
 def get_pathlib_path() -> Path:

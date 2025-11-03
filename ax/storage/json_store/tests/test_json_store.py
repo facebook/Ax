@@ -130,13 +130,10 @@ from ax.utils.testing.core_stubs import (
     get_order_constraint,
     get_outcome_constraint,
     get_parameter_constraint,
-    get_parameter_distribution,
     get_pathlib_path,
     get_percentile_early_stopping_strategy,
     get_percentile_early_stopping_strategy_with_non_objective_metric_signature,
     get_range_parameter,
-    get_risk_measure,
-    get_robust_search_space,
     get_scalarized_objective,
     get_search_space,
     get_sorted_choice_parameter,
@@ -329,10 +326,7 @@ TEST_CASES = [
         get_percentile_early_stopping_strategy_with_non_objective_metric_signature,
     ),
     ("ParameterConstraint", get_parameter_constraint),
-    ("ParameterDistribution", get_parameter_distribution),
     ("RangeParameter", get_range_parameter),
-    ("RiskMeasure", get_risk_measure),
-    ("RobustSearchSpace", get_robust_search_space),
     ("ScalarizedObjective", get_scalarized_objective),
     ("OrchestratorOptions", get_default_orchestrator_options),
     ("OrchestratorOptions", get_orchestrator_options_batch_trial),
@@ -1661,3 +1655,13 @@ class JSONStoreTest(TestCase):
         # Check for models with no replacement.
         with self.assertRaisesRegex(KeyError, "nonexistent"):
             object_from_json({"__type": "Models", "name": "nonexistent_model"})
+
+    def test_optimization_config_backwards_compatibility(self) -> None:
+        # Check that opt config json with risk measure can be loaded.
+        opt_config = get_optimization_config()
+        opt_config_json = object_to_json(opt_config)
+        # Add risk measure.
+        opt_config_json["risk_measure"] = None
+        # Decode and compare.
+        decoded_opt_config = object_from_json(opt_config_json)
+        self.assertEqual(opt_config, decoded_opt_config)

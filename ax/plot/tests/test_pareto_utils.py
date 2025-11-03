@@ -19,7 +19,6 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
-from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
@@ -34,17 +33,13 @@ from ax.plot.pareto_utils import (
     get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
     logger,
-    to_nonrobust_search_space,
 )
-
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.math_utils import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_experiment_with_observations,
-    get_robust_search_space_environmental,
-    get_search_space,
 )
 
 
@@ -225,20 +220,6 @@ class ParetoUtilsTest(TestCase):
         )
         self.assertTrue(
             np.array_equal(pareto, np.array([[3.0, 0.0], [2.1, 1.0], [2.0, 2.0]]))
-        )
-
-    def test_to_nonrobust_search_space(self) -> None:
-        # Return non-robust search space as is.
-        search_space = get_search_space()
-        self.assertIs(to_nonrobust_search_space(search_space), search_space)
-        # Prune environmental variables and distributions from RSS.
-        rss = get_robust_search_space_environmental()
-        transformed_ss = to_nonrobust_search_space(rss)
-        # Can't use isinstance here since RSS is also a SearchSpace.
-        self.assertEqual(transformed_ss.__class__, SearchSpace)
-        self.assertEqual(transformed_ss.parameters, rss._parameters)
-        self.assertEqual(
-            transformed_ss.parameter_constraints, rss.parameter_constraints
         )
 
 

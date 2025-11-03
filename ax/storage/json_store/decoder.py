@@ -28,6 +28,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -298,6 +299,8 @@ def object_from_json(
             object_json = _sanitize_legacy_surrogate_inputs(object_json=object_json)
         if _class is SurrogateSpec:
             object_json = _sanitize_inputs_to_surrogate_spec(object_json=object_json)
+        if isclass(_class) and issubclass(_class, OptimizationConfig):
+            object_json.pop("risk_measure", None)  # Deprecated.
         return ax_class_from_json_dict(
             _class=_class, object_json=object_json, **vars(registry_kwargs)
         )
