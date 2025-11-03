@@ -13,9 +13,8 @@ from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization, TParamValue
-from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -57,10 +56,6 @@ class SearchSpaceToChoice(Transform):
                 "Cannot perform SearchSpaceToChoice conversion if fidelity "
                 "parameters are present"
             )
-        if isinstance(search_space, RobustSearchSpace):
-            raise UnsupportedError(
-                "SearchSpaceToChoice transform is not supported for RobustSearchSpace."
-            )
         self.parameter_name = "arms"
         self.parameter_names: list[str] = list(search_space.parameters)
         arm_data = none_throws(experiment_data).arm_data[self.parameter_names]
@@ -70,7 +65,7 @@ class SearchSpaceToChoice(Transform):
             for row in arm_data.to_dict(orient="records")
         }
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         values: list[TParamValue] = list(self.signature_to_parameterization.keys())
         if len(values) > 1:
             parameter = ChoiceParameter(

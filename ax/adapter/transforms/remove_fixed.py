@@ -104,7 +104,7 @@ class RemoveFixed(Transform):
                 obsf.parameters.pop(p_name, None)
         return observation_features
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         tunable_parameters: list[Parameter] = list(
             search_space.tunable_parameters.values()
         )

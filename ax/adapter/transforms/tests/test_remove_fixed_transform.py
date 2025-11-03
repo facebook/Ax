@@ -19,12 +19,9 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 
@@ -181,41 +178,6 @@ class RemoveFixedTransformTest(TestCase):
         )
         # Both children of `parent2` got removed. It's not hierarchical anymore.
         self.assertFalse(hss.parameters["parent2"].is_hierarchical)
-
-    def test_w_parameter_distributions(self) -> None:
-        rss = get_robust_search_space()
-        rss.add_parameter(
-            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
-        )
-        # Transform a non-distributional parameter.
-        t = RemoveFixed(search_space=rss)
-        rss = t.transform_search_space(rss)
-        # Make sure that the return value is still a RobustSearchSpace.
-        self.assertIsInstance(rss, RobustSearchSpace)
-        self.assertEqual(len(rss.parameters.keys()), 4)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
-        self.assertEqual(len(rss.parameter_distributions), 2)
-        self.assertNotIn("d", rss.parameters)
-        # Test with environmental variables.
-        all_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            # pyre-fixme[16]: `SearchSpace` has no attribute `num_samples`.
-            num_samples=rss.num_samples,
-            environmental_variables=all_params[:2],
-        )
-        rss.add_parameter(
-            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
-        )
-        t = RemoveFixed(search_space=rss)
-        rss = t.transform_search_space(rss)
-        self.assertIsInstance(rss, RobustSearchSpace)
-        self.assertEqual(len(rss.parameters.keys()), 4)
-        self.assertEqual(len(rss.parameter_distributions), 2)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
-        self.assertEqual(len(rss._environmental_variables), 2)
-        self.assertNotIn("d", rss.parameters)
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
