@@ -16,7 +16,6 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models.transforms.input import (
     FilterFeatures,
-    InputPerturbation,
     InputTransform,
     Normalize,
     Warp,
@@ -315,54 +314,3 @@ def _input_transform_argparse_filter_features(
         )
 
     return input_transform_options_copy
-
-
-@input_transform_argparse.register(InputPerturbation)
-def _input_transform_argparse_input_perturbation(
-    input_transform_class: type[InputPerturbation],
-    search_space_digest: SearchSpaceDigest,
-    dataset: SupervisedDataset | None = None,
-    input_transform_options: dict[str, Any] | None = None,
-    torch_device: torch.device | None = None,
-    torch_dtype: torch.dtype | None = None,
-) -> dict[str, Any]:
-    """Extract the base input transform kwargs form the given arguments.
-
-    Args:
-        input_transform_class: Input transform class.
-        dataset: Dataset containing feature matrix and the response.
-        search_space_digest: Search space digest.
-        input_transform_options: Input transform kwargs.
-        torch_device: The device on which the input transform will be used.
-        torch_dtype: The dtype on which the input transform will be used.
-
-    Returns:
-        A dictionary with input transform kwargs.
-    """
-
-    input_transform_options = input_transform_options or {}
-
-    robust_digest = search_space_digest.robust_digest
-
-    if robust_digest is None:
-        raise ValueError("Robust search space digest must be provided.")
-
-    if len(robust_digest.environmental_variables) > 0:
-        # TODO[T131759269]: support env variables.
-        raise NotImplementedError(
-            "Environmental variable support is not yet implemented."
-        )
-    if robust_digest.sample_param_perturbations is None:
-        raise ValueError("Robust digest needs to sample parameter perturbations.")
-
-    samples = torch.as_tensor(
-        robust_digest.sample_param_perturbations(),
-        dtype=torch_dtype,
-        device=torch_device,
-    )
-
-    input_transform_options.setdefault("perturbation_set", samples)
-
-    input_transform_options.setdefault("multiplicative", robust_digest.multiplicative)
-
-    return input_transform_options

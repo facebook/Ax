@@ -12,12 +12,9 @@ import torch
 from ax.adapter.adapter_utils import (
     _get_adapter_training_data,
     arm_to_np_array,
-    extract_risk_measure,
-    extract_robust_digest,
     extract_search_space_digest,
     feasible_hypervolume,
     process_contextual_datasets,
-    RISK_MEASURE_NAME_TO_CLASS,
     transform_search_space,
     validate_and_apply_final_transform,
 )
@@ -30,8 +27,7 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.risk_measures import RiskMeasure
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
@@ -39,128 +35,12 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
     get_hierarchical_search_space,
-    get_robust_search_space,
-    get_search_space,
     get_search_space_for_range_values,
 )
-from botorch.acquisition.risk_measures import VaR
 from botorch.utils.datasets import ContextualDataset, SupervisedDataset
-from pyre_extensions import none_throws
 
 
 class TestAdapterUtils(TestCase):
-    def test_extract_risk_measure(self) -> None:
-        rm = RiskMeasure(
-            risk_measure="VaR",
-            options={"alpha": 0.8, "n_w": 5},
-        )
-        rm_module = extract_risk_measure(risk_measure=rm)
-        self.assertIsInstance(rm_module, VaR)
-        self.assertEqual(rm_module.alpha, 0.8)
-        self.assertEqual(rm_module.n_w, 5)
-
-        # Test unknown risk measure.
-        with self.assertRaisesRegex(UserInputError, "constructing"):
-            extract_risk_measure(
-                risk_measure=RiskMeasure(
-                    risk_measure="VVar",
-                    options={},
-                )
-            )
-        # Test invalid options.
-        with self.assertRaisesRegex(UserInputError, "constructing"):
-            extract_risk_measure(
-                risk_measure=RiskMeasure(
-                    risk_measure="VaR",
-                    options={"alpha": 5, "n_w": 5},
-                )
-            )
-
-        # Test using user-defined risk measures.
-
-        class CustomRM(VaR):
-            pass
-
-        RISK_MEASURE_NAME_TO_CLASS["custom"] = CustomRM
-
-        rm = RiskMeasure(
-            risk_measure="custom",
-            options={"alpha": 0.8, "n_w": 5},
-        )
-        self.assertEqual(rm.risk_measure, "custom")
-        self.assertIsInstance(extract_risk_measure(risk_measure=rm), CustomRM)
-
-    def test_extract_robust_digest(self) -> None:
-        # Test with non-robust search space.
-        ss = get_search_space()
-        self.assertIsNone(extract_robust_digest(ss, list(ss.parameters)))
-        # Test with non-environmental search space.
-        for multiplicative in (True, False):
-            rss = get_robust_search_space(num_samples=8)
-            if multiplicative:
-                for p in rss.parameter_distributions:
-                    p.multiplicative = True
-                rss.multiplicative = True
-            robust_digest = none_throws(
-                extract_robust_digest(rss, list(rss.parameters))
-            )
-            self.assertEqual(robust_digest.multiplicative, multiplicative)
-            self.assertEqual(robust_digest.environmental_variables, [])
-            self.assertIsNone(robust_digest.sample_environmental)
-            samples = none_throws(robust_digest.sample_param_perturbations)()
-            self.assertEqual(samples.shape, (8, 4))
-            constructor = np.ones if multiplicative else np.zeros
-            self.assertTrue(np.equal(samples[:, 2:], constructor((8, 2))).all())
-            # Exponential distribution is non-negative, so we can check for that.
-            self.assertTrue(np.all(samples[:, 1] > 0))
-            # Check that it works as expected if param_names is missing some
-            # non-distributional parameters.
-            robust_digest = none_throws(
-                extract_robust_digest(rss, list(rss.parameters)[:-1])
-            )
-            samples = none_throws(robust_digest.sample_param_perturbations)()
-            self.assertEqual(samples.shape, (8, 3))
-            self.assertTrue(np.equal(samples[:, 2:], constructor((8, 1))).all())
-            self.assertTrue(np.all(samples[:, 1] > 0))
-            # Check that it errors if we're missing distributional parameters.
-            with self.assertRaisesRegex(RuntimeError, "All distributional"):
-                extract_robust_digest(rss, list(rss.parameters)[1:])
-        # Test with environmental search space.
-        all_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            num_samples=8,
-            environmental_variables=all_params[:2],
-        )
-        robust_digest = none_throws(extract_robust_digest(rss, list(rss.parameters)))
-        self.assertFalse(robust_digest.multiplicative)
-        self.assertIsNone(robust_digest.sample_param_perturbations)
-        self.assertEqual(robust_digest.environmental_variables, ["x", "y"])
-        samples = none_throws(robust_digest.sample_environmental)()
-        self.assertEqual(samples.shape, (8, 2))
-        # Both are continuous distributions, should be non-zero.
-        self.assertTrue(np.all(samples != 0))
-        # Check for error if environmental variables are not at the end.
-        with self.assertRaisesRegex(RuntimeError, "last entries"):
-            extract_robust_digest(rss, list(rss.parameters)[::-1])
-        # Test with mixed search space.
-        rss = RobustSearchSpace(
-            parameters=all_params[1:],
-            parameter_distributions=rss.parameter_distributions,
-            num_samples=8,
-            environmental_variables=all_params[:1],
-        )
-        robust_digest = none_throws(extract_robust_digest(rss, list(rss.parameters)))
-        self.assertFalse(robust_digest.multiplicative)
-        self.assertEqual(
-            none_throws(robust_digest.sample_param_perturbations)().shape, (8, 3)
-        )
-        self.assertEqual(
-            none_throws(robust_digest.sample_environmental)().shape, (8, 1)
-        )
-        self.assertEqual(robust_digest.environmental_variables, ["x"])
-
     def test_feasible_hypervolume(self) -> None:
         ma = Metric(name="a", lower_is_better=False)
         mb = Metric(name="b", lower_is_better=True)
