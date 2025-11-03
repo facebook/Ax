@@ -14,12 +14,9 @@ from ax.adapter.transforms.logit import Logit
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal, assert_series_equal
 from scipy.special import expit, logit
 
@@ -120,21 +117,6 @@ class LogitTransformTest(TestCase):
         self.assertEqual(ss_target.parameters["x"].target_value, logit(0.123))
         self.assertEqual(ss_target.parameters["x"].lower, logit(0.1))
         self.assertEqual(ss_target.parameters["x"].upper, logit(0.3))
-
-    def test_w_parameter_distributions(self) -> None:
-        rss = get_robust_search_space(use_discrete=True)
-        # pyre-fixme[16]: `Parameter` has no attribute `set_logit_scale`.
-        rss.parameters["y"].set_logit_scale(True)
-        # Transform a non-distributional parameter.
-        t = Logit(search_space=rss)
-        t.transform_search_space(rss)
-        # pyre-fixme[16]: Optional type has no attribute `logit_scale`.
-        self.assertFalse(rss.parameters.get("y").logit_scale)
-        # Error with distributional parameter.
-        rss.parameters["x"].set_logit_scale(True)
-        t = Logit(search_space=rss)
-        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
-            t.transform_search_space(rss)
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [

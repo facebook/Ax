@@ -95,7 +95,7 @@ class Cast(Transform):
                 f"Unexpected config parameters for `Cast` transform: {config}."
             )
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Flattens the hierarchical search space and returns the flat
         ``SearchSpace`` if this transform is configured to flatten hierarchical
         search spaces. Does nothing if the search space is not hierarchical.

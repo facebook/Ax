@@ -17,7 +17,7 @@ from ax.adapter.transforms.derelativize import Derelativize
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from numpy import typing as npt
 from pyre_extensions import none_throws
@@ -138,10 +138,6 @@ def construct_new_search_space(
 ) -> SearchSpace:
     """Construct a search space with the transformed arguments.
 
-    If the `search_space` is a `RobustSearchSpace`, this will use its
-    environmental variables and distributions, and remove the environmental
-    variables from `parameters` before constructing.
-
     Args:
         parameters: List of transformed parameter objects.
         parameter_constraints: List of parameter constraints.
@@ -157,15 +153,6 @@ def construct_new_search_space(
         # Temporarily relax the `requires_root` flag for the new search space. This is
         # fine because this function is typically called during transforms.
         new_kwargs["requires_root"] = False
-
-    if isinstance(search_space, RobustSearchSpace):
-        env_vars = list(search_space._environmental_variables.values())
-        if env_vars:
-            # Add environmental variables and remove them from parameters.
-            new_kwargs["environmental_variables"] = env_vars
-            new_kwargs["parameters"] = [p for p in parameters if p not in env_vars]
-        new_kwargs["parameter_distributions"] = search_space.parameter_distributions
-        new_kwargs["num_samples"] = search_space.num_samples
     return search_space.__class__(**new_kwargs)
 
 

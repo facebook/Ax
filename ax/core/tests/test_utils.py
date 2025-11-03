@@ -46,7 +46,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_experiment,
     get_hierarchical_search_space_experiment,
-    get_robust_branin_experiment,
 )
 from pyre_extensions import none_throws
 
@@ -202,7 +201,7 @@ class UtilsTest(TestCase):
         self.assertEqual(list(bfo), [1.0, 1.0, 2.0])
 
     def test_get_model_times(self) -> None:
-        exp = get_robust_branin_experiment(num_sobol_trials=2)
+        exp = get_branin_experiment(num_trial=2)
         fit_times, gen_times = get_model_trace_of_times(exp)
         total_fit_time, total_gen_time = get_model_times(exp)
         fit_times_not_none = [none_throws(elt) for elt in fit_times]

@@ -38,7 +38,7 @@ class MetadataToParameterMixin:
     _parameter_list: list[Parameter] = []
     parameters: dict[str, dict[str, Any]] = {}
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for parameter in self._parameter_list:
             search_space.add_parameter(parameter.clone())
 

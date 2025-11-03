@@ -15,12 +15,10 @@ from ax.adapter.transforms.trial_as_task import TrialAsTask
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
-from ax.exceptions.core import UnsupportedError
 from ax.generators.base import Generator
-
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment, get_robust_search_space
+from ax.utils.testing.core_stubs import get_branin_experiment
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
@@ -237,16 +235,6 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertTrue(p.is_ordered)
         self.assertTrue(p.is_task)
         self.assertEqual(p.target_value, 11)
-
-    def test_w_robust_search_space(self) -> None:
-        rss = get_robust_search_space()
-        # Raises an error in __init__.
-        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
-            TrialAsTask(
-                search_space=rss,
-                experiment_data=self.experiment_data,
-                adapter=self.adapter,
-            )
 
     def test_less_than_two_trials(self) -> None:
         # test transform is a no-op with less than two trials

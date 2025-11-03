@@ -16,7 +16,7 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
@@ -54,10 +54,6 @@ class TimeAsFeature(Transform):
             adapter=adapter,
             config=config,
         )
-        if isinstance(search_space, RobustSearchSpace):
-            raise UnsupportedError(
-                "TimeAsFeature transform is not supported for RobustSearchSpace."
-            )
         self.current_time: float = time()
         obs_data = none_throws(experiment_data).observation_data
         if len(obs_data.index.names) > 2:
@@ -117,7 +113,7 @@ class TimeAsFeature(Transform):
                 obsf.parameters["duration"] = 0.5
         return observation_features
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name in ("start_time", "duration"):
             if p_name in search_space.parameters:
                 raise ValueError(

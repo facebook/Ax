@@ -13,9 +13,8 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
-from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -74,10 +73,6 @@ class TrialAsTask(Transform):
             config=config,
         )
         assert adapter is not None, "TrialAsTask requires adapter"
-        if isinstance(search_space, RobustSearchSpace):
-            raise UnsupportedError(
-                "TrialAsTask transform is not supported for RobustSearchSpace."
-            )
         # Identify values of trial.
         trials = set(
             none_throws(experiment_data).arm_data.index.get_level_values("trial_index")
@@ -176,7 +171,7 @@ class TrialAsTask(Transform):
             obsf.trial_index = None
         return observation_features
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         if len(self.trial_level_map) == 0:
             # no-op
             return search_space

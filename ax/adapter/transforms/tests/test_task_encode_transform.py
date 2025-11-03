@@ -11,9 +11,8 @@ from copy import deepcopy
 from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
@@ -92,35 +91,3 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
         )
         with self.assertRaises(ValueError):
             TaskChoiceToIntTaskChoice(search_space=ss3)
-
-    def test_w_parameter_distributions(self) -> None:
-        rss = get_robust_search_space()
-        # pyre-fixme[16]: `Parameter` has no attribute `_is_task`.
-        rss.parameters["c"]._is_task = True
-        rss.parameters["c"]._target_value = "red"
-        # Transform a non-distributional parameter.
-        t = TaskChoiceToIntTaskChoice(search_space=rss)
-        rss_new = t.transform_search_space(rss)
-        # Make sure that the return value is still a RobustSearchSpace.
-        self.assertIsInstance(rss_new, RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        # pyre-fixme[16]: Optional type has no attribute `parameter_type`.
-        self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
-        # Test with environmental variables.
-        all_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            num_samples=rss.num_samples,
-            environmental_variables=all_params[:2],
-        )
-        t = TaskChoiceToIntTaskChoice(search_space=rss)
-        rss_new = t.transform_search_space(rss)
-        self.assertIsInstance(rss_new, RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
-        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
-        self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)

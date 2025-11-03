@@ -121,7 +121,7 @@ class MetricsAsTaskTransformTest(TestCase):
             )
 
     def test_TransformSearchSpace(self) -> None:
-        new_ss = self.t._transform_search_space(deepcopy(self.search_space))
+        new_ss = self.t.transform_search_space(deepcopy(self.search_space))
         self.assertEqual(len(new_ss.parameters), 3)
         new_param = new_ss.parameters["METRIC_TASK"]
         self.assertIsInstance(new_param, ChoiceParameter)
