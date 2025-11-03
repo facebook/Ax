@@ -238,6 +238,7 @@ def _prepare_data(
     metric_name: str,
     relativize: bool,
 ) -> pd.DataFrame:
+    trials = experiment.extract_relevant_trials(trial_statuses=STATUSES_EXPECTING_DATA)
     sampled = [
         {
             "x_parameter_name": arm.parameters[x_parameter_name],
@@ -245,8 +246,7 @@ def _prepare_data(
             "arm_name": arm.name,
             "trial_index": trial.index,
         }
-        for trial in experiment.trials.values()
-        if trial.status in STATUSES_EXPECTING_DATA  # running, completed, early stopped
+        for trial in trials
         for arm in trial.arms
         # Filter out arms which are not part of the search space (ex. when a parameter
         # is None).

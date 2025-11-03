@@ -27,8 +27,9 @@ from ax.analysis.trials import AllTrialsAnalysis
 from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
+from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from pyre_extensions import none_throws, override
+from pyre_extensions import override
 
 
 HEALTH_CHECK_CARDGROUP_TITLE = "Health Checks"
@@ -141,6 +142,16 @@ class OverviewAnalysis(Analysis):
             adapter=adapter,
         )
 
+        if experiment is None:
+            raise UserInputError(
+                "OverviewAnalysis requires a non-null experiment to compute candidate "
+                "trials. Please provide an experiment."
+            )
+
+        candidate_trials = experiment.extract_relevant_trials(
+            trial_statuses=[TrialStatus.CANDIDATE]
+        )
+
         health_check_analyses = [
             MetricFetchingErrorsAnalysis(),
             CanGenerateCandidatesAnalysis(
@@ -155,9 +166,7 @@ class OverviewAnalysis(Analysis):
             ConstraintsFeasibilityAnalysis(),
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
-                for trial in none_throws(experiment).trials_by_status[
-                    TrialStatus.CANDIDATE
-                ]
+                for trial in candidate_trials
             ],
             *[
                 ShouldGenerateCandidates(
@@ -165,9 +174,7 @@ class OverviewAnalysis(Analysis):
                     reason=self.should_generate_reason,
                     trial_index=trial.index,
                 )
-                for trial in none_throws(experiment).trials_by_status[
-                    TrialStatus.CANDIDATE
-                ]
+                for trial in candidate_trials
                 if self.should_generate is not None
                 and self.should_generate_reason is not None
             ],
