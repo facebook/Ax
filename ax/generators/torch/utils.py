@@ -26,25 +26,15 @@ from botorch.acquisition.multi_objective.base import (
     MultiObjectiveAnalyticAcquisitionFunction,
     MultiObjectiveMCAcquisitionFunction,
 )
-from botorch.acquisition.multi_objective.multi_output_risk_measures import (
-    MARS,
-    MultiOutputRiskMeasureMCObjective,
-)
-from botorch.acquisition.multi_objective.objective import (
-    IdentityMCMultiOutputObjective,
-    WeightedMCMultiOutputObjective,
-)
+from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import (
     ConstrainedMCObjective,
     GenericMCObjective,
-    IdentityMCObjective,
     LearnedObjective,
-    LinearMCObjective,
     MCAcquisitionObjective,
     PosteriorTransform,
     ScalarizedPosteriorTransform,
 )
-from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models.model import Model, ModelList
 from botorch.posteriors.ensemble import EnsemblePosterior
@@ -53,7 +43,6 @@ from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
-from botorch.utils.sampling import sample_simplex
 from botorch.utils.transforms import is_ensemble
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
@@ -307,56 +296,12 @@ def _get_weighted_mo_objective(
     )
 
 
-def _get_risk_measure(
-    model: Model,
-    objective_weights: Tensor,
-    risk_measure: RiskMeasureMCObjective,
-    outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    X_observed: Tensor | None = None,
-) -> RiskMeasureMCObjective:
-    r"""Processes the risk measure for `get_botorch_objective_and_transform`.
-    See the docstring of `get_botorch_objective_and_transform` for the arguments.
-    """
-    if outcome_constraints is not None:
-        # TODO[T131759270]: Handle the constraints via feasibility weighting.
-        # See `FeasibilityWeightedMCMultiOutputObjective`.
-        raise NotImplementedError(
-            "Outcome constraints are not supported with risk measures."
-        )
-    # Isinstance doesn't work since it covers subclasses as well.
-    if risk_measure.preprocessing_function.__class__ not in (
-        IdentityMCObjective,
-        IdentityMCMultiOutputObjective,
-    ) or hasattr(risk_measure.preprocessing_function, "outcomes"):
-        raise UnsupportedError(
-            "User supplied preprocessing functions for the risk measures are not "
-            "supported. We construct a new one based on `objective_weights` instead."
-        )
-    if isinstance(risk_measure, MultiOutputRiskMeasureMCObjective):
-        risk_measure.preprocessing_function = _get_weighted_mo_objective(
-            objective_weights=objective_weights
-        )
-        if isinstance(risk_measure, MARS):
-            risk_measure.chebyshev_weights = sample_simplex(
-                len(objective_weights.nonzero())
-            ).squeeze()
-            if X_observed is None:
-                raise UnsupportedError("X_observed is required when using MARS.")
-            risk_measure.set_baseline_Y(model=model, X_baseline=X_observed)
-    else:
-        risk_measure.preprocessing_function = LinearMCObjective(
-            weights=objective_weights
-        )
-    return risk_measure
-
-
 def get_botorch_objective_and_transform(
     botorch_acqf_class: type[AcquisitionFunction],
     model: Model,
     objective_weights: Tensor,
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
     X_observed: Tensor | None = None,
-    risk_measure: RiskMeasureMCObjective | None = None,
     learned_objective_preference_model: Model | None = None,
 ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
     """Constructs a BoTorch `AcquisitionObjective` object.
@@ -374,7 +319,6 @@ def get_botorch_objective_and_transform(
             A f(x) <= b. (Not used by single task models)
         X_observed: Observed points that are feasible and appear in the
             objective or the constraints. None if there are no such points.
-        risk_measure: An optional risk measure for robust optimization.
 
     Returns:
         A two-tuple containing (optionally) an `MCAcquisitionObjective` and
@@ -382,22 +326,8 @@ def get_botorch_objective_and_transform(
     """
 
     if learned_objective_preference_model is not None:
-        if risk_measure is not None:
-            raise UnsupportedError(
-                "Risk measures are not supported in with a preference objective."
-            )
         objective = LearnedObjective(pref_model=learned_objective_preference_model)
         return objective, None
-
-    if risk_measure is not None:
-        risk_measure = _get_risk_measure(
-            model=model,
-            objective_weights=objective_weights,
-            risk_measure=risk_measure,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-        )
-        return risk_measure, None
 
     if issubclass(
         botorch_acqf_class,
@@ -443,9 +373,8 @@ def pick_best_out_of_sample_point_acqf_class(
     mc_samples: int = 512,
     qmc: bool = True,
     seed_inner: int | None = None,
-    risk_measure: RiskMeasureMCObjective | None = None,
 ) -> tuple[type[AcquisitionFunction], dict[str, Any]]:
-    if outcome_constraints is None and risk_measure is None:
+    if outcome_constraints is None:
         acqf_class = PosteriorMean
         acqf_options = {}
     else:

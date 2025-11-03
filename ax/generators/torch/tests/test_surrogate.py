@@ -14,12 +14,11 @@ from contextlib import ExitStack
 from copy import copy
 from itertools import product
 from typing import Any
-
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import torch
-from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
@@ -59,12 +58,7 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model, ModelList  # noqa: F401 -- used in Mocks.
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.transforms.input import (
-    ChainedInputTransform,
-    InputPerturbation,
-    Log10,
-    Normalize,
-)
+from botorch.models.transforms.input import ChainedInputTransform, Log10, Normalize
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.evaluation import compute_in_sample_model_fit_metric
@@ -1668,65 +1662,6 @@ class SurrogateTest(TestCase):
             }
             self.assertEqual(surrogate._serialize_attributes_as_kwargs(), expected)
 
-    @mock_botorch_optimize
-    def test_w_robust_digest(self) -> None:
-        surrogate = Surrogate()
-        # Error handling.
-        robust_digest = RobustSearchSpaceDigest(
-            environmental_variables=["a"],
-            sample_param_perturbations=lambda: np.zeros((2, 2)),
-        )
-        with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
-            surrogate.fit(
-                datasets=self.training_data,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=self.search_space_digest.feature_names,
-                    bounds=self.bounds,
-                    task_features=self.search_space_digest.task_features,
-                    robust_digest=robust_digest,
-                ),
-            )
-        # Mixed with other transforms.
-        robust_digest = RobustSearchSpaceDigest(
-            sample_param_perturbations=lambda: np.zeros((2, 2)),
-            environmental_variables=[],
-            multiplicative=False,
-        )
-        surrogate.surrogate_spec.model_configs[0].input_transform_classes = [Normalize]
-        surrogate.fit(
-            datasets=self.training_data,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.search_space_digest.feature_names,
-                bounds=self.bounds,
-                task_features=self.search_space_digest.task_features,
-                robust_digest=robust_digest,
-            ),
-        )
-        self.assertIsInstance(surrogate.model.input_transform, ChainedInputTransform)
-        # Input perturbation is constructed.
-        surrogate = Surrogate()
-        surrogate.fit(
-            datasets=self.training_data,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.search_space_digest.feature_names,
-                bounds=self.bounds,
-                task_features=self.search_space_digest.task_features,
-                robust_digest=robust_digest,
-            ),
-        )
-        intf = assert_is_instance(
-            surrogate.model.input_transform, ChainedInputTransform
-        )
-        intf_values = list(intf.values())
-        self.assertIsInstance(intf_values[0], InputPerturbation)
-        self.assertIsInstance(intf_values[1], Normalize)
-        self.assertTrue(
-            torch.equal(
-                assert_is_instance(intf_values[0], InputPerturbation).perturbation_set,
-                torch.zeros(2, 2),
-            )
-        )
-
     def test_fit_mixed(self) -> None:
         # Test model construction with categorical variables.
         surrogate = Surrogate()
@@ -2331,51 +2266,3 @@ class SurrogateWithModelListTest(TestCase):
                 else:
                     self.assertEqual(type(m_noise_constraint), GreaterThan)
                     self.assertAlmostEqual(m_noise_constraint.lower_bound.item(), 1e-4)
-
-    @mock_botorch_optimize
-    def test_w_robust_digest(self) -> None:
-        surrogate = Surrogate(
-            surrogate_spec=SurrogateSpec(
-                model_configs=[
-                    ModelConfig(
-                        botorch_model_class=SingleTaskGP,
-                        input_transform_classes=[],
-                    )
-                ]
-            )
-        )
-        # Error handling.
-        with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
-            surrogate.fit(
-                datasets=self.supervised_training_data,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=self.feature_names,
-                    bounds=self.bounds,
-                    task_features=[],
-                    robust_digest=RobustSearchSpaceDigest(
-                        sample_param_perturbations=lambda: np.zeros((2, 2)),
-                        environmental_variables=["a"],
-                    ),
-                ),
-            )
-        robust_digest = RobustSearchSpaceDigest(
-            sample_param_perturbations=lambda: np.zeros((2, 2)),
-            environmental_variables=[],
-            multiplicative=False,
-        )
-        # Input perturbation is constructed.
-        surrogate.fit(
-            datasets=self.supervised_training_data,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                task_features=[],
-                robust_digest=robust_digest,
-            ),
-        )
-        # pyre-fixme[29]: `Union[(self: Tensor) -> Any, Tensor, Module]` is not a
-        #  function.
-        for m in surrogate.model.models:
-            intf = assert_is_instance(m.input_transform, InputPerturbation)
-            self.assertIsInstance(intf, InputPerturbation)
-            self.assertTrue(torch.equal(intf.perturbation_set, torch.zeros(2, 2)))

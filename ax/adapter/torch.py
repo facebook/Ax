@@ -24,7 +24,6 @@ from ax.adapter.adapter_utils import (
     extract_objective_weights,
     extract_outcome_constraints,
     extract_parameter_constraints,
-    extract_risk_measure,
     extract_search_space_digest,
     get_fixed_features,
     observation_data_to_array,
@@ -206,10 +205,6 @@ class TorchAdapter(Adapter):
             pending_observations={},
             optimization_config=base_gen_args.optimization_config,
         )
-        if torch_opt_config.risk_measure is not None:
-            raise UnsupportedError(
-                "`infer_objective_thresholds` does not support risk measures."
-            )
         # Infer objective thresholds.
         if isinstance(self.generator, BoTorchGenerator):
             model = self.generator.surrogate.model
@@ -875,9 +870,6 @@ class TorchAdapter(Adapter):
             raise NotImplementedError(
                 "Expected same number of predictions as the number of inputs but got "
                 f"predictions of shape {f.shape} for inputs of shape {X.shape}. "
-                "This was likely due to the use of one-to-many input transforms -- "
-                "typically used for robust optimization -- which are not supported in"
-                "TorchAdapter.predict."
             )
         # Convert resulting arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
@@ -973,19 +965,6 @@ class TorchAdapter(Adapter):
         rounding_func = self._array_callable_to_tensor_callable(
             transform_callback(self.parameters, self.transforms)
         )
-        risk_measure = (
-            optimization_config.risk_measure
-            if optimization_config is not None
-            else None
-        )
-        if risk_measure is not None:
-            if not self.generator._supports_robust_optimization:
-                raise UnsupportedError(
-                    f"{self.generator.__class__.__name__} does not support robust "
-                    "optimization. Consider using modular BoTorch generator instead."
-                )
-            else:
-                risk_measure = extract_risk_measure(risk_measure=risk_measure)
 
         use_learned_objective = False
         if isinstance(optimization_config, PreferenceOptimizationConfig):
@@ -1002,7 +981,6 @@ class TorchAdapter(Adapter):
             rounding_func=rounding_func,
             opt_config_metrics=opt_config_metrics,
             is_moo=optimization_config.is_moo_problem,
-            risk_measure=risk_measure,
             use_learned_objective=use_learned_objective,
             pruning_target_point=pruning_target_p,
         )

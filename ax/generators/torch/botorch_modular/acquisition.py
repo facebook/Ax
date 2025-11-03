@@ -38,7 +38,6 @@ from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
-from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.exceptions.errors import BotorchError, InputDataError
 from botorch.models.model import Model
 from botorch.optim.optimize import (
@@ -167,7 +166,6 @@ class Acquisition(Base):
     _objective_weights: Tensor
     _objective_thresholds: Tensor | None
     _outcome_constraints: tuple[Tensor, Tensor] | None
-    _risk_measure: RiskMeasureMCObjective | None
     _learned_objective_preference_model: Model | None
     _subset_idcs: Tensor | None
     _pruning_target_point: Tensor | None
@@ -195,7 +193,6 @@ class Acquisition(Base):
         self._should_subset_model: bool = self.options.get(Keys.SUBSET_MODEL, True)
         self._learned_objective_preference_model = None
         self._subset_idcs = None
-        self._risk_measure = torch_opt_config.risk_measure
         self._pruning_target_point = torch_opt_config.pruning_target_point
         self.num_pruned_dims = None
 
@@ -305,10 +302,6 @@ class Acquisition(Base):
             and self.X_observed is not None
         ):
             return
-        if torch_opt_config.risk_measure is not None:
-            raise NotImplementedError(
-                "Objective thresholds must be provided when using risk measures."
-            )
         try:
             self._full_objective_thresholds = infer_objective_thresholds(
                 model=self._model,
@@ -373,7 +366,6 @@ class Acquisition(Base):
             objective_thresholds=self._objective_thresholds,
             outcome_constraints=self._outcome_constraints,
             X_observed=self.X_observed,
-            risk_measure=self._risk_measure,
             learned_objective_preference_model=self._learned_objective_preference_model,
         )
         input_constructor_kwargs = {
@@ -720,7 +712,6 @@ class Acquisition(Base):
         objective_thresholds: Tensor | None = None,
         outcome_constraints: tuple[Tensor, Tensor] | None = None,
         X_observed: Tensor | None = None,
-        risk_measure: RiskMeasureMCObjective | None = None,
         learned_objective_preference_model: Model | None = None,
     ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
         return get_botorch_objective_and_transform(
@@ -729,7 +720,6 @@ class Acquisition(Base):
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
-            risk_measure=risk_measure,
             learned_objective_preference_model=learned_objective_preference_model,
         )
 

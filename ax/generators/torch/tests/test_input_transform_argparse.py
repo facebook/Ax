@@ -11,9 +11,8 @@ from __future__ import annotations
 import dataclasses
 from unittest.mock import patch
 
-import numpy as np
 import torch
-from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
+from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_modular.input_constructors.input_transforms import (
     input_transform_argparse,
 )
@@ -21,7 +20,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.models.transforms.input import (
     FilterFeatures,
-    InputPerturbation,
     InputStandardize,
     InputTransform,
     Normalize,
@@ -58,7 +56,6 @@ class InputTransformArgparseTest(TestCase):
             task_features=[2],
             fidelity_features=[0],
             target_values={0: 1.0},
-            robust_digest=None,
         )
 
     def test_notImplemented(self) -> None:
@@ -269,28 +266,6 @@ class InputTransformArgparseTest(TestCase):
             torch.equal(
                 input_transform_kwargs["bounds"],
                 torch.tensor([[0.0, 0.0, 0.0], [1.0, 2.0, 4.0]], dtype=torch.float64),
-            )
-        )
-
-    def test_argparse_input_perturbation(self) -> None:
-        self.search_space_digest.robust_digest = RobustSearchSpaceDigest(
-            sample_param_perturbations=lambda: np.zeros((2, 2)),
-        )
-
-        input_transform_kwargs = input_transform_argparse(
-            InputPerturbation,
-            dataset=self.dataset,
-            search_space_digest=self.search_space_digest,
-        )
-
-        self.assertEqual(input_transform_kwargs["multiplicative"], False)
-
-        self.assertTrue(
-            torch.all(
-                torch.isclose(
-                    input_transform_kwargs["perturbation_set"],
-                    torch.tensor([[0.0, 0.0], [0.0, 0.0]], dtype=torch.float64),
-                )
             )
         )
 

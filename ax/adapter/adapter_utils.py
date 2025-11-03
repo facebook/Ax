@@ -35,16 +35,9 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.risk_measures import RiskMeasure
-from ax.core.search_space import (
-    HierarchicalSearchSpace,
-    RobustSearchSpace,
-    RobustSearchSpaceDigest,
-    SearchSpace,
-    SearchSpaceDigest,
-)
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace, SearchSpaceDigest
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.torch.botorch_moo_utils import (
@@ -55,20 +48,6 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     assert_is_instance_of_tuple,
     assert_is_instance_optional,
-)
-from botorch.acquisition.multi_objective.multi_output_risk_measures import (
-    IndependentCVaR,
-    IndependentVaR,
-    MARS,
-    MultiOutputExpectation,
-    MVaR,
-)
-from botorch.acquisition.risk_measures import (
-    CVaR,
-    Expectation,
-    RiskMeasureMCObjective,
-    VaR,
-    WorstCase,
 )
 from botorch.models.utils.assorted import consolidate_duplicates
 from botorch.utils.containers import SliceContainer
@@ -85,54 +64,6 @@ logger: Logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
-
-
-"""A mapping of risk measure names to the corresponding classes.
-
-NOTE: This can be extended with user-defined risk measure classes by
-importing the dictionary and adding the new risk measure class as
-`RISK_MEASURE_NAME_TO_CLASS["my_risk_measure"] = MyRiskMeasure`.
-An example of this is found in `tests/test_risk_measure`.
-"""
-RISK_MEASURE_NAME_TO_CLASS: dict[str, type[RiskMeasureMCObjective]] = {
-    "Expectation": Expectation,
-    "CVaR": CVaR,
-    "MARS": MARS,
-    "MVaR": MVaR,
-    "IndependentCVaR": IndependentCVaR,
-    "IndependentVaR": IndependentVaR,
-    "MultiOutputExpectation": MultiOutputExpectation,
-    "VaR": VaR,
-    "WorstCase": WorstCase,
-}
-
-
-def extract_risk_measure(risk_measure: RiskMeasure) -> RiskMeasureMCObjective:
-    r"""Extracts the BoTorch risk measure objective from an Ax `RiskMeasure`.
-
-    Args:
-        risk_measure: The RiskMeasure object.
-
-    Returns:
-        The corresponding `RiskMeasureMCObjective` object.
-    """
-    try:
-        risk_measure_class = RISK_MEASURE_NAME_TO_CLASS[risk_measure.risk_measure]
-        # Add dummy chebyshev weights to initialize MARS.
-        additional_options = (
-            {"chebyshev_weights": []} if risk_measure_class is MARS else {}
-        )
-        return risk_measure_class(
-            # pyre-ignore Incompatible parameter type [6]
-            **risk_measure.options,
-            **additional_options,
-        )
-    except (KeyError, RuntimeError, ValueError):
-        raise UserInputError(
-            "Got an error while constructing the risk measure. Make sure that "
-            f"{risk_measure.risk_measure} exists in  `RISK_MEASURE_NAME_TO_CLASS` "
-            f"and accepts arguments {risk_measure.options}."
-        )
 
 
 def extract_parameter_constraints(
@@ -263,113 +194,7 @@ def extract_search_space_digest(
         task_features=task_features,
         fidelity_features=fidelity_features,
         target_values=target_values,
-        robust_digest=extract_robust_digest(
-            search_space=search_space, param_names=param_names
-        ),
         hierarchical_dependencies=hierarchical_dependencies,
-    )
-
-
-def extract_robust_digest(
-    search_space: SearchSpace, param_names: list[str]
-) -> RobustSearchSpaceDigest | None:
-    """Extracts the `RobustSearchSpaceDigest`.
-
-    Args:
-        search_space: A `SearchSpace` to digest.
-        param_names: A list of names of the parameters that are used in optimization.
-            If environmental variables are present, these should be the last entries
-            in `param_names`.
-
-    Returns:
-        If the `search_space` is not a `RobustSearchSpace`, this returns None.
-        Otherwise, it returns a `RobustSearchSpaceDigest` with entries populated
-        from the properties of the `search_space`. In particular, this constructs
-        two optional callables, `sample_param_perturbations` and `sample_environmental`,
-        that require no inputs and return a `num_samples x d`-dim array of samples
-        from the corresponding parameter distributions, where `d` is the number of
-        environmental variables for `environmental_sampler and the number of
-        non-environmental parameters in `param_names` for `distribution_sampler`.
-    """
-    if not isinstance(search_space, RobustSearchSpace):
-        return None
-    dist_params = search_space._distributional_parameters
-    env_vars: dict[str, Parameter] = search_space._environmental_variables
-    pert_params = [p for p in dist_params if p not in env_vars]
-    # Make sure all distributional parameters are in param_names.
-    dist_idcs: dict[str, int] = {}
-    for p_name in dist_params:
-        if p_name not in param_names:
-            raise RuntimeError(
-                "All distributional parameters must be included in `param_names`."
-            )
-        dist_idcs[p_name] = param_names.index(p_name)
-    num_samples: int = search_space.num_samples
-    if len(env_vars) > 0:
-        num_non_env_vars: int = len(param_names) - len(env_vars)
-        env_idcs = {idx for p, idx in dist_idcs.items() if p in env_vars}
-        if env_idcs != set(range(num_non_env_vars, len(param_names))):
-            raise RuntimeError(
-                "Environmental variables must be last entries in `param_names`. "
-                "Otherwise, `AppendFeatures` will not work."
-            )
-        # NOTE: Extracting it from `param_names` in case the ordering is different.
-        environmental_variables = param_names[num_non_env_vars:]
-
-        def sample_environmental() -> npt.NDArray:
-            """Get samples from the environmental distributions.
-
-            Samples have the same dimension as the number of environmental variables.
-            The samples of an environmental variable appears in the same order it is
-            in `param_names`.
-            """
-            samples = np.zeros((num_samples, len(env_vars)))
-            # pyre-ignore [16]
-            for dist in search_space._environmental_distributions:
-                dist_samples = dist.distribution.rvs(num_samples).reshape(
-                    num_samples, -1
-                )
-                for i, p_name in enumerate(dist.parameters):
-                    target_idx = dist_idcs[p_name] - num_non_env_vars
-                    samples[:, target_idx] = dist_samples[:, i]
-            return samples
-
-    else:
-        sample_environmental = None
-        environmental_variables = []
-
-    if len(pert_params) > 0:
-        constructor: Callable[[tuple[int, int]], npt.NDArray] = (
-            np.ones if search_space.multiplicative else np.zeros
-        )
-
-        def sample_param_perturbations() -> npt.NDArray:
-            """Get samples of the input perturbations.
-
-            Samples have the same dimension as the length of `param_names`
-            minus the number of environmental variables. The samples of a
-            parameter appears in the same order it is in `param_names`. For
-            non-distributional parameters, their values are filled as 0 if
-            the perturbations are additive and 1 if multiplicative.
-            """
-            samples = constructor((num_samples, len(param_names) - len(env_vars)))
-            # pyre-ignore [16]
-            for dist in search_space._perturbation_distributions:
-                dist_samples = dist.distribution.rvs(num_samples).reshape(
-                    num_samples, -1
-                )
-                for i, p_name in enumerate(dist.parameters):
-                    samples[:, dist_idcs[p_name]] = dist_samples[:, i]
-            return samples
-
-    else:
-        sample_param_perturbations = None
-
-    return RobustSearchSpaceDigest(
-        sample_param_perturbations=sample_param_perturbations,
-        sample_environmental=sample_environmental,
-        environmental_variables=environmental_variables,
-        multiplicative=search_space.multiplicative,
     )
 
 

@@ -69,7 +69,6 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
-    InputPerturbation,
     InputTransform,
     Normalize,
 )
@@ -206,8 +205,6 @@ def _construct_specified_input_transforms(
             "Expected a list of input transform classes. "
             f"Got {input_transform_classes=}."
         )
-    if search_space_digest.robust_digest is not None:
-        input_transform_classes = [InputPerturbation] + input_transform_classes
 
     input_transform_kwargs = [
         input_transform_argparse(
@@ -237,23 +234,10 @@ def _construct_default_input_transforms(
     """Construct the default input transforms for the given search space digest.
 
     The default transforms are added in this order:
-    - If the search space digest has a robust digest, an ``InputPerturbation`` transform
-        is used.
     - If the bounds for the non-task features are not [0, 1], a ``Normalize`` transform
         is used. The transfrom only applies to the non-task features.
     """
     transforms = []
-    # Add InputPerturbation if there is a robust digest.
-    if search_space_digest.robust_digest is not None:
-        transforms.append(
-            InputPerturbation(
-                **input_transform_argparse(
-                    InputPerturbation,
-                    dataset=dataset,
-                    search_space_digest=search_space_digest,
-                )
-            )
-        )
     # Processing for Normalize.
     input_transform_options = input_transform_argparse(
         Normalize,
@@ -364,9 +348,7 @@ def _construct_submodules(
             **deepcopy(model_config.likelihood_options)
         )
 
-    if (
-        input_transform_classes := model_config.input_transform_classes
-    ) is not None or search_space_digest.robust_digest is not None:
+    if (input_transform_classes := model_config.input_transform_classes) is not None:
         _error_if_arg_not_supported("input_transform")
         submodules["input_transform"] = _make_botorch_input_transform(
             input_transform_classes=input_transform_classes or [],
@@ -1026,7 +1008,6 @@ class Surrogate(Base):
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
-            risk_measure=torch_opt_config.risk_measure,
             options=options,
         )
         if best_point_and_observed_value is None:
@@ -1077,7 +1058,6 @@ class Surrogate(Base):
                     options.get(Keys.QMC, True),
                     bool,
                 ),
-                risk_measure=torch_opt_config.risk_measure,
             )
         )
 
