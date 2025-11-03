@@ -21,7 +21,7 @@ from ax.analysis.plotly.utils import STALE_FAIL_REASON
 from ax.analysis.utils import validate_experiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import NON_STALE_ABANDONED_STATUSES, TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import assert_is_instance, none_throws, override
@@ -102,11 +102,13 @@ class BanditRollout(Analysis):
         arm_name: list[str] = []
         arm_weight: list[float] = []
 
-        for trial in experiment.trials.values():
+        trials = experiment.extract_relevant_trials(
+            trial_statuses=list(NON_STALE_ABANDONED_STATUSES)
+        )
+
+        for trial in trials:
             batch_trial = assert_is_instance(trial, BatchTrial)
-            if batch_trial.status in {TrialStatus.STALE, TrialStatus.ABANDONED}:
-                continue
-            # Also exclude failed trials that failed due to staleness
+            # Exclude failed trials that failed due to staleness
             if (
                 batch_trial.status == TrialStatus.FAILED
                 and batch_trial.failed_reason is not None

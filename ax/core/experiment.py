@@ -1374,6 +1374,35 @@ class Experiment(Base):
                 f"Trials indices available on this experiment: {list(self.trials)}."
             )
 
+    def extract_relevant_trials(
+        self,
+        trial_indices: Sequence[int] | None = None,
+        trial_statuses: Sequence[TrialStatus] | None = None,
+    ) -> list[BaseTrial]:
+        """
+        Find the trials on this experiment which meet both the trial_indices
+        filtering condition and the trial_statuses filtering condition. If None is
+        provided for either condition, the condition is not applied.
+
+        Args:
+            trial_indices: Indices of trials to include. If None, include all trials.
+                If empty list, include no trials.
+            trial_statuses: Statuses to filter by. If None, no filtering by status.
+        """
+        trials = (
+            [self.trials[i] for i in trial_indices]
+            if trial_indices is not None
+            else [*self.trials.values()]
+        )
+
+        filtered_by_status = [
+            trial
+            for trial in trials
+            if (trial_statuses is None or trial.status in trial_statuses)
+        ]
+
+        return filtered_by_status
+
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
         self, trials: list[BaseTrial], reasons: list[str | None] | None = None
@@ -2121,15 +2150,11 @@ class Experiment(Base):
         else:
             data_df = data.df
 
-        trials = (
-            self.get_trials_by_indices(trial_indices=trial_indices)
-            if trial_indices
-            else self.trials.values()
+        # Filter trials by trial_indices and trial_statuses
+        trials = self.extract_relevant_trials(
+            trial_indices=list(trial_indices) if trial_indices is not None else None,
+            trial_statuses=trial_statuses,
         )
-
-        # Filter trials by status if specified
-        if trial_statuses is not None:
-            trials = [trial for trial in trials if trial.status in trial_statuses]
         # Iterate through trials, and for each trial, iterate through its arms
         # and add a record for each arm.
         for trial in trials:

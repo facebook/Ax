@@ -2283,3 +2283,34 @@ class ExperimentWithMapDataTest(TestCase):
         self.assertTrue(candidate_trial_with_ttl.status.is_stale)
         self.assertTrue(running_trial.status.is_running)
         self.assertTrue(completed_trial.status.is_completed)
+
+    def test_extract_relevant_trials(self) -> None:
+        experiment = get_branin_experiment(with_completed_trial=True)  # 0 - COMPLETED
+        experiment.new_trial().mark_running(no_runner_required=True)  # 1 - RUNNING
+        experiment.new_trial().mark_running(
+            no_runner_required=True
+        ).mark_failed()  # 2 - FAILED
+        experiment.new_trial()  # 3 - CANDIDATE
+
+        with self.subTest("No filters returns all trials"):
+            trials = experiment.extract_relevant_trials()
+            self.assertEqual(len(trials), 4)
+
+        with self.subTest("Filter by trial indices"):
+            trials = experiment.extract_relevant_trials(trial_indices=[0, 2])
+            self.assertEqual({t.index for t in trials}, {0, 2})
+
+        with self.subTest("Filter by trial statuses"):
+            trials = experiment.extract_relevant_trials(
+                trial_indices=None,
+                trial_statuses=[TrialStatus.COMPLETED, TrialStatus.FAILED],
+            )
+            self.assertEqual({t.index for t in trials}, {0, 2})
+
+        with self.subTest("Filter by both indices and statuses"):
+            trials = experiment.extract_relevant_trials(
+                trial_indices=[0, 1, 2],
+                trial_statuses=[TrialStatus.COMPLETED],
+            )
+            self.assertEqual(len(trials), 1)
+            self.assertEqual(trials[0].index, 0)
