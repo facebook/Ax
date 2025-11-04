@@ -12,7 +12,7 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.observation_utils import separate_observations
-from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, RangeParameter
+from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
@@ -313,8 +313,13 @@ class Cast(Transform):
             columns=list(self.search_space.parameters) + ["metadata"], fill_value=None
         )
         # Cast columns to the correct datatype & round RangeParameters, if applicable.
+        type_map = PARAMETER_PYTHON_TYPE_MAP.copy()
+        # pyre-ignore [6]: Writing str to type map that is typed with Types.
+        # Basic int errors out with NaNs, which are added for missing columns above.
+        # This happens with heterogeneous SS BOTL, where transforms work on joint space.
+        type_map[ParameterType.INT] = "Int64"
         column_to_type = {
-            p: PARAMETER_PYTHON_TYPE_MAP[param.parameter_type]
+            p: type_map[param.parameter_type]
             for p, param in self.search_space.parameters.items()
         }
         arm_data = arm_data.astype(dtype=column_to_type, copy=False)
