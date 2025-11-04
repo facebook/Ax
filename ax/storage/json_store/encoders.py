@@ -39,10 +39,8 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
     LogicalEarlyStoppingStrategy,
@@ -282,29 +280,6 @@ def search_space_to_dict(search_space: SearchSpace) -> dict[str, Any]:
     }
 
 
-def robust_search_space_to_dict(rss: RobustSearchSpace) -> dict[str, Any]:
-    """Convert robust search space to a dictionary."""
-    return {
-        "__type": rss.__class__.__name__,
-        "parameters": list(rss._parameters.values()),
-        "parameter_distributions": rss.parameter_distributions,
-        "num_samples": rss.num_samples,
-        "environmental_variables": list(rss._environmental_variables.values()),
-        "parameter_constraints": rss.parameter_constraints,
-    }
-
-
-def parameter_distribution_to_dict(dist: ParameterDistribution) -> dict[str, Any]:
-    """Convert a parameter distribution to a dictionary."""
-    return {
-        "__type": dist.__class__.__name__,
-        "parameters": dist.parameters,
-        "distribution_class": dist.distribution_class,
-        "distribution_parameters": dist.distribution_parameters,
-        "multiplicative": dist.multiplicative,
-    }
-
-
 def metric_to_dict(metric: Metric) -> dict[str, Any]:
     """Convert Ax metric to a dictionary."""
     properties = metric.serialize_init_args(obj=metric)
@@ -358,7 +333,6 @@ def optimization_config_to_dict(
         "__type": optimization_config.__class__.__name__,
         "objective": optimization_config.objective,
         "outcome_constraints": optimization_config.outcome_constraints,
-        "risk_measure": optimization_config.risk_measure,
         "pruning_target_parameterization": (
             optimization_config.pruning_target_parameterization
         ),
@@ -390,7 +364,6 @@ def multi_objective_optimization_config_to_dict(
         "objective": multi_objective_optimization_config.objective,
         "outcome_constraints": multi_objective_optimization_config.outcome_constraints,
         "objective_thresholds": multi_objective_optimization_config.objective_thresholds,  # noqa E501
-        "risk_measure": multi_objective_optimization_config.risk_measure,
         "pruning_target_parameterization": (
             multi_objective_optimization_config.pruning_target_parameterization
         ),
@@ -726,17 +699,6 @@ def winsorization_config_to_dict(config: WinsorizationConfig) -> dict[str, Any]:
         "upper_quantile_margin": config.upper_quantile_margin,
         "lower_boundary": config.lower_boundary,
         "upper_boundary": config.upper_boundary,
-    }
-
-
-def risk_measure_to_dict(
-    risk_measure: RiskMeasure,
-) -> dict[str, Any]:
-    """Convert a RiskMeasure to a dictionary."""
-    return {
-        "__type": risk_measure.__class__.__name__,
-        "risk_measure": risk_measure.risk_measure,
-        "options": risk_measure.options,
     }
 
 

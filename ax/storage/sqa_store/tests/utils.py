@@ -35,9 +35,6 @@ from ax.utils.testing.core_stubs import (
     get_outcome_constraint,
     get_parameter_constraint,
     get_range_parameter,
-    get_risk_measure,
-    get_robust_search_space,
-    get_robust_search_space_environmental,
     get_scalarized_objective,
     get_scalarized_outcome_constraint,
     get_sum_constraint1,
@@ -186,26 +183,6 @@ TEST_CASES = [
         get_range_parameter,
         Encoder.parameter_to_sqa,
         Decoder.parameter_from_sqa,
-    ),
-    (
-        "RiskMeasure",
-        get_risk_measure,
-        Encoder.risk_measure_to_sqa,
-        Decoder.metric_from_sqa,
-    ),
-    (
-        "RobustSearchSpace",
-        get_robust_search_space,
-        # Using generic search space methods for full-stack test coverage.
-        Encoder.search_space_to_sqa,
-        Decoder.search_space_from_sqa,
-    ),
-    (
-        "RobustSearchSpace",
-        get_robust_search_space_environmental,
-        # Using generic search space methods for full-stack test coverage.
-        Encoder.search_space_to_sqa,
-        Decoder.search_space_from_sqa,
     ),
     (
         "ScalarizedObjective",

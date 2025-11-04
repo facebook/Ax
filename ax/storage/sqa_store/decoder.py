@@ -54,10 +54,8 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
@@ -536,58 +534,6 @@ class Decoder:
         constraint.db_id = parameter_constraint_sqa.id
         return constraint
 
-    def parameter_distributions_from_sqa(
-        self,
-        parameter_constraint_sqa_list: list[SQAParameterConstraint],
-    ) -> tuple[list[ParameterDistribution], int | None]:
-        """Convert SQLAlchemy ParameterConstraints to Ax ParameterDistributions."""
-        parameter_distributions: list[ParameterDistribution] = []
-        num_samples = None
-        for parameter_constraint_sqa in parameter_constraint_sqa_list:
-            if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION:
-                raise SQADecodeError(
-                    "Parameter distribution must have type `DISTRIBUTION`. "
-                    "Received type "
-                    f"{ParameterConstraintType(parameter_constraint_sqa.type).name}."
-                )
-            num_samples = int(parameter_constraint_sqa.bound)
-            distribution = object_from_json(
-                parameter_constraint_sqa.constraint_dict,
-                decoder_registry=self.config.json_decoder_registry,
-                class_decoder_registry=self.config.json_class_decoder_registry,
-            )
-            distribution.db_id = parameter_constraint_sqa.id
-            parameter_distributions.append(distribution)
-        return parameter_distributions, num_samples
-
-    def environmental_variable_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
-        """Convert SQLAlchemy Parameter to Ax environmental variable."""
-        if parameter_sqa.domain_type == DomainType.ENVIRONMENTAL_RANGE:
-            if parameter_sqa.lower is None or parameter_sqa.upper is None:
-                raise SQADecodeError(
-                    "`lower` and `upper` must be set for RangeParameter."
-                )
-            parameter = RangeParameter(
-                name=parameter_sqa.name,
-                parameter_type=parameter_sqa.parameter_type,
-                lower=float(none_throws(parameter_sqa.lower)),
-                upper=float(none_throws(parameter_sqa.upper)),
-                log_scale=parameter_sqa.log_scale or False,
-                digits=parameter_sqa.digits,
-                is_fidelity=parameter_sqa.is_fidelity or False,
-                target_value=parameter_sqa.target_value,
-                backfill_value=parameter_sqa.backfill_value,
-                default_value=parameter_sqa.default_value,
-            )
-        else:
-            raise SQADecodeError(
-                f"Cannot decode SQAParameter because {parameter_sqa.domain_type} "
-                "is an invalid domain type."
-            )
-
-        parameter.db_id = parameter_sqa.id
-        return parameter
-
     def search_space_from_sqa(
         self,
         parameters_sqa: list[SQAParameter],
@@ -596,41 +542,21 @@ class Decoder:
         """Convert a list of SQLAlchemy Parameters and ParameterConstraints to an
         Ax SearchSpace.
         """
-        parameters, environmental_variables = [], []
+        parameters = []
         for parameter_sqa in parameters_sqa:
-            if parameter_sqa.domain_type == DomainType.ENVIRONMENTAL_RANGE:
-                environmental_variables.append(
-                    self.environmental_variable_from_sqa(parameter_sqa=parameter_sqa)
-                )
-            else:
-                parameters.append(self.parameter_from_sqa(parameter_sqa=parameter_sqa))
+            parameters.append(self.parameter_from_sqa(parameter_sqa=parameter_sqa))
+
         parameter_constraints = [
             self.parameter_constraint_from_sqa(
                 parameter_constraint_sqa=parameter_constraint_sqa, parameters=parameters
             )
             for parameter_constraint_sqa in parameter_constraints_sqa
-            if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION
         ]
-        parameter_distributions, num_samples = self.parameter_distributions_from_sqa(
-            [
-                parameter_constraint_sqa
-                for parameter_constraint_sqa in parameter_constraints_sqa
-                if parameter_constraint_sqa.type == ParameterConstraintType.DISTRIBUTION
-            ]
-        )
 
         if len(parameters) == 0:
             return None
 
-        if num_samples is not None:
-            return RobustSearchSpace(
-                parameters=parameters,
-                parameter_distributions=parameter_distributions,
-                num_samples=num_samples,
-                environmental_variables=environmental_variables,
-                parameter_constraints=parameter_constraints,
-            )
-        elif any(p.is_hierarchical for p in parameters):
+        if any(p.is_hierarchical for p in parameters):
             return HierarchicalSearchSpace(
                 parameters=parameters, parameter_constraints=parameter_constraints
             )
@@ -641,7 +567,7 @@ class Decoder:
 
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
-    ) -> Metric | Objective | OutcomeConstraint | RiskMeasure:
+    ) -> Metric | Objective | OutcomeConstraint:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
 
         metric = self._metric_from_sqa_util(metric_sqa)
@@ -672,8 +598,6 @@ class Decoder:
             return self._objective_threshold_from_sqa(
                 metric=metric, metric_sqa=metric_sqa
             )
-        elif metric_sqa.intent == MetricIntent.RISK_MEASURE:
-            return self._risk_measure_from_sqa(metric=metric, metric_sqa=metric_sqa)
         else:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.intent} "
@@ -690,7 +614,6 @@ class Decoder:
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
-        risk_measure = None
         for metric_sqa in metrics_sqa:
             metric = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(metric, Objective):
@@ -699,8 +622,6 @@ class Decoder:
                 objective_thresholds.append(metric)
             elif isinstance(metric, OutcomeConstraint):
                 outcome_constraints.append(metric)
-            elif isinstance(metric, RiskMeasure):
-                risk_measure = metric
             else:
                 tracking_metrics.append(metric)
 
@@ -714,14 +635,12 @@ class Decoder:
                 ),
                 outcome_constraints=outcome_constraints,
                 objective_thresholds=objective_thresholds,
-                risk_measure=risk_measure,
                 pruning_target_parameterization=pruning_target_parameterization,
             )
         else:
             optimization_config = OptimizationConfig(
                 objective=objective,
                 outcome_constraints=outcome_constraints,
-                risk_measure=risk_measure,
                 pruning_target_parameterization=pruning_target_parameterization,
             )
         return (optimization_config, tracking_metrics)
@@ -1422,19 +1341,6 @@ class Decoder:
         # the db id gets lost and so we need to reset it
         ot.metric._db_id = metric.db_id
         return ot
-
-    def _risk_measure_from_sqa(
-        self, metric: Metric, metric_sqa: SQAMetric
-    ) -> RiskMeasure:
-        rm = RiskMeasure(
-            **object_from_json(
-                metric_sqa.properties,
-                decoder_registry=self.config.json_decoder_registry,
-                class_decoder_registry=self.config.json_class_decoder_registry,
-            )
-        )
-        rm._db_id = metric.db_id
-        return rm
 
     def _get_and_process_children_metrics(
         self,

@@ -10,13 +10,12 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
 from random import choice, uniform
 
-import numpy.typing as npt
 import pandas as pd
 from ax import core
 from ax.core.arm import Arm
@@ -34,7 +33,6 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import Base
@@ -88,10 +86,6 @@ class SearchSpace(Base):
     @property
     def is_hierarchical(self) -> bool:
         return isinstance(self, HierarchicalSearchSpace)
-
-    @property
-    def is_robust(self) -> bool:
-        return isinstance(self, RobustSearchSpace)
 
     @property
     def parameters(self) -> dict[str, Parameter]:
@@ -1013,194 +1007,6 @@ class HierarchicalSearchSpace(SearchSpace):
         return dummy_values_to_inject
 
 
-class RobustSearchSpace(SearchSpace):
-    """Search space for robust optimization that supports environmental variables
-    and input noise.
-
-    In addition to the usual search space properties, this allows specifying
-    environmental variables (parameters) and input noise distributions.
-    """
-
-    def __init__(
-        self,
-        parameters: list[Parameter],
-        parameter_distributions: list[ParameterDistribution],
-        num_samples: int,
-        environmental_variables: list[Parameter] | None = None,
-        parameter_constraints: list[ParameterConstraint] | None = None,
-    ) -> None:
-        """Initialize the robust search space.
-
-        Args:
-            parameters: List of parameter objects for the search space.
-            parameter_distributions: List of parameter distributions, each representing
-                the distribution of one or more parameters. These can be used to
-                specify the distribution of the environmental variables or the input
-                noise distribution on the parameters.
-            num_samples: Number of samples to draw from the `parameter_distributions`
-                for the MC approximation of the posterior risk measure. Must agree with
-                the `n_w` of the risk measure in `OptimizationConfig`.
-            environmental_variables: List of parameter objects, each denoting an
-                environmental variable. These must have associated parameter
-                distributions.
-            parameter_constraints: List of parameter constraints.
-        """
-        if len(parameter_distributions) == 0:
-            raise UserInputError(
-                "RobustSearchSpace requires at least one distributional parameter. "
-                "Use SearchSpace instead."
-            )
-        if num_samples < 1 or int(num_samples) != num_samples:
-            raise UserInputError("`num_samples` must be a positive integer!")
-        self.num_samples = num_samples
-        self.parameter_distributions = parameter_distributions
-        # Make sure that the env var names are unique.
-        environmental_variables = environmental_variables or []
-        all_env_vars: set[str] = {p.name for p in environmental_variables}
-        if len(all_env_vars) < len(environmental_variables):
-            raise UserInputError("Environmental variable names must be unique!")
-        self._environmental_variables: dict[str, Parameter] = {
-            p.name: p for p in environmental_variables
-        }
-        # Make sure that the environmental variables and parameters are distinct.
-        param_names = {p.name for p in parameters}
-        for p_name in self._environmental_variables:
-            if p_name in param_names:
-                raise UserInputError(
-                    f"Environmental variable {p_name} should not be repeated "
-                    "in parameters."
-                )
-        # NOTE: We need `_environmental_variables` set before calling `__init__`.
-        super().__init__(
-            parameters=parameters, parameter_constraints=parameter_constraints
-        )
-        self._validate_distributions()
-
-    def _validate_distributions(self) -> None:
-        r"""Validate the parameter distributions.
-
-        * All distributional parameters must be range parameters.
-        * All environmental variables must have a non-multiplicative distribution.
-        * Either all or none of the perturbation distributions must be
-        multiplicative.
-        * Each parameter can have at most one distribution associated with it.
-        """
-        distributions = self.parameter_distributions
-        # Make sure that there is at most one distribution per parameter.
-        self._distributional_parameters: set[str] = set()
-        for dist in distributions:
-            duplicates = self._distributional_parameters.intersection(dist.parameters)
-            if duplicates:
-                raise UserInputError(
-                    "Received multiple parameter distributions for parameters "
-                    f"{duplicates}. Make sure that there is at most one distribution "
-                    "specified for any given parameter / environmental variable."
-                )
-            self._distributional_parameters.update(dist.parameters)
-
-        all_env_vars = set(self._environmental_variables.keys())
-        if not all_env_vars.issubset(self._distributional_parameters):
-            raise UserInputError(
-                "All environmental variables must have a distribution specified."
-            )
-
-        self._environmental_distributions: list[ParameterDistribution] = []
-        self._perturbation_distributions: list[ParameterDistribution] = []
-        if len(all_env_vars) > 0:
-            if all_env_vars != self._distributional_parameters:
-                # NOTE: We do not support mixing env var and input noise together
-                # in a single `ParameterDistribuion`.
-                for dist in distributions:
-                    is_env = [p in all_env_vars for p in dist.parameters]
-                    if not all(is_env) and any(is_env):
-                        raise UnsupportedError(
-                            "A `ParameterDistribution` must represent either the "
-                            "distribution of a set of environmental variables or "
-                            "a set of parameter perturbations. Mixing the distribution "
-                            "of both types in a single `ParameterDistribution` is "
-                            f"not supported. Offending distribution: {dist}."
-                        )
-                    if any(is_env):
-                        self._environmental_distributions.append(dist)
-                    else:
-                        self._perturbation_distributions.append(dist)
-            else:
-                self._environmental_distributions = distributions
-            if any(d.multiplicative for d in self._environmental_distributions):
-                raise UserInputError(
-                    "Distributions of environmental variables must have "
-                    "`multiplicative=False`."
-                )
-        else:
-            self._perturbation_distributions = distributions
-
-        if not all(
-            isinstance(self.parameters[p], RangeParameter)
-            for p in self._distributional_parameters
-        ):
-            raise UserInputError(
-                "All parameters with an associated distribution must be "
-                "range parameters."
-            )
-
-        # Make sure that all or none of perturbation distributions are multiplicative.
-        mul_flags = [d.multiplicative for d in self._perturbation_distributions]
-        if not (all(mul_flags) or not any(mul_flags)):
-            raise UnsupportedError(
-                "Non-environmental parameter distributions must be either all "
-                "multiplicative or all additive (not multiplicative)."
-            )
-        self.multiplicative = any(mul_flags)
-
-    def is_environmental_variable(self, parameter_name: str) -> bool:
-        r"""Check if a given parameter is an environmental variable.
-
-        Args:
-            parameter: A string denoting the name of the parameter.
-
-        Returns:
-            A boolean denoting whether the given `parameter_name` corresponds
-            to an environmental variable of this search space.
-        """
-        return parameter_name in self._environmental_variables
-
-    @property
-    def parameters(self) -> dict[str, Parameter]:
-        """Get all parameters and environmental variables.
-
-        We include environmental variables here to support `transform_search_space`
-        and other similar functionality. It also helps avoid having to overwrite a
-        bunch of parent methods.
-        """
-        return {**self._parameters, **self._environmental_variables}
-
-    def update_parameter(self, parameter: Parameter) -> None:
-        raise UnsupportedError("RobustSearchSpace does not support `update_parameter`.")
-
-    def clone(self) -> RobustSearchSpace:
-        return self.__class__(
-            parameters=[p.clone() for p in self._parameters.values()],
-            parameter_distributions=[d.clone() for d in self.parameter_distributions],
-            num_samples=self.num_samples,
-            environmental_variables=[
-                p.clone() for p in self._environmental_variables.values()
-            ],
-            parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            "parameters=" + repr(list(self._parameters.values())) + ", "
-            "parameter_distributions=" + repr(self.parameter_distributions) + ", "
-            "num_samples=" + repr(self.num_samples) + ", "
-            "environmental_variables="
-            + repr(list(self._environmental_variables.values()))
-            + ", "
-            "parameter_constraints=" + repr(self._parameter_constraints) + ")"
-        )
-
-
 @dataclass
 class SearchSpaceDigest:
     """Container for lightweight representation of search space properties.
@@ -1231,8 +1037,6 @@ class SearchSpaceDigest:
             fidelity parameters.
         target_values: A dictionary mapping parameter indices of fidelity or
             task parameters to their respective target value.
-        robust_digest: An optional `RobustSearchSpaceDigest` that carries the
-            additional attributes if using a `RobustSearchSpace`.
         hierarchical_dependencies: A dictionary that specifies the dependencies between
             parameters if using `HierarchicalSearchSpace`. It looks like as follows
             ```
@@ -1252,47 +1056,9 @@ class SearchSpaceDigest:
     task_features: list[int] = field(default_factory=list)
     fidelity_features: list[int] = field(default_factory=list)
     target_values: dict[int, int | float] = field(default_factory=dict)
-    robust_digest: RobustSearchSpaceDigest | None = None
     # NOTE: We restrict that hierarchical parameters have to be either categorical or
     # discrete.
     hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
-
-
-@dataclass
-class RobustSearchSpaceDigest:
-    """Container for lightweight representation of properties that are unique
-    to the `RobustSearchSpace`. This is used to append the `SearchSpaceDigest`.
-
-    NOTE: Both `sample_param_perturbations` and `sample_environmental` should
-    require no inputs and return a `num_samples x d`-dim array of samples from
-    the corresponding parameter distributions, where `d` is the number of
-    non-environmental parameters for `distribution_sampler` and the number of
-    environmental variables for `environmental_sampler`.
-
-    Attributes:
-        sample_param_perturbations: An optional callable for sampling from the
-            parameter distributions representing input perturbations.
-        sample_environmental: An optional callable for sampling from the
-            distributions of the environmental variables.
-        environmental_variables: A list of environmental variable names.
-        multiplicative: Denotes whether the distribution is multiplicative.
-            Only relevant if paired with a `distribution_sampler`.
-    """
-
-    sample_param_perturbations: Callable[[], npt.NDArray] | None = None
-    sample_environmental: Callable[[], npt.NDArray] | None = None
-    environmental_variables: list[str] = field(default_factory=list)
-    multiplicative: bool = False
-
-    def __post_init__(self) -> None:
-        if (
-            self.sample_param_perturbations is None
-            and self.sample_environmental is None
-        ):
-            raise UserInputError(
-                "`RobustSearchSpaceDigest` must be initialized with at least one of "
-                "`distribution_sampler` and `environmental_sampler`."
-            )
 
 
 def _disjoint_union(set1: set[str], set2: set[str]) -> set[str]:
