@@ -374,9 +374,15 @@ class TorchAdapter(Adapter):
             mean_and_params.reset_index(level=levels_to_move, inplace=True)
         # This will include the progression if it is in parameters.
         # This is also tolerant to missing columns, which is relevant for TL.
-        params_np = mean_and_params.filter(
-            [i + "_parameter" if i in duplicated_names else i for i in parameters]
-        ).to_numpy()
+        params_np = (
+            mean_and_params.filter(
+                [i + "_parameter" if i in duplicated_names else i for i in parameters]
+            )
+            .to_numpy()
+            # In some cases, this ends up as object, which is not supported by torch.
+            # This can happen if an Int64 column had NaNs in it at some stage.
+            .astype(float)
+        )
         trial_indices_np = mean_and_params.index.get_level_values(
             "trial_index"
         ).to_numpy()

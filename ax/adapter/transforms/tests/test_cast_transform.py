@@ -404,6 +404,9 @@ class CastTransformTest(TestCase):
             columns=columns,
         )
         expected_arm_data.index.names = ["trial_index", "arm_name"]
+        expected_arm_data["num_boost_rounds"] = expected_arm_data[
+            "num_boost_rounds"
+        ].astype("Int64")
         assert_frame_equal(transformed.arm_data, expected_arm_data)
 
     def test_transform_experiment_data_flatten_with_missing_columns(self) -> None:
@@ -452,6 +455,19 @@ class CastTransformTest(TestCase):
         # Test for casting to the correct data type and dropping of Nones.
         experiment = get_experiment_with_observations(
             observations=[[0.0], [1.0], [2.0]],
+            search_space=SearchSpace(
+                parameters=[
+                    RangeParameter(
+                        name="x", parameter_type=ParameterType.FLOAT, lower=0, upper=5
+                    ),
+                    RangeParameter(
+                        name="y", parameter_type=ParameterType.FLOAT, lower=0, upper=5
+                    ),
+                    RangeParameter(
+                        name="z", parameter_type=ParameterType.INT, lower=0, upper=5
+                    ),
+                ]
+            ),
             parameterizations=[
                 {"x": 1, "y": None},
                 {"x": 2, "y": 2.0},
@@ -465,11 +481,15 @@ class CastTransformTest(TestCase):
             search_space=experiment.search_space
         ).transform_experiment_data(experiment_data=deepcopy(experiment_data))
         # Arm data should drop row 0 and cast to float.
+        # The missing column for `z` should be added and populated with NaNs.
         expected_arm_data = (
             experiment_data.arm_data.copy(deep=True)
             .iloc[[1, 2]]
             .astype({"x": float, "y": float})
         )
+        expected_arm_data["z"] = None
+        expected_arm_data["z"] = expected_arm_data["z"].astype("Int64")
+        expected_arm_data = expected_arm_data[["x", "y", "z", "metadata"]]
         assert_frame_equal(transformed.arm_data, expected_arm_data)
         # Observation data should drop row 0.
         expected_obs_data = experiment_data.observation_data.copy(deep=True).iloc[
