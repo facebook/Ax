@@ -22,7 +22,9 @@ class IntRangeToChoiceTransformTest(TestCase):
         super().setUp()
         self.search_space = SearchSpace(
             parameters=[
-                RangeParameter("a", lower=1, upper=5, parameter_type=ParameterType.INT),
+                RangeParameter(
+                    name="a", parameter_type=ParameterType.INT, lower=1, upper=5
+                ),
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
@@ -85,19 +87,19 @@ class IntRangeToChoiceTransformTest(TestCase):
     def test_num_choices(self) -> None:
         parameters = {
             "a": RangeParameter(
-                "a", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                name="a", parameter_type=ParameterType.FLOAT, lower=1, upper=3
             ),
             "b": RangeParameter(
-                "b", lower=1, upper=2, parameter_type=ParameterType.INT
+                name="b", parameter_type=ParameterType.INT, lower=1, upper=2
             ),
             "c": ChoiceParameter(
                 "c", parameter_type=ParameterType.STRING, values=["x1", "x2", "x3"]
             ),
             "d": RangeParameter(
-                "d", lower=1, upper=9, parameter_type=ParameterType.INT
+                name="d", parameter_type=ParameterType.INT, lower=1, upper=9
             ),
             "e": RangeParameter(
-                "e", lower=3, upper=5, parameter_type=ParameterType.INT
+                name="e", parameter_type=ParameterType.INT, lower=3, upper=5
             ),
         }
         search_space = SearchSpace(parameters=parameters.values())  # pyre-ignore[6]

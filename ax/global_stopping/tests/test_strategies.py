@@ -154,9 +154,13 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             An experiment with len(metric_values) trials.
         """
         search_space = SearchSpace(
-            [
-                RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0),
-                RangeParameter("y", ParameterType.FLOAT, 0.0, 1.0),
+            parameters=[
+                RangeParameter(
+                    name="x", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                ),
+                RangeParameter(
+                    name="y", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                ),
             ]
         )
         objective = Objective(metric=Metric(name="m1"), minimize=False)
@@ -209,9 +213,13 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             An experiment with len(metric_values) trials.
         """
         search_space = SearchSpace(
-            [
-                RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0),
-                RangeParameter("y", ParameterType.FLOAT, 0.0, 1.0),
+            parameters=[
+                RangeParameter(
+                    name="x", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                ),
+                RangeParameter(
+                    name="y", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+                ),
             ]
         )
 

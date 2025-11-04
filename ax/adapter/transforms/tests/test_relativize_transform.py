@@ -491,7 +491,7 @@ class RelativizeDataOptConfigTest(TestCase):
             optimization_config.pruning_target_parameterization = pruning_target
             optimization_config.outcome_constraints = [
                 OutcomeConstraint(
-                    metric=BraninMetric("b2", ["x2", "x1"]),
+                    metric=BraninMetric(name="b2", param_names=["x2", "x1"]),
                     op=ComparisonOp.GEQ,
                     bound=-200.0,
                     relative=True,
@@ -525,7 +525,7 @@ class RelativizeDataOptConfigTest(TestCase):
             optimization_config = get_branin_optimization_config()
             optimization_config.outcome_constraints = [
                 OutcomeConstraint(
-                    metric=BraninMetric("b2", ["x2", "x1"]),
+                    metric=BraninMetric(name="b2", param_names=["x2", "x1"]),
                     op=ComparisonOp.GEQ,
                     bound=-200.0,
                     relative=False,

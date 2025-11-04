@@ -83,10 +83,13 @@ class TorchAdapterTest(TestCase):
             min=0.0, max=5.0, parameter_names=feature_names
         )
         opt_config = OptimizationConfig(
-            objective=Objective(metric=Metric("y1"), minimize=True),
+            objective=Objective(metric=Metric(name="y1"), minimize=True),
             outcome_constraints=[
                 OutcomeConstraint(
-                    metric=Metric("y2"), op=ComparisonOp.GEQ, bound=0.0, relative=False
+                    metric=Metric(name="y2"),
+                    op=ComparisonOp.GEQ,
+                    bound=0.0,
+                    relative=False,
                 )
             ],
         )
@@ -200,7 +203,7 @@ class TorchAdapterTest(TestCase):
         )
         best_point_return_value = torch.tensor([1.0, 2.0, 3.0], **tkwargs)
         opt_config = OptimizationConfig(
-            objective=Objective(metric=Metric("y1"), minimize=False),
+            objective=Objective(metric=Metric(name="y1"), minimize=False),
         )
         pending_observations = {
             "y2": [ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0, "x3": 3.0})]
@@ -388,7 +391,7 @@ class TorchAdapterTest(TestCase):
     def test_best_point(self) -> None:
         search_space = get_search_space_for_range_value()
         oc = OptimizationConfig(
-            objective=Objective(metric=Metric("a"), minimize=False),
+            objective=Objective(metric=Metric(name="a"), minimize=False),
             outcome_constraints=[],
         )
         exp = Experiment(search_space=search_space, optimization_config=oc, name="test")
@@ -446,10 +449,10 @@ class TorchAdapterTest(TestCase):
             adapter.gen(
                 n=1,
                 optimization_config=OptimizationConfig(
-                    objective=Objective(metric=Metric("a"), minimize=False),
+                    objective=Objective(metric=Metric(name="a"), minimize=False),
                     outcome_constraints=[
                         ScalarizedOutcomeConstraint(
-                            metrics=[Metric("wrong_metric_name")],
+                            metrics=[Metric(name="wrong_metric_name")],
                             weights=[1.0],
                             op=ComparisonOp.LEQ,
                             bound=0,
@@ -715,10 +718,10 @@ class TorchAdapterTest(TestCase):
         )
         # Make an optimization config that includes all metrics.
         opt_config = OptimizationConfig(
-            objective=Objective(metric=Metric("y"), minimize=True),
+            objective=Objective(metric=Metric(name="y"), minimize=True),
             outcome_constraints=[
                 OutcomeConstraint(
-                    metric=Metric(f"y:c{i}"), op=ComparisonOp.GEQ, bound=0
+                    metric=Metric(name=f"y:c{i}"), op=ComparisonOp.GEQ, bound=0
                 )
                 for i in range(3)
             ],

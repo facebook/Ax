@@ -576,7 +576,7 @@ class TestAxClient(TestCase):
     def test_sobol_generation_strategy_completion(self) -> None:
         ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
-                [GenerationStep(Generators.SOBOL, num_trials=3)]
+                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=3)]
             )
         )
         # All Sobol trials should be able to be generated at once and optimization
@@ -596,7 +596,7 @@ class TestAxClient(TestCase):
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
         generation_strategy = GenerationStrategy(
-            [GenerationStep(Generators.SOBOL, num_trials=3)]
+            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=3)]
         )
         ax_client = AxClient(
             db_settings=db_settings, generation_strategy=generation_strategy
@@ -2887,7 +2887,7 @@ class TestAxClient(TestCase):
         with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
             AxClient(
                 generation_strategy=GenerationStrategy(
-                    [GenerationStep(Generators.SOBOL, num_trials=3)]
+                    steps=[GenerationStep(generator=Generators.SOBOL, num_trials=3)]
                 ),
                 torch_device=device,
             )

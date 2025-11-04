@@ -1541,4 +1541,4 @@ def auxiliary_experiment_from_name(
         load_auxiliary_experiments=False,
         reduced_state=reduced_state,
     )
-    return AuxiliaryExperiment(experiment, is_active=is_active)
+    return AuxiliaryExperiment(experiment=experiment, is_active=is_active)

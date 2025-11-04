@@ -189,4 +189,4 @@ class TorchXRunnerTest(TestCase):
         )
 
         with self.assertRaises(ValueError):
-            self._runner.run(trial=BatchTrial(experiment))
+            self._runner.run(trial=BatchTrial(experiment=experiment))

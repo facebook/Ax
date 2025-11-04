@@ -651,7 +651,11 @@ def get_test_map_data_experiment(
 def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
 ) -> MultiTypeExperiment:
-    oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"]), minimize=True))
+    oc = OptimizationConfig(
+        objective=Objective(
+            metric=BraninMetric(name="m1", param_names=["x1", "x2"]), minimize=True
+        )
+    )
     experiment = MultiTypeExperiment(
         name="test_exp",
         search_space=get_branin_search_space(),
@@ -666,7 +670,9 @@ def get_multi_type_experiment(
     )
     # Switch the order of variables so metric gives different results
     experiment.add_tracking_metric(
-        BraninMetric("m2", ["x2", "x1"]), trial_type="type2", canonical_name="m1"
+        BraninMetric(name="m2", param_names=["x2", "x1"]),
+        trial_type="type2",
+        canonical_name="m1",
     )
 
     if add_trials and add_trial_type:
@@ -769,7 +775,7 @@ def get_experiment_with_map_data() -> Experiment:
     experiment = get_experiment_with_map_data_type()
     experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.new_trial()
-    experiment.add_tracking_metric(MapMetric("ax_test_metric"))
+    experiment.add_tracking_metric(MapMetric(name="ax_test_metric"))
     experiment.attach_data(data=get_map_data())
     return experiment
 
@@ -1222,7 +1228,7 @@ def get_high_dimensional_branin_experiment(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
-        status_quo=Arm(sq_parameters) if with_status_quo else None,
+        status_quo=Arm(parameters=sq_parameters) if with_status_quo else None,
     )
     exp._properties = {"owners": [DEFAULT_USER]}
     if with_batch:
@@ -1690,11 +1696,19 @@ def get_large_ordinal_search_space(
 
 
 def get_search_space_for_value(val: float = 3.0) -> SearchSpace:
-    return SearchSpace([FixedParameter("x", ParameterType.FLOAT, val)])
+    return SearchSpace(
+        [FixedParameter(name="x", parameter_type=ParameterType.FLOAT, value=val)]
+    )
 
 
 def get_search_space_for_range_value(min: float = 3.0, max: float = 6.0) -> SearchSpace:
-    return SearchSpace([RangeParameter("x", ParameterType.FLOAT, min, max)])
+    return SearchSpace(
+        parameters=[
+            RangeParameter(
+                name="x", parameter_type=ParameterType.FLOAT, lower=min, upper=max
+            )
+        ]
+    )
 
 
 def get_search_space_for_range_values(
@@ -1704,7 +1718,9 @@ def get_search_space_for_range_values(
         parameter_names = ["x", "y"]
     return SearchSpace(
         [
-            RangeParameter(name, ParameterType.FLOAT, min, max)
+            RangeParameter(
+                name=name, parameter_type=ParameterType.FLOAT, lower=min, upper=max
+            )
             for name in parameter_names
         ]
     )
@@ -1713,9 +1729,17 @@ def get_search_space_for_range_values(
 def get_discrete_search_space() -> SearchSpace:
     return SearchSpace(
         [
-            RangeParameter("x", ParameterType.INT, 0, 3),
-            RangeParameter("y", ParameterType.INT, 5, 7),
-            ChoiceParameter("z", ParameterType.STRING, ["red", "panda", "bear"]),
+            RangeParameter(
+                name="x", parameter_type=ParameterType.INT, lower=0, upper=3
+            ),
+            RangeParameter(
+                name="y", parameter_type=ParameterType.INT, lower=5, upper=7
+            ),
+            ChoiceParameter(
+                name="z",
+                parameter_type=ParameterType.STRING,
+                values=["red", "panda", "bear"],
+            ),
         ]
     )
 
@@ -1723,8 +1747,12 @@ def get_discrete_search_space() -> SearchSpace:
 def get_small_discrete_search_space() -> SearchSpace:
     return SearchSpace(
         [
-            RangeParameter("x", ParameterType.INT, 0, 1),
-            ChoiceParameter("y", ParameterType.STRING, ["red", "panda"]),
+            RangeParameter(
+                name="x", parameter_type=ParameterType.INT, lower=0, upper=1
+            ),
+            ChoiceParameter(
+                name="y", parameter_type=ParameterType.STRING, values=["red", "panda"]
+            ),
         ]
     )
 
@@ -1776,13 +1804,17 @@ def get_robust_search_space(
     num_samples: int = 4,  # dummy
 ) -> RobustSearchSpace:
     parameters = [
-        RangeParameter("x", ParameterType.FLOAT, lb, ub),
-        RangeParameter("y", ParameterType.FLOAT, lb, ub),
-        RangeParameter("z", ParameterType.INT, lb, ub),
+        RangeParameter(
+            name="x", parameter_type=ParameterType.FLOAT, lower=lb, upper=ub
+        ),
+        RangeParameter(
+            name="y", parameter_type=ParameterType.FLOAT, lower=lb, upper=ub
+        ),
+        RangeParameter(name="z", parameter_type=ParameterType.INT, lower=lb, upper=ub),
         ChoiceParameter(
-            "c",
-            ParameterType.STRING,
-            ["red", "blue", "green"],
+            name="c",
+            parameter_type=ParameterType.STRING,
+            values=["red", "blue", "green"],
             is_ordered=False,
             sort_values=False,
         ),
@@ -1840,11 +1872,15 @@ def get_robust_search_space_environmental(
     ub: float = 5.0,
 ) -> RobustSearchSpace:
     parameters = [
-        RangeParameter("x", ParameterType.FLOAT, lb, ub),
-        RangeParameter("y", ParameterType.FLOAT, lb, ub),
+        RangeParameter(
+            name="x", parameter_type=ParameterType.FLOAT, lower=lb, upper=ub
+        ),
+        RangeParameter(
+            name="y", parameter_type=ParameterType.FLOAT, lower=lb, upper=ub
+        ),
     ]
     environmental_variables = [
-        RangeParameter("z", ParameterType.INT, lb, ub),
+        RangeParameter(name="z", parameter_type=ParameterType.INT, lower=lb, upper=ub),
     ]
     distributions = [
         ParameterDistribution(
@@ -2327,7 +2363,7 @@ def get_optimization_config_no_constraints(
     minimize: bool = False,
 ) -> OptimizationConfig:
     return OptimizationConfig(
-        objective=Objective(metric=Metric("test_metric"), minimize=minimize)
+        objective=Objective(metric=Metric(name="test_metric"), minimize=minimize)
     )
 
 
@@ -2444,7 +2480,7 @@ def get_arm_weights1() -> MutableMapping[Arm, float]:
         {"w": 0.75, "x": 1, "y": "foo", "z": True, "d": 2.5},
         {"w": 1.4, "x": 2, "y": "bar", "z": True, "d": 3.8},
     ]
-    arms = [Arm(param_dict) for param_dict in parameters_dicts]
+    arms = [Arm(parameters=param_dict) for param_dict in parameters_dicts]
     weights = [0.25, 0.3, 0.25, 0.2]
     return OrderedDict(zip(arms, weights))
 
@@ -2455,7 +2491,7 @@ def get_arm_weights2() -> MutableMapping[Arm, float]:  # update
         {"w": 0.16, "x": 4, "y": "dear", "z": True, "d": 1.32},
         {"w": 3.1, "x": 5, "y": "world", "z": False, "d": 7.2},
     ]
-    arms = [Arm(param_dict) for param_dict in parameters_dicts]
+    arms = [Arm(parameters=param_dict) for param_dict in parameters_dicts]
     weights = [0.25, 0.3, 0.25, 0.2]
     return OrderedDict(zip(arms, weights))
 
