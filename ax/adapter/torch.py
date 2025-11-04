@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
@@ -1092,89 +1091,6 @@ class TorchAdapter(Adapter):
             )
 
         return thresholds
-
-    def _extract_observation_data(
-        self,
-        observation_data: list[ObservationData],
-        observation_features: list[ObservationFeatures],
-        parameters: list[str],
-    ) -> tuple[
-        dict[str, list[Tensor]],
-        dict[str, list[Tensor]],
-        dict[str, list[Tensor]],
-        dict[str, list[TCandidateMetadata]],
-        bool,
-        dict[str, list[int]] | None,
-    ]:
-        """Extract observation features & data into tensors and metadata.
-
-        Args:
-            observation_data: A list of `ObservationData` from which to extract
-                mean `Y` and variance `Yvar` observations. Must correspond 1:1 to
-                the `observation_features`.
-            observation_features: A list of `ObservationFeatures` from which to extract
-                parameter values. Must correspond 1:1 to the `observation_data`.
-            parameters: The names of the parameters to extract. Any observation features
-                that are not included in `parameters` will be ignored.
-
-        Returns:
-            - A dictionary mapping metric names to lists of corresponding feature
-                tensors `X`.
-            - A dictionary mapping metric names to lists of corresponding mean
-                observation tensors `Y`.
-            - A dictionary mapping metric names to lists of corresponding variance
-                observation tensors `Yvar`.
-            - A dictionary mapping metric names to lists of corresponding metadata.
-            - A boolean denoting whether any candidate metadata is not none.
-            - A dictionary mapping metric names to lists of corresponding trial indices,
-                or None if trial indices are not provided. This is used to support
-                learning-curve-based modeling.
-        """
-        Xs: dict[str, list[Tensor]] = defaultdict(list)
-        Ys: dict[str, list[Tensor]] = defaultdict(list)
-        Yvars: dict[str, list[Tensor]] = defaultdict(list)
-        candidate_metadata_dict: dict[str, list[TCandidateMetadata]] = defaultdict(list)
-        any_candidate_metadata_is_not_none = False
-        trial_indices: dict[str, list[int]] = defaultdict(list)
-
-        at_least_one_trial_index_is_none = False
-        for obsd, obsf in zip(observation_data, observation_features, strict=True):
-            try:
-                x = torch.tensor(
-                    [obsf.parameters[p] for p in parameters],
-                    dtype=torch.double,
-                    device=self.device,
-                )
-            except (KeyError, TypeError):
-                raise ValueError("Out of design points cannot be converted.")
-            for metric_signature, mean, var in zip(
-                obsd.metric_signatures, obsd.means, obsd.covariance.diagonal()
-            ):
-                Xs[metric_signature].append(x)
-                Ys[metric_signature].append(mean)
-                Yvars[metric_signature].append(var)
-                if obsf.metadata is not None:
-                    any_candidate_metadata_is_not_none = True
-                candidate_metadata_dict[metric_signature].append(obsf.metadata)
-                trial_index = obsf.trial_index
-                if trial_index is not None:
-                    trial_indices[metric_signature].append(trial_index)
-                else:
-                    at_least_one_trial_index_is_none = True
-        if len(trial_indices) > 0 and at_least_one_trial_index_is_none:
-            raise ValueError(
-                "Trial indices must be provided for all observation_features "
-                "or none of them."
-            )
-
-        return (
-            Xs,
-            Ys,
-            Yvars,
-            candidate_metadata_dict,
-            any_candidate_metadata_is_not_none,
-            trial_indices if len(trial_indices) > 0 else None,
-        )
 
 
 def validate_transformed_optimization_config(
