@@ -48,7 +48,7 @@ class FixedToTunable(Transform):
         # parameter and another experiment has a range parameter of the same name.
         self.search_space: SearchSpace = search_space
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if isinstance(p, FixedParameter) and isinstance(

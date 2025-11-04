@@ -16,8 +16,8 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.observation_utils import separate_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import DataRequiredError, UnsupportedError
+from ax.core.search_space import SearchSpace
+from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 
 
@@ -87,22 +87,6 @@ class Transform:
         self.adapter = adapter
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        """Transform search space.
-
-        The transforms are typically done in-place. This calls two private methods,
-        `_transform_search_space`, which transforms the core search space attributes,
-        and `_transform_parameter_distributions`, which transforms the distributions
-        when using a `RobustSearchSpace`.
-
-        Args:
-            search_space: The search space
-
-        Returns: transformed search space.
-        """
-        self._transform_parameter_distributions(search_space=search_space)
-        return self._transform_search_space(search_space=search_space)
-
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Transform search space.
 
         This is typically done in-place. This class implements the identity
@@ -270,29 +254,6 @@ class Transform:
         applied to the outcome constraints.
         """
         return outcome_constraints
-
-    def _transform_parameter_distributions(self, search_space: SearchSpace) -> None:
-        """Transform the parameter distributions of the given search space, in-place.
-
-        This method should be called in transform_search_space before parameters
-        are transformed.
-
-        The base implementation is a no-op for most transforms, except for those
-        that have a `transform_parameters` attribute, in which case this will
-        raise an `UnsupportedError` if a parameter with an associated distribution
-        is being transformed.
-        """
-        if isinstance(search_space, RobustSearchSpace) and hasattr(
-            self, "transform_parameters"
-        ):
-            # pyre-ignore Undefined attribute [16]
-            for p_name in self.transform_parameters:
-                if p_name in search_space._distributional_parameters:
-                    raise UnsupportedError(
-                        f"{self.__class__.__name__} transform is not supported for "
-                        "parameters with an associated distribution. Consider updating "
-                        "the transform config."
-                    )
 
     def transform_experiment_data(
         self, experiment_data: ExperimentData

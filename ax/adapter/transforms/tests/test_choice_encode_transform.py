@@ -22,13 +22,10 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
@@ -251,30 +248,6 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         self.assertTrue(hss.parameters["x2"].is_hierarchical)
         self.assertEqual(hss.parameters["x2"].parameter_type, ParameterType.INT)
         self.assertEqual(hss.parameters["x2"].dependents, {0: [], 1: ["x3"]})
-
-    def test_with_parameter_distributions(self) -> None:
-        rss = get_robust_search_space()
-        assert_is_instance(rss.parameters["c"], ChoiceParameter)._is_ordered = True
-        # Transform a non-distributional parameter.
-        t = self.t_class(search_space=rss)
-        rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
-        # Test with environmental variables.
-        all_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            num_samples=rss.num_samples,
-            environmental_variables=all_params[:2],
-        )
-        t = self.t_class(search_space=rss)
-        rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
-        self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [

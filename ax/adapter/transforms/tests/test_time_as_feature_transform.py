@@ -17,13 +17,9 @@ from ax.core.observation import ObservationFeatures
 from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
@@ -165,15 +161,6 @@ class TimeAsFeatureTransformTest(TestCase):
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
         self.assertEqual(p.upper, 1.0)
-
-    def test_w_robust_search_space(self) -> None:
-        rss = get_robust_search_space()
-        # Raises an error in __init__.
-        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
-            TimeAsFeature(
-                search_space=rss,
-                experiment_data=self.experiment_data,
-            )
 
     def test_with_experiment_data(self) -> None:
         experiment = get_experiment_with_observations(

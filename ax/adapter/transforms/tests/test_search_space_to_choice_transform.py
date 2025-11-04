@@ -23,12 +23,9 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
-from ax.exceptions.core import DataRequiredError, UnsupportedError
+from ax.exceptions.core import DataRequiredError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 
@@ -130,13 +127,6 @@ class SearchSpaceToChoiceTest(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "fidelity"):
             SearchSpaceToChoice(search_space=ss, experiment_data=self.experiment_data)
-
-        # Test for error with robust search space.
-        rss = get_robust_search_space()
-        with self.assertRaisesRegex(
-            UnsupportedError, "not supported for RobustSearchSpace"
-        ):
-            SearchSpaceToChoice(search_space=rss, experiment_data=self.experiment_data)
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()

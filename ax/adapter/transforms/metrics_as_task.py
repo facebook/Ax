@@ -129,7 +129,7 @@ class MetricsAsTask(Transform):
                 )
         return new_observations
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         # Add task parameter
         task_param = ChoiceParameter(
             name="METRIC_TASK",

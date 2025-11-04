@@ -56,7 +56,7 @@ class IntRangeToChoice(Transform):
             and p.cardinality() <= self.max_choices
         }
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if (
