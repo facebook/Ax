@@ -11,7 +11,6 @@ from __future__ import annotations
 import inspect
 
 import logging
-import re
 import warnings
 from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
@@ -935,12 +934,12 @@ class Experiment(Base):
                 else OrderedDict()
             )
             if combine_with_last_data and len(current_trial_data) > 0:
-                last_data_type, last_data = self._get_last_data_without_similar_rows(
+                last_data_type, last_df = self._get_last_data_without_similar_rows(
                     current_trial_data=current_trial_data, new_df=trial_df
                 )
                 current_trial_data.popitem()
-                current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
-                    [last_data, last_data_type(df=trial_df)]
+                current_trial_data[cur_time_millis] = last_data_type(
+                    pd.concat((last_df, trial_df), ignore_index=True)
                 )
             elif overwrite_existing_data:
                 if len(current_trial_data) > 0:
@@ -974,7 +973,7 @@ class Experiment(Base):
     @staticmethod
     def _get_last_data_without_similar_rows(
         current_trial_data: OrderedDict[int, Data], new_df: pd.DataFrame
-    ) -> tuple[type[Data], Data]:
+    ) -> tuple[type[Data], pd.DataFrame]:
         """Get a copy of last data with rows filtered out sharing values for
         "trial_index", "metric_name", and "arm_name" with the new data so we
         can cleanly combine them.
@@ -992,36 +991,14 @@ class Experiment(Base):
         """
         _, last_data = list(current_trial_data.items())[-1]
 
-        last_data_type = type(last_data)
         merge_keys = ["trial_index", "metric_name", "arm_name"]
         if isinstance(last_data, MapData):
             merge_keys += [MAP_KEY]
 
-        # this merge is like a SQL left join on merge keys
-        # it will return a dataframe with the columns in merge_keys
-        # plus "_merge" and any other columns in last_data.full_df with _left appended
-        # plus any other columns in new_df with _right appended
-        merged = pd.merge(
-            last_data.full_df,
-            new_df,
-            on=merge_keys,
-            how="left",
-            indicator=True,
-            suffixes=("_left", "_right"),
-        )
-        # Filter out all rows that are also present in new_df
-        last_df = merged[merged["_merge"] == "left_only"]
-
-        # Drop the _merge column
-        last_df = last_df.drop(columns=["_merge"])
-        # Drop columns ending with "_right", which should all have null values
-        right_columns = [c for c in last_df.columns if re.match(r".*_right$", c)]
-        last_df = last_df.drop(columns=right_columns)
-
-        # Remove the "_left" suffix from the column names
-        last_df.columns = last_df.columns.str.replace(r"_left$", "", regex=True)
-
-        return type(last_data), last_data_type(df=last_df)
+        merged = last_data.full_df.merge(new_df[merge_keys], how="left", indicator=True)
+        # Filter out all rows that are also present in new_df and drop the _merge col
+        last_df = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
+        return type(last_data), last_df
 
     def attach_fetch_results(
         self,
