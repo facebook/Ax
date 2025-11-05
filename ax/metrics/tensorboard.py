@@ -268,7 +268,12 @@ try:
 
             # Apply smoothing
             if metric.smoothing > 0:
+                # Interpolate onto a grid to avoid smoothing artifacts.
+                df = _grid_interpolate(
+                    df=df, arm_name=arm_name, metric_signature=metric.signature
+                )
                 df["mean"] = df["mean"].ewm(alpha=1 - metric.smoothing).mean()
+                df["sem"] = df["sem"].ewm(alpha=1 - metric.smoothing).mean()
 
             # Apply rolling percentile
             if metric.percentile is not None:
@@ -282,3 +287,32 @@ except ImportError:
         "TensorboardMetric, please install tensorboard."
     )
     pass
+
+
+def _grid_interpolate(
+    df: pd.DataFrame, arm_name: str, metric_signature: str
+) -> pd.DataFrame:
+    """Interpolate a dataframe onto an evenly spaced grid of MAP_KEY."""
+
+    df = df[(df["metric_signature"] == metric_signature) & (df["arm_name"] == arm_name)]
+    if len(df) == 0:
+        logger.warning(f"No data found for {arm_name=} and {metric_signature=}.")
+        return pd.DataFrame()
+
+    # Create an evenly spaced grid with the same length as the original df
+    grid_min = df[MAP_KEY].min()
+    grid_max = df[MAP_KEY].max()
+    grid = np.linspace(grid_min, grid_max, len(df))
+
+    # Interpolate observed values onto the grid
+    df_grid = pd.DataFrame(
+        {
+            "arm_name": arm_name,
+            "metric_signature": metric_signature,
+            "mean": np.interp(grid, df["step"], df["mean"]),
+            "sem": np.interp(grid, df["step"], df["sem"]),
+            "trial_index": df["trial_index"].unique()[0],
+            "step": grid,
+        }
+    )
+    return df_grid
