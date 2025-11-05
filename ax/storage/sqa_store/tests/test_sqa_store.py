@@ -2102,11 +2102,9 @@ class SQAStoreTest(TestCase):
             with_input_constructors_all_n=True
         )
         experiment.new_batch_trial(
-            generator_runs=generation_strategy._gen_with_multiple_nodes(
-                experiment=experiment
-            )
+            generator_runs=generation_strategy.gen(experiment=experiment)[0]
         )
-        generation_strategy._gen_with_multiple_nodes(experiment, data=get_branin_data())
+        generation_strategy.gen(experiment, data=get_branin_data())
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
 
