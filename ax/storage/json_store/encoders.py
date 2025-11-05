@@ -464,7 +464,7 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
     """Convert Ax generation node to a dictionary."""
     return {
         "__type": generation_node.__class__.__name__,
-        "node_name": generation_node.node_name,
+        "name": generation_node.name,
         "generator_specs": generation_node.generator_specs,
         "best_model_selector": generation_node.best_model_selector,
         "should_deduplicate": generation_node.should_deduplicate,

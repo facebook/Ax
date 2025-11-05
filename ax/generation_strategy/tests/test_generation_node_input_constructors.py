@@ -62,7 +62,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.sobol_generation_node = GenerationNode(
-            node_name="test", generator_specs=[self.sobol_generator_spec]
+            name="test", generator_specs=[self.sobol_generator_spec]
         )
         self.experiment = get_branin_experiment()
         # construct a list of grs that will mock a list of grs that would exist during

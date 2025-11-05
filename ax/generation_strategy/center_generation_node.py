@@ -41,7 +41,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         deduplication logic.
         """
         super().__init__(
-            node_name="CenterOfSearchSpace",
+            name="CenterOfSearchSpace",
             transition_criteria=[
                 AutoTransitionAfterGen(
                     transition_to=next_node_name,

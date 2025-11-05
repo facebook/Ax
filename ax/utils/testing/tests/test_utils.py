@@ -65,7 +65,7 @@ class TestUtils(TestCase):
         gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="MBM",
+                    name="MBM",
                     generator_specs=[
                         GeneratorSpec(
                             generator_enum=Generators.BOTORCH_MODULAR,

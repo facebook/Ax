@@ -854,7 +854,7 @@ class Decoder:
             gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
             curr_node_name = gs_sqa.curr_node_name
             for node in gs._nodes:
-                if node.node_name == curr_node_name:
+                if node.name == curr_node_name:
                     gs._curr = node
                     break
         immutable_ss_and_oc = (
