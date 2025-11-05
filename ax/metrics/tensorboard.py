@@ -165,7 +165,9 @@ try:
                                 f"Found tag {metric.tag}, but no data found for it. Is "
                                 "the curve empty in the TensorBoard UI?"
                             )
-                    df = self._process_records_to_df(metric=metric, records=records)
+                    df = self._process_records_to_df(
+                        metric=metric, records=records, arm_name=arm_name
+                    )
                     df.loc[
                         df["metric_signature"] == metric.signature, "metric_name"
                     ] = metric.name
@@ -220,7 +222,10 @@ try:
             pass
 
         def _process_records_to_df(
-            self, metric: TensorboardMetric, records: list[dict[str, Any]]
+            self,
+            metric: TensorboardMetric,
+            records: list[dict[str, Any]],
+            arm_name: str,
         ) -> pd.DataFrame:
             """Process records to a MapData dataframe."""
             df = (
@@ -231,6 +236,12 @@ try:
                 .mean()
                 .reset_index()
             )
+            # Ensure we are only processing records for a single arm and a single
+            # metric, since this affects curve processing below.
+            df = df[
+                (df["metric_signature"] == metric.signature)
+                & (df["arm_name"] == arm_name)
+            ]
 
             # If all values are NaNs or Infs, we raise an error
             # If some values are NaNs or Infs, we log a warning and filter out the
