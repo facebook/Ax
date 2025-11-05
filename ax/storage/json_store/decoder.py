@@ -408,7 +408,7 @@ def unpack_transition_criteria_from_json(
     the json for these criterion needs to be carefully unpacked and
     re-processed via ``object_from_json`` in order to maintain correct
     typing. We pass in ``class_`` in order to correctly handle all classes
-    which inherit from ``TrialBasedCriterion`` (ex: ``MaxTrials``).
+    which inherit from ``TrialBasedCriterion`` (ex: ``MinTrials``).
     """
     new_dict = {}
     for key, value in transition_criteria_json.items():
