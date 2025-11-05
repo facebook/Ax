@@ -149,7 +149,7 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(gs.current_node_name, "sobol_1")
 
         # Do not transition because no aux experiment
-        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs.gen(experiment=experiment, n=5)[0]
         self.assertEqual(gs.current_node_name, "sobol_1")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
@@ -158,14 +158,14 @@ class TestTransitionCriterion(TestCase):
         experiment.auxiliary_experiments_by_purpose = {
             AuxiliaryExperimentPurpose.PE_EXPERIMENT: [aux_exp],
         }
-        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs.gen(experiment=experiment, n=5)[0]
         self.assertEqual(gs.current_node_name, "sobol_2")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
 
         # Not having the aux exp purpose at all should be the same and remain in sobol_1
         experiment.auxiliary_experiments_by_purpose = {}
-        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs.gen(experiment=experiment, n=5)[0]
         self.assertEqual(gs.current_node_name, "sobol_1")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
@@ -174,7 +174,7 @@ class TestTransitionCriterion(TestCase):
         experiment.auxiliary_experiments_by_purpose = {
             AuxiliaryExperimentPurpose.PE_EXPERIMENT: [aux_exp, aux_exp],
         }
-        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs.gen(experiment=experiment, n=5)[0]
         self.assertEqual(gs.current_node_name, "sobol_2")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
@@ -184,7 +184,7 @@ class TestTransitionCriterion(TestCase):
         experiment.auxiliary_experiments_by_purpose = {
             AuxiliaryExperimentPurpose.PE_EXPERIMENT: [],
         }
-        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs.gen(experiment=experiment, n=5)[0]
         self.assertEqual(gs.current_node_name, "sobol_1")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
@@ -346,8 +346,8 @@ class TestTransitionCriterion(TestCase):
         )
         gs.experiment = experiment
         self.assertEqual(gs.current_node_name, "sobol_1")
-        gs._gen_with_multiple_nodes(experiment=experiment)
-        gs._gen_with_multiple_nodes(experiment=experiment)
+        gs.gen(experiment=experiment)
+        gs.gen(experiment=experiment)
         self.assertEqual(gs.current_node_name, "sobol_2")
 
     def test_auto_with_should_skip_node(self) -> None:

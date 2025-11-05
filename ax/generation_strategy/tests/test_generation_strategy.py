@@ -623,20 +623,12 @@ class TestGenerationStrategy(TestCase):
         mock_adapter = self.mock_discrete_adapter.return_value
 
         # Initial factorial batch.
-        exp.new_batch_trial(
-            generator_runs=factorial_thompson_gs._gen_with_multiple_nodes(
-                experiment=exp
-            )
-        )
+        exp.new_batch_trial(generator_runs=factorial_thompson_gs.gen(experiment=exp)[0])
         args, kwargs = mock_adapter._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Factorial")
 
         # Subsequent Thompson sampling batch.
-        exp.new_batch_trial(
-            generator_runs=factorial_thompson_gs._gen_with_multiple_nodes(
-                experiment=exp
-            )
-        )
+        exp.new_batch_trial(generator_runs=factorial_thompson_gs.gen(experiment=exp)[0])
         args, kwargs = mock_adapter._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Thompson")
 
@@ -681,17 +673,15 @@ class TestGenerationStrategy(TestCase):
         sobol_MBM_generation_strategy = self._get_sobol_mbm_step_gs(
             num_sobol_trials=1, num_mbm_trials=6
         )
-        grs = sobol_MBM_generation_strategy._gen_with_multiple_nodes(exp, n=2)
+        grs = sobol_MBM_generation_strategy.gen(exp, n=2)[0]
         exp.new_batch_trial(generator_runs=grs).run()
         for i in range(1, 8):
             if i == 7:
                 # Check completeness error message.
                 with self.assertRaises(GenerationStrategyCompleted):
-                    grs_2 = sobol_MBM_generation_strategy._gen_with_multiple_nodes(
-                        exp, n=2
-                    )
+                    grs_2 = sobol_MBM_generation_strategy.gen(exp, n=2)[0]
             else:
-                grs_2 = sobol_MBM_generation_strategy._gen_with_multiple_nodes(exp, n=2)
+                grs_2 = sobol_MBM_generation_strategy.gen(exp, n=2)[0]
             exp.new_batch_trial(generator_runs=grs_2).run()
         self.assertIsInstance(sobol_MBM_generation_strategy.adapter, TorchAdapter)
 
@@ -1065,7 +1055,7 @@ class TestGenerationStrategy(TestCase):
         )
         # pending points is updated in plac so we can't check each intermediate
         # call state, however we can confirm that all arms in the grs produced by
-        # _gen_with_multiple_nodes are present in the pending points
+        # gen are present in the pending points
         for gr, (idx, pending) in zip(grs, pending_in_each_gen):
             exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
             if idx > 0:
@@ -1351,14 +1341,14 @@ class TestGenerationStrategy(TestCase):
             # if you request < 6 arms, repeat arm input constructor will return 0 arms
             # meaning sobol_node_2 should be skipped, and sobol_3 should exclusively
             # be used for generation
-            grs = gs._gen_with_multiple_nodes(experiment=exp, n=5)
+            grs = gs.gen(experiment=exp, n=5)[0]
             self.assertEqual(len(grs), 1)  # only generated from one node
             self.assertEqual(grs[0]._generation_node_name, "sobol_3")
             self.assertEqual(len(grs[0].arms), 5)  # all 5 arms from sobol 3
             self.assertTrue(sobol_node_2._should_skip)
 
         # Now validate that we can get grs from sobol_2 if we request enough n
-        grs = gs._gen_with_multiple_nodes(experiment=exp, n=8)
+        grs = gs.gen(experiment=exp, n=8)[0]
         self.assertEqual(len(grs), 2)
         self.assertEqual(grs[0]._generation_node_name, "sobol_2")
         self.assertEqual(len(grs[0].arms), 1)
@@ -1410,9 +1400,7 @@ class TestGenerationStrategy(TestCase):
             original_method=GeneratorSpec.gen,
         ) as gen_spec_gen_mock:
             # Generate a trial that should be composed of arms from 3 nodes
-            grs = gs._gen_with_multiple_nodes(
-                experiment=exp, arms_per_node=arms_per_node
-            )
+            grs = gs.gen(experiment=exp, arms_per_node=arms_per_node)[0]
             self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
             self.assertEqual(gen_spec_gen_mock.call_count, 3)
             pending_in_each_gen = enumerate(
@@ -1443,11 +1431,11 @@ class TestGenerationStrategy(TestCase):
                 )
 
             # check that we can pass in pending points
-            grs = gs._gen_with_multiple_nodes(
+            grs = gs.gen(
                 experiment=exp,
                 arms_per_node=arms_per_node,
                 pending_observations=original_pending,
-            )
+            )[0]
             self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
             pending_in_each_gen = enumerate(
                 call_kwargs.get("pending_observations")
@@ -1686,7 +1674,7 @@ class TestGenerationStrategy(TestCase):
             "sobol_4": 4,
         }
         with self.assertRaisesRegex(UserInputError, "defined in `arms_per_node`"):
-            gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+            gs.gen(exp, arms_per_node=arms_per_node)
 
         # now we will check that the first trial contains 3 arms, the second trial
         # contains 6 arms (2 from mbm, 1 from sobol_2, 3 from sobol_3), and all
@@ -1701,7 +1689,7 @@ class TestGenerationStrategy(TestCase):
         # for the first trial, we start on sobol, we generate the trial, but it hasn't
         # been run yet, so we remain on sobol
         trial0 = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+            generator_runs=gs.gen(exp, arms_per_node=arms_per_node)[0]
         )
         self.assertEqual(len(trial0.arms_by_name), 3)
         self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol")
@@ -1713,9 +1701,7 @@ class TestGenerationStrategy(TestCase):
         # to the last first node in a trial.
         for _i in range(0, 2):
             trial = exp.new_batch_trial(
-                generator_runs=gs._gen_with_multiple_nodes(
-                    exp, arms_per_node=arms_per_node
-                )
+                generator_runs=gs.gen(exp, arms_per_node=arms_per_node)[0]
             )
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.arms_by_name), 6)
@@ -1730,7 +1716,7 @@ class TestGenerationStrategy(TestCase):
         # after running the next trial should be made from sobol 4
         trial.run()
         trial = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+            generator_runs=gs.gen(exp, arms_per_node=arms_per_node)[0]
         )
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
         self.assertEqual(len(trial.generator_runs[0].arms), 4)
@@ -1744,7 +1730,7 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(nodes=[self.sobol_node], name="test")
         gs.experiment = exp
         exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
-        grs = gs._gen_with_multiple_nodes(exp)
+        grs = gs.gen(exp)[0]
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 3)
 
@@ -1797,14 +1783,14 @@ class TestGenerationStrategy(TestCase):
         # been run yet, so we remain on sobol, after the trial  is run, the subsequent
         # trials should be from node mbm, sobol_2, and sobol_3
         self.assertEqual(gs.current_node_name, "sobol")
-        trial0 = exp.new_batch_trial(generator_runs=gs._gen_with_multiple_nodes(exp))
+        trial0 = exp.new_batch_trial(generator_runs=gs.gen(exp)[0])
         self.assertEqual(gs.current_node_name, "sobol")
         # while here, test the last generator run property on node
         self.assertEqual(gs.current_node.node_that_generated_last_gr, "sobol")
 
         trial0.run()
         for _i in range(0, 2):
-            trial = exp.new_batch_trial(generator_runs=gs._gen_with_multiple_nodes(exp))
+            trial = exp.new_batch_trial(generator_runs=gs.gen(exp)[0])
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs), 3)
             self.assertEqual(trial.generator_runs[0]._generation_node_name, "mbm")
@@ -1819,7 +1805,7 @@ class TestGenerationStrategy(TestCase):
         # for the first trial, we start on sobol, we generate the trial, but it hasn't
         # been run yet, so we remain on sobol
         self.assertEqual(gs_2.current_node_name, "sobol")
-        trial0 = exp.new_batch_trial(generator_runs=gs_2._gen_with_multiple_nodes(exp))
+        trial0 = exp.new_batch_trial(generator_runs=gs_2.gen(exp)[0])
         self.assertEqual(gs_2.current_node_name, "sobol")
         trial0.run()
 
@@ -1828,9 +1814,7 @@ class TestGenerationStrategy(TestCase):
         # don't move onto sobol_4 until we have two running trials, instead we reset
         # to the last first node in a trial.
         for _i in range(0, 2):
-            trial = exp.new_batch_trial(
-                generator_runs=gs_2._gen_with_multiple_nodes(exp)
-            )
+            trial = exp.new_batch_trial(generator_runs=gs_2.gen(exp)[0])
             self.assertEqual(gs_2.current_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs), 3)
             self.assertEqual(trial.generator_runs[0]._generation_node_name, "mbm")
@@ -1839,7 +1823,7 @@ class TestGenerationStrategy(TestCase):
 
         # after running the next trial should be made from sobol 4
         trial.run()
-        trial = exp.new_batch_trial(generator_runs=gs_2._gen_with_multiple_nodes(exp))
+        trial = exp.new_batch_trial(generator_runs=gs_2.gen(exp)[0])
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
 
     def test_gs_with_fixed_features_constructor(self) -> None:
@@ -1878,20 +1862,16 @@ class TestGenerationStrategy(TestCase):
 
         # The first trial is our exploration trial, all arms should be generated from
         # the sobol node due to the input constructor == ALL_N.
-        trial0 = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, n=9)
-        )
+        trial0 = exp.new_batch_trial(generator_runs=gs.gen(exp, n=9)[0])
         self.assertEqual(len(trial0.arms_by_name), 9)
         self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol_node")
         trial0.run()  # necessary for transition criterion to be met
-        with self.subTest("no passed fixed features gen_with_multiple_nodes"):
+        with self.subTest("no passed fixed features gen"):
             with mock_patch_method_original(
                 mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
                 original_method=GeneratorSpec.gen,
             ) as generator_spec_gen_mock:
-                exp.new_batch_trial(
-                    generator_runs=gs._gen_with_multiple_nodes(exp, n=9)
-                )
+                exp.new_batch_trial(generator_runs=gs.gen(exp, n=9)[0])
                 fixed_features_in_gen = generator_spec_gen_mock.call_args_list[
                     0
                 ].kwargs.get("fixed_features")
@@ -1910,11 +1890,11 @@ class TestGenerationStrategy(TestCase):
                     parameters={}, trial_index=4
                 )
                 exp.new_batch_trial(
-                    generator_runs=gs._gen_with_multiple_nodes(
+                    generator_runs=gs.gen(
                         exp,
                         n=9,
                         fixed_features=passed_fixed_features,
-                    )
+                    )[0]
                 )
                 fixed_features_in_gen = generator_spec_gen_mock.call_args_list[
                     0
@@ -2028,9 +2008,7 @@ class TestGenerationStrategy(TestCase):
         for _i in range(0, 2):
             # subsequent trials should be generated from sobol_2 and sobol_3, with
             # sobol_2 generating 1 arm and sobol_3 generating the remaining 8 arms.
-            trial = exp.new_batch_trial(
-                generator_runs=gs._gen_with_multiple_nodes(exp, n=9)
-            )
+            trial = exp.new_batch_trial(generator_runs=gs.gen(exp, n=9)[0])
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.arms_by_name), 9)
             self.assertEqual(len(trial.generator_runs), 2)
