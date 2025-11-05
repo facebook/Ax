@@ -195,6 +195,7 @@ def get_trial_based_criterion() -> list[TrialBasedCriterion]:
             not_in_statuses=[
                 TrialStatus.RUNNING,
             ],
+            transition_to="Sobol",
         ),
     ]
 

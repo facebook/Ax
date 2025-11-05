@@ -477,13 +477,13 @@ class GenerationStrategy(Base):
             # null.
             if idx < len(self._steps):
                 for transition_criteria in step.transition_criteria:
-                    if (
-                        transition_criteria.criterion_class
-                        != "MaxGenerationParallelism"
-                    ):
-                        transition_criteria._transition_to = (
-                            f"GenerationStep_{str(idx + 1)}"
-                        )
+                    # MaxParallelism transitions to self
+                    transition_criteria._transition_to = (
+                        f"GenerationStep_{str(idx)}"
+                        if transition_criteria.criterion_class
+                        == "MaxGenerationParallelism"
+                        else f"GenerationStep_{str(idx + 1)}"
+                    )
             step._generation_strategy = self
         self._curr = steps[0]
 
