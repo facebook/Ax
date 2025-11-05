@@ -2956,13 +2956,13 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
         model_gen_kwargs={},
     )
     sobol_node = GenerationNode(
-        node_name="sobol_node",
+        name="sobol_node",
         transition_criteria=sobol_criterion,
         generator_specs=[sobol_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     mbm_node = GenerationNode(
-        node_name="MBM_node",
+        name="MBM_node",
         transition_criteria=[],
         generator_specs=[mbm_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},

@@ -82,7 +82,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     the hood and generating candidates from them.
 
     Args:
-        node_name: A unique name for the GenerationNode. Used for storage purposes.
+        name: A unique name for the GenerationNode. Used for storage purposes.
         generator_specs: A list of GeneratorSpecs to be selected from for generation
             in this GenerationNode.
         best_model_selector: A ``BestModelSelector`` used to select the
@@ -126,7 +126,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     generator_specs: list[GeneratorSpec]
     # TODO: Move `should_deduplicate` to `GeneratorSpec` if possible, and make optional
     should_deduplicate: bool
-    _node_name: str
+    _name: str
 
     # Optional specifications
     _generator_spec_to_gen_from: GeneratorSpec | None = None
@@ -147,7 +147,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     def __init__(
         self,
-        node_name: str,
+        name: str,
         generator_specs: list[GeneratorSpec],
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
@@ -164,7 +164,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         should_skip: bool = False,
         fallback_specs: dict[type[Exception], GeneratorSpec] | None = None,
     ) -> None:
-        self._node_name = node_name
+        self._name = name
         # Check that the model specs have unique model keys.
         model_keys = {generator_spec.model_key for generator_spec in generator_specs}
         if len(model_keys) != len(generator_specs):
@@ -204,9 +204,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         return SortableBase.__eq__(self, other)
 
     @property
-    def node_name(self) -> str:
+    def name(self) -> str:
         """Returns the unique name of this GenerationNode"""
-        return self._node_name
+        return self._name
 
     @property
     def generator_spec_to_gen_from(self) -> GeneratorSpec:
@@ -293,7 +293,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Returns a unique (w.r.t. parent class: ``GenerationStrategy``) id
         for this GenerationNode. Used for SQL storage.
         """
-        return self.node_name
+        return self.name
 
     @property
     def _fitted_adapter(self) -> Adapter | None:
@@ -315,7 +315,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         ``GeneratorSpec`` attributes).
         """
         str_rep = f"{self.__class__.__name__}"
-        str_rep += f"(node_name='{self.node_name}'"
+        str_rep += f"(name='{self.name}'"
         str_rep += ", generator_specs="
         generator_spec_str = (
             ", ".join([spec._brief_repr() for spec in self.generator_specs])
@@ -425,7 +425,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         # If during input constructor application we determined that we should skip
         # this node, return early.
         if self._should_skip:
-            logger.debug(f"Skipping generation for node {self.node_name}.")
+            logger.debug(f"Skipping generation for node {self.name}.")
             return None
 
         if not skip_fit:
@@ -452,7 +452,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 **model_gen_kwargs,
             )
 
-        gr._generation_node_name = self.node_name
+        gr._generation_node_name = self.name
         # TODO: @mgarrard determine a more refined way to indicate trial type
         if self._trial_type is not None:
             gen_metadata = gr.gen_metadata if gr.gen_metadata is not None else {}
@@ -613,7 +613,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         grs = self.generation_strategy._generator_runs
         for gr in reversed(grs):
             if (
-                gr._generation_node_name == self.node_name
+                gr._generation_node_name == self.name
                 and gr._model_key == generator_spec.model_key
             ):
                 # Extract the fit args from the GR.
@@ -684,7 +684,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             for gr in trial.generator_runs:
                 if (
                     gr._generation_node_name is not None
-                    and gr._generation_node_name == self.node_name
+                    and gr._generation_node_name == self.name
                 ):
                     trials_from_node.add(trial.index)
         return trials_from_node
@@ -745,7 +745,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         """
         # if no transition criteria are defined, this node can generate unlimited trials
         if len(self.transition_criteria) == 0:
-            return False, self.node_name
+            return False, self.name
 
         # For each "transition edge" (set of all transition criteria that lead from
         # current node (e.g. "node A") to another specific node ("e.g. "node B")
@@ -779,14 +779,14 @@ class GenerationNode(SerializationMixin, SortableBase):
                 for tc in generation_blocking:
                     if tc.is_met(self.experiment, curr_node=self):
                         tc.block_continued_generation_error(
-                            node_name=self.node_name,
+                            node_name=self.name,
                             experiment=self.experiment,
                             trials_from_node=self.trials_from_node,
                         )
                 # TODO[@mgarrard, @drfreund] Try replacing `block_gen_if_met` with
                 # a self-transition and rework this error block.
 
-        return False, self.node_name
+        return False, self.name
 
     def new_trial_limit(self, raise_generation_errors: bool = False) -> int:
         """How many trials can this generation strategy can currently produce
@@ -829,7 +829,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                     curr_node=self,
                 ):
                     criterion.block_continued_generation_error(
-                        node_name=self.node_name,
+                        node_name=self.name,
                         experiment=self.experiment,
                         trials_from_node=self.trials_from_node,
                     )
@@ -901,7 +901,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             # arms_per_node provides a way to manually override input
             # constructors. This should be used with caution, and only
             # if you really know what you're doing. :)
-            arms_from_node = arms_per_node[self.node_name]
+            arms_from_node = arms_per_node[self.name]
         elif purpose_N not in self.input_constructors:
             # if the node does not have an input constructor for N, we first
             # use the n passed to method if it exists, then check if the model gen
@@ -1164,7 +1164,7 @@ class GenerationStep(GenerationNode, SortableBase):
 
         transition_criteria += self.completion_criteria
         super().__init__(
-            node_name=f"GenerationStep_{str(self.index)}",
+            name=f"GenerationStep_{str(self.index)}",
             generator_specs=[generator_spec],
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,

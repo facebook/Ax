@@ -207,7 +207,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(gs._nodes), 1)
         self.assertEqual(gs.name, "MBM:fast")
         mbm_node = gs._nodes[0]
-        self.assertEqual(mbm_node.node_name, "MBM")
+        self.assertEqual(mbm_node.name, "MBM")
 
     def test_choose_gs_center_only_initialization(self) -> None:
         struct = GenerationStrategyDispatchStruct(
@@ -217,9 +217,9 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(gs._nodes), 2)
         self.assertEqual(gs.name, "Center+MBM:fast")
         center_node = gs._nodes[0]
-        self.assertEqual(center_node.node_name, "CenterOfSearchSpace")
+        self.assertEqual(center_node.name, "CenterOfSearchSpace")
         mbm_node = gs._nodes[1]
-        self.assertEqual(mbm_node.node_name, "MBM")
+        self.assertEqual(mbm_node.name, "MBM")
 
     def test_choose_gs_single_sobol_initialization(self) -> None:
         struct = GenerationStrategyDispatchStruct(
@@ -229,9 +229,9 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(gs._nodes), 2)
         self.assertEqual(gs.name, "Sobol+MBM:fast")
         sobol_node = gs._nodes[0]
-        self.assertEqual(sobol_node.node_name, "Sobol")
+        self.assertEqual(sobol_node.name, "Sobol")
         mbm_node = gs._nodes[1]
-        self.assertEqual(mbm_node.node_name, "MBM")
+        self.assertEqual(mbm_node.name, "MBM")
 
     def test_gs_simplify_parameter_changes(self) -> None:
         for simplify, method in product((True, False), ("fast", "quality")):

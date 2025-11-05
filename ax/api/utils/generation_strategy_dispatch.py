@@ -80,7 +80,7 @@ def _get_sobol_node(
         ),
     ]
     return GenerationNode(
-        node_name="Sobol",
+        name="Sobol",
         generator_specs=[
             GeneratorSpec(
                 generator_enum=Generators.SOBOL,
@@ -125,7 +125,7 @@ def _get_mbm_node(
     device = None if torch_device is None else torch.device(torch_device)
 
     return GenerationNode(
-        node_name="MBM",
+        name="MBM",
         generator_specs=[
             GeneratorSpec(
                 generator_enum=Generators.BOTORCH_MODULAR,
@@ -167,7 +167,7 @@ def choose_generation_strategy(
     if struct.method == "random_search":
         nodes = [
             GenerationNode(
-                node_name="Sobol",
+                name="Sobol",
                 generator_specs=[
                     GeneratorSpec(
                         generator_enum=Generators.SOBOL,
@@ -205,7 +205,7 @@ def choose_generation_strategy(
     if struct.initialize_with_center and (
         struct.initialization_budget is None or struct.initialization_budget > 0
     ):
-        center_node = CenterGenerationNode(next_node_name=nodes[0].node_name)
+        center_node = CenterGenerationNode(next_node_name=nodes[0].name)
         nodes.insert(0, center_node)
         gs_name = f"Center+{gs_name}"
     return GenerationStrategy(name=gs_name, nodes=nodes)

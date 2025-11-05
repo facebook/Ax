@@ -118,7 +118,7 @@ class TestTransitionCriterion(TestCase):
             name="test",
             nodes=[
                 GenerationNode(
-                    node_name="sobol_1",
+                    name="sobol_1",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AuxiliaryExperimentCheck(
@@ -130,7 +130,7 @@ class TestTransitionCriterion(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AuxiliaryExperimentCheck(
@@ -333,14 +333,14 @@ class TestTransitionCriterion(TestCase):
             name="test",
             nodes=[
                 GenerationNode(
-                    node_name="sobol_1",
+                    name="sobol_1",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
+                    name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )
@@ -356,14 +356,14 @@ class TestTransitionCriterion(TestCase):
             name="test",
             nodes=[
                 GenerationNode(
-                    node_name="sobol_1",
+                    name="sobol_1",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
+                    name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )
@@ -381,12 +381,12 @@ class TestTransitionCriterion(TestCase):
             name="test",
             nodes=[
                 GenerationNode(
-                    node_name="sobol_1",
+                    name="sobol_1",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[IsSingleObjective(transition_to="sobol_2")],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
+                    name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )
@@ -404,7 +404,7 @@ class TestTransitionCriterion(TestCase):
             name="test",
             nodes=[
                 GenerationNode(
-                    node_name="sobol_1",
+                    name="sobol_1",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         IsSingleObjective(transition_to="sobol_2"),
@@ -414,7 +414,7 @@ class TestTransitionCriterion(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2", generator_specs=[self.sobol_generator_spec]
+                    name="sobol_2", generator_specs=[self.sobol_generator_spec]
                 ),
             ],
         )

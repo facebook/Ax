@@ -719,8 +719,13 @@ def generation_node_from_json(
         generator_specs = generation_node_json.pop("model_specs")
     else:
         generator_specs = generation_node_json.pop("generator_specs")
+
+    if "node_name" in generation_node_json.keys():
+        name = generation_node_json.pop("node_name")
+    else:
+        name = generation_node_json.pop("name")
     return GenerationNode(
-        node_name=generation_node_json.pop("node_name"),
+        name=name,
         generator_specs=object_from_json(
             object_json=generator_specs,
             decoder_registry=decoder_registry,
@@ -1029,7 +1034,7 @@ def generation_strategy_from_json(
         gs = GenerationStrategy(nodes=nodes, name=generation_strategy_json.pop("name"))
         curr_node_name = generation_strategy_json.pop("curr_node_name")
         for node in gs._nodes:
-            if node.node_name == curr_node_name:
+            if node.name == curr_node_name:
                 gs._curr = node
                 break
 

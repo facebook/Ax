@@ -934,7 +934,7 @@ class TestBenchmark(TestCase):
             generation_strategy=GenerationStrategy(
                 nodes=[
                     GenerationNode(
-                        node_name="Sobol",
+                        name="Sobol",
                         generator_specs=[
                             GeneratorSpec(
                                 Generators.SOBOL, model_kwargs={"deduplicate": True}

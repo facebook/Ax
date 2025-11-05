@@ -103,14 +103,14 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
             name="Sobol+MBM/BO_MIXED",
             nodes=[
                 GenerationNode(
-                    node_name="Sobol",
+                    name="Sobol",
                     generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                     transition_criteria=[
                         MinTrials(threshold=2, transition_to="MBM/BO_MIXED")
                     ],
                 ),
                 GenerationNode(
-                    node_name="MBM/BO_MIXED",
+                    name="MBM/BO_MIXED",
                     generator_specs=[
                         GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR),
                         GeneratorSpec(generator_enum=Generators.BO_MIXED),
@@ -250,12 +250,12 @@ class TestGenerationStrategy(TestCase):
             model_gen_kwargs={},
         )
         self.sobol_node = GenerationNode(
-            node_name="sobol_node",
+            name="sobol_node",
             transition_criteria=self.sobol_criterion,
             generator_specs=[self.sobol_generator_spec],
         )
         self.mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=self.mbm_criterion,
             generator_specs=[self.mbm_generator_spec],
         )
@@ -283,12 +283,12 @@ class TestGenerationStrategy(TestCase):
         self.competing_tc_gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         self.mbm_to_sobol2_with_running_trial,
@@ -297,11 +297,11 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                 ),
             ],
@@ -309,12 +309,12 @@ class TestGenerationStrategy(TestCase):
         self.complex_multinode_per_trial_gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -323,14 +323,14 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         MinTrials(
@@ -348,7 +348,7 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_4",
+                    name="sobol_4",
                     generator_specs=[self.sobol_generator_spec],
                 ),
             ],
@@ -385,8 +385,8 @@ class TestGenerationStrategy(TestCase):
         name should follow the format "GenerationNode"+Stepidx.
         """
         gs = self.sobol_MBM_step_GS
-        self.assertEqual(gs._steps[0].node_name, "GenerationStep_0")
-        self.assertEqual(gs._steps[1].node_name, "GenerationStep_1")
+        self.assertEqual(gs._steps[0].name, "GenerationStep_0")
+        self.assertEqual(gs._steps[1].name, "GenerationStep_1")
 
     def test_name(self) -> None:
         self.assertEqual(self.sobol_GS._name, "Sobol")
@@ -457,7 +457,7 @@ class TestGenerationStrategy(TestCase):
         gs3 = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="test",
+                    name="test",
                     generator_specs=[
                         GeneratorSpec(
                             generator_enum=Generators.SOBOL,
@@ -471,7 +471,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             str(gs3),
             "GenerationStrategy(name='test', nodes=[GenerationNode("
-            "node_name='test', "
+            "name='test', "
             "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
             "model_key_override=None)], "
             "transition_criteria=[])])",
@@ -771,7 +771,7 @@ class TestGenerationStrategy(TestCase):
                 name="Sobol",
                 nodes=[
                     GenerationNode(
-                        node_name="sobol",
+                        name="sobol",
                         generator_specs=[
                             GeneratorSpec(
                                 generator_enum=Generators.SOBOL,
@@ -1182,16 +1182,16 @@ class TestGenerationStrategy(TestCase):
             ),
         ]
         node_1 = GenerationNode(
-            node_name="node_1",
+            name="node_1",
             transition_criteria=node_1_criterion,
             generator_specs=[self.sobol_generator_spec],
         )
         node_3 = GenerationNode(
-            node_name="node_3",
+            name="node_3",
             generator_specs=[self.sobol_generator_spec],
         )
         node_2 = GenerationNode(
-            node_name="node_2",
+            name="node_2",
             generator_specs=[self.sobol_generator_spec],
         )
 
@@ -1247,7 +1247,7 @@ class TestGenerationStrategy(TestCase):
             GenerationStrategy(
                 nodes=[
                     GenerationNode(
-                        node_name="node_1",
+                        name="node_1",
                         transition_criteria=[
                             MinTrials(
                                 threshold=4,
@@ -1315,7 +1315,7 @@ class TestGenerationStrategy(TestCase):
         """
         exp = get_branin_experiment()
         sobol_node_2 = GenerationNode(
-            node_name="sobol_2",
+            name="sobol_2",
             generator_specs=[self.sobol_generator_spec],
             transition_criteria=[
                 AutoTransitionAfterGen(
@@ -1330,7 +1330,7 @@ class TestGenerationStrategy(TestCase):
             nodes=[
                 sobol_node_2,
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1371,7 +1371,7 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol_1",
+                    name="sobol_1",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1380,14 +1380,14 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1459,15 +1459,15 @@ class TestGenerationStrategy(TestCase):
     def test_gs_initializes_default_props_correctly(self) -> None:
         """Test that all previous nodes are initialized to None"""
         node_1 = GenerationNode(
-            node_name="node_1",
+            name="node_1",
             generator_specs=[self.sobol_generator_spec],
         )
         node_2 = GenerationNode(
-            node_name="node_2",
+            name="node_2",
             generator_specs=[self.sobol_generator_spec],
         )
         node_3 = GenerationNode(
-            node_name="node_3",
+            name="node_3",
             generator_specs=[self.sobol_generator_spec],
         )
         gs = GenerationStrategy(
@@ -1553,7 +1553,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_gs_with_nodes_and_blocking_criteria(self) -> None:
         sobol_node_with_criteria = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[self.sobol_generator_spec],
             transition_criteria=[
                 MinTrials(
@@ -1572,7 +1572,7 @@ class TestGenerationStrategy(TestCase):
             ],
         )
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             generator_specs=[self.mbm_generator_spec],
         )
         gs = GenerationStrategy(
@@ -1634,12 +1634,12 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         self.mbm_to_sobol2_with_running_trial,
@@ -1648,7 +1648,7 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                 ),
             ],
@@ -1757,28 +1757,28 @@ class TestGenerationStrategy(TestCase):
                 # first node should be our exploration node and only grs from this node
                 # should be on the first trial
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 # node 2,3,4 will be out iteration nodes, and grs from all 3 nodes
                 # should be used to make the subsequent trials
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1855,7 +1855,7 @@ class TestGenerationStrategy(TestCase):
             )
         ]
         sobol_node_long = GenerationNode(
-            node_name="sobol_node",
+            name="sobol_node",
             transition_criteria=sobol_criterion,
             generator_specs=[self.sobol_generator_spec],
             input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
@@ -1863,7 +1863,7 @@ class TestGenerationStrategy(TestCase):
         )
         fixed_ft_purpose = InputConstructorPurpose.FIXED_FEATURES
         sobol_2_node = GenerationNode(
-            node_name="sobol_2",
+            name="sobol_2",
             generator_specs=[self.sobol_generator_spec],
             input_constructors={
                 InputConstructorPurpose.N: NodeInputConstructors.ALL_N,
@@ -1985,13 +1985,13 @@ class TestGenerationStrategy(TestCase):
             )
         ]
         sobol_node = GenerationNode(
-            node_name="sobol_node",
+            name="sobol_node",
             transition_criteria=sobol_criterion,
             generator_specs=[self.sobol_generator_spec],
             input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
         )
         sobol_2_node = GenerationNode(
-            node_name="sobol_2",
+            name="sobol_2",
             transition_criteria=[AutoTransitionAfterGen(transition_to="sobol_3")],
             generator_specs=[self.sobol_generator_spec],
             input_constructors={
@@ -1999,7 +1999,7 @@ class TestGenerationStrategy(TestCase):
             },
         )
         sobol_3_node = GenerationNode(
-            node_name="sobol_3",
+            name="sobol_3",
             transition_criteria=[
                 AutoTransitionAfterGen(
                     transition_to="sobol_2", continue_trial_generation=False

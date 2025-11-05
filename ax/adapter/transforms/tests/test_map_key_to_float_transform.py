@@ -115,14 +115,14 @@ class ClientTest(TestCase):
             allow_exceeding_initialization_budget=False,
             initialization_random_seed=seed,
         )
-        center_node = CenterGenerationNode(next_node_name=sobol_node.node_name)
+        center_node = CenterGenerationNode(next_node_name=sobol_node.name)
         botorch_node = GenerationNode(
-            node_name="MBM",
+            name="MBM",
             generator_specs=[generator_spec],
             should_deduplicate=True,
         )
         return GenerationStrategy(
-            name=f"Center+Sobol+{botorch_node.node_name}",
+            name=f"Center+Sobol+{botorch_node.name}",
             nodes=[center_node, sobol_node, botorch_node],
         )
 

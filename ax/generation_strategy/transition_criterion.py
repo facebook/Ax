@@ -159,7 +159,7 @@ class AutoTransitionAfterGen(TransitionCriterion):
             return True
         last_gr_from_gs = curr_node.generation_strategy.last_generator_run
         return (
-            last_gr_from_gs._generation_node_name == curr_node.node_name
+            last_gr_from_gs._generation_node_name == curr_node.name
             if last_gr_from_gs is not None
             else False
         )
