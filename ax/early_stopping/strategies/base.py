@@ -18,6 +18,7 @@ from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import estimate_early_stopping_savings
+from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -353,12 +354,20 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         else:
             metric_signatures = list(self.metric_signatures)
             directions = {}
+            metrics_without_direction = []
             for metric_signature in metric_signatures:
-                minimize = (
-                    experiment.signature_to_metric[metric_signature].lower_is_better
-                    or False
+                metric = experiment.signature_to_metric[metric_signature]
+                if metric.lower_is_better is None:
+                    metrics_without_direction.append(metric_signature)
+                else:
+                    directions[metric_signature] = metric.lower_is_better
+
+            if metrics_without_direction:
+                raise UnsupportedError(
+                    "Metrics used for early stopping must specify lower_is_better. "
+                    f"The following metrics do not specify lower_is_better: "
+                    f"{metrics_without_direction}."
                 )
-                directions[metric_signature] = minimize
 
         return directions
 
