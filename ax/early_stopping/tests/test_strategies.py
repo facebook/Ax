@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, Mock, patch
 from ax.core import OptimizationConfig
 from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
+from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import (
@@ -76,9 +77,31 @@ class TestBaseEarlyStoppingStrategy(TestCase):
     def test_early_stopping_strategy(self) -> None:
         # can't instantiate abstract class
         with self.assertRaises(TypeError):
-            # pyre-fixme[45]: Cannot instantiate abstract class
+            # pyre-ignore[45]: Cannot instantiate abstract class
             #  `BaseEarlyStoppingStrategy`.
             BaseEarlyStoppingStrategy()
+
+    def test_all_objectives_and_directions_raises_error_when_lower_is_better_is_none(
+        self,
+    ) -> None:
+        """Test that UnsupportedError is raised when a metric does not specify
+        lower_is_better."""
+        metric_without_direction = Metric(name="test_metric", lower_is_better=None)
+        test_experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        test_experiment.add_tracking_metric(metric_without_direction)
+
+        # Execute & Assert: Verify that error is raised when using
+        # metric_signatures
+        es_strategy = FakeStrategy(
+            metric_signatures=[metric_without_direction.signature]
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Metrics used for early stopping must specify lower_is_better. ",
+        ):
+            es_strategy._all_objectives_and_directions(experiment=test_experiment)
 
     @patch.object(logger, "warning")
     def test_default_objective_and_direction(self, _: MagicMock) -> None:
