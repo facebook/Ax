@@ -141,6 +141,7 @@ from ax.utils.testing.core_stubs import (
     get_sum_constraint2,
     get_surrogate,
     get_surrogate_spec_with_default,
+    get_surrogate_spec_with_inputs,
     get_surrogate_spec_with_lognormal,
     get_synthetic_runner,
     get_threshold_early_stopping_strategy,
@@ -164,6 +165,12 @@ from ax.utils.testing.modeling_stubs import (
 from ax.utils.testing.utils import generic_equals
 from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
 from botorch.models import SingleTaskGP
+from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
+from botorch.models.kernels.heterogeneous_multitask import CombinatorialCovarModule
+from botorch.models.map_saas import (
+    AdditiveMapSaasSingleTaskGP,
+    EnsembleMapSaasSingleTaskGP,
+)
 from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
@@ -174,6 +181,13 @@ from pyre_extensions import none_throws
 # pyre-fixme[5]: Global expression must be annotated.
 TEST_CASES = [
     ("AbandonedArm", get_abandoned_arm),
+    (
+        "AdditiveMapSaasSingleTaskGP",
+        partial(
+            get_surrogate_spec_with_inputs,
+            model_class=AdditiveMapSaasSingleTaskGP,
+        ),
+    ),
     ("AggregatedBenchmarkResult", get_aggregated_benchmark_result),
     ("AndEarlyStoppingStrategy", get_and_early_stopping_strategy),
     ("Arm", get_arm),
@@ -214,12 +228,26 @@ TEST_CASES = [
         "ChoiceParameter",
         partial(get_hierarchical_choice_parameter, parameter_type=ParameterType.STRING),
     ),
+    (
+        "CombinatorialCovarModule",
+        partial(
+            get_surrogate_spec_with_inputs,
+            covar_module_class=CombinatorialCovarModule,
+        ),
+    ),
     # testing with non-default argument
     (
         "DataLoaderConfig",
         partial(DataLoaderConfig, fit_only_completed_map_metrics=True),
     ),
     ("DerivedParameter", get_derived_parameter),
+    (
+        "EnsembleMapSaasSingleTaskGP",
+        partial(
+            get_surrogate_spec_with_inputs,
+            model_class=EnsembleMapSaasSingleTaskGP,
+        ),
+    ),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
     ("Experiment", get_experiment_with_data),
@@ -302,6 +330,13 @@ TEST_CASES = [
     ),
     ("GeneratorRun", get_generator_run),
     ("Hartmann6Metric", get_hartmann_metric),
+    (
+        "HeterogeneousMTGP",
+        partial(
+            get_surrogate_spec_with_inputs,
+            model_class=HeterogeneousMTGP,
+        ),
+    ),
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),

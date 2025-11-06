@@ -128,6 +128,7 @@ from botorch.models.transforms.input import ChainedInputTransform, Normalize, Ro
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
+from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -2807,6 +2808,19 @@ def get_surrogate_spec_with_lognormal() -> SurrogateSpec:
                     "lengthscale_prior": LogNormalPrior(-4.0, 1.0),
                     "batch_shape": DEFAULT,
                 },
+            )
+        ]
+    )
+
+
+def get_surrogate_spec_with_inputs(
+    model_class: type[Model] | None = None,
+    covar_module_class: type[Kernel] | None = None,
+) -> SurrogateSpec:
+    return SurrogateSpec(
+        model_configs=[
+            ModelConfig(
+                botorch_model_class=model_class, covar_module_class=covar_module_class
             )
         ]
     )
