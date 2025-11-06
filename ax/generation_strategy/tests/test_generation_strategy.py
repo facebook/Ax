@@ -694,23 +694,6 @@ class TestGenerationStrategy(TestCase):
         sobol_generation_strategy.gen_single_trial(exp)
         self.assertIsNotNone(sobol_generation_strategy._experiment)
 
-    def test_trials_as_df(self) -> None:
-        exp = get_branin_experiment()
-        sobol_generation_strategy = GenerationStrategy(
-            steps=[
-                GenerationStep(generator=Generators.SOBOL, num_trials=2),
-                GenerationStep(generator=Generators.SOBOL, num_trials=3),
-            ]
-        )
-        # No experiment attached to the GS, should be None.
-        with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
-            self.assertIsNone(sobol_generation_strategy.trials_as_df)
-        # Experiment attached with a trial, should match Experiment.to_df().
-        exp.new_trial(sobol_generation_strategy.gen_single_trial(experiment=exp))
-        with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
-            trials_df = none_throws(sobol_generation_strategy.trials_as_df)
-        self.assertTrue(trials_df.equals(exp.to_df()))
-
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
