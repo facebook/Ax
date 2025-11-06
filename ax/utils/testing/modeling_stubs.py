@@ -255,7 +255,7 @@ def sobol_gpei_generation_node_gs(
         )
     ]
     sobol_node = GenerationNode(
-        node_name="sobol_node",
+        name="sobol_node",
         transition_criteria=sobol_criterion,
         generator_specs=[sobol_generator_spec],
     )
@@ -272,7 +272,7 @@ def sobol_gpei_generation_node_gs(
 
     if with_auto_transition:
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=auto_mbm_criterion,
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
@@ -280,13 +280,13 @@ def sobol_gpei_generation_node_gs(
     elif with_unlimited_gen_mbm:
         # no TC defined is equivalent to unlimited gen
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
     elif with_is_SOO_transition:
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=is_SOO_mbm_criterion,
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
@@ -294,7 +294,7 @@ def sobol_gpei_generation_node_gs(
 
     else:
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=mbm_criterion,
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
@@ -303,7 +303,7 @@ def sobol_gpei_generation_node_gs(
     # in an actual GS, this would be set during transition, manually setting here for
     # testing purposes
     if with_previous_node:
-        mbm_node._previous_node_name = sobol_node.node_name
+        mbm_node._previous_node_name = sobol_node.name
 
     if with_trial_type:
         sobol_node._trial_type = Keys.LONG_RUN
@@ -341,7 +341,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
     return GenerationStrategy(
         nodes=[
             GenerationNode(
-                node_name="Sobol",
+                name="Sobol",
                 generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 transition_criteria=[
                     MinTrials(
@@ -351,7 +351,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
                 ],
             ),
             GenerationNode(
-                node_name="MBM",
+                name="MBM",
                 generator_specs=[
                     GeneratorSpec(
                         generator_enum=Generators.BOTORCH_MODULAR,
@@ -370,7 +370,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
                 ],
             ),
             GenerationNode(
-                node_name="MTGP",
+                name="MTGP",
                 generator_specs=[
                     GeneratorSpec(
                         generator_enum=Generators.ST_MTGP,

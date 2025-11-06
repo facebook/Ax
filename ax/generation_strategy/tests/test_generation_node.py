@@ -53,12 +53,12 @@ class TestGenerationNode(TestCase):
             model_gen_kwargs={},
         )
         self.sobol_generation_node = GenerationNode(
-            node_name="test", generator_specs=[self.sobol_generator_spec]
+            name="test", generator_specs=[self.sobol_generator_spec]
         )
         self.branin_experiment = get_branin_experiment(with_completed_trial=True)
         self.branin_data = self.branin_experiment.lookup_data()
         self.node_short = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[self.sobol_generator_spec],
             trial_type=Keys.SHORT_RUN,
         )
@@ -69,7 +69,7 @@ class TestGenerationNode(TestCase):
         )
         with self.assertRaisesRegex(UserInputError, "Model keys must be unique"):
             GenerationNode(
-                node_name="test",
+                name="test",
                 generator_specs=[self.sobol_generator_spec, self.sobol_generator_spec],
             )
         mbm_specs = [
@@ -80,7 +80,7 @@ class TestGenerationNode(TestCase):
         ]
         with self.assertRaisesRegex(UserInputError, MISSING_MODEL_SELECTOR_MESSAGE):
             GenerationNode(
-                node_name="test",
+                name="test",
                 generator_specs=mbm_specs,
             )
         model_selector = SingleDiagnosticBestModelSelector(
@@ -89,7 +89,7 @@ class TestGenerationNode(TestCase):
             criterion=ReductionCriterion.MIN,
         )
         node = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=mbm_specs,
             best_model_selector=model_selector,
         )
@@ -103,19 +103,19 @@ class TestGenerationNode(TestCase):
     def test_incorrect_trial_type(self) -> None:
         with self.assertRaisesRegex(NotImplementedError, "Trial type must be either"):
             GenerationNode(
-                node_name="test",
+                name="test",
                 generator_specs=[self.sobol_generator_spec],
                 trial_type="foo",
             )
 
     def test_init_with_trial_type(self) -> None:
         node_long = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[self.sobol_generator_spec],
             trial_type=Keys.LONG_RUN,
         )
         node_default = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[self.sobol_generator_spec],
         )
         self.assertEqual(self.node_short._trial_type, Keys.SHORT_RUN)
@@ -124,7 +124,7 @@ class TestGenerationNode(TestCase):
 
     def test_input_constructor(self) -> None:
         node = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[self.sobol_generator_spec],
             input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
         )
@@ -180,7 +180,7 @@ class TestGenerationNode(TestCase):
     @mock_botorch_optimize
     def test_gen_with_trial_type(self) -> None:
         mbm_short = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
@@ -223,7 +223,7 @@ class TestGenerationNode(TestCase):
     def test_model_gen_kwargs_deepcopy(self) -> None:
         sampler = SobolQMCNormalSampler(torch.Size([1]))
         node = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
@@ -258,7 +258,7 @@ class TestGenerationNode(TestCase):
     @mock_botorch_optimize
     def test_properties(self) -> None:
         node = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
@@ -307,12 +307,12 @@ class TestGenerationNode(TestCase):
             node.generator_spec_to_gen_from.diagnostics,
             node.generator_specs[0].diagnostics,
         )
-        self.assertEqual(node.node_name, "test")
+        self.assertEqual(node.name, "test")
         self.assertEqual(node._unique_id, "test")
 
     def test_node_string_representation(self) -> None:
         node = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[
                 self.mbm_generator_spec,
             ],
@@ -324,7 +324,7 @@ class TestGenerationNode(TestCase):
 
         self.assertEqual(
             string_rep,
-            "GenerationNode(node_name='test', "
+            "GenerationNode(name='test', "
             "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
             "model_key_override=None)], "
             "transition_criteria=[MinTrials(transition_to='None')])",
@@ -332,7 +332,7 @@ class TestGenerationNode(TestCase):
 
     def test_single_fixed_features(self) -> None:
         node = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
@@ -481,7 +481,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
             side_effect=ReductionCriterion.MEAN, spec=ReductionCriterion
         )
         self.model_selection_node = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[self.ms_mixed, self.ms_botorch],
             best_model_selector=SingleDiagnosticBestModelSelector(
                 diagnostic="Fisher exact test p",

@@ -265,7 +265,7 @@ class DeterministicGenerationNode(ExternalGenerationNode):
             raise ValueError(
                 "DeterministicGenerationNode only supports ChoiceParameters."
             )
-        super().__init__(node_name="Deterministic")
+        super().__init__(name="Deterministic")
 
         self.param_name: str = param.name
         self.iterator: Iterator[TParamValue] = iter(param.values)

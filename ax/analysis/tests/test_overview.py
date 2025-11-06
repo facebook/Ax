@@ -241,7 +241,7 @@ class TestOverview(TestCase):
         experiment.attach_data(data)
 
         factorial_gen_node = GenerationNode(
-            node_name="FACTORIAL",
+            name="FACTORIAL",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.FACTORIAL,
@@ -256,7 +256,7 @@ class TestOverview(TestCase):
         )
 
         eb_ts_gen_node = GenerationNode(
-            node_name="EMPIRICAL_BAYES_THOMPSON_SAMPLING",
+            name="EMPIRICAL_BAYES_THOMPSON_SAMPLING",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.EMPIRICAL_BAYES_THOMPSON,

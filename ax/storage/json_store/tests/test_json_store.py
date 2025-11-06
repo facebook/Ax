@@ -1138,7 +1138,7 @@ class JSONStoreTest(TestCase):
         }
         node = generation_node_from_json(json)
         self.assertIsInstance(node, GenerationNode)
-        self.assertEqual(node.node_name, "Test")
+        self.assertEqual(node.name, "Test")
         self.assertEqual(len(node.transition_criteria), 1)
         # Status quo is discarded, so we have 2 input constructors left.
         self.assertEqual(len(node.input_constructors), 2)
