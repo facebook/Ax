@@ -251,59 +251,6 @@ class GenerationStrategy(Base):
         """List of generation steps."""
         return self._nodes  # pyre-ignore[7]
 
-    def gen_single_trial(
-        self,
-        experiment: Experiment,
-        data: Data | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        n: int = 1,
-        fixed_features: ObservationFeatures | None = None,
-    ) -> GeneratorRun:
-        """Produce the next points in the experiment. Additional kwargs passed to
-        this method are propagated directly to the underlying node's `gen`, along
-        with the `model_gen_kwargs` set on the current generation node.
-
-        NOTE: Each generator run returned from this function must become a single
-        trial on the experiment to comply with assumptions made in generation
-        strategy. Do not split one generator run produced from generation strategy
-        into multiple trials (never making a generator run into a trial is allowed).
-
-        Args:
-            experiment: Experiment, for which the generation strategy is producing
-                a new generator run in the course of `gen`, and to which that
-                generator run will be added as trial(s). Information stored on the
-                experiment (e.g., trial statuses) is used to determine which node
-                will be used to produce the generator run returned from this method.
-            data: Optional data to be passed to the underlying node's `gen`, which
-                is called within this method and actually produces the resulting
-                generator run. By default, data is all data on the `experiment`.
-            n: Integer representing how many arms should be in the generator run
-                produced by this method. NOTE: Some underlying nodes may ignore
-                the `n` and produce a node-determined number of arms. In that
-                case this method will also output a generator run with number of
-                arms that can differ from `n`.
-            pending_observations: A map from metric signature to pending
-                observations for that metric, used by some nodes to avoid
-                resuggesting points that are currently being evaluated.
-        """
-        self.experiment = experiment
-
-        gr = self._gen_with_multiple_nodes(
-            experiment=experiment,
-            data=data,
-            n=n,
-            pending_observations=pending_observations,
-            fixed_features=fixed_features,
-        )
-        if len(gr) > 1:
-            raise UnsupportedError(
-                "By calling into GenerationStrategy.gen(), you are should be "
-                "expecting a single `Trial` with only one `GeneratorRun`. However, "
-                "the underlying GenerationStrategy produced multiple `GeneratorRuns` "
-                f"and returned the following list of `GeneratorRun`-s: {gr}"
-            )
-        return gr[0]
-
     def gen(
         self,
         experiment: Experiment,
@@ -384,6 +331,59 @@ class GenerationStrategy(Base):
                 )
             )
         return grs_for_multiple_trials
+
+    def gen_single_trial(
+        self,
+        experiment: Experiment,
+        data: Data | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        n: int = 1,
+        fixed_features: ObservationFeatures | None = None,
+    ) -> GeneratorRun:
+        """Produce the next points in the experiment. Additional kwargs passed to
+        this method are propagated directly to the underlying node's `gen`, along
+        with the `model_gen_kwargs` set on the current generation node.
+
+        NOTE: Each generator run returned from this function must become a single
+        trial on the experiment to comply with assumptions made in generation
+        strategy. Do not split one generator run produced from generation strategy
+        into multiple trials (never making a generator run into a trial is allowed).
+
+        Args:
+            experiment: Experiment, for which the generation strategy is producing
+                a new generator run in the course of `gen`, and to which that
+                generator run will be added as trial(s). Information stored on the
+                experiment (e.g., trial statuses) is used to determine which node
+                will be used to produce the generator run returned from this method.
+            data: Optional data to be passed to the underlying node's `gen`, which
+                is called within this method and actually produces the resulting
+                generator run. By default, data is all data on the `experiment`.
+            n: Integer representing how many arms should be in the generator run
+                produced by this method. NOTE: Some underlying nodes may ignore
+                the `n` and produce a node-determined number of arms. In that
+                case this method will also output a generator run with number of
+                arms that can differ from `n`.
+            pending_observations: A map from metric signature to pending
+                observations for that metric, used by some nodes to avoid
+                resuggesting points that are currently being evaluated.
+        """
+        self.experiment = experiment
+
+        gr = self._gen_with_multiple_nodes(
+            experiment=experiment,
+            data=data,
+            n=n,
+            pending_observations=pending_observations,
+            fixed_features=fixed_features,
+        )
+        if len(gr) > 1:
+            raise UnsupportedError(
+                "By calling into GenerationStrategy.gen(), you are should be "
+                "expecting a single `Trial` with only one `GeneratorRun`. However, "
+                "the underlying GenerationStrategy produced multiple `GeneratorRuns` "
+                f"and returned the following list of `GeneratorRun`-s: {gr}"
+            )
+        return gr[0]
 
     def current_generator_run_limit(
         self,
