@@ -44,6 +44,7 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
+from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
@@ -51,7 +52,7 @@ from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.constraints import get_outcome_constraint_transforms
-from botorch.utils.datasets import RankingDataset, SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
@@ -282,7 +283,16 @@ def choose_model_class(
 
     # Multi-task case (when `task_features` is specified).
     elif search_space_digest.task_features:
-        model_class = MultiTaskGP
+        # Check if the dataset has heterogeneous features (different search spaces)
+        if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
+            logger.debug(
+                "Detected heterogeneous features in MultiTaskDataset. "
+                "Using HeterogeneousMTGP for transfer learning with "
+                "heterogeneous search spaces."
+            )
+            model_class = HeterogeneousMTGP
+        else:
+            model_class = MultiTaskGP
 
     # Single-task multi-fidelity cases.
     elif search_space_digest.fidelity_features:
