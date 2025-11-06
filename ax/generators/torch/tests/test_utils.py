@@ -52,10 +52,11 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
+from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.posteriors.ensemble import EnsemblePosterior
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from gpytorch.kernels.constant_kernel import ConstantKernel
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
@@ -143,6 +144,40 @@ class BoTorchGeneratorUtilsTest(TestCase):
                     ),
                 ),
             )
+
+    def test_choose_model_class_heterogeneous_task_features(self) -> None:
+        # Test that HeterogeneousMTGP is chosen when MultiTaskDataset has
+        # heterogeneous features.
+        # Setup: Create datasets with different feature spaces for different tasks
+        target_dataset = SupervisedDataset(
+            X=torch.cat([torch.rand(5, 3), torch.zeros(5, 1)], dim=-1),
+            Y=torch.rand(5, 1),
+            feature_names=["x0", "x1", "x2", Keys.TASK_FEATURE_NAME.value],
+            outcome_names=["target_metric"],
+        )
+        source_dataset = SupervisedDataset(
+            X=torch.cat([torch.rand(5, 2), torch.ones(5, 1)], dim=-1),
+            Y=torch.rand(5, 1),
+            feature_names=["x0", "x1", Keys.TASK_FEATURE_NAME.value],
+            outcome_names=["source_metric"],
+        )
+        # Create MultiTaskDataset with heterogeneous features (different search spaces)
+        mt_dataset = MultiTaskDataset(
+            datasets=[target_dataset, source_dataset],
+            target_outcome_name="target_metric",
+            task_feature_index=-1,
+        )
+
+        # Execute: Choose model class with task features
+        model_class = choose_model_class(
+            dataset=mt_dataset,
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest, task_features=[-1]
+            ),
+        )
+
+        # Assert: Should select HeterogeneousMTGP for heterogeneous features
+        self.assertEqual(HeterogeneousMTGP, model_class)
 
     def test_choose_model_class_discrete_features(self) -> None:
         # With discrete features, use MixedSingleTaskyGP.
