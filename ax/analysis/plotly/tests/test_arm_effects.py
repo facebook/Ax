@@ -290,9 +290,9 @@ class TestArmEffectsPlotRel(TestCase):
         # Run 2 trials
         for _ in range(2):
             self.experiment.new_batch_trial(
-                generator_runs=self.generation_strategy._gen_with_multiple_nodes(
+                generator_runs=self.generation_strategy.gen(
                     experiment=self.experiment, n=3
-                )
+                )[0]
             ).add_status_quo_arm(weight=1.0).mark_completed(unsafe=True)
             self.experiment.fetch_data()
 
