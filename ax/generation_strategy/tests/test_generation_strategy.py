@@ -969,7 +969,7 @@ class TestGenerationStrategy(TestCase):
             # Check case with pending features initially specified; we should get two
             # GRs now (remaining in Sobol step) even though we requested 3, because
             # there already are three trials produced from `GenerationStep_0` node,
-            # and its `MinTrials` is 5.
+            # and its `MaxTrials` is 5.
             original_pending = none_throws(get_pending(experiment=exp))
             first_3_trials_obs_feats = [
                 ObservationFeatures.from_arm(arm=a, trial_index=idx)
