@@ -72,6 +72,12 @@ from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
+from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
+from botorch.models.kernels.heterogeneous_multitask import CombinatorialCovarModule
+from botorch.models.map_saas import (
+    AdditiveMapSaasSingleTaskGP,
+    EnsembleMapSaasSingleTaskGP,
+)
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
@@ -136,6 +142,9 @@ MODEL_REGISTRY: dict[type[Model], str] = {
     FullyBayesianSingleTaskGP: "FullyBayesianSingleTaskGP",
     SaasFullyBayesianMultiTaskGP: "SaasFullyBayesianMultiTaskGP",
     LCEAGP: "LCEAGP",
+    AdditiveMapSaasSingleTaskGP: "AdditiveMapSaasSingleTaskGP",
+    EnsembleMapSaasSingleTaskGP: "EnsembleMapSaasSingleTaskGP",
+    HeterogeneousMTGP: "HeterogeneousMTGP",
 }
 
 
@@ -184,6 +193,7 @@ KERNEL_REGISTRY: dict[type[Kernel], str] = {
     RBFKernel: "RBFKernel",
     DefaultRBFKernel: "DefaultRBFKernel",
     DefaultMaternKernel: "DefaultMaternKernel",
+    CombinatorialCovarModule: "CombinatorialCovarModule",
 }
 
 LIKELIHOOD_REGISTRY: dict[type[GaussianLikelihood], str] = {
