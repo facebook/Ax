@@ -1537,7 +1537,6 @@ class TestAxClient(TestCase):
                 trial_index=trial_index,
                 # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[...
                 raw_data="invalid data",
-                combine_with_last_data=True,
             )
 
     @mock_botorch_optimize
@@ -1710,9 +1709,7 @@ class TestAxClient(TestCase):
         _, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(trial_index=idx)
         ax_client._update_trial_with_raw_data(
-            trial_index=idx,
-            raw_data=[(0, {"branin": (3, 0.0)})],
-            combine_with_last_data=True,
+            trial_index=idx, raw_data=[(0, {"branin": (3, 0.0)})]
         )
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(df["mean"].item(), 3.0)

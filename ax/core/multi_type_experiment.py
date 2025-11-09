@@ -251,8 +251,6 @@ class MultiTypeExperiment(Experiment):
         self,
         trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
         # TODO: make this more efficient for fetching

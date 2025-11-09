@@ -536,6 +536,9 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             unaligned_timestamps
         )
         # manually remove timestamps 1 and 2 for arm 3
+        trial_3_data = next(iter(exp._data_by_trial[3].values()))
+        trial_3_data.full_df = trial_3_data.full_df.loc[lambda x: x["step"] < 1]
+
         df = data.map_df
         df.drop(
             df.index[
@@ -545,6 +548,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             ],
             inplace=True,
         )  # TODO this wont work once we make map_df immutable (which we should)
+        # Create a new experiment without those
         exp.attach_data(data=data)
 
         """

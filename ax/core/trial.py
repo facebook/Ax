@@ -269,9 +269,7 @@ class Trial(BaseTrial):
                     "`experiment.lookup_data_for_trial` to get all attached data."
                 )
 
-    def update_trial_data(
-        self, raw_data: TEvaluationOutcome, combine_with_last_data: bool = False
-    ) -> str:
+    def update_trial_data(self, raw_data: TEvaluationOutcome) -> str:
         """Utility method that attaches data to a trial and
         returns an update message.
 
@@ -282,9 +280,6 @@ class Trial(BaseTrial):
                 unknown (then Ax will infer observation noise level).
                 Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
-            combine_with_last_data: Whether to combine the given data with the
-                data that was previously attached to the trial. See
-                `Experiment.attach_data` for a detailed explanation.
 
         Returns:
             A string message summarizing the update.
@@ -293,9 +288,7 @@ class Trial(BaseTrial):
         data = self._raw_evaluations_to_data(raw_data={arm_name: raw_data})
 
         self.validate_data_for_trial(data=data)
-        self.experiment.attach_data(
-            data=data, combine_with_last_data=combine_with_last_data
-        )
+        self.experiment.attach_data(data=data)
 
         evaluations = dict(zip(data.df["metric_name"], data.df["mean"]))
         return str(round_floats_for_logging(item=evaluations))

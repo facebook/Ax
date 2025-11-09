@@ -311,7 +311,7 @@ class TestSummary(TestCase):
         # Store the MapData in the experiment
         for trial in experiment.trials.values():
             trial_data = map_data.filter(trial_indices=[trial.index])
-            experiment.attach_data(trial_data, combine_with_last_data=False)
+            experiment.attach_data(trial_data)
 
         # Compute the summary
         analysis = Summary()

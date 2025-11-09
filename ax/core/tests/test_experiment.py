@@ -26,6 +26,7 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     ObjectiveThreshold,
+    OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -477,7 +478,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
 
         # Verify all None values
-        self.experiment.status_quo = Arm({n: None for n in sq_parameters.keys()})
+        self.experiment.status_quo = Arm(dict.fromkeys(sq_parameters))
         self.assertIsNone(self.experiment.status_quo.parameters["w"])
 
         # Switch back to sq with values
@@ -609,16 +610,28 @@ class ExperimentTest(TestCase):
 
         full_dict = exp._data_by_trial
         self.assertEqual(len(full_dict), 2)  # data for 2 trials
-        self.assertEqual(len(full_dict[0]), 6)  # 6 data objs for batch 0
+        # All data is associated with the later ts
+        self.assertEqual(set(full_dict[0].keys()), {t2})
 
+        # The original ts is no longer there, since it has been merged in
+        self.assertEqual(len(exp.lookup_data_for_ts(t1).df), 0)
         # Test retrieving original batch 0 data
-        self.assertEqual(len(exp.lookup_data_for_ts(t1).df), n)
-        self.assertEqual(len(exp.lookup_data_for_trial(0)[0].df), n)
+        trial_0_df = exp.lookup_data_for_trial(0)[0].df
+        self.assertEqual((trial_0_df["metric_name"] == "b").sum(), n)
+        self.assertEqual(
+            (trial_0_df["metric_name"] == "not_yet_on_experiment").sum(), 1
+        )
 
         # Test retrieving full exp data
-        self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)
+        t2_df = exp.lookup_data_for_ts(t2).df
+        self.assertEqual((t2_df["metric_name"] == "b").sum(), 4 * n)
+        self.assertEqual((t2_df["metric_name"] == "not_yet_on_experiment").sum(), 1)
 
-        self.assertEqual(len(full_dict[0]), 6)  # 6 data objs for batch 0
+        self.assertEqual(len(full_dict[0]), 1)
+        # Make sure that _data_by_trial[0] gives the same data as
+        # `lookup_data_for_trial(0)`
+        trial_0_df_2 = next(iter(full_dict[0].values())).df
+        self.assertEqual(len(trial_0_df_2), len(trial_0_df))
         new_data = Data(
             df=pd.DataFrame.from_records(
                 [
@@ -642,9 +655,9 @@ class ExperimentTest(TestCase):
                 ]
             )
         )
-        t3 = exp.attach_data(new_data, combine_with_last_data=True)
+        t3 = exp.attach_data(new_data)
         # still 6 data objs, since we combined last one
-        self.assertEqual(len(full_dict[0]), 6)
+        self.assertEqual(set(exp._data_by_trial[0].keys()), {t3})
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned
@@ -653,18 +666,29 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.fetch_data().df), 3 * n)
 
         # Verify we do get the stored data if there are an unimplemented metrics.
-        del exp._data_by_trial[0][t3]  # Remove attached data for nonexistent metric.
+        # Remove attached data for nonexistent metric.
+        exp._data_by_trial[0][t3] = Data(
+            exp._data_by_trial[0][t3].full_df.loc[lambda x: x["metric_name"] != "z"]
+        )
         # Remove implemented metric that is `available_while_running`
         # (and therefore not pulled from cache).
         exp.remove_tracking_metric(metric_name="b")
         exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
         batch._status = TrialStatus.COMPLETED
         # Data should be getting looked up now.
-        self.assertEqual(batch.fetch_data(), exp.lookup_data_for_ts(t1))
-        self.assertEqual(exp.fetch_data(), exp.lookup_data_for_ts(t1))
+        looked_up_data = exp.lookup_data()
+        looked_up_df = looked_up_data.full_df
+        self.assertFalse((looked_up_df["metric_name"] == "z").any())
+        self.assertTrue(
+            batch.fetch_data().full_df.equals(
+                looked_up_df.loc[lambda x: (x["trial_index"] == 0)].sort_values(
+                    ["arm_name", "metric_name"], ignore_index=True
+                )
+            )
+        )
         metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
         # Data for metric "z" should no longer be present since we removed it.
-        self.assertEqual(metrics_in_data, {"b"})
+        self.assertEqual(metrics_in_data, {"b", "not_yet_on_experiment"})
 
         # Verify that `metrics` kwarg to `experiment.fetch_data` is respected
         # when pulling looked-up data.
@@ -707,47 +731,6 @@ class ExperimentTest(TestCase):
                     metric_class=NoisyFunctionMetric,
                     attributes_to_update={"fake": 1},
                 )
-
-    def test_OverwriteExistingData(self) -> None:
-        n = 10
-        exp = self._setupBraninExperiment(n)
-
-        # automatically attaches data
-        data = exp.fetch_data()
-
-        # can't set both combine_with_last_data and overwrite_existing_data
-        with self.assertRaises(UnsupportedError):
-            exp.attach_data(
-                data, combine_with_last_data=True, overwrite_existing_data=True
-            )
-
-        # data exists for two trials
-        # data has been attached once for each trial
-        self.assertEqual(len(exp._data_by_trial), 2)
-        self.assertEqual(len(exp._data_by_trial[0]), 1)
-        self.assertEqual(len(exp._data_by_trial[1]), 1)
-
-        exp.attach_data(data)
-        # data has been attached twice for each trial
-        self.assertEqual(len(exp._data_by_trial), 2)
-        self.assertEqual(len(exp._data_by_trial[0]), 2)
-        self.assertEqual(len(exp._data_by_trial[1]), 2)
-
-        ts = exp.attach_data(data, overwrite_existing_data=True)
-        # previous two attachment are overwritten,
-        # now only one data (most recent one) per trial
-        self.assertEqual(len(exp._data_by_trial), 2)
-        self.assertEqual(len(exp._data_by_trial[0]), 1)
-        self.assertEqual(len(exp._data_by_trial[1]), 1)
-        self.assertTrue(ts in exp._data_by_trial[0])
-        self.assertTrue(ts in exp._data_by_trial[1])
-
-        with self.assertRaisesRegex(
-            ValueError, "new data contains only a subset of the metrics"
-        ):
-            # prevent users from overwriting metrics
-            data.df["metric_name"] = "a"
-            exp.attach_data(data, overwrite_existing_data=True)
 
     def test_EmptyMetrics(self) -> None:
         empty_experiment = Experiment(
@@ -823,6 +806,152 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.runner, new_runner)
         # Update candidate trial runners.
         self.assertEqual(self.experiment.trials[1].runner, new_runner)
+
+    def test_attach(self) -> None:
+        """
+        Test that
+        - calling `experiment.attach_data` with `overwrite_existing_data` or
+            `combine_with_last_data` provided produces a warning that this
+            option is deprecated.
+        - calling `experiment.attach_data` with any other unsupported arguments
+            produces a ValueError
+        - `experiment.attach_data` results in
+            `experiment._data_by_trial[trial_index]` only having one item for
+            each trial index
+        """
+        exp = Experiment(
+            name="test",
+            search_space=get_branin_search_space(),
+            optimization_config=OptimizationConfig(
+                objective=Objective(metric=Metric(name="a", lower_is_better=True))
+            ),
+            tracking_metrics=[Metric(name="b"), Metric(name="c")],
+            runner=SyntheticRunner(),
+        )
+        # Add a trial
+        arm_name = "0_0"
+        trial_index = 0
+        orig_b_value = 1.0
+        df1 = pd.DataFrame(
+            {
+                "trial_index": [trial_index, trial_index],
+                "arm_name": [arm_name, arm_name],
+                "metric_name": ["a", "b"],
+                "metric_signature": ["a", "b"],
+                "mean": [orig_b_value, 2.0],
+                "sem": [0.1, 0.2],
+            }
+        )
+        data1 = Data(df=df1)
+
+        with self.subTest("args deprecated"):
+            deprecation_msg = "is deprecated"
+            for kwargs in [
+                {"overwrite_existing_data": True},
+                {"combine_with_last_data": True},
+                {"overwrite_existing_data": True, "combine_with_last_data": False},
+            ]:
+                with self.assertWarnsRegex(
+                    DeprecationWarning, expected_regex=deprecation_msg, msg=kwargs
+                ):
+                    exp.attach_data(data1, **kwargs)
+
+        # (1) use a fresh experiment with no data on it and with three metrics
+        original_ts = exp.attach_data(data1)
+        self.assertEqual(len(exp._data_by_trial[trial_index]), 1)
+        self.assertIn(original_ts, exp._data_by_trial[trial_index])
+
+        new_b_value = 3.0
+        # b is updated, c is new
+        df2 = pd.DataFrame(
+            {
+                "trial_index": [trial_index, trial_index],
+                "arm_name": [arm_name, arm_name],
+                "metric_name": ["b", "c"],
+                "metric_signature": ["b", "c"],
+                "mean": [new_b_value, 4.0],
+                "sem": [0.3, 0.4],
+            }
+        )
+        data2 = Data(df=df2)
+        new_ts = exp.attach_data(data2, combine_with_last_data=True)
+        # Still just one item in it, but with a new ts
+        self.assertEqual(set(exp._data_by_trial[trial_index].keys()), {new_ts})
+        # (5) assert that `exp._data_by_trial[0]`'s one value is a Data with
+        #     metrics a, b, and c, containing the more recent value for metric b.
+        attached_df = exp._data_by_trial[trial_index][new_ts].full_df
+        # All three metrics are present on the new data
+        self.assertEqual(set(attached_df["metric_name"]), {"a", "b", "c"})
+        # Check that metric b has the updated value (3.0)
+        b_value = attached_df.loc[attached_df["metric_name"] == "b", "mean"].item()
+        self.assertEqual(b_value, new_b_value)
+
+        # Attach some MapData when we didn't previously have MapData. This is an
+        # important case as Metrics transition to MapMetrics
+        map_data = MapData(df=df2.assign(step=0))
+        exp.attach_data(data=map_data)
+        data = exp.lookup_data(trial_indices=[0])
+        self.assertIsInstance(data, MapData)
+        # Metric "a" only from first fetch, metrics "b" and "c" with step NaN
+        # from second fetch, metrics "b" and "c" with step 0.0 from third fetch
+        self.assertEqual(len(data.full_df), 5)
+        self.assertEqual(data.full_df["step"].isnull().sum(), 3)
+        self.assertEqual((data.full_df["step"] == 0).sum(), 2)
+
+        with self.subTest("Experiment with legacy data format"):
+            exp = Experiment(
+                name="test",
+                search_space=get_branin_search_space(),
+                optimization_config=OptimizationConfig(
+                    objective=Objective(metric=Metric(name="a", lower_is_better=True))
+                ),
+                tracking_metrics=[Metric(name="b"), Metric(name="c")],
+                runner=SyntheticRunner(),
+            )
+            ts0, ts1 = 2, 3
+            data_as_dict = {
+                "trial_index": 0,
+                "arm_name": "0_0",
+                "metric_name": "a",
+                "metric_signature": "a",
+                "sem": None,
+            }
+
+            exp._data_by_trial = {
+                0: OrderedDict(
+                    [
+                        (
+                            ts,
+                            Data(
+                                df=pd.DataFrame.from_records(
+                                    [
+                                        {"mean": ts, **data_as_dict},
+                                        {
+                                            **data_as_dict,
+                                            **{
+                                                "mean": ts,
+                                                "metric_name": "b",
+                                                "metric_signature": "b",
+                                            },
+                                        },
+                                    ]
+                                )
+                            ),
+                        )
+                        for ts in [ts0, ts1]
+                    ]
+                )
+            }
+            new_mean = 4.0
+            exp.attach_data(
+                Data(df=pd.DataFrame.from_records([{"mean": new_mean, **data_as_dict}]))
+            )
+            df = exp.lookup_data(trial_indices=[0]).df
+            # b is present even though it wasn't in the most recent fetch
+
+            self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
+            # We have the old mean of b and the new mean of a
+            self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
 
     def test_attach_and_sort_data(self) -> None:
         n = 4
@@ -1291,7 +1420,7 @@ class ExperimentTest(TestCase):
             search_space=larger_search_space,
         )
         new_data = cloned_experiment.lookup_data()
-        self.assertNotEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
+        self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
         self.assertIsInstance(new_data, MapData)
         expected_data_by_trial = {}
         for trial_index in experiment.trials:
@@ -1510,18 +1639,13 @@ class ExperimentTest(TestCase):
             data = exp.fetch_data().df
             trials = exp.trial_indices_with_data(critical_metrics_only=True)
             self.assertEqual(trials, {0, 1})
-            # remove one of opt config metrics (branin_b) from one trial
+            # add data that is missing one of the metrics
             data = data[
                 ~((data["trial_index"] == 1) & (data["metric_name"] == "branin_a"))
             ]
             exp.attach_data(Data(df=data))
-            with patch("ax.core.experiment.logger.debug") as mock_logger:
-                trials = exp.trial_indices_with_data(critical_metrics_only=True)
-                self.assertEqual(trials, {0})
-                mock_logger.assert_called_once()
-                self.assertIn(
-                    "Metrics present in trial data", mock_logger.call_args.args[0]
-                )
+            trials = exp.trial_indices_with_data(critical_metrics_only=True)
+            self.assertEqual(trials, {0, 1})
         with self.subTest("changed opt config, no data for new config"):
             exp.optimization_config = get_optimization_config_no_constraints()
             trials = exp.trial_indices_with_data(critical_metrics_only=True)
@@ -1792,11 +1916,13 @@ class ExperimentWithMapDataTest(TestCase):
             data_type=DataType.MAP_DATA,
         )
         self.experiment.attach_data(first_epoch)
+
+        # Update the data for step=2 and attach steps 3, 4 for the first time
+        new_evaluations = {
+            "0_0": [(2, {"no_fetch_impl_metric": (4.9, 0.0)})] + evaluations["0_0"][2:]
+        }
         remaining_epochs = raw_evaluations_to_data(
-            raw_data={
-                arm_name: partial_results[1:4]
-                for arm_name, partial_results in evaluations.items()
-            },
+            raw_data=new_evaluations,
             trial_index=0,
             metric_name_to_signature={
                 "no_fetch_impl_metric": "no_fetch_impl_metric_signature",
@@ -1806,9 +1932,20 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment.attach_data(remaining_epochs)
         self.experiment.trials[0].mark_completed()
 
-        expected_data = remaining_epochs
         actual_data = self.experiment.lookup_data()
-        self.assertEqual(expected_data, actual_data)
+        self.assertIsInstance(actual_data, MapData)
+        # The resulting data should contain both the progressions that were
+        # attached first (step=1, 2) and the progressions that were attached
+        # later (step=2, 3, 4).
+        # We don't care about indexes
+        expected_df = remaining_epochs.full_df.reset_index(drop=True)
+        actual_df = actual_data.full_df
+        actual_df_later_steps = actual_df[actual_df["step"] > 1].reset_index(drop=True)
+        self.assertTrue(actual_df_later_steps.equals(expected_df))
+        self.assertEqual(len(actual_df), 4)
+        self.assertEqual(set(actual_df["step"]), set(range(1, 5)))
+        # Check that data for step 2 has been updated
+        self.assertEqual(actual_df.loc[actual_df["step"] == 2, "mean"].item(), 4.9)
 
     def test_FetchDataWithMixedData(self) -> None:
         with patch(
