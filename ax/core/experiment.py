@@ -1008,28 +1008,6 @@ class Experiment(Base):
 
         return self.attach_data(data=data)
 
-    def lookup_data_for_ts(self, timestamp: int) -> Data:
-        """Collect data for all trials stored at this timestamp.
-
-        Useful when many trials' data was fetched and stored simultaneously
-        and user wants to retrieve same collection of data later.
-
-        Can also be used to lookup specific data for a single trial
-        when storage time is known.
-
-        Args:
-            timestamp: Timestamp in millis at which data was stored.
-
-        Returns:
-            Data object with all data stored at the timestamp.
-        """
-        trial_datas = []
-        for _trial_index, ts_to_data in self._data_by_trial.items():
-            if timestamp in ts_to_data:
-                trial_datas.append(ts_to_data[timestamp])
-
-        return self.default_data_constructor.from_multiple_data(trial_datas)
-
     def lookup_data_for_trial(self, trial_index: int) -> tuple[Data, int]:
         """Look up stored data for a specific trial.
 

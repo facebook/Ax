@@ -605,7 +605,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.lookup_data_for_trial(1)[0].df), 30)
 
         # Test local storage
-        t1 = exp.attach_data(batch_data)
+        exp.attach_data(batch_data)
         t2 = exp.attach_data(exp_data)
 
         full_dict = exp._data_by_trial
@@ -613,8 +613,6 @@ class ExperimentTest(TestCase):
         # All data is associated with the later ts
         self.assertEqual(set(full_dict[0].keys()), {t2})
 
-        # The original ts is no longer there, since it has been merged in
-        self.assertEqual(len(exp.lookup_data_for_ts(t1).df), 0)
         # Test retrieving original batch 0 data
         trial_0_df = exp.lookup_data_for_trial(0)[0].df
         self.assertEqual((trial_0_df["metric_name"] == "b").sum(), n)
@@ -623,7 +621,7 @@ class ExperimentTest(TestCase):
         )
 
         # Test retrieving full exp data
-        t2_df = exp.lookup_data_for_ts(t2).df
+        t2_df = exp.lookup_data().df
         self.assertEqual((t2_df["metric_name"] == "b").sum(), 4 * n)
         self.assertEqual((t2_df["metric_name"] == "not_yet_on_experiment").sum(), 1)
 
@@ -658,7 +656,7 @@ class ExperimentTest(TestCase):
         t3 = exp.attach_data(new_data)
         # still 6 data objs, since we combined last one
         self.assertEqual(set(exp._data_by_trial[0].keys()), {t3})
-        self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
+        self.assertIn("z", exp.lookup_data().df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned
         batch._status = TrialStatus.ABANDONED
