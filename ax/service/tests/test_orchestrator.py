@@ -1170,7 +1170,7 @@ class TestAxOrchestrator(TestCase):
         # All trials should be marked complete after one run.
         with patch(
             "ax.service.utils.early_stopping.should_stop_trials_early",
-            wraps=lambda trial_indices, **kwargs: {i: None for i in trial_indices},
+            wraps=lambda trial_indices, **kwargs: dict.fromkeys(trial_indices),
         ) as mock_should_stop_trials_early, patch.object(
             InfinitePollRunner, "stop", return_value=None
         ) as mock_stop_trial_run:
@@ -1226,9 +1226,6 @@ class TestAxOrchestrator(TestCase):
             options=OrchestratorOptions(
                 init_seconds_between_polls=0,
                 early_stopping_strategy=OddIndexEarlyStoppingStrategy(),
-                fetch_kwargs={
-                    "overwrite_existing_data": False,
-                },
                 **self.orchestrator_options_kwargs,
             ),
             db_settings=self.db_settings_if_always_needed,
@@ -1252,9 +1249,7 @@ class TestAxOrchestrator(TestCase):
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
 
-        # There should be 3 dataframes for Trial 0 -- one from its *last* intermediate
-        # poll and one from when the trial was completed.
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 3)
+        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
 
         looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
@@ -1304,8 +1299,6 @@ class TestAxOrchestrator(TestCase):
                 # to cause the possibility of multiple fetches on completed trials
                 total_trials=5,
                 init_seconds_between_polls=0,  # Short between polls so test is fast.
-                # this is necessary to see how many times we fetched specific trials
-                fetch_kwargs={"overwrite_existing_data": False},
                 **self.orchestrator_options_kwargs,
             ),
             db_settings=self.db_settings,
@@ -1316,11 +1309,7 @@ class TestAxOrchestrator(TestCase):
             return_value=timedelta(hours=1),
         ):
             orchestrator.run_all_trials()
-        # Expect multiple dataframes for Trial 0 -- it should complete on
-        # the first iteration.
-        # If it's 1 it means period_of_new_data_after_trial_completion is
-        # being disregarded.
-        self.assertGreater(len(orchestrator.experiment._data_by_trial[0]), 1)
+        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
 
     def test_run_trials_in_batches(self) -> None:
         gs = self.two_sobol_steps_GS
@@ -2068,24 +2057,24 @@ class TestAxOrchestrator(TestCase):
 
         self.assertEqual(len(orchestrator.experiment.completed_trials), 1)
 
-    def test_it_does_not_overwrite_data_with_combine_fetch_kwarg(self) -> None:
+    def test_it_does_not_overwrite_data(self) -> None:
         gs = self.two_sobol_steps_GS
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
-            options=OrchestratorOptions(
-                fetch_kwargs={
-                    "combine_with_last_data": True,
-                },
-                **self.orchestrator_options_kwargs,
-            ),
+            options=OrchestratorOptions(**self.orchestrator_options_kwargs),
             db_settings=self.db_settings_if_always_needed,
         )
 
         orchestrator.run_n_trials(max_trials=1)
 
         self.assertEqual(len(self.branin_experiment.completed_trials), 1)
-        metric_name = next(iter(self.branin_experiment.metrics.keys()))
+
+        initial_df = self.branin_experiment.lookup_data().df
+        metric_name = initial_df["metric_name"].iloc[0]
+        initial_mean = initial_df.loc[
+            initial_df["metric_name"] == metric_name, "mean"
+        ].item()
         self.branin_experiment.attach_data(
             Data(
                 df=pd.DataFrame(
@@ -2101,17 +2090,27 @@ class TestAxOrchestrator(TestCase):
             )
         )
 
-        attached_means = self.branin_experiment.lookup_data().df["mean"].unique()
-        # the attach has overwritten the data, so we can infer that
-        # fetching happened in the next `run_n_trials()`
-        self.assertIn(TEST_MEAN, attached_means)
-        self.assertEqual(len(attached_means), 1)
+        attached_means = (
+            self.branin_experiment.lookup_data()
+            .df.loc[lambda x: x["metric_name"] == metric_name, "mean"]
+            .unique()
+        )
+        # For multi-type experiment (TestAxOrchestratorMultiTypeExperiment)
+        if len(self.branin_experiment.trials) == 2:
+            expected_means = {initial_mean, TEST_MEAN}
+        else:
+            # One trial
+            expected_means = {TEST_MEAN}
+        self.assertEqual(expected_means, set(attached_means))
 
         orchestrator.run_n_trials(max_trials=1)
-        attached_means = self.branin_experiment.lookup_data().df["mean"].unique()
-        # it did fetch again, but kept both rows because of the combine kwarg
+        attached_means = (
+            self.branin_experiment.lookup_data()
+            .df.loc[lambda x: x["metric_name"] == metric_name, "mean"]
+            .unique()
+        )
         self.assertIn(TEST_MEAN, attached_means)
-        self.assertEqual(len(attached_means), 2)
+        self.assertEqual(len(attached_means), len(self.branin_experiment.trials))
 
     @mock_botorch_optimize
     def test_it_works_with_multitask_models(

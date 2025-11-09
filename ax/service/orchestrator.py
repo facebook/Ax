@@ -200,10 +200,6 @@ class Orchestrator(AnalysisBase, BestPointMixin):
     # applications where the user wants to run the optimization loop to exhaust
     # the declared number of trials.
     __ignore_global_stopping_strategy: bool = False
-    # Default kwargs when fetching data if not overridden on `OrchestratorOptions`
-    DEFAULT_FETCH_KWARGS = {
-        "overwrite_existing_data": True,
-    }
 
     def __init__(
         self,
@@ -1933,13 +1929,6 @@ class Orchestrator(AnalysisBase, BestPointMixin):
 
         try:
             kwargs = deepcopy(self.options.fetch_kwargs)
-            for k, v in self.DEFAULT_FETCH_KWARGS.items():
-                kwargs.setdefault(k, v)
-            if kwargs.get("overwrite_existing_data") and kwargs.get(
-                "combine_with_last_data"
-            ):
-                # to avoid error https://fburl.com/code/ilix4okj
-                kwargs["overwrite_existing_data"] = False
             if self.trial_type is not None:
                 metrics = assert_is_instance(
                     self.experiment, MultiTypeExperiment
