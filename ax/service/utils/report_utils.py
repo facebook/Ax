@@ -35,7 +35,10 @@ from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
 from ax.core.trial_status import TrialStatus
@@ -102,10 +105,15 @@ def _get_objective_trace_plot(
     experiment: Experiment, true_objective_metric_name: str | None = None
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
-        return [
-            scatter_plot_with_hypervolume_trace_plotly(experiment=experiment),
-            *_pairwise_pareto_plotly_scatter(experiment=experiment),
-        ]
+        plots = []
+        if _has_reference_point(
+            optimization_config=assert_is_instance(
+                experiment.optimization_config, MultiObjectiveOptimizationConfig
+            )
+        ):
+            plots = [scatter_plot_with_hypervolume_trace_plotly(experiment=experiment)]
+        plots += list(_pairwise_pareto_plotly_scatter(experiment=experiment))
+        return plots
     runner = experiment.runner
     run_metadata_report_keys = None
     if runner is not None:
@@ -1457,3 +1465,13 @@ def warn_if_unpredictable_metrics(
 
     if len(unpredictable_metrics) > 0:
         return UNPREDICTABLE_METRICS_MESSAGE.format(list(unpredictable_metrics.keys()))
+
+
+def _has_reference_point(optimization_config: MultiObjectiveOptimizationConfig) -> bool:
+    objectives = assert_is_instance(
+        optimization_config.objective, MultiObjective
+    ).objectives
+    objective_names = {obj.metric.name for obj in objectives}
+    thresholds = optimization_config.objective_thresholds
+    threshold_names = {threshold.metric.name for threshold in thresholds}
+    return objective_names == threshold_names
