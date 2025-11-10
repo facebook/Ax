@@ -710,7 +710,6 @@ def _merge_into_session_in_session_decode(
     return new_sqa
 
 
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def _copy_db_ids_if_possible(new_obj: Any, obj: Any) -> None:
     """Wraps _copy_db_ids in a try/except, and logs warnings on error."""
     try:

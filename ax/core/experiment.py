@@ -669,8 +669,6 @@ class Experiment(Base):
     def fetch_data_results(
         self,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetches data for all trials on this experiment and for either the
@@ -698,8 +696,6 @@ class Experiment(Base):
         return self._lookup_or_fetch_trials_results(
             trials=list(self.trials.values()),
             metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
 
@@ -707,8 +703,6 @@ class Experiment(Base):
         self,
         trial_indices: Iterable[int],
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetches data for specific trials on the experiment.
@@ -734,8 +728,6 @@ class Experiment(Base):
         return self._lookup_or_fetch_trials_results(
             trials=self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
 
@@ -743,8 +735,6 @@ class Experiment(Base):
         self,
         trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
         """Fetches data for all trials on this experiment and for either the
@@ -773,8 +763,6 @@ class Experiment(Base):
             if trial_indices is None
             else self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
 
@@ -790,8 +778,6 @@ class Experiment(Base):
         self,
         trials: list[BaseTrial],
         metrics: Iterable[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         if not self.metrics and not metrics:
@@ -837,13 +823,8 @@ class Experiment(Base):
 
         if contains_new_data:
             try:
-                self.attach_fetch_results(
-                    results=results,
-                    combine_with_last_data=combine_with_last_data,
-                    overwrite_existing_data=overwrite_existing_data,
-                )
+                self.attach_fetch_results(results=results)
             except ValueError as e:
-                # TODO: Log and track these unexpected errors.
                 logger.error(
                     f"Encountered ValueError {e} while attaching results. Proceeding "
                     "and returning Results fetched without attaching."
@@ -866,48 +847,38 @@ class Experiment(Base):
 
         return {}
 
-    def attach_data(
-        self,
-        data: Data,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
-    ) -> int:
-        """Attach data to experiment. Stores data in `experiment._data_by_trial`,
-        to be looked up via `experiment.lookup_data_for_trial`.
+    def attach_data(self, data: Data, **kwargs: Any) -> int:
+        """
+        Attach data to the experiment's `_data_by_trial` attribute.
+
+        Store data in `experiment._data_by_trial`, to be looked up via
+        ``experiment.lookup_data_for_trial`` or ``experiment.lookup_data()``.
+        When a new observation is attached to a trial that already has an
+        observation for that arm name, metric, and (if present) step, the new
+        observation replaces the old one.
 
         Args:
-            data: Data object to store.
-            combine_with_last_data: By default, when attaching data, it's identified
-                by its timestamp, and `experiment.lookup_data_for_trial` returns
-                data by most recent timestamp. Sometimes, however, we want to combine
-                the data from multiple calls to `attach_data` into one dataframe.
-                This might be because:
-                    - We attached data for some metrics at one point and data for
-                    the rest of the metrics later on.
-                    - We attached data for some fidelity at one point and data for
-                    another fidelity later one.
-                To achieve that goal, set `combine_with_last_data` to `True`.
-                In this case, we will take the most recent previously attached
-                data, append the newly attached data to it, attach a new
-                Data object with the merged result, and delete the old one.
-                Afterwards, calls to `lookup_data_for_trial` will return this
-                new combined data object. This operation will also validate that the
-                newly added data does not contain observations for metrics that
-                already have observations at the same fidelity in the most recent data.
-            overwrite_existing_data: By default, we keep around all data that has
-                ever been attached to the experiment. However, if we know that
-                the incoming data contains all the information we need for a given
-                trial, we can replace the existing data for that trial, thereby
-                reducing the amount we need to store in the database.
+            data: Data to attach.
+            kwargs: Deprecated arguments.
 
         Returns:
             Timestamp of storage in millis.
         """
-        if combine_with_last_data and overwrite_existing_data:
-            raise UnsupportedError(
-                "Cannot set both combine_with_last_data=True and "
-                "overwrite_existing_data=True. Data can either be "
-                "combined, or overwritten, or neither."
+        deprecated_arguments = ["combine_with_last_data", "overwrite_existing_data"]
+        for arg in deprecated_arguments:
+            if arg in kwargs:
+                warnings.warn(
+                    f"Passing {arg} to `attach_data` is deprecated. "
+                    "`attach_data` will behave in a way similar to the old "
+                    "`combine_with_last_data=True`, "
+                    "`overwrite_existing_data=False`. behavior.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+        unexpected_args = set(kwargs.keys()) - set(deprecated_arguments)
+        if unexpected_args:
+            raise ValueError(
+                f"Unexpected arguments {unexpected_args} passed to `attach_data`."
             )
         data_type = type(data)
         if data.full_df.empty:
@@ -925,7 +896,7 @@ class Experiment(Base):
                 "the experiment's optimization config."
             )
         cur_time_millis = current_timestamp_in_millis()
-        for trial_index, trial_df in data.full_df.groupby(data.full_df["trial_index"]):
+        for trial_index, trial_df in data.full_df.groupby("trial_index"):
             if not isinstance(data, MapData):
                 trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
             current_trial_data = (
@@ -933,78 +904,59 @@ class Experiment(Base):
                 if trial_index in self._data_by_trial
                 else OrderedDict()
             )
-            if combine_with_last_data and len(current_trial_data) > 0:
-                last_data_type, last_df = self._get_last_data_without_similar_rows(
-                    current_trial_data=current_trial_data, new_df=trial_df
+            if len(current_trial_data) > 0:
+                _, last_data = current_trial_data.popitem()
+                combined_df = self._combine_data_favoring_recent(
+                    last_df=last_data.full_df, new_df=trial_df
                 )
-                current_trial_data.popitem()
-                current_trial_data[cur_time_millis] = last_data_type(
-                    pd.concat((last_df, trial_df), ignore_index=True)
-                )
-            elif overwrite_existing_data:
-                if len(current_trial_data) > 0:
-                    _, last_data = list(current_trial_data.items())[-1]
-                    # It may seem odd to use `full_df` here, because with
-                    # MapData, `df` is shorter, and since it is cached, it won't
-                    # be constructed too often. However, constructing MapData's
-                    # `df` is sufficiently expensive due to the groupby-apply
-                    # and sort operations needed that using `full_df` is much
-                    # faster even if repeated many times.
-                    last_data_metrics = set(last_data.full_df["metric_name"].unique())
-
-                    new_data_metrics = set(trial_df["metric_name"].unique())
-
-                    difference = last_data_metrics.difference(new_data_metrics)
-                    if len(difference) > 0:
-                        raise ValueError(
-                            "overwrite_trial_data is True, but the new data contains "
-                            "only a subset of the metrics that are present in the "
-                            f"previous data. Missing metrics: {difference}"
-                        )
-                current_trial_data = OrderedDict(
-                    {cur_time_millis: data_type(df=trial_df)}
+                data_type = (
+                    MapData
+                    if isinstance(last_data, MapData) or isinstance(data, MapData)
+                    else Data
                 )
             else:
-                current_trial_data[cur_time_millis] = data_type(df=trial_df)
+                combined_df = trial_df
+            current_trial_data[cur_time_millis] = data_type(df=combined_df)
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis
 
     @staticmethod
-    def _get_last_data_without_similar_rows(
-        current_trial_data: OrderedDict[int, Data], new_df: pd.DataFrame
-    ) -> tuple[type[Data], pd.DataFrame]:
-        """Get a copy of last data with rows filtered out sharing values for
-        "trial_index", "metric_name", and "arm_name" with the new data so we
-        can cleanly combine them.
+    def _combine_data_favoring_recent(
+        last_df: pd.DataFrame, new_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Combine last_df and new_df.
+
+        Deduplicate in favor of new_df when there are multiple observations with
+        the same "trial_index", "metric_name", and "arm_name", and, when
+        present, "step." If only one input has a "step," assign a NaN step to the other.
 
         Args:
-            current_trial_data: The data currently attached to a trial
+            last_df: The DataFrame of data currently attached to a trial
             new_df: A DataFrame containing new data to be attached
 
         Returns:
-            A tuple of two things:
-                - The type of the last data that was attached
-                - A Data object with the most recent data attached, minus the
-                    rows that share the same values
-                    for "trial_index", "metric_name", and "arm_name" in new_df
+            Combined DataFrame
         """
-        _, last_data = list(current_trial_data.items())[-1]
-
         merge_keys = ["trial_index", "metric_name", "arm_name"]
-        if isinstance(last_data, MapData):
+        # If only one has a "step" column, add a step column to the other one
+        if MAP_KEY in last_df.columns:
             merge_keys += [MAP_KEY]
+            if MAP_KEY not in new_df.columns:
+                new_df["step"] = float("NaN")
+        elif MAP_KEY in new_df.columns:
+            merge_keys += [MAP_KEY]
+            last_df["step"] = float("NaN")
 
-        merged = last_data.full_df.merge(new_df[merge_keys], how="left", indicator=True)
-        # Filter out all rows that are also present in new_df and drop the _merge col
-        last_df = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
-        return type(last_data), last_df
+        combined = pd.concat((last_df, new_df), ignore_index=True).drop_duplicates(
+            subset=merge_keys, keep="last", ignore_index=True
+        )
+        return assert_is_instance(combined, pd.DataFrame)
 
     def attach_fetch_results(
         self,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
     ) -> int | None:
         """
         UNSAFE: Prefer to use attach_data directly instead.
@@ -1054,11 +1006,7 @@ class Experiment(Base):
             data=[ok.ok for ok in oks]
         )
 
-        return self.attach_data(
-            data=data,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
-        )
+        return self.attach_data(data=data)
 
     def lookup_data_for_ts(self, timestamp: int) -> Data:
         """Collect data for all trials stored at this timestamp.
@@ -1082,11 +1030,8 @@ class Experiment(Base):
 
         return self.default_data_constructor.from_multiple_data(trial_datas)
 
-    def lookup_data_for_trial(
-        self,
-        trial_index: int,
-    ) -> tuple[Data, int]:
-        """Lookup stored data for a specific trial.
+    def lookup_data_for_trial(self, trial_index: int) -> tuple[Data, int]:
+        """Look up stored data for a specific trial.
 
         Returns latest data object and its storage timestamp present for this trial.
         Returns empty data and -1 if no data is present. In particular, this method
@@ -1096,7 +1041,8 @@ class Experiment(Base):
             trial_index: The index of the trial to lookup data for.
 
         Returns:
-            The requested data object, and its storage timestamp in milliseconds.
+            The requested data object, and either its most recent storage
+            timestamp in milliseconds or -1 if no data is present.
         """
         try:
             trial_data_dict = self._data_by_trial[trial_index]
@@ -1114,7 +1060,8 @@ class Experiment(Base):
         self,
         trial_indices: Iterable[int] | None = None,
     ) -> Data:
-        """Lookup stored data for trials on this experiment.
+        """
+        Combine stored ``Data``s for trials ``trial_indices`` into one ``Data``.
 
         For each trial, returns latest data object present for this trial.
         Returns empty data if no data is present. In particular, this method
@@ -1125,19 +1072,26 @@ class Experiment(Base):
                 lookup data for all trials on the experiment.
 
         Returns:
-            Data for the trials on the experiment.
+            Data for trials ``trial_indices`` on the experiment.
         """
         data_by_trial = []
-        trial_indices = trial_indices or list(self.trials.keys())
+
+        trial_indices = (
+            # Note: passing trial_indices = [] results in looking up data for
+            # all trials
+            list(trial_indices) if trial_indices else list(self.trials.keys())
+        )
+        if len(trial_indices) == 0:
+            return self.default_data_constructor()
+
+        has_map_data = False
         for trial_index in trial_indices:
             trial_data, _ = self.lookup_data_for_trial(trial_index=trial_index)
             data_by_trial.append(trial_data)
-        if not data_by_trial:
-            return self.default_data_constructor()
-        last_data = data_by_trial[-1]
-        last_data_type = type(last_data)
-        data = last_data_type.from_multiple_data(data_by_trial)
-        return data
+            has_map_data = has_map_data or isinstance(trial_data, MapData)
+
+        data_type = MapData if has_map_data else Data
+        return data_type.from_multiple_data(data_by_trial)
 
     @property
     def num_trials(self) -> int:

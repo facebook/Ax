@@ -617,10 +617,7 @@ class BaseAdapterTest(TestCase):
             if additional_fetch:
                 # Fetch constraint metric an additional time. This will lead to two
                 # separate observations for the status quo arm.
-                exp.fetch_data(
-                    metrics=[exp.metrics["branin_map_constraint"]],
-                    combine_with_last_data=True,
-                )
+                exp.fetch_data(metrics=[exp.metrics["branin_map_constraint"]])
             with self.assertNoLogs(logger=logger, level="WARN"), mock.patch(
                 "ax.adapter.base._combine_multiple_status_quo_observations",
                 wraps=_combine_multiple_status_quo_observations,

@@ -733,9 +733,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 "`DataType.MAP_DATA`."
             )
         data_update_repr = self._update_trial_with_raw_data(
-            trial_index=trial_index,
-            raw_data=raw_data,
-            combine_with_last_data=True,
+            trial_index=trial_index, raw_data=raw_data
         )
         logger.info(f"Updated trial {trial_index} with data: " f"{data_update_repr}.")
 
@@ -775,10 +773,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         data_update_repr = self._update_trial_with_raw_data(
-            trial_index=trial_index,
-            raw_data=raw_data,
-            complete_trial=True,
-            combine_with_last_data=True,
+            trial_index=trial_index, raw_data=raw_data, complete_trial=True
         )
         logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
 
@@ -1468,15 +1463,11 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         trial_index: int,
         raw_data: TEvaluationOutcome,
         complete_trial: bool = False,
-        combine_with_last_data: bool = False,
     ) -> str:
         """Helper method attaches data to a trial, returns a str of update."""
         # Format the data to save.
         trial = self.get_trial(trial_index)
-        update_info = trial.update_trial_data(
-            raw_data=raw_data,
-            combine_with_last_data=combine_with_last_data,
-        )
+        update_info = trial.update_trial_data(raw_data=raw_data)
 
         if complete_trial:
             if not self._validate_all_required_metrics_present(
