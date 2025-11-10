@@ -471,7 +471,7 @@ class ReportUtilsTest(TestCase):
             experiment=exp,
             model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
-        self.assertEqual(len(plots), 8)
+        self.assertEqual(len(plots), 7)
 
     @mock_botorch_optimize
     def test_get_standard_plots_map_data(self) -> None:
