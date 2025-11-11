@@ -24,6 +24,7 @@ from ax.analysis.utils import (
     validate_adapter_can_predict,
     validate_experiment,
     validate_experiment_has_trials,
+    validate_outcome_constraints,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
@@ -83,15 +84,16 @@ class PFeasiblePlot(Analysis):
         if len(optimization_config.objective.metrics) > 1:
             return "Only single-objective optimization is supported."
 
+        outcome_constraints_validation_str = validate_outcome_constraints(
+            experiment=experiment,
+        )
+        if outcome_constraints_validation_str is not None:
+            return outcome_constraints_validation_str
+
         outcome_constraint_metrics = [
             outcome_constraint.metric.name
             for outcome_constraint in optimization_config.outcome_constraints
         ]
-        if len(outcome_constraint_metrics) == 0:
-            return (
-                "Experiment must have at least one OutcomeConstraint to calculate "
-                "probability of feasibility."
-            )
 
         # Ensure that we either can predict the outcome constraint metrics or that we
         # have observations for them.

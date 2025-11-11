@@ -28,7 +28,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.math_utils import relativize
-from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
+from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds, log_ndtr
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -103,6 +103,7 @@ def prepare_arm_data(
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     relativize: bool = False,
+    compute_p_feasible_per_constraint: bool = False,
 ) -> pd.DataFrame:
     """
     Create a table with one entry per arm and columns for each requested metric. This
@@ -128,6 +129,8 @@ def prepare_arm_data(
         relativize: Whether to relativize the effects of each arm against the status
             quo arm. If multiple status quo arms are present, relativize each arm
             against the status quo arm from the same trial.
+        compute_p_feasible_per_constraint: If True, computes p_feasible for each
+            individual constraint in addition to the overall joint p_feasible.
 
     Returns a DataFrame with the following columns:
         - trial_index
@@ -135,6 +138,9 @@ def prepare_arm_data(
         - generation_node
         - METRIC_NAME_mean for each metric_name in metric_names
         - METRIC_NAME_sem for each metric_name in metric_names
+        - p_feasible_mean and p_feasible_sem
+        - p_feasible_{constraint_name} for each constraint (if
+            compute_p_feasible_per_constraint=True)
     """
 
     # Ensure a valid combination of arguments is provided.
@@ -263,6 +269,16 @@ def prepare_arm_data(
         else Keys.UNKNOWN_GENERATION_NODE.value,
         axis=1,
     )
+
+    if compute_p_feasible_per_constraint:
+        if experiment.optimization_config is not None:
+            constraint_probs_df = _prepare_p_feasible_per_constraint(
+                df=raw_df,
+                status_quo_df=status_quo_df,
+                outcome_constraints=experiment.optimization_config.outcome_constraints,
+            )
+            df = df.join(constraint_probs_df)
+
     df["p_feasible_mean"] = _prepare_p_feasible(
         df=raw_df,
         status_quo_df=status_quo_df,
@@ -619,6 +635,80 @@ def _prepare_p_feasible(
     return pd.Series(log_prob_feas.exp())
 
 
+def _prepare_p_feasible_per_constraint(
+    df: pd.DataFrame,
+    status_quo_df: pd.DataFrame | None,
+    outcome_constraints: Sequence[OutcomeConstraint],
+) -> pd.DataFrame:
+    """
+    Compute the probability that each arm satisfies each individual outcome constraint
+    (assuming normally distributed observations). Returns one column per constraint.
+    Args:
+        df: Result of _prepare_modeled_arm_data or _prepare_raw_arm_data.
+        status_quo_df: Status quo data for relativization if needed.
+        outcome_constraints: Outcome constraints on the Ax experiment.
+    Returns:
+        A DataFrame with one row per arm and one column per constraint, where each
+        cell contains the probability that the arm satisfies that specific constraint.
+        Column names are "p_feasible_{constraint_name}".
+    """
+    rel_df = None
+    if any(c.relative for c in outcome_constraints):
+        if status_quo_df is None:
+            raise AxError("Must provide status quo data to relativize data.")
+        rel_df = _relativize_df_with_sq(
+            df=df, status_quo_df=status_quo_df, as_percent=True
+        )
+
+    if len(outcome_constraints) == 0:
+        return pd.DataFrame(index=df.index)
+
+    oc_names = []
+    for oc in outcome_constraints:
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            oc_names.append(str(oc))
+        else:
+            oc_names.append(oc.metric.name)
+
+    result_df = pd.DataFrame(index=df.index)
+    # Compute probability for each constraint individually
+    for oc_name, oc in zip(oc_names, outcome_constraints):
+        df_constraint = none_throws(rel_df if oc.relative else df)
+
+        # Get mean and sigma for this constraint
+        if f"{oc_name}_mean" in df_constraint.columns:
+            mean = df_constraint[f"{oc_name}_mean"].values
+        else:
+            mean = np.nan * np.ones(len(df_constraint))
+
+        if f"{oc_name}_sem" in df_constraint.columns:
+            sigma = df_constraint[f"{oc_name}_sem"].fillna(0).values
+        else:
+            sigma = np.zeros(len(df))
+
+        # Convert to torch tensors (shape: [n_arms, 1])
+        mean_tensor = torch.tensor(mean, dtype=torch.double).unsqueeze(-1)
+        sigma_tensor = torch.tensor(sigma, dtype=torch.double).unsqueeze(-1)
+
+        # Compute probability based on constraint type
+        if oc.op == ComparisonOp.GEQ:
+            # Lower bound: P(X >= bound) = Φ(-(bound - mean)/sigma)
+            dist = (oc.bound - mean_tensor) / sigma_tensor
+            log_prob = log_ndtr(-dist)  # 1 - Φ(x) = Φ(-x)
+        elif oc.op == ComparisonOp.LEQ:
+            # Upper bound: P(X <= bound) = Φ((bound - mean)/sigma)
+            dist = (oc.bound - mean_tensor) / sigma_tensor
+            log_prob = log_ndtr(dist)
+        else:
+            raise ValueError(f"Unsupported comparison operator: {oc.op}")
+
+        # Convert back to numpy and store in result dataframe
+        prob = log_prob.exp().squeeze().numpy()
+        result_df[f"p_feasible_{oc_name}"] = prob
+
+    return result_df
+
+
 def _relativize_df_with_sq(
     df: pd.DataFrame,
     status_quo_df: pd.DataFrame,
@@ -935,5 +1025,34 @@ def validate_adapter_can_predict(
 
     except UserInputError as e:
         return e.message
+
+    return None
+
+
+def validate_outcome_constraints(
+    experiment: Experiment,
+) -> str | None:
+    """
+    Validate that the Experiment has the necessary outcome constraints.
+
+    Args:
+        experiment: The Ax experiment to validate.
+
+    Returns:
+        A validation error message string if validation fails, None otherwise.
+    """
+    optimization_config = experiment.optimization_config
+    if optimization_config is None:
+        return "Experiment must have an OptimizationConfig."
+
+    outcome_constraint_metrics = [
+        outcome_constraint.metric.name
+        for outcome_constraint in optimization_config.outcome_constraints
+    ]
+    if len(outcome_constraint_metrics) == 0:
+        return (
+            "Experiment must have at least one OutcomeConstraint to calculate "
+            "probability of feasibility."
+        )
 
     return None
