@@ -35,6 +35,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_curves: int | None = 5,
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
+        n_best_trials_to_complete: int | None = None,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
 
@@ -66,6 +67,11 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 specified in the transformed space. IMPORTANT: Typically, `min_curves`
                 should be > 0 to ensure that at least one trial has completed and that
                 we have a reliable approximation for `prog_max`.
+            n_best_trials_to_complete: If specified, guarantees that the top
+                `n_best_trials_to_complete` trials (based on current objective value
+                at the last progression) will never be early stopped, even if they
+                fall below the percentile threshold. This ensures that the best
+                performing trials are allowed to run to completion.
         """
         super().__init__(
             metric_signatures=metric_signatures,
@@ -77,6 +83,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         )
 
         self.percentile_threshold = percentile_threshold
+        self.n_best_trials_to_complete = n_best_trials_to_complete
 
         if metric_signatures is not None and len(list(metric_signatures)) > 1:
             raise UnsupportedError(
@@ -221,6 +228,23 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             if minimize
             else trial_objective_value < percentile_value
         )
+
+        # Check if trial is in top n_best_trials_to_complete
+        # and should be protected from early stopping
+        if should_early_stop and self.n_best_trials_to_complete is not None:
+            # Rank trials by objective value at last progression
+            sorted_data = data_at_last_progression.sort_values(ascending=minimize)
+            best_trials = set(sorted_data.head(self.n_best_trials_to_complete).index)
+            if trial_index in best_trials:
+                reason = (
+                    f"Trial {trial_index} is in top-"
+                    f"{self.n_best_trials_to_complete} trials "
+                    f"(objective value: {trial_objective_value}) and will not be "
+                    "early stopped despite falling below percentile threshold."
+                )
+                logger.info(reason)
+                return False, reason
+
         comp = "worse" if should_early_stop else "better"
         reason = (
             f"Trial objective value {trial_objective_value} is {comp} than "

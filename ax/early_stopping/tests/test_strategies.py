@@ -480,6 +480,94 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(should_stop, {})
 
+    def test_percentile_early_stopping_with_n_best_trials_to_complete(self) -> None:
+        """Test that top `n_best_trials_to_complete` trials are protected from
+        early stopping."""
+        exp = get_test_map_data_experiment(
+            num_trials=5,
+            num_fetches=3,
+            num_complete=4,
+        )
+        """
+        Data looks like this (at step==2, the most recent progression):
+        0: 99.950007 <-- worst
+        3: 98.060315
+        1: 77.324501
+        4: 44.479018
+        2: 30.522333 <-- best
+
+        With percentile_threshold=50, trials 0 and 3 would normally be stopped.
+        """
+        idcs = set(exp.trials.keys())
+
+        # Test 1: Preserve top 3 trials - should protect trial 1 from being stopped
+        # even though it would normally be stopped at 75th percentile
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=75,
+            min_curves=4,
+            min_progression=0.1,
+            n_best_trials_to_complete=3,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        # Only trials 0 and 3 should be stopped (trial 1 is protected as it's in top 3)
+        self.assertEqual(set(should_stop), {0, 3})
+
+        # Test 2: Preserve top 4 trials - should protect even more trials
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=75,
+            min_curves=4,
+            min_progression=0.1,
+            n_best_trials_to_complete=4,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        # Only trial 0 should be stopped (trials 1, 2, 3, 4 are protected as top 4)
+        self.assertEqual(set(should_stop), {0})
+
+        # Test 3: Preserve all trials (n_best_trials_to_complete == total trials)
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=75,
+            min_curves=4,
+            min_progression=0.1,
+            n_best_trials_to_complete=5,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        # No trials should be stopped (all 5 are protected)
+        self.assertEqual(should_stop, {})
+
+        # Test 4: Preserve all trials (edge case: n_best_trials_to_complete > total)
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=75,
+            min_curves=4,
+            min_progression=0.1,
+            n_best_trials_to_complete=10,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        # No trials should be stopped (all 5 are protected)
+        self.assertEqual(should_stop, {})
+
+        # Test 5: With lower percentile threshold,
+        # verify non-top-n_best_trials_to_complete trials still get stopped
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=25,
+            min_curves=4,
+            min_progression=0.1,
+            n_best_trials_to_complete=2,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        # Trial 0 is worst and not in top 2, so should be stopped
+        # Trials 2 and 4 are in top 2, so should be protected
+        self.assertEqual(set(should_stop), {0})
+
     def test_early_stopping_with_unaligned_results(self) -> None:
         # test case 1
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
