@@ -7,6 +7,7 @@
 
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
+from ax.analysis.plotly.constraint_feasibility import ConstraintFeasibilityPlot
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.plotly.marginal_effects import MarginalEffectsPlot
 from ax.analysis.plotly.p_feasible import PFeasiblePlot
@@ -22,6 +23,7 @@ from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 __all__ = [
     "ArmEffectsPlot",
     "BanditRollout",
+    "ConstraintFeasibilityPlot",
     "ContourPlot",
     "CrossValidationPlot",
     "MarginalEffectsPlot",
