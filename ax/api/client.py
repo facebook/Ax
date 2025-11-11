@@ -576,7 +576,7 @@ class Client(WithDBSettingsBase):
         return trial_index
 
     # -------------------- Section 2.2 Early Stopping -------------------------------
-    def should_stop_trial_early(self, trial_index: int) -> bool:
+    def should_stop_trial_early(self, trial_index: int) -> tuple[bool, str | None]:
         """
         Check if the trial should be stopped early. If True and the user wishes to heed
         Ax's recommendation the user should manually stop the trial and call
@@ -584,7 +584,9 @@ class Client(WithDBSettingsBase):
         selected automatically or set manually via ``set_early_stopping_strategy``.
 
         Returns:
-            Whether the trial should be stopped early.
+            A tuple of (should_stop, reason) where should_stop is a boolean indicating
+            whether the trial should be stopped early, and reason is an optional string
+            explaining why the trial should be stopped.
         """
 
         es_response = none_throws(
@@ -596,13 +598,11 @@ class Client(WithDBSettingsBase):
         )
 
         if trial_index in es_response:
-            logger.info(
-                f"Trial {trial_index} should be stopped early: "
-                f"{es_response[trial_index]}"
-            )
-            return True
+            reason = es_response[trial_index]
+            logger.info(f"Trial {trial_index} should be stopped early: {reason}")
+            return True, reason
 
-        return False
+        return False, None
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
     def mark_trial_failed(
