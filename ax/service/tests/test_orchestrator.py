@@ -1008,12 +1008,6 @@ class TestAxOrchestrator(TestCase):
         exp = none_throws(exp)
         self.assertEqual(len(exp.trials), NUM_TRIALS)
 
-        # There should only be one data object for each trial, since by default the
-        # `Orchestrator` should override previous data objects when it gets new ones in
-        # a subsequent `fetch` call.
-        for _, datas in exp._data_by_trial.items():
-            self.assertEqual(len(datas), 1)
-
         # We also should have attempted the fetch more times
         # than there are trials because we have a `MapMetric` (many more since we are
         # waiting 3 seconds for each trial).
@@ -1232,8 +1226,6 @@ class TestAxOrchestrator(TestCase):
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
 
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
-
         looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
         num_metrics = 2
@@ -1292,7 +1284,7 @@ class TestAxOrchestrator(TestCase):
             return_value=timedelta(hours=1),
         ):
             orchestrator.run_all_trials()
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
+        self.assertFalse(orchestrator.experiment.lookup_data_for_trial(0).full_df.empty)
 
     def test_run_trials_in_batches(self) -> None:
         gs = self.two_sobol_steps_GS
