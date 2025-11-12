@@ -284,7 +284,7 @@ class Data(Base, SerializationMixin):
                 trial_indices=trial_indices,
                 metric_names=metric_names,
                 metric_signatures=metric_signatures,
-            ),
+            ).reset_index(drop=True),
             _skip_ordering_and_validation=True,
         )
 
