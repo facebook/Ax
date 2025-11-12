@@ -2072,9 +2072,6 @@ class TestAxOrchestrator(TestCase):
 
         initial_df = self.branin_experiment.lookup_data().df
         metric_name = initial_df["metric_name"].iloc[0]
-        initial_mean = initial_df.loc[
-            initial_df["metric_name"] == metric_name, "mean"
-        ].item()
         self.branin_experiment.attach_data(
             Data(
                 df=pd.DataFrame(
@@ -2095,12 +2092,7 @@ class TestAxOrchestrator(TestCase):
             .df.loc[lambda x: x["metric_name"] == metric_name, "mean"]
             .unique()
         )
-        # For multi-type experiment (TestAxOrchestratorMultiTypeExperiment)
-        if len(self.branin_experiment.trials) == 2:
-            expected_means = {initial_mean, TEST_MEAN}
-        else:
-            # One trial
-            expected_means = {TEST_MEAN}
+        expected_means = {TEST_MEAN}
         self.assertEqual(expected_means, set(attached_means))
 
         orchestrator.run_n_trials(max_trials=1)

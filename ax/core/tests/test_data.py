@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-from ax.core.data import Data
+from ax.core.data import combine_dfs_favoring_recent, Data
 from ax.core.map_data import MAP_KEY, MapData
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -348,6 +348,59 @@ class DataTest(TestCase):
         safecast_df = Data._safecast_df(df=df)
         self.assertEqual(safecast_df.index.get_level_values(0).to_list(), [0])
         self.assertEqual(df["trial_index"].dtype, int)
+
+
+class TestCombineDFs(TestCase):
+    def test_combine_dfs_favoring_recent(self) -> None:
+        original_mean = 2.0
+        first_metric_first_data = {
+            "arm_name": "0_0",
+            "mean": original_mean,
+            "sem": 0.2,
+            "trial_index": 1,
+            "metric_name": "a",
+            "start_time": "2018-01-01",
+            "end_time": "2018-01-02",
+            "metric_signature": "a_signature",
+        }
+        df1 = pd.DataFrame(
+            [
+                # metric a
+                first_metric_first_data,
+                # metric b
+                {
+                    **first_metric_first_data,
+                    **{
+                        "metric_name": "b",
+                        "metric_signature": "b_signature",
+                    },
+                },
+            ]
+        )
+        # metric a again with a different mean
+        new_mean = 3.7
+        df2 = pd.DataFrame([{**first_metric_first_data, **{"mean": new_mean}}])
+        result = combine_dfs_favoring_recent(last_df=df1, new_df=df2)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(set(result["metric_name"]), {"a", "b"})
+        metric_a_mean = result.loc[result["metric_name"] == "a", "mean"].iloc[0]
+        self.assertEqual(metric_a_mean, new_mean)
+
+        with self.subTest("New data replaces old data"):
+            result = combine_dfs_favoring_recent(last_df=df2, new_df=df1)
+            self.assertEqual(len(result), 2)
+            self.assertEqual(set(result["metric_name"]), {"a", "b"})
+            metric_a_mean = result.loc[result["metric_name"] == "a", "mean"].iloc[0]
+            self.assertEqual(metric_a_mean, original_mean)
+
+        df3 = df1.assign(step=1.0)
+        with self.subTest("With one df having 'step'"):
+            # Both should be kept
+            result = combine_dfs_favoring_recent(last_df=df1, new_df=df3)
+            self.assertEqual(len(result), 2 * len(df3))
+
+        with self.subTest("Both having 'step'"):
+            result = combine_dfs_favoring_recent(last_df=df3, new_df=df3.copy())
 
 
 class RelativizeDataTest(TestCase):

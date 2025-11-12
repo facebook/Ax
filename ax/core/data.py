@@ -334,6 +334,39 @@ class Data(Base, SerializationMixin):
         return self.__class__(df=df_rel)
 
 
+def combine_dfs_favoring_recent(
+    last_df: pd.DataFrame, new_df: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Combine last_df and new_df.
+
+    Deduplicate in favor of new_df when there are multiple observations with
+    the same "trial_index", "metric_name", and "arm_name", and, when
+    present, "step." If only one input has a "step," assign a NaN step to the other.
+
+    Args:
+        last_df: The DataFrame of data currently attached to a trial
+        new_df: A DataFrame containing new data to be attached
+
+    Returns:
+        Combined DataFrame
+    """
+    merge_keys = ["trial_index", "metric_name", "arm_name"]
+    # If only one has a "step" column, add a step column to the other one
+    if MAP_KEY in last_df.columns:
+        merge_keys += [MAP_KEY]
+        if MAP_KEY not in new_df.columns:
+            new_df["step"] = float("NaN")
+    elif MAP_KEY in new_df.columns:
+        merge_keys += [MAP_KEY]
+        last_df["step"] = float("NaN")
+
+    combined = pd.concat((last_df, new_df), ignore_index=True).drop_duplicates(
+        subset=merge_keys, keep="last", ignore_index=True
+    )
+    return assert_is_instance(combined, pd.DataFrame)
+
+
 def _filter_df(
     df: pd.DataFrame,
     trial_indices: Iterable[int] | None = None,
