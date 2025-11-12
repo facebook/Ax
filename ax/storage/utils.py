@@ -10,10 +10,15 @@ import enum
 from collections import OrderedDict
 from collections.abc import Mapping
 from hashlib import md5
+from typing import TypeVar
+
+import pandas as pd
 
 from ax.core.data import combine_dfs_favoring_recent, Data, MAP_KEY
 from ax.core.evaluations_to_data import DataType  # noqa F401
 from ax.core.map_data import MapData
+
+TData = TypeVar(name="TData", bound=Data)
 
 
 class DomainType(enum.Enum):
@@ -67,9 +72,7 @@ def stable_hash(s: str) -> int:
     return int(md5(s.encode("utf-8")).hexdigest(), 16)
 
 
-def combine_datas_on_data_by_trial(
-    data_by_trial: Mapping[int, dict[int, Data]],
-) -> dict[int, OrderedDict[int, Data]]:
+def data_by_trial_to_data(data_by_trial: Mapping[int, dict[int, Data]]) -> Data:
     """
     Load Ax Data from JSON.
 
@@ -81,7 +84,9 @@ def combine_datas_on_data_by_trial(
     with the same "trial_index", "metric_name", and "arm_name", and, when
     present, "step."
     """
-    combined_data_by_trial = {}
+    if len(data_by_trial) == 0:
+        return Data()
+    combined_dfs_by_trial: dict[int, pd.DataFrame] = {}
     for trial_index, trial_data in data_by_trial.items():
         if len(trial_data) == 0:
             continue
@@ -90,6 +95,23 @@ def combine_datas_on_data_by_trial(
         while len(sorted_datas) > 0:
             old_df = sorted_datas.pop().full_df
             df = combine_dfs_favoring_recent(last_df=old_df, new_df=df)
-        data_cls = MapData if MAP_KEY in df.columns else Data
-        combined_data_by_trial[trial_index] = OrderedDict([(0, data_cls(df=df))])
-    return combined_data_by_trial
+        combined_dfs_by_trial[trial_index] = df
+
+    df = pd.concat(combined_dfs_by_trial.values(), ignore_index=True)
+    data_cls = MapData if MAP_KEY in df.columns else Data
+    return data_cls(df=df)
+
+
+def data_to_data_by_trial(data: TData) -> dict[int, OrderedDict[int, TData]]:
+    """
+    Convert data to legacy {trial_index: {timestamp: Data}} format.
+
+    There is no longer timestamp info, so timestamps are set to 0.
+    """
+    data_cls = type(data)
+    if len(data.full_df) == 0:
+        return {}
+    return {
+        trial_index: OrderedDict([(0, data_cls(df=df))])
+        for trial_index, df in data.full_df.groupby("trial_index")
+    }

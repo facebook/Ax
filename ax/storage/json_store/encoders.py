@@ -65,6 +65,7 @@ from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
+from ax.storage.utils import data_to_data_by_trial
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from ax.utils.testing.backend_simulator import (
@@ -94,7 +95,7 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "time_created": experiment.time_created,
         "trials": experiment.trials,
         "is_test": experiment.is_test,
-        "data_by_trial": experiment._data_by_trial,
+        "data_by_trial": data_to_data_by_trial(data=experiment.data),
         "properties": experiment._properties,
         "default_data_type": experiment._default_data_type,
     }

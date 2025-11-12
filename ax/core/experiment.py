@@ -12,7 +12,7 @@ import inspect
 
 import logging
 import warnings
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import partial, reduce
@@ -132,7 +132,6 @@ class Experiment(Base):
         self.runner = runner
         self.is_test: bool = is_test
 
-        self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: str | None = experiment_type
         self._optimization_config: OptimizationConfig | None = None
         self._tracking_metrics: dict[str, Metric] = {}
@@ -140,6 +139,7 @@ class Experiment(Base):
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
         self._default_data_type: DataType = default_data_type or DataType.DATA
+        self.data = Data() if self.default_data_type == DataType.DATA else MapData()
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -848,11 +848,9 @@ class Experiment(Base):
 
     def attach_data(self, data: Data, **kwargs: Any) -> None:
         """
-        Attach data to the experiment's `_data_by_trial` attribute.
+        Update the experiment's `data` attribute.
 
-        Store data in `experiment._data_by_trial`, to be looked up via
-        ``experiment.lookup_data_for_trial`` or ``experiment.lookup_data()``.
-        When a new observation is attached to a trial that already has an
+        When a new observation is attached and ``self.data`` already has an
         observation for that arm name, metric, and (if present) step, the new
         observation replaces the old one.
 
@@ -891,33 +889,17 @@ class Experiment(Base):
                 "fetch_data`, add them via `experiment.add_tracking_metric` or update "
                 "the experiment's optimization config."
             )
-        for trial_index, trial_df in data.full_df.groupby("trial_index"):
-            if not isinstance(data, MapData):
-                trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
-            current_trial_data = (
-                self._data_by_trial[trial_index]
-                if trial_index in self._data_by_trial
-                else OrderedDict()
-            )
-            if len(current_trial_data) == 1:
-                _, last_data = current_trial_data.popitem()
-                combined_df = combine_dfs_favoring_recent(
-                    last_df=last_data.full_df, new_df=trial_df
-                )
-                data_type = (
-                    MapData
-                    if isinstance(last_data, MapData) or isinstance(data, MapData)
-                    else Data
-                )
-            elif len(current_trial_data) == 0:
-                combined_df = trial_df
-            else:
-                raise ValueError(
-                    "Each dict within `_data_by_trial` should have at most one "
-                    "element."
-                )
-            current_trial_data = OrderedDict({0: data_type(df=combined_df)})
-            self._data_by_trial[trial_index] = current_trial_data
+        new_df = combine_dfs_favoring_recent(
+            last_df=self.data.full_df, new_df=data.full_df
+        )
+        if not isinstance(data, MapData):
+            new_df = sort_by_trial_index_and_arm_name(df=new_df)
+        data_type = (
+            MapData
+            if isinstance(self.data, MapData) or isinstance(data, MapData)
+            else Data
+        )
+        self.data = data_type(df=new_df)
 
     def attach_fetch_results(
         self,
@@ -931,7 +913,7 @@ class Experiment(Base):
         to the experiment.
 
         NOTE: Any Errs in the results passed in will silently be dropped! This will
-        cause the Experiment to fail to find them in the _data_by_trial cache and
+        cause the Experiment to fail to find them in ``self.data`` and
         attempt to refetch at fetch time. If this is not your intended behavior you
         MUST resolve your results first and use attach_data directly instead.
         """
@@ -985,16 +967,7 @@ class Experiment(Base):
         Returns:
             The requested data object.
         """
-        try:
-            trial_data_dict = self._data_by_trial[trial_index]
-        except KeyError:
-            return self.default_data_constructor()
-
-        if len(trial_data_dict) == 0:
-            return self.default_data_constructor()
-
-        storage_time = max(trial_data_dict.keys())
-        return trial_data_dict[storage_time]
+        return self.data.filter(trial_indices=[trial_index])
 
     def lookup_data(
         self,
@@ -1014,24 +987,16 @@ class Experiment(Base):
         Returns:
             Data for trials ``trial_indices`` on the experiment.
         """
-        data_by_trial = []
 
-        trial_indices = (
-            # Note: passing trial_indices = [] results in looking up data for
-            # all trials
-            list(trial_indices) if trial_indices else list(self.trials.keys())
+        # Note: passing trial_indices = [] results in looking up data for
+        # all trials
+        if not trial_indices:
+            return self.data
+        df = self.data.full_df
+        return self.data.__class__(
+            # Make sure the index is 0, 1, ..., N-1 to match legacy behavior
+            df=df[df["trial_index"].isin(set(trial_indices))].reset_index(drop=True)
         )
-        if len(trial_indices) == 0:
-            return self.default_data_constructor()
-
-        has_map_data = False
-        for trial_index in trial_indices:
-            trial_data = self.lookup_data_for_trial(trial_index=trial_index)
-            data_by_trial.append(trial_data)
-            has_map_data = has_map_data or isinstance(trial_data, MapData)
-
-        data_type = MapData if has_map_data else Data
-        return data_type.from_multiple_data(data_by_trial)
 
     @property
     def num_trials(self) -> int:
@@ -1876,8 +1841,11 @@ class Experiment(Base):
                 stacklevel=2,
             )
 
-        data_by_trial = {}
-        for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
+        old_index_to_new_index = {}
+        intersection_indices = trial_indices_to_keep.intersection(
+            original_trial_indices
+        )
+        for trial_index in intersection_indices:
             trial = self.trials[trial_index]
             if not isinstance(trial, (Trial, BatchTrial)):
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
@@ -1885,22 +1853,14 @@ class Experiment(Base):
                 cloned_experiment, clear_trial_type=clear_trial_type
             )
             new_index = new_trial.index
-            if (
-                trial_index in self._data_by_trial
-                and len(trial_data_dict := self._data_by_trial[trial_index]) > 0
-            ):
-                timestamp = max(trial_data_dict.keys())
-                # Clone the data to avoid overwriting the original in the DB.
-                trial_data = trial_data_dict[timestamp].clone()
-                trial_data.df["trial_index"] = new_index
-                data_by_trial[new_index] = OrderedDict([(0, trial_data)])
-        if data is not None:
-            # If user passed in data, use it.
-            cloned_experiment.attach_data(data.clone())
-        else:
-            # Otherwise, attach the data extracted from the original experiment.
-            cloned_experiment._data_by_trial = data_by_trial
+            old_index_to_new_index[trial_index] = new_index
 
+        data_to_use = self.data if data is None else data
+        new_df = data_to_use.full_df.loc[
+            lambda x: x["trial_index"].isin(intersection_indices)
+        ]
+        new_df["trial_index"] = new_df["trial_index"].map(old_index_to_new_index)
+        cloned_experiment.data = data_to_use.__class__(df=new_df)
         return cloned_experiment
 
     @property
