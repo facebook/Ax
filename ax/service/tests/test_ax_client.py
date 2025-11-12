@@ -1702,7 +1702,7 @@ class TestAxClient(TestCase):
         )
 
         ax_client.stop_trial_early(trial_index=idx)
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        df = ax_client.experiment.lookup_data_for_trial(idx).df
         self.assertEqual(len(df), 1)
 
         # Failed trial.
@@ -1711,7 +1711,7 @@ class TestAxClient(TestCase):
         ax_client._update_trial_with_raw_data(
             trial_index=idx, raw_data=[(0, {"branin": (3, 0.0)})]
         )
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        df = ax_client.experiment.lookup_data_for_trial(idx).df
         self.assertEqual(df["mean"].item(), 3.0)
 
         # Incomplete trial fails

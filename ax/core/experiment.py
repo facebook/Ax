@@ -980,31 +980,29 @@ class Experiment(Base):
 
         return self.attach_data(data=data)
 
-    def lookup_data_for_trial(self, trial_index: int) -> tuple[Data, int]:
+    def lookup_data_for_trial(self, trial_index: int) -> Data:
         """Look up stored data for a specific trial.
 
-        Returns latest data object and its storage timestamp present for this trial.
-        Returns empty data and -1 if no data is present. In particular, this method
-        will not fetch data from metrics - to do that, use `fetch_data()` instead.
+        Returns latest data object for this trial. Returns empty data if no data
+        is present. This method will not fetch data from metrics - to do that,
+        use `fetch_data()` instead.
 
         Args:
             trial_index: The index of the trial to lookup data for.
 
         Returns:
-            The requested data object, and either its most recent storage
-            timestamp in milliseconds or -1 if no data is present.
+            The requested data object.
         """
         try:
             trial_data_dict = self._data_by_trial[trial_index]
         except KeyError:
-            return (self.default_data_constructor(), -1)
+            return self.default_data_constructor()
 
         if len(trial_data_dict) == 0:
-            return (self.default_data_constructor(), -1)
+            return self.default_data_constructor()
 
         storage_time = max(trial_data_dict.keys())
-        trial_data = trial_data_dict[storage_time]
-        return trial_data, storage_time
+        return trial_data_dict[storage_time]
 
     def lookup_data(
         self,
@@ -1036,7 +1034,7 @@ class Experiment(Base):
 
         has_map_data = False
         for trial_index in trial_indices:
-            trial_data, _ = self.lookup_data_for_trial(trial_index=trial_index)
+            trial_data = self.lookup_data_for_trial(trial_index=trial_index)
             data_by_trial.append(trial_data)
             has_map_data = has_map_data or isinstance(trial_data, MapData)
 
@@ -1442,7 +1440,7 @@ class Experiment(Base):
                 none_throws(trial.arm).parameters,
                 raise_error=search_space_check_membership_raise_error,
             )
-            dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
+            dat = old_experiment.lookup_data_for_trial(trial_index=trial.index)
             # Set trial index and arm name to their values in new trial.
             new_trial = self.new_trial()
             add_arm_and_prevent_naming_collision(
@@ -1470,7 +1468,7 @@ class Experiment(Base):
                     {run_metadata_field: trial.run_metadata.get(run_metadata_field)}
                 )
             # Trial has data, so we replicate it on the new experiment.
-            has_data = ts != -1 and not dat.df.empty
+            has_data = not dat.df.empty
             if has_data:
                 new_df = dat.full_df.copy()
                 new_df["trial_index"].replace(
@@ -1895,11 +1893,14 @@ class Experiment(Base):
                 cloned_experiment, clear_trial_type=clear_trial_type
             )
             new_index = new_trial.index
-            trial_data, timestamp = self.lookup_data_for_trial(trial_index)
-            # Clone the data to avoid overwriting the original in the DB.
-            trial_data = trial_data.clone()
-            trial_data.df["trial_index"] = new_index
-            if timestamp != -1:
+            if (
+                trial_index in self._data_by_trial
+                and len(trial_data_dict := self._data_by_trial[trial_index]) > 0
+            ):
+                timestamp = max(trial_data_dict.keys())
+                # Clone the data to avoid overwriting the original in the DB.
+                trial_data = trial_data_dict[timestamp].clone()
+                trial_data.df["trial_index"] = new_index
                 data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
         if data is not None:
             # If user passed in data, use it.
