@@ -9,6 +9,7 @@
 import datetime
 import json
 from collections import OrderedDict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -64,6 +65,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
+from ax.storage.utils import combine_datas_on_data_by_trial
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     SerializationMixin,
@@ -531,11 +533,21 @@ def trials_from_json(
 
 
 def data_from_json(
-    data_by_trial_json: dict[str, Any],
+    data_by_trial_json: Mapping[str, Any] | Mapping[int, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> dict[int, "OrderedDict[int, Data]"]:
-    """Load Ax Data from JSON."""
+    """
+    Load Ax Data from JSON.
+
+    Old `_data_by_trial` is in the format `{trial_index: {timestamp: Data}}`.
+    Current data is in the format `{trial_index: {0: Data}}`. This function
+    deserializes `_data_by_trial` and then converts it from the current format
+    to the new format. Within each trial_index, it combines each fetch with the
+    previous one, deduplicating in favor of the new data when there are multiple
+    observations with the same "trial_index", "metric_name", and "arm_name",
+    and, when present, "step."
+    """
     data_by_trial = object_from_json(
         data_by_trial_json,
         decoder_registry=decoder_registry,
@@ -543,10 +555,11 @@ def data_from_json(
     )
     # hack necessary because Python's json module converts dictionary
     # keys to strings: https://stackoverflow.com/q/1450957
-    return {
+    deserialized = {
         int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
         for k, v in data_by_trial.items()
     }
+    return combine_datas_on_data_by_trial(data_by_trial=deserialized)
 
 
 def multi_type_experiment_from_json(
