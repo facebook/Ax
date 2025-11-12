@@ -854,6 +854,10 @@ class ExperimentTest(TestCase):
                 ):
                     exp.attach_data(data1, **kwargs)
 
+        with self.subTest("Unexpected arguments"):
+            with self.assertRaisesRegex(ValueError, "Unexpected arguments"):
+                exp.attach_data(data=data1, foo="bar")
+
         # (1) use a fresh experiment with no data on it and with three metrics
         original_ts = exp.attach_data(data1)
         self.assertEqual(len(exp._data_by_trial[trial_index]), 1)
@@ -906,50 +910,23 @@ class ExperimentTest(TestCase):
                 tracking_metrics=[Metric(name="b"), Metric(name="c")],
                 runner=SyntheticRunner(),
             )
-            ts0, ts1 = 2, 3
-            data_as_dict = {
-                "trial_index": 0,
-                "arm_name": "0_0",
-                "metric_name": "a",
-                "metric_signature": "a",
-                "sem": None,
-            }
-
-            exp._data_by_trial = {
-                0: OrderedDict(
-                    [
-                        (
-                            ts,
-                            Data(
-                                df=pd.DataFrame.from_records(
-                                    [
-                                        {"mean": ts, **data_as_dict},
-                                        {
-                                            **data_as_dict,
-                                            **{
-                                                "mean": ts,
-                                                "metric_name": "b",
-                                                "metric_signature": "b",
-                                            },
-                                        },
-                                    ]
-                                )
-                            ),
-                        )
-                        for ts in [ts0, ts1]
-                    ]
-                )
-            }
-            new_mean = 4.0
-            exp.attach_data(
-                Data(df=pd.DataFrame.from_records([{"mean": new_mean, **data_as_dict}]))
+            df = pd.DataFrame.from_records(
+                [
+                    {
+                        "trial_index": 0,
+                        "mean": 3.0,
+                        "arm_name": "0_0",
+                        "metric_name": "a",
+                        "metric_signature": "a",
+                        "sem": None,
+                    }
+                ]
             )
-            df = exp.lookup_data(trial_indices=[0]).df
-            # b is present even though it wasn't in the most recent fetch
+            data = Data(df=df)
 
-            self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
-            # We have the old mean of b and the new mean of a
-            self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
+            exp._data_by_trial = {0: OrderedDict([(0, data), (1, data)])}
+            with self.assertRaisesRegex(ValueError, "should have at most one element"):
+                exp.attach_data(Data(df=df))
 
     def test_attach_and_sort_data(self) -> None:
         n = 4

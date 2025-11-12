@@ -7,9 +7,13 @@
 # pyre-strict
 
 import enum
+from collections import OrderedDict
+from collections.abc import Mapping
 from hashlib import md5
 
+from ax.core.data import combine_dfs_favoring_recent, Data, MAP_KEY
 from ax.core.evaluations_to_data import DataType  # noqa F401
+from ax.core.map_data import MapData
 
 
 class DomainType(enum.Enum):
@@ -61,3 +65,35 @@ def stable_hash(s: str) -> int:
         int: Hash, converted to an integer.
     """
     return int(md5(s.encode("utf-8")).hexdigest(), 16)
+
+
+def combine_datas_on_data_by_trial(
+    data_by_trial: Mapping[int, dict[int, Data]],
+) -> dict[int, OrderedDict[int, Data]]:
+    """
+    Load Ax Data from JSON.
+
+    Old `_data_by_trial` is in the format `{trial_index: {timestamp: Data}}`.
+    Current data is in the format `{trial_index: {0: Data}}`. This function
+    converts `_data_by_trial` from the old format to the current format. Within
+    each trial_index, it combines each fetch with the previous one,
+    deduplicating in favor of the new data when there are multiple observations
+    with the same "trial_index", "metric_name", and "arm_name", and, when
+    present, "step."
+    """
+    combined_data_by_trial = {}
+    for trial_index, trial_data in data_by_trial.items():
+        if len(trial_data) == 0:
+            continue
+        sorted_timestamps = sorted(trial_data.keys())
+        timestamp = sorted_timestamps.pop()
+        df = trial_data[timestamp].full_df
+        while len(sorted_timestamps) > 0:
+            old_ts = sorted_timestamps.pop()
+            old_df = trial_data[old_ts].full_df
+            df = combine_dfs_favoring_recent(last_df=old_df, new_df=df)
+        data_cls = MapData if MAP_KEY in df.columns else Data
+        combined_data_by_trial[trial_index] = OrderedDict(
+            [(timestamp, data_cls(df=df))]
+        )
+    return combined_data_by_trial
