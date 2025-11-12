@@ -9,6 +9,7 @@
 import datetime
 import json
 from collections import OrderedDict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -64,6 +65,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
+from ax.storage.utils import data_by_trial_to_data
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     SerializationMixin,
@@ -531,11 +533,22 @@ def trials_from_json(
 
 
 def data_from_json(
-    data_by_trial_json: dict[str, Any],
+    data_by_trial_json: Mapping[str, Any] | Mapping[int, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> dict[int, "OrderedDict[int, Data]"]:
-    """Load Ax Data from JSON."""
+) -> Data:
+    """
+    Load Ax Data from JSON.
+
+    Experiments used to have `_data_by_trial` is in the format
+    `{trial_index: {timestamp: Data}}`; they now have a single `Data`. Data is
+    still serialized via the old format (we intend to overhaul storage shortly).
+    This function
+    - combines multiple Datas for the same trial index into one, if there are
+        multiple, keeping only the trial_index-arm_name-metric_name[-step]
+        observation if it appears with multiple timestamps.
+    - concatenates the data for each trial into one
+    """
     data_by_trial = object_from_json(
         data_by_trial_json,
         decoder_registry=decoder_registry,
@@ -543,10 +556,11 @@ def data_from_json(
     )
     # hack necessary because Python's json module converts dictionary
     # keys to strings: https://stackoverflow.com/q/1450957
-    return {
+    deserialized = {
         int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
         for k, v in data_by_trial.items()
     }
+    return data_by_trial_to_data(data_by_trial=deserialized)
 
 
 def multi_type_experiment_from_json(
@@ -660,7 +674,7 @@ def _load_experiment_info(
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    exp._data_by_trial = data_from_json(
+    exp.data = data_from_json(
         exp_info.get("data_by_trial_json"),
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,

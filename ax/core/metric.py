@@ -365,7 +365,7 @@ class Metric(SortableBase, SerializationMixin):
         for trial in completed_trials:
             cached_trial_data = experiment.lookup_data_for_trial(
                 trial_index=trial.index,
-            )[0]
+            )
 
             cached_metric_signatures = cached_trial_data.metric_signatures
             metrics_to_fetch = [

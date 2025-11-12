@@ -78,7 +78,12 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import are_relationships_loaded
-from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import (
+    data_by_trial_to_data,
+    DomainType,
+    MetricIntent,
+    ParameterConstraintType,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pandas import read_json
@@ -299,9 +304,7 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
-            trial_type_to_runner.update(
-                {t_type: None for t_type in trial_types_with_metrics}
-            )
+            trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
         default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
@@ -390,7 +393,7 @@ class Decoder:
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
-        experiment._data_by_trial = dict(data_by_trial)
+        experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
         experiment.db_id = experiment_sqa.id
         return experiment
 
