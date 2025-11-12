@@ -462,7 +462,7 @@ class BaseTrial(ABC, SortableBase):
             associated with the trial. If merging, all data for trial, merged.
 
         """
-        return self.experiment.lookup_data_for_trial(trial_index=self.index)[0]
+        return self.experiment.lookup_data_for_trial(trial_index=self.index)
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the
