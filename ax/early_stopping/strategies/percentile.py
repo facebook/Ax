@@ -17,7 +17,6 @@ from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -194,65 +193,91 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if not stopping_eligible:
             return False, reason
 
-        # dropna() here will exclude trials that have not made it to the
-        # last progression of the trial under consideration, and therefore
-        # can't be included in the comparison
-        df_trial = none_throws(df[trial_index].dropna())
-        trial_last_prog = df_trial.index.max()
-        data_at_last_progression = df.loc[trial_last_prog].dropna()
+        # Extract the metric curve for the trial under consideration
+        trial_series = df[trial_index]
+        # Find the latest progression with a recorded value for this trial
+        trial_latest_prog = trial_series.last_valid_index()
 
-        # Check that enough trials have data at the last progression. Note that
-        # `is_eligible_any` is called in `should_stop_trials_early`, and checks that
-        # at least `min_curves` trials have completed, and uses `align_partial_results`
-        # to fill in results for each metric and progression. Therefore, the following
-        # condition should only be triggered when `align_partial_results` encounters an
-        # exception or `should_stop_trial_early` is called without the aligned data.
+        # Get objective values for all trials at this progression
+        objective_latest_prog = df.loc[trial_latest_prog]
+        # Filter to trials that have reached this progression (exclude NaN values)
+        ref_selector = objective_latest_prog.notna()
+        ref_objectives_latest_prog = objective_latest_prog[ref_selector]
+        ref_trial_indices = objective_latest_prog.index[ref_selector]
+
+        # Verify that sufficiently many trials have data at this progression.
+        # Note: `is_eligible_any` in `should_stop_trials_early` already checks
+        # that at least `min_curves` trials have completed and uses
+        # `align_partial_results` to interpolate missing values. This condition
+        # should only trigger if `align_partial_results` fails or if this method
+        # is called with non-aligned data.
         if (
             self.min_curves is not None
-            and len(data_at_last_progression) < self.min_curves  # pyre-ignore[58]
+            and len(ref_trial_indices) < self.min_curves  # pyre-ignore[58]
         ):
             return False, (
-                f"Number of trials with data ({len(data_at_last_progression)}) at "
-                f"last progression ({trial_last_prog}) is less than the "
+                f"Number of trials with data ({len(ref_trial_indices)}: "
+                f"{sorted(ref_trial_indices.tolist())}) at "
+                f"latest progression ({trial_latest_prog}) is less than the "
                 f"specified minimum number for early stopping ({self.min_curves})."
             )
 
-        # percentile early stopping logic
+        # Calculate the percentile threshold value from reference trials.
+        # For minimization problems, we flip the percentile (e.g., 25th percentile
+        # becomes 75th percentile) to identify the worst-performing trials.
         percentile_threshold = (
             100.0 - self.percentile_threshold if minimize else self.percentile_threshold
         )
-        percentile_value = np.percentile(data_at_last_progression, percentile_threshold)
-        trial_objective_value = data_at_last_progression[trial_index]
+        ref_threshold_value = np.percentile(
+            ref_objectives_latest_prog,
+            q=percentile_threshold,
+        )
+        trial_objective_value = objective_latest_prog[trial_index]
+        # Determine if this trial should be stopped based on its performance
+        # relative to the threshold
         should_early_stop = (
-            trial_objective_value > percentile_value
+            trial_objective_value > ref_threshold_value
             if minimize
-            else trial_objective_value < percentile_value
+            else trial_objective_value < ref_threshold_value
+        )
+
+        # Build the percentile threshold message that explains performance
+        # relative to threshold
+        comp = "worse" if should_early_stop else "better"
+        percentile_reason = (
+            f"Trial objective value {trial_objective_value:.3f} is {comp} than "
+            f"{percentile_threshold:.1f}-th percentile ({ref_threshold_value:.3f}) "
+            f"across comparable trials at progression {trial_latest_prog} "
+            f"(calculated from {len(ref_trial_indices)} trials: "
+            f"{sorted(ref_trial_indices.tolist())})."
         )
 
         # Check if trial is in top n_best_trials_to_complete
         # and should be protected from early stopping
         if should_early_stop and self.n_best_trials_to_complete is not None:
             # Rank trials by objective value at last progression
-            sorted_data = data_at_last_progression.sort_values(ascending=minimize)
-            best_trials = set(sorted_data.head(self.n_best_trials_to_complete).index)
-            if trial_index in best_trials:
-                reason = (
+            sorted_values = ref_objectives_latest_prog.sort_values(ascending=minimize)
+            best_trial_values = sorted_values.head(self.n_best_trials_to_complete)
+            best_trial_indices = set(best_trial_values.index)
+            if trial_index in best_trial_indices:
+                # Get the worst (last) value among the top trials
+                worst_of_best_value = best_trial_values.iloc[-1]
+                worst_of_best_index = best_trial_values.index[-1]
+
+                top_trials_reason = (
                     f"Trial {trial_index} is in top-"
                     f"{self.n_best_trials_to_complete} trials "
-                    f"(objective value: {trial_objective_value}) and will not be "
-                    "early stopped despite falling below percentile threshold."
+                    f"(top trials: {best_trial_values.index.tolist()} "
+                    f"with objective values: {best_trial_values.tolist()}; "
+                    f"worst of top trials: trial {worst_of_best_index} "
+                    f"with value {worst_of_best_value}) and will not be "
+                    f"early stopped despite falling below percentile threshold. "
+                    f"{percentile_reason}"
                 )
-                logger.info(reason)
-                return False, reason
-
-        comp = "worse" if should_early_stop else "better"
-        reason = (
-            f"Trial objective value {trial_objective_value} is {comp} than "
-            f"{percentile_threshold:.1f}-th percentile ({percentile_value}) "
-            "across comparable trials."
-        )
+                logger.info(top_trials_reason)
+                return False, top_trials_reason
 
         if should_early_stop:
-            logger.info(f"Early stopping trial {trial_index}: {reason}.")
+            logger.info(f"Early stopping trial {trial_index}: {percentile_reason}.")
 
-        return should_early_stop, reason
+        return should_early_stop, percentile_reason
