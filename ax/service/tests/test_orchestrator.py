@@ -1000,44 +1000,21 @@ class TestAxOrchestrator(TestCase):
             "attach_data",
             Mock(wraps=orchestrator.experiment.attach_data),
         ) as mock_experiment_attach_data:
-            # Artificial timestamp logic so we can later check that it's the
-            # last-timestamp data that was preserved after multiple `attach_
-            # data` calls.
-            with patch(
-                f"{Experiment.__module__}.current_timestamp_in_millis",
-                side_effect=lambda: len(
-                    orchestrator.experiment.trials_by_status[TrialStatus.COMPLETED]
-                )
-                * 1000
-                + mock_experiment_attach_data.call_count,
-            ):
-                orchestrator.run_all_trials()
+            orchestrator.run_all_trials()
         # Check that experiment and GS were saved and test reloading with reduced state.
-        exp, loaded_gs = orchestrator._load_experiment_and_generation_strategy(
+        exp, _ = orchestrator._load_experiment_and_generation_strategy(
             self.branin_timestamp_map_metric_experiment.name, reduced_state=True
         )
         exp = none_throws(exp)
         self.assertEqual(len(exp.trials), NUM_TRIALS)
 
-        # There should only be one data object for each trial, since by default the
-        # `Orchestrator` should override previous data objects when it gets new ones in
-        # a subsequent `fetch` call.
-        for _, datas in exp._data_by_trial.items():
-            self.assertEqual(len(datas), 1)
-
         # We also should have attempted the fetch more times
         # than there are trials because we have a `MapMetric` (many more since we are
         # waiting 3 seconds for each trial).
         self.assertGreater(mock_experiment_attach_data.call_count, NUM_TRIALS)
-
-        # Check that it's the last-attached data that was kept, using
-        # expected value based on logic in mocked "current_timestamp_in_millis"
-        num_attach_calls = mock_experiment_attach_data.call_count
-        expected_ts_last_trial = len(exp.trials) * 1000 + num_attach_calls
-        self.assertEqual(
-            next(iter(exp._data_by_trial[len(exp.trials) - 1])),
-            expected_ts_last_trial,
-        )
+        df = self.branin_timestamp_map_metric_experiment.lookup_data().full_df
+        # At least one step present from each `attach`
+        self.assertGreaterEqual(len(df), mock_experiment_attach_data.call_count)
 
     def test_sqa_storage_with_experiment_name(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -1249,8 +1226,6 @@ class TestAxOrchestrator(TestCase):
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
 
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
-
         looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
         num_metrics = 2
@@ -1309,7 +1284,7 @@ class TestAxOrchestrator(TestCase):
             return_value=timedelta(hours=1),
         ):
             orchestrator.run_all_trials()
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
+        self.assertFalse(orchestrator.experiment.lookup_data_for_trial(0).full_df.empty)
 
     def test_run_trials_in_batches(self) -> None:
         gs = self.two_sobol_steps_GS
@@ -2072,9 +2047,6 @@ class TestAxOrchestrator(TestCase):
 
         initial_df = self.branin_experiment.lookup_data().df
         metric_name = initial_df["metric_name"].iloc[0]
-        initial_mean = initial_df.loc[
-            initial_df["metric_name"] == metric_name, "mean"
-        ].item()
         self.branin_experiment.attach_data(
             Data(
                 df=pd.DataFrame(
@@ -2095,12 +2067,7 @@ class TestAxOrchestrator(TestCase):
             .df.loc[lambda x: x["metric_name"] == metric_name, "mean"]
             .unique()
         )
-        # For multi-type experiment (TestAxOrchestratorMultiTypeExperiment)
-        if len(self.branin_experiment.trials) == 2:
-            expected_means = {initial_mean, TEST_MEAN}
-        else:
-            # One trial
-            expected_means = {TEST_MEAN}
+        expected_means = {TEST_MEAN}
         self.assertEqual(expected_means, set(attached_means))
 
         orchestrator.run_n_trials(max_trials=1)

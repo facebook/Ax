@@ -12,7 +12,7 @@ import inspect
 
 import logging
 import warnings
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import partial, reduce
@@ -24,10 +24,10 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
+from ax.core.data import combine_dfs_favoring_recent, Data
 from ax.core.evaluations_to_data import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
@@ -55,7 +55,6 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.timeutils import current_timestamp_in_millis
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: logging.Logger = get_logger(__name__)
@@ -133,7 +132,6 @@ class Experiment(Base):
         self.runner = runner
         self.is_test: bool = is_test
 
-        self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: str | None = experiment_type
         self._optimization_config: OptimizationConfig | None = None
         self._tracking_metrics: dict[str, Metric] = {}
@@ -141,6 +139,7 @@ class Experiment(Base):
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
         self._default_data_type: DataType = default_data_type or DataType.DATA
+        self.data = Data() if self.default_data_type == DataType.DATA else MapData()
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -847,22 +846,17 @@ class Experiment(Base):
 
         return {}
 
-    def attach_data(self, data: Data, **kwargs: Any) -> int:
+    def attach_data(self, data: Data, **kwargs: Any) -> None:
         """
-        Attach data to the experiment's `_data_by_trial` attribute.
+        Update the experiment's `data` attribute.
 
-        Store data in `experiment._data_by_trial`, to be looked up via
-        ``experiment.lookup_data_for_trial`` or ``experiment.lookup_data()``.
-        When a new observation is attached to a trial that already has an
+        When a new observation is attached and ``self.data`` already has an
         observation for that arm name, metric, and (if present) step, the new
         observation replaces the old one.
 
         Args:
             data: Data to attach.
             kwargs: Deprecated arguments.
-
-        Returns:
-            Timestamp of storage in millis.
         """
         deprecated_arguments = ["combine_with_last_data", "overwrite_existing_data"]
         for arg in deprecated_arguments:
@@ -895,79 +889,31 @@ class Experiment(Base):
                 "fetch_data`, add them via `experiment.add_tracking_metric` or update "
                 "the experiment's optimization config."
             )
-        cur_time_millis = current_timestamp_in_millis()
-        for trial_index, trial_df in data.full_df.groupby("trial_index"):
-            if not isinstance(data, MapData):
-                trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
-            current_trial_data = (
-                self._data_by_trial[trial_index]
-                if trial_index in self._data_by_trial
-                else OrderedDict()
-            )
-            if len(current_trial_data) > 0:
-                _, last_data = current_trial_data.popitem()
-                combined_df = self._combine_data_favoring_recent(
-                    last_df=last_data.full_df, new_df=trial_df
-                )
-                data_type = (
-                    MapData
-                    if isinstance(last_data, MapData) or isinstance(data, MapData)
-                    else Data
-                )
-            else:
-                combined_df = trial_df
-            current_trial_data[cur_time_millis] = data_type(df=combined_df)
-            self._data_by_trial[trial_index] = current_trial_data
-
-        return cur_time_millis
-
-    @staticmethod
-    def _combine_data_favoring_recent(
-        last_df: pd.DataFrame, new_df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """
-        Combine last_df and new_df.
-
-        Deduplicate in favor of new_df when there are multiple observations with
-        the same "trial_index", "metric_name", and "arm_name", and, when
-        present, "step." If only one input has a "step," assign a NaN step to the other.
-
-        Args:
-            last_df: The DataFrame of data currently attached to a trial
-            new_df: A DataFrame containing new data to be attached
-
-        Returns:
-            Combined DataFrame
-        """
-        merge_keys = ["trial_index", "metric_name", "arm_name"]
-        # If only one has a "step" column, add a step column to the other one
-        if MAP_KEY in last_df.columns:
-            merge_keys += [MAP_KEY]
-            if MAP_KEY not in new_df.columns:
-                new_df["step"] = float("NaN")
-        elif MAP_KEY in new_df.columns:
-            merge_keys += [MAP_KEY]
-            last_df["step"] = float("NaN")
-
-        combined = pd.concat((last_df, new_df), ignore_index=True).drop_duplicates(
-            subset=merge_keys, keep="last", ignore_index=True
+        new_df = combine_dfs_favoring_recent(
+            last_df=self.data.full_df, new_df=data.full_df
         )
-        return assert_is_instance(combined, pd.DataFrame)
+        if not isinstance(data, MapData):
+            new_df = sort_by_trial_index_and_arm_name(df=new_df)
+        data_type = (
+            MapData
+            if isinstance(self.data, MapData) or isinstance(data, MapData)
+            else Data
+        )
+        self.data = data_type(df=new_df)
 
     def attach_fetch_results(
         self,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
-    ) -> int | None:
+    ) -> None:
         """
         UNSAFE: Prefer to use attach_data directly instead.
 
         Attach fetched data results to the Experiment so they will not have to be
         fetched again. Additionally caches any metric fetching errors that occurred
-        to the experiment. Returns the timestamp from attachment, which is used
-        as a dict key for _data_by_trial.
+        to the experiment.
 
         NOTE: Any Errs in the results passed in will silently be dropped! This will
-        cause the Experiment to fail to find them in the _data_by_trial cache and
+        cause the Experiment to fail to find them in ``self.data`` and
         attempt to refetch at fetch time. If this is not your intended behavior you
         MUST resolve your results first and use attach_data directly instead.
         """
@@ -1006,44 +952,33 @@ class Experiment(Base):
             data=[ok.ok for ok in oks]
         )
 
-        return self.attach_data(data=data)
+        self.attach_data(data=data)
 
-    def lookup_data_for_trial(self, trial_index: int) -> tuple[Data, int]:
+    def lookup_data_for_trial(self, trial_index: int) -> Data:
         """Look up stored data for a specific trial.
 
-        Returns latest data object and its storage timestamp present for this trial.
-        Returns empty data and -1 if no data is present. In particular, this method
-        will not fetch data from metrics - to do that, use `fetch_data()` instead.
+        Returns dataobject for this trial. Returns empty data if no data
+        is present. This method will not fetch data from metrics - to do that,
+        use `fetch_data()` instead.
 
         Args:
             trial_index: The index of the trial to lookup data for.
 
         Returns:
-            The requested data object, and either its most recent storage
-            timestamp in milliseconds or -1 if no data is present.
+            The requested data object.
         """
-        try:
-            trial_data_dict = self._data_by_trial[trial_index]
-        except KeyError:
-            return (self.default_data_constructor(), -1)
-
-        if len(trial_data_dict) == 0:
-            return (self.default_data_constructor(), -1)
-
-        storage_time = max(trial_data_dict.keys())
-        trial_data = trial_data_dict[storage_time]
-        return trial_data, storage_time
+        return self.data.filter(trial_indices=[trial_index])
 
     def lookup_data(
         self,
         trial_indices: Iterable[int] | None = None,
     ) -> Data:
         """
-        Combine stored ``Data``s for trials ``trial_indices`` into one ``Data``.
+        Return ``Data`` for trials ``trial_indices``.
 
-        For each trial, returns latest data object present for this trial.
-        Returns empty data if no data is present. In particular, this method
-        will not fetch data from metrics - to do that, use `fetch_data()` instead.
+        For each trial, returns data object present for this trial.  Returns
+        empty data if no data is present. This method will not fetch data from
+        metrics - to do that, use `fetch_data()` instead.
 
         Args:
             trial_indices: Indices of trials for which to fetch data. If omitted,
@@ -1052,24 +987,12 @@ class Experiment(Base):
         Returns:
             Data for trials ``trial_indices`` on the experiment.
         """
-        data_by_trial = []
 
-        trial_indices = (
-            # Note: passing trial_indices = [] results in looking up data for
-            # all trials
-            list(trial_indices) if trial_indices else list(self.trials.keys())
-        )
-        if len(trial_indices) == 0:
-            return self.default_data_constructor()
-
-        has_map_data = False
-        for trial_index in trial_indices:
-            trial_data, _ = self.lookup_data_for_trial(trial_index=trial_index)
-            data_by_trial.append(trial_data)
-            has_map_data = has_map_data or isinstance(trial_data, MapData)
-
-        data_type = MapData if has_map_data else Data
-        return data_type.from_multiple_data(data_by_trial)
+        # Note: passing trial_indices = [] results in looking up data for
+        # all trials
+        if not trial_indices:
+            return self.data
+        return self.data.filter(trial_indices=trial_indices)
 
     @property
     def num_trials(self) -> int:
@@ -1470,7 +1393,7 @@ class Experiment(Base):
                 none_throws(trial.arm).parameters,
                 raise_error=search_space_check_membership_raise_error,
             )
-            dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
+            dat = old_experiment.lookup_data_for_trial(trial_index=trial.index)
             # Set trial index and arm name to their values in new trial.
             new_trial = self.new_trial()
             add_arm_and_prevent_naming_collision(
@@ -1498,7 +1421,7 @@ class Experiment(Base):
                     {run_metadata_field: trial.run_metadata.get(run_metadata_field)}
                 )
             # Trial has data, so we replicate it on the new experiment.
-            has_data = ts != -1 and not dat.df.empty
+            has_data = not dat.df.empty
             if has_data:
                 new_df = dat.full_df.copy()
                 new_df["trial_index"].replace(
@@ -1914,8 +1837,11 @@ class Experiment(Base):
                 stacklevel=2,
             )
 
-        data_by_trial = {}
-        for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
+        old_index_to_new_index = {}
+        intersection_indices = trial_indices_to_keep.intersection(
+            original_trial_indices
+        )
+        for trial_index in intersection_indices:
             trial = self.trials[trial_index]
             if not isinstance(trial, (Trial, BatchTrial)):
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
@@ -1923,19 +1849,14 @@ class Experiment(Base):
                 cloned_experiment, clear_trial_type=clear_trial_type
             )
             new_index = new_trial.index
-            trial_data, timestamp = self.lookup_data_for_trial(trial_index)
-            # Clone the data to avoid overwriting the original in the DB.
-            trial_data = trial_data.clone()
-            trial_data.df["trial_index"] = new_index
-            if timestamp != -1:
-                data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
-        if data is not None:
-            # If user passed in data, use it.
-            cloned_experiment.attach_data(data.clone())
-        else:
-            # Otherwise, attach the data extracted from the original experiment.
-            cloned_experiment._data_by_trial = data_by_trial
+            old_index_to_new_index[trial_index] = new_index
 
+        data_to_use = self.data if data is None else data
+        new_df = data_to_use.full_df.loc[
+            lambda x: x["trial_index"].isin(intersection_indices)
+        ]
+        new_df["trial_index"] = new_df["trial_index"].map(old_index_to_new_index)
+        cloned_experiment.data = data_to_use.__class__(df=new_df)
         return cloned_experiment
 
     @property
