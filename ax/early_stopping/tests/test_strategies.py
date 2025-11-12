@@ -568,6 +568,134 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         # Trials 2 and 4 are in top 2, so should be protected
         self.assertEqual(set(should_stop), {0})
 
+    def test_percentile_reason_messages(self) -> None:
+        """Test that appropriate reason messages are returned for different
+        scenarios."""
+        experiment = get_test_map_data_experiment(
+            num_trials=5,
+            num_fetches=3,
+            num_complete=4,
+        )
+        """
+        Data at step==2:
+        0: 99.950007 <-- worst
+        3: 98.060315
+        1: 77.324501
+        4: 44.479018
+        2: 30.522333 <-- best
+        """
+        trial_indices = {*experiment.trials.keys()}
+
+        # Test 1: Verify reason message for trial that should be stopped
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=25,
+            min_curves=4,
+            min_progression=0.1,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=trial_indices, experiment=experiment
+        )
+        # Trial 0 should be stopped
+        self.assertIn(0, should_stop)
+        reason = none_throws(should_stop[0])
+        # Verify reason contains key information in correct format
+        self.assertRegex(
+            reason,
+            r"Trial objective value [\d\.]+ is worse than 75\.0-th percentile "
+            r"\([\d\.]+\) across comparable trials at progression [\d\.]+ "
+            r"\(calculated from \d+ trials: \[0, 1, 2, 3, 4\]\)\.",
+        )
+
+        # Test 2: Verify reason message for trial that should NOT be stopped
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=75,
+            min_curves=4,
+            min_progression=0.1,
+        )
+        # Use _should_stop_trial_early directly to get reason for non-stopped trial
+        data = none_throws(
+            early_stopping_strategy._check_validity_and_get_data(
+                experiment, metric_signatures=["branin_map"]
+            )
+        )
+        aligned_df = align_partial_results(df=data.map_df, metrics=["branin_map"])
+        aligned_means = aligned_df["mean"]["branin_map"]
+
+        should_stop, reason = early_stopping_strategy._should_stop_trial_early(
+            trial_index=2,  # Best trial
+            experiment=experiment,
+            df=aligned_means,
+            df_raw=data.map_df,
+            minimize=True,
+        )
+        self.assertFalse(should_stop)
+        reason = none_throws(reason)
+        # Verify reason contains key information in correct format
+        self.assertRegex(
+            reason,
+            r"Trial objective value [\d\.]+ is better than 25\.0-th percentile "
+            r"\([\d\.]+\) across comparable trials at progression [\d\.]+ "
+            r"\(calculated from \d+ trials: \[0, 1, 2, 3, 4\]\)\.",
+        )
+
+    def test_top_trials_reason_messages_with_percentile_info(self) -> None:
+        """Test that reason messages for top trials include both protection and
+        percentile information."""
+        exp = get_test_map_data_experiment(
+            num_trials=5,
+            num_fetches=3,
+            num_complete=4,
+        )
+        """
+        Data at step==2:
+        0: 99.950007 <-- worst
+        3: 98.060315
+        1: 77.324501
+        4: 44.479018
+        2: 30.522333 <-- best
+        """
+        # Use 75th percentile which would stop trials 0, 3, and 1
+        # But protect top 3 trials (2, 4, 1)
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=75,
+            min_curves=4,
+            min_progression=0.1,
+            n_best_trials_to_complete=3,
+        )
+
+        data = none_throws(
+            early_stopping_strategy._check_validity_and_get_data(exp, ["branin_map"])
+        )
+        aligned_df = align_partial_results(df=data.map_df, metrics=["branin_map"])
+        aligned_means = aligned_df["mean"]["branin_map"]
+
+        # Test trial 1 which is in top 3 but below percentile threshold
+        should_stop, reason = early_stopping_strategy._should_stop_trial_early(
+            trial_index=1,  # Trial 1 is in top 3 but below percentile
+            experiment=exp,
+            df=aligned_means,
+            df_raw=data.map_df,
+            minimize=True,
+        )
+
+        # Should not be stopped because it's in top 3
+        self.assertFalse(should_stop)
+        reason = none_throws(reason)
+        # Verify reason contains both protection info and percentile threshold info
+        # Pattern validates: protection message + percentile threshold explanation
+        self.assertRegex(
+            reason,
+            r"Trial 1 is in top-3 trials \(top trials: \[2, 4, 1\] "
+            r"with objective values: \[[\d\., ]+\]; "
+            r"worst of top trials: trial 1 with value [\d\.]+\) "
+            r"and will not be early stopped despite falling below "
+            r"percentile threshold\. "
+            r"Trial objective value [\d\.]+ is worse than "
+            r"25\.0-th percentile \([\d\.]+\) "
+            r"across comparable trials at progression [\d\.]+ "
+            r"\(calculated from \d+ trials: \[0, 1, 2, 3(, 4)?\]\)\.",
+        )
+
     def test_early_stopping_with_unaligned_results(self) -> None:
         # test case 1
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
