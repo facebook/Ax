@@ -24,10 +24,10 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
+from ax.core.data import combine_dfs_favoring_recent, Data
 from ax.core.evaluations_to_data import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
@@ -904,9 +904,9 @@ class Experiment(Base):
                 if trial_index in self._data_by_trial
                 else OrderedDict()
             )
-            if len(current_trial_data) > 0:
+            if len(current_trial_data) == 1:
                 _, last_data = current_trial_data.popitem()
-                combined_df = self._combine_data_favoring_recent(
+                combined_df = combine_dfs_favoring_recent(
                     last_df=last_data.full_df, new_df=trial_df
                 )
                 data_type = (
@@ -914,45 +914,17 @@ class Experiment(Base):
                     if isinstance(last_data, MapData) or isinstance(data, MapData)
                     else Data
                 )
-            else:
+            elif len(current_trial_data) == 0:
                 combined_df = trial_df
+            else:
+                raise ValueError(
+                    "Each dict within `_data_by_trial` should have at most one "
+                    "element."
+                )
             current_trial_data[cur_time_millis] = data_type(df=combined_df)
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis
-
-    @staticmethod
-    def _combine_data_favoring_recent(
-        last_df: pd.DataFrame, new_df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """
-        Combine last_df and new_df.
-
-        Deduplicate in favor of new_df when there are multiple observations with
-        the same "trial_index", "metric_name", and "arm_name", and, when
-        present, "step." If only one input has a "step," assign a NaN step to the other.
-
-        Args:
-            last_df: The DataFrame of data currently attached to a trial
-            new_df: A DataFrame containing new data to be attached
-
-        Returns:
-            Combined DataFrame
-        """
-        merge_keys = ["trial_index", "metric_name", "arm_name"]
-        # If only one has a "step" column, add a step column to the other one
-        if MAP_KEY in last_df.columns:
-            merge_keys += [MAP_KEY]
-            if MAP_KEY not in new_df.columns:
-                new_df["step"] = float("NaN")
-        elif MAP_KEY in new_df.columns:
-            merge_keys += [MAP_KEY]
-            last_df["step"] = float("NaN")
-
-        combined = pd.concat((last_df, new_df), ignore_index=True).drop_duplicates(
-            subset=merge_keys, keep="last", ignore_index=True
-        )
-        return assert_is_instance(combined, pd.DataFrame)
 
     def attach_fetch_results(
         self,

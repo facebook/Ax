@@ -11,10 +11,12 @@ import json
 import os
 import tempfile
 import warnings
+from collections import OrderedDict
 from functools import partial
 from math import nan
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import Generators
@@ -54,6 +56,7 @@ from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSp
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
     _DEPRECATED_MODEL_TO_REPLACEMENT,
+    data_from_json,
     generation_node_from_json,
     generation_strategy_from_json,
     object_from_json,
@@ -1700,3 +1703,293 @@ class JSONStoreTest(TestCase):
         # Decode and compare.
         decoded_opt_config = object_from_json(opt_config_json)
         self.assertEqual(opt_config, decoded_opt_config)
+
+    def test_data_by_trial_backward_compatible(self) -> None:
+        ts0, ts1, ts2 = 2, 3, 4
+        data_as_dict = {
+            "trial_index": 0,
+            "arm_name": "0_0",
+            "metric_name": "a",
+            "metric_signature": "a",
+            "sem": None,
+        }
+
+        dfs = [
+            pd.DataFrame.from_records(
+                [
+                    {"mean": ts, **data_as_dict},
+                    {
+                        **data_as_dict,
+                        **{"mean": ts, "metric_name": "b", "metric_signature": "b"},
+                    },
+                ]
+            )
+            for ts in [ts0, ts1]
+        ]
+        new_mean = 4.0
+        dfs.append(pd.DataFrame.from_records([{"mean": new_mean, **data_as_dict}]))
+        with self.subTest("Multiple past fetches"):
+            # Encodes this:
+            # _data_by_trial = {
+            #     0: OrderedDict(
+            #         [
+            #             (ts, Data(df=df))
+            #             for ts, df in zip([ts0, ts1, ts2], dfs, strict=True)
+            #         ]
+            #     )
+            # }
+            data_by_trial_json = {
+                0: {
+                    "__type": "OrderedDict",
+                    "value": [
+                        (
+                            2,
+                            {
+                                "df": {
+                                    "__type": "DataFrame",
+                                    "value": '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},"metric_name":{"0":"a","1":"b"},"metric_signature":{"0":"a","1":"b"},"mean":{"0":2.0,"1":2.0},"sem":{"0":null,"1":null}}',  # noqa: E501
+                                },
+                                "__type": "Data",
+                            },
+                        ),
+                        (
+                            3,
+                            {
+                                "df": {
+                                    "__type": "DataFrame",
+                                    "value": '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},"metric_name":{"0":"a","1":"b"},"metric_signature":{"0":"a","1":"b"},"mean":{"0":3.0,"1":3.0},"sem":{"0":null,"1":null}}',  # noqa: E501
+                                },
+                                "__type": "Data",
+                            },
+                        ),
+                        (
+                            4,
+                            {
+                                "df": {
+                                    "__type": "DataFrame",
+                                    "value": '{"trial_index":{"0":0},"arm_name":{"0":"0_0"},"metric_name":{"0":"a"},"metric_signature":{"0":"a"},"mean":{"0":4.0},"sem":{"0":null}}',  # noqa: E501
+                                },
+                                "__type": "Data",
+                            },
+                        ),
+                    ],
+                }
+            }
+            decoded = data_from_json(data_by_trial_json=data_by_trial_json)
+
+            self.assertEqual(set(decoded.keys()), {0})
+            self.assertEqual(set(decoded[0].keys()), {ts2})
+            df = decoded[0][ts2].full_df
+            # b is present even though it wasn't in the most recent fetch
+            self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
+            # We have the old mean of b and the new mean of a
+            self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
+            self.assertEqual(len(decoded[0]), 1)
+
+        with self.subTest("One past fetch"):
+            # Encodes this:
+            # _data_by_trial = {0: OrderedDict([(ts0, Data(df=dfs[0]))])}
+            data_by_trial_json = {
+                0: {
+                    "__type": "OrderedDict",
+                    "value": [
+                        (
+                            2,
+                            {
+                                "df": {
+                                    "__type": "DataFrame",
+                                    "value": '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},"metric_name":{"0":"a","1":"b"},"metric_signature":{"0":"a","1":"b"},"mean":{"0":2.0,"1":2.0},"sem":{"0":null,"1":null}}',  # noqa: E501
+                                },
+                                "__type": "Data",
+                            },
+                        )
+                    ],
+                }
+            }
+            decoded = data_from_json(data_by_trial_json=data_by_trial_json)
+            self.assertEqual(set(decoded.keys()), {0})
+
+        with self.subTest("Empty data"):
+            data_by_trial_json = {0: OrderedDict()}
+            decoded = data_from_json(data_by_trial_json=data_by_trial_json)
+            self.assertEqual(len(decoded), 0)
+
+    def test_experiment_data_by_trial_bc(self) -> None:
+        """
+        An integration test showing that an experiment that has been serialized
+        with a `_data_by_trial` attribute deserializes correctly.
+        """
+        ts0, ts1, ts2 = 2, 3, 4
+        data_as_dict = {
+            "trial_index": 0,
+            "arm_name": "0_0",
+            "metric_name": "a",
+            "metric_signature": "a",
+            "sem": None,
+        }
+
+        dfs_to_attach = [
+            pd.DataFrame.from_records(
+                [
+                    {"mean": ts, **data_as_dict},
+                    {
+                        **data_as_dict,
+                        **{"mean": ts, "metric_name": "b", "metric_signature": "b"},
+                    },
+                ]
+            )
+            for ts in [ts0, ts1]
+        ]
+
+        new_mean = 4.0
+        dfs_to_attach.append(
+            pd.DataFrame.from_records([{"mean": new_mean, **data_as_dict}])
+        )
+        # Encodes an experiment like this:
+        # exp = Experiment(
+        #     name="test",
+        #     search_space=get_branin_search_space(),
+        #     optimization_config=OptimizationConfig(
+        #         objective=Objective(metric=Metric(name="a", lower_is_better=True))
+        #     ),
+        #     tracking_metrics=[Metric(name="b"), Metric(name="c")],
+        #     runner=SyntheticRunner(),
+        # )
+        # exp._data_by_trial = {
+        #     0: OrderedDict(
+        #         [
+        #             (ts, Data(df=df))
+        #             for ts, df in zip([ts0, ts1, ts2], dfs_to_attach, strict=True)
+        #         ]
+        #     )
+        # }
+        experiment_json = {
+            "__type": "Experiment",
+            "name": "test",
+            "description": None,
+            "experiment_type": None,
+            "search_space": {
+                "__type": "SearchSpace",
+                "parameters": [
+                    {
+                        "__type": "RangeParameter",
+                        "name": "x1",
+                        "parameter_type": {
+                            "__type": "ParameterType",
+                            "name": "FLOAT",
+                        },
+                        "lower": -5.0,
+                        "upper": 10.0,
+                        "log_scale": False,
+                        "logit_scale": False,
+                        "digits": None,
+                        "is_fidelity": False,
+                        "target_value": None,
+                    },
+                    {
+                        "__type": "RangeParameter",
+                        "name": "x2",
+                        "parameter_type": {
+                            "__type": "ParameterType",
+                            "name": "FLOAT",
+                        },
+                        "lower": 0.0,
+                        "upper": 15.0,
+                        "log_scale": False,
+                        "logit_scale": False,
+                        "digits": None,
+                        "is_fidelity": False,
+                        "target_value": None,
+                    },
+                ],
+                "parameter_constraints": [],
+            },
+            "optimization_config": {
+                "__type": "OptimizationConfig",
+                "objective": {
+                    "__type": "Objective",
+                    "metric": {
+                        "name": "a",
+                        "lower_is_better": True,
+                        "properties": {},
+                        "signature_override": None,
+                        "__type": "Metric",
+                    },
+                    "minimize": True,
+                },
+                "outcome_constraints": [],
+                "pruning_target_parameterization": None,
+            },
+            "tracking_metrics": [
+                {
+                    "name": "b",
+                    "lower_is_better": None,
+                    "properties": {},
+                    "signature_override": None,
+                    "__type": "Metric",
+                },
+                {
+                    "name": "c",
+                    "lower_is_better": None,
+                    "properties": {},
+                    "signature_override": None,
+                    "__type": "Metric",
+                },
+            ],
+            "runner": {"dummy_metadata": None, "__type": "SyntheticRunner"},
+            "status_quo": None,
+            "time_created": {
+                "__type": "datetime",
+                "value": "2025-11-10 15:15:25.600059",
+            },
+            "trials": {},
+            "is_test": False,
+            "data_by_trial": {
+                0: {
+                    "__type": "OrderedDict",
+                    "value": [
+                        (
+                            2,
+                            {
+                                "df": {
+                                    "__type": "DataFrame",
+                                    "value": '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},"metric_name":{"0":"a","1":"b"},"metric_signature":{"0":"a","1":"b"},"mean":{"0":2.0,"1":2.0},"sem":{"0":null,"1":null}}',  # noqa: E501
+                                },
+                                "__type": "Data",
+                            },
+                        ),
+                        (
+                            3,
+                            {
+                                "df": {
+                                    "__type": "DataFrame",
+                                    "value": '{"trial_index":{"0":0,"1":0},"arm_name":{"0":"0_0","1":"0_0"},"metric_name":{"0":"a","1":"b"},"metric_signature":{"0":"a","1":"b"},"mean":{"0":3.0,"1":3.0},"sem":{"0":null,"1":null}}',  # noqa: E501
+                                },
+                                "__type": "Data",
+                            },
+                        ),
+                        (
+                            4,
+                            {
+                                "df": {
+                                    "__type": "DataFrame",
+                                    "value": '{"trial_index":{"0":0},"arm_name":{"0":"0_0"},"metric_name":{"0":"a"},"metric_signature":{"0":"a"},"mean":{"0":4.0},"sem":{"0":null}}',  # noqa: E501
+                                },
+                                "__type": "Data",
+                            },
+                        ),
+                    ],
+                }
+            },
+            "properties": {},
+            "default_data_type": {"__type": "DataType", "name": "DATA"},
+        }
+        decoded = object_from_json(object_json=experiment_json)
+        self.assertEqual(set(decoded._data_by_trial.keys()), {0})
+        self.assertEqual(set(decoded._data_by_trial[0].keys()), {ts2})
+        df = decoded._data_by_trial[0][ts2].full_df
+        # b is present even though it wasn't in the most recent fetch
+        self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
+        # We have the old mean of b and the new mean of a
+        self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
+        self.assertEqual(len(decoded._data_by_trial[0]), 1)
