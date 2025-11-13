@@ -309,6 +309,7 @@ class DataTest(TestCase):
         self.assertEqual(len(filtered.df), 3)
         self.assertEqual(set(filtered.df["metric_name"]), {"a"})
         self.assertEqual(set(filtered.df["trial_index"]), {1})
+        self.assertIsInstance(filtered.df.index, pd.RangeIndex)
 
         # Test that filter works when we provide metric signatures and trial indices
         filtered = data.filter(metric_signatures=["a_signature"], trial_indices=[1])
