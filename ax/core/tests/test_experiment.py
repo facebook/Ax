@@ -928,6 +928,48 @@ class ExperimentTest(TestCase):
             with self.assertRaisesRegex(ValueError, "should have at most one element"):
                 exp.attach_data(Data(df=df))
 
+    def test_lookup_data(self) -> None:
+        exp = Experiment(
+            name="test",
+            search_space=get_branin_search_space(),
+            optimization_config=OptimizationConfig(
+                objective=Objective(metric=Metric(name="a", lower_is_better=True))
+            ),
+            tracking_metrics=[Metric(name="b"), Metric(name="c")],
+            runner=SyntheticRunner(),
+        )
+        exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 0.0}])
+        exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 0.0}])
+        # Set the default data type to the unexpected type
+        exp._default_data_type = DataType.MAP_DATA
+        # Add a trial
+        attached_df = pd.DataFrame(
+            {
+                "trial_index": [0, 1],
+                "arm_name": ["0_0", "0_0"],
+                "metric_name": ["a", "b"],
+                "metric_signature": ["a", "b"],
+                "mean": [1.0, 2.0],
+                "sem": [0.1, 0.2],
+            }
+        )
+        exp.attach_data(data=Data(df=attached_df))
+
+        with self.subTest("No trial indices"):
+            looked_up = exp.lookup_data()
+            self.assertIsInstance(looked_up, Data)
+            self.assertEqual(set(looked_up.full_df["trial_index"]), {0, 1})
+
+        with self.subTest("One trial index"):
+            looked_up = exp.lookup_data(trial_indices=[0])
+            self.assertIsInstance(looked_up, Data)
+            self.assertEqual(set(looked_up.full_df["trial_index"]), {0})
+
+        with self.subTest("Empty trial indices"):
+            looked_up = exp.lookup_data(trial_indices=[])
+            self.assertIsInstance(looked_up, MapData)
+            self.assertTrue(looked_up.full_df.empty)
+
     def test_attach_and_sort_data(self) -> None:
         n = 4
         exp = self._setupBraninExperiment(n)
