@@ -826,7 +826,7 @@ class ExperimentTest(TestCase):
             tracking_metrics=[Metric(name="b"), Metric(name="c")],
             runner=SyntheticRunner(),
         )
-        # Add a trial
+        # Add data
         arm_name = "0_0"
         trial_index = 0
         orig_b_value = 1.0
@@ -841,6 +841,13 @@ class ExperimentTest(TestCase):
             }
         )
         data1 = Data(df=df1)
+        with self.assertRaisesRegex(
+            ValueError,
+            "Cannot attach data for trial 0 because it has not been attached",
+        ):
+            exp.attach_data(data=data1)
+
+        exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 1.0}])
 
         with self.subTest("args deprecated"):
             deprecation_msg = "is deprecated"
@@ -909,6 +916,7 @@ class ExperimentTest(TestCase):
                 tracking_metrics=[Metric(name="b"), Metric(name="c")],
                 runner=SyntheticRunner(),
             )
+            exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 1.0}])
             df = pd.DataFrame.from_records(
                 [
                     {
