@@ -129,8 +129,6 @@ class BaseTrial(ABC, SortableBase):
         self._run_metadata: dict[str, Any] = {}
         self._stop_metadata: dict[str, Any] = {}
 
-        self._runner: Runner | None = None
-
         # Counter to maintain how many arms have been named by this BatchTrial
         self._num_arms_created = 0
 
@@ -246,12 +244,30 @@ class BaseTrial(ABC, SortableBase):
     @property
     def runner(self) -> Runner | None:
         """The runner object defining how to deploy the trial."""
-        return self._runner
+        return self.experiment.runner_for_trial_type(self.trial_type)
 
     @runner.setter
-    @immutable_once_run
     def runner(self, runner: Runner | None) -> None:
-        self._runner = runner
+        raise UnsupportedError(
+            "Setting runner on individual trials is no longer supported. "
+            "Use experiment-level runners instead."
+        )
+
+    @property
+    def _runner(self) -> Runner | None:
+        """Private runner access is not supported."""
+        raise UnsupportedError(
+            "Accessing _runner on individual trials is no longer supported. "
+            "Use trial.runner instead, which gets the runner from the experiment."
+        )
+
+    @_runner.setter
+    def _runner(self, runner: Runner | None) -> None:
+        """Private runner setting is not supported."""
+        raise UnsupportedError(
+            "Setting _runner on individual trials is no longer supported. "
+            "Use experiment-level runners instead."
+        )
 
     @property
     def deployed_name(self) -> str | None:
@@ -305,13 +321,6 @@ class BaseTrial(ABC, SortableBase):
         # 4. TODO: Capture which generator run the arms we are about to add this
         # this trial, came from.
 
-    def assign_runner(self) -> BaseTrial:
-        """Assigns default experiment runner if trial doesn't already have one."""
-        runner = self.experiment.runner_for_trial(self)
-        if runner is not None:
-            self._runner = runner.clone()
-        return self
-
     def update_run_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         """Updates the run metadata dict stored on this trial and returns the
         updated dict."""
@@ -338,15 +347,12 @@ class BaseTrial(ABC, SortableBase):
         if self.status != TrialStatus.CANDIDATE:
             raise ValueError("Can only run a candidate trial.")
 
-        # Default to experiment runner if trial doesn't have one
-        self.assign_runner()
+        if self.runner is None:
+            raise ValueError("No runner set on experiment.")
 
-        if self._runner is None:
-            raise ValueError("No runner set on trial or experiment.")
+        self.update_run_metadata(none_throws(self.runner).run(self))
 
-        self.update_run_metadata(none_throws(self._runner).run(self))
-
-        if none_throws(self._runner).staging_required:
+        if none_throws(self.runner).staging_required:
             self.mark_staged()
         else:
             self.mark_running()
@@ -379,11 +385,9 @@ class BaseTrial(ABC, SortableBase):
                 "COMPLETED, ABANDONED or EARLY_STOPPED."
             )
 
-        # Default to experiment runner if trial doesn't have one
-        self.assign_runner()
-        if self._runner is None:
-            raise ValueError("No runner set on trial or experiment.")
-        runner = none_throws(self._runner)
+        if self.runner is None:
+            raise ValueError("No runner set on experiment.")
+        runner = none_throws(self.runner)
 
         self._stop_metadata = runner.stop(self, reason=reason)
         self.mark_as(new_status)
@@ -592,7 +596,7 @@ class BaseTrial(ABC, SortableBase):
 
         prev_step = (
             TrialStatus.STAGED
-            if self._runner is not None and self._runner.staging_required
+            if self.runner is not None and self.runner.staging_required
             else TrialStatus.CANDIDATE
         )
         prev_step_str = "staged" if prev_step == TrialStatus.STAGED else "candidate"
@@ -897,7 +901,6 @@ class BaseTrial(ABC, SortableBase):
         new_trial._run_metadata = deepcopy(self._run_metadata)
         new_trial._stop_metadata = deepcopy(self._stop_metadata)
         new_trial._num_arms_created = self._num_arms_created
-        new_trial.runner = self._runner.clone() if self._runner else None
 
         # Set status and reason accordingly.
         if self.status == TrialStatus.CANDIDATE:

@@ -71,13 +71,6 @@ class MultiTypeExperiment(Experiment):
             default_data_type: Enum representing the data type this experiment uses.
         """
 
-        self._default_trial_type = default_trial_type
-
-        # Map from trial type to default runner of that type
-        self._trial_type_to_runner: dict[str, Runner | None] = {
-            default_trial_type: default_runner
-        }
-
         # Specifies which trial type each metric belongs to
         self._metric_to_trial_type: dict[str, str] = {}
 
@@ -99,6 +92,8 @@ class MultiTypeExperiment(Experiment):
             properties=properties,
             default_data_type=default_data_type,
             tracking_metrics=tracking_metrics,
+            runner=default_runner,
+            default_trial_type=default_trial_type,
         )
 
     def add_trial_type(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
@@ -138,6 +133,7 @@ class MultiTypeExperiment(Experiment):
             raise ValueError(f"Experiment does not contain trial_type `{trial_type}`")
 
         self._trial_type_to_runner[trial_type] = runner
+        self._runner = runner
         return self
 
     def add_tracking_metric(
@@ -159,7 +155,7 @@ class MultiTypeExperiment(Experiment):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
         super().add_tracking_metric(metric)
-        self._metric_to_trial_type[metric.name] = trial_type
+        self._metric_to_trial_type[metric.name] = none_throws(trial_type)
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
@@ -307,26 +303,6 @@ class MultiTypeExperiment(Experiment):
         """Default trial type assigned to trials in this experiment."""
         return self._default_trial_type
 
-    def runner_for_trial(self, trial: BaseTrial) -> Runner | None:
-        """The default runner to use for a given trial.
-
-        Looks up the appropriate runner for this trial type in the trial_type_to_runner.
-        """
-        return (
-            trial._runner
-            if trial._runner
-            else self.runner_for_trial_type(trial_type=none_throws(trial.trial_type))
-        )
-
-    def runner_for_trial_type(self, trial_type: str) -> Runner | None:
-        """The default runner to use for a given trial type.
-
-        Looks up the appropriate runner for this trial type in the trial_type_to_runner.
-        """
-        if not self.supports_trial_type(trial_type):
-            raise ValueError(f"Trial type `{trial_type}` is not supported.")
-        return self._trial_type_to_runner[trial_type]
-
     def metrics_for_trial_type(self, trial_type: str) -> list[Metric]:
         """The default runner to use for a given trial type.
 
@@ -346,11 +322,6 @@ class MultiTypeExperiment(Experiment):
         Only trial types defined in the trial_type_to_runner are allowed.
         """
         return trial_type in self._trial_type_to_runner.keys()
-
-    def reset_runners(self, runner: Runner) -> None:
-        raise NotImplementedError(
-            "MultiTypeExperiment does not support resetting all runners."
-        )
 
 
 def filter_trials_by_type(
