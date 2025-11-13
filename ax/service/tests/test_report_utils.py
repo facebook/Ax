@@ -286,7 +286,7 @@ class ReportUtilsTest(TestCase):
             constrained=True,
         )
         with patch(
-            f"{exp_to_df.__module__}._is_row_feasible", side_effect=KeyError(DUMMY_MSG)
+            f"{exp_to_df.__module__}.is_row_feasible", side_effect=KeyError(DUMMY_MSG)
         ), self.assertLogs(logger="ax", level=WARN) as log:
             exp_to_df(exp)
             self.assertIn(

@@ -62,7 +62,7 @@ from ax.plot.trace import (
     map_data_multiple_metrics_dropdown_plotly,
     plot_objective_value_vs_trial_index,
 )
-from ax.service.utils.best_point import _is_row_feasible, derelativize_opt_config
+from ax.service.utils.best_point import derelativize_opt_config, is_row_feasible
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
@@ -826,7 +826,7 @@ def exp_to_df(
                     experiment=exp,
                 )
             # Will return None for those rows whose feasibility cannot be determined.
-            results[FEASIBLE_COL_NAME] = _is_row_feasible(
+            results[FEASIBLE_COL_NAME] = is_row_feasible(
                 df=results,
                 optimization_config=optimization_config,
                 undetermined_value=None,
