@@ -1206,14 +1206,6 @@ class TestAxOrchestrator(TestCase):
                 experiment: Experiment,
                 current_node: GenerationNode | None = None,
             ) -> dict[int, str | None]:
-                # Make sure that we can lookup data for the trial,
-                # even though we won't use it in this dummy strategy
-                data = experiment.lookup_data(trial_indices=trial_indices)
-                if data.df.empty:
-                    raise Exception(
-                        f"No data found for trials {trial_indices}; "
-                        "can't determine whether or not to stop early."
-                    )
                 return {idx: None for idx in trial_indices if idx % 2 == 1}
 
         self.branin_timestamp_map_metric_experiment.runner = (

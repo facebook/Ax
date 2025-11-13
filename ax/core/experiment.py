@@ -1022,16 +1022,13 @@ class Experiment(Base):
         Returns:
             Data for trials ``trial_indices`` on the experiment.
         """
-        data_by_trial = []
-
         trial_indices = (
-            # Note: passing trial_indices = [] results in looking up data for
-            # all trials
-            list(trial_indices) if trial_indices else list(self.trials.keys())
+            list(self.trials.keys()) if trial_indices is None else list(trial_indices)
         )
         if len(trial_indices) == 0:
             return self.default_data_constructor()
 
+        data_by_trial = []
         has_map_data = False
         for trial_index in trial_indices:
             trial_data = self.lookup_data_for_trial(trial_index=trial_index)
