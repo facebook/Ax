@@ -19,6 +19,34 @@ from pyre_extensions import assert_is_instance
 logger: Logger = get_logger(__name__)
 
 
+def _interval_boundary(
+    progression: float, min_progression: float, interval: float
+) -> float:
+    """Calculate the interval boundary for a given progression by rounding down.
+
+    Interval boundaries are at: min_prog, min_prog + interval,
+    min_prog + 2*interval, etc. This method rounds down the given
+    progression to the nearest (lower or equal) interval boundary.
+
+    For example, with min_prog=0 and interval=10:
+    - progression=0 -> boundary=0
+    - progression=5 -> boundary=0 (rounds down)
+    - progression=10 -> boundary=10
+    - progression=15 -> boundary=10 (rounds down)
+    - progression=23 -> boundary=20 (rounds down)
+
+    Args:
+        progression: The progression value to calculate boundary for.
+        min_progression: The minimum progression value (start of first interval).
+        interval: The interval size.
+
+    Returns:
+        The interval boundary that this progression is at or past (rounded down).
+    """
+    interval_num = (progression - min_progression) // interval
+    return min_progression + interval_num * interval
+
+
 def align_partial_results(
     df: pd.DataFrame,
     metrics: list[str],
