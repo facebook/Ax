@@ -35,7 +35,6 @@ from ax.generation_strategy.dispatch_utils import choose_generation_strategy_leg
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     _extract_best_arm_from_gr,
-    _is_row_feasible,
     derelativize_opt_config,
     get_best_by_raw_objective_with_trial_index,
     get_best_parameters_from_model_predictions_with_trial_index,
@@ -43,6 +42,7 @@ from ax.service.utils.best_point import (
     get_hypervolume_trace_of_outcomes_multi_objective,
     get_trace_by_arm_pull_from_data,
     get_values_of_outcomes_single_or_scalarized_objective,
+    is_row_feasible,
     logger as best_point_logger,
 )
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
@@ -708,12 +708,12 @@ class TestBestPointUtils(TestCase):
     def _test_is_row_feasible(
         self, undetermined_value: bool | None, drop_na_rows: bool
     ) -> None:
-        """Tests _is_row_feasible.
+        """Tests is_row_feasible.
 
         Args:
-            undetermined_value: The `undetermined_value` to pass to _is_row_feasible.
+            undetermined_value: The `undetermined_value` to pass to is_row_feasible.
             drop_na_rows: Whether to drop the rows corresponding with `NaN` values in
-                the dataframe before passing it to `_is_row_feasible`, which tests
+                the dataframe before passing it to `is_row_feasible`, which tests
                 different types of "missing" data (explicit `NaNs` and missing rows).
         """
         exp = get_experiment_with_observations(
@@ -737,7 +737,7 @@ class TestBestPointUtils(TestCase):
         if drop_na_rows:
             df = df[~is_na_mask]
 
-        feasible_series = _is_row_feasible(
+        feasible_series = is_row_feasible(
             df=df,
             optimization_config=none_throws(exp.optimization_config),
             undetermined_value=undetermined_value,
@@ -763,7 +763,7 @@ class TestBestPointUtils(TestCase):
             f"Returning {undetermined_value} as the feasibility."
         )
         with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
-            feasible_series = _is_row_feasible(
+            feasible_series = is_row_feasible(
                 df=df,
                 optimization_config=none_throws(exp.optimization_config),
                 undetermined_value=undetermined_value,
@@ -794,7 +794,7 @@ class TestBestPointUtils(TestCase):
             # `assertNoLogs` coming in 3.10 - until then we log a dummy warning and
             # continue.
             best_point_logger.warning("Dummy warning")
-            feasible_series = _is_row_feasible(
+            feasible_series = is_row_feasible(
                 df=df,
                 optimization_config=optimization_config,
                 undetermined_value=undetermined_value,
@@ -822,7 +822,7 @@ class TestBestPointUtils(TestCase):
         df = exp.lookup_data().df
         # Artificially redact some data.
         df = df[df["mean"] > 1]
-        feasible_series = _is_row_feasible(
+        feasible_series = is_row_feasible(
             df=df,
             optimization_config=optimization_config,
             undetermined_value=undetermined_value,
