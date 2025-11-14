@@ -47,11 +47,11 @@ class Trial(BaseTrial):
             or `add_generator_run`, but a trial's associated genetor run is
             immutable once set.
         trial_type: Type of this trial, if used in MultiTypeExperiment.
-        ttl_seconds: If specified, trials will be considered failed after
+        ttl_seconds: If specified, trials will be considered stale after
             this many seconds since the time the trial was ran, unless the
             trial is completed before then. Meant to be used to detect
             'dead' trials, for which the evaluation process might have
-            crashed etc., and which should be considered failed after
+            crashed etc., and which should be considered stale after
             their 'time to live' has passed.
         index: If specified, the trial's index will be set accordingly.
             This should generally not be specified, as in the index will be

@@ -72,11 +72,11 @@ class BaseTrial(ABC, SortableBase):
     Args:
         experiment: Experiment, of which this trial is a part
         trial_type: Type of this trial, if used in MultiTypeExperiment.
-        ttl_seconds: If specified, trials will be considered failed after
+        ttl_seconds: If specified, trials will be considered stale after
             this many seconds since the time the trial was ran, unless the
             trial is completed before then. Meant to be used to detect
             'dead' trials, for which the evaluation process might have
-            crashed etc., and which should be considered failed after
+            crashed etc., and which should be considered stale after
             their 'time to live' has passed.
         index: If specified, the trial's index will be set accordingly.
             This should generally not be specified, as in the index will be
@@ -216,18 +216,18 @@ class BaseTrial(ABC, SortableBase):
     @property
     def ttl_seconds(self) -> int | None:
         """This trial's time-to-live once ran, in seconds. If not set, trial
-        will never be automatically considered failed (i.e. infinite TTL).
+        will never be automatically considered stale (i.e. infinite TTL).
         Reflects after how many seconds since the time the trial was run it
-        will be considered failed unless completed.
+        will be considered stale unless completed.
         """
         return self._ttl_seconds
 
     @ttl_seconds.setter
     def ttl_seconds(self, ttl_seconds: int | None) -> None:
         """Sets this trial's time-to-live once ran, in seconds. If None, trial
-        will never be automatically considered failed (i.e. infinite TTL).
+        will never be automatically considered stale (i.e. infinite TTL).
         Reflects after how many seconds since the time the trial was run it
-        will be considered failed unless completed.
+        will be considered stale unless completed.
         """
         if ttl_seconds is not None and ttl_seconds <= 0:
             raise ValueError("TTL must be a positive integer (or None).")
