@@ -24,6 +24,69 @@ class TestTopSurfacesAnalysis(TestCase):
             none_throws(TopSurfacesAnalysis().validate_applicable_state()),
         )
 
+        client = Client()
+        client.configure_experiment(
+            name="foo",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        client.configure_optimization(objective="bar")
+
+        for _ in range(1):
+            for trial_index, parameterization in client.get_next_trials(
+                max_trials=1
+            ).items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={
+                        "bar": assert_is_instance(parameterization["x1"], float)
+                        - 2 * assert_is_instance(parameterization["x2"], float)
+                    },
+                )
+
+        self.assertIn(
+            "Ax has not yet reached a GenerationNode",
+            none_throws(
+                TopSurfacesAnalysis(
+                    metric_name="bar", order="first"
+                ).validate_applicable_state(
+                    client._experiment, client._generation_strategy
+                )
+            ),
+        )
+        for _ in range(5):
+            for trial_index, parameterization in client.get_next_trials(
+                max_trials=1
+            ).items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={
+                        "bar": assert_is_instance(parameterization["x1"], float)
+                        - 2 * assert_is_instance(parameterization["x2"], float)
+                    },
+                )
+
+        self.assertIn(
+            "no data for metrics {'baz'}",
+            none_throws(
+                TopSurfacesAnalysis(
+                    metric_name="baz", order="first"
+                ).validate_applicable_state(
+                    client._experiment, client._generation_strategy
+                )
+            ),
+        )
+
     @mock_botorch_optimize
     def test_compute(self) -> None:
         client = Client()
