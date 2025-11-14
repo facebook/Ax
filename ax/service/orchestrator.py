@@ -31,6 +31,7 @@ from ax.core.multi_type_experiment import (
     MultiTypeExperiment,
 )
 from ax.core.runner import Runner
+from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.exceptions.core import (
@@ -47,6 +48,7 @@ from ax.exceptions.generation_strategy import (
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.analysis_base import AnalysisBase
+from ax.service.utils.best_point import derelativize_opt_config, is_row_feasible
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
@@ -101,6 +103,13 @@ class FailureRateExceededError(AxError):
     """Error that indicates the optimization was aborted due to excessive
     failure rate.
     """
+
+    pass
+
+
+class StatusQuoInfeasibleError(AxError):
+    """Error that indicates the status-quo arm is infeasible
+    (i.e. violates outcome constraints)."""
 
     pass
 
@@ -991,6 +1000,15 @@ class Orchestrator(AnalysisBase, BestPointMixin):
         # completed, but does not abort the optimization immediately.
         self.error_if_failure_rate_exceeded()
 
+        # If the status-quo arm (if specified) is infeasible,
+        # and if Options.terminate_if_status_quo_infeasible is True,
+        # raise an exception and abort the optimization.
+        if (
+            self.options.terminate_if_status_quo_infeasible
+            and self.experiment.status_quo
+        ):
+            self._error_if_status_quo_infeasible()
+
         # if optimization is timed out, return True, else return False
         latest_optimization_start_timestamp = self._latest_optimization_start_timestamp
         timeout_in_millis = (
@@ -1114,6 +1132,78 @@ class Orchestrator(AnalysisBase, BestPointMixin):
                 num_bad_in_orchestrator=self._num_bad_in_orchestrator(),
                 num_ran_in_orchestrator=self._num_ran_in_orchestrator(),
             )
+
+    def _error_if_status_quo_infeasible(self) -> None:
+        """Raises an exception if the status-quo arm is infeasible and the
+        `terminate_if_status_quo_infeasible` option is set to True.
+        """
+        status_quo_arm_name = none_throws(self.experiment.status_quo).name
+        # Find status_quo arm if it has reached terminal status
+        status_quo_trial = [
+            trial
+            for trial in self.experiment.trials.values()
+            if trial.status.is_terminal
+            and isinstance(trial, Trial)
+            and trial.arm is not None
+            and trial.arm.name == status_quo_arm_name
+        ]
+
+        if not status_quo_trial:
+            # status_quo trial hasn't completed yet
+            return
+
+        try:
+            data_df = self.experiment.lookup_data().df
+            status_quo_df = data_df[data_df["arm_name"] == status_quo_arm_name]
+            if status_quo_df.empty:
+                return
+        except Exception as e:
+            self.logger.warning(
+                f"Could not fetch data to check status-quo arm feasibility: {e}"
+            )
+            return
+
+        # Check if the status-quo arm violates outcome constraints
+        if (
+            self.experiment.optimization_config is not None
+            and len(none_throws(self.experiment.optimization_config).all_constraints)
+            > 0
+        ):
+            optimization_config = none_throws(self.experiment.optimization_config)
+            try:
+                if any(oc.relative for oc in optimization_config.all_constraints):
+                    optimization_config = derelativize_opt_config(
+                        optimization_config=optimization_config,
+                        experiment=self.experiment,
+                    )
+
+                feasibility_series = is_row_feasible(
+                    df=status_quo_df,
+                    optimization_config=optimization_config,
+                    undetermined_value=None,
+                )
+
+                is_infeasible = any(
+                    feasibility is False for feasibility in feasibility_series
+                )
+
+                if is_infeasible:
+                    constraint_descriptions = [
+                        f"{c.metric.name} {c.op.name} {c.bound}"
+                        for c in optimization_config.outcome_constraints
+                    ]
+                    error_msg = (
+                        f"Status-quo arm '{status_quo_arm_name}' is infeasible. "
+                        f"It violates one or more outcome constraints:\n"
+                        + "\n".join(f"  - {desc}" for desc in constraint_descriptions)
+                    )
+                    raise StatusQuoInfeasibleError(error_msg)
+            except StatusQuoInfeasibleError as e:
+                raise e
+            except Exception as e:
+                self.logger.warning(
+                    f"Status-quo arm feasibility calculation failed with error: {e}"
+                )
 
     def _check_exit_status_and_report_results(
         self,

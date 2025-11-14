@@ -61,6 +61,7 @@ from ax.service.orchestrator import (
     OptimizationResult,
     Orchestrator,
     OrchestratorInternalError,
+    StatusQuoInfeasibleError,
 )
 from ax.service.tests.orchestrator_test_utils import (
     BrokenRunnerRuntimeError,
@@ -166,7 +167,8 @@ class TestAxOrchestrator(TestCase):
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
         "validate_metrics=True, status_quo_weight=0.0, "
         "enforce_immutable_search_space_and_opt_config=True, "
-        "mt_experiment_trial_type=None))"
+        "mt_experiment_trial_type=None, "
+        "terminate_if_status_quo_infeasible=False))"
     )
 
     def setUp(self) -> None:
@@ -2765,6 +2767,41 @@ class TestAxOrchestrator(TestCase):
         )
         self.assertEqual(options_with_ess.seconds_between_polls_backoff_factor, 1.0)
 
+    def test_terminate_if_status_quo_infeasible(self) -> None:
+        # Create experiment with status quo and absolute constraint
+        experiment = get_branin_experiment(
+            with_status_quo=True, with_absolute_constraint=True
+        )
+        experiment.optimization_config.outcome_constraints[0].bound = 100
+
+        status_quo_trial = experiment.new_trial()
+        status_quo_trial.add_arm(experiment.status_quo)
+        status_quo_trial.mark_running(no_runner_required=True)
+        status_quo_trial.mark_completed()
+        experiment.attach_data(experiment.fetch_data())
+
+        # Verify data exists for status quo
+        data = experiment.lookup_data()
+        self.assertFalse(data.df.empty)
+        self.assertIn("status_quo", data.df["arm_name"].values)
+
+        gs = self.two_sobol_steps_GS
+        orchestrator = TestOrchestrator(
+            experiment=experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                terminate_if_status_quo_infeasible=True,
+                init_seconds_between_polls=0,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        with self.assertRaisesRegex(
+            StatusQuoInfeasibleError,
+            "Status-quo arm 'status_quo' is infeasible",
+        ):
+            orchestrator.run_n_trials(max_trials=1)
+
 
 class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     EXPECTED_orchestrator_REPR: str = (
@@ -2783,7 +2820,8 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
         "validate_metrics=True, status_quo_weight=0.0, "
         "enforce_immutable_search_space_and_opt_config=True, "
-        "mt_experiment_trial_type='type1'))"
+        "mt_experiment_trial_type='type1', "
+        "terminate_if_status_quo_infeasible=False))"
     )
 
     def setUp(self) -> None:

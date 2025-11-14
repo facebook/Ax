@@ -117,6 +117,12 @@ class OrchestratorOptions:
             is currently required for MultiTypeExperiments. This is ignored for
             "regular" or single type experiments. If you don't know what a single type
             experiment is, you don't need this.
+        terminate_if_status_quo_infeasible: Whether to raise error if a
+            manually-specified status-quo arm is found to be infeasible
+            (i.e., violates outcome constraints). When True, optimization
+            will terminate immediately after the status-quo arm
+            completes if it violates any outcome constraints.
+            Default to False.
     """
 
     max_pending_trials: int = 10
@@ -142,6 +148,7 @@ class OrchestratorOptions:
     status_quo_weight: float = 0.0
     enforce_immutable_search_space_and_opt_config: bool = True
     mt_experiment_trial_type: str | None = None
+    terminate_if_status_quo_infeasible: bool = False
 
     def __post_init__(self) -> None:
         if self.early_stopping_strategy is not None:
