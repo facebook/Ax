@@ -741,11 +741,12 @@ class HierarchicalSearchSpace(SearchSpace):
         Returns:
             Whether the parameterization is contained in the search space.
         """
-        super().check_membership(
+        if not super().check_membership(
             parameterization=parameterization,
             raise_error=raise_error,
             check_all_parameters_present=False,
-        )
+        ):
+            return False
 
         # Check that each arm "belongs" in the hierarchical
         # search space; ensure that it only has the parameters that make sense

@@ -1100,3 +1100,16 @@ class HierarchicalSearchSpaceTest(TestCase):
             {k: hss_2_flat[k] for k in hss_1_flat_params}, hss_1_flat_params
         )
         self.assertEqual(set(hss_2_flat.keys()), set(self.hss_2.parameters.keys()))
+
+    def test_check_membership(self) -> None:
+        """Test that check_membership properly validates parameter values."""
+        valid_param = {"use_linear": True, "model": "fixed_model"}
+        self.assertTrue(self.hss_with_fixed.check_membership(valid_param))
+
+        # Out-of-design parameterization should fail
+        ood_param = {"use_linear": "invalid", "model": "fixed_model"}
+        self.assertFalse(self.hss_with_fixed.check_membership(ood_param))
+
+        # Should raise an error when raise_error=True
+        with self.assertRaisesRegex(ValueError, "invalid is not a valid value"):
+            self.hss_with_fixed.check_membership(ood_param, raise_error=True)
