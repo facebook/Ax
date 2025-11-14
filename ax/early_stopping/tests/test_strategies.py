@@ -28,7 +28,7 @@ from ax.early_stopping.strategies.logical import (
     OrEarlyStoppingStrategy,
 )
 from ax.early_stopping.utils import align_partial_results
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -256,6 +256,214 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 experiment=experiment,
                 df=map_data.map_df,
             )
+
+    def test_progression_interval(self) -> None:
+        """Test progression interval with min_progression=0."""
+        experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        # Set interval=2.0 with min_progression=0 -> boundaries at 0, 2, 4, 6...
+        es_strategy = FakeStrategy(min_progression=0.0, interval=2.0)
+        metric_signature, _ = es_strategy._default_objective_and_direction(
+            experiment=experiment
+        )
+
+        map_data = es_strategy._check_validity_and_get_data(
+            experiment,
+            metric_signatures=[metric_signature],
+        )
+        map_df = assert_is_instance(map_data, MapData).map_df
+
+        # Trial 0 has progressions at 0, 1, 2, 3, 4
+        # Simulate orchestrator checks at different progressions
+
+        # Check 1: Trial at progression 1 (between boundaries 0 and 2)
+        # First check, so should be eligible
+        df_at_1 = map_df[map_df[MAP_KEY] <= 1]
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=df_at_1,
+        )
+        self.assertTrue(is_eligible)
+        self.assertIsNone(reason)
+
+        # Check 2: Trial at progression 2 (at boundary 2)
+        # Has crossed boundary from 1 to 2, should be eligible
+        df_at_2 = map_df[map_df[MAP_KEY] <= 2]
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=df_at_2,
+        )
+        self.assertTrue(is_eligible)
+        self.assertIsNone(reason)
+
+        # Check 3: Trial at progression 3 (between boundaries 2 and 4)
+        # Has NOT crossed boundary from 2 to 3, should NOT be eligible
+        df_at_3 = map_df[map_df[MAP_KEY] <= 3]
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=df_at_3,
+        )
+        self.assertFalse(is_eligible)
+        self.assertIsNotNone(reason)
+        # Validate message format: mentions boundary not crossed, shows interval,
+        # and tells user what progression is needed
+        self.assertRegex(
+            reason,
+            r"not crossed an interval boundary.*"
+            r"both are in the same interval \[2\.00, 4\.00\).*"
+            r"Must reach progression 4\.00",
+        )
+
+        # Check 4: Trial at progression 4 (at boundary 4)
+        # Has crossed boundary from 3 to 4, should be eligible
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=map_df,
+        )
+        self.assertTrue(is_eligible)
+        self.assertIsNone(reason)
+
+    def test_progression_interval_with_min_progression(self) -> None:
+        """Test progression interval with min_progression > 0."""
+        experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        # Set interval=2.0 with min_progression=1.0 -> boundaries at 1, 3, 5, 7...
+        es_strategy = FakeStrategy(min_progression=1.0, interval=2.0)
+        metric_signature, _ = es_strategy._default_objective_and_direction(
+            experiment=experiment
+        )
+
+        map_data = es_strategy._check_validity_and_get_data(
+            experiment,
+            metric_signatures=[metric_signature],
+        )
+        map_df = assert_is_instance(map_data, MapData).map_df
+
+        # Trial 0 has progressions at 0, 1, 2, 3, 4
+        # With min_progression=1.0, boundaries are at 1, 3, 5, 7...
+
+        # Check 1: Trial at progression 0 (below min_progression)
+        # Should NOT be eligible due to min_progression requirement
+        df_at_0 = map_df[map_df[MAP_KEY] <= 0]
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=df_at_0,
+        )
+        self.assertFalse(is_eligible)
+        self.assertIsNotNone(reason)
+        self.assertIn("falls out of the min/max_progression range", reason)
+
+        # Check 2: Trial at progression 2 (between boundaries 1 and 3)
+        # First check at valid progression, should be eligible
+        df_at_2 = map_df[map_df[MAP_KEY] <= 2]
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=df_at_2,
+        )
+        self.assertTrue(is_eligible)
+        self.assertIsNone(reason)
+
+        # Check 3: Trial still at progression 2 (same interval)
+        # Has NOT crossed boundary, should NOT be eligible
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=df_at_2,
+        )
+        self.assertFalse(is_eligible)
+        self.assertIsNotNone(reason)
+        self.assertRegex(
+            reason,
+            r"not crossed an interval boundary.*"
+            r"both are in the same interval \[1\.00, 3\.00\).*"
+            r"Must reach progression 3\.00",
+        )
+
+        # Check 4: Trial at progression 3 (at boundary 3)
+        # Has crossed boundary from 2 to 3, should be eligible
+        df_at_3 = map_df[map_df[MAP_KEY] <= 3]
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=df_at_3,
+        )
+        self.assertTrue(is_eligible)
+        self.assertIsNone(reason)
+
+        # Check 5: Trial at progression 4 (between boundaries 3 and 5)
+        # Has NOT crossed boundary, should NOT be eligible
+        is_eligible, reason = es_strategy.is_eligible(
+            trial_index=0,
+            experiment=experiment,
+            df=map_df,
+        )
+        self.assertFalse(is_eligible)
+        self.assertIsNotNone(reason)
+        self.assertRegex(
+            reason,
+            r"not crossed an interval boundary.*"
+            r"both are in the same interval \[3\.00, 5\.00\).*"
+            r"Must reach progression 5\.00",
+        )
+
+    def test_validation(self) -> None:
+        """Test validation of BaseEarlyStoppingStrategy parameters."""
+        with self.subTest("interval_zero"):
+            with self.assertRaisesRegex(
+                UserInputError, "Option `interval` must be positive"
+            ):
+                FakeStrategy(interval=0)
+
+        with self.subTest("interval_negative"):
+            with self.assertRaisesRegex(
+                UserInputError, "Option `interval` must be positive"
+            ):
+                FakeStrategy(interval=-1.0)
+
+        with self.subTest("min_progression_negative"):
+            with self.assertRaisesRegex(
+                UserInputError,
+                "Option `min_progression` must be nonnegative",
+            ):
+                FakeStrategy(min_progression=-1.0)
+
+        with self.subTest("min_progression_zero_valid"):
+            strategy = FakeStrategy(min_progression=0)
+            self.assertEqual(strategy.min_progression, 0)
+
+        with self.subTest("min_progression_positive_valid"):
+            strategy = FakeStrategy(min_progression=5.0)
+            self.assertEqual(strategy.min_progression, 5.0)
+
+        with self.subTest("min_progression_equals_max_progression"):
+            with self.assertRaisesRegex(
+                UserInputError, "Expect min_progression < max_progression"
+            ):
+                FakeStrategy(min_progression=5.0, max_progression=5.0)
+
+        with self.subTest("min_progression_greater_than_max_progression"):
+            with self.assertRaisesRegex(
+                UserInputError, "Expect min_progression < max_progression"
+            ):
+                FakeStrategy(min_progression=10, max_progression=5)
+
+        with self.subTest("min_max_progression_valid"):
+            strategy = FakeStrategy(min_progression=2.0, max_progression=10.0)
+            self.assertEqual(strategy.min_progression, 2.0)
+            self.assertEqual(strategy.max_progression, 10.0)
+
+        with self.subTest("min_zero_max_positive_valid"):
+            strategy = FakeStrategy(min_progression=0, max_progression=5.0)
+            self.assertEqual(strategy.min_progression, 0)
+            self.assertEqual(strategy.max_progression, 5.0)
 
     def test_early_stopping_savings(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric()

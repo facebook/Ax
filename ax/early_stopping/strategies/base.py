@@ -17,8 +17,8 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
-from ax.early_stopping.utils import estimate_early_stopping_savings
-from ax.exceptions.core import UnsupportedError
+from ax.early_stopping.utils import _interval_boundary, estimate_early_stopping_savings
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -39,6 +39,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         min_curves: int | None = None,
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
+        interval: float | None = None,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
 
@@ -63,13 +64,45 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 specified in the transformed space. IMPORTANT: Typically, `min_curves`
                 should be > 0 to ensure that at least one trial has completed and that
                 we have a reliable approximation for `prog_max`.
+            interval: If specified, throttles early-stopping checks by only
+                evaluating trials when they cross interval boundaries. Boundaries are
+                defined at `min_progression + k * interval` for k = 0, 1, 2, etc.
+                A trial is eligible if it's being checked for the first time, or if
+                its progression has crossed a boundary since the last check. This
+                prevents premature stopping decisions when the orchestrator polls
+                frequently. For example, with `interval=10` and `min_progression=0`,
+                boundaries are at 0, 10, 20, 30, etc. A trial at progression 15 is
+                eligible on first check. If checked again at progression 18, it's not
+                eligible (both in interval [10, 20)). Once it reaches progression 21,
+                it's eligible again (crossed into interval [20, 30)).
         """
+        # Validate interval
+        if interval is not None and not interval > 0:
+            raise UserInputError(f"Option `interval` must be positive (got {interval})")
+
+        # Validate min_progression and max_progression
+        if min_progression is not None and min_progression < 0:
+            raise UserInputError(
+                f"Option `min_progression` must be nonnegative (got {min_progression})"
+            )
+
+        if min_progression is not None and max_progression is not None:
+            if min_progression >= max_progression:
+                raise UserInputError(
+                    f"Expect min_progression < max_progression, got "
+                    f"min_progression={min_progression}, "
+                    f"max_progression={max_progression}"
+                )
+
         self.metric_signatures = metric_signatures
         self.min_progression = min_progression
         self.max_progression = max_progression
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
         self.normalize_progressions = normalize_progressions
+        self.interval = interval
+        # Track the last progression value where each trial was checked
+        self._last_check_progressions: dict[int, float] = {}
 
     @abstractmethod
     def should_stop_trials_early(
@@ -198,6 +231,32 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         )
         return False, reason
 
+    @staticmethod
+    def _log_and_return_interval_boundary(
+        logger: logging.Logger,
+        trial_index: int,
+        prev_progression: float,
+        curr_progression: float,
+        interval: float,
+        min_progression: float,
+    ) -> tuple[bool, str]:
+        """Helper function for logging/constructing a reason when interval
+        boundary has not been crossed."""
+        # Calculate the interval boundaries
+        curr_boundary = _interval_boundary(prev_progression, min_progression, interval)
+        next_boundary = curr_boundary + interval
+
+        reason = (
+            f"Trial has not crossed an interval boundary. "
+            f"Progressed from {prev_progression:.2f} to {curr_progression:.2f}; "
+            f"both are in the same interval [{curr_boundary:.2f}, "
+            f"{next_boundary:.2f}). "
+            f"Must reach progression {next_boundary:.2f} to be eligible for "
+            f"early stopping."
+        )
+        logger.info(f"Trial {trial_index} not eligible for early stopping: {reason}")
+        return False, reason
+
     def is_eligible_any(
         self,
         trial_indices: set[int],
@@ -254,6 +313,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             2. Check that `df` contains data for the trial `trial_index`
             3. Check that the trial has reached `self.min_progression`
             4. Check that the trial hasn't surpassed `self.max_progression`
+            5. Check that the trial has progressed sufficiently since the last
+               early-stopping decision (based on `self.interval`)
         Returns two elements: a boolean indicating if all checks are passed and a
         str indicating the reason that early stopping is not applied (None if all
         checks pass).
@@ -310,7 +371,58 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                     max_progression=self.max_progression,
                     metric_name=metric_name,
                 )
+
+            # check for progression interval
+            if self.interval is not None:
+                last_check_progression = self._last_check_progressions.get(trial_index)
+                if last_check_progression is None:
+                    logger.debug(
+                        f"Trial {trial_index} is being checked for early stopping "
+                        f"for the first time at progression {trial_last_prog}."
+                    )
+                elif not self._has_crossed_interval_boundary(
+                    prev_progression=last_check_progression,
+                    curr_progression=trial_last_prog,
+                ):
+                    min_progression = (
+                        0.0 if self.min_progression is None else self.min_progression
+                    )
+                    return self._log_and_return_interval_boundary(
+                        logger=logger,
+                        trial_index=trial_index,
+                        prev_progression=last_check_progression,
+                        curr_progression=trial_last_prog,
+                        interval=none_throws(self.interval),
+                        min_progression=min_progression,
+                    )
+                # Update the last checked progression for this trial
+                self._last_check_progressions[trial_index] = trial_last_prog
+
         return True, None
+
+    def _has_crossed_interval_boundary(
+        self, prev_progression: float, curr_progression: float
+    ) -> bool:
+        """Check if the trial has crossed an interval boundary.
+
+        This prevents drift by checking if we've passed a boundary defined by
+        the interval parameter, rather than just checking if enough progression
+        has occurred since the last check.
+
+        Args:
+            prev_progression: The progression value when trial was last checked.
+            curr_progression: The current progression value.
+
+        Returns:
+            True if we've crossed an interval boundary, False otherwise.
+        """
+        min_progression = 0.0 if self.min_progression is None else self.min_progression
+        interval = none_throws(self.interval)
+        curr_interval_boundary = _interval_boundary(
+            curr_progression, min_progression=min_progression, interval=interval
+        )
+        # We've crossed a boundary if the last check was before the current boundary
+        return prev_progression < curr_interval_boundary
 
     def _default_objective_and_direction(
         self, experiment: Experiment
@@ -385,6 +497,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         min_progression_modeling: float | None = None,
+        interval: float | None = None,
     ) -> None:
         """A ModelBasedEarlyStoppingStrategy class.
 
@@ -412,6 +525,17 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_progression_modeling: If set, this will exclude progressions that are
                 below this threshold from being used or modeling. Useful when early data
                 is not reliable or excessively noisy.
+            interval: If specified, throttles early-stopping checks by only
+                evaluating trials when they cross interval boundaries. Boundaries are
+                defined at `min_progression + k * interval` for k = 0, 1, 2, etc.
+                A trial is eligible if it's being checked for the first time, or if
+                its progression has crossed a boundary since the last check. This
+                prevents premature stopping decisions when the orchestrator polls
+                frequently. For example, with `interval=10` and `min_progression=0`,
+                boundaries are at 0, 10, 20, 30, etc. A trial at progression 15 is
+                eligible on first check. If checked again at progression 18, it's not
+                eligible (both in interval [10, 20)). Once it reaches progression 21,
+                it's eligible again (crossed into interval [20, 30)).
         """
         super().__init__(
             metric_signatures=metric_signatures,
@@ -420,6 +544,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_curves=min_curves,
             trial_indices_to_ignore=trial_indices_to_ignore,
             normalize_progressions=normalize_progressions,
+            interval=interval,
         )
         self.min_progression_modeling = min_progression_modeling
 
