@@ -257,6 +257,86 @@ class TensorboardMetricTest(TestCase):
 
         self.assertTrue(df.equals(expected_df))
 
+    def test_smoothing_then_cumulative_best_order(self) -> None:
+        """Test that smoothing is applied before cumulative best.
+
+        This test validates that when both smoothing and cumulative_best are
+        enabled, the operations are applied in the correct order:
+        1. First, smoothing is applied to the raw data
+        2. Then, cumulative best is applied to the smoothed data
+
+        This ensures cumulative best operates on smoothed values rather than
+        raw values. Tests both lower_is_better=True (cummin) and
+        lower_is_better=False (cummax).
+        """
+        # Setup: Create test data where order of operations matters
+        # Using data where smoothing vs. cumulative best order produces
+        # different results
+        smoothing = 0.5
+
+        # Test both lower_is_better=True and lower_is_better=False
+        for lower_is_better in [True, False]:
+            # Use different data for each case to ensure order matters
+            if lower_is_better:
+                # For cummin: descending data with a spike
+                fake_data = [8.0, 4.0, 6.0, 2.0]
+            else:
+                # For cummax: ascending data with a dip
+                fake_data = [2.0, 6.0, 4.0, 8.0]
+
+            fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
+            metric = TensorboardMetric(
+                name="loss",
+                tag="loss",
+                lower_is_better=lower_is_better,
+                smoothing=smoothing,
+                cumulative_best=True,
+            )
+            trial = get_trial()
+
+            # Execute: Fetch data with both smoothing and cumulative_best enabled
+            with mock.patch.object(
+                TensorboardMetric,
+                "_get_event_multiplexer_for_trial",
+                return_value=fake_multiplexer,
+            ):
+                result = metric.fetch_trial_data(trial=trial)
+
+            df = assert_is_instance(result.unwrap(), MapData).map_df
+
+            # Assert: Verify that smoothing was applied first, then cumulative best
+            # Step 1: Apply smoothing to get smoothed values
+            smoothed_data = tb_smooth(fake_data, smoothing)
+
+            # Step 2: Apply cumulative best to the smoothed values
+            if lower_is_better:
+                expected_data = pd.Series(smoothed_data).cummin().tolist()
+                cum_op = "cummin"
+            else:
+                expected_data = pd.Series(smoothed_data).cummax().tolist()
+                cum_op = "cummax"
+
+            # Verify the result matches smoothed-then-cum order
+            self.assertEqual(
+                df["mean"].tolist(),
+                expected_data,
+                f"Failed for lower_is_better={lower_is_better}",
+            )
+
+            # Demonstrate that cum-then-smooth would give different results
+            if lower_is_better:
+                cum_first = pd.Series(fake_data).cummin().tolist()
+            else:
+                cum_first = pd.Series(fake_data).cummax().tolist()
+            smooth_then_cum = tb_smooth(cum_first, smoothing)
+
+            # These should be different, proving order matters
+            self.assertNotEqual(
+                expected_data,
+                smooth_then_cum,
+                f"Order should matter for lower_is_better={lower_is_better} ({cum_op})",
+            )
+
     def test_percentile(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]
         percentile = 0.5

@@ -258,14 +258,6 @@ try:
                 )
                 df = df[is_finite]
 
-            # Apply per-metric post-processing
-            # Apply cumulative "best" (min if lower_is_better)
-            if metric.cumulative_best:
-                if metric.lower_is_better:
-                    df["mean"] = df["mean"].cummin()
-                else:
-                    df["mean"] = df["mean"].cummax()
-
             # Apply smoothing
             if metric.smoothing > 0:
                 # Interpolate onto a grid to avoid smoothing artifacts.
@@ -278,6 +270,14 @@ try:
             # Apply rolling percentile
             if metric.percentile is not None:
                 df["mean"] = df["mean"].expanding().quantile(metric.percentile)
+
+            # Apply per-metric post-processing
+            # Apply cumulative "best" (min if lower_is_better)
+            if metric.cumulative_best:
+                if metric.lower_is_better:
+                    df["mean"] = df["mean"].cummin()
+                else:
+                    df["mean"] = df["mean"].cummax()
 
             return df
 
