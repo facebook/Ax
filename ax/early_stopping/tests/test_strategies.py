@@ -263,7 +263,10 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             num_trials=3, num_fetches=5, num_complete=3
         )
         # Set interval=2.0 with min_progression=0 -> boundaries at 0, 2, 4, 6...
-        es_strategy = FakeStrategy(min_progression=0.0, interval=2.0)
+        es_strategy = PercentileEarlyStoppingStrategy(
+            min_progression=0.0,
+            interval=2.0,
+        )
         metric_signature, _ = es_strategy._default_objective_and_direction(
             experiment=experiment
         )

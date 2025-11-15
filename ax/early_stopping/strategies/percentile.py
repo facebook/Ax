@@ -35,6 +35,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         n_best_trials_to_complete: int | None = None,
+        interval: float | None = None,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
 
@@ -71,6 +72,10 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 at the last progression) will never be early stopped, even if they
                 fall below the percentile threshold. This ensures that the best
                 performing trials are allowed to run to completion.
+            interval: Throttles early-stopping evaluation to occur only when
+                trials cross interval boundaries (at min_progression + k * interval,
+                k = 0, 1, 2...). Prevents premature stopping decisions when the
+                orchestrator (ex, GAIN) polls frequently.
         """
         super().__init__(
             metric_signatures=metric_signatures,
@@ -79,6 +84,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             max_progression=max_progression,
             min_curves=min_curves,
             normalize_progressions=normalize_progressions,
+            interval=interval,
         )
 
         self.percentile_threshold = percentile_threshold
