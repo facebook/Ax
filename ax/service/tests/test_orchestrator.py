@@ -2221,53 +2221,6 @@ class TestAxOrchestrator(TestCase):
             options.batch_size,
         )
 
-    def test_generate_candidates_can_remove_stale_candidates_without_ttl(self) -> None:
-        init_test_engine_and_session_factory(force_init=True)
-        # GIVEN a orchestrator using a GS with MBM.
-        gs = self.two_sobol_steps_GS
-
-        # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
-            self.branin_experiment.update_runner("type1", InfinitePollRunner())
-        else:
-            self.branin_experiment.runner = InfinitePollRunner()
-        options = OrchestratorOptions(
-            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
-            batch_size=10,
-            trial_type=TrialType.BATCH_TRIAL,
-            **self.orchestrator_options_kwargs,
-        )
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=options,
-            db_settings=self.db_settings,
-        )
-
-        # WHEN generating candidates on a new experiment twice
-        orchestrator.generate_candidates(num_trials=1)
-        orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=True)
-
-        # THEN the first candidate should be failed
-        orchestrator = Orchestrator.from_stored_experiment(
-            experiment_name=self.branin_experiment.name,
-            options=options,
-            db_settings=self.db_settings,
-        )
-        self.assertEqual(len(orchestrator.experiment.trials), 2)
-        self.assertEqual(
-            orchestrator.experiment.trials[0].status,
-            TrialStatus.FAILED,
-        )
-        self.assertEqual(
-            orchestrator.experiment.trials[0].failed_reason,
-            "Newer candidates generated.",
-        )
-        self.assertEqual(
-            orchestrator.experiment.trials[1].status,
-            TrialStatus.CANDIDATE,
-        )
-
     def test_generate_candidates_can_remove_stale_candidates_with_ttl(
         self,
     ) -> None:
@@ -2368,7 +2321,7 @@ class TestAxOrchestrator(TestCase):
         time.sleep(2.1)
 
         # STEP 4: Generate third candidate
-        orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=True)
+        orchestrator.generate_candidates(num_trials=1)
 
         # STEP 5: Verify results - reload from storage to get fresh state
         orchestrator = Orchestrator.from_stored_experiment(
@@ -2392,51 +2345,10 @@ class TestAxOrchestrator(TestCase):
             TrialStatus.STALE,
         )
 
-        # The first candidate (no TTL) should be marked as FAILED
+        # The first candidate (no TTL) will remain as CANDIDATE
         self.assertEqual(
             orchestrator.experiment.trials[0].status,
-            TrialStatus.FAILED,
-        )
-
-    def test_generate_candidates_can_choose_not_to_remove_stale_candidates(
-        self,
-    ) -> None:
-        init_test_engine_and_session_factory(force_init=True)
-        # GIVEN a orchestrator using a GS with MBM.
-        gs = self.two_sobol_steps_GS
-
-        # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
-            self.branin_experiment.update_runner("type1", InfinitePollRunner())
-        else:
-            self.branin_experiment.runner = InfinitePollRunner()
-        options = OrchestratorOptions(
-            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
-            batch_size=10,
-            trial_type=TrialType.BATCH_TRIAL,
-            **self.orchestrator_options_kwargs,
-        )
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=options,
-            db_settings=self.db_settings,
-        )
-
-        # WHEN generating candidates on a new experiment twice
-        orchestrator.generate_candidates(num_trials=1)
-        orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=False)
-
-        # THEN the first candidate should be failed
-        orchestrator = Orchestrator.from_stored_experiment(
-            experiment_name=self.branin_experiment.name,
-            options=options,
-            db_settings=self.db_settings,
-        )
-        self.assertEqual(len(orchestrator.experiment.trials), 2)
-        self.assertEqual(
-            len(orchestrator.experiment.trials_by_status[TrialStatus.CANDIDATE]),
-            2,
+            TrialStatus.CANDIDATE,
         )
 
     def test_generate_candidates_does_not_fail_stale_candidates_if_fails_to_gen(
@@ -2469,7 +2381,7 @@ class TestAxOrchestrator(TestCase):
         with patch.object(
             Orchestrator, "_gen_new_trials_from_generation_strategy", return_value=[]
         ):
-            orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=True)
+            orchestrator.generate_candidates(num_trials=1)
 
         # THEN the first candidate should be failed
         orchestrator = Orchestrator.from_stored_experiment(
