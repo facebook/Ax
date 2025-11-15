@@ -20,7 +20,6 @@ from typing import Any, cast, NamedTuple
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
-from ax.analysis.plotly.utils import STALE_FAIL_REASON
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -511,7 +510,6 @@ class Orchestrator(AnalysisBase, BestPointMixin):
         self,
         num_trials: int = 1,
         reduce_state_generator_runs: bool = False,
-        remove_stale_candidates: bool = False,
     ) -> tuple[list[BaseTrial], Exception | None]:
         """Fetch the latest data and generate new candidate trials.
 
@@ -521,35 +519,10 @@ class Orchestrator(AnalysisBase, BestPointMixin):
                 whether to save model state for every generator run (default)
                 or to only save model state on the final generator run of each
                 batch.
-            remove_stale_candidates: If true, mark any existing candidate trials
-                failed before trial generation because:
-                - they should not be treated as pending points
-                - they will no longer be relevant
-                NOTE: This flag will be removed once all candidate trials have TTL set.
-                It handles legacy candidate trials without TTL that would otherwise
-                remain indefinitely. New TTL-based logic now automatically marks
-                candidates with TTL as stale when expired.
-
 
         Returns:
             List of trials, empty if generation is not possible.
         """
-        stale_candidate_trials_without_ttl = []
-        if remove_stale_candidates:
-            stale_candidate_trials_without_ttl = [
-                trial
-                for trial in self.experiment.trials_by_status[TrialStatus.CANDIDATE]
-                if not trial.ttl_seconds
-            ]
-            if stale_candidate_trials_without_ttl:
-                self.logger.info(
-                    f"[Experiment name: {self.experiment._name}] "
-                    "Marking the following trials as failed because they are stale: "
-                    f"{[trial.index for trial in stale_candidate_trials_without_ttl]}"
-                )
-                for trial in stale_candidate_trials_without_ttl:
-                    trial.mark_failed(reason=STALE_FAIL_REASON, unsafe=True)
-
         # Trigger TTL check to ensure expired trials are marked as stale
         self.experiment.trials
 
@@ -561,9 +534,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
             new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
             self._save_or_update_trials_and_generation_strategy_if_possible(
                 experiment=self.experiment,
-                trials=new_trials
-                + stale_candidate_trials_without_ttl
-                + self.experiment.trials_by_status[TrialStatus.STALE],
+                trials=new_trials + self.experiment.trials_by_status[TrialStatus.STALE],
                 generation_strategy=self.generation_strategy,
                 new_generator_runs=new_generator_runs,
                 reduce_state_generator_runs=reduce_state_generator_runs,
