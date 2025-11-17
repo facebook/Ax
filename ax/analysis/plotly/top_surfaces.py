@@ -8,6 +8,7 @@
 from typing import final, Literal
 
 from ax.adapter.base import Adapter
+from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import (
     AnalysisCard,
@@ -27,7 +28,7 @@ from ax.analysis.plotly.surface.slice import (
     SlicePlot,
 )
 from ax.analysis.plotly.utils import select_metric
-from ax.analysis.utils import validate_experiment
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, none_throws, override
@@ -68,14 +69,27 @@ class TopSurfacesAnalysis(Analysis):
         adapter: Adapter | None = None,
     ) -> str | None:
         """
-        TopSurfacesAnalysis requires an experiment with trials and data.
+        TopSurfacesAnalysis requires an experiment with trials and data as well as
+        a TorchAdapter.
         """
         if self.metric_name is None:
-            return validate_experiment(
-                experiment=experiment,
-                require_trials=True,
-                require_data=True,
-            )
+            if (
+                experiment_invalid_reason := validate_experiment(
+                    experiment=experiment,
+                    require_trials=True,
+                    require_data=True,
+                )
+            ) is not None:
+                return experiment_invalid_reason
+
+        relevant_adapter = extract_relevant_adapter(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+
+        if not isinstance(relevant_adapter, TorchAdapter):
+            return "TorchAdapter is required."
 
     @override
     def compute(
