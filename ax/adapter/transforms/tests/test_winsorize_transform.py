@@ -150,15 +150,12 @@ class WinsorizeTransformTest(TestCase):
             "`Winsorize` transform requires non-empty data.",
         ):
             Winsorize(search_space=None)
-        with self.assertRaisesRegex(
-            UserInputError,
-            "Transform config for `Winsorize` transform must be specified and "
-            "non-empty when using winsorization.",
-        ):
-            Winsorize(
-                search_space=None,
-                experiment_data=self.experiment_data,
-            )
+        # Initialize with no opt config.
+        t = Winsorize(
+            search_space=None,
+            experiment_data=self.experiment_data,
+        )
+        self.assertEqual(t.cutoffs, {})
         with self.assertRaisesRegex(
             UserInputError,
             "`derelativize_with_raw_status_quo` must be a boolean. Got 1234.",

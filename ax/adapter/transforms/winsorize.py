@@ -103,11 +103,11 @@ class Winsorize(Transform):
         )
         optimization_config = adapter._optimization_config if adapter else None
         if config is None and optimization_config is None:
-            raise UserInputError(
-                "Transform config for `Winsorize` transform must be specified and "
-                "non-empty when using winsorization, or an adapter containing an "
-                "optimization_config must be provided."
-            )
+            # We can't winsorize without an optimization config.
+            # The lack of an optimization config often points to a manual
+            # adapter creation, in which case we can just skip winsorization.
+            self.cutoffs = {}
+            return
         if config is None:
             config = {}
 
@@ -139,9 +139,7 @@ class Winsorize(Transform):
         for obsd in observation_data:
             for idx, metric_signature in enumerate(obsd.metric_signatures):
                 if metric_signature not in self.cutoffs:
-                    raise ValueError(
-                        f"Cannot winsorize unknown metric {metric_signature}"
-                    )
+                    continue
                 # Clip on the winsorization bounds.
                 obsd.means[idx] = max(
                     obsd.means[idx], self.cutoffs[metric_signature][0]
