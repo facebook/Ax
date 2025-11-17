@@ -528,9 +528,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         Note: Service API currently supports only 1-arm trials.
 
         Args:
-            ttl_seconds: If specified, will consider the trial failed after this
-                many seconds. Used to detect dead trials that were not marked
-                failed properly.
+            ttl_seconds: If specified, will consider the trial stale after this
+                many seconds. Used to detect dead trials that did not complete.
             force: If set to True, this function will bypass the global stopping
                 strategy's decision and generate a new trial anyway.
             fixed_features: A FixedFeatures object containing any
@@ -628,9 +627,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         Args:
             max_trials: Limit on how many trials the call to this method should produce.
-            ttl_seconds: If specified, will consider the trial failed after this
-                many seconds. Used to detect dead trials that were not marked
-                failed properly.
+            ttl_seconds: If specified, will consider the trial stale after this
+                many seconds. Used to detect dead trials that did not complete.
             fixed_features: A FixedFeatures object containing any
                 features that should be fixed at specified values during
                 generation.
@@ -805,9 +803,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         Args:
             parameters: Parameterization of the new trial.
-            ttl_seconds: If specified, will consider the trial failed after this
-                many seconds. Used to detect dead trials that were not marked
-                failed properly.
+            ttl_seconds: If specified, will consider the trial stale after this
+                many seconds. Used to detect dead trials that did not complete.
 
         Returns:
             Tuple of parameterization and trial index from newly created trial.

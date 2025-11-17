@@ -1168,11 +1168,11 @@ class Experiment(Base):
                 through `add_arm` or `add_generator_run`, but a trial's
                 associated generator run is immutable once set.
             trial_type: Type of this trial, if used in MultiTypeExperiment.
-            ttl_seconds: If specified, trials will be considered failed after
+            ttl_seconds: If specified, trials will be considered stale after
                 this many seconds since the time the trial was ran, unless the
                 trial is completed before then. Meant to be used to detect
                 'dead' trials, for which the evaluation process might have
-                crashed etc., and which should be considered failed after
+                crashed etc., and which should be considered stale after
                 their 'time to live' has passed.
         """
         if ttl_seconds is not None:
@@ -1207,11 +1207,11 @@ class Experiment(Base):
                 trial for tracking purposes, but without a weight it will not be an
                 Arm present on the trial
             trial_type: Type of this trial, if used in MultiTypeExperiment.
-            ttl_seconds: If specified, trials will be considered failed after
+            ttl_seconds: If specified, trials will be considered stale after
                 this many seconds since the time the trial was ran, unless the
                 trial is completed before then. Meant to be used to detect
                 'dead' trials, for which the evaluation process might have
-                crashed etc., and which should be considered failed after
+                crashed etc., and which should be considered stale after
                 their 'time to live' has passed.
         """
         if ttl_seconds is not None:
@@ -1668,9 +1668,8 @@ class Experiment(Base):
                 with a weight of 1.0. If False, the _status_quo is still set on the
                 trial for tracking purposes, but without a weight it will not be an
                 Arm present on the trial
-            ttl_seconds: If specified, will consider the trial failed after this
-                many seconds. Used to detect dead trials that were not marked
-                failed properly.
+            ttl_seconds: If specified, will consider the trial stale after this
+                many seconds. Used to detect dead trials that did not complete.
             run_metadata: Metadata to attach to the trial.
 
         Returns:
