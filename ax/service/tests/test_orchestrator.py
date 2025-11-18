@@ -2714,6 +2714,20 @@ class TestAxOrchestrator(TestCase):
         ):
             orchestrator.run_n_trials(max_trials=1)
 
+        with self.assertRaisesRegex(
+            StatusQuoInfeasibleError,
+            "Status-quo arm 'status_quo' terminatd with status FAILED.",
+        ):
+            status_quo_trial.mark_failed(unsafe=True)
+            orchestrator.run_n_trials(max_trials=1)
+
+        with self.assertRaisesRegex(
+            StatusQuoInfeasibleError,
+            "Status-quo arm 'status_quo' terminatd with status ABANDONED.",
+        ):
+            status_quo_trial.mark_abandoned(unsafe=True)
+            orchestrator.run_n_trials(max_trials=1)
+
 
 class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     EXPECTED_orchestrator_REPR: str = (
