@@ -20,7 +20,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -151,7 +151,7 @@ class CastTransformTest(TestCase):
             )
         mock_hss_flatten.assert_called_once()
         self.assertIsNot(flattened_search_space, self.hss)
-        self.assertFalse(isinstance(flattened_search_space, HierarchicalSearchSpace))
+        self.assertFalse(flattened_search_space.is_hierarchical)
 
     def test_transform_observation_features_HSS(self) -> None:
         # Untransform the observation features first to cast them and

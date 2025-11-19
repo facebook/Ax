@@ -74,9 +74,7 @@ class Cast(Transform):
         # exploit the hierarchical structure, it infers which parameter is active based
         # on `search_space_digest.hierarchical_dependencies`.
         self.flatten_hss: bool = assert_is_instance(
-            config.pop(
-                "flatten_hss", isinstance(search_space, HierarchicalSearchSpace)
-            ),
+            config.pop("flatten_hss", none_throws(search_space).is_hierarchical),
             bool,
         )
         self.inject_dummy_values_to_complete_flat_parameterization: bool = (
@@ -110,8 +108,12 @@ class Cast(Transform):
 
         Returns: transformed search space.
         """
-        if isinstance(search_space, HierarchicalSearchSpace):
-            return search_space.flatten() if self.flatten_hss else search_space
+        if search_space.is_hierarchical:
+            return (
+                assert_is_instance(search_space, HierarchicalSearchSpace).flatten()
+                if self.flatten_hss
+                else search_space
+            )
         else:
             return search_space
 
@@ -167,7 +169,7 @@ class Cast(Transform):
             observation_features=observation_features
         )
 
-        if isinstance(self.search_space, HierarchicalSearchSpace):
+        if self.search_space.is_hierarchical:
             # Inject the parameters model suggested in the flat search space, which then
             # got removed during casting to HSS as they were not applicable under the
             # hierarchical structure of the search space.
@@ -203,7 +205,7 @@ class Cast(Transform):
             observation_features=observation_features
         )
 
-        if isinstance(self.search_space, HierarchicalSearchSpace):
+        if self.search_space.is_hierarchical:
             # The inactive parameters in the HSS have been filled with dummy values,
             # which should be removed from the observations.
             return [
@@ -264,7 +266,7 @@ class Cast(Transform):
         # If the metadata does not include the full parameterization, a dummy
         # value is constructed, either randomly or by using the middle of the
         # parameter domain, depending on the `use_random_dummy_values` flag.
-        if isinstance(self.search_space, HierarchicalSearchSpace):
+        if self.search_space.is_hierarchical:
             # NOTE: This could probably be vectorized to operate more efficiently,
             # however it is non-trivial since we need to extract values from the
             # metadata of each row and fill any missing values after.
