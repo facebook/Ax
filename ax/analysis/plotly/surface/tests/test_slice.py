@@ -59,7 +59,7 @@ class TestSlicePlot(TestCase):
             card.name,
             "SlicePlot",
         )
-        self.assertEqual(card.title, "x vs. bar")
+        self.assertEqual(card.title, "bar vs. x")
         self.assertEqual(
             card.subtitle,
             (
@@ -102,7 +102,7 @@ class TestSlicePlot(TestCase):
             card.name,
             "SlicePlot",
         )
-        self.assertEqual(card.title, "x vs. bar")
+        self.assertEqual(card.title, "bar vs. x")
         self.assertEqual(
             card.subtitle,
             (

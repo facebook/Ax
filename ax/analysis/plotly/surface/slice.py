@@ -169,7 +169,7 @@ class SlicePlot(Analysis):
 
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
-            title=f"{self.parameter_name} vs. {metric_name}",
+            title=f"{metric_name} vs. {self.parameter_name}",
             subtitle=(
                 "The slice plot provides a one-dimensional view of predicted "
                 f"outcomes for {metric_name} as a function of a single parameter, "

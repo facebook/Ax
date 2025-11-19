@@ -60,7 +60,7 @@ class TestContourPlot(TestCase):
             "values, providing insights into the gradient and potential optima "
             "within the parameter space."
         )
-        self.expected_title = "x, y vs. bar"
+        self.expected_title = "bar vs. x, y"
         self.expected_name = "ContourPlot"
         self.expected_cols = {
             "x",

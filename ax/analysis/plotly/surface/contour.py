@@ -171,8 +171,8 @@ class ContourPlot(Analysis):
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{self.x_parameter_name}, {self.y_parameter_name} vs. "
-                f"{metric_name}"
+                f"{metric_name} vs. "
+                f"{self.x_parameter_name}, {self.y_parameter_name}"
             ),
             subtitle=(
                 "The contour plot visualizes the predicted outcomes "
