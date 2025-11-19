@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
@@ -38,12 +38,12 @@ from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws, override
+from pyre_extensions import none_throws
 from scipy.special import expit, logit
 
 
 logger: Logger = get_logger(__name__)
-PARAMETER_DF_COLNAMES: Mapping[Hashable, str] = {
+PARAMETER_DF_COLNAMES: dict[str, str] = {
     "name": "Name",
     "type": "Type",
     "domain": "Domain",
@@ -67,6 +67,7 @@ class SearchSpace(Base):
         self,
         parameters: Sequence[Parameter],
         parameter_constraints: list[ParameterConstraint] | None = None,
+        requires_root: bool | None = None,
     ) -> None:
         """Initialize SearchSpace
 
@@ -78,14 +79,24 @@ class SearchSpace(Base):
             raise ValueError("Parameter names must be unique.")
 
         self._parameters: dict[str, Parameter] = {p.name: p for p in parameters}
+
         for p in parameters:
             if isinstance(p, DerivedParameter):
                 self._validate_derived_parameter(parameter=p)
         self.set_parameter_constraints(parameter_constraints or [])
 
-    @property
-    def is_hierarchical(self) -> bool:
-        return False
+        if self.is_hierarchical:
+            self._requires_root: bool = (
+                requires_root if requires_root is not None else True
+            )
+
+            if self._requires_root:
+                self._root: Parameter = self._find_root()
+                self._validate_hierarchical_structure()
+                logger.debug(f"Found root: {self.root}.")
+
+        else:
+            self._requires_root: bool = False
 
     @property
     def parameters(self) -> dict[str, Parameter]:
@@ -126,6 +137,38 @@ class SearchSpace(Base):
         raise ValueError(
             f"Parameter '{parameter_name}' is not part of the search space."
         )
+
+    @property
+    def is_hierarchical(self) -> bool:
+        return any(parameter.is_hierarchical for parameter in self.parameters.values())
+
+    @property
+    def root(self) -> Parameter:
+        """Root of the hierarchical search space tree, as identified during
+        ``HierarchicalSearchSpace`` construction.
+        """
+        return self._root
+
+    @property
+    def height(self) -> int:
+        """
+        Height of the underlying tree structure of this hierarchical search space.
+        """
+
+        def _height_from_parameter(parameter: Parameter) -> int:
+            if not parameter.is_hierarchical:
+                return 1
+
+            return (
+                max(
+                    _height_from_parameter(parameter=self[param_name])
+                    for deps in parameter.dependents.values()
+                    for param_name in deps
+                )
+                + 1
+            )
+
+        return _height_from_parameter(parameter=self.root)
 
     def add_parameter_constraints(
         self, parameter_constraints: list[ParameterConstraint]
@@ -312,7 +355,7 @@ class SearchSpace(Base):
         Returns:
             Whether the parameterization is contained in the search space.
         """
-        if check_all_parameters_present:
+        if check_all_parameters_present and not self.is_hierarchical:
             if not self.check_all_parameters_present(
                 parameterization=parameterization, raise_error=raise_error
             ):
@@ -344,6 +387,34 @@ class SearchSpace(Base):
             if not constraint.check(numerical_param_dict):
                 if raise_error:
                     raise ValueError(f"Parameter constraint {constraint} is violated.")
+                return False
+
+        if self.is_hierarchical:
+            # Check that each arm "belongs" in the hierarchical
+            # search space; ensure that it only has the parameters that make sense
+            # with each other (and does not contain dependent parameters if the
+            # parameter they depend on does not have the correct value).
+            try:
+                cast_to_hss_params = set(
+                    self._cast_parameterization(
+                        parameters=parameterization,
+                        check_all_parameters_present=check_all_parameters_present,
+                    ).keys()
+                )
+            except RuntimeError:
+                if raise_error:
+                    raise
+                return False
+            parameterization_params = set(parameterization.keys())
+            if cast_to_hss_params != parameterization_params:
+                if raise_error:
+                    raise ValueError(
+                        "Parameterization violates the hierarchical structure of the "
+                        "search space; cast version would have parameters: "
+                        f"{cast_to_hss_params}, but full version contains "
+                        f"parameters: {parameterization_params}."
+                    )
+
                 return False
 
         return True
@@ -430,7 +501,7 @@ class SearchSpace(Base):
         """Construct new arm using given parameters and name. Any missing parameters
         fallback to the experiment defaults, represented as None.
         """
-        final_parameters: TParameterization = {k: None for k in self.parameters.keys()}
+        final_parameters = dict.fromkeys(self.parameters.keys(), None)
         if parameters is not None:
             # Validate the param values
             for p_name, p_value in parameters.items():
@@ -449,6 +520,7 @@ class SearchSpace(Base):
         return self.__class__(
             parameters=[p.clone() for p in self._parameters.values()],
             parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
+            requires_root=self._requires_root,
         )
 
     def _validate_parameter_constraints(
@@ -480,6 +552,46 @@ class SearchSpace(Base):
                             "Parameter constraints cannot be used with derived "
                             "parameters."
                         )
+
+    def _validate_hierarchical_structure(self) -> None:
+        """Validate the structure of this hierarchical search space, ensuring that all
+        subtrees are independent (not sharing any parameters) and that all parameters
+        are reachable and part of the tree.
+        """
+
+        def _check_subtree(root: Parameter) -> set[str]:
+            logger.debug(f"Verifying subtree with root {root}...")
+            visited = {root.name}
+            # Base case: validate leaf node.
+            if not root.is_hierarchical:
+                return visited  # TODO: Should there be other validation?
+
+            # Recursive case: validate each subtree.
+            visited_in_subtrees = (  # Generator of sets of visited parameter names.
+                _check_subtree(root=self[param_name])
+                for deps in root.dependents.values()
+                for param_name in deps
+            )
+            # Check that subtrees are disjoint and return names of visited params.
+            visited.update(
+                reduce(
+                    lambda set1, set2: _disjoint_union(set1=set1, set2=set2),
+                    visited_in_subtrees,
+                    next(visited_in_subtrees),
+                )
+            )
+            logger.debug(f"Visited parameters {visited} in subtree.")
+            return visited
+
+        # Verify that all nodes have been reached.
+        visited = _check_subtree(root=self._root)
+        if len({*self.parameters.keys()} - visited) != 0:
+            raise UserInputError(
+                f"Parameters {set(self.parameters.keys()) - visited} are not "
+                "reachable from the root. Please check that the hierachical search "
+                "space provided is represented as a valid tree with a single root."
+            )
+        logger.debug(f"Visited all parameters in the tree: {visited}.")
 
     def validate_membership(self, parameters: TParameterization) -> None:
         self.check_membership(parameterization=parameters, raise_error=True)
@@ -542,6 +654,39 @@ class SearchSpace(Base):
             if parameter.backfill_value is not None
         }
 
+    def hierarchical_structure_str(self, parameter_names_only: bool = False) -> str:
+        """String representation of the hierarchical structure.
+
+        Args:
+            parameter_names_only: Whether parameter should show up just as names
+                (instead of full parameter strings), useful for a more concise
+                representation.
+        """
+
+        def _hrepr(param: Parameter | None, value: str | None, level: int) -> str:
+            is_level_param = param and not value
+            if is_level_param:
+                param = none_throws(param)
+                node_name = f"{param.name if parameter_names_only else param}"
+                ret = "\t" * level + node_name + "\n"
+                if param.is_hierarchical:
+                    for val, deps in param.dependents.items():
+                        ret += _hrepr(param=None, value=str(val), level=level + 1)
+                        for param_name in deps:
+                            ret += _hrepr(
+                                param=self[param_name],
+                                value=None,
+                                level=level + 2,
+                            )
+            else:
+                value = none_throws(value)
+                node_name = f"({value})"
+                ret = "\t" * level + node_name + "\n"
+
+            return ret
+
+        return _hrepr(param=self.root, value=None, level=0)
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
@@ -581,52 +726,27 @@ class SearchSpace(Base):
         ]
         return df
 
-
-class HierarchicalSearchSpace(SearchSpace):
-    def __init__(
-        self,
-        parameters: list[Parameter],
-        parameter_constraints: list[ParameterConstraint] | None = None,
-        requires_root: bool = True,
-    ) -> None:
-        super().__init__(
-            parameters=parameters, parameter_constraints=parameter_constraints
-        )
-        self._all_parameter_names: set[str] = set(self.parameters.keys())
-
-        if requires_root:
-            self._root: Parameter = self._find_root()
-            self._validate_hierarchical_structure()
-            logger.debug(f"Found root: {self.root}.")
-
-        self.requires_root = requires_root
-
-    @override
-    @property
-    def is_hierarchical(self) -> bool:
-        return True
-
-    @property
-    def root(self) -> Parameter:
-        """Root of the hierarchical search space tree, as identified during
-        ``HierarchicalSearchSpace`` construction.
-        """
-        return self._root
-
-    def clone(self) -> HierarchicalSearchSpace:
-        return self.__class__(
-            parameters=[p.clone() for p in self._parameters.values()],
-            parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
-            requires_root=self.requires_root,
-        )
-
     def flatten(self) -> SearchSpace:
-        """Returns a flattened ``SearchSpace`` with all the parameters in the
-        given ``HierarchicalSearchSpace``; ignores their hierarchical structure.
         """
+        Returns a new SearchSpace with all hierarchical structure removed.
+        """
+
+        def flatten_parameter(parameter: Parameter) -> Parameter:
+            if (
+                isinstance(parameter, ChoiceParameter)
+                or isinstance(parameter, FixedParameter)
+            ) and parameter.is_hierarchical:
+                cloned_parameter = parameter.clone()
+                cloned_parameter._dependents = None
+
+                return cloned_parameter
+
+            return parameter
+
         return SearchSpace(
-            parameters=list(self.parameters.values()),
+            parameters=[flatten_parameter(p) for p in self.parameters.values()],
             parameter_constraints=self.parameter_constraints,
+            requires_root=False,
         )
 
     def cast_observation_features(
@@ -723,112 +843,31 @@ class HierarchicalSearchSpace(SearchSpace):
                 )
         return obs_feats
 
-    def check_membership(
-        self,
-        parameterization: Mapping[str, TParamValue],
-        raise_error: bool = False,
-        check_all_parameters_present: bool = True,
-    ) -> bool:
-        """Whether the given parameterization belongs in the search space.
-
-        Checks that the given parameter values have the same name/type as
-        search space parameters, are contained in the search space domain,
-        and satisfy the parameter constraints.
-
-        Args:
-            parameterization: Dict from parameter name to value to validate.
-            raise_error: If true parameterization does not belong, raises an error
-                with detailed explanation of why.
-            check_all_parameters_present: Ensure that parameterization specifies
-                values for all parameters as expected by the search space and its
-                hierarchical structure.
-
-        Returns:
-            Whether the parameterization is contained in the search space.
+    def _find_root(self) -> Parameter:
+        """Find the root of hierarchical search space: a parameter that does not depend
+        on other parameters.
         """
-        if not super().check_membership(
-            parameterization=parameterization,
-            raise_error=raise_error,
-            check_all_parameters_present=False,
-        ):
-            return False
+        dependent_parameter_names = set()
+        for parameter in self.parameters.values():
+            if parameter.is_hierarchical:
+                for deps in parameter.dependents.values():
+                    dependent_parameter_names.update(param_name for param_name in deps)
 
-        # Check that each arm "belongs" in the hierarchical
-        # search space; ensure that it only has the parameters that make sense
-        # with each other (and does not contain dependent parameters if the
-        # parameter they depend on does not have the correct value).
-        try:
-            cast_to_hss_params = set(
-                self._cast_parameterization(
-                    parameters=parameterization,
-                    check_all_parameters_present=check_all_parameters_present,
-                ).keys()
+        root_parameters = {*self.parameters.keys()} - dependent_parameter_names
+
+        if len(root_parameters) != 1:
+            num_parameters = len(self.parameters)
+            # TODO: In the future, do not need to fail here; can add a "unifying" root
+            # fixed parameter, on which all independent parameters in the HSS can
+            # depend.
+            raise NotImplementedError(
+                "Could not find the root parameter; found dependent parameters "
+                f"{dependent_parameter_names}, with {num_parameters} total parameters."
+                f" Root parameter candidates: {root_parameters}. Having multiple "
+                "independent parameters is not yet supported."
             )
-        except RuntimeError:
-            if raise_error:
-                raise
-            return False
-        parameterization_params = set(parameterization.keys())
-        if cast_to_hss_params != parameterization_params:
-            if raise_error:
-                raise ValueError(
-                    "Parameterization violates the hierarchical structure of the search"
-                    f"space; cast version would have parameters: {cast_to_hss_params},"
-                    f" but full version contains parameters: {parameterization_params}."
-                )
 
-            return False
-
-        return True
-
-    def hierarchical_structure_str(self, parameter_names_only: bool = False) -> str:
-        """String representation of the hierarchical structure.
-
-        Args:
-            parameter_names_only: Whether parameter should show up just as names
-                (instead of full parameter strings), useful for a more concise
-                representation.
-        """
-
-        def _hrepr(param: Parameter | None, value: str | None, level: int) -> str:
-            is_level_param = param and not value
-            if is_level_param:
-                param = none_throws(param)
-                node_name = f"{param.name if parameter_names_only else param}"
-                ret = "\t" * level + node_name + "\n"
-                if param.is_hierarchical:
-                    for val, deps in param.dependents.items():
-                        ret += _hrepr(param=None, value=str(val), level=level + 1)
-                        for param_name in deps:
-                            ret += _hrepr(
-                                param=self[param_name],
-                                value=None,
-                                level=level + 2,
-                            )
-            else:
-                value = none_throws(value)
-                node_name = f"({value})"
-                ret = "\t" * level + node_name + "\n"
-
-            return ret
-
-        return _hrepr(param=self.root, value=None, level=0)
-
-    def _cast_arm(self, arm: Arm) -> Arm:
-        """Cast parameterization of given arm to the types in this search space and to
-        its hierarchical structure; return the newly cast arm.
-
-        For each parameter in given arm, cast it to the proper type specified
-        in this search space and remove it from the arm if that parameter should not be
-        in the arm within the search space due to its hierarchical structure.
-        """
-        # Validate parameter values in flat search space.
-        arm = super().cast_arm(arm=arm)
-
-        return Arm(
-            parameters=self._cast_parameterization(parameters=arm.parameters),
-            name=arm._name,
-        )
+        return self.parameters[root_parameters.pop()]
 
     def _cast_parameterization(
         self,
@@ -885,92 +924,6 @@ class HierarchicalSearchSpace(SearchSpace):
 
         return {k: v for k, v in parameters.items() if k in applicable_paramers}
 
-    def _find_root(self) -> Parameter:
-        """Find the root of hierarchical search space: a parameter that does not depend
-        on other parameters.
-        """
-        dependent_parameter_names = set()
-        for parameter in self.parameters.values():
-            if parameter.is_hierarchical:
-                for deps in parameter.dependents.values():
-                    dependent_parameter_names.update(param_name for param_name in deps)
-
-        root_parameters = self._all_parameter_names - dependent_parameter_names
-        if len(root_parameters) != 1:
-            num_parameters = len(self.parameters)
-            # TODO: In the future, do not need to fail here; can add a "unifying" root
-            # fixed parameter, on which all independent parameters in the HSS can
-            # depend.
-            raise NotImplementedError(
-                "Could not find the root parameter; found dependent parameters "
-                f"{dependent_parameter_names}, with {num_parameters} total parameters."
-                f" Root parameter candidates: {root_parameters}. Having multiple "
-                "independent parameters is not yet supported."
-            )
-
-        return self.parameters[root_parameters.pop()]
-
-    @property
-    def height(self) -> int:
-        """
-        Height of the underlying tree structure of this hierarchical search space.
-        """
-
-        def _height_from_parameter(parameter: Parameter) -> int:
-            if not parameter.is_hierarchical:
-                return 1
-
-            return (
-                max(
-                    _height_from_parameter(parameter=self[param_name])
-                    for deps in parameter.dependents.values()
-                    for param_name in deps
-                )
-                + 1
-            )
-
-        return _height_from_parameter(parameter=self.root)
-
-    def _validate_hierarchical_structure(self) -> None:
-        """Validate the structure of this hierarchical search space, ensuring that all
-        subtrees are independent (not sharing any parameters) and that all parameters
-        are reachable and part of the tree.
-        """
-
-        def _check_subtree(root: Parameter) -> set[str]:
-            logger.debug(f"Verifying subtree with root {root}...")
-            visited = {root.name}
-            # Base case: validate leaf node.
-            if not root.is_hierarchical:
-                return visited  # TODO: Should there be other validation?
-
-            # Recursive case: validate each subtree.
-            visited_in_subtrees = (  # Generator of sets of visited parameter names.
-                _check_subtree(root=self[param_name])
-                for deps in root.dependents.values()
-                for param_name in deps
-            )
-            # Check that subtrees are disjoint and return names of visited params.
-            visited.update(
-                reduce(
-                    lambda set1, set2: _disjoint_union(set1=set1, set2=set2),
-                    visited_in_subtrees,
-                    next(visited_in_subtrees),
-                )
-            )
-            logger.debug(f"Visited parameters {visited} in subtree.")
-            return visited
-
-        # Verify that all nodes have been reached.
-        visited = _check_subtree(root=self._root)
-        if len(self._all_parameter_names - visited) != 0:
-            raise UserInputError(
-                f"Parameters {self._all_parameter_names - visited} are not reachable "
-                "from the root. Please check that the hierachical search space provided"
-                " is represented as a valid tree with a single root."
-            )
-        logger.debug(f"Visited all parameters in the tree: {visited}.")
-
     def _gen_dummy_values_to_complete_flat_parameterization(
         self,
         observation_features: core.observation.ObservationFeatures,
@@ -1011,6 +964,17 @@ class HierarchicalSearchSpace(SearchSpace):
                     f"Unhandled parameter type on parameter {param}."
                 )
         return dummy_values_to_inject
+
+
+class HierarchicalSearchSpace(SearchSpace):
+    """
+    HierarchicalSearchSpace is deprecated. Its functionality has been upstreamed into
+    SearchSpace. Please use SearchSpace instead. The HierarchicalSearchSpace class
+    remains for backwards compatibility with previously stored experiments but will be
+    removed in the future.
+    """
+
+    pass
 
 
 @dataclass

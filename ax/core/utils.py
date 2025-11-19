@@ -390,7 +390,6 @@ def get_pending_observation_features(
                         trial=trial,
                     ):
                         pending_features[metric_name].append(feature)
-
     return pending_features if any(x for x in pending_features.values()) else None
 
 

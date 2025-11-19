@@ -13,7 +13,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.observation_utils import separate_observations
 from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, ParameterType, RangeParameter
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
 from pandas import Series
@@ -109,11 +109,7 @@ class Cast(Transform):
         Returns: transformed search space.
         """
         if search_space.is_hierarchical:
-            return (
-                assert_is_instance(search_space, HierarchicalSearchSpace).flatten()
-                if self.flatten_hss
-                else search_space
-            )
+            return search_space.flatten() if self.flatten_hss else search_space
         else:
             return search_space
 
@@ -277,9 +273,7 @@ class Cast(Transform):
                     parameters=row.drop("metadata").dropna().to_dict(),
                     metadata=row["metadata"],
                 )
-                flattened = assert_is_instance(
-                    self.search_space, HierarchicalSearchSpace
-                ).flatten_observation_features(
+                flattened = self.search_space.flatten_observation_features(
                     observation_features=obs_ft,
                     inject_dummy_values_to_complete_flat_parameterization=(
                         self.inject_dummy_values_to_complete_flat_parameterization
