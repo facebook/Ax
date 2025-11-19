@@ -483,6 +483,29 @@ class Experiment(Base):
         return none_throws(self.optimization_config).is_moo_problem
 
     @property
+    def is_preference_learning_problem(self) -> bool:
+        """Whether the experiment is a preference learning (BOPE) experiment.
+
+        An experiment is considered a preference learning experiment if:
+        1. It has a PreferenceOptimizationConfig as its optimization config, OR
+        2. It has a PE_EXPERIMENT (preference exploration) auxiliary experiment attached
+
+        Returns:
+            True if this is a preference learning experiment, False otherwise.
+        """
+        # Check if optimization config indicates preference learning
+        if self.optimization_config is not None:
+            if self.optimization_config.is_preference_learning_problem:
+                return True
+
+        # Check if experiment has a PE_EXPERIMENT auxiliary experiment
+        return bool(
+            self.auxiliary_experiments_by_purpose.get(
+                AuxiliaryExperimentPurpose.PE_EXPERIMENT, []
+            )
+        )
+
+    @property
     def immutable_search_space_and_opt_config(self) -> bool:
         """Boolean representing whether search space and metrics on this experiment
         are mutable (by default they are).
