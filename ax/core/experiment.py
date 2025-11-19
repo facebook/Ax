@@ -34,7 +34,7 @@ from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
 from ax.core.parameter import DerivedParameter, Parameter
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import (
     DEFAULT_STATUSES_TO_WARM_START,
@@ -1734,9 +1734,8 @@ class Experiment(Base):
             # data for this arm "complete" in the flattened search space.
             candidate_metadata = None
             if self.search_space.is_hierarchical:
-                hss = assert_is_instance(self.search_space, HierarchicalSearchSpace)
-                candidate_metadata = hss.cast_observation_features(
-                    observation_features=hss.flatten_observation_features(
+                candidate_metadata = self.search_space.cast_observation_features(
+                    observation_features=self.search_space.flatten_observation_features(
                         observation_features=observation.ObservationFeatures(
                             parameters=parameterizations[0]
                         ),

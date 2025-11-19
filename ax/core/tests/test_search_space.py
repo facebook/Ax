@@ -27,7 +27,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace, SearchSpaceDigest
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
 from ax.utils.common.constants import Keys
@@ -627,7 +627,7 @@ class HierarchicalSearchSpaceTest(TestCase):
                 True: ["model"],
             },
         )
-        self.hss_2 = HierarchicalSearchSpace(
+        self.hss_2 = SearchSpace(
             parameters=[
                 self.use_linear_parameter,
                 self.model_parameter,
@@ -636,7 +636,7 @@ class HierarchicalSearchSpaceTest(TestCase):
                 self.num_boost_rounds_parameter,
             ]
         )
-        self.hss_with_fixed = HierarchicalSearchSpace(
+        self.hss_with_fixed = SearchSpace(
             parameters=[
                 self.use_linear_parameter,
                 FixedParameter(
@@ -655,7 +655,7 @@ class HierarchicalSearchSpaceTest(TestCase):
                 "XGBoost": ["num_boost_rounds"],
             },
         )
-        self.hss_with_constraints = HierarchicalSearchSpace(
+        self.hss_with_constraints = SearchSpace(
             parameters=[
                 self.model_parameter,
                 self.lr_parameter,
@@ -726,7 +726,7 @@ class HierarchicalSearchSpaceTest(TestCase):
     def test_validation(self) -> None:
         # Case where dependent parameter is not in the search space.
         with self.assertRaisesRegex(ValueError, ".* 'l2_reg_weight' is not part"):
-            HierarchicalSearchSpace(
+            SearchSpace(
                 parameters=[
                     ChoiceParameter(
                         name="model",
@@ -744,7 +744,7 @@ class HierarchicalSearchSpaceTest(TestCase):
 
         # Case where there are two root-parameter candidates.
         with self.assertRaisesRegex(NotImplementedError, "Could not find the root"):
-            HierarchicalSearchSpace(
+            SearchSpace(
                 parameters=[
                     self.model_parameter,
                     self.model_2_parameter,
@@ -756,7 +756,7 @@ class HierarchicalSearchSpaceTest(TestCase):
 
         # TODO: Test case where subtrees are not independent.
         with self.assertRaisesRegex(UserInputError, ".* contain the same parameters"):
-            HierarchicalSearchSpace(
+            SearchSpace(
                 parameters=[
                     ChoiceParameter(
                         name="root",
@@ -800,8 +800,6 @@ class HierarchicalSearchSpaceTest(TestCase):
         self.assertEqual(
             flattened_hss_1.parameter_constraints, self.hss_1.parameter_constraints
         )
-        self.assertTrue(str(self.hss_1).startswith("HierarchicalSearchSpace"))
-        self.assertTrue(str(flattened_hss_1).startswith("SearchSpace"))
 
         # Test on HSS with constraints.
         flattened_hss_with_constraints = self.hss_with_constraints.flatten()
@@ -816,10 +814,6 @@ class HierarchicalSearchSpaceTest(TestCase):
             flattened_hss_with_constraints.parameter_constraints,
             self.hss_with_constraints.parameter_constraints,
         )
-        self.assertTrue(
-            str(self.hss_with_constraints).startswith("HierarchicalSearchSpace")
-        )
-        self.assertTrue(str(flattened_hss_with_constraints).startswith("SearchSpace"))
 
     def test_cast_observation_features(self) -> None:
         # This uses _cast_parameterization with check_all_parameters_present=False.
@@ -933,7 +927,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             any("Cannot flatten observation features" in str(w.message) for w in ws)
         )
 
-    @mock.patch(f"{HierarchicalSearchSpace.__module__}.uniform", return_value=0.6)
+    @mock.patch(f"{SearchSpace.__module__}.uniform", return_value=0.6)
     def test_flatten_observation_features_inject_dummy_parameter_values_with_random(
         self, mock_uniform: mock.MagicMock
     ) -> None:
@@ -990,7 +984,7 @@ class HierarchicalSearchSpaceTest(TestCase):
 
         # Case 3: test setting of choice parameters
         with mock.patch(
-            f"{HierarchicalSearchSpace.__module__}.choice", wraps=choice
+            f"{SearchSpace.__module__}.choice", wraps=choice
         ) as mock_choice:
             flattened_only_dummies = self.hss_2.flatten_observation_features(
                 observation_features=ObservationFeatures(

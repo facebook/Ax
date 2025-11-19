@@ -43,7 +43,7 @@ from ax.core.parameter_constraint import (
     validate_constraint_parameters,
 )
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp, TParameterization, TParamValue
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
@@ -718,7 +718,6 @@ class InstantiationBase:
         )
         typed_parameters = [cls.parameter_from_json(p) for p in parameters]
         is_hss = any(p.is_hierarchical for p in typed_parameters)
-        search_space_cls = HierarchicalSearchSpace if is_hss else SearchSpace
 
         parameter_map = {p.name: p for p in typed_parameters}
 
@@ -750,20 +749,19 @@ class InstantiationBase:
                 "this constraint into the associated range parameter's bounds."
             )
 
-        ss = search_space_cls(
+        ss = SearchSpace(
             parameters=typed_parameters,
             parameter_constraints=typed_parameter_constraints,
         )
 
         logger.debug(f"Created search space: {ss}.")
         if is_hss:
-            hss = assert_is_instance(ss, HierarchicalSearchSpace)
             logger.debug(
                 "Hieararchical structure of the search space: \n"
-                f"{hss.hierarchical_structure_str(parameter_names_only=True)}"
+                f"{ss.hierarchical_structure_str(parameter_names_only=True)}"
             )
 
-        return search_space_cls(
+        return SearchSpace(
             parameters=typed_parameters,
             parameter_constraints=typed_parameter_constraints,
         )

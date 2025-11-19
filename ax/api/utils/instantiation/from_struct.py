@@ -11,7 +11,7 @@ from ax.api.utils.structs import ExperimentStruct
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.parameter_constraint import validate_constraint_parameters
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 
 
 def experiment_from_struct(struct: ExperimentStruct) -> Experiment:
@@ -37,7 +37,7 @@ def experiment_from_struct(struct: ExperimentStruct) -> Experiment:
         )
 
     if any(p.is_hierarchical for p in parameters):
-        search_space = HierarchicalSearchSpace(
+        search_space = SearchSpace(
             parameters=parameters, parameter_constraints=constraints
         )
     else:

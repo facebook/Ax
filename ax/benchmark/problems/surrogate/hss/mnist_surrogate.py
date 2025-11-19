@@ -18,7 +18,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace
+from ax.core.search_space import SearchSpace
 from xgboost import XGBRegressor
 
 
@@ -28,8 +28,8 @@ MNIST_SURROGATE_OPTIMAL_VALUE = 1.0790634
 MNIST_SURROGATE_BASELINE_VALUE = 0.9837410950660705
 
 
-def get_mnist_surrogate_search_space() -> HierarchicalSearchSpace:
-    search_space = HierarchicalSearchSpace(
+def get_mnist_surrogate_search_space() -> SearchSpace:
+    search_space = SearchSpace(
         parameters=[
             FixedParameter(
                 name="root",
