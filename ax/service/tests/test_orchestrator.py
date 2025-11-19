@@ -1200,9 +1200,16 @@ class TestAxOrchestrator(TestCase):
         total_trials = 3
 
         class OddIndexEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
+            def _is_harmful(
+                self,
+                trial_indices: set[int],
+                experiment: Experiment,
+            ) -> bool:
+                return False
+
             # Trials with odd indices will be early stopped
             # Thus, with 3 total trials, trial #1 will be early stopped
-            def should_stop_trials_early(
+            def _should_stop_trials_early(
                 self,
                 trial_indices: set[int],
                 experiment: Experiment,

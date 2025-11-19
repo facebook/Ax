@@ -78,7 +78,14 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 "with multiple metrics."
             )
 
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        return False
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,

@@ -2652,7 +2652,14 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(self, early_stop_trials: dict[int, str | None] | None = None) -> None:
         self.early_stop_trials: dict[int, str | None] = early_stop_trials or {}
 
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        return False
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,

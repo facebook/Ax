@@ -27,7 +27,21 @@ class LogicalEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
 
 class AndEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        """AND logic: harmful if either strategy considers it harmful."""
+        return self.left._is_harmful(
+            trial_indices=trial_indices,
+            experiment=experiment,
+        ) or self.right._is_harmful(
+            trial_indices=trial_indices,
+            experiment=experiment,
+        )
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,
@@ -63,7 +77,21 @@ class OrEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
             strategies[0],
         )
 
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        """OR logic: harmful if both strategies consider it harmful."""
+        return self.left._is_harmful(
+            trial_indices=trial_indices,
+            experiment=experiment,
+        ) and self.right._is_harmful(
+            trial_indices=trial_indices,
+            experiment=experiment,
+        )
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,

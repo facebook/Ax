@@ -105,7 +105,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self._last_check_progressions: dict[int, float] = {}
 
     @abstractmethod
-    def should_stop_trials_early(
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,
@@ -128,7 +128,62 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             A dictionary mapping trial indices that should be early stopped to
             (optional) messages with the associated reason.
         """
-        pass  # pragma: nocover
+        pass
+
+    @abstractmethod
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        """Determine if applying early stopping would be harmful to the experiment,
+        e.g. if there are clear risks of prematurely eliminating optimal trials.
+
+        Args:
+            trial_indices: Indices of candidate trials to stop early.
+            experiment: Experiment that contains the trials and other contextual data.
+
+        Returns:
+            True if early stopping should not be applied, False otherwise.
+        """
+        pass
+
+    def should_stop_trials_early(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+        current_node: GenerationNode | None = None,
+    ) -> dict[int, str | None]:
+        """Decide whether trials should be stopped before evaluation is fully concluded.
+        This method identifies trials that should be stopped based on early signals that
+        are indicative of final performance. Early stopping is not applied if doing so
+        would risk prematurely eliminating potentially optimal trials.
+
+        Args:
+            trial_indices: Indices of candidate trials to stop early.
+            experiment: Experiment that contains the trials and other contextual data.
+            current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+                used to generate trials for the ``Experiment``. Early stopping
+                strategies may utilize components of the current node when making
+                stopping decisions.
+
+        Returns:
+            A dictionary mapping trial indices that should be early stopped to
+            (optional) messages with the associated reason. Returns an empty
+            dictionary if early stopping would be harmful.
+        """
+        return (
+            self._should_stop_trials_early(
+                trial_indices=trial_indices,
+                experiment=experiment,
+                current_node=current_node,
+            )
+            if not self._is_harmful(
+                trial_indices=trial_indices,
+                experiment=experiment,
+            )
+            else {}
+        )
 
     def estimate_early_stopping_savings(self, experiment: Experiment) -> float:
         """Estimate early stopping savings using progressions of the MapMetric present
