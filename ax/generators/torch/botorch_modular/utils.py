@@ -49,7 +49,7 @@ from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import InputTransform
+from botorch.models.transforms.input import InputTransform, Normalize
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
@@ -227,10 +227,28 @@ def copy_model_config_with_default_values(
 ) -> ModelConfig:
     model_config_copy = deepcopy(model_config)
 
-    if model_config_copy.botorch_model_class is None:
-        model_config_copy.botorch_model_class = choose_model_class(
-            dataset=dataset, search_space_digest=search_space_digest
-        )
+    # Always call choose_model_class to handle heterogeneous datasets.
+    model_config_copy.botorch_model_class = choose_model_class(
+        dataset=dataset,
+        search_space_digest=search_space_digest,
+        specified_model_class=model_config_copy.botorch_model_class,
+    )
+
+    # HeterogeneousMTGP requires Normalize input transform
+    if model_config_copy.botorch_model_class is HeterogeneousMTGP:
+        if (
+            isinstance(model_config_copy.input_transform_classes, list)
+            and Normalize not in model_config_copy.input_transform_classes
+        ):
+            model_config_copy.input_transform_classes.append(Normalize)
+        else:
+            model_config_copy.input_transform_classes = [Normalize]
+
+        # Add Normalize options if not already present. Bounds should be None.
+        if model_config_copy.input_transform_options is None:
+            model_config_copy.input_transform_options = {}
+        if "Normalize" not in model_config_copy.input_transform_options:
+            model_config_copy.input_transform_options["Normalize"] = {"bounds": None}
 
     if model_config_copy.mll_class is None:
         model_config_copy.mll_class = (
@@ -250,6 +268,7 @@ def copy_model_config_with_default_values(
 def choose_model_class(
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
+    specified_model_class: type[Model] | None = None,
 ) -> type[Model]:
     """Chooses a BoTorch `Model` class and `MarginalLogLikelihood` class
     using the given the dataset and search_space_digest.
@@ -258,6 +277,8 @@ def choose_model_class(
         dataset: The dataset on which the model will be fitted.
         search_space_digest: The digest of the search space the model will be
             fitted within.
+        specified_model_class: If provided, this model class will be used unless
+            overridden for specific cases (e.g., heterogeneous datasets).
 
     Returns:
         A BoTorch `Model` class.
@@ -277,22 +298,38 @@ def choose_model_class(
             "Multi-task multi-fidelity optimization not yet supported."
         )
 
+    # Check for heterogeneous multi-task datasets & override model class if needed.
+    if (
+        search_space_digest.task_features
+        and isinstance(dataset, MultiTaskDataset)
+        and dataset.has_heterogeneous_features
+    ):
+        if (
+            specified_model_class is not None
+            and specified_model_class is not HeterogeneousMTGP
+        ):
+            logger.warning(
+                f"Detected heterogeneous features in MultiTaskDataset. "
+                f"Overriding specified model class {specified_model_class.__name__} "
+                f"with HeterogeneousMTGP for transfer learning with "
+                f"heterogeneous search spaces."
+            )
+        model_class = HeterogeneousMTGP
+        logger.debug(f"Chose BoTorch model class: {model_class}.")
+        return model_class
+
+    # If a model class was specified and no override is needed, use it
+    if specified_model_class is not None:
+        logger.debug(f"Using specified BoTorch model class: {specified_model_class}.")
+        return specified_model_class
+
     # Preference learning case
     if isinstance(dataset, RankingDataset):
         model_class = PairwiseGP
 
     # Multi-task case (when `task_features` is specified).
     elif search_space_digest.task_features:
-        # Check if the dataset has heterogeneous features (different search spaces)
-        if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
-            logger.debug(
-                "Detected heterogeneous features in MultiTaskDataset. "
-                "Using HeterogeneousMTGP for transfer learning with "
-                "heterogeneous search spaces."
-            )
-            model_class = HeterogeneousMTGP
-        else:
-            model_class = MultiTaskGP
+        model_class = MultiTaskGP
 
     # Single-task multi-fidelity cases.
     elif search_space_digest.fidelity_features:
