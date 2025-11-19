@@ -24,7 +24,7 @@ from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 @dataclass(init=False)
@@ -99,8 +99,10 @@ class CenterGenerationNode(ExternalGenerationNode):
                 raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
         for p in derived_params:
             parameters[p.name] = p.compute(parameters=parameters)
-        if isinstance(search_space, HierarchicalSearchSpace):
-            parameters = search_space._cast_parameterization(parameters=parameters)
+        if search_space.is_hierarchical:
+            parameters = assert_is_instance(
+                search_space, HierarchicalSearchSpace
+            )._cast_parameterization(parameters=parameters)
 
         # Check for search space membership, which will check if the generated
         # point satisfies the parameter constraints.

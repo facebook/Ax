@@ -793,7 +793,7 @@ class HierarchicalSearchSpaceTest(TestCase):
         flattened_hss_1 = self.hss_1.flatten()
         self.assertIsNot(flattened_hss_1, self.hss_1)
         self.assertEqual(type(flattened_hss_1), SearchSpace)
-        self.assertFalse(isinstance(flattened_hss_1, HierarchicalSearchSpace))
+        self.assertFalse(flattened_hss_1.is_hierarchical)
         self.assertEqual(flattened_hss_1.parameters, self.hss_1.parameters)
         self.assertEqual(
             flattened_hss_1.parameter_constraints, self.hss_1.parameter_constraints
@@ -805,9 +805,7 @@ class HierarchicalSearchSpaceTest(TestCase):
         flattened_hss_with_constraints = self.hss_with_constraints.flatten()
         self.assertIsNot(flattened_hss_with_constraints, self.hss_with_constraints)
         self.assertEqual(type(flattened_hss_with_constraints), SearchSpace)
-        self.assertFalse(
-            isinstance(flattened_hss_with_constraints, HierarchicalSearchSpace)
-        )
+        self.assertFalse(flattened_hss_with_constraints.is_hierarchical)
         self.assertEqual(
             flattened_hss_with_constraints.parameters,
             self.hss_with_constraints.parameters,
