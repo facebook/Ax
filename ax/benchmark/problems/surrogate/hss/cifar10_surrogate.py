@@ -19,7 +19,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 
-from ax.core.search_space import HierarchicalSearchSpace
+from ax.core.search_space import SearchSpace
 from xgboost import XGBRegressor
 
 
@@ -27,8 +27,8 @@ CIFAR10_SURROGATE_BASELINE_VALUE = 0.7594003677368164
 CIFAR10_SURROGATE_OPTIMAL_VALUE = 0.82043886
 
 
-def get_cifar10_surrogate_search_space() -> HierarchicalSearchSpace:
-    search_space = HierarchicalSearchSpace(
+def get_cifar10_surrogate_search_space() -> SearchSpace:
+    search_space = SearchSpace(
         parameters=[
             FixedParameter(
                 name="root",

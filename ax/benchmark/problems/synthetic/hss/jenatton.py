@@ -12,7 +12,7 @@ import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.search_space import HierarchicalSearchSpace
+from ax.core.search_space import SearchSpace
 from pyre_extensions import none_throws
 
 JENATTON_OPTIMAL_VALUE = 0.1
@@ -60,8 +60,8 @@ class Jenatton(BenchmarkTestFunction):
         return torch.tensor(value, dtype=torch.double)
 
 
-def get_jenatton_search_space() -> HierarchicalSearchSpace:
-    search_space = HierarchicalSearchSpace(
+def get_jenatton_search_space() -> SearchSpace:
+    search_space = SearchSpace(
         parameters=[
             ChoiceParameter(
                 name="x1",

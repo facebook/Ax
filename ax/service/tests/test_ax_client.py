@@ -32,7 +32,6 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import OrderConstraint
-from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
@@ -2754,10 +2753,8 @@ class TestAxClient(TestCase):
             objectives={"objective": ObjectiveProperties(minimize=True)},
             choose_generation_strategy_kwargs={"num_initialization_trials": 4},
         )
-        hss = assert_is_instance(
-            ax_client.experiment.search_space, HierarchicalSearchSpace
-        )
-        self.assertTrue(hss.root.is_hierarchical)
+        self.assertTrue(ax_client.experiment.search_space.is_hierarchical)
+        self.assertTrue(ax_client.experiment.search_space.root.is_hierarchical)
 
         ax_client.attach_trial({"model": "XGBoost", "num_boost_rounds": 2})
         ax_client.attach_trial(

@@ -25,7 +25,6 @@ from ax.core.map_data import MAP_KEY, MapData
 from ax.core.observation import ObservationFeatures
 from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
@@ -372,7 +371,6 @@ class MapKeyToFloatTransformTest(TestCase):
         # Test if the hierarchical search space is transformed correctly.
         hss_before = self.hierarchical_search_space.clone()
         hss = self.hss_t.transform_search_space(hss_before.clone())
-        hss = assert_is_instance(hss, HierarchicalSearchSpace)
         self.assertSetEqual(
             set(hss.parameters),
             set(hss_before.parameters).union({self.map_key}),

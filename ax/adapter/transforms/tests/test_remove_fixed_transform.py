@@ -19,7 +19,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal, assert_series_equal
@@ -59,7 +59,7 @@ class RemoveFixedTransformTest(TestCase):
         # └── (1) parent2: ChoiceParameter
         #         ├── (0) child3: FixedParameter
         #         └── (1) child4: FixedParameter
-        self.hierarchical_search_space = HierarchicalSearchSpace(
+        self.hierarchical_search_space = SearchSpace(
             parameters=[
                 FixedParameter(
                     "root",

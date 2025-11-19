@@ -16,7 +16,6 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
@@ -363,7 +362,7 @@ class TestInstantiationtUtils(TestCase):
             parameters=parameter_dicts,
             parameter_constraints=[],
         )
-        self.assertIsInstance(search_space, HierarchicalSearchSpace)
+        self.assertTrue(search_space.is_hierarchical)
         # pyre-fixme[16]: `SearchSpace` has no attribute `_root`.
         self.assertEqual(search_space._root.name, "root")
 
