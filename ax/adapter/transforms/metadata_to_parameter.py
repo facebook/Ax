@@ -15,9 +15,8 @@ from typing import Any, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import Parameter
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.utils.common.logger import get_logger
-from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -48,9 +47,7 @@ class MetadataToParameterMixin:
             # newly added parameters:
             # 1. Disable the root check;
             # 2. Re-initialize the search space to clear the variable `self._root`.
-            assert_is_instance(
-                search_space, HierarchicalSearchSpace
-            ).requires_root = False
+            search_space._requires_root = False
             search_space = search_space.clone()
 
         return search_space

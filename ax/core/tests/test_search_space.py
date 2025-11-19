@@ -460,7 +460,7 @@ class SearchSpaceTest(TestCase):
                     parameter_type=ParameterType.STRING,
                     values=["a", "b", "c"],
                     is_ordered=False,
-                    dependents={"a": ["x1", "x2"], "b": ["x4", "x5"], "c": ["x6"]},
+                    dependents={"a": ["x1", "x2"], "b": ["x3", "x5"], "c": ["x6"]},
                 ),
                 ChoiceParameter(
                     "x5",
@@ -503,7 +503,7 @@ class SearchSpaceTest(TestCase):
                     "None",
                     "None",
                     "None",
-                    {"a": ["x1", "x2"], "b": ["x4", "x5"], "c": ["x6"]},
+                    {"a": ["x1", "x2"], "b": ["x3", "x5"], "c": ["x6"]},
                     "None",
                     "None",
                 ],
@@ -708,12 +708,12 @@ class HierarchicalSearchSpaceTest(TestCase):
     def test_init(self) -> None:
         self.assertEqual(self.hss_1._root, self.model_parameter)
         self.assertEqual(
-            self.hss_1._all_parameter_names,
+            {*self.hss_1.parameters.keys()},
             {"l2_reg_weight", "learning_rate", "num_boost_rounds", "model"},
         )
         self.assertEqual(self.hss_2._root, self.use_linear_parameter)
         self.assertEqual(
-            self.hss_2._all_parameter_names,
+            {*self.hss_2.parameters.keys()},
             {
                 "l2_reg_weight",
                 "learning_rate",
@@ -794,7 +794,9 @@ class HierarchicalSearchSpaceTest(TestCase):
         self.assertIsNot(flattened_hss_1, self.hss_1)
         self.assertEqual(type(flattened_hss_1), SearchSpace)
         self.assertFalse(flattened_hss_1.is_hierarchical)
-        self.assertEqual(flattened_hss_1.parameters, self.hss_1.parameters)
+        self.assertEqual(
+            flattened_hss_1.parameters.keys(), self.hss_1.parameters.keys()
+        )
         self.assertEqual(
             flattened_hss_1.parameter_constraints, self.hss_1.parameter_constraints
         )
@@ -807,8 +809,8 @@ class HierarchicalSearchSpaceTest(TestCase):
         self.assertEqual(type(flattened_hss_with_constraints), SearchSpace)
         self.assertFalse(flattened_hss_with_constraints.is_hierarchical)
         self.assertEqual(
-            flattened_hss_with_constraints.parameters,
-            self.hss_with_constraints.parameters,
+            flattened_hss_with_constraints.parameters.keys(),
+            self.hss_with_constraints.parameters.keys(),
         )
         self.assertEqual(
             flattened_hss_with_constraints.parameter_constraints,
@@ -818,23 +820,6 @@ class HierarchicalSearchSpaceTest(TestCase):
             str(self.hss_with_constraints).startswith("HierarchicalSearchSpace")
         )
         self.assertTrue(str(flattened_hss_with_constraints).startswith("SearchSpace"))
-
-    def test_cast_arm(self) -> None:
-        # This uses _cast_parameterization with check_all_parameters_present=True.
-        self.assertEqual(  # Check one subtree.
-            self.hss_1._cast_arm(arm=self.hss_1_arm_1_flat),
-            self.hss_1_arm_1_cast,
-        )
-        self.assertEqual(  # Check other subtree.
-            self.hss_1._cast_arm(arm=self.hss_1_arm_2_flat),
-            self.hss_1_arm_2_cast,
-        )
-        self.assertEqual(  # Check already-cast case.
-            self.hss_1._cast_arm(arm=self.hss_1_arm_1_cast),
-            self.hss_1_arm_1_cast,
-        )
-        with self.assertRaises(RuntimeError):
-            self.hss_1._cast_arm(arm=self.hss_1_arm_missing_param)
 
     def test_cast_observation_features(self) -> None:
         # This uses _cast_parameterization with check_all_parameters_present=False.
