@@ -42,7 +42,14 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class FakeStrategy(BaseEarlyStoppingStrategy):
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        return False
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,
@@ -52,7 +59,14 @@ class FakeStrategy(BaseEarlyStoppingStrategy):
 
 
 class FakeStrategyRequiresNode(BaseEarlyStoppingStrategy):
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        return False
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,
@@ -64,7 +78,14 @@ class FakeStrategyRequiresNode(BaseEarlyStoppingStrategy):
 
 
 class ModelBasedFakeStrategy(ModelBasedEarlyStoppingStrategy):
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        return False
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,
