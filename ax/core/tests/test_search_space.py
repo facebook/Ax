@@ -706,12 +706,10 @@ class HierarchicalSearchSpaceTest(TestCase):
         )
 
     def test_init(self) -> None:
-        self.assertEqual(self.hss_1._root, self.model_parameter)
         self.assertEqual(
             {*self.hss_1.parameters.keys()},
             {"l2_reg_weight", "learning_rate", "num_boost_rounds", "model"},
         )
-        self.assertEqual(self.hss_2._root, self.use_linear_parameter)
         self.assertEqual(
             {*self.hss_2.parameters.keys()},
             {
@@ -742,8 +740,9 @@ class HierarchicalSearchSpaceTest(TestCase):
                 ]
             )
 
-        # Case where there are two root-parameter candidates.
-        with self.assertRaisesRegex(NotImplementedError, "Could not find the root"):
+        # Case where 'learning_rate', 'num_boost_rounds', 'l2_reg_weight' can be
+        # reached from multiple paths.
+        with self.assertRaisesRegex(UserInputError, "contains a cycle"):
             SearchSpace(
                 parameters=[
                     self.model_parameter,
@@ -755,7 +754,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             )
 
         # TODO: Test case where subtrees are not independent.
-        with self.assertRaisesRegex(UserInputError, ".* contain the same parameters"):
+        with self.assertRaisesRegex(UserInputError, "contains a cycle"):
             SearchSpace(
                 parameters=[
                     ChoiceParameter(
@@ -777,13 +776,13 @@ class HierarchicalSearchSpaceTest(TestCase):
     def test_hierarchical_structure_str(self) -> None:
         self.assertEqual(
             self.hss_1.hierarchical_structure_str(),
-            f"{self.hss_1.root}\n\t(Linear)\n\t\t{self.lr_parameter}\n\t\t"
+            f"{self.hss_1['model']}\n\t(Linear)\n\t\t{self.lr_parameter}\n\t\t"
             f"{self.l2_reg_weight_parameter}\n\t(XGBoost)\n\t\t"
             f"{self.num_boost_rounds_parameter}\n",
         )
         self.assertEqual(
             self.hss_1.hierarchical_structure_str(parameter_names_only=True),
-            f"{self.hss_1.root.name}\n\t(Linear)\n\t\t{self.lr_parameter.name}"
+            f"{self.hss_1['model'].name}\n\t(Linear)\n\t\t{self.lr_parameter.name}"
             f"\n\t\t{self.l2_reg_weight_parameter.name}\n\t(XGBoost)\n\t\t"
             f"{self.num_boost_rounds_parameter.name}\n",
         )
@@ -855,18 +854,6 @@ class HierarchicalSearchSpaceTest(TestCase):
                 check_all_parameters_present=False,
             ),
             {"l2_reg_weight": 0.0001, "model": "Linear"},
-        )
-        # A hierarchical param is missing, all its dependents will be ignored.
-        # In this case, it is the root param, so we'll have empty parameterization.
-        self.assertEqual(
-            self.hss_1._cast_parameterization(
-                parameters={
-                    "l2_reg_weight": 0.0001,
-                    "num_boost_rounds": 12,
-                },
-                check_all_parameters_present=False,
-            ),
-            {},
         )
 
     def test_flatten_observation_features(self) -> None:

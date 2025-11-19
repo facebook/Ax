@@ -42,14 +42,6 @@ class MetadataToParameterMixin:
         for parameter in self._parameter_list:
             search_space.add_parameter(parameter.clone())
 
-        if search_space.is_hierarchical:
-            # The hierarchical search space does not have a root anymore due to the
-            # newly added parameters:
-            # 1. Disable the root check;
-            # 2. Re-initialize the search space to clear the variable `self._root`.
-            search_space._requires_root = False
-            search_space = search_space.clone()
-
         return search_space
 
     def transform_observation_features(

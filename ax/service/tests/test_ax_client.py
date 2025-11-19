@@ -2754,7 +2754,7 @@ class TestAxClient(TestCase):
             choose_generation_strategy_kwargs={"num_initialization_trials": 4},
         )
         self.assertTrue(ax_client.experiment.search_space.is_hierarchical)
-        self.assertTrue(ax_client.experiment.search_space.root.is_hierarchical)
+        self.assertTrue(ax_client.experiment.search_space["model"].is_hierarchical)
 
         ax_client.attach_trial({"model": "XGBoost", "num_boost_rounds": 2})
         ax_client.attach_trial(
