@@ -375,7 +375,6 @@ class MapKeyToFloatTransformTest(TestCase):
             set(hss.parameters),
             set(hss_before.parameters).union({self.map_key}),
         )
-        self.assertFalse(hss._requires_root)
 
     def test_TransformObservationFeatures(self) -> None:
         # NaN progressions get filled in with the upper bound,

@@ -149,10 +149,7 @@ def construct_new_search_space(
         "parameters": parameters,
         "parameter_constraints": parameter_constraints,
     }
-    if search_space.is_hierarchical:
-        # Temporarily relax the `requires_root` flag for the new search space. This is
-        # fine because this function is typically called during transforms.
-        new_kwargs["requires_root"] = False
+
     return search_space.__class__(**new_kwargs)
 
 
