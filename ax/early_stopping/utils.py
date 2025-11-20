@@ -149,54 +149,40 @@ def align_partial_results(
 
 
 def estimate_early_stopping_savings(experiment: Experiment) -> float:
-    """Estimate resource savings due to early stopping by considering
-    COMPLETED and EARLY_STOPPED trials. First, use the mean of final
-    progressions of the set completed trials as a benchmark for the
-    length of a single trial. The savings is then estimated as:
+    """Estimate resource savings from early stopping trials.
 
-    resource_savings =
-      1 - actual_resource_usage / (num_trials * length of single trial)
+    Uses the average progression across completed trials as a baseline to estimate
+    how much resource each early stopped trial would have consumed.
+    Savings are computed as:
+
+        savings = total_resources_saved / total_resources_used
 
     Args:
-        experiment: The experiment.
+        experiment: The experiment to analyze.
 
     Returns:
-        The estimated resource savings as a fraction of total resource usage (i.e.
-        0.11 estimated savings indicates we would expect the experiment to have used 11%
-        more resources without early stopping present).
+        Resource savings as a fraction of total usage. For example, 0.11 indicates
+        the experiment would have used 11% more resources without early stopping.
     """
 
     map_data = assert_is_instance(experiment.lookup_data(), MapData)
-    if len(map_data.df) == 0:
+    if map_data.df.empty:
         return 0
-    # Get final number of steps of each trial
-    trial_resources = (
-        map_data.map_df[["trial_index", MAP_KEY]]
-        .groupby("trial_index")
-        .max()
-        .reset_index()
+    # Get max progression (resources used) for each trial
+    resources_used = map_data.map_df.groupby("trial_index")[MAP_KEY].max()
+
+    trials_by_status = experiment.trial_indices_by_status
+    stopped_trials = trials_by_status[TrialStatus.EARLY_STOPPED]
+    completed_trials = trials_by_status[TrialStatus.COMPLETED]
+
+    # Baseline: average resources used across completed trials
+    avg_completed_resources_used = resources_used.loc[[*completed_trials]].mean()
+
+    # Calculate resources saved per stopped trial (clip negatives to zero)
+    stopped_resources_used = resources_used.loc[[*stopped_trials]]
+    resources_saved = (avg_completed_resources_used - stopped_resources_used).clip(
+        lower=0
     )
 
-    early_stopped_trial_idcs = experiment.trial_indices_by_status[
-        TrialStatus.EARLY_STOPPED
-    ]
-    completed_trial_idcs = experiment.trial_indices_by_status[TrialStatus.COMPLETED]
-
-    # Assume that any early stopped trial would have had the mean number of steps of
-    # the completed trials
-    mean_completed_trial_resources = trial_resources[
-        trial_resources["trial_index"].isin(completed_trial_idcs)
-    ][MAP_KEY].mean()
-
-    # Calculate the steps saved per early stopped trial. If savings are estimated to be
-    # negative assume no savings
-    stopped_trial_resources = trial_resources[
-        trial_resources["trial_index"].isin(early_stopped_trial_idcs)
-    ][MAP_KEY]
-    saved_trial_resources = (
-        mean_completed_trial_resources - stopped_trial_resources
-    ).clip(0)
-
-    # Return the ratio of the total saved resources over the total resources used plus
-    # the total saved resources
-    return saved_trial_resources.sum() / trial_resources[MAP_KEY].sum()
+    # Return fraction of total resources saved
+    return resources_saved.sum() / resources_used.sum()
