@@ -286,6 +286,7 @@ class BoTorchGeneratorTest(TestCase):
         mock_choose_model_class.assert_called_with(
             dataset=self.block_design_training_data[0],
             search_space_digest=self.mf_search_space_digest,
+            specified_model_class=None,
         )
 
     # This mock is hard to remove since it is mocks a method on a surrogate that
