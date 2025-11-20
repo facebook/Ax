@@ -1042,8 +1042,8 @@ class DerivedParameter(Parameter):
 
         Args:
             name: Name of the parameter.
-            parameter_type: Enum indicating the type of parameter
-                value (e.g. string, int).
+            parameter_type: Enum indicating the type of parameter value. Expects
+                "float", or "int". "bool" and "str" are not supported.
             expression_str: A string expression of the derived parameter definition.
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
