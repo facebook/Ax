@@ -27,6 +27,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     ObjectiveThreshold,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
@@ -79,7 +80,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from pandas.testing import assert_frame_equal
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 DUMMY_RUN_METADATA_KEY_1 = "test_run_metadata_key_1"
 DUMMY_RUN_METADATA_KEY_2 = "test_run_metadata_key_2"
@@ -175,8 +176,9 @@ class ExperimentTest(TestCase):
             optimization_config=get_optimization_config(),
             tracking_metrics=[Metric(name="m1"), Metric(name="m3")],
         )
-        # pyre-fixme[16]: Optional type has no attribute `metrics`.
-        self.assertEqual(len(exp.optimization_config.metrics) + 1, len(exp.metrics))
+        self.assertEqual(
+            len(none_throws(exp.optimization_config).metrics) + 1, len(exp.metrics)
+        )
 
     def test_BasicBatchCreation(self) -> None:
         batch = self.experiment.new_batch_trial()
@@ -2289,6 +2291,47 @@ class ExperimentWithMapDataTest(TestCase):
             auxiliary_experiment_name="aux_exp",
         )
         self.assertIsNone(aux_exp_found)
+
+    def test_is_bope_problem(self) -> None:
+        """Test the is_bope_problem property."""
+
+        with self.subTest("No preference indicators"):
+            experiment = get_branin_experiment()
+            self.assertFalse(experiment.is_bope_problem)
+
+        with self.subTest("Has PreferenceOptimizationConfig"):
+            experiment = get_branin_experiment()
+            pref_opt_config = PreferenceOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric(name="m1"), minimize=False),
+                        Objective(metric=Metric(name="m2"), minimize=True),
+                    ]
+                ),
+                preference_profile_name="test_profile",
+            )
+            experiment.optimization_config = pref_opt_config
+            self.assertTrue(experiment.is_bope_problem)
+
+        with self.subTest("Has PE_EXPERIMENT auxiliary experiment"):
+            experiment = get_branin_experiment()
+            aux_base_exp = get_branin_experiment()
+            aux_base_exp.name = "pe_aux_exp"
+            pe_aux_exp = AuxiliaryExperiment(experiment=aux_base_exp)
+            experiment.add_auxiliary_experiment(
+                purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+                auxiliary_experiment=pe_aux_exp,
+            )
+            self.assertTrue(experiment.is_bope_problem)
+
+        with self.subTest("Has BO_EXPERIMENT but not PE_EXPERIMENT"):
+            experiment = get_branin_experiment()
+            bo_aux_exp = AuxiliaryExperiment(experiment=get_branin_experiment())
+            experiment.add_auxiliary_experiment(
+                purpose=AuxiliaryExperimentPurpose.BO_EXPERIMENT,
+                auxiliary_experiment=bo_aux_exp,
+            )
+            self.assertFalse(experiment.is_bope_problem)
 
     def test_name_and_store_arm_if_not_exists_same_name_different_signature(
         self,
