@@ -18,9 +18,8 @@ from ax.core.parameter import (
     FixedParameter,
     Parameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
-from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -29,7 +28,7 @@ if TYPE_CHECKING:
 
 def find_adoptable_descendants(
     param: FixedParameter,
-    search_space: HierarchicalSearchSpace,
+    search_space: SearchSpace,
 ) -> list[str]:
     """
     Find all descendants (if any) of a fixed parameter that needs to be adopted by the
@@ -142,9 +141,7 @@ class RemoveFixed(Transform):
                                 updated_children += find_adoptable_descendants(
                                     # pyre-ignore[6]: It's a fixed parameter for sure.
                                     param=search_space.parameters[child],
-                                    search_space=assert_is_instance(
-                                        search_space, HierarchicalSearchSpace
-                                    ),
+                                    search_space=search_space,
                                 )
                             else:
                                 updated_children.append(child)

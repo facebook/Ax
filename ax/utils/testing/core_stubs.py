@@ -60,7 +60,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import (
@@ -1703,7 +1703,7 @@ def get_search_space_with_choice_parameters(
 
 def get_hierarchical_search_space(
     with_fixed_parameter: bool = False,
-) -> HierarchicalSearchSpace:
+) -> SearchSpace:
     parameters: list[Parameter] = [
         get_model_parameter(with_fixed_parameter=with_fixed_parameter),
         get_lr_parameter(),
@@ -1712,7 +1712,7 @@ def get_hierarchical_search_space(
     ]
     if with_fixed_parameter:
         parameters.append(get_fixed_parameter())
-    return HierarchicalSearchSpace(parameters=parameters)
+    return SearchSpace(parameters=parameters)
 
 
 ##############################

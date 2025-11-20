@@ -23,7 +23,8 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace
+
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.metrics.noisy_function import GenericNoisyFunctionMetric
 from ax.runners.synthetic import SyntheticRunner
@@ -58,7 +59,7 @@ class TestHierarchicalSearchSpace(TestCase):
             dependents={"root": ["int_range", "str_choice"]},
         )
         # This HSS does not have a real hierarchy.
-        self.non_hierarchical_hss = HierarchicalSearchSpace(
+        self.non_hierarchical_hss = SearchSpace(
             parameters=[
                 fixed_root,
                 int_range,
@@ -72,9 +73,7 @@ class TestHierarchicalSearchSpace(TestCase):
             dependents={"range": ["int_range"], "choice": ["str_choice"]},
         )
         # This HSS has a simple hierarchy -- one parameter on each branch.
-        self.simple_hss = HierarchicalSearchSpace(
-            parameters=[choice_root, int_range, str_choice]
-        )
+        self.simple_hss = SearchSpace(parameters=[choice_root, int_range, str_choice])
         fixed_leaf = FixedParameter(
             name="fixed_leaf",
             parameter_type=ParameterType.STRING,
@@ -105,7 +104,7 @@ class TestHierarchicalSearchSpace(TestCase):
             dependents={True: ["middle_choice", "float_range"], False: ["int_choice"]},
         )
         # This HSS has a more complex, multi-level hierarchy.
-        self.complex_hss = HierarchicalSearchSpace(
+        self.complex_hss = SearchSpace(
             parameters=[
                 choice_root2,
                 int_choice,
@@ -120,7 +119,7 @@ class TestHierarchicalSearchSpace(TestCase):
     @mock_botorch_optimize
     def _test_gen_base(
         self,
-        hss: HierarchicalSearchSpace,
+        hss: SearchSpace,
         expected_num_candidate_params: list[int],
         num_sobol_trials: int = 5,
         num_bo_trials: int = 5,

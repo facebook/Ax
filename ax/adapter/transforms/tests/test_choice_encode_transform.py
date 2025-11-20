@@ -22,7 +22,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
@@ -203,7 +203,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         # └── x2
         #     ├── (False) EMPTY
         #     └── (True) x3
-        hss = HierarchicalSearchSpace(
+        hss = SearchSpace(
             parameters=[
                 FixedParameter(
                     "x0",

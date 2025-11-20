@@ -55,7 +55,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
@@ -557,7 +557,7 @@ class Decoder:
             return None
 
         if any(p.is_hierarchical for p in parameters):
-            return HierarchicalSearchSpace(
+            return SearchSpace(
                 parameters=parameters, parameter_constraints=parameter_constraints
             )
         else:
