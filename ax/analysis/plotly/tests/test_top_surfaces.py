@@ -130,8 +130,8 @@ class TestTopSurfacesAnalysis(TestCase):
         self.assertEqual(cards[0].title, "Sensitivity Analysis for bar")
 
         # Other cards should be slices.
-        self.assertIn("vs. bar", cards[1].title)
-        self.assertIn("vs. bar", cards[2].title)
+        self.assertIn("bar vs.", cards[1].title)
+        self.assertIn("bar vs.", cards[2].title)
 
         second = TopSurfacesAnalysis(metric_name="bar", order="second")
 
@@ -157,9 +157,9 @@ class TestTopSurfacesAnalysis(TestCase):
         self.assertEqual(with_surfaces[0].title, "Sensitivity Analysis for bar")
 
         # Other cards should be slices or contours.
-        self.assertIn("vs. bar", with_surfaces[1].title)
-        self.assertIn("vs. bar", with_surfaces[2].title)
-        self.assertIn("vs. bar", with_surfaces[3].title)
+        self.assertIn("bar vs.", with_surfaces[1].title)
+        self.assertIn("bar vs.", with_surfaces[2].title)
+        self.assertIn("bar vs.", with_surfaces[3].title)
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
@@ -205,7 +205,7 @@ class TestTopSurfacesAnalysis(TestCase):
         # Only plot x1 vs bar since x2 is categorical.
         self.assertEqual(len(cards), 2)
         self.assertEqual(cards[0].title, "Sensitivity Analysis for bar")
-        self.assertEqual(cards[1].title, "x1 vs. bar")
+        self.assertEqual(cards[1].title, "bar vs. x1")
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
