@@ -20,6 +20,7 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.generators.types import TConfig
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -110,7 +111,7 @@ class RemoveFixed(Transform):
         )
 
         # Also need to update `dependents` if the search space is hierarchical.
-        if isinstance(search_space, HierarchicalSearchSpace):
+        if search_space.is_hierarchical:
             for p in tunable_parameters:
                 # NOTE: Type checking `ChoiceParameter` and `FixedParameter` is entirely
                 # unnecessary, because `is_hierarchical` returns false unless it's
@@ -141,7 +142,9 @@ class RemoveFixed(Transform):
                                 updated_children += find_adoptable_descendants(
                                     # pyre-ignore[6]: It's a fixed parameter for sure.
                                     param=search_space.parameters[child],
-                                    search_space=search_space,
+                                    search_space=assert_is_instance(
+                                        search_space, HierarchicalSearchSpace
+                                    ),
                                 )
                             else:
                                 updated_children.append(child)

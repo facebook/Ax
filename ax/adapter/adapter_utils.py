@@ -37,7 +37,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace, SearchSpaceDigest
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.torch.botorch_moo_utils import (
@@ -164,7 +164,7 @@ def extract_search_space_digest(
             fidelity_features.append(i)
             target_values[i] = assert_is_instance_of_tuple(p.target_value, (int, float))
 
-    if isinstance(search_space, HierarchicalSearchSpace):
+    if search_space.is_hierarchical:
         hierarchical_dependencies = {}
 
         for p_name, p in search_space.parameters.items():

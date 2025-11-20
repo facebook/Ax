@@ -38,7 +38,7 @@ from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
+from pyre_extensions import none_throws, override
 from scipy.special import expit, logit
 
 
@@ -85,7 +85,7 @@ class SearchSpace(Base):
 
     @property
     def is_hierarchical(self) -> bool:
-        return isinstance(self, HierarchicalSearchSpace)
+        return False
 
     @property
     def parameters(self) -> dict[str, Parameter]:
@@ -486,7 +486,7 @@ class SearchSpace(Base):
         # `check_membership` uses int and float interchangeably, which we don't
         # want here.
         for p_name, parameter in self.parameters.items():
-            if isinstance(self, HierarchicalSearchSpace) and p_name not in parameters:
+            if self.is_hierarchical and p_name not in parameters:
                 # Parameterizations in HSS-s can be missing some of the dependent
                 # parameters based on the hierarchical structure and values of
                 # the parameters those depend on.
@@ -600,6 +600,11 @@ class HierarchicalSearchSpace(SearchSpace):
             logger.debug(f"Found root: {self.root}.")
 
         self.requires_root = requires_root
+
+    @override
+    @property
+    def is_hierarchical(self) -> bool:
+        return True
 
     @property
     def root(self) -> Parameter:
