@@ -158,6 +158,16 @@ class OptimizationConfig(Base):
     def is_moo_problem(self) -> bool:
         return self.objective is not None and isinstance(self.objective, MultiObjective)
 
+    @property
+    def is_bope_problem(self) -> bool:
+        """Whether this is a preference optimization config for BO with
+        Preference Exploration (BOPE) problems.
+
+        Returns False for base OptimizationConfig. PreferenceOptimizationConfig
+        overrides this to return True.
+        """
+        return False
+
     @outcome_constraints.setter
     def outcome_constraints(self, outcome_constraints: list[OutcomeConstraint]) -> None:
         """Set outcome constraints if valid, else raise."""
@@ -525,6 +535,16 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
             pruning_target_parameterization=pruning_target_parameterization,
         )
         self.preference_profile_name = preference_profile_name
+
+    @property
+    def is_bope_problem(self) -> bool:
+        """Whether this is a preference optimization config for BO with
+        Preference Exploration (BOPE) problems.
+
+        Returns:
+            True for PreferenceOptimizationConfig.
+        """
+        return True
 
     # pyre-ignore[14]: Inconsistent override.
     def clone_with_args(
