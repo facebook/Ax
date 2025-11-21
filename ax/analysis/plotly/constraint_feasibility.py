@@ -206,11 +206,11 @@ class ConstraintFeasibilityPlot(Analysis):
         subtitle = (
             "The parallel coordinates plot displays the probability of satisfying "
             "each individual constraint along with the joint probability of satisfying "
-            "all constraints (first dimension). Each line represents an arm, "
-            "and each dimension after the first represents a constraint. "
-            "This visualization helps identify which constraints are most difficult "
-            "to satisfy and how different arms perform across the constraint "
-            "landscape. Lines colored by trial_index."
+            "all constraints (last dimension). Each line represents an arm, "
+            "and each dimension represents a constraint, with the overall probability "
+            "shown last. This visualization helps identify which constraints are "
+            "most difficult to satisfy and how different arms perform across the "
+            "constraint landscape. Lines colored by trial_index."
         )
 
         return create_plotly_analysis_card(
@@ -293,16 +293,6 @@ def _prepare_plot(
     color_values = df["trial_index"].tolist()
     dimensions = []
 
-    # Add overall p_feasible as the first dimension
-    if "p_feasible_mean" in df.columns:
-        dimensions.append(
-            {
-                "label": "Overall p(feasible)",
-                "values": df["p_feasible_mean"].tolist(),
-                "range": [0, 1],
-            }
-        )
-
     # Add p_feasible dimensions for each constraint
     for oc, constraint_name in zip(outcome_constraints, constraint_names):
         col_name = f"p_feasible_{constraint_name}"
@@ -315,6 +305,16 @@ def _prepare_plot(
                     "range": [0, 1],
                 }
             )
+
+    # Add overall p_feasible as the last dimension
+    if "p_feasible_mean" in df.columns:
+        dimensions.append(
+            {
+                "label": "Overall p(feasible)",
+                "values": df["p_feasible_mean"].tolist(),
+                "range": [0, 1],
+            }
+        )
 
     colorscale = BOTORCH_COLOR_SCALE
 
