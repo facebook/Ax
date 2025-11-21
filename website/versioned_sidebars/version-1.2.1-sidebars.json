@@ -1,0 +1,117 @@
+{
+  "docs": [
+    {
+      "type": "category",
+      "label": "Introduction",
+      "collapsed": false,
+      "items": [
+        "why-ax",
+        "installation",
+        "intro-to-ae",
+        "intro-to-bo"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Internal Organization of Ax",
+      "collapsed": false,
+      "items": [
+        "experiment",
+        "orchestration",
+        "generation_strategy"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Reference",
+      "collapsed": false,
+      "items": [
+        "glossary"
+      ]
+    }
+  ],
+  "tutorials": [
+    {
+      "type": "category",
+      "label": "Using Ax",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "label": "Quickstart",
+          "id": "tutorials/quickstart/index"
+        },
+        {
+          "type": "doc",
+          "label": "Getting Started with Ax",
+          "id": "tutorials/getting_started/index"
+        },
+        {
+          "type": "doc",
+          "label": "Automating Orchestration",
+          "id": "tutorials/automating/index"
+        },
+        {
+          "type": "doc",
+          "label": "Trial-level Early Stopping",
+          "id": "tutorials/early_stopping/index"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Applications and Examples",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "label": "Ax for AutoML with scikit-learn",
+          "id": "tutorials/sklearn/index"
+        },
+        {
+          "type": "doc",
+          "label": "Ax for Materials Science",
+          "id": "tutorials/materials_science/index"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Extending Ax (non-API)",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "label": "Using custom generators via Modular BoTorch Interface",
+          "id": "tutorials/modular_botorch/index"
+        },
+        {
+          "type": "doc",
+          "label": "Using external methods for candidate generation in Ax",
+          "id": "tutorials/external_generation_node/index"
+        },
+        {
+          "type": "doc",
+          "label": "Utilizing and Creating Ax Analyses",
+          "id": "tutorials/analyses/index"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Recipes",
+      "collapsed": false,
+      "items": [
+        "recipes/attach-trial",
+        "recipes/existing-data",
+        "recipes/tracking-metrics",
+        "recipes/experiment-to-json",
+        "recipes/experiment-to-sqlite",
+        "recipes/multi-objective-optimization",
+        "recipes/scalarized-objective",
+        "recipes/outcome-constraints",
+        "recipes/influence-gs-choice"
+      ]
+    }
+  ]
+}

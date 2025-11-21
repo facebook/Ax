@@ -1,0 +1,57 @@
+---
+id: glossary
+title: Glossary
+---
+
+# Glossary
+
+### Analysis
+Tables, plots and other visualizations Ax produces to help users understand the results of their optimization.
+
+### Arm
+A parameterization within a search space. The name "arm" comes from the
+[Multi-Armed Bandit](https://en.wikipedia.org/wiki/Multi-armed_bandit) optimization
+problem, in which a player facing a row of “one-armed bandit” slot machines has to
+choose which machines to play when and in what order.
+
+### Baseline
+A parameterization specifically chosen to be the control when using relative outcome constraints or plotting relative effects.
+
+### Client
+The top level entrypoint for interacting with Ax. The client is responsible for managing the lifecycle of an experiment, including creating trials, fetching data, and analyzing results.
+
+### Experiment
+The base object for conducting an optimization. Contains information about the search space, optimization configuration, trials, and data.
+
+### Generation Strategy
+A graph of components which specify how new candidate arms should be generated thoughout the optimization, enabling and automating use of different models throughout the optimization process.
+
+### Metric
+A component responsible for fetching data from a deployed trial.
+
+### Objective
+An outcome the optimization aims to minimize or maximize.
+
+### Outcome Constraint
+A bound on an outcome the optimization aims to satisfy, but not necessarily minimize or maximize. Can be absolute or relative.
+
+### Parameter
+Configurable quantity that can be assigned one of multiple possible values. Can be continuous, ordinal, or categorical.
+
+### Parameter Constraint
+A restriction on the values of parameters relative to each other.
+
+### Pareto Frontier
+The set of non-dominated solutions in a multi-objective optimization problem, i.e. the arms which represent the best trade-off between all objectives.
+
+### Runner
+A component responsible for deploying a trial and optionally monitoring its execution.
+
+### Search space
+Continuous, discrete or mixed design space that defines the set of parameters to be tuned in the optimization, and optionally parameter constraints on these parameters. The parameters of the arms to be evaluated in the optimization are drawn from a search space.
+
+### SEM
+Standard error of the metric's mean, 0.0 for noiseless measurements. If no value is provided, defaults to np.nan, in which case Ax infers its value using the measurements collected during experimentation.
+
+### Trial
+A single execution/evaluation ("run") of one or more arms. A trial is stateful and can be in one of several statuses such as RUNNING, COMPLETED, FAILED, etc.
