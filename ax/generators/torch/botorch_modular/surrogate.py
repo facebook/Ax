@@ -22,7 +22,6 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
-from ax.generators.model_utils import best_in_sample_point
 from ax.generators.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
 )
@@ -36,6 +35,7 @@ from ax.generators.torch.botorch_modular.utils import (
     convert_to_block_design,
     copy_model_config_with_default_values,
     fit_botorch_model,
+    get_all_task_values_from_ssd,
     get_cv_fold,
     ModelConfig,
     subset_state_dict,
@@ -48,6 +48,7 @@ from ax.generators.torch.utils import (
 )
 from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
+from ax.generators.utils import best_in_sample_point
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -68,7 +69,6 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
-    InputPerturbation,
     InputTransform,
     Normalize,
 )
@@ -116,6 +116,7 @@ def _extract_model_kwargs(
         A dict of fidelity features, categorical features, and, if present, task
         features.
     """
+    signature = inspect.signature(botorch_model_class)
     fidelity_features = search_space_digest.fidelity_features
     task_features = search_space_digest.task_features
     if len(fidelity_features) > 0 and len(task_features) > 0:
@@ -125,9 +126,15 @@ def _extract_model_kwargs(
         )
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
-    elif len(task_features) == 0 and issubclass(botorch_model_class, MultiTaskGP):
+    elif (
+        len(task_features) == 0
+        and issubclass(botorch_model_class, MultiTaskGP)
+        and "task_feature" in signature.parameters.keys()
+    ):
         # This is handled in Surrogate.model_selection and the MTGP will be
         # skipped if there is no task feature.
+        # Some MTGP subclasses do not use task_feature, so we check for the class
+        # signature before erroring out.
         raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
     kwargs: dict[str, list[int] | dict[int, dict[int, list[int]]] | int] = {}
@@ -198,8 +205,6 @@ def _construct_specified_input_transforms(
             "Expected a list of input transform classes. "
             f"Got {input_transform_classes=}."
         )
-    if search_space_digest.robust_digest is not None:
-        input_transform_classes = [InputPerturbation] + input_transform_classes
 
     input_transform_kwargs = [
         input_transform_argparse(
@@ -229,23 +234,10 @@ def _construct_default_input_transforms(
     """Construct the default input transforms for the given search space digest.
 
     The default transforms are added in this order:
-    - If the search space digest has a robust digest, an ``InputPerturbation`` transform
-        is used.
     - If the bounds for the non-task features are not [0, 1], a ``Normalize`` transform
         is used. The transfrom only applies to the non-task features.
     """
     transforms = []
-    # Add InputPerturbation if there is a robust digest.
-    if search_space_digest.robust_digest is not None:
-        transforms.append(
-            InputPerturbation(
-                **input_transform_argparse(
-                    InputPerturbation,
-                    dataset=dataset,
-                    search_space_digest=search_space_digest,
-                )
-            )
-        )
     # Processing for Normalize.
     input_transform_options = input_transform_argparse(
         Normalize,
@@ -271,6 +263,7 @@ def _make_botorch_outcome_transform(
     outcome_transform_classes: list[type[OutcomeTransform]],
     outcome_transform_options: dict[str, dict[str, Any]],
     dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
 ) -> OutcomeTransform | None:
     """
     Makes a BoTorch outcome transform from the provided classes and options.
@@ -290,6 +283,7 @@ def _make_botorch_outcome_transform(
                 outcome_transform_options.get(transform_class.__name__, {})
             ),
             dataset=dataset,
+            search_space_digest=search_space_digest,
         )
         for transform_class in outcome_transform_classes
     ]
@@ -354,9 +348,7 @@ def _construct_submodules(
             **deepcopy(model_config.likelihood_options)
         )
 
-    if (
-        input_transform_classes := model_config.input_transform_classes
-    ) is not None or search_space_digest.robust_digest is not None:
+    if (input_transform_classes := model_config.input_transform_classes) is not None:
         _error_if_arg_not_supported("input_transform")
         submodules["input_transform"] = _make_botorch_input_transform(
             input_transform_classes=input_transform_classes or [],
@@ -373,6 +365,7 @@ def _construct_submodules(
             outcome_transform_classes=outcome_transform_classes,
             outcome_transform_options=model_config.outcome_transform_options or {},
             dataset=dataset,
+            search_space_digest=search_space_digest,
         )
     elif "outcome_transform" in botorch_model_class_args:
         # This is a temporary solution until all BoTorch models use
@@ -399,7 +392,7 @@ class SurrogateSpec:
     Args:
         model_configs: List of model configs. Each model config is a specification of
             a surrogate model. Defaults to a single ``ModelConfig`` with all defaults.
-        metric_to_model_configs: Dictionary mapping metric names to a list of model
+        metric_to_model_configs: Dictionary mapping metric signatures to a list of model
             configs for that metric.
         eval_criterion: The name of the evaluation criteria to use. These are defined in
             ``ax.utils.stats.model_fit_stats``. Defaults to rank correlation.
@@ -439,7 +432,7 @@ class Surrogate(Base):
             during cross-validation. If refit_on_cv is True, generally one
             would set this to be False, so that no information is leaked between or
             across folds.
-        metric_to_best_model_config: Dictionary mapping a metric name to the best
+        metric_to_best_model_config: Dictionary mapping a metric signature to the best
             model config. This is only used by `BoTorchGenerator.cross_validate` and
             for logging what model was used.
 
@@ -461,7 +454,7 @@ class Surrogate(Base):
         # If the new dataset is identical, we will skip model fitting for that metric.
         # The keys are `tuple(dataset.outcome_names)`.
         self._last_datasets: dict[tuple[str], SupervisedDataset] = {}
-        # Store a reference from a tuple of metric names to the BoTorch Model
+        # Store a reference from a tuple of metric signatures to the BoTorch Model
         # corresponding to those metrics. In most cases this will be a one-tuple,
         # though we need n-tuples for LCE-M models. This will be used to skip model
         # construction & fitting if the datasets are identical.
@@ -668,7 +661,7 @@ class Surrogate(Base):
             except UnsupportedError as e:
                 # If the block design conversion fails, use model-list.
                 logger.warning(
-                    "Conversion to block design failed. Using model-list instead."
+                    "Conversion to block design failed. Using model-list instead. "
                     f"Original error: {e}"
                 )
                 should_use_model_list = True
@@ -758,8 +751,8 @@ class Surrogate(Base):
                 outcome_names.extend(dataset.outcome_names)
 
             # store best model config, model, and dataset
-            for metric_name in dataset.outcome_names:
-                self.metric_to_best_model_config[metric_name] = none_throws(
+            for metric_signature in dataset.outcome_names:
+                self.metric_to_best_model_config[metric_signature] = none_throws(
                     best_model_config
                 )
             self._submodels[outcome_name_tuple] = model
@@ -1015,7 +1008,6 @@ class Surrogate(Base):
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
-            risk_measure=torch_opt_config.risk_measure,
             options=options,
         )
         if best_point_and_observed_value is None:
@@ -1066,7 +1058,6 @@ class Surrogate(Base):
                     options.get(Keys.QMC, True),
                     bool,
                 ),
-                risk_measure=torch_opt_config.risk_measure,
             )
         )
 
@@ -1127,10 +1118,12 @@ class Surrogate(Base):
 
     @property
     def model_name_by_metric(self) -> dict[str, str]:
-        """Returns a dictionary mapping metric names to model names."""
+        """Returns a dictionary mapping metric signatures to model names."""
         return {
-            metric_name: model_config.identifier
-            for metric_name, model_config in (self.metric_to_best_model_config.items())
+            metric_signature: model_config.identifier
+            for metric_signature, model_config in (
+                self.metric_to_best_model_config.items()
+            )
         }
 
     def models_for_gen(self, n: int) -> tuple[list[dict[str, str]], list[Model]]:
@@ -1291,6 +1284,14 @@ def _submodel_input_constructor_mtgp(
             target_value := search_space_digest.target_values.get(task_feature)
         ) is not None:
             formatted_model_inputs["output_tasks"] = [int(target_value)]
+            # This enables making predictions for inputs at unobserved task values,
+            # by making predictions for the target task.
+            # This is important for MTGP models that are used in ModelListGPs where
+            # some metrics have only been observed for some tasks and not others.
+            formatted_model_inputs["validate_task_values"] = False
+            formatted_model_inputs["all_tasks"] = get_all_task_values_from_ssd(
+                search_space_digest=search_space_digest
+            )
         else:
             raise UserInputError(
                 "output_tasks or target task value must be provided for MultiTaskGP."

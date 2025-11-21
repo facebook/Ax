@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -18,9 +19,9 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.surface.utils import (
+    get_features_for_slice_or_contour,
     get_parameter_values,
     is_axis_log_scale,
-    select_fixed_value,
 )
 from ax.analysis.plotly.utils import (
     get_scatter_point_color,
@@ -28,9 +29,14 @@ from ax.analysis.plotly.utils import (
     truncate_label,
     Z_SCORE_95_CI,
 )
-from ax.analysis.utils import extract_relevant_adapter, relativize_data
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    relativize_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+)
 from ax.core.experiment import Experiment
-from ax.core.observation import ObservationFeatures
+from ax.core.parameter import DerivedParameter
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -48,6 +54,7 @@ SLICE_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class SlicePlot(Analysis):
     """
     Plot a 1D "slice" of the surrogate model's predicted outcomes for a given
@@ -83,6 +90,40 @@ class SlicePlot(Analysis):
         self.relativize = relativize
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        SlicePlot requires an Experiment with at least one trial with data as well as
+        an Adapter which can predict out of sample points for the specified metric.
+        """
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
+
+        if (
+            adapter_cannot_predict_reason := validate_adapter_can_predict(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+                required_metric_names=[
+                    self.metric_name or select_metric(experiment=experiment)
+                ],
+            )
+        ) is not None:
+            return adapter_cannot_predict_reason
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
@@ -91,6 +132,13 @@ class SlicePlot(Analysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("SlicePlot requires an Experiment")
+
+        if isinstance(
+            experiment.search_space.parameters[self.parameter_name], DerivedParameter
+        ):
+            raise UserInputError(
+                f"SlicePlot does not support derived parameters: {self.parameter_name}"
+            )
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
@@ -121,7 +169,7 @@ class SlicePlot(Analysis):
 
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
-            title=f"{self.parameter_name} vs. {metric_name}",
+            title=f"{metric_name} vs. {self.parameter_name}",
             subtitle=(
                 "The slice plot provides a one-dimensional view of predicted "
                 f"outcomes for {metric_name} as a function of a single parameter, "
@@ -183,14 +231,14 @@ def _prepare_data(
     metric_name: str,
     relativize: bool,
 ) -> pd.DataFrame:
+    trials = experiment.extract_relevant_trials(trial_statuses=STATUSES_EXPECTING_DATA)
     sampled_xs = [
         {
             "parameter_value": arm.parameters[parameter_name],
             "arm_name": arm.name,
             "trial_index": trial.index,
         }
-        for trial in experiment.trials.values()
-        if trial.status in STATUSES_EXPECTING_DATA  # running, completed, early stopped
+        for trial in trials
         for arm in trial.arms
         # Exclude parameter values which are not valid (ex. None when the parameter is
         # not known in a status quo arm).
@@ -207,19 +255,12 @@ def _prepare_data(
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
     features = [
-        ObservationFeatures(
-            parameters={
-                parameter_name: x,
-                **{
-                    parameter.name: select_fixed_value(parameter=parameter)
-                    for parameter in experiment.search_space.parameters.values()
-                    if parameter.name != parameter_name
-                },
-            }
+        get_features_for_slice_or_contour(
+            parameters={parameter_name: x},
+            search_space=experiment.search_space,
         )
         for x in xs
     ]
-
     predictions = model.predict(observation_features=features)
 
     df = none_throws(

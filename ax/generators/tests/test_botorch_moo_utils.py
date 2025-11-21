@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+# pyre-strict
+
+from contextlib import ExitStack
+from typing import Any
+from unittest import mock
+from warnings import catch_warnings, simplefilter
+
+import numpy as np
+import torch
+from ax.core.search_space import SearchSpaceDigest
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_moo_utils import (
+    get_weighted_mc_objective_and_objective_thresholds,
+    infer_objective_thresholds,
+    pareto_frontier_evaluator,
+)
+from ax.generators.torch_base import TorchGenerator
+from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import mock_botorch_optimize_context_manager
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.multi_objective.hypervolume import infer_reference_point
+from botorch.utils.testing import MockPosterior
+from gpytorch.utils.warnings import NumericalWarning
+
+
+MOO_DEFAULTS_PATH: str = "ax.generators.torch.botorch_moo_utils"
+
+
+def _fit_model(
+    model: TorchGenerator, X: torch.Tensor, Y: torch.Tensor, Yvar: torch.Tensor
+) -> None:
+    bounds = [(0.0, 4.0), (0.0, 4.0)]
+    datasets = [
+        SupervisedDataset(
+            X=X,
+            Y=Y,
+            Yvar=Yvar,
+            feature_names=["x1", "x2"],
+            outcome_names=["a", "b", "c"],
+        )
+    ]
+    search_space_digest = SearchSpaceDigest(feature_names=["x1", "x2"], bounds=bounds)
+    with mock_botorch_optimize_context_manager(), catch_warnings():
+        simplefilter(action="ignore", category=NumericalWarning)
+        model.fit(datasets=datasets, search_space_digest=search_space_digest)
+
+
+class FrontierEvaluatorTest(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.X = torch.tensor(
+            [[1.0, 0.0], [1.0, 1.0], [1.0, 3.0], [2.0, 2.0], [3.0, 1.0]]
+        )
+        self.Y = torch.tensor(
+            [
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 1.0],
+                [1.0, 3.0, 3.0],
+                [2.0, 2.0, 4.0],
+                [3.0, 1.0, 3.0],
+            ]
+        )
+        self.Yvar = torch.zeros(5, 3)
+        self.objective_thresholds = torch.tensor([0.5, 1.5])
+        self.objective_weights = torch.tensor([1.0, 1.0])
+
+    def test_pareto_frontier_raise_error_when_missing_data(self) -> None:
+        with self.assertRaises(ValueError):
+            pareto_frontier_evaluator(
+                model=BoTorchGenerator(),
+                objective_thresholds=self.objective_thresholds,
+                objective_weights=self.objective_weights,
+                Yvar=self.Yvar,
+            )
+
+    def test_pareto_frontier_evaluator_raw(self) -> None:
+        model = BoTorchGenerator()
+        _fit_model(model=model, X=self.X, Y=self.Y, Yvar=self.Yvar)
+        Yvar = torch.diag_embed(self.Yvar)
+        Y, cov, indx = pareto_frontier_evaluator(
+            model=model,
+            objective_weights=self.objective_weights,
+            objective_thresholds=self.objective_thresholds,
+            Y=self.Y,
+            Yvar=Yvar,
+        )
+        pred = self.Y[2:4]
+        self.assertAllClose(Y, pred)
+        expected_cov = Yvar[2:4]
+        self.assertAllClose(expected_cov, cov)
+        self.assertTrue(torch.equal(torch.arange(2, 4), indx))
+
+        # Omit objective_thresholds
+        Y, cov, indx = pareto_frontier_evaluator(
+            model=model,
+            objective_weights=self.objective_weights,
+            Y=self.Y,
+            Yvar=Yvar,
+        )
+        pred = self.Y[2:]
+        self.assertAllClose(Y, pred)
+        expected_cov = Yvar[2:]
+        self.assertAllClose(expected_cov, cov)
+        self.assertTrue(torch.equal(torch.arange(2, 5), indx))
+
+        # Change objective_weights so goal is to minimize b
+        Y, cov, indx = pareto_frontier_evaluator(
+            model=model,
+            objective_weights=torch.tensor([1.0, -1.0]),
+            objective_thresholds=self.objective_thresholds,
+            Y=self.Y,
+            Yvar=Yvar,
+        )
+        pred = self.Y[[0, 4]]
+        self.assertAllClose(Y, pred)
+        expected_cov = Yvar[[0, 4]]
+        self.assertAllClose(expected_cov, cov)
+
+        # test no points better than reference point
+        Y, cov, indx = pareto_frontier_evaluator(
+            model=model,
+            objective_weights=self.objective_weights,
+            objective_thresholds=torch.full_like(self.objective_thresholds, 100.0),
+            Y=self.Y,
+            Yvar=Yvar,
+        )
+        self.assertTrue(torch.equal(Y, self.Y[:0]))
+        self.assertTrue(torch.equal(cov, torch.zeros(0, 3, 3)))
+        self.assertTrue(torch.equal(torch.tensor([], dtype=torch.long), indx))
+
+    def test_pareto_frontier_evaluator_predict(self) -> None:
+        model = BoTorchGenerator()
+        _fit_model(model=model, X=self.X, Y=self.Y, Yvar=self.Yvar)
+
+        Y, _, indx = pareto_frontier_evaluator(
+            model=model,
+            objective_weights=self.objective_weights,
+            objective_thresholds=self.objective_thresholds,
+            X=self.X,
+        )
+        pred = self.Y[2:4]
+        self.assertAllClose(Y, pred, rtol=1e-3)
+        self.assertTrue(torch.equal(torch.arange(2, 4), indx))
+
+    def test_pareto_frontier_evaluator_with_outcome_constraints(self) -> None:
+        model = BoTorchGenerator()
+        Y, _, indx = pareto_frontier_evaluator(
+            model=model,
+            objective_weights=self.objective_weights,
+            objective_thresholds=self.objective_thresholds,
+            Y=self.Y,
+            Yvar=self.Yvar,
+            outcome_constraints=(
+                torch.tensor([[0.0, 0.0, 1.0]]),
+                torch.tensor([[3.5]]),
+            ),
+        )
+        pred = self.Y[[2], :]
+        self.assertAllClose(Y, pred)
+        self.assertTrue(torch.equal(torch.tensor([2], dtype=torch.long), indx))
+
+    def test_pareto_frontier_evaluator_with_nan(self) -> None:
+        Y = torch.cat([self.Y, torch.zeros(5, 1)], dim=-1)
+        Yvar = torch.zeros(5, 4, 4)
+        weights = torch.tensor([1.0, 1.0, 0.0, 0.0])
+        outcome_constraints = (
+            torch.tensor([[0.0, 0.0, 1.0, 0.0]]),
+            torch.tensor([[3.5]]),
+        )
+        # Evaluate without NaNs as a baseline.
+        _, _, idx = pareto_frontier_evaluator(
+            model=None, objective_weights=weights, Y=Y, Yvar=Yvar
+        )
+        self.assertEqual(idx.tolist(), [2, 3, 4])
+        # Set an element of idx 2 to NaN. Should be removed.
+        Y[2, 1] = float("nan")
+        _, _, idx = pareto_frontier_evaluator(
+            model=None, objective_weights=weights, Y=Y, Yvar=Yvar
+        )
+        self.assertEqual(idx.tolist(), [3, 4])
+        # Set the unused constraint element of idx 3 to NaN. No effect.
+        Y[3, 2] = float("nan")
+        _, _, idx = pareto_frontier_evaluator(
+            model=None, objective_weights=weights, Y=Y, Yvar=Yvar
+        )
+        self.assertEqual(idx.tolist(), [3, 4])
+        # Add constraint, 3 should be removed.
+        _, _, idx = pareto_frontier_evaluator(
+            model=None,
+            objective_weights=weights,
+            Y=Y,
+            Yvar=Yvar,
+            outcome_constraints=outcome_constraints,
+        )
+        self.assertEqual(idx.tolist(), [4])
+        # Set unused index of 4 to NaN. No effect.
+        Y[4, 3] = float("nan")
+        _, _, idx = pareto_frontier_evaluator(
+            model=None,
+            objective_weights=weights,
+            Y=Y,
+            Yvar=Yvar,
+            outcome_constraints=outcome_constraints,
+        )
+        self.assertEqual(idx.tolist(), [4])
+
+
+class BotorchMOOUtilsTest(TestCase):
+    def test_get_weighted_mc_objective_and_objective_thresholds(self) -> None:
+        objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
+        objective_thresholds = torch.arange(4, dtype=torch.float)
+        (
+            weighted_obj,
+            new_obj_thresholds,
+        ) = get_weighted_mc_objective_and_objective_thresholds(
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+        )
+        self.assertTrue(torch.equal(weighted_obj.weights, objective_weights[[1, 3]]))
+        self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
+        self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
+
+    # test infer objective thresholds alone
+    @mock.patch(  # pyre-ignore
+        "ax.generators.torch.botorch_moo_utils._check_posterior_type",
+        wraps=lambda y: y,
+    )
+    def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
+        for dtype in (torch.float, torch.double):
+            tkwargs: dict[str, Any] = {
+                "device": torch.device("cuda") if cuda else torch.device("cpu"),
+                "dtype": dtype,
+            }
+            posterior = MockPosterior(
+                mean=torch.tensor(
+                    [
+                        [11.0, 2.0],
+                        [9.0, 3.0],
+                    ],
+                    **tkwargs,
+                )
+            )
+            Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)]
+            outcome_constraints = (
+                torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
+                torch.tensor([[10.0]], **tkwargs),
+            )
+            objective_weights = torch.tensor([-1.0, -1.0, 0.0], **tkwargs)
+            with ExitStack() as es:
+                _mock_infer_reference_point = es.enter_context(
+                    mock.patch(
+                        "ax.generators.torch.botorch_moo_utils"
+                        ".infer_reference_point",
+                        wraps=infer_reference_point,
+                    )
+                )
+                model = SingleTaskGP(train_X=Xs[0], train_Y=torch.rand(2, 3, **tkwargs))
+                es.enter_context(
+                    mock.patch.object(model, "posterior", return_value=posterior)
+                )
+
+                obj_thresholds = infer_objective_thresholds(
+                    model=model,
+                    objective_weights=objective_weights,
+                    X_observed=Xs[0],
+                    outcome_constraints=outcome_constraints,
+                )
+            _mock_infer_reference_point.assert_called_once()
+            ckwargs = _mock_infer_reference_point.call_args[1]
+            self.assertEqual(ckwargs["scale"], 0.1)
+            self.assertTrue(
+                torch.equal(
+                    ckwargs["pareto_Y"],
+                    torch.tensor([[-9.0, -3.0]], **tkwargs),
+                )
+            )
+            self.assertTrue(
+                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
+            )
+            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+
+            # test subset_model without subset_idcs
+            with mock.patch.object(model, "posterior", return_value=posterior):
+                obj_thresholds = infer_objective_thresholds(
+                    model,
+                    objective_weights=objective_weights,
+                    outcome_constraints=outcome_constraints,
+                    X_observed=Xs[0],
+                )
+            self.assertTrue(
+                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
+            )
+            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+            # test passing subset_idcs
+            subset_idcs = torch.tensor(
+                [0, 1], dtype=torch.long, device=tkwargs["device"]
+            )
+
+            with mock.patch.object(model, "posterior", return_value=posterior):
+                obj_thresholds = infer_objective_thresholds(
+                    model,
+                    objective_weights=objective_weights,
+                    outcome_constraints=outcome_constraints,
+                    X_observed=Xs[0],
+                    subset_idcs=subset_idcs,
+                )
+            self.assertTrue(
+                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
+            )
+            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+            # test without subsetting (e.g. if there are
+            # 3 metrics for 2 objectives + 1 outcome constraint)
+            outcome_constraints = (
+                torch.tensor([[0.0, 0.0, 1.0]], **tkwargs),
+                torch.tensor([[5.0]], **tkwargs),
+            )
+            with ExitStack() as es:
+                _mock_infer_reference_point = es.enter_context(
+                    mock.patch(
+                        "ax.generators.torch.botorch_moo_utils"
+                        ".infer_reference_point",
+                        wraps=infer_reference_point,
+                    )
+                )
+                es.enter_context(
+                    mock.patch.object(
+                        model,
+                        "posterior",
+                        return_value=MockPosterior(
+                            mean=torch.tensor(
+                                [
+                                    [11.0, 2.0, 6.0],
+                                    [9.0, 3.0, 4.0],
+                                ],
+                                **tkwargs,
+                            )
+                        ),
+                    )
+                )
+                obj_thresholds = infer_objective_thresholds(
+                    model=model,
+                    objective_weights=objective_weights,
+                    X_observed=Xs[0],
+                    outcome_constraints=outcome_constraints,
+                )
+            self.assertTrue(
+                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
+            )
+            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+
+    def test_infer_objective_thresholds_cuda(self) -> None:
+        if torch.cuda.is_available():
+            self.test_infer_objective_thresholds(cuda=True)

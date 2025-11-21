@@ -15,8 +15,8 @@ from ax.api.utils.instantiation.from_config import (
 )
 from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.structs import ExperimentStruct
+from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
-from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -24,7 +24,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -285,7 +285,7 @@ class TestFromConfig(TestCase):
         self.assertEqual(
             experiment_from_struct(struct=hss_struct),
             Experiment(
-                search_space=HierarchicalSearchSpace(
+                search_space=SearchSpace(
                     parameters=[
                         RangeParameter(
                             name="float_param",

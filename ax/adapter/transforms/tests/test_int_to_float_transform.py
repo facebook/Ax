@@ -12,17 +12,13 @@ from unittest import mock
 import numpy as np
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
-from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
+from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal, assert_series_equal
 from pyre_extensions import assert_is_instance
 
@@ -57,7 +53,6 @@ class IntToFloatTransformTest(TestCase):
         )._log_scale = True
         self.t4 = IntToFloat(
             search_space=self.search_space_with_log,
-            observations=[],
             config={"min_choices": 3},
         )
 
@@ -254,10 +249,7 @@ class IntToFloatTransformTest(TestCase):
                 SumConstraint(parameters=parameters, is_upper_bound=True, bound=5)
             ],
         )
-        t = IntToFloat(
-            search_space=constrained_int_search_space,
-            observations=[],
-        )
+        t = IntToFloat(search_space=constrained_int_search_space)
         self.assertEqual(t.rounding, "randomized")
         observation_features = [ObservationFeatures(parameters={"x": 2.6, "y": 2.6})]
         self.assertTrue(
@@ -306,10 +298,7 @@ class IntToFloatTransformTest(TestCase):
                 SumConstraint(parameters=parameters, is_upper_bound=True, bound=3)
             ],
         )
-        t = IntToFloat(
-            search_space=constrained_int_search_space,
-            observations=[],
-        )
+        t = IntToFloat(search_space=constrained_int_search_space)
         self.assertEqual(t.rounding, "randomized")
         observation_features = [ObservationFeatures(parameters={"x": 2.6, "y": 2.6})]
         self.assertFalse(
@@ -329,81 +318,3 @@ class IntToFloatTransformTest(TestCase):
                 observation_features=observation_features
             )[0].parameters
             self.assertEqual(untransformed_t, {"x": 1, "y": 4})
-
-    def test_w_parameter_distributions(self) -> None:
-        rss = get_robust_search_space()
-        # Transform a non-distributional parameter.
-        t = IntToFloat(
-            search_space=rss,
-            observations=[],
-        )
-        rss_new = t.transform_search_space(rss)
-        # Make sure that the return value is still a RobustSearchSpace.
-        self.assertIsInstance(rss_new, RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `parameter_type`.
-            rss_new.parameters.get("z").parameter_type,
-            ParameterType.FLOAT,
-        )
-        # Test with environmental variables.
-        all_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            num_samples=rss.num_samples,
-            environmental_variables=all_params[:2],
-        )
-        t = IntToFloat(
-            search_space=rss,
-            observations=[],
-        )
-        rss_new = t.transform_search_space(rss)
-        self.assertIsInstance(rss_new, RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
-        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
-        self.assertEqual(
-            rss_new.parameters.get("z").parameter_type, ParameterType.FLOAT
-        )
-        # Error with distributional parameter.
-        rss = get_robust_search_space(use_discrete=True)
-        t = IntToFloat(
-            search_space=rss,
-            observations=[],
-        )
-        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
-            t.transform_search_space(rss)
-
-
-class LogIntToFloatTransformTest(TestCase):
-    def test_log_int_to_float(self) -> None:
-        parameters = [
-            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
-            RangeParameter("y", lower=1, upper=50, parameter_type=ParameterType.INT),
-            RangeParameter(
-                "z", lower=1, upper=50, parameter_type=ParameterType.INT, log_scale=True
-            ),
-        ]
-        search_space = SearchSpace(parameters=parameters)
-        with self.assertRaisesRegex(UserInputError, "min_choices"):
-            LogIntToFloat(search_space=search_space, config={"min_choices": 5})
-        t = LogIntToFloat(search_space=search_space)
-        self.assertFalse(hasattr(t, "min_choices"))
-        self.assertEqual(t.transform_parameters, {"z"})
-        t_ss = t.transform_search_space(search_space)
-        self.assertEqual(t_ss.parameters["x"], parameters[0])
-        self.assertEqual(t_ss.parameters["y"], parameters[1])
-        self.assertEqual(
-            t_ss.parameters["z"],
-            RangeParameter(
-                name="z",
-                lower=0.50001,
-                upper=50.49999,
-                parameter_type=ParameterType.FLOAT,
-                log_scale=True,
-            ),
-        )

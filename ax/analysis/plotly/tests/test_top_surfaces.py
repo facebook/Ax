@@ -7,7 +7,6 @@
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.api.client import Client
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
-from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_offline_experiments_subset,
@@ -19,6 +18,75 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestTopSurfacesAnalysis(TestCase):
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(TopSurfacesAnalysis().validate_applicable_state()),
+        )
+
+        client = Client()
+        client.configure_experiment(
+            name="foo",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        client.configure_optimization(objective="bar")
+
+        for _ in range(1):
+            for trial_index, parameterization in client.get_next_trials(
+                max_trials=1
+            ).items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={
+                        "bar": assert_is_instance(parameterization["x1"], float)
+                        - 2 * assert_is_instance(parameterization["x2"], float)
+                    },
+                )
+
+        self.assertIn(
+            "Ax has not yet reached a GenerationNode",
+            none_throws(
+                TopSurfacesAnalysis(
+                    metric_name="bar", order="first"
+                ).validate_applicable_state(
+                    client._experiment, client._generation_strategy
+                )
+            ),
+        )
+        for _ in range(5):
+            for trial_index, parameterization in client.get_next_trials(
+                max_trials=1
+            ).items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={
+                        "bar": assert_is_instance(parameterization["x1"], float)
+                        - 2 * assert_is_instance(parameterization["x2"], float)
+                    },
+                )
+
+        self.assertIn(
+            "no data for metrics {'baz'}",
+            none_throws(
+                TopSurfacesAnalysis(
+                    metric_name="baz", order="first"
+                ).validate_applicable_state(
+                    client._experiment, client._generation_strategy
+                )
+            ),
+        )
+
     @mock_botorch_optimize
     def test_compute(self) -> None:
         client = Client()
@@ -53,14 +121,6 @@ class TestTopSurfacesAnalysis(TestCase):
 
         analysis = TopSurfacesAnalysis(metric_name="bar", order="first")
 
-        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
-            analysis.compute()
-
-        with self.assertRaisesRegex(
-            UserInputError, "Must provide either a GenerationStrategy or an Adapter"
-        ):
-            analysis.compute(experiment=client._experiment)
-
         cards = analysis.compute(
             experiment=client._experiment,
             generation_strategy=client._generation_strategy,
@@ -70,8 +130,8 @@ class TestTopSurfacesAnalysis(TestCase):
         self.assertEqual(cards[0].title, "Sensitivity Analysis for bar")
 
         # Other cards should be slices.
-        self.assertIn("vs. bar", cards[1].title)
-        self.assertIn("vs. bar", cards[2].title)
+        self.assertIn("bar vs.", cards[1].title)
+        self.assertIn("bar vs.", cards[2].title)
 
         second = TopSurfacesAnalysis(metric_name="bar", order="second")
 
@@ -97,9 +157,9 @@ class TestTopSurfacesAnalysis(TestCase):
         self.assertEqual(with_surfaces[0].title, "Sensitivity Analysis for bar")
 
         # Other cards should be slices or contours.
-        self.assertIn("vs. bar", with_surfaces[1].title)
-        self.assertIn("vs. bar", with_surfaces[2].title)
-        self.assertIn("vs. bar", with_surfaces[3].title)
+        self.assertIn("bar vs.", with_surfaces[1].title)
+        self.assertIn("bar vs.", with_surfaces[2].title)
+        self.assertIn("bar vs.", with_surfaces[3].title)
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
@@ -145,7 +205,7 @@ class TestTopSurfacesAnalysis(TestCase):
         # Only plot x1 vs bar since x2 is categorical.
         self.assertEqual(len(cards), 2)
         self.assertEqual(cards[0].title, "Sensitivity Analysis for bar")
-        self.assertEqual(cards[1].title, "x1 vs. bar")
+        self.assertEqual(cards[1].title, "bar vs. x1")
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")

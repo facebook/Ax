@@ -14,8 +14,7 @@ from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
-from ax.core.metric import Metric
-from ax.exceptions.core import AxError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -102,6 +101,7 @@ class TestScatterPlot(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -138,6 +138,7 @@ class TestScatterPlot(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -158,59 +159,6 @@ class TestScatterPlot(TestCase):
         # Check that all SEMs are not NaN
         self.assertFalse(card.df["foo_sem"].isna().any())
         self.assertFalse(card.df["bar_sem"].isna().any())
-
-    def test_plot_p_feasible(self) -> None:
-        default_analysis = ScatterPlot(
-            x_metric_name="foo", y_metric_name="p_feasible", use_model_predictions=True
-        )
-
-        card = default_analysis.compute(
-            experiment=self.client._experiment,
-            generation_strategy=self.client._generation_strategy,
-        )
-
-        self.assertEqual(
-            set(card.df.columns),
-            {
-                "trial_index",
-                "arm_name",
-                "trial_status",
-                "generation_node",
-                "p_feasible_mean",
-                "p_feasible_sem",
-                "foo_mean",
-                "foo_sem",
-                "bar_mean",
-                "bar_sem",
-            },
-        )
-
-        self.assertIsNotNone(card.blob)
-
-        # Check that we have one row per arm and that each arm appears only once
-        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-        for arm_name in self.client._experiment.arms_by_name:
-            self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
-
-        # Check that all SEMs are not NaN
-        self.assertFalse(card.df["foo_sem"].isna().any())
-        # Check that all SEMs are NaN
-        self.assertTrue(card.df["p_feasible_sem"].isna().all())
-        self.assertEqual(
-            json.loads(card.blob)["layout"]["xaxis"]["title"]["text"], "foo"
-        )
-        self.assertEqual(
-            json.loads(card.blob)["layout"]["yaxis"]["title"]["text"], "p_feasible"
-        )
-        # test that plot errors if p_feasible is a metric on the experiment
-        self.client._experiment.add_tracking_metric(Metric(name="p_feasible"))
-        with self.assertRaisesRegex(
-            AxError, "p_feasible is reserved for plotting the probability"
-        ):
-            default_analysis.compute(
-                experiment=self.client._experiment,
-                generation_strategy=self.client._generation_strategy,
-            )
 
     def test_compute_adhoc(self) -> None:
         # Use the same kwargs for typical and adhoc
@@ -259,9 +207,11 @@ class TestScatterPlot(TestCase):
                 trial_index,
                 with_additional_arms,
                 show_pareto_frontier,
-                use_p_feasible,
             ) in product(
-                [True, False], [None, 0], [True, False], [True, False], [True, False]
+                [True, False],
+                [None, 0],
+                [True, False],
+                [True, False],
             ):
                 if use_model_predictions and with_additional_arms:
                     additional_arms = [arm]
@@ -274,9 +224,12 @@ class TestScatterPlot(TestCase):
                 generation_strategy.current_node._fit(experiment=experiment)
                 adapter = none_throws(generation_strategy.adapter)
 
-                x_metric_name, y_metric_name = [*adapter.metric_names][:2]
-                if use_p_feasible:
-                    y_metric_name = "p_feasible"
+                metric_names = [
+                    experiment.signature_to_metric[signature].name
+                    for signature in adapter.metric_signatures
+                ]
+
+                x_metric_name, y_metric_name = metric_names[:2]
 
                 analysis = ScatterPlot(
                     x_metric_name=x_metric_name,
@@ -344,7 +297,11 @@ class TestScatterPlot(TestCase):
                             generation_strategy.current_node._fit(experiment=experiment)
                             adapter = none_throws(generation_strategy.adapter)
 
-                            x_metric_name, y_metric_name = [*adapter.metric_names][:2]
+                            metric_names = [
+                                experiment.signature_to_metric[signature].name
+                                for signature in adapter.metric_signatures
+                            ]
+                            x_metric_name, y_metric_name = metric_names[:2]
 
                             analysis = ScatterPlot(
                                 x_metric_name=x_metric_name,

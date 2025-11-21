@@ -8,14 +8,12 @@
 
 from __future__ import annotations
 
-import warnings
-
 from collections import defaultdict, OrderedDict
 from collections.abc import MutableMapping
 from dataclasses import dataclass
 from datetime import datetime
 from logging import Logger
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from ax.core.arm import Arm
@@ -32,7 +30,7 @@ from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
-from ax.utils.common.logger import _round_floats_for_logging, get_logger
+from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -70,17 +68,6 @@ class AbandonedArm(SortableBase):
         return self.name
 
 
-@dataclass
-class GeneratorRunStruct(SortableBase):
-    """Stores GeneratorRun object as well as the weight with which it was added."""
-
-    generator_run: GeneratorRun
-
-    @property
-    def _unique_id(self) -> str:
-        return self.generator_run._unique_id
-
-
 class BatchTrial(BaseTrial):
     """Batched trial that has multiple attached arms, meant to be
     *deployed and evaluated together*, and possibly arm weights, which are
@@ -106,15 +93,18 @@ class BatchTrial(BaseTrial):
             trial's associated generator run is immutable once set.  This cannot
             be combined with the `generator_run` argument.
         trial_type: Type of this trial, if used in MultiTypeExperiment.
-        should_add_status_quo_arm: If True, adds the status quo arm to the trial with a
-            weight of 1.0. If False, the _status_quo is still set on the trial for
-            tracking purposes, but without a weight it will not be an Arm present on
-            the trial
-        ttl_seconds: If specified, trials will be considered failed after
+        should_add_status_quo_arm: If True and the status quo arm is not already
+            part of the trial, adds the status quo arm to the trial with a
+            weight of 1.0 (if status quo already had a non-zero weight in the
+            trial, keeps the original weight).
+            If False, the _status_quo is still set on the trial for tracking
+            purposes, but without a weight it will not be an Arm present on
+            the trial.
+        ttl_seconds: If specified, trials will be considered stale after
             this many seconds since the time the trial was ran, unless the
             trial is completed before then. Meant to be used to detect
             'dead' trials, for which the evaluation process might have
-            crashed etc., and which should be considered failed after
+            crashed etc., and which should be considered stale after
             their 'time to live' has passed.
         index: If specified, the trial's index will be set accordingly.
             This should generally not be specified, as in the index will be
@@ -139,9 +129,8 @@ class BatchTrial(BaseTrial):
             index=index,
         )
         self._arms_by_name: dict[str, Arm] = {}
-        self._generator_run_structs: list[GeneratorRunStruct] = []
+        self._generator_runs: list[GeneratorRun] = []
         self._abandoned_arms_metadata: dict[str, AbandonedArm] = {}
-        self._status_quo_weight_override: float | None = None
         self.should_add_status_quo_arm = should_add_status_quo_arm
         if generator_run is not None:
             if generator_runs is not None:
@@ -154,7 +143,7 @@ class BatchTrial(BaseTrial):
                 self.add_generator_run(generator_run=gr)
 
         status_quo = experiment.status_quo
-        if should_add_status_quo_arm:
+        if should_add_status_quo_arm and status_quo not in self.arm_weights:
             if status_quo is None:
                 raise ValueError(
                     "Experiment does not have a status quo arm so "
@@ -180,71 +169,85 @@ class BatchTrial(BaseTrial):
         return self._index
 
     @property
-    def generator_run_structs(self) -> list[GeneratorRunStruct]:
-        """List of generator run structs attached to this trial.
-
-        Struct holds generator_run object and the weight with which it was added.
-        """
-        return self._generator_run_structs
-
-    @property
     def arm_weights(self) -> MutableMapping[Arm, float]:
         """The set of arms and associated weights for the trial.
 
         These are constructed by merging the arms and weights from
         each generator run that is attached to the trial.
         """
-        arm_weights = OrderedDict()
-        if len(self._generator_run_structs) == 0 and self.status_quo is None:
-            return arm_weights
-        for struct in self._generator_run_structs:
-            for arm, weight in struct.generator_run.arm_weights.items():
-                if arm in arm_weights:
-                    arm_weights[arm] += weight
-                else:
-                    arm_weights[arm] = weight
-        if self.status_quo is not None and self._status_quo_weight_override is not None:
-            # If override is specified, this is the weight the status quo gets,
-            # regardless of whether it appeared in any generator runs.
-            # If no override is specified, status quo does not appear in arm_weights.
-            arm_weights[self.status_quo] = self._status_quo_weight_override
+        arm_weights = defaultdict(float)
+        for gr in self._generator_runs:
+            for arm, weight in gr.arm_weights.items():
+                arm_weights[arm] += weight
         return arm_weights
+
+    @property
+    def _status_quo_weight_override(self) -> None:
+        raise DeprecationWarning(
+            "Status quo weight override is no longer supported. Please "
+            "contact the Ax developers for help adjusting your application."
+        )
 
     @arm_weights.setter
     def arm_weights(self, arm_weights: MutableMapping[Arm, float]) -> None:
         raise NotImplementedError("Use `trial.add_arms_and_weights`")
 
     @immutable_once_run
-    def add_arm(self, arm: Arm, weight: float = 1.0) -> BatchTrial:
+    def add_arm(
+        self,
+        arm: Arm,
+        weight: float = 1.0,
+        generator_run_type: GeneratorRunType = GeneratorRunType.MANUAL,
+        candidate_metadata: dict[str, Any] | None = None,
+    ) -> BatchTrial:
         """Add a arm to the trial.
 
         Args:
             arm: The arm to be added.
             weight: The weight with which this arm should be added.
-
+            generator_run_type: The type of the generator run, into which this arm
+                will be wrapped, in order to be added to the `BatchTrial`.
+                Usually "MANUAL" or "STATUS_QUO".
         Returns:
             The trial instance.
         """
-        return self.add_arms_and_weights(arms=[arm], weights=[weight])
+        if candidate_metadata:
+            raise NotImplementedError(
+                "`candidate_metadata` is not yet supported for `BatchTrial`-s."
+            )
+        if generator_run_type == GeneratorRunType.STATUS_QUO:
+            self.experiment._name_and_store_arm_if_not_exists(
+                arm=arm,
+                proposed_name="status_quo_" + str(self.index),
+                replace=True,
+            )
+
+        return self.add_arms_and_weights(
+            arms=[arm], weights=[weight], generator_run_type=generator_run_type
+        )
 
     @immutable_once_run
     def add_arms_and_weights(
         self,
         arms: list[Arm],
         weights: list[float] | None = None,
+        generator_run_type: GeneratorRunType = GeneratorRunType.MANUAL,
     ) -> BatchTrial:
         """Add arms and weights to the trial.
 
         Args:
             arms: The arms to be added.
             weights: The weights associated with the arms.
+            generator_run_type: The type of the generator run, into which these arms
+                will be wrapped, in order to be added to the `BatchTrial`.
+                Usually "MANUAL" or "STATUS_QUO".
 
         Returns:
             The trial instance.
         """
         return self.add_generator_run(
             generator_run=GeneratorRun(
-                arms=arms, weights=weights, type=GeneratorRunType.MANUAL.name
+                arms=arms, weights=weights, type=generator_run_type.name
             ),
         )
 
@@ -262,6 +265,22 @@ class BatchTrial(BaseTrial):
         Returns:
             The trial instance.
         """
+        if (
+            generator_run._generator_run_type == GeneratorRunType.STATUS_QUO.name
+            and any(
+                gr._generator_run_type == GeneratorRunType.STATUS_QUO.name
+                for gr in self.generator_runs
+            )
+        ):
+            if (sq := self.status_quo) is None:
+                raise AxError(
+                    f"Trial {self.index} has a status quo generator run, "
+                    "but its status quo arm is not set. This is an unexpected state."
+                )
+            raise UnsupportedError(
+                f"Trial {self.index} already has a status quo arm: {sq.name}."
+            )
+
         # First validate generator run arms
         for arm in generator_run.arms:
             self.experiment.search_space.check_types(arm.parameters, raise_error=True)
@@ -274,19 +293,11 @@ class BatchTrial(BaseTrial):
             }
         )
 
-        # Add names to arms
-        # For those not yet added to this experiment, create a new name
-        # Else, use the name of the existing arm
-        for arm in generator_run.arms:
-            self._check_existing_and_name_arm(arm)
+        # Call `BaseTrial._add_generator_run` to validate and name the arms,
+        # then attach the generator run to the experiment.
+        self._add_generator_run(generator_run=generator_run)
 
-        self._generator_run_structs.append(
-            GeneratorRunStruct(generator_run=generator_run)
-        )
-
-        if self.status_quo is not None and self.should_add_status_quo_arm:
-            self.add_status_quo_arm(weight=1.0)
-
+        self._generator_runs.append(generator_run)
         if generator_run._generation_step_index is not None:
             self._set_generation_step_index(
                 generation_step_index=generator_run._generation_step_index
@@ -303,40 +314,44 @@ class BatchTrial(BaseTrial):
     def status_quo(self, status_quo: Arm | None) -> None:
         raise NotImplementedError("Use `add_status_quo_arm` to set the status quo arm.")
 
-    def unset_status_quo(self) -> None:
-        """Set the status quo to None."""
-        self._status_quo_weight_override = None
-        self._refresh_arms_by_name()
-
     @immutable_once_run
-    def add_status_quo_arm(self, weight: float | None) -> BatchTrial:
+    def add_status_quo_arm(self, weight: float = 1.0) -> BatchTrial:
         """Adds the status quo arm from the Experiment to the BatchTrial with a given
         weight. This weight *overrides* any weight the status quo has from generator
         runs attached to this batch. Thus, this function is not the same as
         using add_arm, which will result in the weight being additive over all
         generator runs.
         """
+        if (status_quo := self.status_quo) is None:
+            raise ValueError(
+                "Cannot set weight because status quo is not defined on the "
+                "`Experiment`."
+            )
+
         # Assign a name to this arm if none exists
         if weight is not None:
             if weight <= 0.0:
                 raise ValueError("Status quo weight must be positive.")
-            if self.experiment.status_quo is None:
-                raise ValueError(
-                    "Cannot set weight because status quo is "
-                    "not defined on the Experiment."
-                )
-            if (
-                self._status_quo_weight_override is not None
-                and weight != self._status_quo_weight_override
-            ):
-                warnings.warn(
-                    f"Status quo weight is being overridden from {weight} "
-                    f"to {self._status_quo_weight_override}.",
-                    UserWarning,
-                    stacklevel=3,
-                )
 
-        self._status_quo_weight_override = weight
+        sq_arm_already_added_with_correct_weight = False
+        for existing_arm in self.arm_weights:
+            if existing_arm.signature == status_quo.signature:
+                if float(weight) != self.arm_weights[existing_arm]:
+                    raise UnsupportedError(
+                        f"Status quo arm {existing_arm.name} is already added to the "
+                        f"trial with weight {self.arm_weights[existing_arm]}. "
+                        "Reassigning the weight is no longer supported."
+                    )
+
+                sq_arm_already_added_with_correct_weight = True
+                break
+
+        if not sq_arm_already_added_with_correct_weight:
+            self.add_arm(
+                status_quo,
+                weight=weight,
+                generator_run_type=GeneratorRunType.STATUS_QUO,
+            )
         self._refresh_arms_by_name()
         return self
 
@@ -389,7 +404,7 @@ class BatchTrial(BaseTrial):
     @copy_doc(BaseTrial.generator_runs)
     @property
     def generator_runs(self) -> list[GeneratorRun]:
-        return [grs.generator_run for grs in self.generator_run_structs]
+        return self._generator_runs
 
     @property
     def abandoned_arms_metadata(self) -> list[AbandonedArm]:
@@ -468,7 +483,7 @@ class BatchTrial(BaseTrial):
         experiment after their abandonment to avoid Ax models suggesting
         the same arm again as a new candidate. Abandoned arms are also
         excluded from model training data unless ``fit_abandoned``
-        option is specified to adapter.
+        is specified to adapter via ``DataLoaderConfig``.
 
         Args:
             arm_name: The name of the arm to abandon.
@@ -507,38 +522,19 @@ class BatchTrial(BaseTrial):
         new_trial = experiment.new_batch_trial(
             trial_type=None if clear_trial_type else self._trial_type,
             ttl_seconds=self._ttl_seconds,
+            generator_runs=[
+                gr if use_old_experiment else gr.clone() for gr in self.generator_runs
+            ],
+            should_add_status_quo_arm=include_sq and self.should_add_status_quo_arm,
         )
-        for struct in self._generator_run_structs:
-            if use_old_experiment:
-                # don't clone gen run in case we are attaching cloned trial to
-                # the same experiment
-                new_trial.add_generator_run(struct.generator_run)
-            else:
-                new_trial.add_generator_run(struct.generator_run.clone())
-
-        if (self.status_quo is not None) and include_sq:
-            sq_weight = self._status_quo_weight_override
-            new_trial.add_status_quo_arm(
-                weight=sq_weight,
-            )
         self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial
 
-    def attach_batch_trial_data(
-        self,
-        raw_data: dict[str, TEvaluationOutcome],
-        sample_sizes: dict[str, int] | None = None,
-        metadata: dict[str, str | int] | None = None,
-    ) -> None:
-        """Attaches data to the trial
+    def attach_batch_trial_data(self, raw_data: dict[str, TEvaluationOutcome]) -> None:
+        """Attach data to the trial.
 
         Args:
             raw_data: Map from arm name to metric outcomes.
-            sample_sizes: Dict from arm name to sample size.
-            metadata: Additional metadata to track about this run.
-                importantly the start_date and end_date
-            complete_trial: Whether to mark trial as complete after
-                attaching data. Defaults to False.
         """
         # Validate type of raw_data
         if not isinstance(raw_data, dict):
@@ -560,20 +556,9 @@ class BatchTrial(BaseTrial):
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 
-        evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
-        )
+        data = self._raw_evaluations_to_data(raw_data=raw_data)
         self._validate_batch_trial_data(data=data)
-
-        self._run_metadata = self._run_metadata if metadata is None else metadata
         self.experiment.attach_data(data)
-
-        data_for_logging = _round_floats_for_logging(item=evaluations)
-
-        logger.debug(
-            f"Updated trial {self.index} with data: "
-            f"{_round_floats_for_logging(item=data_for_logging)}."
-        )
 
     def __repr__(self) -> str:
         return (
@@ -594,8 +579,7 @@ class BatchTrial(BaseTrial):
         runs containing the arm will be retrieved.
         """
         cand_metadata = {}
-        for gr_struct in self._generator_run_structs:
-            gr = gr_struct.generator_run
+        for gr in self.generator_runs:
             if gr.candidate_metadata_by_arm_signature:
                 gr_cand_metadata = gr.candidate_metadata_by_arm_signature
                 warn = False
@@ -623,8 +607,7 @@ class BatchTrial(BaseTrial):
             raise ValueError(
                 f"Arm by name {arm_name} is not part of trial #{self.index}."
             )
-        for gr_struct in self._generator_run_structs:
-            gr = gr_struct.generator_run
+        for gr in self.generator_runs:
             if gr and gr.candidate_metadata_by_arm_signature and arm in gr.arms:
                 return none_throws(gr.candidate_metadata_by_arm_signature).get(
                     arm.signature

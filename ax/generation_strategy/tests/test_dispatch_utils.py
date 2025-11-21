@@ -7,15 +7,12 @@
 # pyre-strict
 
 import logging
-import warnings
 from itertools import product
 from typing import Any
 
 import torch
-from ax.adapter.base import DataLoaderConfig
-from ax.adapter.registry import Generators, MBM_X_trans, Mixed_transforms, Y_trans
+from ax.adapter.registry import Generators
 from ax.adapter.transforms.log_y import LogY
-from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.generation_strategy.dispatch_utils import (
@@ -24,6 +21,7 @@ from ax.generation_strategy.dispatch_utils import (
     choose_generation_strategy_legacy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
+from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
@@ -47,11 +45,7 @@ class TestDispatchUtils(TestCase):
 
     @mock_botorch_optimize
     def test_choose_generation_strategy_legacy(self) -> None:
-        expected_transforms = [Winsorize] + MBM_X_trans + Y_trans
-        expected_transform_configs = {
-            "Winsorize": {"derelativize_with_raw_status_quo": False},
-            "Derelativize": {"use_raw_status_quo": False},
-        }
+        expected_transform_configs = {}
         with self.subTest("GPEI"):
             sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space()
@@ -61,9 +55,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[1].generator, Generators.BOTORCH_MODULAR)
             expected_model_kwargs: dict[str, Any] = {
                 "torch_device": None,
-                "transforms": expected_transforms,
                 "transform_configs": expected_transform_configs,
-                "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             }
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
@@ -116,6 +109,7 @@ class TestDispatchUtils(TestCase):
             sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
                 optimization_config=optimization_config,
+                simplify_parameter_changes=True,
             )
             self.assertEqual(sobol_gpei._steps[0].generator, Generators.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
@@ -123,14 +117,11 @@ class TestDispatchUtils(TestCase):
             model_kwargs = none_throws(sobol_gpei._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
-                {
-                    "torch_device",
-                    "transforms",
-                    "transform_configs",
-                    "data_loader_config",
-                },
+                {"torch_device", "transform_configs", "acquisition_options"},
             )
-            self.assertGreater(len(model_kwargs["transforms"]), 0)
+            self.assertTrue(
+                model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+            )
         with self.subTest("Sobol (we can try every option)"):
             sobol = choose_generation_strategy_legacy(
                 search_space=get_factorial_search_space(), num_trials=1000
@@ -201,9 +192,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed._steps[1].generator, Generators.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
-                "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed search space)"):
@@ -216,9 +205,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[1].generator, Generators.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
-                "data_loader_config": DataLoaderConfig(fit_out_of_design=False),
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
@@ -236,14 +223,8 @@ class TestDispatchUtils(TestCase):
             model_kwargs = none_throws(moo_mixed._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
-                {
-                    "torch_device",
-                    "transforms",
-                    "transform_configs",
-                    "data_loader_config",
-                },
+                {"torch_device", "transform_configs"},
             )
-            self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("SAASBO"):
             sobol_fullybayesian = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
@@ -347,16 +328,25 @@ class TestDispatchUtils(TestCase):
             "transforms": [LogY],
             "transform_configs": {"LogY": {"metrics": ["metric_1"]}},
         }
+        with self.assertRaises(AssertionError):
+            bo_step = _make_botorch_step(model_kwargs=model_kwargs)
+        model_kwargs = {"transforms": [LogY]}
         bo_step = _make_botorch_step(model_kwargs=model_kwargs)
+        self.assertEqual(none_throws(bo_step.model_kwargs)["transforms"], [LogY])
         self.assertEqual(
-            none_throws(bo_step.model_kwargs)["transforms"], [Winsorize, LogY]
+            none_throws(bo_step.model_kwargs)["transform_configs"],
+            {},
+        )
+        # With derelativize_with_raw_status_quo.
+        bo_step = _make_botorch_step(
+            model_kwargs=model_kwargs, derelativize_with_raw_status_quo=True
         )
         self.assertEqual(
             none_throws(bo_step.model_kwargs)["transform_configs"],
             {
-                "LogY": {"metrics": ["metric_1"]},
-                "Derelativize": {"use_raw_status_quo": False},
-                "Winsorize": {"derelativize_with_raw_status_quo": False},
+                "Derelativize": {"use_raw_status_quo": True},
+                "Winsorize": {"derelativize_with_raw_status_quo": True},
+                "BilogY": {"derelativize_with_raw_status_quo": True},
             },
         )
 
@@ -477,9 +467,7 @@ class TestDispatchUtils(TestCase):
                 )
             },
         )
-        self.assertIn("Derelativize", tc)
-        self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": False})
-
+        # With derelativize_with_raw_status_quo.
         winsorized = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             derelativize_with_raw_status_quo=True,
@@ -498,21 +486,6 @@ class TestDispatchUtils(TestCase):
             tc,
         )
         self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": True})
-
-    def test_no_winzorization_wins(self) -> None:
-        with warnings.catch_warnings(record=True) as w:
-            unwinsorized = choose_generation_strategy_legacy(
-                search_space=get_branin_search_space(),
-                winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
-                no_winsorization=True,
-            )
-            self.assertEqual(len(w), 1)
-            self.assertIn("Not winsorizing", str(w[-1].message))
-
-        self.assertNotIn(
-            "Winsorize",
-            none_throws(unwinsorized._steps[1].model_kwargs)["transform_configs"],
-        )
 
     def test_num_trials(self) -> None:
         ss = get_discrete_search_space()
@@ -631,16 +604,32 @@ class TestDispatchUtils(TestCase):
             sobol_gpei._steps[0].num_trials, default_initialization_num_trials
         )
 
-        num_completed_initialization_trials = 2
         sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
-            num_completed_initialization_trials=num_completed_initialization_trials,
+            num_completed_initialization_trials=2,
         )
 
+        # With the new use_all_trials_in_exp=True behavior, the step will still
+        # be configured for the total number of initialization trials, and the
+        # transition criteria will automatically account for existing trials.
         self.assertEqual(
             sobol_gpei._steps[0].num_trials,
-            default_initialization_num_trials - num_completed_initialization_trials,
+            default_initialization_num_trials,
         )
+
+        # Verify that use_all_trials_in_exp is set to True for the Sobol step
+        # so it accounts for existing trials automatically
+        first_transition_criterion = assert_is_instance(
+            sobol_gpei._steps[0].transition_criteria[0], MinTrials
+        )
+        self.assertTrue(first_transition_criterion.use_all_trials_in_exp)
+
+        # Sobol step shouldn't be created if there are enough completed trials.
+        gpei = choose_generation_strategy_legacy(
+            search_space=get_branin_search_space(),
+            num_completed_initialization_trials=5,
+        )
+        self.assertEqual(len(gpei._nodes), 1)
 
     def test_calculate_num_initialization_trials(self) -> None:
         with self.subTest("one trial for batch trials"):

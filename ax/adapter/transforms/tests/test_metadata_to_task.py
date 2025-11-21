@@ -10,7 +10,7 @@ from copy import deepcopy
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.metadata_to_task import MetadataToTask
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
@@ -49,7 +49,7 @@ class MetadataToTaskTransformTest(TestCase):
         )
         self.transform_config: TConfig = {"task_values": [0, 1]}
         self.t = MetadataToTask(
-            observations=self.observations, config=self.transform_config
+            experiment_data=self.experiment_data, config=self.transform_config
         )
 
     def test_Init(self) -> None:

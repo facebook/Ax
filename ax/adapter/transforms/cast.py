@@ -10,9 +10,10 @@ from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.observation import Observation, ObservationFeatures, separate_observations
-from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, RangeParameter
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation_utils import separate_observations
+from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, ParameterType, RangeParameter
+from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
 from pandas import Series
@@ -46,7 +47,6 @@ class Cast(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -54,7 +54,6 @@ class Cast(Transform):
         self.search_space: SearchSpace = none_throws(search_space).clone()
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -75,9 +74,7 @@ class Cast(Transform):
         # exploit the hierarchical structure, it infers which parameter is active based
         # on `search_space_digest.hierarchical_dependencies`.
         self.flatten_hss: bool = assert_is_instance(
-            config.pop(
-                "flatten_hss", isinstance(search_space, HierarchicalSearchSpace)
-            ),
+            config.pop("flatten_hss", none_throws(search_space).is_hierarchical),
             bool,
         )
         self.inject_dummy_values_to_complete_flat_parameterization: bool = (
@@ -96,7 +93,7 @@ class Cast(Transform):
                 f"Unexpected config parameters for `Cast` transform: {config}."
             )
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Flattens the hierarchical search space and returns the flat
         ``SearchSpace`` if this transform is configured to flatten hierarchical
         search spaces. Does nothing if the search space is not hierarchical.
@@ -111,7 +108,7 @@ class Cast(Transform):
 
         Returns: transformed search space.
         """
-        if isinstance(search_space, HierarchicalSearchSpace):
+        if search_space.is_hierarchical:
             return search_space.flatten() if self.flatten_hss else search_space
         else:
             return search_space
@@ -168,7 +165,7 @@ class Cast(Transform):
             observation_features=observation_features
         )
 
-        if isinstance(self.search_space, HierarchicalSearchSpace):
+        if self.search_space.is_hierarchical:
             # Inject the parameters model suggested in the flat search space, which then
             # got removed during casting to HSS as they were not applicable under the
             # hierarchical structure of the search space.
@@ -204,7 +201,7 @@ class Cast(Transform):
             observation_features=observation_features
         )
 
-        if isinstance(self.search_space, HierarchicalSearchSpace):
+        if self.search_space.is_hierarchical:
             # The inactive parameters in the HSS have been filled with dummy values,
             # which should be removed from the observations.
             return [
@@ -265,7 +262,7 @@ class Cast(Transform):
         # If the metadata does not include the full parameterization, a dummy
         # value is constructed, either randomly or by using the middle of the
         # parameter domain, depending on the `use_random_dummy_values` flag.
-        if isinstance(self.search_space, HierarchicalSearchSpace):
+        if self.search_space.is_hierarchical:
             # NOTE: This could probably be vectorized to operate more efficiently,
             # however it is non-trivial since we need to extract values from the
             # metadata of each row and fill any missing values after.
@@ -276,9 +273,7 @@ class Cast(Transform):
                     parameters=row.drop("metadata").dropna().to_dict(),
                     metadata=row["metadata"],
                 )
-                flattened = assert_is_instance(
-                    self.search_space, HierarchicalSearchSpace
-                ).flatten_observation_features(
+                flattened = self.search_space.flatten_observation_features(
                     observation_features=obs_ft,
                     inject_dummy_values_to_complete_flat_parameterization=(
                         self.inject_dummy_values_to_complete_flat_parameterization
@@ -314,8 +309,13 @@ class Cast(Transform):
             columns=list(self.search_space.parameters) + ["metadata"], fill_value=None
         )
         # Cast columns to the correct datatype & round RangeParameters, if applicable.
+        type_map = PARAMETER_PYTHON_TYPE_MAP.copy()
+        # pyre-ignore [6]: Writing str to type map that is typed with Types.
+        # Basic int errors out with NaNs, which are added for missing columns above.
+        # This happens with heterogeneous SS BOTL, where transforms work on joint space.
+        type_map[ParameterType.INT] = "Int64"
         column_to_type = {
-            p: PARAMETER_PYTHON_TYPE_MAP[param.parameter_type]
+            p: type_map[param.parameter_type]
             for p, param in self.search_space.parameters.items()
         }
         arm_data = arm_data.astype(dtype=column_to_type, copy=False)

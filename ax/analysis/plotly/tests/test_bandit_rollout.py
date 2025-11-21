@@ -6,14 +6,20 @@
 # pyre-strict
 
 from ax.analysis.plotly.bandit_rollout import BanditRollout
+from ax.analysis.plotly.utils import STALE_FAIL_REASON
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.exceptions.core import UserInputError
+from ax.core.metric import Metric
+from ax.core.optimization_config import Objective, OptimizationConfig
+from ax.core.parameter import ChoiceParameter, ParameterType
+from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_discrete_search_space,
     get_online_experiments,
     get_sobol,
 )
+from pyre_extensions import none_throws
 
 
 class TestBanditRollout(TestCase):
@@ -30,11 +36,14 @@ class TestBanditRollout(TestCase):
             self.experiment.new_batch_trial(generator_run=gr)
             self.experiment.new_batch_trial(generator_run=gr)
 
+    def test_validate_applicable_state(self) -> None:
+        self.assertIn(
+            "Requires an Experiment",
+            none_throws(BanditRollout().validate_applicable_state()),
+        )
+
     def test_compute(self) -> None:
         analysis = BanditRollout()
-
-        with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
-            analysis.compute()
 
         card = analysis.compute(experiment=self.experiment)
 
@@ -69,3 +78,48 @@ class TestBanditRollout(TestCase):
         for experiment in get_online_experiments():
             analysis = BanditRollout()
             _ = analysis.compute(experiment=experiment)
+
+    def test_stale_failed_trial_filtering(self) -> None:
+        """
+        Test that bandit rollout excludes stale failed trials and stale trials but
+        includes regular failed trials.
+        """
+        experiment = Experiment(
+            name="bandit_test_stale_filtering",
+            search_space=SearchSpace(
+                parameters=[
+                    ChoiceParameter(
+                        name="x", parameter_type=ParameterType.FLOAT, values=[0.0, 1.0]
+                    )
+                ]
+            ),
+            optimization_config=OptimizationConfig(
+                objective=Objective(metric=Metric(name="foo"), minimize=False)
+            ),
+        )
+
+        # Create 4 batch trials with different outcomes
+        trials = []
+        for i in range(4):
+            trial = experiment.new_batch_trial()
+            trial.add_arms_and_weights(arms=[Arm(parameters={"x": float(i % 2)})])
+            trials.append(trial)
+
+        # Set trial outcomes: success, regular failure, stale failure
+        trials[0].mark_running(no_runner_required=True)
+        trials[0].mark_completed()
+        trials[1].mark_running(no_runner_required=True)
+        trials[1].mark_failed(reason="Regular failure")
+        trials[2].mark_running(no_runner_required=True)
+        trials[2].mark_failed(reason=STALE_FAIL_REASON)
+        trials[3].mark_stale()
+
+        card = BanditRollout().compute(experiment=experiment)
+
+        # Verify filtering: include successful (0) + regular failed (1),
+        # exclude stale failed (2) and stale (3)
+        trial_indices = set(card.df["trial_index"].unique())
+        self.assertIn(0, trial_indices)
+        self.assertIn(1, trial_indices)
+        self.assertNotIn(2, trial_indices)
+        self.assertNotIn(3, trial_indices)

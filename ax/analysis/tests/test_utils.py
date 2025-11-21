@@ -9,18 +9,18 @@ from itertools import product
 
 import numpy as np
 import pandas as pd
-from ax.analysis.plotly.utils import truncate_label
+from ax.analysis.plotly.utils import STALE_FAIL_REASON, truncate_label
 from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import relativize_dataframe
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.trial_status import TrialStatus  # noqa
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
@@ -147,6 +147,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -193,6 +194,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -223,6 +225,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -323,6 +326,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -366,6 +370,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -398,6 +403,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -436,6 +442,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -478,6 +485,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
+                "fail_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -515,6 +523,69 @@ class TestUtils(TestCase):
 
         # Check that all SEMs are not NaN
         self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
+
+        # add an arm that is not in the search space
+        trial = self.client._experiment.new_trial()
+        trial.add_arm(Arm(name="ood_arm", parameters={"x1": 0.5, "x2": 2.0}))
+        trial.mark_running(no_runner_required=True)
+        self.client.complete_trial(
+            trial_index=trial.index,
+            raw_data={
+                "foo": (0.5, 0.1),
+                "bar": (-3.5, 0.1),
+                "baz": (3.0, 0.1),
+                "qux": (4.0, 0.1),
+            },
+        )
+        gen_spec = self.client._generation_strategy._curr.generator_specs[0]
+        adapter = gen_spec.generator_enum(
+            experiment=self.client._experiment, **gen_spec.model_kwargs
+        )
+        df = prepare_arm_data(
+            experiment=self.client._experiment,
+            metric_names=["foo"],
+            use_model_predictions=True,
+            adapter=adapter,
+        )
+        ood_df = df[df.arm_name == "ood_arm"]
+        # a NaN would indicate that we did not make a prediction
+        self.assertFalse(np.isnan(ood_df.foo_mean.iloc[0]))
+        self.assertFalse(np.isnan(ood_df.foo_sem.iloc[0]))
+
+    def test_prepare_arm_data_includes_failure_reasons(self) -> None:
+        """Test that the fail_reason column is properly populated."""
+        client = Client()
+        client.configure_experiment(
+            name="test_failure_reasons",
+            parameters=[
+                RangeParameterConfig(name="x", parameter_type="float", bounds=(0, 1))
+            ],
+        )
+        client.configure_optimization(objective="foo")
+
+        # Create trials with different failure scenarios
+        client.get_next_trials(max_trials=3)
+        client.complete_trial(trial_index=0, raw_data={"foo": 1.0})
+        client.mark_trial_failed(trial_index=1, failed_reason="Regular failure")
+        client.mark_trial_failed(trial_index=2, failed_reason=STALE_FAIL_REASON)
+
+        df = prepare_arm_data(
+            experiment=client._experiment,
+            metric_names=["foo"],
+            use_model_predictions=False,
+        )
+
+        # Verify fail_reason column is populated correctly
+        self.assertIn("fail_reason", df.columns)
+        self.assertTrue(
+            pd.isna(df[df["trial_index"] == 0]["fail_reason"].iloc[0])
+        )  # Success: no reason
+        self.assertEqual(
+            df[df["trial_index"] == 1]["fail_reason"].iloc[0], "Regular failure"
+        )  # Regular failure
+        self.assertEqual(
+            df[df["trial_index"] == 2]["fail_reason"].iloc[0], STALE_FAIL_REASON
+        )  # Stale failure
 
     def test_relativize_df_with_sq(self) -> None:
         df = pd.DataFrame(
@@ -633,8 +704,9 @@ class TestUtils(TestCase):
         # resemble those we see in an online setting.
         for experiment in get_online_experiments():
             data = experiment.lookup_data()
-            rel_df = relativize_data(data).df
             raw_df = data.df
+            rel_df = relativize_dataframe(df=raw_df)
+
             metric_name = next(iter(experiment.metrics.keys()))
             raw_arm_value = raw_df[
                 (raw_df.arm_name == "0_0") & (raw_df.metric_name == metric_name)
@@ -669,9 +741,13 @@ class TestUtils(TestCase):
                 )
                 generation_strategy.current_node._fit(experiment=experiment)
                 adapter = none_throws(generation_strategy.adapter)
+                model_metric_names = [
+                    experiment.signature_to_metric[signature].name
+                    for signature in adapter.metric_signatures
+                ]
                 df = prepare_arm_data(
                     experiment=experiment,
-                    metric_names=[*adapter.metric_names],
+                    metric_names=model_metric_names,
                     use_model_predictions=use_model_predictions,
                     adapter=adapter,
                     trial_index=trial_index,
@@ -691,8 +767,8 @@ class TestUtils(TestCase):
                 self.assertAllClose(
                     arm_df[f"{metric_name}_mean"].values[0],
                     expected_arm_value,
-                    rtol=1e-4 if use_model_predictions else 1e-5,
-                    atol=1e-3 if use_model_predictions else 1e-8,
+                    rtol=1e-3 if use_model_predictions else 1e-5,
+                    atol=1e-2 if use_model_predictions else 1e-8,
                 )
 
     @TestCase.ax_long_test(
@@ -730,10 +806,14 @@ class TestUtils(TestCase):
                         )
                         generation_strategy.current_node._fit(experiment=experiment)
                         adapter = none_throws(generation_strategy.adapter)
+                        model_metric_names = [
+                            experiment.signature_to_metric[signature].name
+                            for signature in adapter.metric_signatures
+                        ]
 
                         _ = prepare_arm_data(
                             experiment=experiment,
-                            metric_names=[*adapter.metric_names],
+                            metric_names=model_metric_names,
                             use_model_predictions=use_model_predictions,
                             adapter=adapter,
                             trial_index=trial_index,

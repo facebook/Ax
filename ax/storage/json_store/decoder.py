@@ -7,7 +7,9 @@
 # pyre-strict
 
 import datetime
+import json
 from collections import OrderedDict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -24,8 +26,10 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -33,7 +37,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.storage import JSONDecodeError, STORAGE_DOCS_SUFFIX
+from ax.exceptions.storage import JSON_STORAGE_DOCS_SUFFIX, JSONDecodeError
 from ax.generation_strategy.generation_node_input_constructors import (
     InputConstructorPurpose,
 )
@@ -61,6 +65,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
+from ax.storage.utils import combine_datas_on_data_by_trial
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     SerializationMixin,
@@ -85,11 +90,16 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
     "FULLYBAYESIANMOO_MTGP": "SAAS_MTGP",
     "ST_MTGP_LEGACY": "ST_MTGP",
     "ST_MTGP_NEHVI": "ST_MTGP",
+    "CONTEXT_SACBO": "BOTORCH_MODULAR",
+    "LEGACY_BOTORCH": "BOTORCH_MODULAR",
 }
 
 # Deprecated model kwargs, to be removed from GStep / GNodes.
 _DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
     "fit_on_update",
+    "fit_out_of_design",
+    "fit_abandoned",
+    "fit_only_completed_map_metrics",
     "torch_dtype",
     "status_quo_name",
     "status_quo_features",
@@ -168,12 +178,15 @@ def object_from_json(
 
         elif _type == "GeneratorRunStruct":
             object_json.pop("weight", None)  # Deprecated.
+            gr_json = object_json["generator_run"]
+            assert gr_json.pop("__type") == "GeneratorRun"
+            return generator_run_from_json(object_json=gr_json, **vars(registry_kwargs))
 
         elif _type not in decoder_registry:
             err = (
                 f"The JSON dictionary passed to `object_from_json` has a type "
                 f"{_type} that is not registered with a corresponding class in "
-                f"DECODER_REGISTRY. {STORAGE_DOCS_SUFFIX}"
+                f"DECODER_REGISTRY. {JSON_STORAGE_DOCS_SUFFIX}"
             )
             raise JSONDecodeError(err)
 
@@ -260,6 +273,17 @@ def object_from_json(
                 **vars(registry_kwargs),
             )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
+            # Special handling for Data and MapData backward compatibility
+            if _class in (Data, MapData):
+                data_json_str = object_json.get("df", {}).get("value", "")
+                data_json = json.loads(data_json_str)
+                if data_json and "metric_signature" not in data_json:
+                    object_json["df"]["value"] = (
+                        _update_data_json_with_metric_signature(
+                            object_json["df"]["value"]
+                        )
+                    )
+
             return _class(
                 # Note: we do not recursively call object_from_json here again as
                 # that would invalidate design principles behind deserialize_init_args.
@@ -277,7 +301,8 @@ def object_from_json(
             object_json = _sanitize_legacy_surrogate_inputs(object_json=object_json)
         if _class is SurrogateSpec:
             object_json = _sanitize_inputs_to_surrogate_spec(object_json=object_json)
-
+        if isclass(_class) and issubclass(_class, OptimizationConfig):
+            object_json.pop("risk_measure", None)  # Deprecated.
         return ax_class_from_json_dict(
             _class=_class, object_json=object_json, **vars(registry_kwargs)
         )
@@ -385,7 +410,7 @@ def unpack_transition_criteria_from_json(
     the json for these criterion needs to be carefully unpacked and
     re-processed via ``object_from_json`` in order to maintain correct
     typing. We pass in ``class_`` in order to correctly handle all classes
-    which inherit from ``TrialBasedCriterion`` (ex: ``MaxTrials``).
+    which inherit from ``TrialBasedCriterion`` (ex: ``MinTrials``).
     """
     new_dict = {}
     for key, value in transition_criteria_json.items():
@@ -483,31 +508,46 @@ def trials_from_json(
 ) -> dict[int, BaseTrial]:
     """Load Ax Trials from JSON."""
     loaded_trials = {}
-    for index, batch_json in trials_json.items():
-        is_trial = batch_json["__type"] == "Trial"
-        batch_json = {
+    for index, trial_json in trials_json.items():
+        is_trial = trial_json["__type"] == "Trial"
+        trial_json = {
             k: object_from_json(
                 v,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-            for k, v in batch_json.items()
+            for k, v in trial_json.items()
             if k != "__type"
         }
+        if "generator_run_structs" in trial_json:
+            # `GeneratorRunStruct` (deprecated) will be decoded into a `GeneratorRun`,
+            # so all we have to do here is change the key it's stored under.
+            trial_json["generator_runs"] = trial_json.pop("generator_run_structs")
+        trial_json.pop("status_quo_weight_override", None)  # Deprecated.
         loaded_trials[int(index)] = (
-            trial_from_json(experiment=experiment, **batch_json)
+            trial_from_json(experiment=experiment, **trial_json)
             if is_trial
-            else batch_trial_from_json(experiment=experiment, **batch_json)
+            else batch_trial_from_json(experiment=experiment, **trial_json)
         )
     return loaded_trials
 
 
 def data_from_json(
-    data_by_trial_json: dict[str, Any],
+    data_by_trial_json: Mapping[str, Any] | Mapping[int, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> dict[int, "OrderedDict[int, Data]"]:
-    """Load Ax Data from JSON."""
+    """
+    Load Ax Data from JSON.
+
+    Old `_data_by_trial` is in the format `{trial_index: {timestamp: Data}}`.
+    Current data is in the format `{trial_index: {0: Data}}`. This function
+    deserializes `_data_by_trial` and then converts it from the current format
+    to the new format. Within each trial_index, it combines each fetch with the
+    previous one, deduplicating in favor of the new data when there are multiple
+    observations with the same "trial_index", "metric_name", and "arm_name",
+    and, when present, "step."
+    """
     data_by_trial = object_from_json(
         data_by_trial_json,
         decoder_registry=decoder_registry,
@@ -515,10 +555,11 @@ def data_from_json(
     )
     # hack necessary because Python's json module converts dictionary
     # keys to strings: https://stackoverflow.com/q/1450957
-    return {
+    deserialized = {
         int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
         for k, v in data_by_trial.items()
     }
+    return combine_datas_on_data_by_trial(data_by_trial=deserialized)
 
 
 def multi_type_experiment_from_json(
@@ -691,8 +732,13 @@ def generation_node_from_json(
         generator_specs = generation_node_json.pop("model_specs")
     else:
         generator_specs = generation_node_json.pop("generator_specs")
+
+    if "node_name" in generation_node_json.keys():
+        name = generation_node_json.pop("node_name")
+    else:
+        name = generation_node_json.pop("name")
     return GenerationNode(
-        node_name=generation_node_json.pop("node_name"),
+        name=name,
         generator_specs=object_from_json(
             object_json=generator_specs,
             decoder_registry=decoder_registry,
@@ -918,6 +964,7 @@ def generation_step_from_json(
         index=generation_step_json.pop("index", -1),
         should_deduplicate=generation_step_json.pop("should_deduplicate", False),
         generator_name=generation_step_json.pop("generator_name", None),
+        use_all_trials_in_exp=generation_step_json.pop("use_all_trials_in_exp", False),
     )
     return generation_step
 
@@ -1000,7 +1047,7 @@ def generation_strategy_from_json(
         gs = GenerationStrategy(nodes=nodes, name=generation_strategy_json.pop("name"))
         curr_node_name = generation_strategy_json.pop("curr_node_name")
         for node in gs._nodes:
-            if node.node_name == curr_node_name:
+            if node.name == curr_node_name:
                 gs._curr = node
                 break
 
@@ -1235,3 +1282,9 @@ def _update_deprecated_model_registry(name: str) -> str:
         return new_name
     else:
         return name
+
+
+def _update_data_json_with_metric_signature(data_json_str: str) -> str:
+    data_json = json.loads(data_json_str)
+    data_json["metric_signature"] = data_json.get("metric_name", {})
+    return json.dumps(data_json)

@@ -15,10 +15,10 @@ from ax.adapter.transforms.trial_as_task import TrialAsTask
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
-from ax.exceptions.core import UnsupportedError
 from ax.generators.base import Generator
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment, get_robust_search_space
+from ax.utils.testing.core_stubs import get_branin_experiment
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
@@ -55,7 +55,9 @@ class TrialAsTaskTransformTest(TestCase):
         self.training_obs = [
             Observation(
                 data=ObservationData(
-                    metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
+                    metric_signatures=[],
+                    means=np.array([]),
+                    covariance=np.empty((0, 0)),
                 ),
                 features=obsf,
             )
@@ -74,13 +76,13 @@ class TrialAsTaskTransformTest(TestCase):
 
         self.t2 = TrialAsTask(
             search_space=self.exp.search_space,
-            observations=self.training_obs,
+            experiment_data=self.experiment_data,
             adapter=self.adapter,
             config={"trial_level_map": self.bm},
         )
         self.t3 = TrialAsTask(
             search_space=self.exp.search_space,
-            observations=self.training_obs,
+            experiment_data=self.experiment_data,
             adapter=self.adapter,
             config={"trial_level_map": {}},
         )
@@ -91,7 +93,7 @@ class TrialAsTaskTransformTest(TestCase):
         }
         self.t4 = TrialAsTask(
             search_space=self.exp.search_space,
-            observations=self.training_obs,
+            experiment_data=self.experiment_data,
             adapter=self.adapter,
             config={"trial_level_map": self.bm2, "target_trial": 2},
         )
@@ -111,21 +113,11 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertIsNone(self.t4.inverse_map)
         self.assertEqual(self.t4.target_values, {"bp1": "v3", "bp2": "u2"})
         # Test validation
-        obsf = ObservationFeatures({"x1": 2, "x2": 2})
-        obs = Observation(
-            data=ObservationData([], np.array([]), np.empty((0, 0))), features=obsf
-        )
-        with self.assertRaises(ValueError):
-            TrialAsTask(
-                search_space=self.exp.search_space,
-                observations=self.training_obs + [obs],
-                adapter=self.adapter,
-            )
         bm = {"p": {0: "y", 1: "z"}}
         with self.assertRaises(ValueError):
             TrialAsTask(
                 search_space=self.exp.search_space,
-                observations=self.training_obs,
+                experiment_data=self.experiment_data,
                 adapter=self.adapter,
                 config={"trial_level_map": bm},
             )
@@ -226,7 +218,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(p.target_value, "u1")
         t = TrialAsTask(
             search_space=self.exp.search_space,
-            observations=self.training_obs,
+            experiment_data=self.experiment_data,
             adapter=self.adapter,
             config={
                 "trial_level_map": {
@@ -244,33 +236,17 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertTrue(p.is_task)
         self.assertEqual(p.target_value, 11)
 
-    def test_w_robust_search_space(self) -> None:
-        rss = get_robust_search_space()
-        # Raises an error in __init__.
-        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
-            TrialAsTask(
-                search_space=rss,
-                observations=self.training_obs,
-                adapter=self.adapter,
-            )
-
     def test_less_than_two_trials(self) -> None:
         # test transform is a no-op with less than two trials
-        exp = get_branin_experiment()
-        exp.new_trial().add_arm(Arm(parameters={"x1": 1, "x2": 1}))
-        adapter = Adapter(
-            search_space=exp.search_space,
-            generator=Generator(),
-            experiment=exp,
-        )
-        training_obs = self.training_obs[:1]
+        exp = get_branin_experiment(with_completed_trial=True, num_trial=1)
+        adapter = Adapter(experiment=exp, generator=Generator())
         t = TrialAsTask(
             search_space=exp.search_space,
-            observations=training_obs,
+            experiment_data=adapter.get_training_data(),
             adapter=adapter,
         )
         self.assertEqual(t.trial_level_map, {})
-        training_feats = [training_obs[0].features]
+        training_feats = [self.training_obs[0].features]
         training_feats_clone = deepcopy(training_feats)
         self.assertEqual(
             t.transform_observation_features(training_feats_clone), training_feats
@@ -282,24 +258,17 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(t.transform_search_space(ss2), exp.search_space)
 
     def test_less_than_two_levels(self) -> None:
-        # test transform is a no-op with less than two trials
-        exp = get_branin_experiment()
-        exp.new_trial().add_arm(Arm(parameters={"x1": 1, "x2": 1}))
-        exp.new_trial().add_arm(Arm(parameters={"x1": 2, "x2": 2}))
-        adapter = Adapter(
-            search_space=exp.search_space,
-            generator=Generator(),
-            experiment=exp,
-        )
-        training_obs = self.training_obs[:1]
+        # test transform is a no-op with less than two levels
+        exp = get_branin_experiment(with_completed_batch=True, num_batch_trial=2)
+        adapter = Adapter(experiment=exp, generator=Generator())
         t = TrialAsTask(
             search_space=exp.search_space,
-            observations=training_obs,
+            experiment_data=adapter.get_training_data(),
             adapter=adapter,
             config={"trial_level_map": {"t": {0: "v1", 1: "v1"}}},
         )
         self.assertEqual(t.trial_level_map, {})
-        training_feats = [training_obs[0].features]
+        training_feats = [self.training_obs[0].features]
         training_feats_clone = deepcopy(training_feats)
         self.assertEqual(
             t.transform_observation_features(training_feats_clone), training_feats
@@ -345,3 +314,26 @@ class TrialAsTaskTransformTest(TestCase):
             transformed_data.arm_data["bp2"].to_list(),
             make_expected(values=("u1", "u1", "u2")),
         )
+
+    def test_trial_type_as_task(self) -> None:
+        # Test that trial_level_map is properly constructed when
+        #  trial_type_as_task is True.
+
+        # Set trial types: trial 0 as LONG_RUN, trials 1 and 2
+        # as short run (None or other).
+        self.exp.trials[0]._trial_type = Keys.LONG_RUN
+        self.exp.trials[1]._trial_type = None  # Short run trial
+        self.exp.trials[2]._trial_type = "SHORT_RUN"  # Any non-LONG_RUN type
+
+        # Create transform with trial_type_as_task config.
+        t_trial_type = TrialAsTask(
+            search_space=self.exp.search_space,
+            experiment_data=self.experiment_data,
+            adapter=self.adapter,
+            config={"trial_type_as_task": True},
+        )
+
+        # Assert that trial_level_map correctly maps LONG_RUN
+        # trials to "0" and others to "1".
+        expected_trial_level_map = {"TRIAL_PARAM": {0: "0", 1: "1", 2: "1"}}
+        self.assertEqual(t_trial_type.trial_level_map, expected_trial_level_map)

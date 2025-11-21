@@ -6,13 +6,12 @@
 
 # pyre-strict
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.deprecated_transform_mixin import DeprecatedTransformMixin
 from ax.adapter.transforms.utils import ClosestLookupDict, construct_new_search_space
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -46,7 +45,6 @@ class ChoiceToNumericChoice(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -54,7 +52,6 @@ class ChoiceToNumericChoice(Transform):
         assert search_space is not None, "ChoiceToNumericChoice requires search space"
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -83,7 +80,7 @@ class ChoiceToNumericChoice(Transform):
                     ]
         return observation_features
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
@@ -142,19 +139,13 @@ class ChoiceToNumericChoice(Transform):
     def transform_experiment_data(
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
+        arm_data = experiment_data.arm_data.copy()
+        for parameter_name, new_values in self.encoded_parameters.items():
+            arm_data[parameter_name] = arm_data[parameter_name].map(new_values)
         return ExperimentData(
-            arm_data=experiment_data.arm_data.replace(
-                to_replace=self.encoded_parameters
-            ),
+            arm_data=arm_data,
             observation_data=experiment_data.observation_data,
         )
-
-
-class ChoiceEncode(DeprecatedTransformMixin, ChoiceToNumericChoice):
-    """Deprecated alias for ChoiceToNumericChoice."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
 
 
 class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
@@ -175,14 +166,12 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
     def __init__(
         self,
         search_space: SearchSpace,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -203,7 +192,7 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
             for p_name, transforms in self.encoded_parameters.items()
         }
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
@@ -250,10 +239,3 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
                 for pc in search_space.parameter_constraints
             ],
         )
-
-
-class OrderedChoiceEncode(DeprecatedTransformMixin, OrderedChoiceToIntegerRange):
-    """Deprecated alias for OrderedChoiceToIntegerRange."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)

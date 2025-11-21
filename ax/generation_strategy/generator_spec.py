@@ -20,7 +20,6 @@ from ax.adapter.cross_validation import (
     cross_validate,
     CVDiagnostics,
     CVResult,
-    get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.adapter.registry import GeneratorRegistryBase
 from ax.core.data import Data
@@ -141,6 +140,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             self._fitted_adapter = self.generator_enum(
                 experiment=experiment,
                 data=data,
+                model_key_override=self.model_key_override,
                 **combined_model_kwargs,
             )
             self._last_fit_arg_ids = self._get_fit_arg_ids(
@@ -217,7 +217,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
                 the ``n`` and produce a model-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from ``n``.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
         """
@@ -229,17 +229,11 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         # copy to ensure there is no in-place modification
         model_gen_kwargs = deepcopy(model_gen_kwargs)
         generator_run = fitted_adapter.gen(**model_gen_kwargs)
-        fit_and_std_quality_and_generalization_dict = (
-            get_fit_and_std_quality_and_generalization_dict(
-                fitted_adapter=self.fitted_adapter,
-            )
-        )
+
         generator_run._gen_metadata = (
             {} if generator_run.gen_metadata is None else generator_run.gen_metadata
         )
-        generator_run._gen_metadata.update(
-            **fit_and_std_quality_and_generalization_dict
-        )
+
         return generator_run
 
     def copy(self) -> GeneratorSpec:

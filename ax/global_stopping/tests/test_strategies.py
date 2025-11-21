@@ -117,6 +117,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
                 "arm_name": none_throws(trial.arm).name,
                 "mean": values[0],
                 "sem": 0.0,
+                "metric_signature": "m1",
             },
             {
                 "trial_index": trial.index,
@@ -124,6 +125,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
                 "arm_name": none_throws(trial.arm).name,
                 "mean": values[1],
                 "sem": 0.0,
+                "metric_signature": "m2",
             },
             {
                 "trial_index": trial.index,
@@ -131,6 +133,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
                 "arm_name": none_throws(trial.arm).name,
                 "mean": values[2],
                 "sem": 0.0,
+                "metric_signature": "m3",
             },
         ]
         return Data(df=pd.DataFrame.from_records(df_dicts))
@@ -350,8 +353,8 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(message, "")
 
-        top, message = gss.should_stop_optimization(experiment=exp, trial_to_check=5)
-        self.assertFalse(stop)
+        stop, message = gss.should_stop_optimization(experiment=exp, trial_to_check=5)
+        self.assertTrue(stop)
         self.assertEqual(
             message,
             "The improvement in best objective in the past 3 trials (=0.000) is "

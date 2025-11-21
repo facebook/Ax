@@ -5,17 +5,17 @@
 
 # pyre-strict
 
+from typing import final
+
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardBase
+from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
-
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.plot.helper import get_plot_data
 from ax.utils.stats.statstools import marginal_effects
@@ -33,6 +33,7 @@ MARGINAL_EFFECTS_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class MarginalEffectsPlot(Analysis):
     """
     Plotly bar charts showing the marginal effect of each factor level of
@@ -65,14 +66,26 @@ class MarginalEffectsPlot(Analysis):
         self.parameters = parameters
 
     @override
-    def compute(
+    def validate_applicable_state(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCardBase:
-        if experiment is None:
-            raise UserInputError("MarginalEffectsPlot requires an Experiment")
+    ) -> str | None:
+        """
+        MarginalEffectsPlot requires an Experiment with trials with data, and can only
+        be computed for SearchSpaces with ChoiceParameters.
+        """
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
 
         # Either extract ChoiceParameters from experiment or check the ones passed in
         if self.parameters is None:
@@ -82,7 +95,7 @@ class MarginalEffectsPlot(Analysis):
                 if isinstance(param, ChoiceParameter)
             ]
             if len(self.parameters) == 0:
-                raise UserInputError(
+                return (
                     "MarginalEffectsPlot is only for `ChoiceParameter`s, "
                     "but no ChoiceParameters were found in the experiment."
                 )
@@ -90,10 +103,26 @@ class MarginalEffectsPlot(Analysis):
             for param_name in none_throws(self.parameters):
                 parameter = experiment.parameters.get(param_name)
                 if not isinstance(parameter, ChoiceParameter):
-                    raise UserInputError(
+                    return (
                         "MarginalEffectsPlot is only for `ChoiceParameter`s, but got."
                         f"'{param_name}' which is of type {type(parameter).__name__}."
                     )
+
+    @override
+    def compute(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> AnalysisCardGroup:
+        experiment = none_throws(experiment)
+
+        if self.parameters is None:
+            self.parameters = [
+                param_name
+                for param_name, param in experiment.parameters.items()
+                if isinstance(param, ChoiceParameter)
+            ]
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
@@ -128,7 +157,7 @@ class MarginalEffectsPlot(Analysis):
                     fig=fig,
                 )
             )
-        return self._create_analysis_card_group_or_card(
+        return self._create_analysis_card_group(
             title=MARGINAL_EFFECTS_CARDGROUP_TITLE,
             subtitle=MARGINAL_EFFECTS_CARDGROUP_SUBTITLE,
             children=cards,
@@ -141,7 +170,7 @@ def compute_marginal_effects_adhoc(
     parameters: list[str] | None = None,
     generation_strategy: GenerationStrategy | None = None,
     adapter: Adapter | None = None,
-) -> AnalysisCardBase:
+) -> AnalysisCardGroup:
     """
     Helper method to expose adhoc marginal effects plotting. Only for
     advanced users in a notebook setting.

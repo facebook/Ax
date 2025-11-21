@@ -7,13 +7,15 @@
 # pyre-strict
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import torch
-from ax.generators.model_utils import tunable_feature_indices
+from ax.core.search_space import SearchSpaceDigest
 from ax.generators.random.base import RandomGenerator
 from ax.generators.types import TConfig
+from ax.generators.utils import tunable_feature_indices
 from pyre_extensions import none_throws
 from torch.quasirandom import SobolEngine
 
@@ -38,6 +40,7 @@ class SobolGenerator(RandomGenerator):
         scramble: bool = True,
         generated_points: npt.NDArray | None = None,
         fallback_to_sample_polytope: bool = False,
+        polytope_sampler_kwargs: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
             deduplicate=deduplicate,
@@ -45,6 +48,7 @@ class SobolGenerator(RandomGenerator):
             init_position=init_position,
             generated_points=generated_points,
             fallback_to_sample_polytope=fallback_to_sample_polytope,
+            polytope_sampler_kwargs=polytope_sampler_kwargs,
         )
         self.scramble = scramble
         # Initialize engine on gen.
@@ -75,7 +79,7 @@ class SobolGenerator(RandomGenerator):
     def gen(
         self,
         n: int,
-        bounds: list[tuple[float, float]],
+        search_space_digest: SearchSpaceDigest,
         linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
@@ -86,7 +90,8 @@ class SobolGenerator(RandomGenerator):
 
         Args:
             n: Number of candidates to generate.
-            bounds: A list of (lower, upper) tuples for each column of X.
+            search_space_digest: A ``SearchSpaceDigest`` object containing
+                metadata on the features in the datasets.
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                 A x <= b.
@@ -104,13 +109,13 @@ class SobolGenerator(RandomGenerator):
 
         """
         tf_indices = tunable_feature_indices(
-            bounds=bounds, fixed_features=fixed_features
+            bounds=search_space_digest.bounds, fixed_features=fixed_features
         )
         if len(tf_indices) > 0:
             self.init_engine(len(tf_indices))
         points, weights = super().gen(
             n=n,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
             model_gen_options=model_gen_options,

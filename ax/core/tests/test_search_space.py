@@ -9,7 +9,6 @@
 import dataclasses
 import warnings
 from random import choice
-from typing import cast
 from unittest import mock
 
 import pandas as pd
@@ -28,16 +27,9 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.search_space import (
-    HierarchicalSearchSpace,
-    RobustSearchSpace,
-    RobustSearchSpaceDigest,
-    SearchSpace,
-    SearchSpaceDigest,
-)
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TParameterization
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -146,8 +138,18 @@ class SearchSpaceTest(TestCase):
     def test_Properties(self) -> None:
         self.assertEqual(len(self.ss1.parameters), TOTAL_PARAMS)
         self.assertTrue("a" in self.ss1.parameters)
+
+        # Check tunable parameters
         self.assertTrue(len(self.ss1.tunable_parameters), TUNABLE_PARAMS)
         self.assertFalse("d" in self.ss1.tunable_parameters)
+        self.assertFalse("h" in self.ss1.tunable_parameters)
+
+        # Each parameter is either tunable or nontunable.
+        self.assertEqual(
+            set(self.ss1.parameters),
+            set(self.ss1.nontunable_parameters).union(self.ss1.tunable_parameters),
+        )
+
         self.assertTrue(len(self.ss1.range_parameters), RANGE_PARAMS)
         self.assertFalse("c" in self.ss1.range_parameters)
         self.assertTrue(len(self.ss1.parameter_constraints) == 0)
@@ -458,7 +460,7 @@ class SearchSpaceTest(TestCase):
                     parameter_type=ParameterType.STRING,
                     values=["a", "b", "c"],
                     is_ordered=False,
-                    dependents={"a": ["x1", "x2"], "b": ["x4", "x5"], "c": ["x6"]},
+                    dependents={"a": ["x1", "x2"], "b": ["x3", "x5"], "c": ["x6"]},
                 ),
                 ChoiceParameter(
                     "x5",
@@ -501,7 +503,7 @@ class SearchSpaceTest(TestCase):
                     "None",
                     "None",
                     "None",
-                    {"a": ["x1", "x2"], "b": ["x4", "x5"], "c": ["x6"]},
+                    {"a": ["x1", "x2"], "b": ["x3", "x5"], "c": ["x6"]},
                     "None",
                     "None",
                 ],
@@ -586,7 +588,6 @@ class SearchSpaceDigestTest(TestCase):
             "task_features": [3],
             "fidelity_features": [0],
             "target_values": {0: 1.0},
-            "robust_digest": None,
             "hierarchical_dependencies": None,
         }
 
@@ -610,30 +611,6 @@ class SearchSpaceDigestTest(TestCase):
             )
 
 
-class RobustSearchSpaceDigestTest(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.kwargs = {
-            "sample_param_perturbations": lambda: 1,
-            "sample_environmental": lambda: 2,
-            "environmental_variables": ["a"],
-            "multiplicative": False,
-        }
-
-    def test_robust_search_space_digest(self) -> None:
-        # test post init
-        with self.assertRaises(UserInputError):
-            RobustSearchSpaceDigest()
-        # test instantiation
-        rssd = RobustSearchSpaceDigest(**self.kwargs)
-        self.assertEqual(dataclasses.asdict(rssd), self.kwargs)
-        # test default instantiation
-        for arg in self.kwargs:
-            rssd = RobustSearchSpaceDigest(
-                **{k: v for k, v in self.kwargs.items() if k != arg}
-            )
-
-
 class HierarchicalSearchSpaceTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -650,7 +627,7 @@ class HierarchicalSearchSpaceTest(TestCase):
                 True: ["model"],
             },
         )
-        self.hss_2 = HierarchicalSearchSpace(
+        self.hss_2 = SearchSpace(
             parameters=[
                 self.use_linear_parameter,
                 self.model_parameter,
@@ -659,7 +636,7 @@ class HierarchicalSearchSpaceTest(TestCase):
                 self.num_boost_rounds_parameter,
             ]
         )
-        self.hss_with_fixed = HierarchicalSearchSpace(
+        self.hss_with_fixed = SearchSpace(
             parameters=[
                 self.use_linear_parameter,
                 FixedParameter(
@@ -678,7 +655,7 @@ class HierarchicalSearchSpaceTest(TestCase):
                 "XGBoost": ["num_boost_rounds"],
             },
         )
-        self.hss_with_constraints = HierarchicalSearchSpace(
+        self.hss_with_constraints = SearchSpace(
             parameters=[
                 self.model_parameter,
                 self.lr_parameter,
@@ -729,14 +706,12 @@ class HierarchicalSearchSpaceTest(TestCase):
         )
 
     def test_init(self) -> None:
-        self.assertEqual(self.hss_1._root, self.model_parameter)
         self.assertEqual(
-            self.hss_1._all_parameter_names,
+            {*self.hss_1.parameters.keys()},
             {"l2_reg_weight", "learning_rate", "num_boost_rounds", "model"},
         )
-        self.assertEqual(self.hss_2._root, self.use_linear_parameter)
         self.assertEqual(
-            self.hss_2._all_parameter_names,
+            {*self.hss_2.parameters.keys()},
             {
                 "l2_reg_weight",
                 "learning_rate",
@@ -749,7 +724,7 @@ class HierarchicalSearchSpaceTest(TestCase):
     def test_validation(self) -> None:
         # Case where dependent parameter is not in the search space.
         with self.assertRaisesRegex(ValueError, ".* 'l2_reg_weight' is not part"):
-            HierarchicalSearchSpace(
+            SearchSpace(
                 parameters=[
                     ChoiceParameter(
                         name="model",
@@ -765,9 +740,10 @@ class HierarchicalSearchSpaceTest(TestCase):
                 ]
             )
 
-        # Case where there are two root-parameter candidates.
-        with self.assertRaisesRegex(NotImplementedError, "Could not find the root"):
-            HierarchicalSearchSpace(
+        # Case where 'learning_rate', 'num_boost_rounds', 'l2_reg_weight' can be
+        # reached from multiple paths.
+        with self.assertRaisesRegex(UserInputError, "contains a cycle"):
+            SearchSpace(
                 parameters=[
                     self.model_parameter,
                     self.model_2_parameter,
@@ -778,8 +754,8 @@ class HierarchicalSearchSpaceTest(TestCase):
             )
 
         # TODO: Test case where subtrees are not independent.
-        with self.assertRaisesRegex(UserInputError, ".* contain the same parameters"):
-            HierarchicalSearchSpace(
+        with self.assertRaisesRegex(UserInputError, "contains a cycle"):
+            SearchSpace(
                 parameters=[
                     ChoiceParameter(
                         name="root",
@@ -800,13 +776,13 @@ class HierarchicalSearchSpaceTest(TestCase):
     def test_hierarchical_structure_str(self) -> None:
         self.assertEqual(
             self.hss_1.hierarchical_structure_str(),
-            f"{self.hss_1.root}\n\t(Linear)\n\t\t{self.lr_parameter}\n\t\t"
+            f"{self.hss_1['model']}\n\t(Linear)\n\t\t{self.lr_parameter}\n\t\t"
             f"{self.l2_reg_weight_parameter}\n\t(XGBoost)\n\t\t"
             f"{self.num_boost_rounds_parameter}\n",
         )
         self.assertEqual(
             self.hss_1.hierarchical_structure_str(parameter_names_only=True),
-            f"{self.hss_1.root.name}\n\t(Linear)\n\t\t{self.lr_parameter.name}"
+            f"{self.hss_1['model'].name}\n\t(Linear)\n\t\t{self.lr_parameter.name}"
             f"\n\t\t{self.l2_reg_weight_parameter.name}\n\t(XGBoost)\n\t\t"
             f"{self.num_boost_rounds_parameter.name}\n",
         )
@@ -816,50 +792,27 @@ class HierarchicalSearchSpaceTest(TestCase):
         flattened_hss_1 = self.hss_1.flatten()
         self.assertIsNot(flattened_hss_1, self.hss_1)
         self.assertEqual(type(flattened_hss_1), SearchSpace)
-        self.assertFalse(isinstance(flattened_hss_1, HierarchicalSearchSpace))
-        self.assertEqual(flattened_hss_1.parameters, self.hss_1.parameters)
+        self.assertFalse(flattened_hss_1.is_hierarchical)
+        self.assertEqual(
+            flattened_hss_1.parameters.keys(), self.hss_1.parameters.keys()
+        )
         self.assertEqual(
             flattened_hss_1.parameter_constraints, self.hss_1.parameter_constraints
         )
-        self.assertTrue(str(self.hss_1).startswith("HierarchicalSearchSpace"))
-        self.assertTrue(str(flattened_hss_1).startswith("SearchSpace"))
 
         # Test on HSS with constraints.
         flattened_hss_with_constraints = self.hss_with_constraints.flatten()
         self.assertIsNot(flattened_hss_with_constraints, self.hss_with_constraints)
         self.assertEqual(type(flattened_hss_with_constraints), SearchSpace)
-        self.assertFalse(
-            isinstance(flattened_hss_with_constraints, HierarchicalSearchSpace)
-        )
+        self.assertFalse(flattened_hss_with_constraints.is_hierarchical)
         self.assertEqual(
-            flattened_hss_with_constraints.parameters,
-            self.hss_with_constraints.parameters,
+            flattened_hss_with_constraints.parameters.keys(),
+            self.hss_with_constraints.parameters.keys(),
         )
         self.assertEqual(
             flattened_hss_with_constraints.parameter_constraints,
             self.hss_with_constraints.parameter_constraints,
         )
-        self.assertTrue(
-            str(self.hss_with_constraints).startswith("HierarchicalSearchSpace")
-        )
-        self.assertTrue(str(flattened_hss_with_constraints).startswith("SearchSpace"))
-
-    def test_cast_arm(self) -> None:
-        # This uses _cast_parameterization with check_all_parameters_present=True.
-        self.assertEqual(  # Check one subtree.
-            self.hss_1._cast_arm(arm=self.hss_1_arm_1_flat),
-            self.hss_1_arm_1_cast,
-        )
-        self.assertEqual(  # Check other subtree.
-            self.hss_1._cast_arm(arm=self.hss_1_arm_2_flat),
-            self.hss_1_arm_2_cast,
-        )
-        self.assertEqual(  # Check already-cast case.
-            self.hss_1._cast_arm(arm=self.hss_1_arm_1_cast),
-            self.hss_1_arm_1_cast,
-        )
-        with self.assertRaises(RuntimeError):
-            self.hss_1._cast_arm(arm=self.hss_1_arm_missing_param)
 
     def test_cast_observation_features(self) -> None:
         # This uses _cast_parameterization with check_all_parameters_present=False.
@@ -901,18 +854,6 @@ class HierarchicalSearchSpaceTest(TestCase):
                 check_all_parameters_present=False,
             ),
             {"l2_reg_weight": 0.0001, "model": "Linear"},
-        )
-        # A hierarchical param is missing, all its dependents will be ignored.
-        # In this case, it is the root param, so we'll have empty parameterization.
-        self.assertEqual(
-            self.hss_1._cast_parameterization(
-                parameters={
-                    "l2_reg_weight": 0.0001,
-                    "num_boost_rounds": 12,
-                },
-                check_all_parameters_present=False,
-            ),
-            {},
         )
 
     def test_flatten_observation_features(self) -> None:
@@ -973,7 +914,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             any("Cannot flatten observation features" in str(w.message) for w in ws)
         )
 
-    @mock.patch(f"{HierarchicalSearchSpace.__module__}.uniform", return_value=0.6)
+    @mock.patch(f"{SearchSpace.__module__}.uniform", return_value=0.6)
     def test_flatten_observation_features_inject_dummy_parameter_values_with_random(
         self, mock_uniform: mock.MagicMock
     ) -> None:
@@ -1030,7 +971,7 @@ class HierarchicalSearchSpaceTest(TestCase):
 
         # Case 3: test setting of choice parameters
         with mock.patch(
-            f"{HierarchicalSearchSpace.__module__}.choice", wraps=choice
+            f"{SearchSpace.__module__}.choice", wraps=choice
         ) as mock_choice:
             flattened_only_dummies = self.hss_2.flatten_observation_features(
                 observation_features=ObservationFeatures(
@@ -1124,292 +1065,15 @@ class HierarchicalSearchSpaceTest(TestCase):
         )
         self.assertEqual(set(hss_2_flat.keys()), set(self.hss_2.parameters.keys()))
 
+    def test_check_membership(self) -> None:
+        """Test that check_membership properly validates parameter values."""
+        valid_param = {"use_linear": True, "model": "fixed_model"}
+        self.assertTrue(self.hss_with_fixed.check_membership(valid_param))
 
-class TestRobustSearchSpace(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.a = RangeParameter(
-            name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
-        )
-        self.b = RangeParameter(
-            name="b", parameter_type=ParameterType.INT, lower=2, upper=10
-        )
-        self.c = ChoiceParameter(
-            name="c", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
-        )
-        self.parameters = [self.a, self.b, self.c]
-        self.ab_dist = ParameterDistribution(
-            parameters=["a", "b"],
-            distribution_class="multivariate_normal",
-            distribution_parameters={},
-        )
-        self.constraints = [
-            OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
-        ]
-        self.rss1 = RobustSearchSpace(
-            parameters=self.parameters,
-            parameter_distributions=[self.ab_dist],
-            parameter_constraints=cast(list[ParameterConstraint], self.constraints),
-            num_samples=4,
-        )
+        # Out-of-design parameterization should fail
+        ood_param = {"use_linear": "invalid", "model": "fixed_model"}
+        self.assertFalse(self.hss_with_fixed.check_membership(ood_param))
 
-    def test_init_and_properties(self) -> None:
-        # Setup some parameters and distributions.
-        a_dist = ParameterDistribution(
-            parameters=["a"],
-            distribution_class="norm",
-            distribution_parameters={"loc": 0.0, "scale": 1.0},
-        )
-        b_dist = ParameterDistribution(
-            parameters=["b"],
-            distribution_class="binom",
-            distribution_parameters={"n": 2, "p": 0.3},
-        )
-        env1 = RangeParameter(
-            name="env1", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
-        )
-        env2 = RangeParameter(
-            name="env2", parameter_type=ParameterType.INT, lower=2.0, upper=10.0
-        )
-        choice_dist = ParameterDistribution(
-            parameters=["c"],
-            distribution_class="binom",
-            distribution_parameters={"n": 2, "p": 0.3},
-        )
-        env1_dist = ParameterDistribution(
-            parameters=["env1"],
-            distribution_class="norm",
-            distribution_parameters={"loc": 0.0, "scale": 1.0},
-        )
-        env1_dist_mul = ParameterDistribution(
-            parameters=["env1"],
-            distribution_class="norm",
-            distribution_parameters={"loc": 0.0, "scale": 1.0},
-            multiplicative=True,
-        )
-        env2_dist = ParameterDistribution(
-            parameters=["env2"],
-            distribution_class="binom",
-            distribution_parameters={"n": 2, "p": 0.3},
-        )
-        mixed_dist = ParameterDistribution(
-            parameters=["a", "env1"],
-            distribution_class="multivariate_normal",
-            distribution_parameters={"mean": [0.0, 0.0]},
-        )
-        # Error handling.
-        with self.assertRaisesRegex(UserInputError, "Use SearchSpace instead."):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[],
-                num_samples=4,
-            )
-        with self.assertRaisesRegex(UserInputError, "positive integer"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[self.ab_dist],
-                num_samples=-1,
-            )
-        with self.assertRaisesRegex(UnsupportedError, "all multiplicative"):
-            mul_a_dist = a_dist.clone()
-            mul_a_dist.multiplicative = True
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[mul_a_dist, b_dist],
-                num_samples=4,
-            )
-        with self.assertRaisesRegex(UserInputError, "must be unique"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[env1_dist],
-                num_samples=4,
-                environmental_variables=[env1, env1],
-            )
-        with self.assertRaisesRegex(UserInputError, "must have a distribution"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[env1_dist],
-                environmental_variables=[env1, env2],
-                num_samples=4,
-            )
-        with self.assertRaisesRegex(UserInputError, "should not be repeated"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[a_dist],
-                num_samples=4,
-                environmental_variables=[self.a],
-            )
-        with self.assertRaisesRegex(
-            UserInputError, "Distributions of environmental variables"
-        ):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[env1_dist_mul],
-                num_samples=4,
-                environmental_variables=[env1],
-            )
-        with self.assertRaisesRegex(UserInputError, "multiple parameter distributions"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[a_dist, a_dist],
-                num_samples=4,
-            )
-        with self.assertRaisesRegex(UserInputError, "distribution must be"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[a_dist, choice_dist],
-                num_samples=4,
-                # pyre-fixme[6]: For 4th param expected
-                #  `Optional[List[ParameterConstraint]]` but got
-                #  `List[OrderConstraint]`.
-                parameter_constraints=self.constraints,
-            )
-        with self.assertRaisesRegex(UnsupportedError, "Mixing the distribution"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[mixed_dist],
-                num_samples=4,
-                environmental_variables=[env1],
-                # pyre-fixme[6]: For 5th param expected
-                #  `Optional[List[ParameterConstraint]]` but got
-                #  `List[OrderConstraint]`.
-                parameter_constraints=self.constraints,
-            )
-        # Test with environmental variables.
-        rss = RobustSearchSpace(
-            parameters=self.parameters,
-            parameter_distributions=[env1_dist, env2_dist],
-            num_samples=4,
-            environmental_variables=[env1, env2],
-            # pyre-fixme[6]: For 5th param expected
-            #  `Optional[List[ParameterConstraint]]` but got `List[OrderConstraint]`.
-            parameter_constraints=self.constraints,
-        )
-        self.assertEqual(rss.num_samples, 4)
-        self.assertTrue(rss.is_robust)
-        self.assertEqual(rss.parameter_constraints, self.constraints)
-        self.assertEqual(
-            rss.parameters,
-            {
-                "a": self.a,
-                "b": self.b,
-                "c": self.c,
-                "env1": env1,
-                "env2": env2,
-            },
-        )
-        self.assertEqual(rss.parameter_distributions, [env1_dist, env2_dist])
-        self.assertEqual(rss._environmental_distributions, [env1_dist, env2_dist])
-        self.assertEqual(rss._perturbation_distributions, [])
-        self.assertFalse(rss.multiplicative)
-        self.assertEqual(rss._distributional_parameters, {"env1", "env2"})
-        self.assertEqual(rss._environmental_variables, {"env1": env1, "env2": env2})
-        self.assertTrue(all(rss.is_environmental_variable(p) for p in ["env1", "env2"]))
-        # Test having both types together.
-        mul_a_dist = a_dist.clone()
-        mul_a_dist.multiplicative = True
-        rss = RobustSearchSpace(
-            parameters=self.parameters,
-            parameter_distributions=[mul_a_dist, env1_dist],
-            num_samples=4,
-            environmental_variables=[env1],
-        )
-        self.assertEqual(
-            rss.parameters,
-            {
-                "a": self.a,
-                "b": self.b,
-                "c": self.c,
-                "env1": env1,
-            },
-        )
-        self.assertEqual(rss.parameter_distributions, [mul_a_dist, env1_dist])
-        self.assertEqual(rss._environmental_distributions, [env1_dist])
-        self.assertEqual(rss._perturbation_distributions, [mul_a_dist])
-        self.assertTrue(rss.multiplicative)
-        self.assertEqual(rss._distributional_parameters, {"a", "env1"})
-        self.assertEqual(rss._environmental_variables, {"env1": env1})
-        # Test with input noise.
-        rss = RobustSearchSpace(
-            parameters=self.parameters,
-            parameter_distributions=[a_dist, b_dist],
-            num_samples=4,
-            # pyre-fixme[6]: For 4th param expected
-            #  `Optional[List[ParameterConstraint]]` but got `List[OrderConstraint]`.
-            parameter_constraints=self.constraints,
-        )
-        self.assertTrue(rss.is_robust)
-        self.assertEqual(rss.parameter_constraints, self.constraints)
-        self.assertEqual(
-            rss.parameters,
-            {
-                "a": self.a,
-                "b": self.b,
-                "c": self.c,
-            },
-        )
-        self.assertEqual(rss.parameter_distributions, [a_dist, b_dist])
-        self.assertEqual(rss._environmental_distributions, [])
-        self.assertEqual(rss._perturbation_distributions, [a_dist, b_dist])
-        self.assertFalse(rss.multiplicative)
-        self.assertEqual(rss._distributional_parameters, {"a", "b"})
-        self.assertEqual(rss._environmental_variables, {})
-        # Tests with a multivariate distribution.
-        rss = self.rss1
-        self.assertEqual(rss.parameter_constraints, self.constraints)
-        self.assertEqual(
-            rss.parameters,
-            {
-                "a": self.a,
-                "b": self.b,
-                "c": self.c,
-            },
-        )
-        self.assertEqual(rss.parameter_distributions, [self.ab_dist])
-        self.assertEqual(rss._environmental_distributions, [])
-        self.assertEqual(rss._perturbation_distributions, [self.ab_dist])
-        self.assertEqual(rss._distributional_parameters, {"a", "b"})
-        self.assertEqual(rss._environmental_variables, {})
-        self.assertFalse(
-            any(rss.is_environmental_variable(p) for p in rss.parameters.keys())
-        )
-
-    def test_update_parameter(self) -> None:
-        rss = self.rss1
-        with self.assertRaisesRegex(UnsupportedError, "update_parameter"):
-            rss.update_parameter(self.a)
-
-    def test_clone(self) -> None:
-        rss_clone = self.rss1.clone()
-        self.assertEqual(
-            rss_clone._environmental_variables, self.rss1._environmental_variables
-        )
-        self.assertEqual(rss_clone.parameters, self.rss1.parameters)
-        self.assertEqual(rss_clone.num_samples, self.rss1.num_samples)
-        self.assertEqual(
-            rss_clone.parameter_constraints, self.rss1.parameter_constraints
-        )
-        self.assertEqual(
-            rss_clone.parameter_distributions, self.rss1.parameter_distributions
-        )
-        self.assertEqual(
-            rss_clone._distributional_parameters, self.rss1._distributional_parameters
-        )
-
-    def test_repr(self) -> None:
-        expected = (
-            "RobustSearchSpace("
-            "parameters=["
-            "RangeParameter(name='a', parameter_type=FLOAT, range=[0.5, 5.5]), "
-            "RangeParameter(name='b', parameter_type=INT, range=[2, 10]), "
-            "ChoiceParameter(name='c', parameter_type=STRING, "
-            "values=['foo', 'bar', 'baz'], is_ordered=False, sort_values=False)], "
-            "parameter_distributions=["
-            "ParameterDistribution(parameters=['a', 'b'], "
-            "distribution_class=multivariate_normal, distribution_parameters={}, "
-            "multiplicative=False)], "
-            "num_samples=4, "
-            "environmental_variables=[], "
-            "parameter_constraints=[OrderConstraint(a <= b)])"
-        )
-        self.assertEqual(str(self.rss1), expected)
+        # Should raise an error when raise_error=True
+        with self.assertRaisesRegex(ValueError, "invalid is not a valid value"):
+            self.hss_with_fixed.check_membership(ood_param, raise_error=True)

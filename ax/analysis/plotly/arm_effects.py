@@ -5,22 +5,16 @@
 
 # pyre-strict
 
-from typing import Mapping, Sequence
-
-import numpy as np
+from typing import final, Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardBase
-from ax.analysis.plotly.color_constants import (
-    BOTORCH_COLOR_SCALE,
-    CONSTRAINT_VIOLATION_RED,
-)
+from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
-    BEST_LINE_SETTINGS,
     get_arm_tooltip,
     get_trial_trace_name,
     LEGEND_BASE_OFFSET,
@@ -35,46 +29,21 @@ from ax.analysis.plotly.utils import (
 )
 from ax.analysis.utils import (
     extract_relevant_adapter,
-    get_lower_is_better,
-    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
     prepare_arm_data,
-    update_metric_names_if_using_p_feasible,
+    validate_adapter_can_predict,
+    validate_experiment,
+    validate_experiment_has_trials,
 )
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
-from ax.core.trial_status import FAILED_ABANDONED_CANDIDATE_STATUSES, TrialStatus
-from ax.exceptions.core import UserInputError
+from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
-from pyre_extensions import override
-
-CARDGROUP_TITLE = "Metric Effects: Values of key metrics for all arms in the experiment"
-
-PREDICTED_EFFECTS_CARDGROUP_SUBTITLE = (
-    "These plots visualize predictions of the 'true' metric changes for each arm, "
-    "based on Ax's model. Since Ax applies Empirical Bayes shrinkage to adjust for "
-    "noise and also accounts for non-stationarity in the data, predicted metric "
-    "effects will not match raw observed data perfectly, but will be more "
-    "representative of the reproducible effects that will manifest in a long-term "
-    "validation experiment. <br><br>"
-    "NOTE: Flat predictions across arms indicate that the model predicts that "
-    "none of the arms had a sufficient effect on the metric, meaning that if you "
-    "re-ran the experiment, the delta you would see would be small and fall "
-    "within the confidence interval indicated in the plot. In other words, this "
-    "indicates that according to the model, the raw observed effects on this metric "
-    "are primarily noise."
-)
-
-RAW_EFFECTS_CARDGROUP_SUBTITLE = (
-    "These plots visualize the raw data on the effects we observed from "
-    "previously-run arms on a specific metric, providing insights into "
-    "their performance. These plots allow one to compare and contrast the "
-    "effectiveness of different arms, highlighting which configurations have yielded "
-    "the most favorable outcomes."
-)
+from pyre_extensions import none_throws, override
 
 
+@final
 class ArmEffectsPlot(Analysis):
     """
     Plot the effects of each arm in an experiment on a given metric. Effects may be
@@ -94,27 +63,23 @@ class ArmEffectsPlot(Analysis):
         - trial_status: The status of the trial
         - arm_name: The name of the arm
         - generation_node: The name of the ``GenerationNode`` that generated the arm
-        - p_feasible: The probability that the arm is feasible (does not violate any
-            constraints)
         - **METRIC_NAME_mean: The observed mean of the metric specified
         - **METRIC_NAME_sem: The observed sem of the metric specified
     """
 
     def __init__(
         self,
-        metric_names: Sequence[str] | None = None,
+        metric_name: str,
         use_model_predictions: bool = True,
         relativize: bool = False,
         trial_index: int | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
-        labels: Mapping[str, str] | None = None,
-        show_cumulative_best: bool = False,
+        label: str | None = None,
     ) -> None:
         """
         Args:
-            metric_names: The names of the metrics to include in the plot. If not
-                specified, all metrics in the experiment will be used.
+            metric_name: The name of the metrics to include in the plot.
             use_model_predictions: Whether to use model predictions or observed data.
                 If ``True``, the plot will show the predicted effects of each arm based
                 on the model. If ``False``, the plot will show the observed effects of
@@ -127,20 +92,75 @@ class ArmEffectsPlot(Analysis):
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
-            labels: A mapping from metric names to labels to use in the plot. If a label
-                is not provided for a metric, the metric name will be used.
-            show_cumulative_best: Whether to draw a line through the best point seen so
-                far during the optimization.
+            label: A label to use in the plot in place of the metric name.
         """
 
-        self.metric_names = metric_names
+        self.metric_name = metric_name
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-        self.trial_statuses = trial_statuses
+
+        # By default, include all trials except those that are abandoned or stale.
+        if trial_statuses is not None:
+            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
+        elif self.trial_index is not None:
+            self.trial_statuses: list[TrialStatus] | None = None
+        else:
+            self.trial_statuses: list[TrialStatus] | None = [
+                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+            ]
         self.additional_arms = additional_arms
-        self.labels: Mapping[str, str] = labels or {}
-        self.show_cumulative_best = show_cumulative_best
+        self.label = label
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        ArmEffectsPlot requires an Experiment with at least one trial with data which
+        and for at least one trial pass the trial index / trial status filtering. If
+        using model predictions, a suitable adapter must also be provided.
+        """
+
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
+
+        if (
+            no_trials_reason := validate_experiment_has_trials(
+                experiment=experiment,
+                trial_indices=[self.trial_index]
+                if self.trial_index is not None
+                else None,
+                trial_statuses=self.trial_statuses,
+                # If using model predictions we do not need to have an observation
+                required_metric_names=(
+                    None if self.use_model_predictions else [self.metric_name]
+                ),
+            )
+        ) is not None:
+            return no_trials_reason
+
+        if self.use_model_predictions:
+            if (
+                adapter_cannot_predict_reason := validate_adapter_can_predict(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                    adapter=adapter,
+                    required_metric_names=[self.metric_name],
+                )
+            ) is not None:
+                return adapter_cannot_predict_reason
 
     @override
     def compute(
@@ -148,11 +168,8 @@ class ArmEffectsPlot(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
-    ) -> AnalysisCardBase:
-        if experiment is None:
-            raise UserInputError("ArmEffectsPlot requires an Experiment.")
-
-        metric_names = self.metric_names or [*experiment.metrics.keys()]
+    ) -> AnalysisCard:
+        experiment = none_throws(experiment)
 
         if self.use_model_predictions:
             relevant_adapter = extract_relevant_adapter(
@@ -162,15 +179,10 @@ class ArmEffectsPlot(Analysis):
             )
         else:
             relevant_adapter = None
-        metric_names_to_plot = metric_names
-        # if using p_feasible, we need to get the data for the metrics involved
-        # in constraints even though we don't plot them
-        metric_names = update_metric_names_if_using_p_feasible(
-            metric_names=metric_names_to_plot, experiment=experiment
-        )
+
         df = prepare_arm_data(
             experiment=experiment,
-            metric_names=metric_names,
+            metric_names=[self.metric_name],
             use_model_predictions=self.use_model_predictions,
             adapter=relevant_adapter,
             trial_index=self.trial_index,
@@ -179,73 +191,49 @@ class ArmEffectsPlot(Analysis):
             relativize=self.relativize,
         )
 
-        # Retrieve the metric labels from the mapping provided by the user, defaulting
-        # to the metric name if no label is provided, truncated.
-        metric_labels = {
-            metric_name: self.labels.get(metric_name, truncate_label(label=metric_name))
-            for metric_name in metric_names
-        }
+        metric_label = (
+            self.label
+            if self.label is not None
+            else truncate_label(label=self.metric_name)
+        )
 
-        cards = [
-            create_plotly_analysis_card(
-                name=self.__class__.__name__,
-                title=(
-                    f"{'Modeled' if self.use_model_predictions else 'Observed'} "
-                    f"{'Relativized ' if self.relativize else ''}Arm "
-                    f"Effects on {metric_labels[metric_name]}"
-                    + (
-                        f" for trial {self.trial_index}"
-                        if self.trial_index is not None
-                        else ""
-                    )
-                ),
-                subtitle=_get_subtitle(
-                    metric_label=metric_labels[metric_name],
-                    use_model_predictions=self.use_model_predictions,
-                    trial_index=self.trial_index,
-                ),
-                df=df[
-                    [
-                        "trial_index",
-                        "trial_status",
-                        "arm_name",
-                        "generation_node",
-                        "p_feasible_mean",
-                        "p_feasible_sem",
-                    ]
-                    + (
-                        [
-                            f"{metric_name}_mean",
-                            f"{metric_name}_sem",
-                        ]
-                        if metric_name != "p_feasible"
-                        else []
-                    )
-                ].copy(),
-                fig=_prepare_figure(
-                    df=df,
-                    metric_name=metric_name,
-                    is_relative=self.relativize,
-                    status_quo_arm_name=experiment.status_quo.name
-                    if experiment.status_quo
-                    else None,
-                    metric_label=metric_labels[metric_name],
-                    show_cumulative_best=self.show_cumulative_best,
-                    lower_is_better=get_lower_is_better(
-                        experiment=experiment, metric_name=metric_name
-                    )
-                    or False,
-                ),
-            )
-            for metric_name in metric_names_to_plot
-        ]
-
-        return self._create_analysis_card_group_or_card(
-            title=CARDGROUP_TITLE,
-            subtitle=PREDICTED_EFFECTS_CARDGROUP_SUBTITLE
-            if self.use_model_predictions
-            else RAW_EFFECTS_CARDGROUP_SUBTITLE,
-            children=cards,
+        return create_plotly_analysis_card(
+            name=self.__class__.__name__,
+            title=(
+                f"{'Modeled' if self.use_model_predictions else 'Observed'} "
+                f"{'Relativized ' if self.relativize else ''}Arm "
+                f"Effects on {metric_label}"
+                + (
+                    f" for trial {self.trial_index}"
+                    if self.trial_index is not None
+                    else ""
+                )
+            ),
+            subtitle=_get_subtitle(
+                metric_label=metric_label,
+                use_model_predictions=self.use_model_predictions,
+                trial_index=self.trial_index,
+            ),
+            df=df[
+                [
+                    "trial_index",
+                    "trial_status",
+                    "arm_name",
+                    "fail_reason",
+                    "generation_node",
+                    f"{self.metric_name}_mean",
+                    f"{self.metric_name}_sem",
+                ]
+            ].copy(),
+            fig=_prepare_figure(
+                df=df,
+                metric_name=self.metric_name,
+                is_relative=self.relativize,
+                status_quo_arm_name=experiment.status_quo.name
+                if experiment.status_quo
+                else None,
+                metric_label=metric_label,
+            ),
         )
 
 
@@ -260,8 +248,7 @@ def compute_arm_effects_adhoc(
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
     labels: Mapping[str, str] | None = None,
-    show_cumulative_best: bool = False,
-) -> AnalysisCardBase:
+) -> AnalysisCardGroup:
     """
     Compute ArmEffectsPlot cards for the given experiment and either Adapter or
     GenerationStrategy.
@@ -290,25 +277,32 @@ def compute_arm_effects_adhoc(
             trial with index -1.
         labels: A mapping from metric names to labels to use in the plot. If a label
             is not provided for a metric, the metric name will be used.
-        show_cumulative_best: Whether to draw a line through the best point seen so
-            far during the optimization.
     """
 
-    analysis = ArmEffectsPlot(
-        metric_names=metric_names,
-        use_model_predictions=use_model_predictions,
-        relativize=relativize,
-        trial_index=trial_index,
-        trial_statuses=trial_statuses,
-        additional_arms=additional_arms,
-        labels=labels,
-        show_cumulative_best=show_cumulative_best,
-    )
-
-    return analysis.compute(
-        experiment=experiment,
-        generation_strategy=generation_strategy,
-        adapter=adapter,
+    return AnalysisCardGroup(
+        name="ArmEffectsPlot",
+        title="Adhoc Arm Effects Plots",
+        subtitle=None,
+        children=[
+            ArmEffectsPlot(
+                metric_name=metric_name,
+                use_model_predictions=use_model_predictions,
+                relativize=relativize,
+                trial_index=trial_index,
+                trial_statuses=trial_statuses,
+                additional_arms=additional_arms,
+                label=labels.get(metric_name) if labels is not None else None,
+            ).compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            for metric_name in (
+                metric_names
+                if metric_names is not None
+                else [*experiment.metrics.keys()]
+            )
+        ],
     )
 
 
@@ -318,25 +312,17 @@ def _prepare_figure(
     is_relative: bool,
     status_quo_arm_name: str | None,
     metric_label: str,
-    show_cumulative_best: bool,
-    lower_is_better: bool,
 ) -> go.Figure:
     # Prepare separate scatter traces for each trial index. Each trace has (x, y)
     # points for the arms which we have a mean for in the provided dataframe.
-    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+    candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
-    ].max()
-    # Filter out undesired trials like FAILED and ABANDONED trials from plot.
-    trials = df[
-        ~df["trial_status"].isin(
-            [ts.name for ts in FAILED_ABANDONED_CANDIDATE_STATUSES]
-        )
-    ]["trial_index"].unique()
+    ].unique()
 
-    # Check if candidate_trial is NaN and handle it
+    trials = df["trial_index"].unique()
+
     trial_indices = list(trials)
-    if not np.isnan(candidate_trial):
-        trial_indices.append(candidate_trial)
+    trial_indices.extend(candidate_trials)
 
     trials_list = trials.tolist()
 
@@ -386,15 +372,6 @@ def _prepare_figure(
                 trial_index=trial_index,
                 transparent=False,
             ),
-            "line": {
-                "width": trial_df.apply(
-                    lambda row: 2
-                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                    else 0,
-                    axis=1,
-                ),
-                "color": CONSTRAINT_VIOLATION_RED,
-            },
         }
 
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
@@ -403,7 +380,7 @@ def _prepare_figure(
         else:
             num_non_candidate_trials += 1
 
-        text = trial_df.apply(
+        text = xy_df.apply(
             lambda row: get_arm_tooltip(row=row, metric_names=[metric_name]), axis=1
         )
 
@@ -522,55 +499,6 @@ def _prepare_figure(
             y1=y,
             line={"color": "gray", "dash": "dot"},
         )
-
-    # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
-        legend_trace = go.Scatter(
-            # None here allows us to place a legend item without corresponding points
-            x=[None],
-            y=[None],
-            mode="markers",
-            marker={
-                "color": "rgba(0, 0, 0, 0)",
-                "line": {"width": 2, "color": "red"},
-            },
-            name="Possible Constraint Violation",
-        )
-
-        figure.add_trace(legend_trace)
-
-    if show_cumulative_best:
-        # Sort and filter arms which are eligable to the best point (i.e. that are not
-        # likely to violate constraints).
-        zipped = [
-            *zip(
-                *[
-                    (
-                        arm_name,
-                        df[df["arm_name"] == arm_name][f"{metric_name}_mean"].iloc[0],
-                    )
-                    for arm_name in arm_label
-                    if df[df["arm_name"] == arm_name]["p_feasible_mean"].iloc[0]
-                    >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                ]
-            )
-        ]
-
-        # If there are no arms which are not likely to violate constraints, return the
-        # figure as is, without adding a best point line.
-        if len(zipped) != 2:
-            return figure
-
-        sorted_arms, sorted_y = zipped
-
-        best_y = (
-            np.minimum.accumulate(sorted_y)
-            if lower_is_better
-            else np.maximum.accumulate(sorted_y)
-        )
-
-        # Add a line for the best point seen so far.
-        figure.add_trace(go.Scatter(x=sorted_arms, y=best_y, **BEST_LINE_SETTINGS))
 
     return figure
 

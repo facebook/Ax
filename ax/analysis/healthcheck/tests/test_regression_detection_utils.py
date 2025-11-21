@@ -33,6 +33,7 @@ class TestRegressionDetection(TestCase):
                 "trial_index": [0] * 12,
                 "mean": list(np.arange(7, 1, -1)) + list(np.arange(6, 1, -1)) + [10.0],
                 "sem": [1.0] * 12,
+                "metric_signature": ["branin_a"] * 6 + ["branin_b"] * 6,
             }
         )
 
@@ -70,8 +71,8 @@ class TestRegressionDetection(TestCase):
             search_space=experiment.search_space, seed=TEST_SOBOL_SEED + 1
         )
         sobol_run = sobol_generator.gen(n=3)
-        experiment.new_batch_trial(should_add_status_quo_arm=True).add_generator_run(
-            sobol_run
+        experiment.new_batch_trial(
+            generator_runs=[sobol_run], should_add_status_quo_arm=True
         )
 
         df1 = pd.DataFrame(
@@ -81,6 +82,7 @@ class TestRegressionDetection(TestCase):
                 "trial_index": [1] * 8,
                 "mean": list(np.arange(5, 1, -1)) + list(np.arange(4, 1, -1)) + [20.0],
                 "sem": [1.0] * 8,
+                "metric_signature": ["branin_a"] * 4 + ["branin_b"] * 4,
             }
         )
 

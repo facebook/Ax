@@ -31,8 +31,17 @@ class MetricTest(TestCase):
         pass
 
     def test_init(self) -> None:
-        metric = Metric(name="m1", lower_is_better=False)
-        self.assertEqual(str(metric), METRIC_STRING)
+        with self.subTest("init without signature_override"):
+            metric = Metric(name="m1", lower_is_better=False)
+            self.assertEqual(metric.name, "m1")
+            self.assertEqual(metric.signature, metric.name)
+
+        with self.subTest("init with signature_override"):
+            metric = Metric(
+                name="m1", lower_is_better=False, signature_override="override"
+            )
+            self.assertEqual(metric.name, "m1")
+            self.assertEqual(metric.signature, "override")
 
     def test_name_validation(self) -> None:
         # Test that non-string names raise ValueError
@@ -142,16 +151,20 @@ class MetricTest(TestCase):
             metric.summary_dict,
             {
                 "name": "m1",
+                "signature": "m1",
                 "type": "Metric",
                 "lower_is_better": False,
             },
         )
 
-        metric = TestMetric(name="m2", lower_is_better=True)
+        metric = TestMetric(
+            name="m2", lower_is_better=True, signature_override="m2_signature"
+        )
         self.assertDictEqual(
             metric.summary_dict,
             {
                 "name": "m2",
+                "signature": "m2_signature",
                 "type": "TestMetric",
                 "lower_is_better": True,
             },

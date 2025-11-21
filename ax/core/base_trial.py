@@ -18,7 +18,7 @@ import pandas as pd
 
 from ax.core.arm import Arm
 from ax.core.data import Data
-from ax.core.formatting_utils import data_and_evaluations_from_raw_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -26,10 +26,11 @@ from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
-from ax.exceptions.core import TrialMutationError, UnsupportedError
+from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
+from typing_extensions import Self
 
 
 if TYPE_CHECKING:
@@ -71,11 +72,11 @@ class BaseTrial(ABC, SortableBase):
     Args:
         experiment: Experiment, of which this trial is a part
         trial_type: Type of this trial, if used in MultiTypeExperiment.
-        ttl_seconds: If specified, trials will be considered failed after
+        ttl_seconds: If specified, trials will be considered stale after
             this many seconds since the time the trial was ran, unless the
             trial is completed before then. Meant to be used to detect
             'dead' trials, for which the evaluation process might have
-            crashed etc., and which should be considered failed after
+            crashed etc., and which should be considered stale after
             their 'time to live' has passed.
         index: If specified, the trial's index will be set accordingly.
             This should generally not be specified, as in the index will be
@@ -101,14 +102,16 @@ class BaseTrial(ABC, SortableBase):
         self._ttl_seconds: int | None = ttl_seconds
         self._index: int = self._experiment._attach_trial(self, index=index)
 
-        if trial_type is not None:
-            if not self._experiment.supports_trial_type(trial_type):
-                raise ValueError(
-                    f"Experiment does not support trial_type {trial_type}."
-                )
-        else:
-            trial_type = self._experiment.default_trial_type
-        self._trial_type: str | None = trial_type
+        trial_type = (
+            trial_type
+            if trial_type is not None
+            else self._experiment.default_trial_type
+        )
+        if not self._experiment.supports_trial_type(trial_type):
+            raise ValueError(
+                f"Trial type {trial_type} is not supported by the experiment."
+            )
+        self._trial_type = trial_type
 
         self.__status: TrialStatus | None = None
         # Uses `_status` setter, which updates trial statuses to trial indices
@@ -135,12 +138,60 @@ class BaseTrial(ABC, SortableBase):
         # strategy, this property will be set to the generation step that produced
         # the generator run(s).
         self._generation_step_index: int | None = None
-        # Please do not store any data related to trial deployment or data-
+        # NOTE: Please do not store any data related to trial deployment or data-
         # fetching in properties. It is intended to only store properties related
         # to core Ax functionality and not to any third-system that the trials
         # might be getting deployed to.
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._properties = {}
+        self._properties: dict[str, Any] = {}
+
+    @abstractproperty
+    def arms(self) -> list[Arm]:
+        """All arms associated with this trial."""
+        pass
+
+    @abstractproperty
+    def arms_by_name(self) -> dict[str, Arm]:
+        """A mapping of from arm names, to all arms associated with
+        this trial.
+        """
+        pass
+
+    @abstractproperty
+    def abandoned_arms(self) -> list[Arm]:
+        """All abandoned arms, associated with this trial."""
+        pass
+
+    @abstractmethod
+    def add_generator_run(self, generator_run: GeneratorRun) -> Self:
+        """Add a generator run to the trial.
+
+        The arms and weights from the generator run will be merged with
+        the existing arms and weights on the trial, and the generator run
+        object will be linked to the trial for tracking.
+
+        Args:
+            generator_run: The generator run to be added.
+
+        Returns:
+            The trial instance.
+        """
+        pass
+
+    @abstractmethod
+    def add_arm(
+        self, arm: Arm, candidate_metadata: dict[str, Any] | None = None
+    ) -> Self:
+        """Add arm to the trial.
+
+        Returns:
+            The trial instance.
+        """
+        pass
+
+    @abstractmethod
+    def __repr__(self) -> str:
+        """String representation of the trial."""
+        pass
 
     @property
     def experiment(self) -> core.experiment.Experiment:
@@ -155,7 +206,7 @@ class BaseTrial(ABC, SortableBase):
     @property
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
-        self._mark_failed_if_past_TTL()
+        self._mark_stale_if_past_TTL()
         return none_throws(self._status)
 
     @status.setter
@@ -165,18 +216,18 @@ class BaseTrial(ABC, SortableBase):
     @property
     def ttl_seconds(self) -> int | None:
         """This trial's time-to-live once ran, in seconds. If not set, trial
-        will never be automatically considered failed (i.e. infinite TTL).
+        will never be automatically considered stale (i.e. infinite TTL).
         Reflects after how many seconds since the time the trial was run it
-        will be considered failed unless completed.
+        will be considered stale unless completed.
         """
         return self._ttl_seconds
 
     @ttl_seconds.setter
     def ttl_seconds(self, ttl_seconds: int | None) -> None:
         """Sets this trial's time-to-live once ran, in seconds. If None, trial
-        will never be automatically considered failed (i.e. infinite TTL).
+        will never be automatically considered stale (i.e. infinite TTL).
         Reflects after how many seconds since the time the trial was run it
-        will be considered failed unless completed.
+        will be considered stale unless completed.
         """
         if ttl_seconds is not None and ttl_seconds <= 0:
             raise ValueError("TTL must be a positive integer (or None).")
@@ -235,17 +286,24 @@ class BaseTrial(ABC, SortableBase):
         """
         return self._trial_type
 
-    @trial_type.setter
-    @immutable_once_run
-    def trial_type(self, trial_type: str | None) -> None:
-        """Identifier used to distinguish trial types in experiments
-        with multiple trial types.
+    def _add_generator_run(self, generator_run: GeneratorRun) -> None:
+        """Helper called from ``{BatchTrial, Trial}.add_generator_run: validates
+        and names arms; adds the ``GeneratorRun`` to this trial's ``Experiment``.
         """
-        if self._experiment is not None:
-            if not self._experiment.supports_trial_type(trial_type):
-                raise ValueError(f"{trial_type} is not supported by the experiment.")
+        # 1. Validate the arm(s) in the generator run.
+        for arm in generator_run.arms:
+            self.experiment.search_space.check_types(arm.parameters, raise_error=True)
 
-        self._trial_type = trial_type
+        # 2. Name any yet-unnamed arms: for arms that are not yet added to this
+        # trial's experiment, assign a new name; use name on experiment otherwise.
+        for arm in generator_run.arms:
+            self._check_existing_and_name_arm(arm)
+
+        # 3.TODO: Add the generator run to the experiment if it's not already there;
+        # assign an experiment-level index if newly added.
+
+        # 4. TODO: Capture which generator run the arms we are about to add this
+        # this trial, came from.
 
     def assign_runner(self) -> BaseTrial:
         """Assigns default experiment runner if trial doesn't already have one."""
@@ -392,7 +450,7 @@ class BaseTrial(ABC, SortableBase):
             results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
         if not isinstance(data, MapData):
-            data._df = sort_by_trial_index_and_arm_name(data._df)
+            data.full_df = sort_by_trial_index_and_arm_name(data.full_df)
 
         return data
 
@@ -404,7 +462,7 @@ class BaseTrial(ABC, SortableBase):
             associated with the trial. If merging, all data for trial, merged.
 
         """
-        return self.experiment.lookup_data_for_trial(trial_index=self.index)[0]
+        return self.experiment.lookup_data_for_trial(trial_index=self.index)
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the
@@ -440,23 +498,6 @@ class BaseTrial(ABC, SortableBase):
                 "single trial."
             )
         self._generation_step_index = generation_step_index
-
-    @abstractproperty
-    def arms(self) -> list[Arm]:
-        pass
-
-    @abstractproperty
-    def arms_by_name(self) -> dict[str, Arm]:
-        pass
-
-    @abstractmethod
-    def __repr__(self) -> str:
-        pass
-
-    @abstractproperty
-    def abandoned_arms(self) -> list[Arm]:
-        """All abandoned arms, associated with this trial."""
-        pass
 
     @property
     def active_arms(self) -> list[Arm]:
@@ -546,7 +587,7 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
-        if self._runner is None and not no_runner_required:
+        if self.runner is None and not no_runner_required:
             raise ValueError("Cannot mark trial running without setting runner.")
 
         prev_step = (
@@ -563,11 +604,17 @@ class BaseTrial(ABC, SortableBase):
         self._time_run_started = datetime.now()
         return self
 
-    def mark_completed(self, unsafe: bool = False) -> BaseTrial:
+    def mark_completed(
+        self, unsafe: bool = False, time_completed: str | None = None
+    ) -> BaseTrial:
         """Mark trial as completed.
 
         Args:
             unsafe: Ignore sanity checks on state transitions.
+            time_completed: The time the trial was completed. If None, defaults to
+                the time the method was called. String must follow "%Y-%m-%d" format.
+                This is a risky argument, and should only be used if you are confident
+                in your changes.
         Returns:
             The trial instance.
         """
@@ -576,7 +623,11 @@ class BaseTrial(ABC, SortableBase):
                 "Can only complete trial that is currently running."
             )
         self._status = TrialStatus.COMPLETED
-        self._time_completed = datetime.now()
+        self._time_completed = (
+            datetime.now()
+            if time_completed is None
+            else datetime.strptime(time_completed, "%Y-%m-%d")
+        )
         return self
 
     def mark_abandoned(
@@ -588,7 +639,7 @@ class BaseTrial(ABC, SortableBase):
         in experiment after their abandonment to avoid Ax models suggesting
         the same arm again as a new candidate. Arms in abandoned trials are
         also excluded from model training data unless ``fit_abandoned`` option
-        is specified to adapter.
+        is specified to adapter via ``DataLoaderConfig``.
 
         Args:
             abandoned_reason: The reason the trial was abandoned.
@@ -647,6 +698,27 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
+    def mark_stale(self, unsafe: bool = False) -> BaseTrial:
+        """Mark trial as stale.
+
+        Args:
+            unsafe: Ignore sanity checks on state transitions.
+        Returns:
+            The trial instance.
+        """
+        if not unsafe and self._status != TrialStatus.CANDIDATE:
+            raise TrialMutationError(
+                message=(
+                    "Cannot mark this candidate as `STALE` because the current status "
+                    f"is {self.status} and only trials with status `CANDIDATE` are "
+                    "eligible to be marked as `STALE`."
+                )
+            )
+
+        self._status = TrialStatus.STALE
+        self._time_completed = datetime.now()
+        return self
+
     def mark_as(
         self, status: TrialStatus, unsafe: bool = False, **kwargs: Any
     ) -> BaseTrial:
@@ -674,6 +746,8 @@ class BaseTrial(ABC, SortableBase):
             self.mark_completed(unsafe=unsafe)
         elif status == TrialStatus.EARLY_STOPPED:
             self.mark_early_stopped(unsafe=unsafe)
+        elif status == TrialStatus.STALE:
+            self.mark_stale(unsafe=unsafe)
         else:
             raise TrialMutationError(f"Cannot mark trial as {status}.")
         return self
@@ -721,17 +795,17 @@ class BaseTrial(ABC, SortableBase):
             else UNKNOWN_GENERATION_METHOD_STR
         )
 
-    def _mark_failed_if_past_TTL(self) -> None:
-        """If trial has TTL set and is running, check if the TTL has elapsed
-        and mark the trial failed if so.
+    def _mark_stale_if_past_TTL(self) -> None:
         """
-        if self.ttl_seconds is None or not none_throws(self._status).is_running:
+        Changes a `CANDIDATE` trial's status to `STALE` if the trial has a 'ttl' set
+        and the time elapsed is greater than the ttl value.
+        """
+        if self.ttl_seconds is None or not none_throws(self._status).is_candidate:
             return
-        time_run_started = self._time_run_started
-        assert time_run_started is not None
-        dt = datetime.now() - time_run_started
-        if dt > timedelta(seconds=none_throws(self.ttl_seconds)):
-            self.mark_failed()
+
+        time_elapsed = datetime.now() - self._time_created
+        if time_elapsed > timedelta(seconds=none_throws(self.ttl_seconds)):
+            self.mark_stale()
 
     @property
     def _status(self) -> TrialStatus | None:
@@ -759,34 +833,33 @@ class BaseTrial(ABC, SortableBase):
     def _unique_id(self) -> str:
         return str(self.index)
 
-    def _make_evaluations_and_data(
-        self,
-        raw_data: dict[str, TEvaluationOutcome],
-        metadata: dict[str, str | int] | None,
-        sample_sizes: dict[str, int] | None = None,
-    ) -> tuple[dict[str, TEvaluationOutcome], Data]:
-        """Formats given raw data as Ax evaluations and `Data`.
+    def _raw_evaluations_to_data(self, raw_data: dict[str, TEvaluationOutcome]) -> Data:
+        """Formats given raw data as Ax `Data`.
 
         Args:
             raw_data: Map from arm name to
                 metric outcomes.
-            metadata: Additional metadata to track about this run.
-            sample_size: Integer sample size for 1-arm trials, dict from arm
-                name to sample size for batched trials. Optional.
         """
 
-        metadata = metadata if metadata is not None else {}
+        metric_name_to_signature = {
+            name: metric.signature for name, metric in self.experiment.metrics.items()
+        }
 
-        evaluations, data = data_and_evaluations_from_raw_data(
-            raw_data=raw_data,
-            metric_names=list(set(self.experiment.metrics)),
-            trial_index=self.index,
-            sample_sizes=sample_sizes or {},
-            data_type=self.experiment.default_data_type,
-            start_time=metadata.get("start_time"),
-            end_time=metadata.get("end_time"),
-        )
-        return evaluations, data
+        try:
+            return raw_evaluations_to_data(
+                raw_data=raw_data,
+                metric_name_to_signature=metric_name_to_signature,
+                trial_index=self.index,
+                data_type=self.experiment.default_data_type,
+            )
+        except UserInputError as e:
+            if "not found in metric_name_to_signature." in str(e):
+                raise UserInputError(
+                    "Unable to find the metric signature for one or more metrics. "
+                    "Please ensure that the experiment has an attached metric "
+                    "for each metric present in raw_data."
+                ) from e
+            raise e
 
     def _raise_cant_attach_if_completed(self) -> None:
         """

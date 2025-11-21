@@ -91,13 +91,16 @@ class BaseAdapterTest(TestCase):
             )
         # Check that the properties are set correctly.
         self.assertEqual(adapter._data_loader_config, DataLoaderConfig())
-        self.assertEqual(adapter._raw_transforms, [Cast] + MBM_X_trans_base)
+        self.assertEqual(
+            adapter._raw_transforms, [FillMissingParameters, Cast] + MBM_X_trans_base
+        )
         self.assertEqual(adapter._transform_configs, {})
         self.assertEqual(
-            list(adapter.transforms), [t.__name__ for t in [Cast] + MBM_X_trans_base]
+            list(adapter.transforms),
+            [t.__name__ for t in [FillMissingParameters, Cast] + MBM_X_trans_base],
         )
         self.assertEqual(adapter.fit_time, adapter.fit_time_since_gen)
-        self.assertEqual(adapter._metric_names, set())
+        self.assertEqual(adapter._metric_signatures, set())
         self.assertEqual(adapter._optimization_config, exp.optimization_config)
         self.assertEqual(adapter._training_in_design_idx, [])
         self.assertIsNone(adapter._status_quo)
@@ -149,9 +152,12 @@ class BaseAdapterTest(TestCase):
             )
         # Check that the properties are set correctly.
         # Only checking a subset that are expected to be different than test_init_empty.
-        self.assertEqual(adapter._raw_transforms, [Cast] + MBM_X_trans + Y_trans)
-        metric_names = set(exp.metrics)
-        self.assertEqual(adapter._metric_names, metric_names)
+        self.assertEqual(
+            adapter._raw_transforms,
+            [FillMissingParameters, Cast] + MBM_X_trans + Y_trans,
+        )
+        metric_signatures = {m.signature for m in exp.metrics.values()}
+        self.assertEqual(adapter._metric_signatures, metric_signatures)
         self.assertEqual(
             adapter._training_in_design_idx, [True] * len(exp.arms_by_name)
         )
@@ -170,9 +176,9 @@ class BaseAdapterTest(TestCase):
         self.assertTrue(
             np.allclose(
                 adapter._training_data.observation_data[
-                    [("mean", m) for m in metric_names]
+                    [("mean", m) for m in metric_signatures]
                 ],
-                exp_df.sort_values(by="arm_name")[list(metric_names)],
+                exp_df.sort_values(by="arm_name")[list(metric_signatures)],
             )
         )
         # Check that fit was called with the transformed arguments.
@@ -330,7 +336,7 @@ class BaseAdapterTest(TestCase):
         called = False
         mock_predictions: list[ObservationData] = [
             ObservationData(
-                metric_names=["branin"],
+                metric_signatures=["branin"],
                 means=np.zeros(1),
                 covariance=np.ones((1, 1)),
             )
@@ -499,14 +505,9 @@ class BaseAdapterTest(TestCase):
         self.assertAlmostEqual(adapter.fit_time_since_gen, 0.0, places=1)
 
     def test_ood_gen(self) -> None:
-        # Test fit_out_of_design by returning OOD candidates
         ss = SearchSpace([RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0)])
         experiment = Experiment(search_space=ss)
-        adapter = Adapter(
-            experiment=experiment,
-            generator=Generator(),
-            fit_out_of_design=True,
-        )
+        adapter = Adapter(experiment=experiment, generator=Generator())
         obs = ObservationFeatures(parameters={"x": 3.0})
         adapter._gen = mock.MagicMock(
             "ax.adapter.base.Adapter._gen",
@@ -516,12 +517,7 @@ class BaseAdapterTest(TestCase):
         gr = adapter.gen(n=1)
         self.assertEqual(gr.arms[0].parameters, obs.parameters)
 
-        # Test clamping arms by setting fit_out_of_design=False
-        adapter = Adapter(
-            experiment=experiment,
-            generator=Generator(),
-            fit_out_of_design=False,
-        )
+        adapter = Adapter(experiment=experiment, generator=Generator())
         obs = ObservationFeatures(parameters={"x": 3.0})
         adapter._gen = mock.MagicMock(
             "ax.adapter.base.Adapter._gen",
@@ -621,10 +617,7 @@ class BaseAdapterTest(TestCase):
             if additional_fetch:
                 # Fetch constraint metric an additional time. This will lead to two
                 # separate observations for the status quo arm.
-                exp.fetch_data(
-                    metrics=[exp.metrics["branin_map_constraint"]],
-                    combine_with_last_data=True,
-                )
+                exp.fetch_data(metrics=[exp.metrics["branin_map_constraint"]])
             with self.assertNoLogs(logger=logger, level="WARN"), mock.patch(
                 "ax.adapter.base._combine_multiple_status_quo_observations",
                 wraps=_combine_multiple_status_quo_observations,
@@ -639,13 +632,18 @@ class BaseAdapterTest(TestCase):
             # 3 for metric 'branin_map' with timestamp=0, 1, 2, and 1 for metric
             # 'branin' with timestamp=NaN
             self.assertEqual(
-                len(call_kwargs["status_quo_observations"]), 4 + additional_fetch
+                len(call_kwargs["status_quo_observations"]), 4 + additional_fetch * 2
             )
             if additional_fetch:
-                # Last observation should only include the constraint metric.
+                # Last observation includes the constraint metric and last observation
+                # from branin_map.
                 self.assertEqual(
-                    set(call_kwargs["status_quo_observations"][-1].data.metric_names),
-                    {"branin_map_constraint"},
+                    set(
+                        call_kwargs["status_quo_observations"][
+                            -1
+                        ].data.metric_signatures
+                    ),
+                    {"branin_map", "branin_map_constraint"},
                 )
             opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
             self.assertEqual(call_kwargs["metrics"], opt_config_metrics)
@@ -657,7 +655,7 @@ class BaseAdapterTest(TestCase):
                 adapter_sq.features.trial_index, get_target_trial_index(experiment=exp)
             )
             self.assertTrue(
-                set(adapter_sq.data.metric_names).issuperset(opt_config_metrics)
+                set(adapter_sq.data.metric_signatures).issuperset(opt_config_metrics)
             )
 
         # Case 2: Experiment has an optimization config with no map metrics
@@ -719,7 +717,7 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(cov["b"]["a"], [3.0, 4.0])
         # Check that errors if metric mismatch
         od3 = ObservationData(
-            metric_names=["a"], means=np.array([2.0]), covariance=np.array([[4.0]])
+            metric_signatures=["a"], means=np.array([2.0]), covariance=np.array([[4.0]])
         )
         with self.assertRaises(ValueError):
             unwrap_observation_data(observation_data + [od3])
@@ -844,8 +842,8 @@ class BaseAdapterTest(TestCase):
         # Fit model without filling missing parameters
         m = Adapter(experiment=experiment, generator=Generator())
         self.assertEqual(
-            [t.__name__ for t in m._raw_transforms],  # pyre-ignore[16]
-            ["Cast"],
+            [t.__name__ for t in m._raw_transforms],
+            ["FillMissingParameters", "Cast"],
         )
         # Check that SQ and all trial 1 are OOD
         ood_arms = set(
@@ -856,14 +854,16 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(
             set(ood_arms), {"status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"}
         )
-        # Fit with filling missing parameters
-        m = Adapter(
-            experiment=experiment,
-            generator=Generator(),
-            search_space=ss2,
-            transforms=[],  # FillMissingParameters added by default.
-            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
-        )
+        # Fit with filling missing parameters using deprecated config
+        with self.assertLogs(
+            "ax.adapter.transforms.fill_missing_parameters", level="ERROR"
+        ):
+            m = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                search_space=ss2,
+                transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+            )
         self.assertEqual(
             [t.__name__ for t in m._raw_transforms], ["FillMissingParameters", "Cast"]
         )
@@ -928,6 +928,7 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(len(m.model_space.parameter_constraints), 1)
 
         # With expand model space, custom is not OOD, and model space is expanded
+        # Using deprecated config
         m = Adapter(
             experiment=experiment,
             generator=Generator(),
@@ -944,16 +945,76 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(m.model_space.parameter_constraints, [])
 
         # With fill values, SQ is also in design, and x2 is further expanded
+        with self.assertLogs(
+            "ax.adapter.transforms.fill_missing_parameters", level="ERROR"
+        ):
+            m = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                search_space=ss,
+                transforms=[FillMissingParameters],
+                transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+            )
+        self.assertEqual(sum(m.training_in_design), 7)
+        self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+        self.assertEqual(m.model_space.parameter_constraints, [])
+
+        # Using parameter backfill values
+        for parameter in ss._parameters.values():
+            parameter._backfill_value = sq_vals[parameter.name]
+
+        experiment._search_space = ss
         m = Adapter(
             experiment=experiment,
             generator=Generator(),
             search_space=ss,
-            transforms=[FillMissingParameters],
-            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
         )
         self.assertEqual(sum(m.training_in_design), 7)
         self.assertEqual(m.model_space.parameters["x2"].upper, 20)
         self.assertEqual(m.model_space.parameter_constraints, [])
+
+        # Check log scale expansion with OOD trial having parameter value == 0
+        log_range_param = RangeParameter(
+            name="x1",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0001,
+            upper=1,
+            log_scale=True,
+        )
+        x2 = RangeParameter(
+            name="x2",
+            parameter_type=ParameterType.FLOAT,
+            lower=0,
+            upper=1,
+        )
+        ss_with_log_param = SearchSpace(parameters=[log_range_param, x2])
+        experiment = get_branin_experiment()
+        experiment._search_space = ss_with_log_param
+
+        # Create a trial with an OOD arm that has x1=0 (invalid for log scale)
+        trial = experiment.new_batch_trial()
+        trial.add_arm(Arm(name="ood", parameters={"x1": 0.0, "x2": 2.0}))
+        trial.mark_running(no_runner_required=True)
+        trial.mark_completed()
+        experiment.attach_data(get_branin_data_batch(batch=trial))
+
+        m = Adapter(
+            experiment=experiment,
+            generator=Generator(),
+            search_space=ss_with_log_param,
+            expand_model_space=True,
+        )
+
+        # Assert that the expanded model space did not include 0.0
+        self.assertEqual(
+            m.model_space.parameters["x1"].lower,
+            0.0001,
+        )
+        # x2 model space should still be expanded
+        self.assertEqual(
+            m.model_space.parameters["x2"].upper,
+            2.0,
+        )
 
     @mock.patch(
         "ax.adapter.base.extract_experiment_data", wraps=extract_experiment_data
@@ -1051,7 +1112,9 @@ class BaseAdapterTest(TestCase):
         ) -> list[ObservationData]:
             return [
                 ObservationData(
-                    metric_names=["m1"], means=np.ones((1)), covariance=np.ones((1, 1))
+                    metric_signatures=["m1"],
+                    means=np.ones((1)),
+                    covariance=np.ones((1, 1)),
                 )
                 for _ in observation_features
             ]
@@ -1106,3 +1169,62 @@ class BaseAdapterTest(TestCase):
             in_design_training_data.observation_data,
             training_data.observation_data.iloc[[0, 2]],
         )
+
+    def test_added_parameters(self) -> None:
+        exp = get_branin_experiment()
+        adapter = Adapter(experiment=exp, generator=Generator())
+        data, ss = adapter._process_and_transform_data(experiment=exp)
+        self.assertEqual(ss, exp.search_space)
+        self.assertListEqual(list(data.arm_data.columns), ["x1", "x2", "metadata"])
+        # Add new parameter
+        exp.add_parameters_to_search_space(
+            [
+                RangeParameter(
+                    name="x3",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                    backfill_value=0.5,
+                )
+            ]
+        )
+        self.assertNotEqual(exp.search_space, adapter._search_space)
+        adapter._process_and_transform_data(experiment=exp)
+        data, ss = adapter._process_and_transform_data(experiment=exp)
+        self.assertEqual(ss, exp.search_space)
+        self.assertListEqual(
+            list(data.arm_data.columns), ["x1", "x2", "x3", "metadata"]
+        )
+
+    def test_set_and_filter_training_data(self) -> None:
+        """Test that _set_and_filter_training_data correctly filters data."""
+        # Search space is x, y; both are range parameters in [0, 1].
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0], [4.0]],
+            parameterizations=[
+                {"x": 0.0, "y": 0.0},
+                {"x": 0.5, "y": 1.0},
+                {"x": 2.0, "y": 1.0},
+                {"x": 0.5, "y": -1.0},
+            ],
+        )
+
+        with mock.patch.object(
+            Adapter, "_transform_data", return_value=(None, None)
+        ) as mock_transform:
+            adapter_exclude_ood = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                expand_model_space=False,
+            )
+        filtered_data = mock_transform.call_args.kwargs["experiment_data"]
+
+        self.assertEqual(len(filtered_data.arm_data), 2)
+        expected_arm_names = {"0_0", "1_0"}
+        actual_arm_names = set(
+            filtered_data.arm_data.index.get_level_values("arm_name")
+        )
+        self.assertEqual(actual_arm_names, expected_arm_names)
+
+        expected_in_design = [True, True, False, False]
+        self.assertEqual(adapter_exclude_ood.training_in_design, expected_in_design)

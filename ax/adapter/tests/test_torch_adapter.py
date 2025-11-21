@@ -16,7 +16,7 @@ import torch
 from ax.adapter.adapter_utils import _binary_pref_to_comp_pair, _consolidate_comparisons
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate
-from ax.adapter.registry import MBM_X_trans
+from ax.adapter.registry import Cont_X_trans, MBM_X_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.standardize_y import StandardizeY
@@ -107,6 +107,7 @@ class TorchAdapterTest(TestCase):
                         "arm_name": ["0_0", "0_0", "1_0", "1_0"],
                         "mean": [3.0, 2.0, 1.0, 0.0],
                         "sem": [3.0, 1e-4, 2.0, 1e-3],
+                        "metric_signature": ["y1", "y2", "y1", "y2"],
                     }
                 )
             )
@@ -178,7 +179,7 @@ class TorchAdapterTest(TestCase):
             torch.tensor([[[pred_var[0], 0.0], [0.0, pred_var[1]]]], **tkwargs),
         )
         pr_obs_data_expected = ObservationData(
-            metric_names=["y1", "y2"],
+            metric_signatures=["y1", "y2"],
             means=np.array(pred_means),
             covariance=np.diag(pred_var),
         )
@@ -262,7 +263,7 @@ class TorchAdapterTest(TestCase):
 
         # Test `_cross_validate`
         cv_obs_data_expected = ObservationData(
-            metric_names=["y1", "y2"],
+            metric_signatures=["y1", "y2"],
             means=np.array([3.0, 2.0]),
             covariance=np.diag([4.0, 3.0]),
         )
@@ -402,7 +403,7 @@ class TorchAdapterTest(TestCase):
         )
         self.assertEqual(
             list(adapter.transforms.keys()),
-            ["Cast", "OneHot", "UnitX"],
+            ["FillMissingParameters", "Cast", "OneHot", "UnitX"],
         )
 
         mean = 1.0
@@ -483,8 +484,7 @@ class TorchAdapterTest(TestCase):
         exp = get_branin_experiment(with_status_quo=True, with_completed_batch=True)
         # Check that the metadata is correctly re-added to observation
         # features during `fit`.
-        # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run_structs`.
-        preexisting_batch_gr = exp.trials[0]._generator_run_structs[0].generator_run
+        preexisting_batch_gr = exp.trials[0].generator_runs[0]
         preexisting_batch_gr._candidate_metadata_by_arm_signature = {
             preexisting_batch_gr.arms[0].signature: {
                 "preexisting_batch_cand_metadata": "some_value"
@@ -550,10 +550,7 @@ class TorchAdapterTest(TestCase):
         # Check that no candidate metadata is handled correctly.
         exp = get_branin_experiment(with_status_quo=True, with_completed_trial=True)
         generator = TorchGenerator()
-        with mock.patch(
-            f"{TorchAdapter.__module__}." "TorchAdapter._validate_observation_data",
-            autospec=True,
-        ), mock.patch.object(
+        with mock.patch.object(
             generator, "fit", wraps=generator.fit
         ) as mock_generator_fit:
             adapter = TorchAdapter(experiment=exp, generator=generator)
@@ -606,7 +603,7 @@ class TorchAdapterTest(TestCase):
             search_space=search_space,
         )
         adapter = TorchAdapter(experiment=experiment, generator=BoTorchGenerator())
-        metric_names = ["m1"]
+        metric_signatures = ["m1"]
         experiment_data = adapter.get_training_data()
         for use_task, expected_class in (
             (True, MultiTaskDataset),
@@ -622,7 +619,7 @@ class TorchAdapterTest(TestCase):
             )
             converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
                 experiment_data=experiment_data,
-                outcomes=metric_names,
+                outcomes=metric_signatures,
                 parameters=feature_names,
                 search_space_digest=search_space_digest,
             )
@@ -640,13 +637,13 @@ class TorchAdapterTest(TestCase):
             self.assertTrue(torch.equal(dataset.Y, expected_Y))
             self.assertIsNone(dataset.Yvar)
             self.assertEqual(dataset.feature_names, feature_names)
-            self.assertEqual(dataset.outcome_names, metric_names)
-            self.assertEqual(ordered_outcomes, metric_names)
+            self.assertEqual(dataset.outcome_names, metric_signatures)
+            self.assertEqual(ordered_outcomes, metric_signatures)
 
             with self.assertRaisesRegex(DataRequiredError, "no corresponding data"):
                 adapter._convert_experiment_data(
                     experiment_data=experiment_data,
-                    outcomes=metric_names + ["extra"],
+                    outcomes=metric_signatures + ["extra"],
                     parameters=feature_names,
                     search_space_digest=search_space_digest,
                 )
@@ -709,7 +706,7 @@ class TorchAdapterTest(TestCase):
         raw_X[0, -1] = 0  # Make sure task value 0 exists.
         raw_Y = torch.sin(raw_X).sum(-1, keepdim=True).expand(-1, 4)
         feature_names = ["x0", "x1", "x2"]
-        metric_names = ["y", "y:c0", "y:c1", "y:c2"]
+        metric_signatures = ["y", "y:c0", "y:c1", "y:c2"]
         parameter_decomposition = {f"c{i}": [f"x{i}"] for i in range(3)}
         metric_decomposition = {f"c{i}": [f"y:c{i}"] for i in range(3)}
 
@@ -742,7 +739,7 @@ class TorchAdapterTest(TestCase):
         experiment_data = adapter.get_training_data()
         converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
             experiment_data=experiment_data,
-            outcomes=metric_names,
+            outcomes=metric_signatures,
             parameters=feature_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=feature_names,
@@ -870,6 +867,7 @@ class TorchAdapterTest(TestCase):
                         "mean": o,
                         "sem": None,
                         "trial_index": trial.index,
+                        "metric_signature": metric,
                     }
                     for metric, o in (("m1", 0.2), ("m2", 0.5))
                 ]
@@ -1211,3 +1209,104 @@ class TorchAdapterTest(TestCase):
             _consolidate_comparisons(
                 X=X.expand(2, *X.shape), Y=comp_pair_Y.expand(2, *comp_pair_Y.shape)
             )
+
+    def test_get_transformed_model_gen_args_with_target_point(self) -> None:
+        # Test that _get_transformed_model_gen_args correctly processes target_point
+
+        # Setup: create adapter with target arm in optimization config
+        experiment = get_branin_experiment(with_completed_trial=True)
+        pruning_target_parameterization = Arm(parameters={"x1": -5.0, "x2": 15.0})
+        optimization_config = none_throws(
+            experiment.optimization_config
+        ).clone_with_args(
+            pruning_target_parameterization=pruning_target_parameterization
+        )
+
+        adapter = TorchAdapter(
+            generator=TorchGenerator(),
+            experiment=experiment,
+            transforms=Cont_X_trans,
+        )
+
+        # Execute: call _get_transformed_gen_args then _get_transformed_model_gen_args
+        base_gen_args = adapter._get_transformed_gen_args(
+            search_space=experiment.search_space,
+            optimization_config=optimization_config,
+            pending_observations={},
+        )
+
+        search_space_digest, torch_opt_config = adapter._get_transformed_model_gen_args(
+            search_space=base_gen_args.search_space,
+            pending_observations=base_gen_args.pending_observations,
+            fixed_features=base_gen_args.fixed_features,
+            optimization_config=base_gen_args.optimization_config,
+        )
+
+        # Assert: confirm pruning_target_point is correctly extracted and transformed
+        self.assertIsNotNone(torch_opt_config.pruning_target_point)
+        expected_target = torch.tensor([0.0, 1.0], dtype=torch.double)
+        torch.testing.assert_close(
+            torch_opt_config.pruning_target_point, expected_target
+        )
+
+    def test_get_transformed_model_gen_args_no_target_point(self) -> None:
+        # Test that _get_transformed_model_gen_args handles
+        # pruning_target_parameterization=None correctly
+
+        # Setup: create adapter without target arm (default case)
+        experiment = get_branin_experiment(with_completed_trial=True)
+        adapter = TorchAdapter(
+            generator=TorchGenerator(),
+            experiment=experiment,
+            transforms=Cont_X_trans,
+        )
+
+        # Execute: call _get_transformed_gen_args then _get_transformed_model_gen_args
+        base_gen_args = adapter._get_transformed_gen_args(
+            search_space=experiment.search_space,
+            optimization_config=none_throws(experiment.optimization_config),
+            pending_observations={},
+        )
+
+        search_space_digest, torch_opt_config = adapter._get_transformed_model_gen_args(
+            search_space=base_gen_args.search_space,
+            pending_observations=base_gen_args.pending_observations,
+            fixed_features=base_gen_args.fixed_features,
+            optimization_config=base_gen_args.optimization_config,
+        )
+
+        # Assert: confirm target_point is None when no pruning_target_parameterization
+        #  is provided
+        self.assertIsNone(torch_opt_config.pruning_target_point)
+
+    def test_get_transformed_model_gen_args_with_sq_as_target(self) -> None:
+        # Test that _get_transformed_model_gen_args correctly processes the status quo
+        # as the target point
+        experiment = get_branin_experiment(
+            with_completed_trial=True, with_status_quo=True
+        )
+
+        adapter = TorchAdapter(
+            generator=TorchGenerator(), experiment=experiment, transforms=Cont_X_trans
+        )
+        oc = none_throws(experiment.optimization_config).clone()
+        # Execute: call _get_transformed_gen_args then _get_transformed_model_gen_args
+        base_gen_args = adapter._get_transformed_gen_args(
+            search_space=experiment.search_space,
+            optimization_config=oc,
+            pending_observations={},
+        )
+
+        _, torch_opt_config = adapter._get_transformed_model_gen_args(
+            search_space=base_gen_args.search_space,
+            pending_observations=base_gen_args.pending_observations,
+            fixed_features=base_gen_args.fixed_features,
+            optimization_config=base_gen_args.optimization_config,
+        )
+
+        # Assert: confirm pruning_target_point is correctly extracted and transformed
+        self.assertIsNotNone(torch_opt_config.pruning_target_point)
+        expected_target = torch.tensor([1 / 3.0, 0.0], dtype=torch.double)
+        torch.testing.assert_close(
+            torch_opt_config.pruning_target_point, expected_target
+        )

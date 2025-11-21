@@ -19,7 +19,6 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
-from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
@@ -34,17 +33,13 @@ from ax.plot.pareto_utils import (
     get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
     logger,
-    to_nonrobust_search_space,
 )
-
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.math_utils import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_experiment_with_observations,
-    get_robust_search_space_environmental,
-    get_search_space,
 )
 
 
@@ -55,7 +50,7 @@ class ParetoUtilsTest(TestCase):
         experiment.add_tracking_metric(
             BraninMetric(name="m2", param_names=["x1", "x2"])
         )
-        sobol = Generators.SOBOL(experiment.search_space)
+        sobol = Generators.SOBOL(experiment)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
         self.experiment = experiment
@@ -183,7 +178,7 @@ class ParetoUtilsTest(TestCase):
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
         )
-        sobol = Generators.SOBOL(experiment.search_space)
+        sobol = Generators.SOBOL(experiment)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
         experiment.fetch_data()
@@ -227,20 +222,6 @@ class ParetoUtilsTest(TestCase):
             np.array_equal(pareto, np.array([[3.0, 0.0], [2.1, 1.0], [2.0, 2.0]]))
         )
 
-    def test_to_nonrobust_search_space(self) -> None:
-        # Return non-robust search space as is.
-        search_space = get_search_space()
-        self.assertIs(to_nonrobust_search_space(search_space), search_space)
-        # Prune environmental variables and distributions from RSS.
-        rss = get_robust_search_space_environmental()
-        transformed_ss = to_nonrobust_search_space(rss)
-        # Can't use isinstance here since RSS is also a SearchSpace.
-        self.assertEqual(transformed_ss.__class__, SearchSpace)
-        self.assertEqual(transformed_ss.parameters, rss._parameters)
-        self.assertEqual(
-            transformed_ss.parameter_constraints, rss.parameter_constraints
-        )
-
 
 class TestInfereReferencePointFromExperiment(TestCase):
     def test_infer_reference_point_from_experiment(self) -> None:
@@ -262,10 +243,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
         # be [-0.35, 0.35].
         self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
         self.assertEqual(inferred_reference_point[0].bound, -0.35)
-        self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+        self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
         self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
         self.assertEqual(inferred_reference_point[1].bound, 0.35)
-        self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+        self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
         with mock.patch(
             "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
@@ -313,10 +294,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
             # be [-0.35, 0.35].
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
     def test_infer_reference_point_from_experiment_shuffled_metrics(self) -> None:
         # Generating an experiment with given data.
@@ -339,7 +320,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.0, "y": 0.0}),
                 data=ObservationData(
-                    metric_names=["m3", "m2", "m1"],
+                    metric_signatures=["m3", "m2", "m1"],
                     means=np.array([0.1, 1.0, -1.0]),
                     covariance=np.diag(np.full(3, float("nan"))),
                 ),
@@ -347,7 +328,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.1, "y": 0.1}),
                 data=ObservationData(
-                    metric_names=["m3", "m2", "m1"],
+                    metric_signatures=["m3", "m2", "m1"],
                     means=np.array([0.2, 2.0, -0.5]),
                     covariance=np.diag(np.full(3, float("nan"))),
                 ),
@@ -355,7 +336,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.2, "y": 0.2}),
                 data=ObservationData(
-                    metric_names=["m3", "m2", "m1"],
+                    metric_signatures=["m3", "m2", "m1"],
                     means=np.array([0.3, 0.5, -2.0]),
                     covariance=np.diag(np.full(3, float("nan"))),
                 ),
@@ -391,10 +372,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
 
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
 
     def test_get_tensor_converter_adapter(self) -> None:
         # Test that it can convert experiments with different number of observations.

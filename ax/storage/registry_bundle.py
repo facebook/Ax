@@ -75,6 +75,12 @@ class RegistryBundleBase(ABC):
         json_decoder_registry: TDecoderRegistry,
         json_class_decoder_registry: dict[str, Callable[[dict[str, Any]], Any]],
     ) -> None:
+        metric_clss = {
+            k: int(v) if v is not None else None for k, v in metric_clss.items()
+        }
+        runner_clss = {
+            k: int(v) if v is not None else None for k, v in runner_clss.items()
+        }
         # pyre-fixme[4]: Attribute must be annotated.
         self._metric_registry, encoder_registry, decoder_registry = register_metrics(
             metric_clss=metric_clss,

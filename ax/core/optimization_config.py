@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from itertools import groupby
 
+from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.outcome_constraint import (
@@ -18,7 +19,6 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.risk_measures import RiskMeasure
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from pyre_extensions import assert_is_instance
@@ -33,12 +33,13 @@ _NO_OUTCOME_CONSTRAINTS = [
 _NO_OBJECTIVE_THRESHOLDS = [
     ObjectiveThreshold(Metric("placeholder", lower_is_better=True), 0)
 ]
-_NO_RISK_MEASURE = RiskMeasure("placeholder", {})
+
+_NO_PRUNING_TARGET_PARAMETERIZATION = Arm(parameters={})
 
 
 class OptimizationConfig(Base):
-    """An optimization configuration, which comprises an objective,
-    outcome constraints and an optional risk measure.
+    """An optimization configuration, which comprises an objective
+    and outcome constraints.
 
     There is no minimum or maximum number of outcome constraints, but an
     individual metric can have at most two constraints--which is how we
@@ -49,15 +50,24 @@ class OptimizationConfig(Base):
         self,
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
-        risk_measure: RiskMeasure | None = None,
+        pruning_target_parameterization: Arm | None = None,
     ) -> None:
         """Inits OptimizationConfig.
 
         Args:
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints on metrics.
-            risk_measure: An optional risk measure, used for robust optimization.
-                Must be used with a `RobustSearchSpace`.
+            pruning_target_parameterization: Arm containing the target values for
+                irrelevant parameters. The target values are used to prune irrelevant
+                parameters from candidates generated via Bayesian optimization: when
+                Ax considers arms to suggest for the next trial, it will seek to have
+                the proposed arms differ from the target arm as little as possible,
+                without a loss in optimization performance. I.e. when suggested arms
+                include parameter values that differ from the corresponding value in
+                the target arm, the pruning methodology will check if that difference
+                is expected to be meaningful w.r.t. the performance of the arm in
+                consideration, and if not, the parameter value will be replaced with
+                the corresponding value in the target arm.
         """
         constraints: list[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
@@ -65,11 +75,10 @@ class OptimizationConfig(Base):
         self._validate_transformed_optimization_config(
             objective=objective,
             outcome_constraints=constraints,
-            risk_measure=risk_measure,
         )
         self._objective: Objective = objective
         self._outcome_constraints: list[OutcomeConstraint] = constraints
-        self.risk_measure: RiskMeasure | None = risk_measure
+        self.pruning_target_parameterization = pruning_target_parameterization
 
     def clone(self) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
@@ -79,7 +88,8 @@ class OptimizationConfig(Base):
         self,
         objective: Objective | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
-        risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
+        pruning_target_parameterization: Arm
+        | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
         objective = self.objective.clone() if objective is None else objective
@@ -88,14 +98,16 @@ class OptimizationConfig(Base):
             if outcome_constraints is _NO_OUTCOME_CONSTRAINTS
             else outcome_constraints
         )
-        risk_measure = (
-            self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
+        pruning_target_parameterization = (
+            self.pruning_target_parameterization
+            if pruning_target_parameterization is _NO_PRUNING_TARGET_PARAMETERIZATION
+            else pruning_target_parameterization
         )
 
         return OptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
-            risk_measure=risk_measure,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
 
     @property
@@ -107,7 +119,7 @@ class OptimizationConfig(Base):
     def objective(self, objective: Objective) -> None:
         """Set objective if not present in outcome constraints."""
         self._validate_transformed_optimization_config(
-            objective, self.outcome_constraints, self.risk_measure
+            objective, self.outcome_constraints
         )
         self._objective = objective
 
@@ -123,6 +135,7 @@ class OptimizationConfig(Base):
 
     @property
     def metrics(self) -> dict[str, Metric]:
+        """Returns mapping of name to metric."""
         constraint_metrics = {
             oc.metric.name: oc.metric
             for oc in self.all_constraints
@@ -145,13 +158,22 @@ class OptimizationConfig(Base):
     def is_moo_problem(self) -> bool:
         return self.objective is not None and isinstance(self.objective, MultiObjective)
 
+    @property
+    def is_bope_problem(self) -> bool:
+        """Whether this is a preference optimization config for BO with
+        Preference Exploration (BOPE) problems.
+
+        Returns False for base OptimizationConfig. PreferenceOptimizationConfig
+        overrides this to return True.
+        """
+        return False
+
     @outcome_constraints.setter
     def outcome_constraints(self, outcome_constraints: list[OutcomeConstraint]) -> None:
         """Set outcome constraints if valid, else raise."""
         self._validate_transformed_optimization_config(
             objective=self.objective,
             outcome_constraints=outcome_constraints,
-            risk_measure=self.risk_measure,
         )
         self._outcome_constraints = outcome_constraints
 
@@ -159,10 +181,8 @@ class OptimizationConfig(Base):
     def _validate_transformed_optimization_config(
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
-        risk_measure: RiskMeasure | None = None,
     ) -> None:
-        """Ensure outcome constraints are valid and the risk measure is
-        compatible with the objective.
+        """Ensure outcome constraints are valid.
 
         Either one or two outcome constraints can reference one metric.
         If there are two constraints, they must have different 'ops': one
@@ -173,7 +193,6 @@ class OptimizationConfig(Base):
         Args:
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints to validate.
-            risk_measure: An optional risk measure to validate.
         """
         if type(objective) is MultiObjective:
             # Raise error on exact equality; `ScalarizedObjective` is OK
@@ -193,31 +212,37 @@ class OptimizationConfig(Base):
         unconstrainable_metrics: list[Metric],
         outcome_constraints: list[OutcomeConstraint],
     ) -> None:
-        constraint_metrics = []
+        constraint_metric_map = {}
         for oc in outcome_constraints:
             if isinstance(oc, ScalarizedOutcomeConstraint):
-                constraint_metrics.extend([m.name for m in oc.metrics])
+                for m in oc.metrics:
+                    constraint_metric_map[m.signature] = m.name
             else:
-                constraint_metrics.append(oc.metric.name)
+                constraint_metric_map[oc.metric.signature] = oc.metric.name
 
         for metric in unconstrainable_metrics:
-            if metric.name in constraint_metrics:
+            if metric.signature in constraint_metric_map:
                 raise ValueError("Cannot constrain on objective metric.")
 
         def constraint_key(oc: OutcomeConstraint) -> str:
             return (
                 str(oc)
                 if isinstance(oc, ScalarizedOutcomeConstraint)
-                else oc.metric.name
+                else oc.metric.signature
             )
 
         sorted_constraints = sorted(outcome_constraints, key=constraint_key)
-        for metric_name, constraints_itr in groupby(sorted_constraints, constraint_key):
+        for metric_signature, constraints_itr in groupby(
+            sorted_constraints, constraint_key
+        ):
             constraints: list[OutcomeConstraint] = list(constraints_itr)
             constraints_len = len(constraints)
             if constraints_len == 2:
                 if constraints[0].op == constraints[1].op:
-                    raise ValueError(f"Duplicate outcome constraints {metric_name}")
+                    raise ValueError(
+                        f"Duplicate outcome constraints "
+                        f"{constraint_metric_map[metric_signature]}"
+                    )
                 lower_bound_idx = 0 if constraints[0].op == ComparisonOp.GEQ else 1
                 upper_bound_idx = 1 - lower_bound_idx
                 lower_bound = constraints[lower_bound_idx].bound
@@ -225,22 +250,21 @@ class OptimizationConfig(Base):
                 if lower_bound >= upper_bound:
                     raise ValueError(
                         f"Lower bound {lower_bound} is >= upper bound "
-                        + f"{upper_bound} for {metric_name}"
+                        f"{upper_bound} for "
+                        f"{constraint_metric_map[metric_signature]}"
                     )
             elif constraints_len > 2:
-                raise ValueError(f"Duplicate outcome constraints {metric_name}")
+                raise ValueError(
+                    "Duplicate outcome constraints "
+                    f"{constraint_metric_map[metric_signature]}"
+                )
 
     def __repr__(self) -> str:
-        base_repr = (
+        return (
             f"{self.__class__.__name__}("
             "objective=" + repr(self.objective) + ", "
-            "outcome_constraints=" + repr(self.outcome_constraints)
+            "outcome_constraints=" + repr(self.outcome_constraints) + ")"
         )
-        if self.risk_measure is None:
-            end_repr = ")"
-        else:
-            end_repr = ", risk_measure=" + repr(self.risk_measure) + ")"
-        return base_repr + end_repr
 
     def __hash__(self) -> int:
         """Make the class hashable to support grouping of GeneratorRuns."""
@@ -249,8 +273,8 @@ class OptimizationConfig(Base):
 
 class MultiObjectiveOptimizationConfig(OptimizationConfig):
     """An optimization configuration for multi-objective optimization,
-    which comprises multiple objective, outcome constraints, objective
-    thresholds, and an optional risk measure.
+    which comprises multiple objective, outcome constraints, and objective
+    thresholds.
 
     There is no minimum or maximum number of outcome constraints, but an
     individual metric can have at most two constraints--which is how we
@@ -266,9 +290,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective: MultiObjective | ScalarizedObjective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
         objective_thresholds: list[ObjectiveThreshold] | None = None,
-        risk_measure: RiskMeasure | None = None,
+        pruning_target_parameterization: Arm | None = None,
     ) -> None:
-        """Inits OptimizationConfig.
+        """Inits MultiObjectiveOptimizationConfig.
 
         Args:
             objective: Metric+direction to use for the optimization. Should be either a
@@ -277,8 +301,17 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective_thesholds: Thresholds objectives must exceed. Used for
                 multi-objective optimization and for calculating frontiers
                 and hypervolumes.
-            risk_measure: An optional risk measure, used for robust optimization.
-                Must be used with a `RobustSearchSpace`.
+            pruning_target_parameterization: Arm containing the target values for
+                irrelevant parameters. The target values are used to prune irrelevant
+                parameters from candidates generated via Bayesian optimization: when
+                Ax considers arms to suggest for the next trial, it will seek to have
+                the proposed arms differ from the target arm as little as possible,
+                without a loss in optimization performance. I.e. when suggested arms
+                include parameter values that differ from the corresponding value in
+                the target arm, the pruning methodology will check if that difference
+                is expected to be meaningful w.r.t. the performance of the arm in
+                consideration, and if not, the parameter value will be replaced with
+                the corresponding value in the target arm.
         """
         constraints: list[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
@@ -288,12 +321,11 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective=objective,
             outcome_constraints=constraints,
             objective_thresholds=objective_thresholds,
-            risk_measure=risk_measure,
         )
         self._objective: MultiObjective | ScalarizedObjective = objective
         self._outcome_constraints: list[OutcomeConstraint] = constraints
         self._objective_thresholds: list[ObjectiveThreshold] = objective_thresholds
-        self.risk_measure: RiskMeasure | None = risk_measure
+        self.pruning_target_parameterization = pruning_target_parameterization
 
     # pyre-fixme[14]: Inconsistent override.
     def clone_with_args(
@@ -302,7 +334,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
         objective_thresholds: None
         | (list[ObjectiveThreshold]) = _NO_OBJECTIVE_THRESHOLDS,
-        risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
+        pruning_target_parameterization: Arm
+        | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""
         objective = self.objective.clone() if objective is None else objective
@@ -316,15 +349,16 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             if objective_thresholds is _NO_OBJECTIVE_THRESHOLDS
             else objective_thresholds
         )
-        risk_measure = (
-            self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
+        pruning_target_parameterization = (
+            self.pruning_target_parameterization
+            if pruning_target_parameterization is _NO_PRUNING_TARGET_PARAMETERIZATION
+            else pruning_target_parameterization
         )
-
         return MultiObjectiveOptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
-            risk_measure=risk_measure,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
 
     @property
@@ -339,7 +373,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective=objective,
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,
-            risk_measure=self.risk_measure,
         )
         self._objective = objective
 
@@ -361,7 +394,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         self._validate_transformed_optimization_config(
             objective=self.objective,
             objective_thresholds=objective_thresholds,
-            risk_measure=self.risk_measure,
         )
         self._objective_thresholds = objective_thresholds
 
@@ -377,10 +409,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
         objective_thresholds: list[ObjectiveThreshold] | None = None,
-        risk_measure: RiskMeasure | None = None,
     ) -> None:
-        """Ensure outcome constraints are valid and the risk measure is
-        compatible with the objective.
+        """Ensure outcome constraints are valid.
 
         Either one or two outcome constraints can reference one metric.
         If there are two constraints, they must have different 'ops': one
@@ -392,7 +422,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints to validate.
             objective_thresholds: Thresholds objectives must exceed.
-            risk_measure: An optional risk measure to validate.
         """
         if not isinstance(objective, (MultiObjective, ScalarizedObjective)):
             raise TypeError(
@@ -404,9 +433,11 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints = outcome_constraints or []
         objective_thresholds = objective_thresholds or []
         if isinstance(objective, MultiObjective):
-            objectives_by_name = {obj.metric.name: obj for obj in objective.objectives}
+            objectives_by_signature = {
+                obj.metric.signature: obj for obj in objective.objectives
+            }
             check_objective_thresholds_match_objectives(
-                objectives_by_name=objectives_by_name,
+                objectives_by_signature=objectives_by_signature,
                 objective_thresholds=objective_thresholds,
             )
 
@@ -417,21 +448,16 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         )
 
     def __repr__(self) -> str:
-        base_repr = (
+        return (
             f"{self.__class__.__name__}("
             "objective=" + repr(self.objective) + ", "
             "outcome_constraints=" + repr(self.outcome_constraints) + ", "
-            "objective_thresholds=" + repr(self.objective_thresholds)
+            "objective_thresholds=" + repr(self.objective_thresholds) + ")"
         )
-        if self.risk_measure is None:
-            end_repr = ")"
-        else:
-            end_repr = ", risk_measure=" + repr(self.risk_measure) + ")"
-        return base_repr + end_repr
 
 
 def check_objective_thresholds_match_objectives(
-    objectives_by_name: dict[str, Objective],
+    objectives_by_signature: dict[str, Objective],
     objective_thresholds: list[ObjectiveThreshold],
 ) -> None:
     """Error if thresholds on objective_metrics bound from the wrong direction or
@@ -439,27 +465,28 @@ def check_objective_thresholds_match_objectives(
     """
     obj_thresh_metrics = set()
     for threshold in objective_thresholds:
-        metric_name = threshold.metric.name
-        if metric_name not in objectives_by_name:
+        th_metric_signature = threshold.metric.signature
+        th_metric_name = threshold.metric.name
+        if th_metric_signature not in objectives_by_signature:
             raise UserInputError(
-                f"Objective threshold {threshold} is on metric '{metric_name}', "
+                f"Objective threshold {threshold} is on metric '{th_metric_name}', "
                 f"but that metric is not among the objectives."
             )
-        if metric_name in obj_thresh_metrics:
+        if th_metric_signature in obj_thresh_metrics:
             raise UserInputError(
                 "More than one objective threshold specified for metric "
-                f"{metric_name}."
+                f"{th_metric_name}."
             )
-        obj_thresh_metrics.add(metric_name)
+        obj_thresh_metrics.add(th_metric_signature)
 
-        minimize = objectives_by_name[metric_name].minimize
+        minimize = objectives_by_signature[th_metric_signature].minimize
         bounded_above = threshold.op == ComparisonOp.LEQ
         is_aligned = minimize == bounded_above
         if not is_aligned:
             raise UserInputError(
-                f"Objective threshold on {metric_name} bounds from "
+                f"Objective threshold on {th_metric_name} bounds from "
                 f"{'above' if bounded_above else 'below'} "
-                f"but {metric_name} is being "
+                f"but {th_metric_name} is being "
                 f"{'minimized' if minimize else 'maximized'}."
             )
 
@@ -470,6 +497,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         objective: MultiObjective,
         preference_profile_name: str,
         outcome_constraints: list[OutcomeConstraint] | None = None,
+        pruning_target_parameterization: Arm | None = None,
     ) -> None:
         """Inits PreferenceOptimizationConfig.
 
@@ -481,6 +509,17 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
                 this name and purpose PE_EXPERIMENT should be attached to
                 the experiment.
             outcome_constraints: Constraints on metrics. Not yet supported.
+            pruning_target_parameterization: Arm containing the target values for
+                irrelevant parameters. The target values are used to prune irrelevant
+                parameters from candidates generated via Bayesian optimization: when
+                Ax considers arms to suggest for the next trial, it will seek to have
+                the proposed arms differ from the target arm as little as possible,
+                without a loss in optimization performance. I.e. when suggested arms
+                include parameter values that differ from the corresponding value in
+                the target arm, the pruning methodology will check if that difference
+                is expected to be meaningful w.r.t. the performance of the arm in
+                consideration, and if not, the parameter value will be replaced with
+                the corresponding value in the target arm.
         """
         if outcome_constraints:
             raise NotImplementedError(
@@ -488,21 +527,33 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
                 "PreferenceOptimizationConfig"
             )
 
-        # Call parent's __init__ with objective_thresholds=None and risk_measure=None
+        # Call parent's __init__ with objective_thresholds=None
         super().__init__(
             objective=objective,
             outcome_constraints=outcome_constraints,
             objective_thresholds=None,
-            risk_measure=None,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
         self.preference_profile_name = preference_profile_name
+
+    @property
+    def is_bope_problem(self) -> bool:
+        """Whether this is a preference optimization config for BO with
+        Preference Exploration (BOPE) problems.
+
+        Returns:
+            True for PreferenceOptimizationConfig.
+        """
+        return True
 
     # pyre-ignore[14]: Inconsistent override.
     def clone_with_args(
         self,
         objective: MultiObjective | None = None,
         preference_profile_name: str | None = None,
-        outcome_constraints: list[OutcomeConstraint] | None = None,
+        outcome_constraints: list[OutcomeConstraint] | None = _NO_OUTCOME_CONSTRAINTS,
+        pruning_target_parameterization: Arm
+        | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> PreferenceOptimizationConfig:
         """Make a copy of this optimization config."""
         objective = (
@@ -518,14 +569,20 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         )
         outcome_constraints = (
             [constraint.clone() for constraint in self.outcome_constraints]
-            if outcome_constraints is None
+            if outcome_constraints is _NO_OUTCOME_CONSTRAINTS
             else outcome_constraints
+        )
+        pruning_target_parameterization = (
+            self.pruning_target_parameterization
+            if pruning_target_parameterization is _NO_PRUNING_TARGET_PARAMETERIZATION
+            else pruning_target_parameterization
         )
 
         return PreferenceOptimizationConfig(
             objective=objective,
             preference_profile_name=preference_profile_name,
             outcome_constraints=outcome_constraints,
+            pruning_target_parameterization=pruning_target_parameterization,
         )
 
     def __repr__(self) -> str:

@@ -140,8 +140,6 @@ class MultiTypeExperiment(Experiment):
         self._trial_type_to_runner[trial_type] = runner
         return self
 
-    # pyre-fixme[14]: `add_tracking_metric` overrides method defined in `Experiment`
-    #  inconsistently.
     def add_tracking_metric(
         self,
         metric: Metric,
@@ -221,8 +219,9 @@ class MultiTypeExperiment(Experiment):
         oc_metrics = oc.metrics if oc else []
         if metric.name in oc_metrics and trial_type != self._default_trial_type:
             raise ValueError(
-                f"Metric `{metric.name}` must remain a `{self._default_trial_type}` "
-                "metric because it is part of the optimization_config."
+                f"Metric `{metric.name}` must remain a "
+                f"`{self._default_trial_type}` metric because it is part of the "
+                "optimization_config."
             )
         elif not self.supports_trial_type(trial_type):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
@@ -252,8 +251,6 @@ class MultiTypeExperiment(Experiment):
         self,
         trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
         # TODO: make this more efficient for fetching

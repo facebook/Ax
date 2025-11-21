@@ -50,6 +50,7 @@ def _get_one_step_df(
                 "trial_index": 0,
                 "step": step,
                 "virtual runtime": step,
+                "metric_signature": metric_name,
             }
         )
     return pd.DataFrame(
@@ -61,6 +62,7 @@ def _get_one_step_df(
             "trial_index": 0,
             "step": step,
             "virtual runtime": step,
+            "metric_signature": metric_name,
         }
     )
 

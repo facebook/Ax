@@ -18,11 +18,11 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.tests.test_relativize_transform import RelativizeDataTest
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.core.batch_trial import BatchTrial
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.math_utils import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
@@ -95,14 +95,12 @@ class TransformToNewSQSpecificTest(TestCase):
         ):
             TransformToNewSQ(
                 search_space=None,
-                observations=[],
                 adapter=self.adapter,
             )
 
     def test_transform_optimization_config(self) -> None:
         tf = TransformToNewSQ(
             search_space=None,
-            observations=[],
             adapter=self.adapter,
         )
         oc = get_branin_optimization_config()
@@ -112,7 +110,6 @@ class TransformToNewSQSpecificTest(TestCase):
     def test_untransform_outcome_constraints(self) -> None:
         tf = TransformToNewSQ(
             search_space=None,
-            observations=[],
             adapter=self.adapter,
         )
         oc = get_branin_optimization_config()
@@ -124,14 +121,12 @@ class TransformToNewSQSpecificTest(TestCase):
     def test_custom_target_trial(self) -> None:
         tf = TransformToNewSQ(
             search_space=None,
-            observations=[],
             adapter=self.adapter,
         )
         self.assertEqual(tf.default_trial_idx, 0)
 
         tf = TransformToNewSQ(
             search_space=None,
-            observations=[],
             adapter=self.adapter,
             config={"target_trial_index": 1},
         )
@@ -140,7 +135,6 @@ class TransformToNewSQSpecificTest(TestCase):
     def test_single_trial_is_not_transformed(self) -> None:
         tf = TransformToNewSQ(
             search_space=None,
-            observations=[],
             adapter=self.adapter,
         )
         obs = observations_from_data(
@@ -164,14 +158,14 @@ class TransformToNewSQSpecificTest(TestCase):
 
         self._refresh_adapter()
 
-        observations = observations_from_data(
+        experiment_data = extract_experiment_data(
             experiment=self.exp,
-            data=self.exp.lookup_data(),
+            data_loader_config=DataLoaderConfig(),
         )
 
         t = TransformToNewSQ(
             search_space=self.exp.search_space,
-            observations=observations,
+            experiment_data=experiment_data,
             adapter=self.adapter,
         )
 
@@ -183,7 +177,7 @@ class TransformToNewSQSpecificTest(TestCase):
         ):
             t = TransformToNewSQ(
                 search_space=self.exp.search_space,
-                observations=observations,
+                experiment_data=experiment_data,
                 adapter=self.adapter,
             )
 
@@ -195,7 +189,7 @@ class TransformToNewSQSpecificTest(TestCase):
         ):
             t = TransformToNewSQ(
                 search_space=self.exp.search_space,
-                observations=observations,
+                experiment_data=experiment_data,
                 adapter=self.adapter,
             )
 

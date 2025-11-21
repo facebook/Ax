@@ -8,6 +8,7 @@
 
 import itertools
 from copy import deepcopy
+from datetime import datetime
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -21,7 +22,8 @@ from ax.core.base_trial import (
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
+from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
@@ -42,6 +44,7 @@ TEST_DATA = Data(
                 "mean": 1.0,
                 "sem": 2.0,
                 "trial_index": 0,
+                "metric_signature": get_objective().metric.signature,
             }
         ]
     )
@@ -173,6 +176,25 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.did_not_complete)
         self.assertEqual(self.trial.failed_reason, fail_reason)
 
+    def test_staleness(self) -> None:
+        # Test that only candidate trials can be marked as stale
+        self.assertTrue(self.trial.status.is_candidate)
+        self.trial.mark_stale()
+
+        self.assertTrue(self.trial.status.is_stale)
+        self.assertTrue(self.trial.did_not_complete)
+
+        # Test that non-candidate trials cannot be marked as stale
+        self.trial.mark_running(no_runner_required=True, unsafe=True)
+
+        with self.assertRaisesRegex(
+            TrialMutationError,
+            "Cannot mark this candidate as `STALE` because the current status is "
+            "TrialStatus.RUNNING and only trials with status `CANDIDATE` are "
+            "eligible to be marked as `STALE`",
+        ):
+            self.trial.mark_stale()
+
     def test_trial_run_does_not_overwrite_existing_metadata(self) -> None:
         self.trial.runner = SyntheticRunner(dummy_metadata="y")
         self.trial.update_run_metadata({"orig_metadata": "x"})
@@ -194,10 +216,18 @@ class TrialTest(TestCase):
             TrialStatus.FAILED,
             TrialStatus.COMPLETED,
             TrialStatus.EARLY_STOPPED,
+            TrialStatus.STALE,
         ):
             self.setUp()
             # Note: This only tests the no-runner case (and thus not staging)
-            for status in (TrialStatus.RUNNING, terminal_status):
+
+            # STALE can only be reached from CANDIDATE, not from RUNNING
+            if terminal_status == TrialStatus.STALE:
+                status_transition_sequence = (terminal_status,)
+            else:
+                status_transition_sequence = (TrialStatus.RUNNING, terminal_status)
+
+            for status in status_transition_sequence:
                 kwargs = {}
                 if status == TrialStatus.RUNNING:
                     kwargs["no_runner_required"] = True
@@ -284,7 +314,7 @@ class TrialTest(TestCase):
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data_results",
-        return_value={get_objective().metric.name: Ok(TEST_DATA)},
+        return_value={get_objective().metric.signature: Ok(TEST_DATA)},
     )
     def test_fetch_data_result(self, mock: Mock) -> None:
         metric_name = get_objective().metric.name
@@ -336,7 +366,8 @@ class TrialTest(TestCase):
         self.assertEqual(len(data), 0)
 
         # Attach data
-        self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
+        result = self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
+        self.assertEqual(result, str({"m1": 1.0, "m2": 2.0}))
 
         # Confirm the expected state after attaching data
         data = (
@@ -362,7 +393,22 @@ class TrialTest(TestCase):
         map_trial = map_experiment.new_trial().add_arm(
             arm=get_branin_arms(n=1, seed=0)[0]
         )
-        map_trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
+
+        map_experiment.add_tracking_metrics(
+            metrics=[
+                BraninMetric(name="time", param_names=["x1", "x2"]),
+                BraninMetric(name="m1", param_names=["x1", "x2"]),
+            ]
+        )
+        result = map_trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
+        self.assertEqual(result, str({"m1": 1.0}))
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Unable to find the metric signature for one or more metrics.",
+        ):
+            map_trial.update_trial_data(raw_data=[(0, {"m2": 1.0})])
+
         with self.assertRaisesRegex(
             UserInputError,
             "The format of the `raw_data` is not compatible with `MapData`. ",
@@ -413,6 +459,7 @@ class TrialTest(TestCase):
             TrialStatus.COMPLETED,
             TrialStatus.FAILED,
             TrialStatus.ABANDONED,
+            TrialStatus.STALE,
         ]:
             self.trial._failed_reason = self.trial._abandoned_reason = None
             if status != TrialStatus.CANDIDATE:
@@ -425,3 +472,14 @@ class TrialTest(TestCase):
             test_trial._time_created = self.trial._time_created
             test_trial._time_staged = self.trial._time_staged
             self.assertEqual(self.trial, test_trial)
+
+    def test_mark_complete_custom_date(self) -> None:
+        self.trial.mark_running(no_runner_required=True)
+        with self.subTest("custom completion time"):
+            completion_time = "2025-01-01"
+            self.trial.mark_completed(time_completed=completion_time)
+            self.assertEqual(self.trial.status, TrialStatus.COMPLETED)
+            self.assertEqual(
+                self.trial.time_completed,
+                datetime.strptime(completion_time, "%Y-%m-%d"),
+            )

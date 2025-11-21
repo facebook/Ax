@@ -26,7 +26,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
-        metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
         metric_threshold: float = 0.2,
         min_progression: float | None = 10,
         max_progression: float | None = None,
@@ -37,9 +37,9 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """Construct a ThresholdEarlyStoppingStrategy instance.
 
         Args
-            metric_names: A (length-one) list of name of the metric to observe. If
-                None will default to the objective metric on the Experiment's
-                OptimizationConfig.
+            metric_signatures: A (length-one) list of signatures of the metric
+                to observe. If None will default to the objective metric on the
+                 Experiment's OptimizationConfig.
             metric_threshold: The metric threshold that a trial needs to reach by
                 min_progression in order not to be stopped.
             min_progression: Only stop trials if the latest progression value
@@ -62,7 +62,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 we have a reliable approximation for `prog_max`.
         """
         super().__init__(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
@@ -71,14 +71,21 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         )
         self.metric_threshold = metric_threshold
 
-        if metric_names is not None and len(list(metric_names)) > 1:
+        if metric_signatures is not None and len(list(metric_signatures)) > 1:
             raise UnsupportedError(
                 "ThresholdEarlyStoppingStrategy only supports a single metric. Use "
                 "LogicalEarlyStoppingStrategy to compose early stopping strategies "
                 "with multiple metrics."
             )
 
-    def should_stop_trials_early(
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        return False
+
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,
@@ -100,11 +107,11 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             (optional) messages with the associated reason. An empty dictionary
             means no suggested updates to any trial's status.
         """
-        metric_name, minimize = self._default_objective_and_direction(
+        metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
         )
         data = self._check_validity_and_get_data(
-            experiment=experiment, metric_names=[metric_name]
+            experiment=experiment, metric_signatures=[metric_signature]
         )
         if data is None:
             # don't stop any trials if we don't get data back
@@ -119,7 +126,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         ):
             return {}
 
-        df_objective = df[df["metric_name"] == metric_name]
+        df_objective = df[df["metric_signature"] == metric_signature]
         decisions = {
             trial_index: self._should_stop_trial_early(
                 trial_index=trial_index,

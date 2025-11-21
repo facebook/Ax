@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-
 from typing import Any
 
 import numpy as np
@@ -33,7 +32,6 @@ class NoisyFunctionMapMetric(MapMetric):
         param_names: Iterable[str],
         noise_sd: float = 0.0,
         lower_is_better: bool | None = None,
-        cache_evaluations: bool = True,
     ) -> None:
         """
         Metric is computed by evaluating a deterministic function, implemented
@@ -49,16 +47,9 @@ class NoisyFunctionMapMetric(MapMetric):
                 to the deterministic function.
             noise_sd: Scale of normal noise added to the function result.
             lower_is_better: Flag for metrics which should be minimized.
-            cache_evaluations: Flag for whether previous evaluations should
-                be cached. If so, those values are returned for previously
-                evaluated parameters using the same realization of the
-                observation noise.
         """
         self.param_names = param_names
         self.noise_sd = noise_sd
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.cache = {}
-        self.cache_evaluations = cache_evaluations
         super().__init__(name=name, lower_is_better=lower_is_better)
 
     @classmethod
@@ -75,7 +66,6 @@ class NoisyFunctionMapMetric(MapMetric):
             param_names=self.param_names,
             noise_sd=self.noise_sd,
             lower_is_better=self.lower_is_better,
-            cache_evaluations=self.cache_evaluations,
         )
 
     def fetch_trial_data(
@@ -99,6 +89,7 @@ class NoisyFunctionMapMetric(MapMetric):
                         else 0.0
                         for item in res
                     ],
+                    "metric_signature": self.signature,
                     MAP_KEY: [item[MAP_KEY] for item in res],
                 }
             )

@@ -25,6 +25,10 @@ class TestProblems(TestCase):
         for name in BENCHMARK_PROBLEM_REGISTRY.keys():
             if "MNIST" in name:
                 continue  # Skip these as they cause the test to take a long time
+            if name == "botorch_synthetic":
+                # Skip this generic one since it requires the mandatory argument
+                # `test_problem_class`. This is tested separately below.
+                continue
 
             # Avoid downloading data from the internet
             with patch(
@@ -34,6 +38,13 @@ class TestProblems(TestCase):
             ), patch.object(Pipeline, "fit"):
                 problem = get_benchmark_problem(problem_key=name)
             self.assertIsInstance(problem, BenchmarkProblem, msg=name)
+
+        generic_synthetic_problem = get_benchmark_problem(
+            problem_key="botorch_synthetic", test_problem_class="Branin"
+        )
+        self.assertIsInstance(
+            generic_synthetic_problem, BenchmarkProblem, msg="botorch_synthetic"
+        )
 
     def test_name(self) -> None:
         expected_names = [
@@ -54,17 +65,38 @@ class TestProblems(TestCase):
             self.assertEqual(problem.name, problem_name)
 
     def test_no_duplicates(self) -> None:
-        keys = [elt for elt in BENCHMARK_PROBLEM_REGISTRY.keys() if "MNIST" not in elt]
-
+        problem_names = set()
+        problem_keys = []
         # Avoid downloading data from the internet
         with patch(
             "ax.benchmark.problems.surrogate."
             "lcbench.early_stopping.load_lcbench_data",
             return_value=get_mock_lcbench_data(),
         ), patch.object(Pipeline, "fit"):
-            names = {get_benchmark_problem(problem_key=key).name for key in keys}
+            for problem_key in BENCHMARK_PROBLEM_REGISTRY.keys():
+                if "MNIST" in problem_key:
+                    continue  # Skip these as they cause the test to take a long time
+                if problem_key == "botorch_synthetic":
+                    # Skip this generic one since it requires the mandatory argument
+                    # `test_problem_class`. This is added separately below.
+                    continue
 
-        self.assertEqual(len(keys), len(names))
+                problem_keys.append(problem_key)
+                problem_names.add(get_benchmark_problem(problem_key=problem_key).name)
+
+        # Handle the botorch_synthetic special case separately. Note that StyblinskiTang
+        # works here only because it is not registered as its own benchmark problem
+        # in the registry.
+        problem_keys.append("botorch_synthetic")
+        problem_names.add(
+            get_benchmark_problem(
+                problem_key="botorch_synthetic",
+                test_problem_class="StyblinskiTang",
+                test_problem_kwargs={"dim": 2},
+            ).name
+        )
+
+        self.assertEqual(len(problem_names), len(problem_keys))
 
     def test_external_registry(self) -> None:
         registry = {

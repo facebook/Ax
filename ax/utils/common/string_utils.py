@@ -11,6 +11,8 @@ import re
 DOT_PLACEHOLDER = "__dot__"
 SLASH_PLACEHOLDER = "__slash__"
 COLON_PLACEHOLDER = "__colon__"
+PIPE_PLACEHOLDER = "__pipe__"
+TILDE_PLACEHOLDER = "__tilde__"
 _forbidden_re: re.Pattern[str] = re.compile(r"[\;\[\'\\]")
 
 
@@ -27,7 +29,7 @@ def sanitize_name(s: str) -> str:
 
 
     This does not allow obvious attack vectors  `;`, `[`, backslashes, and quotations.
-    Colons, dots, and slashes are sanitized.
+    Colons, dots, slashes, and tildes are sanitized.
     """
     if _forbidden_re.search(s) is not None:
         raise ValueError(f"Expression {s} has forbidden control characters.")
@@ -48,8 +50,19 @@ def sanitize_name(s: str) -> str:
         rf"\1{COLON_PLACEHOLDER}\2",
         sans_slash,
     )
+    sans_pipe = re.sub(
+        r"([a-zA-Z_][a-zA-Z0-9_]*)\|([a-zA-Z0-9_])",
+        rf"\1{PIPE_PLACEHOLDER}\2",
+        sans_colon,
+    )
+    # Replace tilde at the start of a variable name or after alphanumeric characters
+    sans_tilde = re.sub(
+        r"~([a-zA-Z_][a-zA-Z0-9_]*)",
+        rf"{TILDE_PLACEHOLDER}\1",
+        sans_pipe,
+    )
 
-    return sans_colon
+    return sans_tilde
 
 
 def unsanitize_name(s: str) -> str:
@@ -61,7 +74,9 @@ def unsanitize_name(s: str) -> str:
     """
 
     # Unsanitize in the reverse order of sanitization
-    with_colon = re.sub(rf"{COLON_PLACEHOLDER}", ":", s)
+    with_tilde = re.sub(rf"{TILDE_PLACEHOLDER}", "~", s)
+    with_pipe = re.sub(rf"{PIPE_PLACEHOLDER}", "|", with_tilde)
+    with_colon = re.sub(rf"{COLON_PLACEHOLDER}", ":", with_pipe)
     with_slash = re.sub(rf"{SLASH_PLACEHOLDER}", "/", with_colon)
     with_dot = re.sub(rf"{DOT_PLACEHOLDER}", ".", with_slash)
 

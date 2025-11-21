@@ -10,16 +10,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
 
-import numpy as np
 import numpy.typing as npt
 import torch
 from ax.exceptions.core import UnsupportedError
-from ax.generators.model_utils import (
-    filter_constraints_and_fixed_features,
-    get_observed,
-)
-from ax.generators.random.sobol import SobolGenerator
-from ax.generators.types import TConfig
+from ax.generators.utils import filter_constraints_and_fixed_features, get_observed
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
@@ -32,40 +26,26 @@ from botorch.acquisition.multi_objective.base import (
     MultiObjectiveAnalyticAcquisitionFunction,
     MultiObjectiveMCAcquisitionFunction,
 )
-from botorch.acquisition.multi_objective.multi_output_risk_measures import (
-    MARS,
-    MultiOutputRiskMeasureMCObjective,
-)
-from botorch.acquisition.multi_objective.objective import (
-    IdentityMCMultiOutputObjective,
-    WeightedMCMultiOutputObjective,
-)
+from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import (
     ConstrainedMCObjective,
     GenericMCObjective,
-    IdentityMCObjective,
     LearnedObjective,
-    LinearMCObjective,
     MCAcquisitionObjective,
     PosteriorTransform,
     ScalarizedPosteriorTransform,
 )
-from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
-from botorch.models.model import Model
+from botorch.models.model import Model, ModelList
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
-from botorch.utils.sampling import sample_hypersphere, sample_simplex
+from botorch.utils.transforms import is_ensemble
 from torch import Tensor
-
-
-# Distributions
-SIMPLEX = "simplex"
-HYPERSPHERE = "hypersphere"
+from torch.nn import ModuleList  # @manual
 
 
 @dataclass
@@ -199,41 +179,6 @@ def _get_X_pending_and_observed(
         return X_pending, unfiltered_X_observed
 
 
-def _generate_sobol_points(
-    n_sobol: int,
-    bounds: list[tuple[float, float]],
-    device: torch.device,
-    linear_constraints: tuple[Tensor, Tensor] | None = None,
-    fixed_features: dict[int, float] | None = None,
-    rounding_func: Callable[[Tensor], Tensor] | None = None,
-    model_gen_options: TConfig | None = None,
-) -> Tensor:
-    linear_constraints_array = None
-
-    if linear_constraints is not None:
-        linear_constraints_array = (
-            linear_constraints[0].detach().cpu().numpy(),
-            linear_constraints[1].detach().cpu().numpy(),
-        )
-
-    array_rounding_func = None
-    if rounding_func is not None:
-        array_rounding_func = tensor_callable_to_array_callable(
-            tensor_func=rounding_func, device=device
-        )
-
-    sobol = SobolGenerator(deduplicate=False, seed=np.random.randint(10000))
-    array_X, _ = sobol.gen(
-        n=n_sobol,
-        bounds=bounds,
-        linear_constraints=linear_constraints_array,
-        fixed_features=fixed_features,
-        rounding_func=array_rounding_func,
-        model_gen_options=model_gen_options,
-    )
-    return torch.from_numpy(array_X).to(device)
-
-
 def subset_model(
     model: Model,
     objective_weights: Tensor,
@@ -351,56 +296,12 @@ def _get_weighted_mo_objective(
     )
 
 
-def _get_risk_measure(
-    model: Model,
-    objective_weights: Tensor,
-    risk_measure: RiskMeasureMCObjective,
-    outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    X_observed: Tensor | None = None,
-) -> RiskMeasureMCObjective:
-    r"""Processes the risk measure for `get_botorch_objective_and_transform`.
-    See the docstring of `get_botorch_objective_and_transform` for the arguments.
-    """
-    if outcome_constraints is not None:
-        # TODO[T131759270]: Handle the constraints via feasibility weighting.
-        # See `FeasibilityWeightedMCMultiOutputObjective`.
-        raise NotImplementedError(
-            "Outcome constraints are not supported with risk measures."
-        )
-    # Isinstance doesn't work since it covers subclasses as well.
-    if risk_measure.preprocessing_function.__class__ not in (
-        IdentityMCObjective,
-        IdentityMCMultiOutputObjective,
-    ) or hasattr(risk_measure.preprocessing_function, "outcomes"):
-        raise UnsupportedError(
-            "User supplied preprocessing functions for the risk measures are not "
-            "supported. We construct a new one based on `objective_weights` instead."
-        )
-    if isinstance(risk_measure, MultiOutputRiskMeasureMCObjective):
-        risk_measure.preprocessing_function = _get_weighted_mo_objective(
-            objective_weights=objective_weights
-        )
-        if isinstance(risk_measure, MARS):
-            risk_measure.chebyshev_weights = sample_simplex(
-                len(objective_weights.nonzero())
-            ).squeeze()
-            if X_observed is None:
-                raise UnsupportedError("X_observed is required when using MARS.")
-            risk_measure.set_baseline_Y(model=model, X_baseline=X_observed)
-    else:
-        risk_measure.preprocessing_function = LinearMCObjective(
-            weights=objective_weights
-        )
-    return risk_measure
-
-
 def get_botorch_objective_and_transform(
     botorch_acqf_class: type[AcquisitionFunction],
     model: Model,
     objective_weights: Tensor,
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
     X_observed: Tensor | None = None,
-    risk_measure: RiskMeasureMCObjective | None = None,
     learned_objective_preference_model: Model | None = None,
 ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
     """Constructs a BoTorch `AcquisitionObjective` object.
@@ -418,7 +319,6 @@ def get_botorch_objective_and_transform(
             A f(x) <= b. (Not used by single task models)
         X_observed: Observed points that are feasible and appear in the
             objective or the constraints. None if there are no such points.
-        risk_measure: An optional risk measure for robust optimization.
 
     Returns:
         A two-tuple containing (optionally) an `MCAcquisitionObjective` and
@@ -426,22 +326,8 @@ def get_botorch_objective_and_transform(
     """
 
     if learned_objective_preference_model is not None:
-        if risk_measure is not None:
-            raise UnsupportedError(
-                "Risk measures are not supported in with a preference objective."
-            )
         objective = LearnedObjective(pref_model=learned_objective_preference_model)
         return objective, None
-
-    if risk_measure is not None:
-        risk_measure = _get_risk_measure(
-            model=model,
-            objective_weights=objective_weights,
-            risk_measure=risk_measure,
-            outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
-        )
-        return risk_measure, None
 
     if issubclass(
         botorch_acqf_class,
@@ -487,9 +373,8 @@ def pick_best_out_of_sample_point_acqf_class(
     mc_samples: int = 512,
     qmc: bool = True,
     seed_inner: int | None = None,
-    risk_measure: RiskMeasureMCObjective | None = None,
 ) -> tuple[type[AcquisitionFunction], dict[str, Any]]:
-    if outcome_constraints is None and risk_measure is None:
+    if outcome_constraints is None:
         acqf_class = PosteriorMean
         acqf_options = {}
     else:
@@ -557,39 +442,6 @@ def predict_from_model(
     return mean, cov
 
 
-# TODO(jej): Possibly refactor to use "objective_directions".
-def randomize_objective_weights(
-    objective_weights: Tensor,
-    random_scalarization_distribution: str = SIMPLEX,
-) -> Tensor:
-    """Generate a random weighting based on acquisition function settings.
-
-    Args:
-        objective_weights: Base weights to multiply by random values.
-        random_scalarization_distribution: "simplex" or "hypersphere".
-
-    Returns:
-        A normalized list of indices such that each index is between `0` and `d-1`.
-    """
-    # Set distribution and sample weights.
-    distribution = random_scalarization_distribution
-    dtype = objective_weights.dtype
-    device = objective_weights.device
-    if distribution == SIMPLEX:
-        random_weights = sample_simplex(
-            len(objective_weights), dtype=dtype, device=device
-        ).squeeze()
-    elif distribution == HYPERSPHERE:
-        random_weights = torch.abs(
-            sample_hypersphere(
-                len(objective_weights), dtype=dtype, device=device
-            ).squeeze()
-        )
-    # pyre-fixme[61]: `random_weights` may not be initialized here.
-    objective_weights = torch.mul(objective_weights, random_weights)
-    return objective_weights
-
-
 def _datasets_to_legacy_inputs(
     datasets: Sequence[SupervisedDataset],
 ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
@@ -606,3 +458,75 @@ def _datasets_to_legacy_inputs(
             else:
                 Yvars.append(torch.full_like(Ys[-1], float("nan")))
     return Xs, Ys, Yvars
+
+
+def get_feature_importances_from_botorch_model(
+    model: Model | ModuleList | None,
+) -> npt.NDArray:
+    """Get feature importances from a list of BoTorch models.
+
+    Args:
+        models: BoTorch model to get feature importances from.
+
+    Returns:
+        The feature importances as a numpy array where each row sums to 1.
+    """
+    if model is None:
+        raise RuntimeError(
+            "Cannot calculate feature_importances without a fitted model."
+            "Call `fit` first."
+        )
+    elif isinstance(model, ModelList):
+        models = model.models
+    else:
+        models = [model]
+    lengthscales = []
+    for m in models:
+        try:
+            # this can be a ModelList of a SAAS and STGP, so this is a necessary way
+            # to get the lengthscale
+            if hasattr(m.covar_module, "base_kernel"):
+                # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor` of...
+                ls = m.covar_module.base_kernel.lengthscale
+            else:
+                # pyre-fixme[16]: Undefined attribute: Item `torch._tensor.Tensor` of...
+                ls = m.covar_module.lengthscale
+        except AttributeError:
+            ls = None
+        # pyre-fixme[29]: Call error: `typing.Union[BoundMethod[typing.Callable(torch...
+        if ls is None or ls.shape[-1] != m.train_inputs[0].shape[-1]:
+            # TODO: We could potentially set the feature importances to NaN in this
+            # case, but this require knowing the batch dimension of this model.
+            # Consider supporting in the future.
+            raise NotImplementedError(
+                "Failed to extract lengthscales from `m.covar_module` "
+                "and `m.covar_module.base_kernel`"
+            )
+        if ls.ndim == 2:
+            ls = ls.unsqueeze(0)
+        # pyre-fixme[6]: Incompatible parameter type: In call `is_ensemble`, for 1st ...
+        if is_ensemble(m):  # Take the median over the model batch dimension
+            ls = torch.quantile(ls, q=0.5, dim=0, keepdim=True)
+        lengthscales.append(ls)
+    lengthscales = torch.cat(lengthscales, dim=0)
+    feature_importances = (1 / lengthscales).detach().cpu()  # pyre-ignore
+    # Make sure the sum of feature importances is 1.0 for each metric
+    feature_importances /= feature_importances.sum(dim=-1, keepdim=True)
+    return feature_importances.numpy()
+
+
+def get_rounding_func(
+    rounding_func: Callable[[Tensor], Tensor] | None,
+) -> Callable[[Tensor], Tensor] | None:
+    if rounding_func is None:
+        return None
+
+    # make sure rounding_func is properly applied to q- and t-batches
+    def botorch_rounding_func(X: Tensor) -> Tensor:
+        batch_shape, d = X.shape[:-1], X.shape[-1]
+        X_round = torch.stack(
+            [rounding_func(x) for x in X.view(-1, d)]  # pyre-ignore: [16]
+        )
+        return X_round.view(*batch_shape, d)
+
+    return botorch_rounding_func

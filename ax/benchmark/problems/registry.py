@@ -15,9 +15,6 @@ from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.benchmark.problems.surrogate.lcbench.early_stopping import (
     get_lcbench_early_stopping_benchmark_problem,
 )
-from ax.benchmark.problems.surrogate.lcbench.transfer_learning import (
-    get_lcbench_benchmark_problem,
-)
 from ax.benchmark.problems.synthetic.bandit import get_bandit_problem
 from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_ackley,
@@ -61,6 +58,15 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
     ),
     "Bandit": BenchmarkProblemRegistryEntry(
         factory_fn=get_bandit_problem, factory_kwargs={}
+    ),
+    "botorch_synthetic": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        # NOTE: This is the only problem that require a mandatory argument,
+        # in this case `test_problem_class`.
+        factory_kwargs={
+            "test_problem_kwargs": {},
+            "num_trials": 30,
+        },
     ),
     "branin": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -131,9 +137,6 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
     "jenatton": BenchmarkProblemRegistryEntry(
         factory_fn=get_jenatton_benchmark_problem,
         factory_kwargs={"num_trials": 50, "observe_noise_sd": False},
-    ),
-    "LCBench:v1 Fashion-MNIST": BenchmarkProblemRegistryEntry(
-        get_lcbench_benchmark_problem, factory_kwargs={"dataset_name": "Fashion-MNIST"}
     ),
     "levy4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,

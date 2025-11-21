@@ -14,7 +14,7 @@ from ax.benchmark.benchmark_problem import (
     get_soo_opt_config,
 )
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
-from ax.core.objective import MultiObjective, Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -23,6 +23,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
+from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
 from pyre_extensions import assert_is_instance
 
@@ -84,6 +85,37 @@ class TestBenchmarkProblem(TestCase):
                 search_space=SearchSpace(parameters=[]),
                 test_function=test_function,
                 baseline_value=1.0,
+                worst_feasible_value=2.0,
+            )
+
+    def test_missing_names_on_test_function_with_scalarized_objective(self) -> None:
+        objective = ScalarizedObjective(
+            metrics=[
+                BenchmarkMetric(name, lower_is_better=True)
+                for name in ["BraninCurrin_0", "BraninCurrin_missing"]
+            ],
+            weights=[1.0, 1.0],
+            minimize=True,
+        )
+        test_function = BoTorchTestFunction(
+            botorch_problem=BraninCurrin(),
+            outcome_names=["BraninCurrin_0", "BraninCurrin_1"],
+        )
+        opt_config = OptimizationConfig(objective=objective)
+        with self.assertRaisesRegex(
+            ValueError,
+            "The following objectives are defined on "
+            "`optimization_config` but not included in "
+            "`runner.test_function.outcome_names`: {'BraninCurrin_missing'}.",
+        ):
+            BenchmarkProblem(
+                name="foo",
+                optimization_config=opt_config,
+                num_trials=1,
+                optimal_value=0.0,
+                search_space=SearchSpace(parameters=[]),
+                test_function=test_function,
+                baseline_value=1.0,
             )
 
     def test_get_soo_opt_config(self) -> None:
@@ -98,12 +130,14 @@ class TestBenchmarkProblem(TestCase):
             opt_config.objective.metric, BenchmarkMetric
         )
         self.assertEqual(objective_metric.name, "foo")
+        self.assertEqual(objective_metric.signature, "foo")
         self.assertEqual(objective_metric.observe_noise_sd, True)
         self.assertEqual(objective_metric.lower_is_better, False)
         constraint_metric = assert_is_instance(
             opt_config.outcome_constraints[0].metric, BenchmarkMetric
         )
         self.assertEqual(constraint_metric.name, "bar")
+        self.assertEqual(constraint_metric.signature, "bar")
         self.assertEqual(constraint_metric.observe_noise_sd, True)
         self.assertEqual(constraint_metric.lower_is_better, False)
 

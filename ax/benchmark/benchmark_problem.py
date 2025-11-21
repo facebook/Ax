@@ -13,8 +13,9 @@ from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.metric import Metric
 
-from ax.core.objective import MultiObjective, Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     ObjectiveThreshold,
@@ -42,6 +43,14 @@ class BenchmarkProblem(Base):
             be `BenchmarkMetric`s.
         num_trials: Number of optimization iterations to run. BatchTrials count
             as one trial.
+        test_function: A `BenchmarkTestFunction`, which will generate noiseless
+            data. This will be used by a `BenchmarkRunner`.
+        noise_std: Describes how noise is added to the output of the
+            `test_function`. If a float, IID random normal noise with that
+            standard deviation is added. A list of floats, or a dict whose keys
+            match `test_functions.outcome_names`, sets different noise
+            standard deviations for the different outcomes produced by the
+            `test_function`. This will be used by a `BenchmarkRunner`.
         optimal_value: The best ground-truth objective value, used for scoring
             optimization results on a scale from 0 to 100, where achieving the
             `optimal_value` receives a score of 100. The `optimal_value` should
@@ -54,15 +63,12 @@ class BenchmarkProblem(Base):
             can be derived using the function
             `compute_baseline_value_from_sobol`, which takes the best of five
             quasi-random Sobol trials.
+        worst_feasible_value: The worst possible objective value for a feasible trial.
+            This must be provided for constrained problems. This value is assigned to
+            infeasible trials when computing the score of a given benchmark probem.
+            This has the desirable property that any feasible trial has a better score
+            than an infeasible trial.
         search_space: The search space.
-        test_function: A `BenchmarkTestFunction`, which will generate noiseless
-            data. This will be used by a `BenchmarkRunner`.
-        noise_std: Describes how noise is added to the output of the
-            `test_function`. If a float, IID random normal noise with that
-            standard deviation is added. A list of floats, or a dict whose keys
-            match `test_functions.outcome_names`, sets different noise
-            standard deviations for the different outcomes produced by the
-            `test_function`. This will be used by a `BenchmarkRunner`.
         report_inference_value_as_trace: Whether the ``optimization_trace`` on a
             ``BenchmarkResult`` should use the ``oracle_trace`` (if False,
             default) or the ``inference_trace``. See ``BenchmarkResult`` for
@@ -73,8 +79,16 @@ class BenchmarkProblem(Base):
             returns the runtime of an step. If ``step_runtime_function`` is
             left as ``None``, each step will take one simulated second.  (When
             data is not time-series, the whole trial consists of one step.)
+        target_fidelity_and_task: A mapping from names of task and fidelity
+            parameters to their respective target values.
+        status_quo_params: The parameterization of the status quo arm. Required
+            when using relative constraints.
         auxiliary_experiments_by_purpose: A mapping from experiment purpose to
             a list of auxiliary experiments.
+        tracking_metrics: A list of metrics to track on the experiment in
+            addition to the metrics contained in the OptimizationConfig.
+            Tracking metrics appear in the data stored on the Experiment
+            and do not affect the traces in a BenchmarkResult.
     """
 
     name: str
@@ -84,6 +98,7 @@ class BenchmarkProblem(Base):
     noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
     optimal_value: float
     baseline_value: float
+    worst_feasible_value: float | None = None
     search_space: SearchSpace = field(repr=False)
     report_inference_value_as_trace: bool = False
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
@@ -92,6 +107,7 @@ class BenchmarkProblem(Base):
     auxiliary_experiments_by_purpose: (
         dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
     ) = None
+    tracking_metrics: list[Metric] | None = None
 
     def __post_init__(self) -> None:
         # Validate inputs
@@ -121,12 +137,38 @@ class BenchmarkProblem(Base):
                 "The baseline value must be strictly less than the optimal "
                 "value for maximization problems."
             )
+        # Validate worst_feasible_value
+        if len(self.optimization_config.outcome_constraints) > 0:
+            if isinstance(self.optimization_config, MultiObjectiveOptimizationConfig):
+                if self.worst_feasible_value != 0.0:
+                    raise ValueError(
+                        "The worst feasible value must be 0.0 for multi-objective "
+                        "problems."
+                    )
+            elif self.worst_feasible_value is None:
+                raise ValueError(
+                    "The worst feasible value must be provided for constrained "
+                    "problems (got `None`)"
+                )
+            elif self.optimization_config.objective.minimize:
+                if self.optimal_value > self.worst_feasible_value:
+                    raise ValueError(
+                        "The worst feasible value must be greater than or equal to "
+                        "the optimal value for minimization problems."
+                    )
+            elif self.optimal_value < self.worst_feasible_value:
+                raise ValueError(
+                    "The worst feasible value must be less than or equal to "
+                    "the optimal value for maximization problems."
+                )
 
         # Validate that names on optimization config are contained in names on
         # test function
         objective = self.optimization_config.objective
         if isinstance(objective, MultiObjective):
             objective_names = {obj.metric.name for obj in objective.objectives}
+        elif isinstance(objective, ScalarizedObjective):
+            objective_names = {metric.name for metric in objective.metrics}
         else:
             objective_names = {objective.metric.name}
 

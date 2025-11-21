@@ -11,16 +11,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.arm import Arm
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import separate_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import DataRequiredError, UnsupportedError
+from ax.core.search_space import SearchSpace
+from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
 
 
@@ -64,61 +61,32 @@ class Transform:
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Do any initial computations for preparing the transform.
 
-        This takes in search space and observations, but they are not modified.
-
         Args:
             search_space: The search space of the experiment.
-            observations: A list of observations from the experiment.
             experiment_data: A container for the parameterizations, metadata and
                 observations for the trials in the experiment.
                 Constructed using ``extract_experiment_data``.
             adapter: Adapter for referencing experiment, status quo, etc.
             config: A dictionary of options specific to each transform.
         """
-        if experiment_data is not None and observations is not None:
-            raise UnsupportedError(
-                "Only one of `experiment_data` or `observations` should be provided. "
-                f"Got {experiment_data=}, {observations=}."
+        if self.requires_data_for_initialization and (
+            experiment_data is None or experiment_data.observation_data.empty
+        ):
+            raise DataRequiredError(
+                f"`{self.__class__.__name__}` transform requires non-empty data."
             )
-        if self.requires_data_for_initialization:
-            has_non_empty_observations = observations is not None and len(observations)
-            has_non_empty_experiment_data = (
-                experiment_data is not None
-                and not experiment_data.observation_data.empty
-            )
-            if not (has_non_empty_observations or has_non_empty_experiment_data):
-                raise DataRequiredError(
-                    f"`{self.__class__.__name__}` transform requires non-empty data."
-                )
         if config is None:
             config = {}
         self.config = config
         self.adapter = adapter
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        """Transform search space.
-
-        The transforms are typically done in-place. This calls two private methods,
-        `_transform_search_space`, which transforms the core search space attributes,
-        and `_transform_parameter_distributions`, which transforms the distributions
-        when using a `RobustSearchSpace`.
-
-        Args:
-            search_space: The search space
-
-        Returns: transformed search space.
-        """
-        self._transform_parameter_distributions(search_space=search_space)
-        return self._transform_search_space(search_space=search_space)
-
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Transform search space.
 
         This is typically done in-place. This class implements the identity
@@ -147,6 +115,17 @@ class Transform:
 
         Returns: transformed optimization config.
         """
+        if optimization_config.pruning_target_parameterization is not None:
+            pruning_target_params = (
+                optimization_config.pruning_target_parameterization.parameters
+            )
+            optimization_config.pruning_target_parameterization = Arm(
+                parameters=self.transform_observation_features(
+                    observation_features=[
+                        ObservationFeatures(parameters=pruning_target_params)
+                    ]
+                )[0].parameters
+            )
         return optimization_config
 
     def transform_observations(
@@ -276,29 +255,6 @@ class Transform:
         """
         return outcome_constraints
 
-    def _transform_parameter_distributions(self, search_space: SearchSpace) -> None:
-        """Transform the parameter distributions of the given search space, in-place.
-
-        This method should be called in transform_search_space before parameters
-        are transformed.
-
-        The base implementation is a no-op for most transforms, except for those
-        that have a `transform_parameters` attribute, in which case this will
-        raise an `UnsupportedError` if a parameter with an associated distribution
-        is being transformed.
-        """
-        if isinstance(search_space, RobustSearchSpace) and hasattr(
-            self, "transform_parameters"
-        ):
-            # pyre-ignore Undefined attribute [16]
-            for p_name in self.transform_parameters:
-                if p_name in search_space._distributional_parameters:
-                    raise UnsupportedError(
-                        f"{self.__class__.__name__} transform is not supported for "
-                        "parameters with an associated distribution. Consider updating "
-                        "the transform config."
-                    )
-
     def transform_experiment_data(
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
@@ -314,7 +270,7 @@ class Transform:
 
         Returns: The transformed experiment data.
         """
-        if self.no_op_for_experiment_data:
+        if self.no_op_for_experiment_data or self.__class__ == Transform:
             return experiment_data
         else:
             raise NotImplementedError(

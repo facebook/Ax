@@ -54,9 +54,6 @@ class DiscreteAdapter(Adapter):
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         data_loader_config: DataLoaderConfig | None = None,
-        fit_out_of_design: bool | None = None,
-        fit_abandoned: bool | None = None,
-        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         # These are set in _fit.
         self.parameters: list[str] = []
@@ -71,11 +68,8 @@ class DiscreteAdapter(Adapter):
             optimization_config=optimization_config,
             expand_model_space=expand_model_space,
             data_loader_config=data_loader_config,
-            fit_out_of_design=fit_out_of_design,
-            fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
-            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
         # Re-assign for more precise typing.
         self.generator: DiscreteGenerator = generator
@@ -90,7 +84,7 @@ class DiscreteAdapter(Adapter):
         if experiment_data.observation_data.empty:
             self.outcomes = []
         else:
-            self.outcomes = sorted(experiment_data.metric_names)
+            self.outcomes = sorted(experiment_data.metric_signatures)
         # Convert observations to arrays
         Xs_array, Ys_array, Yvars_array = self._convert_experiment_data(
             experiment_data=experiment_data,
@@ -187,8 +181,8 @@ class DiscreteAdapter(Adapter):
             pending_array: list[list[TParamValueList]] | None = None
         else:
             pending_array = [[] for _ in self.outcomes]
-            for metric_name, po_list in pending_observations.items():
-                pending_array[self.outcomes.index(metric_name)] = [
+            for metric_signature, po_list in pending_observations.items():
+                pending_array[self.outcomes.index(metric_signature)] = [
                     [po.parameters[p] for p in self.parameters] for po in po_list
                 ]
 

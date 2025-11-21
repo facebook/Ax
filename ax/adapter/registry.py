@@ -13,14 +13,13 @@ such as Sobol generator, GP+EI, Thompson sampler, etc.
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from inspect import isfunction, signature
 from logging import Logger
 from typing import Any, NamedTuple
 
-from ax.adapter.base import Adapter, DataLoaderConfig
+from ax.adapter.base import Adapter
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.torch import TorchAdapter
@@ -32,7 +31,7 @@ from ax.adapter.transforms.choice_encode import (
 )
 from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
-from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
+from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.logit import Logit
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
@@ -47,10 +46,10 @@ from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.adapter.transforms.trial_as_task import TrialAsTask
 from ax.adapter.transforms.unit_x import UnitX
+from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.base import Generator
 from ax.generators.discrete.eb_ashr import EBAshr
@@ -59,12 +58,10 @@ from ax.generators.discrete.full_factorial import FullFactorialGenerator
 from ax.generators.discrete.thompson import ThompsonSampler
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.random.uniform import UniformGenerator
-from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
-from ax.generators.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -93,17 +90,16 @@ Cont_X_trans: list[type[Transform]] = [
 ]
 
 # This is a modification of Cont_X_trans that aims to avoid continuous relaxation
-# where possible. It replaces IntToFloat with LogIntToFloat, which is only transforms
-# log-scale integer parameters, which still use continuous relaxation. Other discrete
-# transforms will remain discrete. When used with MBM, a Normalize input transform
-# will be added to replace the UnitX transform. This setup facilitates the use of
+# where possible. To this end, the Log transform converts log-scale integer
+# RangeParameters to numeric discrete ChoiceParameters. Other discrete transforms
+# will remain discrete. When used with MBM, a Normalize input transform will be
+# added to replace the UnitX transform. This setup facilitates the use of
 # optimize_acqf_mixed_alternating, which is a more efficient acquisition function
 # optimizer for mixed discrete/continuous problems.
 MBM_X_trans_base: list[type[Transform]] = [
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
-    LogIntToFloat,
     Log,
     Logit,
 ]
@@ -137,16 +133,20 @@ rel_EB_ashr_trans: list[type[Transform]] = [
 Mixed_transforms: list[type[Transform]] = [
     RemoveFixed,
     ChoiceToNumericChoice,
-    LogIntToFloat,
     Log,
     Logit,
 ]
 
-Y_trans: list[type[Transform]] = [Derelativize, BilogY, StandardizeY]
+Y_trans: list[type[Transform]] = [Derelativize, Winsorize, BilogY, StandardizeY]
 
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
-TS_trans: list[type[Transform]] = Y_trans + [SearchSpaceToChoice]
+TS_trans: list[type[Transform]] = [
+    Derelativize,
+    BilogY,
+    StandardizeY,
+    SearchSpaceToChoice,
+]
 
 MTGP_Y_trans: list[type[Transform]] = [
     Derelativize,
@@ -185,16 +185,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         adapter_class=TorchAdapter,
         model_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
-    ),
-    "Legacy_GPEI": ModelSetup(
-        adapter_class=TorchAdapter,
-        standard_bridge_kwargs={
-            "data_loader_config": DataLoaderConfig(
-                fit_only_completed_map_metrics=True,
-            ),
-        },
-        model_class=LegacyBoTorchGenerator,
-        transforms=Cont_X_trans + Y_trans,
     ),
     "EB": ModelSetup(
         adapter_class=DiscreteAdapter,
@@ -265,11 +255,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
             )
         },
     ),
-    "Contextual_SACBO": ModelSetup(
-        adapter_class=TorchAdapter,
-        model_class=SACBO,
-        transforms=Cont_X_trans + Y_trans,
-    ),
 }
 
 
@@ -294,10 +279,10 @@ class GeneratorRegistryBase(Enum):
 
     def __call__(
         self,
-        search_space: SearchSpace | None = None,
-        experiment: Experiment | None = None,
+        experiment: Experiment,
         data: Data | None = None,
         silently_filter_kwargs: bool = False,
+        model_key_override: str | None = None,
         **kwargs: Any,
     ) -> Adapter:
         if self.value not in self.model_key_to_model_setup:
@@ -305,29 +290,7 @@ class GeneratorRegistryBase(Enum):
         model_setup_info = self.model_key_to_model_setup[self.value]
         model_class = model_setup_info.model_class
         adapter_class = model_setup_info.adapter_class
-        if experiment is None:
-            # Some Adapters used to accept search_space as the only input.
-            # Temporarily support it with a deprecation warning.
-            if (
-                issubclass(adapter_class, (RandomAdapter, DiscreteAdapter))
-                and search_space is not None
-            ):
-                warnings.warn(
-                    "Passing in a `search_space` to initialize a generator from a "
-                    "registry is being deprecated. `experiment` is now a required "
-                    "input for initializing `Adapters`. Please use `experiment` "
-                    "when initializing generators going forward. "
-                    "Support for `search_space` will be removed in Ax 0.7.0.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                # Construct a dummy experiment for temporary support.
-                experiment = Experiment(search_space=search_space)
-            else:
-                raise UserInputError(
-                    "`experiment` is required to initialize a model from registry."
-                )
-        search_space = search_space or none_throws(experiment).search_space
+        search_space = experiment.search_space
 
         if not silently_filter_kwargs:
             # Check correct kwargs are present
@@ -383,7 +346,7 @@ class GeneratorRegistryBase(Enum):
 
         # Create adapter with the consolidated kwargs.
         adapter = adapter_class(
-            search_space=search_space or none_throws(experiment).search_space,
+            search_space=search_space,
             experiment=experiment,
             data=data,
             generator=generator,
@@ -395,8 +358,9 @@ class GeneratorRegistryBase(Enum):
                 model_kwargs.pop(key, None)
 
         # Store all kwargs on adapter, to be saved on generator run.
+        model_key = model_key_override if model_key_override else self.value
         adapter._set_kwargs_to_save(
-            model_key=self.value,
+            model_key=model_key,
             model_kwargs=_encode_callables_as_references(model_kwargs),
             bridge_kwargs=_encode_callables_as_references(bridge_kwargs),
         )
@@ -482,29 +446,12 @@ class Generators(GeneratorRegistryBase):
     SAASBO = "SAASBO"
     SAAS_MTGP = "SAAS_MTGP"
     THOMPSON = "Thompson"
-    LEGACY_BOTORCH = "Legacy_GPEI"
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     EB_ASHR = "EB_Ashr"
     UNIFORM = "Uniform"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
-    CONTEXT_SACBO = "Contextual_SACBO"
-
-
-class ModelsMetaClass(type):
-    """Metaclass to override `__getattr__` for the Models class."""
-
-    def __getattr__(self, name: str) -> None:
-        raise DeprecationWarning(
-            "Models is deprecated, use `ax.adapter.registry.Generators` instead."
-        )
-
-
-class Models(metaclass=ModelsMetaClass):
-    """This is deprecated. Use Generators instead."""
-
-    pass
 
 
 def _extract_model_state_after_gen(

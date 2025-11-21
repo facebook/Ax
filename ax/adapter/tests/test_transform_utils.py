@@ -6,31 +6,17 @@
 
 # pyre-strict
 
-import numpy as np
 from ax.adapter import Adapter
 from ax.adapter.transforms.utils import (
     ClosestLookupDict,
     derelativize_optimization_config_with_raw_status_quo,
 )
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
     get_multi_objective_optimization_config,
 )
-
-OBSERVATION_DATA = [
-    Observation(
-        features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}),
-        data=ObservationData(
-            means=np.array([1.0, 2.0, 6.0]),
-            covariance=np.array([[1.0, 2.0, 0.0], [3.0, 4.0, 0.0], [0.0, 0.0, 4.0]]),
-            metric_names=["m1", "m2", "m3"],
-        ),
-        arm_name="1_1",
-    )
-]
 
 
 class TransformUtilsTest(TestCase):

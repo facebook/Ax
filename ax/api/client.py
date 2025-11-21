@@ -16,7 +16,12 @@ from ax.analysis.analysis import Analysis, display_cards
 from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.summary import Summary
-from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    DerivedParameterConfig,
+    RangeParameterConfig,
+    StorageConfig,
+)
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TOutcome, TParameterization
@@ -98,7 +103,9 @@ class Client(WithDBSettingsBase):
     # -------------------- Section 1: Configure -------------------------------------
     def configure_experiment(
         self,
-        parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
+        parameters: Sequence[
+            RangeParameterConfig | ChoiceParameterConfig | DerivedParameterConfig
+        ],
         parameter_constraints: Sequence[str] | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -183,6 +190,7 @@ class Client(WithDBSettingsBase):
         allow_exceeding_initialization_budget: bool = False,
         # Misc options
         torch_device: str | None = None,
+        simplify_parameter_changes: bool = False,
     ) -> None:
         """
         Optional method to configure the way candidate parameterizations are generated
@@ -190,6 +198,29 @@ class Client(WithDBSettingsBase):
         used.
 
         Saves to database on completion if ``storage_config`` is present.
+
+        Args:
+            method: The method to use for generating candidates. Options are:
+                - "fast": Uses Bayesian optimization, configured specifically for
+                  the current experiment.
+                - "random_search": Uses random search.
+            initialization_budget: Number of initialization trials. If None, will be
+                automatically determined based on the search space.
+            initialization_random_seed: Random seed for initialization. If None, no
+                seed will be set.
+            initialize_with_center: Whether to include the center of the search space
+                in the initialization trials.
+            use_existing_trials_for_initialization: Whether to use existing trials
+                for initialization.
+            min_observed_initialization_trials: Minimum number of observed
+                init trials required before moving to the next generation step.
+            allow_exceeding_initialization_budget: Whether to allow exceeding the
+                initialization budget if more trials are needed.
+            torch_device: The torch device to use for model fitting. If None, will
+                use the default device.
+            simplify_parameter_changes: Whether to simplify parameter changes in
+                arms generated via Bayesian Optimization by pruning irrelevant
+                parameter changes.
         """
         generation_strategy = self._choose_generation_strategy(
             method=method,
@@ -200,6 +231,7 @@ class Client(WithDBSettingsBase):
             min_observed_initialization_trials=min_observed_initialization_trials,
             allow_exceeding_initialization_budget=allow_exceeding_initialization_budget,
             torch_device=torch_device,
+            simplify_parameter_changes=simplify_parameter_changes,
         )
         self.set_generation_strategy(generation_strategy=generation_strategy)
 
@@ -352,9 +384,7 @@ class Client(WithDBSettingsBase):
 
         trials: list[Trial] = []
         with with_rng_seed(seed=self._random_seed):
-            gs = self._generation_strategy_or_choose()
-
-            generator_runs = gs.gen(
+            grs_for_trials = self._generation_strategy_or_choose().gen(
                 experiment=self._experiment,
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(
@@ -372,14 +402,9 @@ class Client(WithDBSettingsBase):
                 num_trials=max_trials,
             )
 
-        for generator_run in generator_runs:
-            trial = assert_is_instance(
-                self._experiment.new_trial(
-                    generator_run=generator_run[0],
-                ),
-                Trial,
-            )
-
+        for trial_grs in grs_for_trials:
+            assert len(trial_grs) == 1
+            trial = self._experiment.new_trial(generator_run=trial_grs[0])
             logger.info(
                 f"Generated new trial {trial.index} with parameters "
                 + str(
@@ -388,12 +413,16 @@ class Client(WithDBSettingsBase):
                         decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
                     )
                 )
-                + f" using GenerationNode {generator_run[0]._generation_node_name}."
+                + f" using GenerationNode {trial_grs[0]._generation_node_name}."
             )
-
             trial.mark_running(no_runner_required=True)
-
             trials.append(trial)
+
+        if len(trials) < max_trials:
+            logger.warning(
+                f"{max_trials} trials requested but only {len(trials)} could be "
+                "generated."
+            )
 
         # Save GS to db
         self._save_generation_strategy_to_db_if_possible(
@@ -405,17 +434,9 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trials=trials
         )
 
-        res = {trial.index: none_throws(trial.arm).parameters for trial in trials}
-
-        if len(res) != max_trials:
-            logger.warning(
-                f"{max_trials} trials requested but only {len(res)} could be "
-                "generated."
-            )
-
         # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
         # None, but we do not allow this in the API.
-        return res
+        return {trial.index: none_throws(trial.arm).parameters for trial in trials}
 
     def complete_trial(
         self,
@@ -494,9 +515,7 @@ class Client(WithDBSettingsBase):
         ]
 
         trial = assert_is_instance(self._experiment.trials[trial_index], Trial)
-        trial.update_trial_data(
-            raw_data=data_with_progression, combine_with_last_data=True
-        )
+        trial.update_trial_data(raw_data=data_with_progression)
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self._experiment, trial=trial
@@ -1095,6 +1114,7 @@ class Client(WithDBSettingsBase):
         allow_exceeding_initialization_budget: bool = False,
         # Misc options
         torch_device: str | None = None,
+        simplify_parameter_changes: bool = False,
     ) -> GenerationStrategy:
         """
         Choose a generation strategy based on the provided method and options.
@@ -1118,6 +1138,10 @@ class Client(WithDBSettingsBase):
                 initialization budget if more trials are needed.
             torch_device: The torch device to use for model fitting. If None, will
                 use the default device.
+            simplify_parameter_changes: Whether to simplify parameter changes in
+                arms generated via Bayesian Optimization by pruning irrelevant
+                parameter changes.
+
 
         Returns:
             A GenerationStrategy instance configured according to the specified options.
@@ -1136,6 +1160,7 @@ class Client(WithDBSettingsBase):
                     allow_exceeding_initialization_budget
                 ),
                 torch_device=torch_device,
+                simplify_parameter_changes=simplify_parameter_changes,
             )
         )
 

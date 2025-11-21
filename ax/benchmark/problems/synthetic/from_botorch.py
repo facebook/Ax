@@ -24,17 +24,21 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
+from botorch.test_functions import synthetic
 from botorch.test_functions.base import (
     BaseTestProblem,
     ConstrainedBaseTestProblem,
     MultiObjectiveTestProblem,
 )
 from botorch.test_functions.multi_fidelity import AugmentedBranin
+from pyre_extensions import assert_is_instance
 
-# A mapping from (BoTorch problem class name, dim | None) to baseline value
-# Obtained using `get_baseline_value_from_sobol`
+# A mapping from (BoTorch problem class name, dim | None) to baseline value.
+# Obtained using `compute_baseline_value_from_sobol()` on the default bounds
+# of the problem.
 BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("Ackley", 4): 19.837273921447853,
+    ("Ackley", 100): 21.12704020210706,
     ("Branin", None): 10.930455126654936,
     ("BraninCurrin", None): 0.9820209831769217,
     ("BraninCurrin", 30): 3.0187520516793587,
@@ -47,11 +51,14 @@ BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("KeaneBumpFunction", 2): -0.0799243632005311,
     ("KeaneBumpFunction", 10): -0.13609325522288143,
     ("Levy", 4): 14.198811442165178,
+    ("Michalewicz", 10): -2.0764972759036535,
     ("Powell", 4): 932.3102865964689,
     ("PressureVessel", None): float("inf"),
     ("Rosenbrock", 4): 30143.767857949348,
+    ("Rosenbrock", 6): 139329.62994843526,
     ("SixHumpCamel", None): 0.45755007063109004,
     ("SpeedReducer", None): float("inf"),
+    ("StyblinskiTang", 2): -50.22278471716156,
     ("TensionCompressionString", None): float("inf"),
     ("ThreeHumpCamel", None): 3.7321680621434155,
     ("WeldedBeamSO", None): float("inf"),
@@ -81,7 +88,7 @@ def _get_name(
 
 def create_problem_from_botorch(
     *,
-    test_problem_class: type[BaseTestProblem],
+    test_problem_class: type[BaseTestProblem] | str,
     test_problem_kwargs: dict[str, Any],
     noise_std: float | list[float] = 0.0,
     num_trials: int,
@@ -113,6 +120,9 @@ def create_problem_from_botorch(
     Args:
         test_problem_class: The BoTorch test problem class which will be used
             to define the `search_space`, `optimization_config`, and `runner`.
+            If the test function class name is provided as a string, the class
+            will be loaded dynamically via `getattr` from the module
+            `botorch.test_functions.synthetic`.
         test_problem_kwargs: Keyword arguments used to instantiate the
             `test_problem_class`. This should *not* include `noise_std` or
             `negate`, since these are handled through Ax benchmarking (as the
@@ -175,7 +185,9 @@ def create_problem_from_botorch(
         ...    step_runtime_function=lambda params: 1 / params["fidelity"],
         ... )
     """
-    # pyre-fixme [45]: Invalid class instantiation
+    if isinstance(test_problem_class, str):
+        test_problem_class = getattr(synthetic, test_problem_class)
+
     test_problem = test_problem_class(**test_problem_kwargs)
     is_constrained = isinstance(test_problem, ConstrainedBaseTestProblem)
 
@@ -203,14 +215,10 @@ def create_problem_from_botorch(
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
     if isinstance(test_problem, MultiObjectiveTestProblem):
-        # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got
-        #  `Union[Tensor, Module]`.
         objective_names = [f"{name}_{i}" for i in range(n_obj)]
     else:
         objective_names = [name]
 
-    # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got `Union[int,
-    #  Tensor, Module]`.
     constraint_names = [f"constraint_slack_{i}" for i in range(num_constraints)]
     outcome_names = objective_names + constraint_names
 
@@ -226,8 +234,6 @@ def create_problem_from_botorch(
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
         optimization_config = get_moo_opt_config(
-            # pyre-fixme[6]: For 1st argument expected `int` but got `Union[int,
-            #  Tensor, Module]`.
             num_constraints=num_constraints,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
@@ -248,6 +254,12 @@ def create_problem_from_botorch(
         if isinstance(test_problem, MultiObjectiveTestProblem)
         else test_problem.optimal_value
     )
+    if len(optimization_config.outcome_constraints) > 0:
+        worst_feasible_value = assert_is_instance(
+            test_problem.worst_feasible_value, float
+        )
+    else:
+        worst_feasible_value = None  # Not needed for unconstrained problems
     baseline_value = (
         BOTORCH_BASELINE_VALUES[(test_problem_class.__name__, dim)]
         if baseline_value is None
@@ -261,10 +273,9 @@ def create_problem_from_botorch(
         test_function=test_function,
         noise_std=noise_std,
         num_trials=num_trials,
-        # pyre-fixme[6]: For 7th argument expected `float` but got `Union[float,
-        #  Tensor, Module]`.
-        optimal_value=optimal_value,
+        optimal_value=assert_is_instance(optimal_value, float),
         baseline_value=baseline_value,
+        worst_feasible_value=worst_feasible_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
         step_runtime_function=step_runtime_function,
         status_quo_params=status_quo_params,

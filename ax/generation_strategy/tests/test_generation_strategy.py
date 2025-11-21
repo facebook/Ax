@@ -103,14 +103,14 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
             name="Sobol+MBM/BO_MIXED",
             nodes=[
                 GenerationNode(
-                    node_name="Sobol",
+                    name="Sobol",
                     generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                     transition_criteria=[
                         MinTrials(threshold=2, transition_to="MBM/BO_MIXED")
                     ],
                 ),
                 GenerationNode(
-                    node_name="MBM/BO_MIXED",
+                    name="MBM/BO_MIXED",
                     generator_specs=[
                         GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR),
                         GeneratorSpec(generator_enum=Generators.BO_MIXED),
@@ -190,7 +190,7 @@ class TestGenerationStrategy(TestCase):
                 ),
             },
         )
-        self.mock_in_registry = self.registry_setup_dict_patcher.start()
+        self.registry_setup_dict_patcher.start()
 
         # adapters are mocked, which makes kwargs' validation difficult,
         # so for now we will skip it in the generation strategy tests.
@@ -250,12 +250,12 @@ class TestGenerationStrategy(TestCase):
             model_gen_kwargs={},
         )
         self.sobol_node = GenerationNode(
-            node_name="sobol_node",
+            name="sobol_node",
             transition_criteria=self.sobol_criterion,
             generator_specs=[self.sobol_generator_spec],
         )
         self.mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=self.mbm_criterion,
             generator_specs=[self.mbm_generator_spec],
         )
@@ -283,12 +283,12 @@ class TestGenerationStrategy(TestCase):
         self.competing_tc_gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         self.mbm_to_sobol2_with_running_trial,
@@ -297,11 +297,11 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                 ),
             ],
@@ -309,12 +309,12 @@ class TestGenerationStrategy(TestCase):
         self.complex_multinode_per_trial_gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -323,14 +323,14 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         MinTrials(
@@ -348,7 +348,7 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_4",
+                    name="sobol_4",
                     generator_specs=[self.sobol_generator_spec],
                 ),
             ],
@@ -385,8 +385,8 @@ class TestGenerationStrategy(TestCase):
         name should follow the format "GenerationNode"+Stepidx.
         """
         gs = self.sobol_MBM_step_GS
-        self.assertEqual(gs._steps[0].node_name, "GenerationStep_0")
-        self.assertEqual(gs._steps[1].node_name, "GenerationStep_1")
+        self.assertEqual(gs._steps[0].name, "GenerationStep_0")
+        self.assertEqual(gs._steps[1].name, "GenerationStep_1")
 
     def test_name(self) -> None:
         self.assertEqual(self.sobol_GS._name, "Sobol")
@@ -457,7 +457,7 @@ class TestGenerationStrategy(TestCase):
         gs3 = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="test",
+                    name="test",
                     generator_specs=[
                         GeneratorSpec(
                             generator_enum=Generators.SOBOL,
@@ -471,7 +471,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             str(gs3),
             "GenerationStrategy(name='test', nodes=[GenerationNode("
-            "node_name='test', "
+            "name='test', "
             "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
             "model_key_override=None)], "
             "transition_criteria=[])])",
@@ -548,6 +548,7 @@ class TestGenerationStrategy(TestCase):
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
+                        "polytope_sampler_kwargs": None,
                         "generated_points": None,
                     },
                 )
@@ -557,8 +558,6 @@ class TestGenerationStrategy(TestCase):
                         "optimization_config": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
-                        "fit_out_of_design": None,  # False by DataLoaderConfig default
-                        "fit_abandoned": None,  # False by DataLoaderConfig default
                         "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
@@ -624,20 +623,12 @@ class TestGenerationStrategy(TestCase):
         mock_adapter = self.mock_discrete_adapter.return_value
 
         # Initial factorial batch.
-        exp.new_batch_trial(
-            generator_runs=factorial_thompson_gs._gen_with_multiple_nodes(
-                experiment=exp
-            )
-        )
+        exp.new_batch_trial(generator_runs=factorial_thompson_gs.gen(experiment=exp)[0])
         args, kwargs = mock_adapter._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Factorial")
 
         # Subsequent Thompson sampling batch.
-        exp.new_batch_trial(
-            generator_runs=factorial_thompson_gs._gen_with_multiple_nodes(
-                experiment=exp
-            )
-        )
+        exp.new_batch_trial(generator_runs=factorial_thompson_gs.gen(experiment=exp)[0])
         args, kwargs = mock_adapter._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Thompson")
 
@@ -682,17 +673,15 @@ class TestGenerationStrategy(TestCase):
         sobol_MBM_generation_strategy = self._get_sobol_mbm_step_gs(
             num_sobol_trials=1, num_mbm_trials=6
         )
-        grs = sobol_MBM_generation_strategy._gen_with_multiple_nodes(exp, n=2)
+        grs = sobol_MBM_generation_strategy.gen(exp, n=2)[0]
         exp.new_batch_trial(generator_runs=grs).run()
         for i in range(1, 8):
             if i == 7:
                 # Check completeness error message.
                 with self.assertRaises(GenerationStrategyCompleted):
-                    grs_2 = sobol_MBM_generation_strategy._gen_with_multiple_nodes(
-                        exp, n=2
-                    )
+                    grs_2 = sobol_MBM_generation_strategy.gen(exp, n=2)[0]
             else:
-                grs_2 = sobol_MBM_generation_strategy._gen_with_multiple_nodes(exp, n=2)
+                grs_2 = sobol_MBM_generation_strategy.gen(exp, n=2)[0]
             exp.new_batch_trial(generator_runs=grs_2).run()
         self.assertIsInstance(sobol_MBM_generation_strategy.adapter, TorchAdapter)
 
@@ -704,23 +693,6 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(sobol_generation_strategy._experiment)
         sobol_generation_strategy.gen_single_trial(exp)
         self.assertIsNotNone(sobol_generation_strategy._experiment)
-
-    def test_trials_as_df(self) -> None:
-        exp = get_branin_experiment()
-        sobol_generation_strategy = GenerationStrategy(
-            steps=[
-                GenerationStep(generator=Generators.SOBOL, num_trials=2),
-                GenerationStep(generator=Generators.SOBOL, num_trials=3),
-            ]
-        )
-        # No experiment attached to the GS, should be None.
-        with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
-            self.assertIsNone(sobol_generation_strategy.trials_as_df)
-        # Experiment attached with a trial, should match Experiment.to_df().
-        exp.new_trial(sobol_generation_strategy.gen_single_trial(experiment=exp))
-        with self.assertWarnsRegex(DeprecationWarning, "trials_as_df"):
-            trials_df = none_throws(sobol_generation_strategy.trials_as_df)
-        self.assertTrue(trials_df.equals(exp.to_df()))
 
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
@@ -772,7 +744,7 @@ class TestGenerationStrategy(TestCase):
                 name="Sobol",
                 nodes=[
                     GenerationNode(
-                        node_name="sobol",
+                        name="sobol",
                         generator_specs=[
                             GeneratorSpec(
                                 generator_enum=Generators.SOBOL,
@@ -980,7 +952,7 @@ class TestGenerationStrategy(TestCase):
             # Check case with pending features initially specified; we should get two
             # GRs now (remaining in Sobol step) even though we requested 3, because
             # there already are three trials produced from `GenerationStep_0` node,
-            # and its `MaxTrials` is 5.
+            # and its `MinTrials` is 5.
             original_pending = none_throws(get_pending(experiment=exp))
             first_3_trials_obs_feats = [
                 ObservationFeatures.from_arm(arm=a, trial_index=idx)
@@ -1066,7 +1038,7 @@ class TestGenerationStrategy(TestCase):
         )
         # pending points is updated in plac so we can't check each intermediate
         # call state, however we can confirm that all arms in the grs produced by
-        # _gen_with_multiple_nodes are present in the pending points
+        # gen are present in the pending points
         for gr, (idx, pending) in zip(grs, pending_in_each_gen):
             exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
             if idx > 0:
@@ -1183,16 +1155,16 @@ class TestGenerationStrategy(TestCase):
             ),
         ]
         node_1 = GenerationNode(
-            node_name="node_1",
+            name="node_1",
             transition_criteria=node_1_criterion,
             generator_specs=[self.sobol_generator_spec],
         )
         node_3 = GenerationNode(
-            node_name="node_3",
+            name="node_3",
             generator_specs=[self.sobol_generator_spec],
         )
         node_2 = GenerationNode(
-            node_name="node_2",
+            name="node_2",
             generator_specs=[self.sobol_generator_spec],
         )
 
@@ -1248,7 +1220,7 @@ class TestGenerationStrategy(TestCase):
             GenerationStrategy(
                 nodes=[
                     GenerationNode(
-                        node_name="node_1",
+                        name="node_1",
                         transition_criteria=[
                             MinTrials(
                                 threshold=4,
@@ -1316,7 +1288,7 @@ class TestGenerationStrategy(TestCase):
         """
         exp = get_branin_experiment()
         sobol_node_2 = GenerationNode(
-            node_name="sobol_2",
+            name="sobol_2",
             generator_specs=[self.sobol_generator_spec],
             transition_criteria=[
                 AutoTransitionAfterGen(
@@ -1331,7 +1303,7 @@ class TestGenerationStrategy(TestCase):
             nodes=[
                 sobol_node_2,
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1352,14 +1324,14 @@ class TestGenerationStrategy(TestCase):
             # if you request < 6 arms, repeat arm input constructor will return 0 arms
             # meaning sobol_node_2 should be skipped, and sobol_3 should exclusively
             # be used for generation
-            grs = gs._gen_with_multiple_nodes(experiment=exp, n=5)
+            grs = gs.gen(experiment=exp, n=5)[0]
             self.assertEqual(len(grs), 1)  # only generated from one node
             self.assertEqual(grs[0]._generation_node_name, "sobol_3")
             self.assertEqual(len(grs[0].arms), 5)  # all 5 arms from sobol 3
             self.assertTrue(sobol_node_2._should_skip)
 
         # Now validate that we can get grs from sobol_2 if we request enough n
-        grs = gs._gen_with_multiple_nodes(experiment=exp, n=8)
+        grs = gs.gen(experiment=exp, n=8)[0]
         self.assertEqual(len(grs), 2)
         self.assertEqual(grs[0]._generation_node_name, "sobol_2")
         self.assertEqual(len(grs[0].arms), 1)
@@ -1372,7 +1344,7 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol_1",
+                    name="sobol_1",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1381,14 +1353,14 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1411,9 +1383,7 @@ class TestGenerationStrategy(TestCase):
             original_method=GeneratorSpec.gen,
         ) as gen_spec_gen_mock:
             # Generate a trial that should be composed of arms from 3 nodes
-            grs = gs._gen_with_multiple_nodes(
-                experiment=exp, arms_per_node=arms_per_node
-            )
+            grs = gs.gen(experiment=exp, arms_per_node=arms_per_node)[0]
             self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
             self.assertEqual(gen_spec_gen_mock.call_count, 3)
             pending_in_each_gen = enumerate(
@@ -1444,11 +1414,11 @@ class TestGenerationStrategy(TestCase):
                 )
 
             # check that we can pass in pending points
-            grs = gs._gen_with_multiple_nodes(
+            grs = gs.gen(
                 experiment=exp,
                 arms_per_node=arms_per_node,
                 pending_observations=original_pending,
-            )
+            )[0]
             self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
             pending_in_each_gen = enumerate(
                 call_kwargs.get("pending_observations")
@@ -1460,15 +1430,15 @@ class TestGenerationStrategy(TestCase):
     def test_gs_initializes_default_props_correctly(self) -> None:
         """Test that all previous nodes are initialized to None"""
         node_1 = GenerationNode(
-            node_name="node_1",
+            name="node_1",
             generator_specs=[self.sobol_generator_spec],
         )
         node_2 = GenerationNode(
-            node_name="node_2",
+            name="node_2",
             generator_specs=[self.sobol_generator_spec],
         )
         node_3 = GenerationNode(
-            node_name="node_3",
+            name="node_3",
             generator_specs=[self.sobol_generator_spec],
         )
         gs = GenerationStrategy(
@@ -1514,6 +1484,7 @@ class TestGenerationStrategy(TestCase):
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
+                        "polytope_sampler_kwargs": None,
                         "generated_points": None,
                     },
                 )
@@ -1523,8 +1494,6 @@ class TestGenerationStrategy(TestCase):
                         "optimization_config": None,
                         "transform_configs": None,
                         "transforms": Cont_X_trans,
-                        "fit_out_of_design": None,  # False by DataLoaderConfig default
-                        "fit_abandoned": None,  # False by DataLoaderConfig default
                         "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
@@ -1555,7 +1524,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_gs_with_nodes_and_blocking_criteria(self) -> None:
         sobol_node_with_criteria = GenerationNode(
-            node_name="test",
+            name="test",
             generator_specs=[self.sobol_generator_spec],
             transition_criteria=[
                 MinTrials(
@@ -1574,7 +1543,7 @@ class TestGenerationStrategy(TestCase):
             ],
         )
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             generator_specs=[self.mbm_generator_spec],
         )
         gs = GenerationStrategy(
@@ -1636,12 +1605,12 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         self.mbm_to_sobol2_with_running_trial,
@@ -1650,7 +1619,7 @@ class TestGenerationStrategy(TestCase):
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                 ),
             ],
@@ -1688,7 +1657,7 @@ class TestGenerationStrategy(TestCase):
             "sobol_4": 4,
         }
         with self.assertRaisesRegex(UserInputError, "defined in `arms_per_node`"):
-            gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+            gs.gen(exp, arms_per_node=arms_per_node)
 
         # now we will check that the first trial contains 3 arms, the second trial
         # contains 6 arms (2 from mbm, 1 from sobol_2, 3 from sobol_3), and all
@@ -1703,7 +1672,7 @@ class TestGenerationStrategy(TestCase):
         # for the first trial, we start on sobol, we generate the trial, but it hasn't
         # been run yet, so we remain on sobol
         trial0 = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+            generator_runs=gs.gen(exp, arms_per_node=arms_per_node)[0]
         )
         self.assertEqual(len(trial0.arms_by_name), 3)
         self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol")
@@ -1715,9 +1684,7 @@ class TestGenerationStrategy(TestCase):
         # to the last first node in a trial.
         for _i in range(0, 2):
             trial = exp.new_batch_trial(
-                generator_runs=gs._gen_with_multiple_nodes(
-                    exp, arms_per_node=arms_per_node
-                )
+                generator_runs=gs.gen(exp, arms_per_node=arms_per_node)[0]
             )
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.arms_by_name), 6)
@@ -1732,7 +1699,7 @@ class TestGenerationStrategy(TestCase):
         # after running the next trial should be made from sobol 4
         trial.run()
         trial = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+            generator_runs=gs.gen(exp, arms_per_node=arms_per_node)[0]
         )
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
         self.assertEqual(len(trial.generator_runs[0].arms), 4)
@@ -1746,7 +1713,7 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(nodes=[self.sobol_node], name="test")
         gs.experiment = exp
         exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
-        grs = gs._gen_with_multiple_nodes(exp)
+        grs = gs.gen(exp)[0]
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 3)
 
@@ -1759,28 +1726,28 @@ class TestGenerationStrategy(TestCase):
                 # first node should be our exploration node and only grs from this node
                 # should be on the first trial
                 GenerationNode(
-                    node_name="sobol",
+                    name="sobol",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 # node 2,3,4 will be out iteration nodes, and grs from all 3 nodes
                 # should be used to make the subsequent trials
                 GenerationNode(
-                    node_name="mbm",
+                    name="mbm",
                     generator_specs=[self.mbm_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_2",
+                    name="sobol_2",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
-                    node_name="sobol_3",
+                    name="sobol_3",
                     generator_specs=[self.sobol_generator_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
@@ -1799,14 +1766,14 @@ class TestGenerationStrategy(TestCase):
         # been run yet, so we remain on sobol, after the trial  is run, the subsequent
         # trials should be from node mbm, sobol_2, and sobol_3
         self.assertEqual(gs.current_node_name, "sobol")
-        trial0 = exp.new_batch_trial(generator_runs=gs._gen_with_multiple_nodes(exp))
+        trial0 = exp.new_batch_trial(generator_runs=gs.gen(exp)[0])
         self.assertEqual(gs.current_node_name, "sobol")
         # while here, test the last generator run property on node
         self.assertEqual(gs.current_node.node_that_generated_last_gr, "sobol")
 
         trial0.run()
         for _i in range(0, 2):
-            trial = exp.new_batch_trial(generator_runs=gs._gen_with_multiple_nodes(exp))
+            trial = exp.new_batch_trial(generator_runs=gs.gen(exp)[0])
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs), 3)
             self.assertEqual(trial.generator_runs[0]._generation_node_name, "mbm")
@@ -1821,7 +1788,7 @@ class TestGenerationStrategy(TestCase):
         # for the first trial, we start on sobol, we generate the trial, but it hasn't
         # been run yet, so we remain on sobol
         self.assertEqual(gs_2.current_node_name, "sobol")
-        trial0 = exp.new_batch_trial(generator_runs=gs_2._gen_with_multiple_nodes(exp))
+        trial0 = exp.new_batch_trial(generator_runs=gs_2.gen(exp)[0])
         self.assertEqual(gs_2.current_node_name, "sobol")
         trial0.run()
 
@@ -1830,9 +1797,7 @@ class TestGenerationStrategy(TestCase):
         # don't move onto sobol_4 until we have two running trials, instead we reset
         # to the last first node in a trial.
         for _i in range(0, 2):
-            trial = exp.new_batch_trial(
-                generator_runs=gs_2._gen_with_multiple_nodes(exp)
-            )
+            trial = exp.new_batch_trial(generator_runs=gs_2.gen(exp)[0])
             self.assertEqual(gs_2.current_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs), 3)
             self.assertEqual(trial.generator_runs[0]._generation_node_name, "mbm")
@@ -1841,7 +1806,7 @@ class TestGenerationStrategy(TestCase):
 
         # after running the next trial should be made from sobol 4
         trial.run()
-        trial = exp.new_batch_trial(generator_runs=gs_2._gen_with_multiple_nodes(exp))
+        trial = exp.new_batch_trial(generator_runs=gs_2.gen(exp)[0])
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
 
     def test_gs_with_fixed_features_constructor(self) -> None:
@@ -1857,7 +1822,7 @@ class TestGenerationStrategy(TestCase):
             )
         ]
         sobol_node_long = GenerationNode(
-            node_name="sobol_node",
+            name="sobol_node",
             transition_criteria=sobol_criterion,
             generator_specs=[self.sobol_generator_spec],
             input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
@@ -1865,7 +1830,7 @@ class TestGenerationStrategy(TestCase):
         )
         fixed_ft_purpose = InputConstructorPurpose.FIXED_FEATURES
         sobol_2_node = GenerationNode(
-            node_name="sobol_2",
+            name="sobol_2",
             generator_specs=[self.sobol_generator_spec],
             input_constructors={
                 InputConstructorPurpose.N: NodeInputConstructors.ALL_N,
@@ -1880,20 +1845,16 @@ class TestGenerationStrategy(TestCase):
 
         # The first trial is our exploration trial, all arms should be generated from
         # the sobol node due to the input constructor == ALL_N.
-        trial0 = exp.new_batch_trial(
-            generator_runs=gs._gen_with_multiple_nodes(exp, n=9)
-        )
+        trial0 = exp.new_batch_trial(generator_runs=gs.gen(exp, n=9)[0])
         self.assertEqual(len(trial0.arms_by_name), 9)
         self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol_node")
         trial0.run()  # necessary for transition criterion to be met
-        with self.subTest("no passed fixed features gen_with_multiple_nodes"):
+        with self.subTest("no passed fixed features gen"):
             with mock_patch_method_original(
                 mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
                 original_method=GeneratorSpec.gen,
             ) as generator_spec_gen_mock:
-                exp.new_batch_trial(
-                    generator_runs=gs._gen_with_multiple_nodes(exp, n=9)
-                )
+                exp.new_batch_trial(generator_runs=gs.gen(exp, n=9)[0])
                 fixed_features_in_gen = generator_spec_gen_mock.call_args_list[
                     0
                 ].kwargs.get("fixed_features")
@@ -1912,11 +1873,11 @@ class TestGenerationStrategy(TestCase):
                     parameters={}, trial_index=4
                 )
                 exp.new_batch_trial(
-                    generator_runs=gs._gen_with_multiple_nodes(
+                    generator_runs=gs.gen(
                         exp,
                         n=9,
                         fixed_features=passed_fixed_features,
-                    )
+                    )[0]
                 )
                 fixed_features_in_gen = generator_spec_gen_mock.call_args_list[
                     0
@@ -1987,13 +1948,13 @@ class TestGenerationStrategy(TestCase):
             )
         ]
         sobol_node = GenerationNode(
-            node_name="sobol_node",
+            name="sobol_node",
             transition_criteria=sobol_criterion,
             generator_specs=[self.sobol_generator_spec],
             input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
         )
         sobol_2_node = GenerationNode(
-            node_name="sobol_2",
+            name="sobol_2",
             transition_criteria=[AutoTransitionAfterGen(transition_to="sobol_3")],
             generator_specs=[self.sobol_generator_spec],
             input_constructors={
@@ -2001,7 +1962,7 @@ class TestGenerationStrategy(TestCase):
             },
         )
         sobol_3_node = GenerationNode(
-            node_name="sobol_3",
+            name="sobol_3",
             transition_criteria=[
                 AutoTransitionAfterGen(
                     transition_to="sobol_2", continue_trial_generation=False
@@ -2030,9 +1991,7 @@ class TestGenerationStrategy(TestCase):
         for _i in range(0, 2):
             # subsequent trials should be generated from sobol_2 and sobol_3, with
             # sobol_2 generating 1 arm and sobol_3 generating the remaining 8 arms.
-            trial = exp.new_batch_trial(
-                generator_runs=gs._gen_with_multiple_nodes(exp, n=9)
-            )
+            trial = exp.new_batch_trial(generator_runs=gs.gen(exp, n=9)[0])
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.arms_by_name), 9)
             self.assertEqual(len(trial.generator_runs), 2)

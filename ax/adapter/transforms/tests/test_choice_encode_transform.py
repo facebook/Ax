@@ -6,15 +6,12 @@
 
 # pyre-strict
 
-from collections.abc import Sized
 from copy import deepcopy
 
-import numpy as np
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.choice_encode import (
     ChoiceToNumericChoice,
-    OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
 from ax.core.observation import ObservationFeatures
@@ -25,19 +22,16 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
 
-class ChoiceEncodeTransformTest(TestCase):
+class ChoiceToNumericChoiceTransformTest(TestCase):
     t_class = ChoiceToNumericChoice
 
     def setUp(self) -> None:
@@ -185,7 +179,7 @@ class ChoiceEncodeTransformTest(TestCase):
                 )
             ]
         )
-        t = ChoiceToNumericChoice(search_space=ss3, observations=[])
+        t = ChoiceToNumericChoice(search_space=ss3)
         self.assertEqual(
             t.transform_search_space(ss3.clone()),
             SearchSpace(
@@ -209,7 +203,7 @@ class ChoiceEncodeTransformTest(TestCase):
         # └── x2
         #     ├── (False) EMPTY
         #     └── (True) x3
-        hss = HierarchicalSearchSpace(
+        hss = SearchSpace(
             parameters=[
                 FixedParameter(
                     "x0",
@@ -255,36 +249,6 @@ class ChoiceEncodeTransformTest(TestCase):
         self.assertEqual(hss.parameters["x2"].parameter_type, ParameterType.INT)
         self.assertEqual(hss.parameters["x2"].dependents, {0: [], 1: ["x3"]})
 
-    def test_with_parameter_distributions(self) -> None:
-        rss = get_robust_search_space()
-        assert_is_instance(rss.parameters["c"], ChoiceParameter)._is_ordered = True
-        # Transform a non-distributional parameter.
-        t = self.t_class(
-            search_space=rss,
-            observations=[],
-        )
-        rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
-        # Test with environmental variables.
-        all_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            num_samples=rss.num_samples,
-            environmental_variables=all_params[:2],
-        )
-        t = self.t_class(
-            search_space=rss,
-            observations=[],
-        )
-        rss_new = assert_is_instance(t.transform_search_space(rss), RobustSearchSpace)
-        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
-        self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
-
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
             {"x": 2.2, "a": 2, "b": 10.0, "c": 10.0, "d": "r", "e": "q"},
@@ -317,8 +281,8 @@ class ChoiceEncodeTransformTest(TestCase):
             expected_values = zip(
                 [2.2, 1.0, 1.2],
                 [2, 1, 2],
-                [1.0, 0.0, 2.0],
-                [0.0, 1.0, 2.0],
+                [1, 0, 2],
+                [0, 1, 2],
                 ["r", "q", "z"],
                 ["q", "z", "r"],
             )
@@ -359,7 +323,7 @@ class ChoiceEncodeTransformTest(TestCase):
         )
 
 
-class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
+class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTest):
     t_class = OrderedChoiceToIntegerRange
 
     def setUp(self) -> None:
@@ -410,7 +374,7 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
                 )
             ]
         )
-        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
+        t = OrderedChoiceToIntegerRange(search_space=ss3)
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
@@ -447,34 +411,8 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
         self.assertEqual(t_ss.parameters["b"].lower, 1)
         self.assertEqual(t_ss.parameters["b"].upper, 2)
 
-    def test_deprecated_OrderedChoiceEncode(self) -> None:
-        # Ensure we error if we try to transform a fidelity parameter
-        ss3 = SearchSpace(
-            parameters=[
-                ChoiceParameter(
-                    "b",
-                    parameter_type=ParameterType.FLOAT,
-                    values=[1.0, 10.0, 100.0],
-                    is_ordered=True,
-                    is_fidelity=True,
-                    target_value=100.0,
-                )
-            ]
-        )
-        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
-        t_deprecated = OrderedChoiceEncode(search_space=ss3, observations=[])
-        self.assertEqual(t.__dict__, t_deprecated.__dict__)
-
     def test_hss_dependents_are_preserved(self) -> None:
         """
         Skip the HSS test. `OrderedChoiceToIntegerRange` cannot support hierarchical
         search spaces, because range parameters cannot have dependents.
         """
-
-
-def normalize_values(values: Sized) -> list[float]:
-    values = np.array(values, dtype=float)
-    vmin, vmax = values.min(), values.max()
-    if len(values) > 1:
-        values = (values - vmin) / (vmax - vmin)
-    return values.tolist()

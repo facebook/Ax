@@ -67,6 +67,11 @@ class Objective(SortableBase):
         """Get a list of objective metric names."""
         return [m.name for m in self.metrics]
 
+    @property
+    def metric_signatures(self) -> list[str]:
+        """Get a list of objective metric signatures."""
+        return [m.signature for m in self.metrics]
+
     def clone(self) -> Objective:
         """Create a copy of the objective."""
         return Objective(self.metric.clone(), self.minimize)
@@ -102,6 +107,10 @@ class MultiObjective(Objective):
 
         """
         self._objectives: list[Objective] = objectives
+        if any(isinstance(o, ScalarizedObjective) for o in objectives):
+            raise NotImplementedError(
+                "Scalarized objectives are not supported for a `MultiObjective`."
+            )
 
     @property
     def metric(self) -> Metric:

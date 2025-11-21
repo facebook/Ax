@@ -19,19 +19,17 @@ from typing import Any, Mapping, Sequence
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, DataRequiredError, SearchSpaceExhausted
-from ax.generators.model_utils import (
-    enumerate_discrete_combinations,
-    mk_discrete_choices,
-)
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
-from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
+from ax.generators.torch.botorch_modular.utils import _fix_map_key_to_target
+from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     get_botorch_objective_and_transform,
     subset_model,
 )
 from ax.generators.torch_base import TorchOptConfig
+from ax.generators.utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -40,7 +38,6 @@ from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
-from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.exceptions.errors import BotorchError, InputDataError
 from botorch.models.model import Model
 from botorch.optim.optimize import (
@@ -50,6 +47,7 @@ from botorch.optim.optimize import (
     optimize_acqf_mixed,
 )
 from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
+from botorch.optim.parameter_constraints import evaluate_feasibility
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from pyre_extensions import none_throws
 from torch import Tensor
@@ -64,7 +62,7 @@ logger: Logger = get_logger(__name__)
 
 
 # For fully discrete search spaces.
-MAX_CHOICES_ENUMERATE = 100_000
+MAX_CHOICES_ENUMERATE = 10_000
 MAX_CARDINALITY_FOR_LOCAL_SEARCH = 100
 # For mixed search spaces.
 ALTERNATING_OPTIMIZER_THRESHOLD = 10
@@ -168,9 +166,10 @@ class Acquisition(Base):
     _objective_weights: Tensor
     _objective_thresholds: Tensor | None
     _outcome_constraints: tuple[Tensor, Tensor] | None
-    _risk_measure: RiskMeasureMCObjective | None
     _learned_objective_preference_model: Model | None
     _subset_idcs: Tensor | None
+    _pruning_target_point: Tensor | None
+    num_pruned_dims: list[int] | None
 
     def __init__(
         self,
@@ -187,18 +186,26 @@ class Acquisition(Base):
         options: dict[str, Any] | None = None,
     ) -> None:
         self.surrogate = surrogate
-        options = options or {}
+        self.options: dict[str, Any] = options or {}
         botorch_acqf_options = botorch_acqf_options or {}
         self.search_space_digest = search_space_digest
         self.n = n
-        self._should_subset_model: bool = options.get(Keys.SUBSET_MODEL, True)
+        self._should_subset_model: bool = self.options.get(Keys.SUBSET_MODEL, True)
         self._learned_objective_preference_model = None
         self._subset_idcs = None
-        self._risk_measure = torch_opt_config.risk_measure
+        self._pruning_target_point = torch_opt_config.pruning_target_point
+        self.num_pruned_dims = None
 
         # Extract pending and observed points.
-        X_pending, X_observed = _get_X_pending_and_observed(
+        # We fix MAP_KEY to the fixed value (if given) to avoid points getting
+        # discarded due to metrics being observed at different progressions.
+        Xs = _fix_map_key_to_target(
             Xs=surrogate.Xs,
+            feature_names=search_space_digest.feature_names,
+            fixed_features=torch_opt_config.fixed_features,
+        )
+        X_pending, X_observed = _get_X_pending_and_observed(
+            Xs=Xs,
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
             pending_observations=torch_opt_config.pending_observations,
@@ -238,9 +245,10 @@ class Acquisition(Base):
             botorch_acqf_classes_with_options = [
                 (botorch_acqf_class, botorch_acqf_options)
             ]
-        self._instantiate_acquisition(
-            botorch_acqf_classes_with_options=botorch_acqf_classes_with_options
-        )
+        self.botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], dict[str, Any]]
+        ] = none_throws(botorch_acqf_classes_with_options)
+        self._instantiate_acquisition()
 
     def _subset_model(
         self,
@@ -294,16 +302,12 @@ class Acquisition(Base):
             and self.X_observed is not None
         ):
             return
-        if torch_opt_config.risk_measure is not None:
-            raise NotImplementedError(
-                "Objective thresholds must be provided when using risk measures."
-            )
         try:
             self._full_objective_thresholds = infer_objective_thresholds(
                 model=self._model,
                 objective_weights=self._full_objective_weights,
-                outcome_constraints=torch_opt_config.outcome_constraints,
                 X_observed=self.X_observed,
+                outcome_constraints=torch_opt_config.outcome_constraints,
                 subset_idcs=self._subset_idcs,
                 objective_thresholds=self._full_objective_thresholds,
             )
@@ -331,21 +335,16 @@ class Acquisition(Base):
                 (Keys.PAIRWISE_PREFERENCE_QUERY.value,)
             ]
 
-    def _instantiate_acquisition(
-        self,
-        botorch_acqf_classes_with_options: list[
-            tuple[type[AcquisitionFunction], dict[str, Any]]
-        ],
-    ) -> None:
+    def _instantiate_acquisition(self) -> None:
         """Constructs the acquisition function based on the provided
         botorch_acqf_classes_with_options.
 
-        Args:
-            botorch_acqf_classes: A list of BoTorch acquisition function classes.
         """
-        if len(botorch_acqf_classes_with_options) != 1:
+        if len(self.botorch_acqf_classes_with_options) != 1:
             raise ValueError("Only one botorch_acqf_class is supported.")
-        botorch_acqf_class, botorch_acqf_options = botorch_acqf_classes_with_options[0]
+        botorch_acqf_class, botorch_acqf_options = (
+            self.botorch_acqf_classes_with_options[0]
+        )
         self.acqf = self._construct_botorch_acquisition(
             botorch_acqf_class=botorch_acqf_class,
             botorch_acqf_options=botorch_acqf_options,
@@ -367,7 +366,6 @@ class Acquisition(Base):
             objective_thresholds=self._objective_thresholds,
             outcome_constraints=self._outcome_constraints,
             X_observed=self.X_observed,
-            risk_measure=self._risk_measure,
             learned_objective_preference_model=self._learned_objective_preference_model,
         )
         input_constructor_kwargs = {
@@ -546,10 +544,9 @@ class Acquisition(Base):
                 acq_function_sequence=self.acq_function_sequence,
                 **optimizer_options_with_defaults,
             )
-            return candidates, acqf_values, arm_weights
 
         # 2. Handle fully discrete search spaces.
-        if optimizer in (
+        elif optimizer in (
             "optimize_acqf_discrete",
             "optimize_acqf_discrete_local_search",
         ):
@@ -604,10 +601,9 @@ class Acquisition(Base):
                 raise SearchSpaceExhausted(
                     "No more feasible choices in a fully discrete search space."
                 )
-            return candidates, acqf_values, arm_weights
 
         # 3. Handle mixed search spaces that have discrete and continuous features.
-        if optimizer == "optimize_acqf_mixed":
+        elif optimizer == "optimize_acqf_mixed":
             candidates, acqf_values = optimize_acqf_mixed(
                 acq_function=self.acqf,
                 bounds=bounds,
@@ -673,6 +669,20 @@ class Acquisition(Base):
             raise AxError(  # pragma: no cover
                 f"Unknown optimizer: {optimizer}. This code should be unreachable."
             )
+        # prune irrelevant parameters post-hoc
+        if self.options.get("prune_irrelevant_parameters", False):
+            if self._pruning_target_point is None:
+                logger.info(
+                    "Must specify pruning_target_point to prune irrelevant "
+                    "parameters. Skipping pruning irrelevant parameters."
+                )
+            else:
+                candidates, acqf_values = self._prune_irrelevant_parameters(
+                    candidates=candidates,
+                    search_space_digest=search_space_digest,
+                    inequality_constraints=inequality_constraints,
+                    fixed_features=fixed_features,
+                )
         return candidates, acqf_values, arm_weights
 
     def evaluate(self, X: Tensor) -> Tensor:
@@ -702,7 +712,6 @@ class Acquisition(Base):
         objective_thresholds: Tensor | None = None,
         outcome_constraints: tuple[Tensor, Tensor] | None = None,
         X_observed: Tensor | None = None,
-        risk_measure: RiskMeasureMCObjective | None = None,
         learned_objective_preference_model: Model | None = None,
     ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
         return get_botorch_objective_and_transform(
@@ -711,6 +720,315 @@ class Acquisition(Base):
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
-            risk_measure=risk_measure,
             learned_objective_preference_model=learned_objective_preference_model,
         )
+
+    def _condition_on_prev_candidates(
+        self, prev_candidates: Tensor, initial_X_pending: Tensor | None
+    ) -> None:
+        """Condition the acquisition function on the candidates.
+
+        Args:
+            prev_candidates: A `q' x d`-dim Tensor of candidates.
+            initial_X_pending: A `q'' x d`-dim Tensor of pending points. These are
+                points that are the initial pending evaluations and should be added
+                to the `X_pending` of the acquisition function.
+        """
+        if prev_candidates.shape[0] > 0:
+            if initial_X_pending is not None and initial_X_pending.shape[0]:
+                self.X_pending = torch.cat([initial_X_pending, prev_candidates], dim=0)
+            else:
+                self.X_pending = prev_candidates
+            self._instantiate_acquisition()
+
+    def _compute_baseline_acqf_value(
+        self, last_candidate: Tensor, fixed_features: dict[int, float] | None = None
+    ) -> float:
+        r"""Compute the baseline acquisition function value.
+
+        If this is the first point, the baseline AF value is the max AF value
+        the previously evaluated points. The otherwise the baseline value is the
+        acquisition value of the last point after conditioning on the previously
+        selected points including the last candidate. For incremental AFs, this is
+        will be near zero. For non-incremental AFs, this will be the AF value of the
+        the batch consisting of the previously selected points (since they are
+        pending).
+
+        Args:
+            last_candidate: A `1 x d`-dim Tensor containing the last candidate.
+            fixed_features: A map `{feature_index: value}` for features that
+                should be fixed to a particular value during generation.
+
+        Returns:
+            The baseline acquisition function value.
+        """
+        if last_candidate.shape[0] > 0:
+            X = last_candidate
+        elif self.X_observed is not None:
+            # if this is the first candidate, compute the acquisition value for
+            # the previously evaluated set of points. Take the max and compute
+            # the incremental value with respect to that baseline value.
+            X = self.X_observed.unsqueeze(1)
+            if fixed_features is not None:
+                for idx, v in fixed_features.items():
+                    X[..., idx] = v
+        else:
+            return 0.0
+        with torch.no_grad():
+            base_af_val = self.evaluate(X=X)
+        base_af_val = base_af_val.exp() if self.acqf._log else base_af_val
+        return base_af_val.max().item()
+
+    def _prune_irrelevant_parameters(
+        self,
+        candidates: Tensor,
+        search_space_digest: SearchSpaceDigest,
+        inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+        fixed_features: dict[int, float] | None = None,
+    ) -> tuple[Tensor, Tensor]:
+        r"""Prune irrelevant parameters from the candidates.
+
+        The method involves first optimizing the AF without any notion of irrelevance.
+        Then, the irrelevant parameters are pruned via a sequential greedy algorithm
+        that sets each dimension to the target point value, and recomputes the AF value.
+        The dimension that corresponds to the smallest reduction in AF value compared to
+        the AF value of the dense original candidate is then set to the target value,
+        and the algorithm proceeds until removing any dimension causes the reduction in
+        the AF value of the proposed point to be less than some tolerance, relative to
+        the original dense point.
+
+        For `q > 1` cases, this is repeated for each point in the batch, after adding
+        the previously pruned points as pending points. The incremental AF value is
+        used in the stopping rule.
+
+        Args:
+            candidates: A `q x d`-dim Tensor of candidates.
+            search_space_digest: The SearchSpaceDigest.
+            inequality_constraints: A list of tuples (indices, coefficients, rhs),
+                with each tuple encoding an inequality constraint of the form
+                `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`. `indices` and
+                `coefficients` should be torch tensors. See the docstring of
+                `make_scipy_linear_constraints` for an example. When q=1, or when
+                applying the same constraint to each candidate in the batch
+                (intra-point constraint), `indices` should be a 1-d tensor.
+                For inter-point constraints, in which the constraint is applied to the
+                whole batch of candidates, `indices` must be a 2-d tensor, where
+                in each row `indices[i] =(k_i, l_i)` the first index `k_i` corresponds
+                to the `k_i`-th element of the `q`-batch and the second index `l_i`
+                corresponds to the `l_i`-th feature of that element.
+            fixed_features: A map `{feature_index: value}` for features that
+                should be fixed to a particular value during generation.
+
+        Returns:
+            A two-element tuple containing an `q x d`-dim tensor of generated
+            candidates and a `q`-dim tensor with the associated acquisition values.
+        """
+        target_point = none_throws(
+            self._pruning_target_point,
+            message="Must specify pruning_target_point to prune irrelevant parameters",
+        )
+        irrelevance_pruning_rtol = self.options.get("irrelevance_pruning_rtol", 0.1)
+        initial_X_pending = self.X_pending
+        pruned_af_vals = []
+        excluded_indices = set(search_space_digest.fidelity_features)
+        excluded_indices.update(set(search_space_digest.task_features))
+        if fixed_features is not None:
+            excluded_indices.update(set(fixed_features.keys()))
+        orig_acqf = self.acqf
+        # iterate over points in the batch and prune each point
+        initial_active_dims = (candidates != target_point).sum(dim=-1)
+        for i in range(candidates.shape[0]):
+            # condition on previous pruned points
+            self._condition_on_prev_candidates(
+                prev_candidates=candidates[:i], initial_X_pending=initial_X_pending
+            )
+            # compute the AF value for the previous candidates so that we can compute
+            # the incremental EI
+            base_af_val = self._compute_baseline_acqf_value(
+                last_candidate=candidates[i - 1 : i], fixed_features=fixed_features
+            )
+            # compute the AF value of the dense candidate (before pruning)
+            with torch.no_grad():
+                dense_af_val = self.evaluate(X=candidates[i : i + 1])
+            # compute the incremental AF value of the dense candidate, relative to the
+            # base AF value
+            dense_incremental_af_val = (
+                ((dense_af_val.exp() if self.acqf._log else dense_af_val) - base_af_val)
+                .clamp_min(0.0)
+                .item()
+            )
+            # In the base case that no parameters are pruned, the final AF val is the
+            # dense AF val
+            final_af_val = dense_af_val
+            # If the current incremental AF value is zero, then we skip pruning
+            if dense_incremental_af_val > 0.0:
+                remaining_indices = set(range(candidates.shape[-1])) - excluded_indices
+                # remove features that are already set to target_point
+                remaining_indices -= set(
+                    (candidates[i] == target_point).nonzero().view(-1).tolist()
+                )
+                # len(remaining_indices) - 1 is used here so that we do not prune
+                # every dimension
+                for _ in range(len(remaining_indices) - 1):
+                    indices = torch.tensor(
+                        list(remaining_indices),
+                        dtype=torch.long,
+                        device=candidates.device,
+                    )
+                    # create a `b x 1 x d`-dim tensor, where each batch has the
+                    # original candidate with a different dimension set to the
+                    # corresponding target value
+                    pruned_candidates = _expand_and_set_single_feature_to_target(
+                        X=candidates[i : i + 1],
+                        indices=indices,
+                        targets=target_point[indices],
+                    )
+                    # remove candidates that violate constraints after pruning
+                    pruned_candidates, indices = _remove_infeasible_candidates(
+                        candidates=pruned_candidates,
+                        indices=indices,
+                        inequality_constraints=inequality_constraints,
+                    )
+                    if pruned_candidates.shape[0] == 0:
+                        # no feasible points, continue to
+                        # next candidate
+                        break
+                    # determine which dimension to prune based on the reduction
+                    # in incremental AF value relative to original dense candidate
+                    min_idx, best_af_val = self._get_best_pruned_candidate(
+                        pruned_candidates=pruned_candidates,
+                        irrelevance_pruning_rtol=irrelevance_pruning_rtol,
+                        dense_incremental_af_val=dense_incremental_af_val,
+                        base_af_val=base_af_val,
+                    )
+
+                    if min_idx is not None:
+                        candidates[i] = pruned_candidates[min_idx]
+                        remaining_indices.remove(
+                            int(none_throws(indices)[min_idx].item())
+                        )
+                        final_af_val = best_af_val
+                    else:
+                        # if min_idx is None that means that no candidate met
+                        # the relative tolerance threshold, so we stop pruning
+                        # this candidate
+                        break
+            pruned_af_vals.append(final_af_val)
+        self.acqf = orig_acqf
+        # store the number of pruned dimensions for each candidate to return
+        # this via gen_metadata
+        self.num_pruned_dims = (
+            initial_active_dims - (candidates != target_point).sum(dim=-1)
+        ).tolist()
+
+        return candidates, torch.cat(pruned_af_vals, dim=0)
+
+    def _get_best_pruned_candidate(
+        self,
+        pruned_candidates: Tensor,
+        irrelevance_pruning_rtol: float,
+        dense_incremental_af_val: float,
+        base_af_val: float,
+    ) -> tuple[int | None, Tensor | None]:
+        """Determine which pruned candidate is best.
+
+        This computes the relative change in incremental acquisition value for each
+        pruned candidate and returns the index and candidate with the smallest
+        reduction. If no candidate meets the relative tolerance-based stopping rule,
+        then Nones are returned instead of an index and candidate.
+
+        Args:
+            pruned_candidates: A `b x 1 x d`-dim tensor of pruned candidates.
+            irrelevance_pruning_rtol: The relative tolerance on the reduction in
+                incremental AF value, relative to the dense candidate.
+            dense_incremental_af_val: The incremental AF value for the dense
+                candidate.
+            base_af_val: The baseline AF value that should be subtracted from the AF
+                value for each pruned candidate to determine the incremental value.
+
+        Returns:
+            A two-element tuple containing the index and corresponding candidate.
+        """
+        with torch.no_grad():
+            new_af_val = torch.cat(
+                [self.evaluate(X=X_) for X_ in pruned_candidates.split(1024)], dim=0
+            )
+        if self.acqf._log:
+            non_log_new_af_val = new_af_val.exp()
+        else:
+            non_log_new_af_val = new_af_val
+        af_reduction = (
+            dense_incremental_af_val - (non_log_new_af_val - base_af_val).clamp_min(0.0)
+        ) / dense_incremental_af_val
+
+        min_af_reduction, min_idx = af_reduction.min(dim=0)
+        if min_af_reduction <= irrelevance_pruning_rtol:
+            return min_idx.item(), new_af_val[min_idx].view(1)
+        return None, None
+
+
+def _expand_and_set_single_feature_to_target(
+    X: Tensor, indices: Tensor, targets: Tensor
+) -> Tensor:
+    """Return an expanded copy of X, using target values at the specified indices.
+
+    In the returned copy X2, for each `i` in `indices`, `X2[i, 0, indices[i]]` is
+    set to the corresponding target value in `targets`.
+
+    Args:
+        X: A `1 x d`-dim tensor of points.
+        indices: A `k`-dim tensor of indices with values in [0, d).
+        targets: A `k`-dim tensor of target values.
+
+    Returns:
+        A `k x 1 x d`-dim tensor copy of X updated to have the target values
+            at the specified indices.
+    """
+    d = X.shape[1]
+    k = indices.shape[0]
+    X2 = X.unsqueeze(0).expand(k, 1, d).clone()
+    q_idxr = torch.zeros((k, 1), dtype=torch.long, device=X.device)
+    # indices expanded to (k, 1)
+    indices_exp = indices.unsqueeze(1)
+    # targets expanded to (k, 1)
+    targets_exp = targets.unsqueeze(1)
+    # Assign targets to X2 at the specified indices
+    X2[torch.arange(k, device=X.device).unsqueeze(1), q_idxr, indices_exp] = targets_exp
+    return X2
+
+
+def _remove_infeasible_candidates(
+    candidates: Tensor,
+    indices: Tensor,
+    inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+) -> tuple[Tensor, Tensor]:
+    r"""Filter out infeasible candidates, based on the parameter constraints.
+
+    Args:
+        candidates: A `b x 1 x d`-dim tensor of candidates.
+        indices: A `b`-dim tensor of indices, where the values are integers
+            in [0, d-1).
+        inequality_constraints: A list of tuples (indices, coefficients, rhs),
+            with each tuple encoding an inequality constraint of the form
+            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`. `indices` and
+            `coefficients` should be torch tensors. See the docstring of
+            `make_scipy_linear_constraints` for an example. When q=1, or when
+            applying the same constraint to each candidate in the batch
+            (intra-point constraint), `indices` should be a 1-d tensor.
+            For inter-point constraints, in which the constraint is applied to the
+            whole batch of candidates, `indices` must be a 2-d tensor, where
+            in each row `indices[i] =(k_i, l_i)` the first index `k_i` corresponds
+            to the `k_i`-th element of the `q`-batch and the second index `l_i`
+            corresponds to the `l_i`-th feature of that element.
+
+    Returns:
+        A two-element tuple containing the filter candidates and indices.
+    """
+    if inequality_constraints is not None:
+        is_feasible = evaluate_feasibility(
+            X=candidates,
+            inequality_constraints=inequality_constraints,
+        )
+        candidates = candidates[is_feasible]
+        indices = indices[is_feasible]
+    return candidates, indices

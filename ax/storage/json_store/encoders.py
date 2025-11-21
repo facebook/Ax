@@ -12,7 +12,6 @@ from typing import Any
 
 from ax.adapter.registry import _encode_callables_as_references
 from ax.adapter.transforms.base import Transform
-
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
@@ -40,18 +39,16 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
     LogicalEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
-from ax.exceptions.core import AxStorageWarning
-from ax.exceptions.storage import JSONEncodeError, STORAGE_DOCS_SUFFIX
+from ax.exceptions.core import AxStorageWarning, UnsupportedError
+from ax.exceptions.storage import JSON_STORAGE_DOCS_SUFFIX, JSONEncodeError
 from ax.generation_strategy.best_model_selector import BestModelSelector
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generation_strategy import (
@@ -59,7 +56,10 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import TransitionCriterion
+from ax.generation_strategy.transition_criterion import (
+    TransitionCriterion,
+    TrialBasedCriterion,
+)
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
@@ -75,6 +75,7 @@ from ax.utils.testing.backend_simulator import (
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -93,7 +94,7 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "time_created": experiment.time_created,
         "trials": experiment.trials,
         "is_test": experiment.is_test,
-        "data_by_trial": experiment.data_by_trial,
+        "data_by_trial": experiment._data_by_trial,
         "properties": experiment._properties,
         "default_data_type": experiment._default_data_type,
     }
@@ -120,7 +121,6 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "ttl_seconds": batch.ttl_seconds,
         "status": batch.status,
         "status_quo": batch.status_quo,
-        "status_quo_weight_override": batch._status_quo_weight_override,
         "time_created": batch.time_created,
         "time_completed": batch.time_completed,
         "time_staged": batch.time_staged,
@@ -129,7 +129,7 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "failed_reason": batch.failed_reason,
         "run_metadata": batch.run_metadata,
         "stop_metadata": batch.stop_metadata,
-        "generator_run_structs": batch.generator_run_structs,
+        "generator_runs": batch.generator_runs,
         "runner": batch.runner,
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
@@ -180,6 +180,13 @@ def range_parameter_to_dict(parameter: RangeParameter) -> dict[str, Any]:
 
 def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
     """Convert Ax choice parameter to a dictionary."""
+    if parameter._bypass_cardinality_check:
+        raise UnsupportedError(
+            "`bypass_cardinality_check` should only be set to True "
+            "when constructing parameters within the modeling layer. "
+            "It is not supported for storage."
+        )
+
     return {
         "__type": parameter.__class__.__name__,
         "is_ordered": parameter.is_ordered,
@@ -273,29 +280,6 @@ def search_space_to_dict(search_space: SearchSpace) -> dict[str, Any]:
     }
 
 
-def robust_search_space_to_dict(rss: RobustSearchSpace) -> dict[str, Any]:
-    """Convert robust search space to a dictionary."""
-    return {
-        "__type": rss.__class__.__name__,
-        "parameters": list(rss._parameters.values()),
-        "parameter_distributions": rss.parameter_distributions,
-        "num_samples": rss.num_samples,
-        "environmental_variables": list(rss._environmental_variables.values()),
-        "parameter_constraints": rss.parameter_constraints,
-    }
-
-
-def parameter_distribution_to_dict(dist: ParameterDistribution) -> dict[str, Any]:
-    """Convert a parameter distribution to a dictionary."""
-    return {
-        "__type": dist.__class__.__name__,
-        "parameters": dist.parameters,
-        "distribution_class": dist.distribution_class,
-        "distribution_parameters": dist.distribution_parameters,
-        "multiplicative": dist.multiplicative,
-    }
-
-
 def metric_to_dict(metric: Metric) -> dict[str, Any]:
     """Convert Ax metric to a dictionary."""
     properties = metric.serialize_init_args(obj=metric)
@@ -349,7 +333,9 @@ def optimization_config_to_dict(
         "__type": optimization_config.__class__.__name__,
         "objective": optimization_config.objective,
         "outcome_constraints": optimization_config.outcome_constraints,
-        "risk_measure": optimization_config.risk_measure,
+        "pruning_target_parameterization": (
+            optimization_config.pruning_target_parameterization
+        ),
     }
 
 
@@ -363,6 +349,9 @@ def preference_optimization_config_to_dict(
         "objective": preference_optimization_config.objective,
         "outcome_constraints": preference_optimization_config.outcome_constraints,
         "preference_profile_name": pref_profile_name,
+        "pruning_target_parameterization": (
+            preference_optimization_config.pruning_target_parameterization
+        ),
     }
 
 
@@ -375,7 +364,9 @@ def multi_objective_optimization_config_to_dict(
         "objective": multi_objective_optimization_config.objective,
         "outcome_constraints": multi_objective_optimization_config.outcome_constraints,
         "objective_thresholds": multi_objective_optimization_config.objective_thresholds,  # noqa E501
-        "risk_measure": multi_objective_optimization_config.risk_measure,
+        "pruning_target_parameterization": (
+            multi_objective_optimization_config.pruning_target_parameterization
+        ),
     }
 
 
@@ -437,6 +428,15 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
 
 def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
+    if tc := generation_step.transition_criteria:
+        # If True, `use_all_trials_in_exp` will be set on the first TC.
+        # Otherwise, it'll be False.
+        use_all_trials_in_exp = assert_is_instance(
+            tc[0], TrialBasedCriterion
+        ).use_all_trials_in_exp
+    else:
+        # If there is no TC, then the argument is irrelevant, so we can use False.
+        use_all_trials_in_exp = False
     return {
         "__type": generation_step.__class__.__name__,
         "generator": generation_step.generator,
@@ -456,6 +456,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
         "should_deduplicate": generation_step.should_deduplicate,
         "transition_criteria": generation_step.transition_criteria,
         "generator_name": generation_step.generator_name,
+        "use_all_trials_in_exp": use_all_trials_in_exp,
     }
 
 
@@ -463,7 +464,7 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
     """Convert Ax generation node to a dictionary."""
     return {
         "__type": generation_node.__class__.__name__,
-        "node_name": generation_node.node_name,
+        "name": generation_node.name,
         "generator_specs": generation_node.generator_specs,
         "best_model_selector": generation_node.best_model_selector,
         "should_deduplicate": generation_node.should_deduplicate,
@@ -536,7 +537,6 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> dict[str,
         "trial_index": obs_features.trial_index,
         "start_time": obs_features.start_time,
         "end_time": obs_features.end_time,
-        "random_split": obs_features.random_split,
         "metadata": obs_features.metadata,
     }
 
@@ -588,7 +588,7 @@ def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
                     f"Class `{class_type.__name__}` not in Type[{_class.__name__}] "
                     "registry, please add it. BoTorch object registries are "
                     "located in `ax/storage/botorch_modular_registry.py`. "
-                    f"{STORAGE_DOCS_SUFFIX}"
+                    f"{JSON_STORAGE_DOCS_SUFFIX}"
                 )
             return {
                 "__type": f"Type[{_class.__name__}]",
@@ -597,7 +597,7 @@ def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
             }
     raise ValueError(
         f"{class_type} does not have a corresponding parent class in "
-        f"CLASS_TO_REGISTRY. {STORAGE_DOCS_SUFFIX}"
+        f"CLASS_TO_REGISTRY. {JSON_STORAGE_DOCS_SUFFIX}"
     )
 
 
@@ -645,7 +645,7 @@ def percentile_early_stopping_strategy_to_dict(
     """Convert Ax percentile early stopping strategy to a dictionary."""
     return {
         "__type": strategy.__class__.__name__,
-        "metric_names": strategy.metric_names,
+        "metric_signatures": strategy.metric_signatures,
         "percentile_threshold": strategy.percentile_threshold,
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
@@ -660,7 +660,7 @@ def threshold_early_stopping_strategy_to_dict(
     """Convert Ax metric-threshold early stopping strategy to a dictionary."""
     return {
         "__type": strategy.__class__.__name__,
-        "metric_names": strategy.metric_names,
+        "metric_signatures": strategy.metric_signatures,
         "metric_threshold": strategy.metric_threshold,
         "min_progression": strategy.min_progression,
         "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
@@ -699,17 +699,6 @@ def winsorization_config_to_dict(config: WinsorizationConfig) -> dict[str, Any]:
         "upper_quantile_margin": config.upper_quantile_margin,
         "lower_boundary": config.lower_boundary,
         "upper_boundary": config.upper_boundary,
-    }
-
-
-def risk_measure_to_dict(
-    risk_measure: RiskMeasure,
-) -> dict[str, Any]:
-    """Convert a RiskMeasure to a dictionary."""
-    return {
-        "__type": risk_measure.__class__.__name__,
-        "risk_measure": risk_measure.risk_measure,
-        "options": risk_measure.options,
     }
 
 

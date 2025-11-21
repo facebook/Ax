@@ -32,7 +32,7 @@ from pyre_extensions import none_throws
 
 class DummyNode(ExternalGenerationNode):
     def __init__(self, should_deduplicate: bool = False) -> None:
-        super().__init__(node_name="dummy", should_deduplicate=should_deduplicate)
+        super().__init__(name="dummy", should_deduplicate=should_deduplicate)
         self.update_count = 0
         self.gen_count = 0
         self.generator: RandomAdapter | None = None
@@ -53,7 +53,7 @@ class DummyNode(ExternalGenerationNode):
 class TestExternalGenerationNode(TestCase):
     def test_properties(self) -> None:
         node = DummyNode()
-        self.assertEqual(node.node_name, "dummy")
+        self.assertEqual(node.name, "dummy")
         self.assertGreater(node.fit_time_since_gen, 0.0)
         self.assertIsNone(node._fitted_adapter)
         self.assertIsNone(node.generator_spec_to_gen_from)

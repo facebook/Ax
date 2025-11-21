@@ -15,9 +15,10 @@ parameterizations and the metric observations (from a Data object).
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
 from typing import Any
 
 import numpy as np
@@ -40,9 +41,6 @@ class DataLoaderConfig:
     of `Adapter._set_and_filter_training_data`.
 
     Args:
-        fit_out_of_design: If specified, all training data are used.
-            Otherwise, only in design points are used. Note that in-design-ness is
-            determined after expanding the modeling space, if applicable.
         fit_abandoned: Whether data for abandoned arms or trials should be included in
             model training data. If `False`, only non-abandoned points are returned.
         fit_only_completed_map_metrics: Whether to fit a model to map metrics only when
@@ -58,14 +56,15 @@ class DataLoaderConfig:
             in the `MAP_KEY` column for each (arm, metric) is limited by this value.
     """
 
-    fit_out_of_design: bool = False
+    # pyre-ignore [16]: Pyre doesn't understand InitVar.
+    fit_out_of_design: InitVar[bool | None] = None
     fit_abandoned: bool = False
     fit_only_completed_map_metrics: bool = False
     latest_rows_per_group: int | None = 1
     limit_rows_per_metric: int | None = None
     limit_rows_per_group: int | None = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, fit_out_of_design: bool | None) -> None:
         if self.latest_rows_per_group is not None and (
             self.limit_rows_per_metric is not None
             or self.limit_rows_per_group is not None
@@ -73,6 +72,14 @@ class DataLoaderConfig:
             raise UnsupportedError(
                 "`latest_rows_per_group` must be None if either of "
                 "`limit_rows_per_metric` or `limit_rows_per_group` is specified."
+            )
+        if fit_out_of_design is not None:
+            warnings.warn(
+                # Deprecated after Ax 1.1.2. Can be removed with Ax 1.3.0.
+                "`fit_out_of_design` is deprecated and will be removed in the future. "
+                "Please remove it from your inputs to avoid future errors.",
+                DeprecationWarning,
+                stacklevel=2,
             )
 
     @property
@@ -120,8 +127,8 @@ class ExperimentData:
         observation_data: A dataframe, indexed by (trial_index, arm_name[, *map_keys])
             map_keys being optional, containing the mean and sem observations for each
             metric. The columns of the dataframe are multi-indexed, with the first level
-            being "mean" or "sem" and the second level being the metric name.
-            This is typically constructed by pivoting `(Map)Data.true_df`.
+            being "mean" or "sem" and the second level being the metric signature.
+            This is typically constructed by pivoting `(Map)Data.full_df`.
             If the `Data` object contains additional metadata columns like `start_time`
             and `end_time`, these will be carried onto `observation_data`. The metadata
             columns will be indexed with the first level being "metadata" and the second
@@ -141,7 +148,7 @@ class ExperimentData:
         3           3_0       0.837545  0.732969
         >>> print(experiment_data.observation_data)
                              mean      sem
-        metric_name            m1   m2  m1  m2
+        metric_signature            m1   m2  m1  m2
         trial_index arm_name
         0           0_0       0.1  1.0 NaN NaN
         1           1_0       0.2  2.0 NaN NaN
@@ -162,7 +169,7 @@ class ExperimentData:
         1           1_0       1.0  1.0
         >>> print(experiment_data.observation_data)
                                             mean               sem
-        metric_name                        branin branin_map branin branin_map
+        metric_signature                        branin branin_map branin branin_map
         trial_index arm_name timestamp
         0           0_0      0.0        55.602113  55.602113    0.0        0.0
                              1.0              NaN  55.602113    NaN        0.0
@@ -255,7 +262,8 @@ class ExperimentData:
             obs_ft_base = ObservationFeatures(
                 # NOTE: It is crucial to pop metadata first here.
                 # Otherwise, it'd end up in parameters.
-                metadata=row.pop("metadata"),
+                # Copy ensures any changes to the metadata don't affect the original.
+                metadata=row.pop("metadata").copy(),
                 parameters=row.dropna().to_dict(),
                 trial_index=trial_index,
             )
@@ -270,8 +278,8 @@ class ExperimentData:
                 # Keeping it as a df for consistent indexing.
                 row_df = data_rows.loc[[idx]]
                 # Only include metrics that have data.
-                metric_names = list(row_df["mean"].dropna(axis="columns").columns)
-                if len(metric_names) == 0:
+                metric_signatures = list(row_df["mean"].dropna(axis="columns").columns)
+                if len(metric_signatures) == 0:
                     continue
                 if has_multiple_rows:
                     obs_ft = obs_ft_base.clone()
@@ -282,10 +290,12 @@ class ExperimentData:
                     # Add map key to metadata as expected in ObservationFeatures.
                     none_throws(obs_ft.metadata)[data_rows.index.name] = idx
                 obs_data = ObservationData(
-                    metric_names=metric_names,
-                    means=row_df["mean"][metric_names].to_numpy().reshape(-1),
+                    metric_signatures=metric_signatures,
+                    means=row_df["mean"][metric_signatures].to_numpy().reshape(-1),
                     covariance=np.diag(
-                        np.square(row_df["sem"][metric_names].to_numpy().reshape(-1))
+                        np.square(
+                            row_df["sem"][metric_signatures].to_numpy().reshape(-1)
+                        )
                     ),
                 )
                 observations.append(
@@ -294,8 +304,8 @@ class ExperimentData:
         return observations
 
     @property
-    def metric_names(self) -> list[str]:
-        """The list of metric names that are available on ``observation_data``."""
+    def metric_signatures(self) -> list[str]:
+        """The list of metric signatures that are available on ``observation_data``."""
         try:
             return list(self.observation_data["mean"].columns)
         except KeyError:
@@ -408,7 +418,8 @@ def _extract_observation_data(
                 include_first_last=True,
             )
 
-    df = data.true_df
+    df = data.full_df
+    df = _maybe_normalize_map_key(df)
     # Filter out rows for invalid statuses.
     to_keep = Series(index=df.index, data=False)
     trial_statuses = df["trial_index"].map(
@@ -434,7 +445,7 @@ def _extract_observation_data(
             if isinstance(metric, MapMetric) and metric.has_map_data
             else data_loader_config.statuses_to_fit
         )
-        to_keep |= (df["metric_name"] == metric.name) & trial_statuses.isin(
+        to_keep |= (df["metric_signature"] == metric.signature) & trial_statuses.isin(
             valid_statuses
         )
     df = df.loc[to_keep]
@@ -447,13 +458,15 @@ def _extract_observation_data(
     if isinstance(data, MapData):
         index_cols.append(MAP_KEY)
 
-    standard_columns = set(index_cols).union({"metric_name", "mean", "sem"})
+    standard_columns = set(index_cols).union(
+        {"metric_name", "metric_signature", "mean", "sem"}
+    )
     metadata_columns = [col for col in df.columns if col not in standard_columns]
 
     # Pivot the df to be indexed by (trial_index, arm_name, *map_key)
     # and to have columns "mean" & "sem" for each metric.
     observation_data = df.pivot(
-        columns="metric_name", index=index_cols, values=["mean", "sem"]
+        columns="metric_signature", index=index_cols, values=["mean", "sem"]
     )
 
     # If metadata columns exist, add them to the pivoted dataframe.
@@ -473,3 +486,37 @@ def _extract_observation_data(
         observation_data = observation_data.join(metadata_df)
 
     return observation_data
+
+
+def _maybe_normalize_map_key(df: DataFrame) -> DataFrame:
+    """Normalizes the MAP_KEY column in the given dataframe.
+    For each metric, the values will be normalized to [0, 1] using the
+    largest & smallest values for that metric. If a metric has constant
+    values for MAP_KEY, it will be normalized to 1.0. Any NaN MAP_KEY
+    values will not be modified.
+
+    Args:
+        df: The dataframe to normalize the MAP_KEY column in.
+
+    Returns:
+        The normalized dataframe.
+    """
+    if len(df) == 0 or MAP_KEY not in df or df[MAP_KEY].isna().all():
+        return df
+    df = df.copy()  # Don't modify the original dataframe.
+    not_na = ~df[MAP_KEY].isna()
+    for metric in df["metric_signature"].unique():
+        # Only non-NaN rows corresponding to the particular metric.
+        mask = (df["metric_signature"] == metric) & not_na
+        map_values = df.loc[mask, MAP_KEY]
+        if len(map_values) == 0:
+            continue
+        unique_values = map_values.unique()
+        if len(unique_values) == 1:
+            df.loc[mask, MAP_KEY] = 1.0
+            continue
+        # Get the min and max values and use them to normalize to [0, 1].
+        map_key_min = unique_values.min()
+        map_key_max = unique_values.max()
+        df.loc[mask, MAP_KEY] = (map_values - map_key_min) / (map_key_max - map_key_min)
+    return df

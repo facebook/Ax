@@ -6,8 +6,6 @@
 
 # pyre-strict
 
-
-from ax.adapter.base import DataLoaderConfig
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
@@ -15,13 +13,10 @@ from ax.adapter.registry import (
     Cont_X_trans,
     Generators,
     MODEL_KEY_TO_MODEL_SETUP,
-    Models,
-    Y_trans,
 )
 from ax.adapter.torch import TorchAdapter
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.exceptions.core import UserInputError
 from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.generators.discrete.thompson import ThompsonSampler
 from ax.generators.random.sobol import SobolGenerator
@@ -38,8 +33,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_status_quo_trials,
-    get_branin_optimization_config,
-    get_branin_search_space,
     get_factorial_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -117,92 +110,6 @@ class ModelRegistryTest(TestCase):
             SaasFullyBayesianSingleTaskGP,
         )
 
-    @mock_botorch_optimize
-    def test_enum_sobol_legacy_GPEI(self) -> None:
-        """Tests Sobol and Legacy GPEI instantiation through the Generators enum."""
-        exp = get_branin_experiment()
-        # Check that factory generates a valid sobol adapter.
-        sobol = Generators.SOBOL(experiment=exp)
-        self.assertIsInstance(sobol, RandomAdapter)
-        for _ in range(5):
-            sobol_run = sobol.gen(n=1)
-            self.assertEqual(sobol_run._model_key, "Sobol")
-            exp.new_batch_trial().add_generator_run(sobol_run).run()
-        # Check that factory generates a valid GP+EI adapter.
-        exp.optimization_config = get_branin_optimization_config()
-        gpei = Generators.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpei, TorchAdapter)
-        self.assertEqual(gpei._model_key, "Legacy_GPEI")
-        botorch_defaults = "ax.generators.torch.botorch_defaults"
-        # Check that the callable kwargs and the torch kwargs were recorded.
-        self.assertEqual(
-            gpei._model_kwargs,
-            {
-                "acqf_constructor": {
-                    "is_callable_as_path": True,
-                    "value": f"{botorch_defaults}.get_qLogNEI",
-                },
-                "acqf_optimizer": {
-                    "is_callable_as_path": True,
-                    "value": f"{botorch_defaults}.scipy_optimizer",
-                },
-                "model_constructor": {
-                    "is_callable_as_path": True,
-                    "value": f"{botorch_defaults}.get_and_fit_model",
-                },
-                "model_predictor": {
-                    "is_callable_as_path": True,
-                    "value": "ax.generators.torch.utils.predict_from_model",
-                },
-                "best_point_recommender": {
-                    "is_callable_as_path": True,
-                    "value": f"{botorch_defaults}.recommend_best_observed_point",
-                },
-                "refit_on_cv": False,
-                "warm_start_refitting": True,
-                "use_input_warping": False,
-                "use_loocv_pseudo_likelihood": False,
-                "prior": None,
-            },
-        )
-        self.assertEqual(
-            gpei._bridge_kwargs,
-            {
-                "transform_configs": None,
-                "torch_device": None,
-                "optimization_config": None,
-                "transforms": Cont_X_trans + Y_trans,
-                "expand_model_space": True,
-                "fit_tracking_metrics": True,
-                "fit_on_init": True,
-                "default_model_gen_options": None,
-                "data_loader_config": DataLoaderConfig(
-                    fit_only_completed_map_metrics=True,
-                ),
-                # now passed through the data loader config
-                "fit_only_completed_map_metrics": None,
-                "fit_out_of_design": None,
-                "fit_abandoned": None,
-            },
-        )
-        self.assertIsInstance(gpei._data_loader_config, DataLoaderConfig)
-        self.assertEqual(gpei._data_loader_config.fit_only_completed_map_metrics, True)
-        self.assertEqual(gpei._data_loader_config.fit_out_of_design, False)
-        self.assertEqual(gpei._data_loader_config.fit_abandoned, False)
-
-        prior_kwargs = {"lengthscale_prior": GammaPrior(6.0, 6.0)}
-        gpei = Generators.LEGACY_BOTORCH(
-            experiment=exp,
-            data=exp.fetch_data(),
-            search_space=exp.search_space,
-            prior=prior_kwargs,
-        )
-        self.assertIsInstance(gpei, TorchAdapter)
-        self.assertEqual(
-            gpei._model_kwargs["prior"],  # pyre-ignore
-            prior_kwargs,
-        )
-
     def test_enum_model_kwargs(self) -> None:
         """Tests that kwargs are passed correctly when instantiating through the
         Generators enum."""
@@ -271,13 +178,12 @@ class ModelRegistryTest(TestCase):
                     "scramble": True,
                     "generated_points": None,
                     "fallback_to_sample_polytope": False,
+                    "polytope_sampler_kwargs": None,
                 },
                 {
                     "optimization_config": None,
                     "transforms": Cont_X_trans,
                     "transform_configs": None,
-                    "fit_out_of_design": None,  # False by DataLoaderConfig default
-                    "fit_abandoned": None,  # False by DataLoaderConfig default
                     "data_loader_config": None,
                     "fit_tracking_metrics": True,
                     "fit_on_init": True,
@@ -299,8 +205,6 @@ class ModelRegistryTest(TestCase):
                     "data",
                     "transform_configs",
                     "expand_model_space",
-                    "fit_out_of_design",
-                    "fit_abandoned",
                     "fit_tracking_metrics",
                     "fit_on_init",
                 ]
@@ -381,7 +285,7 @@ class ModelRegistryTest(TestCase):
                         model,
                         SaasFullyBayesianMultiTaskGP if use_saas else MultiTaskGP,
                     )
-                    data_covar_module, task_covar_module = model.covar_module.kernels
+                    data_covar_module, _ = model.covar_module.kernels
                     if use_saas is False and default_model is False:
                         self.assertIsInstance(data_covar_module, ScaleKernel)
                         base_kernel = data_covar_module.base_kernel
@@ -422,26 +326,3 @@ class ModelRegistryTest(TestCase):
             generator_run=gr, model_class=SobolGenerator
         )
         self.assertEqual(extracted, {})
-
-    def test_deprecation_warning(self) -> None:
-        """Tests deprecation warning"""
-        with self.assertRaisesRegex(
-            DeprecationWarning,
-            r"Models is deprecated, use \`ax.adapter.registry.Generators\`"
-            r" instead.",
-        ):
-            Models.BOTORCH_MODULAR
-
-    def test_initialize_from_search_space(self) -> None:
-        search_space = get_branin_search_space()
-        with self.assertWarnsRegex(
-            DeprecationWarning, "Passing in a `search_space` to initialize"
-        ):
-            adapter = Generators.SOBOL(search_space=search_space)
-        self.assertEqual(adapter._model_space, search_space)
-        self.assertIsNotNone(adapter._experiment)
-        with self.assertRaisesRegex(
-            UserInputError,
-            "`experiment` is required to initialize a model from registry.",
-        ):
-            Generators.BOTORCH_MODULAR(search_space=search_space)

@@ -101,7 +101,7 @@ class BoTorchGeneratorTest(TestCase):
             self.bounds,
             _,
             self.feature_names,  # This is ["x1", "x2", "x3"].
-            self.metric_names,  # This is just ["y"].
+            self.metric_signatures,  # This is just ["y"].
         ) = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
         self.X_test = Xs2
@@ -111,7 +111,7 @@ class BoTorchGeneratorTest(TestCase):
                 Y=self.Ys,
                 Yvar=self.Yvars,
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
         ]
         self.non_block_design_training_data = self.block_design_training_data + [
@@ -156,7 +156,7 @@ class BoTorchGeneratorTest(TestCase):
         self.linear_constraints = None
         self.fixed_features = None
         self.pending_observations = None
-        self.moo_metric_names = ["y1", "y2", "y3"]
+        self.moo_metric_signatures = ["y1", "y2", "y3"]
         self.moo_training_data = [  # block design
             SupervisedDataset(
                 X=X,
@@ -169,7 +169,7 @@ class BoTorchGeneratorTest(TestCase):
                 [self.Xs for _ in range(3)],
                 [self.Ys, Ys2, self.Ys],
                 [self.Yvars for _ in range(3)],
-                self.moo_metric_names,
+                self.moo_metric_signatures,
             )
         ]
 
@@ -286,6 +286,7 @@ class BoTorchGeneratorTest(TestCase):
         mock_choose_model_class.assert_called_with(
             dataset=self.block_design_training_data[0],
             search_space_digest=self.mf_search_space_digest,
+            specified_model_class=None,
         )
 
     # This mock is hard to remove since it is mocks a method on a surrogate that
@@ -779,7 +780,7 @@ class BoTorchGeneratorTest(TestCase):
                 [self.Xs, self.Xs[:1], self.Xs[1:]],
                 [self.Ys, self.Ys[:1] + 1, self.Ys[1:]],
                 [self.Yvars, self.Yvars[:1], self.Yvars[1:]],
-                self.moo_metric_names,
+                self.moo_metric_signatures,
             )
         ]
 
@@ -1233,3 +1234,29 @@ class BoTorchGeneratorTest(TestCase):
         self.assertIsInstance(
             ckwargs["posterior_transform"], ScalarizedPosteriorTransform
         )
+
+    @mock_botorch_optimize
+    def test_get_gen_metadata_from_acqf(self) -> None:
+        for prune in (True, False):
+            model = BoTorchGenerator(
+                surrogate=Surrogate(),
+                acquisition_class=Acquisition,
+                botorch_acqf_options=self.botorch_acqf_options,
+                acquisition_options={"prune_irrelevant_parameters": prune},
+            )
+            model.fit(
+                datasets=self.block_design_training_data,
+                search_space_digest=self.search_space_digest,
+            )
+            gen_results = model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    self.torch_opt_config, pruning_target_point=self.X_test[0]
+                ),
+            )
+            num_pruned_dims = gen_results.gen_metadata.get("num_pruned_dims")
+            if prune:
+                self.assertIsNotNone(num_pruned_dims)
+            else:
+                self.assertIsNone(num_pruned_dims)

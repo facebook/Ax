@@ -31,15 +31,17 @@ class MetadataToParameterMixin:
     This Mixin has utilities for converting metadata from observation features
     into a parameter.
 
-    Transform is done in-place.
+    Transform is mostly done in-place. For hierarchical search spaces, this transform
+    returns a clone of the search space.
     """
 
     _parameter_list: list[Parameter] = []
     parameters: dict[str, dict[str, Any]] = {}
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for parameter in self._parameter_list:
             search_space.add_parameter(parameter.clone())
+
         return search_space
 
     def transform_observation_features(

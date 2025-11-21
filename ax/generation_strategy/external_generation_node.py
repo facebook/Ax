@@ -49,7 +49,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
 
     def __init__(
         self,
-        node_name: str,
+        name: str,
         should_deduplicate: bool = True,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
     ) -> None:
@@ -60,7 +60,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         methods, in case a non-significant compute is spent in the constructor.
 
         Args:
-            node_name: Name of the generation node.
+            name: Name of the generation node.
             should_deduplicate: Whether to deduplicate the generated points against
                 the existing trials on the experiment. If True, the duplicate points
                 will be discarded and re-generated up to 5 times, after which a
@@ -73,7 +73,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         """
         t_init_start = time.monotonic()
         super().__init__(
-            node_name=node_name,
+            name=name,
             generator_specs=[],
             best_model_selector=None,
             should_deduplicate=should_deduplicate,
@@ -170,7 +170,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         Args:
             n: Optional integer representing how many arms should be in the generator
                 run produced by this method. Defaults to 1.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some methods to avoid
                 re-suggesting candidates that are currently being evaluated.
             model_gen_kwargs: Keyword arguments, passed through to
@@ -212,7 +212,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
             arms=[Arm(parameters=params) for params in generated_params],
             fit_time=self.fit_time_since_gen,
             gen_time=time.monotonic() - t_gen_start,
-            model_key=self.node_name,
+            model_key=self.name,
         )
         # TODO: This shares the same bug as Adapter.gen. In both cases, after
         # deduplication, the generator run will record fit_time as 0.

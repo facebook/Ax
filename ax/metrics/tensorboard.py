@@ -14,7 +14,6 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MAP_KEY, MapData
@@ -84,7 +83,7 @@ try:
             """Fetch multiple metrics data for one trial, using instance attributes
             of the metrics.
 
-            Returns Dict of metric_name => Result
+            Returns Dict of metric_signature => Result
             Default behavior calls `fetch_trial_data` for each metric. Subclasses should
             override this to perform trial data computation for multiple metrics.
             """
@@ -102,7 +101,7 @@ try:
                 mul = self._get_event_multiplexer_for_trial(trial=trial)
             except Exception as e:
                 return {
-                    metric.name: Err(
+                    metric.signature: Err(
                         MetricFetchE(
                             message=f"Failed to get event multiplexer for {trial=}",
                             exception=e,
@@ -114,7 +113,7 @@ try:
             scalar_dict = mul.PluginRunToTagToContent("scalars")
             if len(scalar_dict) == 0:
                 return {
-                    metric.name: Err(
+                    metric.signature: Err(
                         MetricFetchE(
                             message=(
                                 "Tensorboard multiplexer is empty. This can happen if "
@@ -135,7 +134,7 @@ try:
                         {
                             "trial_index": trial.index,
                             "arm_name": arm_name,
-                            "metric_name": metric.name,
+                            "metric_signature": metric.signature,
                             MAP_KEY: t.step,
                             "mean": (
                                 t.tensor_proto.double_val[0]
@@ -166,16 +165,22 @@ try:
                                 f"Found tag {metric.tag}, but no data found for it. Is "
                                 "the curve empty in the TensorBoard UI?"
                             )
-                    df = self._process_records_to_df(metric=metric, records=records)
+                    df = self._process_records_to_df(
+                        metric=metric, records=records, arm_name=arm_name
+                    )
+                    df.loc[
+                        df["metric_signature"] == metric.signature, "metric_name"
+                    ] = metric.name
+
                     # Accumulate successfully extracted timeseries
-                    res[metric.name] = Ok(
+                    res[metric.signature] = Ok(
                         MapData(
                             df=df,
                         )
                     )
 
                 except Exception as e:
-                    res[metric.name] = Err(
+                    res[metric.signature] = Err(
                         MetricFetchE(
                             message=f"Failed to fetch data for {metric.name}",
                             exception=e,
@@ -192,7 +197,7 @@ try:
             """Fetch data for one trial."""
 
             return self.bulk_fetch_trial_data(trial=trial, metrics=[self], **kwargs)[
-                self.name
+                self.signature
             ]
 
         def _get_event_multiplexer_for_trial(
@@ -217,17 +222,26 @@ try:
             pass
 
         def _process_records_to_df(
-            self, metric: TensorboardMetric, records: list[dict[str, Any]]
+            self,
+            metric: TensorboardMetric,
+            records: list[dict[str, Any]],
+            arm_name: str,
         ) -> pd.DataFrame:
             """Process records to a MapData dataframe."""
             df = (
                 pd.DataFrame(records)
                 # If a metric has multiple records for the same arm, metric, and
                 # step (sometimes caused by restarts, etc) take the mean
-                .groupby(["arm_name", "metric_name", MAP_KEY])
+                .groupby(["arm_name", "metric_signature", MAP_KEY])
                 .mean()
                 .reset_index()
             )
+            # Ensure we are only processing records for a single arm and a single
+            # metric, since this affects curve processing below.
+            df = df[
+                (df["metric_signature"] == metric.signature)
+                & (df["arm_name"] == arm_name)
+            ]
 
             # If all values are NaNs or Infs, we raise an error
             # If some values are NaNs or Infs, we log a warning and filter out the
@@ -244,6 +258,19 @@ try:
                 )
                 df = df[is_finite]
 
+            # Apply smoothing
+            if metric.smoothing > 0:
+                # Interpolate onto a grid to avoid smoothing artifacts.
+                df = _grid_interpolate(
+                    df=df, arm_name=arm_name, metric_signature=metric.signature
+                )
+                df["mean"] = df["mean"].ewm(alpha=1 - metric.smoothing).mean()
+                df["sem"] = df["sem"].ewm(alpha=1 - metric.smoothing).mean()
+
+            # Apply rolling percentile
+            if metric.percentile is not None:
+                df["mean"] = df["mean"].expanding().quantile(metric.percentile)
+
             # Apply per-metric post-processing
             # Apply cumulative "best" (min if lower_is_better)
             if metric.cumulative_best:
@@ -251,14 +278,6 @@ try:
                     df["mean"] = df["mean"].cummin()
                 else:
                     df["mean"] = df["mean"].cummax()
-
-            # Apply smoothing
-            if metric.smoothing > 0:
-                df["mean"] = df["mean"].ewm(alpha=1 - metric.smoothing).mean()
-
-            # Apply rolling percentile
-            if metric.percentile is not None:
-                df["mean"] = df["mean"].expanding().quantile(metric.percentile)
 
             return df
 
@@ -268,3 +287,32 @@ except ImportError:
         "TensorboardMetric, please install tensorboard."
     )
     pass
+
+
+def _grid_interpolate(
+    df: pd.DataFrame, arm_name: str, metric_signature: str
+) -> pd.DataFrame:
+    """Interpolate a dataframe onto an evenly spaced grid of MAP_KEY."""
+
+    df = df[(df["metric_signature"] == metric_signature) & (df["arm_name"] == arm_name)]
+    if len(df) == 0:
+        logger.warning(f"No data found for {arm_name=} and {metric_signature=}.")
+        return pd.DataFrame()
+
+    # Create an evenly spaced grid with the same length as the original df
+    grid_min = df[MAP_KEY].min()
+    grid_max = df[MAP_KEY].max()
+    grid = np.linspace(grid_min, grid_max, len(df))
+
+    # Interpolate observed values onto the grid
+    df_grid = pd.DataFrame(
+        {
+            "arm_name": arm_name,
+            "metric_signature": metric_signature,
+            "mean": np.interp(grid, df["step"], df["mean"]),
+            "sem": np.interp(grid, df["step"], df["sem"]),
+            "trial_index": df["trial_index"].unique()[0],
+            "step": grid,
+        }
+    )
+    return df_grid

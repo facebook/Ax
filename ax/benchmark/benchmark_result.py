@@ -75,6 +75,10 @@ class BenchmarkResult(Base):
             `report_inference_value`. Having `optimization_trace` specified
             separately is useful when we need just one value to evaluate how
             well the benchmark went.
+        is_feasible_trace: Whether a trial was feasible or not. Differently from
+            the `inference_trace` and `oracle_trace`, the `is_feasible_trace` is
+            not cumulative. For problems with no constraints all elements of
+            `is_feasible_trace` will be True.
         score_trace: The scores associated with the problem, typically either
             the optimization_trace or inference_value_trace normalized to a
             0-100 scale for comparability between problems.
@@ -95,14 +99,15 @@ class BenchmarkResult(Base):
     name: str
     seed: int
 
-    oracle_trace: npt.NDArray
-    inference_trace: npt.NDArray
-    optimization_trace: npt.NDArray
-    score_trace: npt.NDArray
-    cost_trace: npt.NDArray
-
     fit_time: float
     gen_time: float
+
+    oracle_trace: list[float]
+    inference_trace: list[float]
+    optimization_trace: list[float]
+    score_trace: list[float]
+    cost_trace: list[float]
+    is_feasible_trace: list[bool] | None = None  # optional for backwards compatibility
 
     experiment: Experiment | None = None
     experiment_storage_id: str | None = None
@@ -149,7 +154,9 @@ class AggregatedBenchmarkResult(Base):
         """
         # Extract average wall times and standard errors thereof
         fit_time, gen_time = (
-            [nanmean(Ts), float(sem(Ts, ddof=1, nan_policy="propagate"))]
+            # pyre-fixme [16]: Item `float` of `typing.Union[numpy.ndarray[typing.Any,
+            # typing.Any], float]` has no attribute `item`.
+            [nanmean(Ts).item(), sem(Ts, ddof=1, nan_policy="propagate").item()]
             for Ts in zip(*((res.fit_time, res.gen_time) for res in results))
         )
 

@@ -26,7 +26,7 @@ class MetricsAsTaskTransformTest(TestCase):
         self.observations = [
             Observation(
                 data=ObservationData(
-                    metric_names=["metric1", "metric2", "metric3"],
+                    metric_signatures=["metric1", "metric2", "metric3"],
                     means=np.array([1.0, 2.0, 3.0]),
                     covariance=np.diag([1.0, 2.0, 3.0]),
                 ),
@@ -35,7 +35,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric3"],
+                    metric_signatures=["metric3"],
                     means=np.array([30.0]),
                     covariance=np.array([[30.0]]),
                 ),
@@ -46,7 +46,7 @@ class MetricsAsTaskTransformTest(TestCase):
         self.expected_new_observations = [
             Observation(
                 data=ObservationData(
-                    metric_names=["metric1", "metric2", "metric3"],
+                    metric_signatures=["metric1", "metric2", "metric3"],
                     means=np.array([1.0, 2.0, 3.0]),
                     covariance=np.diag([1.0, 2.0, 3.0]),
                 ),
@@ -57,7 +57,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric2", "metric3"],
+                    metric_signatures=["metric2", "metric3"],
                     means=np.array([1.0, 1.0]),
                     covariance=np.diag([1.0, 1.0]),
                 ),
@@ -68,7 +68,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric3"],
+                    metric_signatures=["metric3"],
                     means=np.array([2.0]),
                     covariance=np.array([[2.0]]),
                 ),
@@ -79,7 +79,7 @@ class MetricsAsTaskTransformTest(TestCase):
             ),
             Observation(
                 data=ObservationData(
-                    metric_names=["metric3"],
+                    metric_signatures=["metric3"],
                     means=np.array([30.0]),
                     covariance=np.array([[30.0]]),
                 ),
@@ -90,15 +90,12 @@ class MetricsAsTaskTransformTest(TestCase):
         ]
         self.t = MetricsAsTask(
             search_space=self.search_space,
-            observations=self.observations,
             config={"metric_task_map": self.metric_task_map},
         )
 
     def test_Init(self) -> None:
         with self.assertRaises(ValueError):
-            MetricsAsTask(
-                search_space=self.search_space, observations=self.observations
-            )
+            MetricsAsTask(search_space=self.search_space)
 
     def test_TransformObservations(self) -> None:
         new_obs = self.t.transform_observations(deepcopy(self.observations))
@@ -124,7 +121,7 @@ class MetricsAsTaskTransformTest(TestCase):
             )
 
     def test_TransformSearchSpace(self) -> None:
-        new_ss = self.t._transform_search_space(deepcopy(self.search_space))
+        new_ss = self.t.transform_search_space(deepcopy(self.search_space))
         self.assertEqual(len(new_ss.parameters), 3)
         new_param = new_ss.parameters["METRIC_TASK"]
         self.assertIsInstance(new_param, ChoiceParameter)

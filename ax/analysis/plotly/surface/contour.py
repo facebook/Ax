@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -18,14 +19,19 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.surface.utils import (
+    get_features_for_slice_or_contour,
     get_parameter_values,
     is_axis_log_scale,
-    select_fixed_value,
 )
 from ax.analysis.plotly.utils import select_metric, truncate_label
-from ax.analysis.utils import extract_relevant_adapter, relativize_data
+from ax.analysis.utils import (
+    extract_relevant_adapter,
+    relativize_data,
+    validate_adapter_can_predict,
+    validate_experiment,
+)
 from ax.core.experiment import Experiment
-from ax.core.observation import ObservationFeatures
+from ax.core.parameter import DerivedParameter
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -43,6 +49,7 @@ CONTOUR_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ContourPlot(Analysis):
     """
     Plot a 2D surface of the surrogate model's predicted outcomes for a given pair of
@@ -66,7 +73,7 @@ class ContourPlot(Analysis):
     ) -> None:
         """
         Args:
-            y_parameter_name: The name of the parameter to plot on the x-axis.
+            x_parameter_name: The name of the parameter to plot on the x-axis.
             y_parameter_name: The name of the parameter to plot on the y-axis.
             metric_name: The name of the metric to plot
             display_sampled: If True, plot "x"s at x coordinates which have been
@@ -80,6 +87,41 @@ class ContourPlot(Analysis):
         self.relativize = relativize
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        ContourPlot requires an Experiment with at least one trial with data as well as
+        an Adapter which can predict out of sample points for the specified metric.
+        """
+
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
+
+        if (
+            adapter_cannot_predict_reason := validate_adapter_can_predict(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+                required_metric_names=[
+                    self.metric_name or select_metric(experiment=experiment)
+                ],
+            )
+        ) is not None:
+            return adapter_cannot_predict_reason
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
@@ -88,6 +130,11 @@ class ContourPlot(Analysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")
+        for name in (self.x_parameter_name, self.y_parameter_name):
+            if isinstance(experiment.search_space.parameters[name], DerivedParameter):
+                raise UserInputError(
+                    f"ContourPlot does not support derived parameters: {name}"
+                )
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
@@ -124,8 +171,8 @@ class ContourPlot(Analysis):
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{self.x_parameter_name}, {self.y_parameter_name} vs. "
-                f"{metric_name}"
+                f"{metric_name} vs. "
+                f"{self.x_parameter_name}, {self.y_parameter_name}"
             ),
             subtitle=(
                 "The contour plot visualizes the predicted outcomes "
@@ -191,6 +238,7 @@ def _prepare_data(
     metric_name: str,
     relativize: bool,
 ) -> pd.DataFrame:
+    trials = experiment.extract_relevant_trials(trial_statuses=STATUSES_EXPECTING_DATA)
     sampled = [
         {
             "x_parameter_name": arm.parameters[x_parameter_name],
@@ -198,8 +246,7 @@ def _prepare_data(
             "arm_name": arm.name,
             "trial_index": trial.index,
         }
-        for trial in experiment.trials.values()
-        if trial.status in STATUSES_EXPECTING_DATA  # running, completed, early stopped
+        for trial in trials
         for arm in trial.arms
         # Filter out arms which are not part of the search space (ex. when a parameter
         # is None).
@@ -223,20 +270,13 @@ def _prepare_data(
 
     # Construct observation features for each parameter value previously chosen by
     # fixing all other parameters to their status-quo value or mean.
-    features = [
-        ObservationFeatures(
+    features = features = [
+        get_features_for_slice_or_contour(
             parameters={
                 x_parameter_name: x,
                 y_parameter_name: y,
-                **{
-                    parameter.name: select_fixed_value(parameter=parameter)
-                    for parameter in experiment.search_space.parameters.values()
-                    if not (
-                        parameter.name == x_parameter_name
-                        or parameter.name == y_parameter_name
-                    )
-                },
-            }
+            },
+            search_space=experiment.search_space,
         )
         for x in xs
         for y in ys

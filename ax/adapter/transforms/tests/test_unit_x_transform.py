@@ -8,20 +8,15 @@
 
 from copy import deepcopy
 
-import numpy as np
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
@@ -209,99 +204,6 @@ class UnitXTransformTest(TestCase):
         )
         t.transform_search_space(new_search_space_with_target)
         self.assertEqual(new_search_space_with_target.parameters["x"].target_value, 0.5)
-
-    def test_w_robust_search_space_univariate(self) -> None:
-        # Check that if no transforms are needed, it is untouched.
-        for multivariate in (True, False):
-            rss = get_robust_search_space(multivariate=multivariate, lb=0.0, ub=1.0)
-            expected = str(rss)
-            t = UnitX(search_space=rss)
-            self.assertEqual(expected, str(t.transform_search_space(rss)))
-        # Error if distribution is multiplicative.
-        rss = get_robust_search_space()
-        rss.parameter_distributions[0].multiplicative = True
-        t = UnitX(search_space=rss)
-        with self.assertRaisesRegex(NotImplementedError, "multiplicative"):
-            t.transform_search_space(rss)
-        # Correctly transform univariate additive distributions.
-        rss = get_robust_search_space(lb=5.0, ub=10.0)
-        t = UnitX(search_space=rss)
-        t.transform_search_space(rss)
-        dists = rss.parameter_distributions
-        self.assertEqual(dists[0].distribution_parameters["loc"], 0.2)
-        self.assertEqual(dists[0].distribution_parameters["scale"], 1.0)
-        self.assertEqual(dists[1].distribution_parameters["loc"], 0.0)
-        self.assertEqual(dists[1].distribution_parameters["scale"], 0.2)
-        # Correctly transform environmental distributions.
-        rss = get_robust_search_space(lb=5.0, ub=10.0)
-        all_parameters = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_parameters[1:],
-            parameter_distributions=rss.parameter_distributions[:1],
-            num_samples=rss.num_samples,
-            environmental_variables=all_parameters[:1],
-        )
-        t.transform_search_space(rss)
-        dist = rss.parameter_distributions[0]
-        self.assertEqual(
-            dist.distribution_parameters["loc"],
-            t._normalize_value(1.0, (5.0, 10.0)),
-        )
-        self.assertEqual(dist.distribution_parameters["scale"], 1.0)
-        # Error if transform via loc / scale is not supported.
-        rss = get_robust_search_space(use_discrete=True)
-        rss.parameters["z"]._parameter_type = ParameterType.FLOAT
-        t = UnitX(search_space=rss)
-        with self.assertRaisesRegex(UnsupportedError, "`loc` and `scale`"):
-            t.transform_search_space(rss)
-
-    def test_w_robust_search_space_multivariate(self) -> None:
-        # Error if trying to transform non-normal multivariate distributions.
-        rss = get_robust_search_space(multivariate=True)
-        rss.parameter_distributions[0].distribution_class = "multivariate_t"
-        t = UnitX(
-            search_space=rss,
-            observations=[],
-        )
-        with self.assertRaisesRegex(UnsupportedError, "multivariate"):
-            t.transform_search_space(rss)
-        # Transform multivariate normal.
-        rss = get_robust_search_space(multivariate=True)
-        old_params = deepcopy(rss.parameter_distributions[0].distribution_parameters)
-        t = UnitX(search_space=rss)
-        t.transform_search_space(rss)
-        new_params = rss.parameter_distributions[0].distribution_parameters
-        self.assertIsInstance(new_params["mean"], np.ndarray)
-        self.assertIsInstance(new_params["cov"], np.ndarray)
-        self.assertTrue(
-            np.allclose(new_params["mean"], np.asarray(old_params["mean"]) / 5.0)
-        )
-        self.assertTrue(
-            np.allclose(new_params["cov"], np.asarray(old_params["cov"]) / 25.0)
-        )
-        # Transform multivariate normal environmental distribution.
-        rss = get_robust_search_space(multivariate=True)
-        rss_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=rss_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            num_samples=rss.num_samples,
-            environmental_variables=rss_params[:2],
-        )
-        t = UnitX(search_space=rss)
-        t.transform_search_space(rss)
-        new_params = rss.parameter_distributions[0].distribution_parameters
-        self.assertTrue(
-            np.allclose(new_params["mean"], np.asarray(old_params["mean"]) / 5.0)
-        )
-        # Errors if mean / cov are of wrong shape.
-        rss.parameter_distributions[0].distribution_parameters["mean"] = [1.0]
-        with self.assertRaisesRegex(UserInputError, "mean"):
-            t.transform_search_space(rss)
-        rss.parameter_distributions[0].distribution_parameters["mean"] = [1.0, 1.0]
-        rss.parameter_distributions[0].distribution_parameters["cov"] = [1.0]
-        with self.assertRaisesRegex(UserInputError, "cov"):
-            t.transform_search_space(rss)
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [

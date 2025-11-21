@@ -7,15 +7,11 @@
 # pyre-strict
 
 import logging
-import warnings
 from math import ceil
-from typing import Any, cast
+from typing import Any
 
 import torch
-from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import GeneratorRegistryBase, Generators
-from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -25,7 +21,6 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
-from ax.generators.types import TConfig
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
@@ -67,6 +62,7 @@ def _make_sobol_step(
         max_parallelism=max_parallelism,
         model_kwargs={"deduplicate": True, "seed": seed},
         should_deduplicate=should_deduplicate,
+        use_all_trials_in_exp=True,
     )
 
 
@@ -79,44 +75,30 @@ def _make_botorch_step(
     model_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
-    no_winsorization: bool = False,
     should_deduplicate: bool = False,
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
     derelativize_with_raw_status_quo: bool = False,
-    fit_out_of_design: bool = False,
     use_saasbo: bool = False,
     use_input_warping: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
-    model_kwargs = model_kwargs or {}
-
-    winsorization_transform_config = _get_winsorization_transform_config(
-        winsorization_config=winsorization_config,
-        no_winsorization=no_winsorization,
-        derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
+    model_kwargs = model_kwargs.copy() if model_kwargs is not None else {}
+    # NOTE: This is a private function that's only called by `model_kwargs`
+    # from `choose_generation_strategy_legacy`. Those `model_kwargs` do not include
+    # transform configs, so we don't need to worry about overriding them here.
+    # Asserting that it's not included just to be extra safe.
+    assert "transform_configs" not in model_kwargs
+    model_kwargs["transform_configs"] = get_derelativize_config(
+        derelativize_with_raw_status_quo=derelativize_with_raw_status_quo
     )
-
-    derelativization_transform_config = {
-        "use_raw_status_quo": derelativize_with_raw_status_quo
-    }
-    model_kwargs["transform_configs"] = model_kwargs.get("transform_configs", {})
-    model_kwargs["transform_configs"]["Derelativize"] = (
-        derelativization_transform_config
-    )
-    model_kwargs["data_loader_config"] = DataLoaderConfig(
-        fit_out_of_design=fit_out_of_design
-    )
-
-    if not no_winsorization:
-        _, default_bridge_kwargs = generator.view_defaults()
-        default_transforms = default_bridge_kwargs["transforms"]
-        transforms = model_kwargs.get("transforms", default_transforms)
-        model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
-        if winsorization_transform_config is not None:
-            model_kwargs["transform_configs"]["Winsorize"] = (
-                winsorization_transform_config
-            )
+    if winsorization_config is not None:
+        # Make sure Winsorize is in the dict.
+        model_kwargs["transform_configs"].setdefault("Winsorize", {})
+        # Add manually specified winsorization config.
+        model_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
+            winsorization_config
+        )
 
     if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
         model_kwargs["surrogate_spec"] = SurrogateSpec(
@@ -304,7 +286,6 @@ def choose_generation_strategy_legacy(
     enforce_sequential_optimization: bool = True,
     random_seed: int | None = None,
     torch_device: torch.device | None = None,
-    no_winsorization: bool = False,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     derelativize_with_raw_status_quo: bool = False,
@@ -323,8 +304,8 @@ def choose_generation_strategy_legacy(
     jit_compile: bool | None = None,
     experiment: Experiment | None = None,
     suggested_model_override: GeneratorRegistryBase | None = None,
-    fit_out_of_design: bool = False,
     use_input_warping: bool = False,
+    simplify_parameter_changes: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -350,8 +331,6 @@ def choose_generation_strategy_legacy(
             for multi-objective optimization) can be sped up by running candidate
             generation on the GPU. If not specified, uses the default torch device
             (usually the CPU).
-        no_winsorization: Whether to apply the winsorization transform
-            prior to applying other transforms for fitting the BoTorch model.
         winsorization_config: Explicit winsorization settings, if winsorizing. Usually
             only `upper_quantile_margin` is set when minimizing, and only
             `lower_quantile_margin` when maximizing.
@@ -392,9 +371,7 @@ def choose_generation_strategy_legacy(
             no max parallelism will be enforced for any step of the generation
             strategy. Be aware that parallelism is limited to improve performance of
             Bayesian optimization, so only disable its limiting if necessary.
-        optimization_config: used to infer whether to use MOO and will be passed in to
-            ``Winsorize`` via its ``transform_config`` in order to determine default
-            winsorization behavior when necessary.
+        optimization_config: Used to infer whether to use MOO.
         should_deduplicate: Whether to deduplicate the parameters of proposed arms
             against those of previous arms via rejection sampling. If this is True,
             the generation strategy will discard generator runs produced from the
@@ -419,9 +396,11 @@ def choose_generation_strategy_legacy(
             provided as an arg to this function.
         suggested_model_override: If specified, this model will be used for the GP
             step and automatic selection will be skipped.
-        fit_out_of_design: Whether to include out-of-design points in the model.
         use_input_warping: Whether to use input warping in the model. This is only
             supported in conjunction with use_saasbo=True.
+        simplify_parameter_changes: Whether to simplify parameter changes in
+            arms generated via Bayesian Optimization by pruning irrelevant
+            parameter changes.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
@@ -466,7 +445,7 @@ def choose_generation_strategy_legacy(
 
         # If number of initialization trials is not specified, estimate it.
         logger.debug(
-            "Calculating the number of remaining initialization trials based on "
+            "Calculating the number of initialization trials based on "
             f"num_initialization_trials={num_initialization_trials} "
             f"max_initialization_trials={max_initialization_trials} "
             f"num_tunable_parameters={len(search_space.tunable_parameters)} "
@@ -486,14 +465,6 @@ def choose_generation_strategy_legacy(
             logger.debug(
                 f"calculated num_initialization_trials={num_initialization_trials}"
             )
-        num_remaining_initialization_trials = max(
-            0, num_initialization_trials - max(0, num_completed_initialization_trials)
-        )
-        logger.debug(
-            "num_completed_initialization_trials="
-            f"{num_completed_initialization_trials} "
-            f"num_remaining_initialization_trials={num_remaining_initialization_trials}"
-        )
         steps = []
         # `disable_progbar` and jit_compile defaults and overrides
         model_is_saasbo = use_saasbo and (suggested_model is Generators.BOTORCH_MODULAR)
@@ -510,19 +481,20 @@ def choose_generation_strategy_legacy(
             )
             jit_compile = None
 
-        model_kwargs: dict[str, Any] = {
-            "torch_device": torch_device,
-            "data_loader_config": DataLoaderConfig(
-                fit_out_of_design=fit_out_of_design,
-            ),
-        }
+        model_kwargs: dict[str, Any] = {"torch_device": torch_device}
+        if suggested_model is Generators.BOTORCH_MODULAR:
+            model_kwargs["acquisition_options"] = {
+                "prune_irrelevant_parameters": simplify_parameter_changes
+            }
 
-        # Create `generation_strategy`, adding first Sobol step
-        # if `num_remaining_initialization_trials` is > 0.
-        if num_remaining_initialization_trials > 0:
+        # Create `generation_strategy`, adding Sobol step first.
+        if num_initialization_trials > max(0, num_completed_initialization_trials):
+            # Note: With `use_all_trials_in_exp=True`, the Sobol step will automatically
+            # account for any existing trials in the experiment, so we can use the total
+            # number of initialization trials directly.
             steps.append(
                 _make_sobol_step(
-                    num_trials=num_remaining_initialization_trials,
+                    num_trials=num_initialization_trials,
                     min_trials_observed=min_sobol_trials_observed,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
@@ -535,7 +507,6 @@ def choose_generation_strategy_legacy(
                 generator=suggested_model,
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
-                no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
                 model_kwargs=model_kwargs,
                 should_deduplicate=should_deduplicate,
@@ -559,7 +530,7 @@ def choose_generation_strategy_legacy(
         gs = GenerationStrategy(steps=steps, name=name)
         logger.info(
             f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
-            f" {num_remaining_initialization_trials} will take longer to generate due"
+            f" {num_initialization_trials} will take longer to generate due"
             " to model-fitting."
         )
     else:  # `force_random_search` is True or we could not suggest BO model
@@ -578,19 +549,17 @@ def choose_generation_strategy_legacy(
     return gs
 
 
-def _get_winsorization_transform_config(
-    winsorization_config: None | (WinsorizationConfig | dict[str, WinsorizationConfig]),
+def get_derelativize_config(
     derelativize_with_raw_status_quo: bool,
-    no_winsorization: bool,
-) -> TConfig | None:
-    if no_winsorization:
-        if winsorization_config is not None:
-            warnings.warn(
-                "`no_winsorization = True` but `winsorization_config` has been set. "
-                "Not winsorizing.",
-                stacklevel=2,
-            )
-        return None
-    if winsorization_config:
-        return {"winsorization_config": winsorization_config}
-    return {"derelativize_with_raw_status_quo": derelativize_with_raw_status_quo}
+) -> dict[str, dict[str, bool]]:
+    """Returns the transform config for derelativize for the three
+    transforms it applies to: Deralatize, Winsorize, BilogY.
+    """
+    if derelativize_with_raw_status_quo is False:
+        return {}
+    else:
+        return {
+            "Derelativize": {"use_raw_status_quo": True},
+            "Winsorize": {"derelativize_with_raw_status_quo": True},
+            "BilogY": {"derelativize_with_raw_status_quo": True},
+        }

@@ -35,7 +35,10 @@ from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
 from ax.core.trial_status import TrialStatus
@@ -59,7 +62,7 @@ from ax.plot.trace import (
     map_data_multiple_metrics_dropdown_plotly,
     plot_objective_value_vs_trial_index,
 )
-from ax.service.utils.best_point import _is_row_feasible, derelativize_opt_config
+from ax.service.utils.best_point import derelativize_opt_config, is_row_feasible
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
@@ -102,10 +105,15 @@ def _get_objective_trace_plot(
     experiment: Experiment, true_objective_metric_name: str | None = None
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
-        return [
-            scatter_plot_with_hypervolume_trace_plotly(experiment=experiment),
-            *_pairwise_pareto_plotly_scatter(experiment=experiment),
-        ]
+        plots = []
+        if _has_reference_point(
+            optimization_config=assert_is_instance(
+                experiment.optimization_config, MultiObjectiveOptimizationConfig
+            )
+        ):
+            plots = [scatter_plot_with_hypervolume_trace_plotly(experiment=experiment)]
+        plots += list(_pairwise_pareto_plotly_scatter(experiment=experiment))
+        return plots
     runner = experiment.runner
     run_metadata_report_keys = None
     if runner is not None:
@@ -169,7 +177,7 @@ def _get_objective_v_param_plots(
         return []
     range_param_names = [param.name for param in range_params]
     num_range_params = len(range_params)
-    num_metrics = len(model.metric_names)
+    num_metrics = len(model.metric_signatures)
     num_slice_plots = num_range_params * num_metrics
     output_plots = []
     if num_slice_plots <= max_num_slice_plots:
@@ -208,7 +216,10 @@ def _get_objective_v_param_plots(
         # params that yields the desired number of plots (solved using quadratic eqn)
         num_params_per_metric = int(0.5 + (0.25 + num_contour_per_metric) ** 0.5)
         try:
-            for metric_name in model.metric_names:
+            metric_names = []
+            for signature in model.metric_signatures:
+                metric_names.append(experiment.signature_to_metric[signature].name)
+            for metric_name in metric_names:
                 if importance is not None:
                     range_params_sens_for_metric = {
                         k: v
@@ -364,9 +375,12 @@ def get_standard_plots(
                     logger.exception(f"Failed to compute feature sensitivities: {e}")
         if sens is None:
             try:
+                metric_names = []
+                for signature in model.metric_signatures:
+                    metric_names.append(experiment.signature_to_metric[signature].name)
                 sens = {
                     metric_name: model.feature_importances(metric_name)
-                    for i, metric_name in enumerate(sorted(model.metric_names))
+                    for i, metric_name in enumerate(sorted(metric_names))
                 }
             except Exception as e:
                 logger.warning(f"Failed to compute feature importances: {e}")
@@ -812,7 +826,7 @@ def exp_to_df(
                     experiment=exp,
                 )
             # Will return None for those rows whose feasibility cannot be determined.
-            results[FEASIBLE_COL_NAME] = _is_row_feasible(
+            results[FEASIBLE_COL_NAME] = is_row_feasible(
                 df=results,
                 optimization_config=optimization_config,
                 undetermined_value=None,
@@ -1451,3 +1465,13 @@ def warn_if_unpredictable_metrics(
 
     if len(unpredictable_metrics) > 0:
         return UNPREDICTABLE_METRICS_MESSAGE.format(list(unpredictable_metrics.keys()))
+
+
+def _has_reference_point(optimization_config: MultiObjectiveOptimizationConfig) -> bool:
+    objectives = assert_is_instance(
+        optimization_config.objective, MultiObjective
+    ).objectives
+    objective_names = {obj.metric.name for obj in objectives}
+    thresholds = optimization_config.objective_thresholds
+    threshold_names = {threshold.metric.name for threshold in thresholds}
+    return objective_names == threshold_names

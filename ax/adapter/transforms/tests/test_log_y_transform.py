@@ -61,13 +61,13 @@ class LogYTransformTest(TestCase):
 
     def test_TransformObservations(self) -> None:
         obsd_with_noise = ObservationData(
-            metric_names=["m1", "m2", "m3"],
+            metric_signatures=["m1", "m2", "m3"],
             means=np.array([0.5, 1.0, 1.0]),
             covariance=np.diag(np.array([1.0, 1.0, np.exp(1) - 1])),
         )
         # test default transform
         obsd1_t = ObservationData(
-            metric_names=["m1", "m2", "m3"],
+            metric_signatures=["m1", "m2", "m3"],
             means=np.array([0.5, 1.0, -0.5]),
             covariance=np.diag(np.array([1.0, 1.0, 1.0])),
         )
@@ -92,7 +92,7 @@ class LogYTransformTest(TestCase):
         Z[0, 2] = np.sqrt(np.exp(1)) - 1
         Z[2, 0] = np.sqrt(np.exp(1)) - 1
         obsd1 = ObservationData(
-            metric_names=["m3", "m3", "m3"],
+            metric_signatures=["m3", "m3", "m3"],
             means=np.ones(3),
             covariance=np.diag(np.ones(3) * (np.exp(1) - 1)) + Z,
         )
@@ -103,7 +103,7 @@ class LogYTransformTest(TestCase):
 
         # Test with unknown noise.
         obsd_without_noise = ObservationData(
-            metric_names=["m1", "m2"],
+            metric_signatures=["m1", "m2"],
             means=np.array([1.0, 2.0]),
             covariance=np.diag(np.array([float("nan"), float("nan")])),
         )
@@ -122,7 +122,7 @@ class LogYTransformTest(TestCase):
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
         oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
-        tf = LogY(search_space=None, observations=[], config={"metrics": ["m1"]})
+        tf = LogY(search_space=None, config={"metrics": ["m1"]})
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
         # output constraint on a different metric should work
@@ -209,7 +209,7 @@ class LogYTransformTest(TestCase):
             objective=mo,
             objective_thresholds=objective_thresholds,
         )
-        tf = LogY(search_space=None, observations=[], config={"metrics": ["m1"]})
+        tf = LogY(search_space=None, config={"metrics": ["m1"]})
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         oc.objective_thresholds[0].bound = math.log(1.234)
         self.assertEqual(oc_tf, oc)

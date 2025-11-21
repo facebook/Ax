@@ -5,8 +5,6 @@
 
 # pyre-strict
 
-
-import numpy as np
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.utils.common.testutils import TestCase
 
@@ -23,11 +21,12 @@ class TestBenchmarkResult(TestCase):
             BenchmarkResult(
                 name="name",
                 seed=0,
-                inference_trace=np.array([]),
-                oracle_trace=np.array([]),
-                optimization_trace=np.array([]),
-                score_trace=np.array([]),
-                cost_trace=np.array([]),
+                inference_trace=[],
+                oracle_trace=[],
+                optimization_trace=[],
+                score_trace=[],
+                is_feasible_trace=[],
+                cost_trace=[],
                 fit_time=0.0,
                 gen_time=0.0,
                 experiment=get_experiment(),
@@ -40,11 +39,12 @@ class TestBenchmarkResult(TestCase):
             BenchmarkResult(
                 name="name",
                 seed=0,
-                inference_trace=np.array([]),
-                oracle_trace=np.array([]),
-                optimization_trace=np.array([]),
-                score_trace=np.array([]),
-                cost_trace=np.array([]),
+                inference_trace=[],
+                oracle_trace=[],
+                optimization_trace=[],
+                score_trace=[],
+                is_feasible_trace=[],
+                cost_trace=[],
                 fit_time=0.0,
                 gen_time=0.0,
             )

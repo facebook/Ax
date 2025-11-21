@@ -6,47 +6,63 @@
 
 # pyre-strict
 
+import dataclasses
 import warnings
 from collections import OrderedDict
+from typing import Any
 from unittest.mock import Mock
 
 import numpy as np
 import torch
+from ax.core.map_data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.utils import (
+    _fix_map_key_to_target,
     _get_shared_rows,
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     convert_to_block_design,
+    copy_model_config_with_default_values,
     get_cv_fold,
     logger,
     ModelConfig,
     subset_state_dict,
     use_model_list,
 )
-from ax.generators.torch.utils import _to_inequality_constraints, predict_from_model
+from ax.generators.torch.utils import (
+    _to_inequality_constraints,
+    get_feature_importances_from_botorch_model,
+    get_rounding_func,
+    predict_from_model,
+)
 from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
-from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.analytic import PosteriorMean
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
+from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
+from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
+from botorch.models.transforms.input import Normalize, Warp
 from botorch.posteriors.ensemble import EnsemblePosterior
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
+from botorch.utils.types import DEFAULT
+from gpytorch.kernels.constant_kernel import ConstantKernel
 from pyre_extensions import assert_is_instance, none_throws
+from torch import Tensor
 
 
 class BoTorchGeneratorUtilsTest(TestCase):
@@ -60,7 +76,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             _,
             _,
             self.feature_names,
-            self.metric_names,
+            self.metric_signatures,
         ) = get_torch_test_data(dtype=self.dtype)
         self.Xs2, self.Ys2, self.Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=self.dtype,
@@ -71,17 +87,40 @@ class BoTorchGeneratorUtilsTest(TestCase):
             Y=self.Ys,
             Yvar=self.Yvars,
             feature_names=self.feature_names,
-            outcome_names=self.metric_names,
+            outcome_names=self.metric_signatures,
         )
         self.supervised_dataset = SupervisedDataset(
             X=self.Xs,
             Y=self.Ys,
             feature_names=self.feature_names,
-            outcome_names=self.metric_names,
+            outcome_names=self.metric_signatures,
         )
-        self.none_Yvars = [torch.tensor([[np.nan], [np.nan]])]
         self.task_features = []
         self.objective_thresholds = torch.tensor([0.5, 1.5])
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=self.feature_names,
+            bounds=[(0.0, 10.0) for _ in range(len(self.feature_names))],
+        )
+
+    def _get_heterogeneous_mt_dataset(self) -> MultiTaskDataset:
+        """Helper to create a heterogeneous multi-task dataset for testing."""
+        target_dataset = SupervisedDataset(
+            X=torch.cat([torch.rand(5, 3), torch.zeros(5, 1)], dim=-1),
+            Y=torch.rand(5, 1),
+            feature_names=["x0", "x1", "x2", Keys.TASK_FEATURE_NAME.value],
+            outcome_names=["target_metric"],
+        )
+        source_dataset = SupervisedDataset(
+            X=torch.cat([torch.rand(5, 2), torch.ones(5, 1)], dim=-1),
+            Y=torch.rand(5, 1),
+            feature_names=["x0", "x1", Keys.TASK_FEATURE_NAME.value],
+            outcome_names=["source_metric"],
+        )
+        return MultiTaskDataset(
+            datasets=[target_dataset, source_dataset],
+            target_outcome_name="target_metric",
+            task_feature_index=-1,
+        )
 
     def test_choose_model_class_fidelity_features(self) -> None:
         # Only a single fidelity feature can be used.
@@ -90,19 +129,18 @@ class BoTorchGeneratorUtilsTest(TestCase):
         ):
             choose_model_class(
                 dataset=self.fixed_noise_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[], bounds=[], fidelity_features=[1, 2]
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest, fidelity_features=[1, 2]
                 ),
             )
         # No support for non-empty task & fidelity features yet.
         with self.assertRaisesRegex(NotImplementedError, "Multi-task multi-fidelity"):
             choose_model_class(
                 dataset=self.fixed_noise_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest,
                     task_features=[1],
-                    fidelity_features=[1],
+                    fidelity_features=[2],
                 ),
             )
         # With fidelity features, use SingleTaskMultiFidelityGP.
@@ -111,34 +149,145 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 SingleTaskMultiFidelityGP,
                 choose_model_class(
                     dataset=ds,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=[],
-                        bounds=[],
-                        fidelity_features=[2],
+                    search_space_digest=dataclasses.replace(
+                        self.search_space_digest, fidelity_features=[2]
                     ),
                 ),
             )
 
     def test_choose_model_class_task_features(self) -> None:
-        # Only a single task feature can be used.
-        with self.assertRaisesRegex(NotImplementedError, "Only a single task feature"):
-            choose_model_class(
-                dataset=self.fixed_noise_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[], bounds=[], task_features=[1, 2]
-                ),
-            )
         # With task features use MultiTaskGP.
         for datasets in (self.supervised_dataset, self.fixed_noise_dataset):
             self.assertEqual(
                 MultiTaskGP,
                 choose_model_class(
                     dataset=datasets,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=[], bounds=[], task_features=[1]
+                    search_space_digest=dataclasses.replace(
+                        self.search_space_digest, task_features=[1]
                     ),
                 ),
             )
+
+    def test_choose_model_class_heterogeneous_task_features(self) -> None:
+        # Test that HeterogeneousMTGP is chosen when MultiTaskDataset has
+        # heterogeneous features.
+        mt_dataset = self._get_heterogeneous_mt_dataset()
+
+        # Execute: Choose model class with task features
+        model_class = choose_model_class(
+            dataset=mt_dataset,
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest, task_features=[-1]
+            ),
+        )
+
+        # Assert: Should select HeterogeneousMTGP for heterogeneous features
+        self.assertEqual(HeterogeneousMTGP, model_class)
+
+    def test_choose_model_class_heterogeneous_overrides_specified(self) -> None:
+        # Test that HeterogeneousMTGP overrides a pre-specified model class
+        # when heterogeneous features are detected
+        mt_dataset = self._get_heterogeneous_mt_dataset()
+
+        # Execute: Try to specify MultiTaskGP explicitly
+        model_class = choose_model_class(
+            dataset=mt_dataset,
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest, task_features=[-1]
+            ),
+            specified_model_class=MultiTaskGP,
+        )
+
+        # Assert: Should override to HeterogeneousMTGP despite specification
+        self.assertEqual(HeterogeneousMTGP, model_class)
+
+    def test_choose_model_class_respects_specified_when_no_override_needed(
+        self,
+    ) -> None:
+        # Test that specified_model_class is used when no override is needed
+        model_class = choose_model_class(
+            dataset=self.supervised_dataset,
+            search_space_digest=self.search_space_digest,
+            specified_model_class=SingleTaskGP,
+        )
+        self.assertEqual(SingleTaskGP, model_class)
+
+        # Test with a different specified class
+        model_class = choose_model_class(
+            dataset=self.supervised_dataset,
+            search_space_digest=self.search_space_digest,
+            specified_model_class=MixedSingleTaskGP,
+        )
+        self.assertEqual(MixedSingleTaskGP, model_class)
+
+    def test_copy_model_config_adds_normalize_for_heterogeneous_mtgp(self) -> None:
+        # Test that Normalize input transform is added for HeterogeneousMTGP
+        mt_dataset = self._get_heterogeneous_mt_dataset()
+
+        # Case 1: No input transform classes specified
+        model_config = ModelConfig()
+        updated_config = copy_model_config_with_default_values(
+            model_config=model_config,
+            dataset=mt_dataset,
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest, task_features=[-1]
+            ),
+        )
+        self.assertEqual(updated_config.botorch_model_class, HeterogeneousMTGP)
+        self.assertEqual(updated_config.input_transform_classes, [Normalize])
+        self.assertEqual(
+            none_throws(updated_config.input_transform_options),
+            {"Normalize": {"bounds": None}},
+        )
+
+        # Case 2: Input transform classes already specified (but not Normalize)
+        model_config = ModelConfig(
+            input_transform_classes=[Warp], input_transform_options={"Warp": {}}
+        )
+        updated_config = copy_model_config_with_default_values(
+            model_config=model_config,
+            dataset=mt_dataset,
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest, task_features=[-1]
+            ),
+        )
+        self.assertEqual(updated_config.input_transform_classes, [Warp, Normalize])
+        self.assertEqual(
+            none_throws(updated_config.input_transform_options),
+            {"Warp": {}, "Normalize": {"bounds": None}},
+        )
+
+        # Case 3: Normalize already in input transform classes
+        model_config = ModelConfig(
+            input_transform_classes=[Normalize],
+            input_transform_options={"Normalize": {"bounds": None}},
+        )
+        updated_config = copy_model_config_with_default_values(
+            model_config=model_config,
+            dataset=mt_dataset,
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest, task_features=[-1]
+            ),
+        )
+        self.assertEqual(updated_config.input_transform_classes, [Normalize])
+        self.assertEqual(
+            none_throws(updated_config.input_transform_options),
+            {"Normalize": {"bounds": None}},
+        )
+
+    def test_copy_model_config_does_not_add_normalize_for_other_models(self) -> None:
+        # Test that Normalize is NOT added for non-HeterogeneousMTGP models
+        model_config = ModelConfig()
+        updated_config = copy_model_config_with_default_values(
+            model_config=model_config,
+            dataset=self.supervised_dataset,
+            search_space_digest=self.search_space_digest,
+        )
+        # Should be SingleTaskGP, not HeterogeneousMTGP
+        self.assertEqual(updated_config.botorch_model_class, SingleTaskGP)
+        # Should not have added Normalize
+        self.assertEqual(updated_config.input_transform_classes, DEFAULT)
+        self.assertEqual(updated_config.input_transform_options, {})
 
     def test_choose_model_class_discrete_features(self) -> None:
         # With discrete features, use MixedSingleTaskyGP.
@@ -146,11 +295,10 @@ class BoTorchGeneratorUtilsTest(TestCase):
             MixedSingleTaskGP,
             choose_model_class(
                 dataset=self.supervised_dataset,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
-                    task_features=[],
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest,
                     categorical_features=[1],
+                    discrete_choices={1: [1, 2, 3]},
                 ),
             ),
         )
@@ -161,11 +309,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             self.assertEqual(
                 SingleTaskGP,
                 choose_model_class(
-                    dataset=ds,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=[],
-                        bounds=[],
-                    ),
+                    dataset=ds, search_space_digest=self.search_space_digest
                 ),
             )
 
@@ -173,6 +317,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(
             qLogNoisyExpectedImprovement,
             choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, 0.0]),
                     is_moo=False,
@@ -183,8 +328,21 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(
             qLogNoisyExpectedHypervolumeImprovement,
             choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0]),
+                    is_moo=True,
+                ),
+                datasets=[self.supervised_dataset],
+            ),
+        )
+        # Default to qLogNParEGO for > 4 objectives.
+        self.assertEqual(
+            qLogNParEGO,
+            choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, -1.0, 1.0, 1.0, 1.0]),
                     is_moo=True,
                 ),
                 datasets=[self.supervised_dataset],
@@ -196,6 +354,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         datasets = [self.supervised_dataset, ds1]
         with self.assertLogs(logger=logger, level="DEBUG") as logs:
             choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([1.0, -1.0]),
                     is_moo=True,
@@ -538,13 +697,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # simple case: block design, supervised
         X = torch.rand(4, 2)
         Ys = [torch.rand(4, 1), torch.rand(4, 1)]
-        metric_names = ["y1", "y2"]
+        metric_signatures = ["y1", "y2"]
         datasets_unknown_noise = [
             SupervisedDataset(
                 X=X,
                 Y=Ys[i],
                 feature_names=["x1", "x2"],
-                outcome_names=[metric_names[i]],
+                outcome_names=[metric_signatures[i]],
             )
             for i in range(2)
         ]
@@ -553,7 +712,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertIsInstance(new_datasets[0], SupervisedDataset)
         self.assertTrue(torch.equal(new_datasets[0].X, X))
         self.assertTrue(torch.equal(new_datasets[0].Y, torch.cat(Ys, dim=-1)))
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
         # simple case: block design, fixed
         Yvars = [torch.rand(4, 1), torch.rand(4, 1)]
@@ -563,7 +722,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 Y=Ys[i],
                 Yvar=Yvars[i],
                 feature_names=["x1", "x2"],
-                outcome_names=[metric_names[i]],
+                outcome_names=[metric_signatures[i]],
             )
             for i in range(2)
         ]
@@ -575,7 +734,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertTrue(
             torch.equal(none_throws(new_datasets[0].Yvar), torch.cat(Yvars, dim=-1))
         )
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
         # test error is raised if not block design and force=False
         X2 = torch.cat((X[:3], torch.rand(1, 2)))
@@ -583,7 +742,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             SupervisedDataset(
                 X=X, Y=Y, feature_names=["x1", "x2"], outcome_names=[name]
             )
-            for X, Y, name in zip((X, X2), Ys, metric_names)
+            for X, Y, name in zip((X, X2), Ys, metric_signatures)
         ]
         with self.assertRaisesRegex(
             UnsupportedError, "Cannot convert data to non-block design data."
@@ -606,14 +765,14 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertTrue(
             torch.equal(new_datasets[0].Y, torch.cat([Y[:3] for Y in Ys], dim=-1))
         )
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
         # test a log is produced if not block design and force=True (fixed)
         datasets = [
             SupervisedDataset(
                 X=X, Y=Y, Yvar=Yvar, feature_names=["x1", "x2"], outcome_names=[name]
             )
-            for X, Y, Yvar, name in zip((X, X2), Ys, Yvars, metric_names)
+            for X, Y, Yvar, name in zip((X, X2), Ys, Yvars, metric_signatures)
         ]
         with self.assertLogs(logger=logger, level="DEBUG") as logs:
             new_datasets = convert_to_block_design(datasets=datasets, force=True)
@@ -635,7 +794,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 torch.cat([Yvar[:3] for Yvar in Yvars], dim=-1),
             )
         )
-        self.assertEqual(new_datasets[0].outcome_names, metric_names)
+        self.assertEqual(new_datasets[0].outcome_names, metric_signatures)
 
         # Test that known and unknown noise can be merged if force=True.
         datasets = [datasets_unknown_noise[0], datasets_noisy[1]]
@@ -754,3 +913,179 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(mean.shape, (2, 2))  # (n_points, n_outputs)
         self.assertEqual(cov.shape, (2, 2, 2))  # (n_points, n_outputs, n_outputs)
         self.assertTrue(torch.all(cov >= 0))  # Ensure covariance is positive
+
+    def test_get_feature_importances_from_botorch_model(self) -> None:
+        tkwargs: dict[str, Any] = {"dtype": torch.double}
+        train_X = torch.rand(5, 3, **tkwargs)
+        train_Y = train_X.sum(dim=-1, keepdim=True)
+        simple_gp = SingleTaskGP(train_X=train_X, train_Y=train_Y)
+        # pyre-fixme[16]: `Module` has no attribute `lengthscale`.
+        simple_gp.covar_module.lengthscale = torch.tensor([1, 3, 5], **tkwargs)
+        importances = get_feature_importances_from_botorch_model(simple_gp)
+        self.assertTrue(np.allclose(importances, np.array([15 / 23, 5 / 23, 3 / 23])))
+        self.assertEqual(importances.shape, (1, 1, 3))
+        # Model with kernel that has no lengthscales
+        simple_gp.covar_module = ConstantKernel()
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Failed to extract lengthscales from `m.covar_module` and "
+            "`m.covar_module.base_kernel`",
+        ):
+            get_feature_importances_from_botorch_model(simple_gp)
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Cannot calculate feature_importances without a fitted model",
+        ):
+            get_feature_importances_from_botorch_model(None)
+
+    def test_get_rounding_func(self) -> None:
+        def rounding_func(x: Tensor) -> Tensor:
+            return torch.round(x)
+
+        dummy_rounding = none_throws(get_rounding_func(rounding_func=rounding_func))
+        X_temp = torch.rand(1, 2, 3, 4)
+        self.assertTrue(torch.equal(torch.round(X_temp), dummy_rounding(X_temp)))
+
+    def test_fix_map_key_to_target(self) -> None:
+        # Setup: Create test tensors with MAP_KEY feature
+        X1 = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        X2 = torch.tensor([[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]])
+        Xs = [X1.clone(), X2.clone()]
+        feature_names = ["x1", "x2", MAP_KEY]
+
+        # Test case 1: MAP_KEY is in feature_names and in fixed_features
+        # Should fix MAP_KEY column (index 2) to the target value
+        fixed_features = {2: 5.0}
+        result = _fix_map_key_to_target(
+            Xs=Xs, feature_names=feature_names, fixed_features=fixed_features
+        )
+
+        # Assert: MAP_KEY column should be fixed to 5.0
+        self.assertEqual(len(result), 2)
+        self.assertTrue(torch.equal(result[0][:, 2], torch.tensor([5.0, 5.0])))
+        self.assertTrue(torch.equal(result[1][:, 2], torch.tensor([5.0, 5.0])))
+        # Other columns should remain unchanged
+        self.assertTrue(torch.equal(result[0][:, :2], X1[:, :2]))
+        self.assertTrue(torch.equal(result[1][:, :2], X2[:, :2]))
+
+        # Assert: Original tensors should remain unchanged
+        self.assertTrue(torch.equal(X1, Xs[0]))
+        self.assertTrue(torch.equal(X2, Xs[1]))
+
+        # Test case 2: MAP_KEY is in feature_names but NOT in fixed_features
+        # Should return original tensors (no-op)
+        for fixed_features in ({0: 1.0}, None):
+            result = _fix_map_key_to_target(
+                Xs=Xs, feature_names=feature_names, fixed_features=fixed_features
+            )
+
+            # Assert: Tensors should remain unchanged
+            self.assertTrue(torch.equal(result[0], X1))
+            self.assertTrue(torch.equal(result[1], X2))
+
+        # Test case 3: MAP_KEY is NOT in feature_names
+        # Should return original tensors
+        feature_names_no_map = ["x1", "x2", "x3"]
+        fixed_features = {2: 5.0}
+        result = _fix_map_key_to_target(
+            Xs=Xs, feature_names=feature_names_no_map, fixed_features=fixed_features
+        )
+
+        # Assert: Original tensors should be returned unchanged
+        self.assertTrue(torch.equal(result[0], X1))
+        self.assertTrue(torch.equal(result[1], X2))
+
+    def test_convert_to_block_design_with_fix_map_key(self) -> None:
+        # Setup: Create datasets with different MAP_KEY values.
+        X1 = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        X2 = torch.tensor([[1.0, 2.0, 7.0], [4.0, 5.0, 8.0]])  # Same X except MAP_KEY
+        Y1 = torch.tensor([[0.5], [0.6]])
+        Y2 = torch.tensor([[0.7], [0.8]])
+        feature_names = ["x1", "x2", MAP_KEY]
+        dataset1 = SupervisedDataset(
+            X=X1, Y=Y1, feature_names=feature_names, outcome_names=["metric1"]
+        )
+        dataset2 = SupervisedDataset(
+            X=X2, Y=Y2, feature_names=feature_names, outcome_names=["metric2"]
+        )
+
+        # Test case 1: fix_map_key_to_target=True with fixed_features
+        # Should fix MAP_KEY before merging
+        fixed_features = {2: 5.0}  # Fix MAP_KEY to 5.0
+        result = convert_to_block_design(
+            datasets=[dataset1, dataset2],
+            force=True,
+            fixed_features=fixed_features,
+            fix_map_key_to_target=True,
+        )
+
+        # Assert: Single dataset returned with MAP_KEY fixed to 5.0
+        self.assertEqual(len(result), 1)
+        self.assertTrue(torch.equal(result[0].X[:, 2], torch.tensor([5.0, 5.0])))
+        # Other columns should match the first two columns of X1
+        self.assertTrue(torch.equal(result[0].X[:, :2], X1[:, :2]))
+        # Y should be merged
+        self.assertTrue(torch.equal(result[0].Y, torch.cat([Y1, Y2], dim=-1)))
+
+        # Test case 2: fix_map_key_to_target=False
+        # Should not fix MAP_KEY, will require force=True to merge mismatched data
+        with self.assertLogs(logger=logger, level="DEBUG") as logs:
+            result = convert_to_block_design(
+                datasets=[dataset1, dataset2],
+                force=True,
+                fixed_features=fixed_features,
+                fix_map_key_to_target=False,
+            )
+        # Should produce log about forcing conversion
+        self.assertTrue(
+            any(
+                "Forcing conversion of data not complying to a block design" in str(log)
+                for log in logs
+            )
+        )
+
+    def test_choose_botorch_acqf_class_with_map_key_fixing(self) -> None:
+        # Setup: Create datasets where metrics are observed at different progressions
+        X1 = torch.tensor([[1.0, 2.0, 0.0], [1.0, 2.0, 1.0]])
+        X2 = torch.tensor([[1.0, 2.0, 0.5], [1.0, 2.0, 1.5]])  # Different MAP_KEY
+        Y1 = torch.tensor([[10.0], [5.0]])  # Constraint violations
+        Y2 = torch.tensor([[3.0], [2.0]])  # Feasible values
+        feature_names = ["x1", "x2", MAP_KEY]
+
+        dataset1 = SupervisedDataset(
+            X=X1, Y=Y1, feature_names=feature_names, outcome_names=["metric1"]
+        )
+        dataset2 = SupervisedDataset(
+            X=X2, Y=Y2, feature_names=feature_names, outcome_names=["metric2"]
+        )
+
+        search_space_digest = SearchSpaceDigest(
+            feature_names=feature_names,
+            bounds=[(0.0, 10.0) for _ in range(3)],
+        )
+
+        # Test: With outcome constraints, should fix MAP_KEY before checking feasibility
+        # Constraint: metric2 <= 5.0 (so both points should be feasible)
+        torch_opt_config = TorchOptConfig(
+            objective_weights=torch.tensor([1.0, 0.0]),
+            outcome_constraints=(
+                torch.tensor([[0.0, 1.0]]),  # coefficient for metric2
+                torch.tensor([[5.0]]),  # bound: metric2 <= 5.0
+            ),
+            fixed_features={2: 1.0},  # Fix MAP_KEY to 1.0
+            is_moo=False,
+        )
+
+        # Execute: Choose acquisition function
+        acqf_class = choose_botorch_acqf_class(
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
+            datasets=[dataset1, dataset2],
+            use_p_feasible=True,
+        )
+
+        # Assert: Should not use qLogProbabilityOfFeasibility since feasible
+        # points exist (after fixing MAP_KEY, the data can be merged properly)
+        # We expect qLogNoisyExpectedImprovement for single-objective
+        self.assertEqual(acqf_class, qLogNoisyExpectedImprovement)

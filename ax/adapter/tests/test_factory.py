@@ -14,38 +14,10 @@ from ax.adapter.factory import (
     get_thompson,
 )
 from ax.adapter.random import RandomAdapter
-from ax.core.experiment import Experiment
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
-from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.generators.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_branin_experiment,
-    get_branin_experiment_with_multi_objective,
-    get_factorial_experiment,
-)
-from pyre_extensions import assert_is_instance, none_throws
-
-
-def get_multi_obj_exp_and_opt_config() -> tuple[Experiment, OptimizationConfig]:
-    multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-    metrics = none_throws(multi_obj_exp.optimization_config).objective.metrics
-    multi_objective_thresholds = [
-        ObjectiveThreshold(
-            metric=metrics[0], bound=5.0, relative=False, op=ComparisonOp.LEQ
-        ),
-        ObjectiveThreshold(
-            metric=metrics[1], bound=10.0, relative=False, op=ComparisonOp.LEQ
-        ),
-    ]
-    optimization_config = assert_is_instance(
-        multi_obj_exp.optimization_config, MultiObjectiveOptimizationConfig
-    ).clone_with_args(objective_thresholds=multi_objective_thresholds)
-    return multi_obj_exp, optimization_config
+from ax.utils.testing.core_stubs import get_branin_experiment, get_factorial_experiment
 
 
 class TestAdapterFactorySingleObjective(TestCase):
@@ -66,7 +38,7 @@ class TestAdapterFactorySingleObjective(TestCase):
     def test_factorial(self) -> None:
         """Tests factorial instantiation."""
         exp = get_factorial_experiment()
-        factorial = get_factorial(exp.search_space)
+        factorial = get_factorial(exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
@@ -74,7 +46,7 @@ class TestAdapterFactorySingleObjective(TestCase):
     def test_empirical_bayes_thompson(self) -> None:
         """Tests EB/TS instantiation."""
         exp = get_factorial_experiment()
-        factorial = get_factorial(exp.search_space)
+        factorial = get_factorial(exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()
@@ -90,7 +62,7 @@ class TestAdapterFactorySingleObjective(TestCase):
     def test_thompson(self) -> None:
         """Tests TS instantiation."""
         exp = get_factorial_experiment()
-        factorial = get_factorial(exp.search_space)
+        factorial = get_factorial(exp)
         self.assertIsInstance(factorial, DiscreteAdapter)
         factorial_run = factorial.gen(n=-1)
         exp.new_batch_trial().add_generator_run(factorial_run).run().mark_completed()

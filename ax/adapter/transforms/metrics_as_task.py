@@ -43,14 +43,12 @@ class MetricsAsTask(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -83,13 +81,13 @@ class MetricsAsTask(Transform):
             )
             # Split out observations for the task metrics
             for task_metric, target_metrics in self.metric_task_map.items():
-                if task_metric in obs.data.metric_names:
+                if task_metric in obs.data.metric_signatures:
                     # Make an observation for this task metric.
                     params = obs.features.parameters.copy()
                     params["METRIC_TASK"] = task_metric
                     new_obs_feats = obs.features.clone(replace_parameters=params)
                     new_obs_data = ObservationData(
-                        metric_names=target_metrics,
+                        metric_signatures=target_metrics,
                         means=obs.data.means_dict[task_metric]
                         * np.ones(len(target_metrics)),
                         covariance=np.diag(
@@ -131,7 +129,7 @@ class MetricsAsTask(Transform):
                 )
         return new_observations
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         # Add task parameter
         task_param = ChoiceParameter(
             name="METRIC_TASK",

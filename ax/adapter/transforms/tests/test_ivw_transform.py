@@ -15,7 +15,7 @@ from ax.utils.common.testutils import TestCase
 class IVWTransformTest(TestCase):
     def test_NoRepeats(self) -> None:
         obsd = ObservationData(
-            metric_names=["m1", "m2"],
+            metric_signatures=["m1", "m2"],
             means=np.array([1.0, 2.0]),
             covariance=np.array([[1.0, 0.2], [0.2, 2.0]]),
         )
@@ -24,12 +24,12 @@ class IVWTransformTest(TestCase):
 
     def test_Merge(self) -> None:
         obsd = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
             covariance=np.array([[1.0, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 3.0]]),
         )
         obsd2 = ivw_metric_merge(obsd)
-        self.assertEqual(obsd2.metric_names, ["m1", "m2"])
+        self.assertEqual(obsd2.metric_signatures, ["m1", "m2"])
         self.assertTrue(np.array_equal(obsd2.means, np.array([1.0, 0.6 * 2 + 0.4])))
         cov12 = 0.2 * 0.6 + 0.4 * 0.4
         # var(w1*y1 + w2*y2) =
@@ -42,7 +42,7 @@ class IVWTransformTest(TestCase):
     def test_NoiselessMerge(self) -> None:
         # One noiseless
         obsd = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
             covariance=np.array([[1.0, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 0.0]]),
         )
@@ -52,7 +52,7 @@ class IVWTransformTest(TestCase):
         self.assertTrue(np.array_equal(obsd2.covariance, cov_true))
         # Conflicting noiseless, default (warn)
         obsd = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
             covariance=np.array([[1.0, 0.2, 0.4], [0.2, 0.0, 0.8], [0.4, 0.8, 0.0]]),
         )
@@ -68,12 +68,12 @@ class IVWTransformTest(TestCase):
 
     def test_Transform(self) -> None:
         obsd1_0 = ObservationData(
-            metric_names=["m1", "m2", "m2"],
+            metric_signatures=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
             covariance=np.array([[1.0, 0.2, 0.4], [0.2, 2.0, 0.8], [0.4, 0.8, 3.0]]),
         )
         obsd1_1 = ObservationData(
-            metric_names=["m1", "m1", "m2", "m2"],
+            metric_signatures=["m1", "m1", "m2", "m2"],
             means=np.array([1.0, 1.0, 2.0, 1.0]),
             covariance=np.array(
                 [
@@ -85,21 +85,23 @@ class IVWTransformTest(TestCase):
             ),
         )
         obsd2_0 = ObservationData(
-            metric_names=["m1", "m2"],
+            metric_signatures=["m1", "m2"],
             means=np.array([1.0, 1.6]),
             covariance=np.array([[1.0, 0.28], [0.28, 1.584]]),
         )
         obsd2_1 = ObservationData(
-            metric_names=["m1", "m2"],
+            metric_signatures=["m1", "m2"],
             means=np.array([1.0, 1.6]),
             covariance=np.array([[0.5, 0.14], [0.14, 1.584]]),
         )
         observation_data = [obsd1_0, obsd1_1]
-        t = IVW(None, [])
+        t = IVW(search_space=None)
         observation_data2 = t._transform_observation_data(observation_data)
         observation_data2_true = [obsd2_0, obsd2_1]
         for i, obsd in enumerate(observation_data2_true):
-            self.assertEqual(observation_data2[i].metric_names, obsd.metric_names)
+            self.assertEqual(
+                observation_data2[i].metric_signatures, obsd.metric_signatures
+            )
             self.assertTrue(np.array_equal(observation_data2[i].means, obsd.means))
             discrep = np.max(np.abs(observation_data2[i].covariance - obsd.covariance))
             self.assertTrue(discrep < 1e-8)

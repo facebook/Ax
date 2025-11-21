@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import Any, get_type_hints
 
 from ax.adapter.registry import Generators
-
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -63,7 +62,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.sobol_generation_node = GenerationNode(
-            node_name="test", generator_specs=[self.sobol_generator_spec]
+            name="test", generator_specs=[self.sobol_generator_spec]
         )
         self.experiment = get_branin_experiment()
         # construct a list of grs that will mock a list of grs that would exist during
@@ -567,9 +566,6 @@ class TestInstantiationFromNodeInputConstructor(TestCase):
             "ALl_N": NodeInputConstructors.ALL_N,
             "REPEAT_N": NodeInputConstructors.REPEAT_N,
             "REMAINING_N": NodeInputConstructors.REMAINING_N,
-        }
-        self.purpose_cases = {
-            "N": InputConstructorPurpose.N,
         }
 
     def test_all_constructors_have_same_signature(self) -> None:

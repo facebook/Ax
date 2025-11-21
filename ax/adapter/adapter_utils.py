@@ -21,7 +21,7 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
-from ax.core.data import Data
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -35,19 +35,12 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.risk_measures import RiskMeasure
-from ax.core.search_space import (
-    HierarchicalSearchSpace,
-    RobustSearchSpace,
-    RobustSearchSpaceDigest,
-    SearchSpace,
-    SearchSpaceDigest,
-)
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.generators.torch.botorch_moo_defaults import (
+from ax.generators.torch.botorch_moo_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
     pareto_frontier_evaluator,
 )
@@ -55,20 +48,6 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     assert_is_instance_of_tuple,
     assert_is_instance_optional,
-)
-from botorch.acquisition.multi_objective.multi_output_risk_measures import (
-    IndependentCVaR,
-    IndependentVaR,
-    MARS,
-    MultiOutputExpectation,
-    MVaR,
-)
-from botorch.acquisition.risk_measures import (
-    CVaR,
-    Expectation,
-    RiskMeasureMCObjective,
-    VaR,
-    WorstCase,
 )
 from botorch.models.utils.assorted import consolidate_duplicates
 from botorch.utils.containers import SliceContainer
@@ -85,69 +64,6 @@ logger: Logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
-
-
-"""A mapping of risk measure names to the corresponding classes.
-
-NOTE: This can be extended with user-defined risk measure classes by
-importing the dictionary and adding the new risk measure class as
-`RISK_MEASURE_NAME_TO_CLASS["my_risk_measure"] = MyRiskMeasure`.
-An example of this is found in `tests/test_risk_measure`.
-"""
-RISK_MEASURE_NAME_TO_CLASS: dict[str, type[RiskMeasureMCObjective]] = {
-    "Expectation": Expectation,
-    "CVaR": CVaR,
-    "MARS": MARS,
-    "MVaR": MVaR,
-    "IndependentCVaR": IndependentCVaR,
-    "IndependentVaR": IndependentVaR,
-    "MultiOutputExpectation": MultiOutputExpectation,
-    "VaR": VaR,
-    "WorstCase": WorstCase,
-}
-
-
-def extract_risk_measure(risk_measure: RiskMeasure) -> RiskMeasureMCObjective:
-    r"""Extracts the BoTorch risk measure objective from an Ax `RiskMeasure`.
-
-    Args:
-        risk_measure: The RiskMeasure object.
-
-    Returns:
-        The corresponding `RiskMeasureMCObjective` object.
-    """
-    try:
-        risk_measure_class = RISK_MEASURE_NAME_TO_CLASS[risk_measure.risk_measure]
-        # Add dummy chebyshev weights to initialize MARS.
-        additional_options = (
-            {"chebyshev_weights": []} if risk_measure_class is MARS else {}
-        )
-        return risk_measure_class(
-            # pyre-ignore Incompatible parameter type [6]
-            **risk_measure.options,
-            **additional_options,
-        )
-    except (KeyError, RuntimeError, ValueError):
-        raise UserInputError(
-            "Got an error while constructing the risk measure. Make sure that "
-            f"{risk_measure.risk_measure} exists in  `RISK_MEASURE_NAME_TO_CLASS` "
-            f"and accepts arguments {risk_measure.options}."
-        )
-
-
-def check_has_multi_objective_and_data(
-    experiment: Experiment,
-    data: Data,
-    optimization_config: OptimizationConfig | None = None,
-) -> None:
-    """Raise an error if not using a `MultiObjective` or if the data is empty."""
-    optimization_config = none_throws(
-        optimization_config or experiment.optimization_config
-    )
-    if not isinstance(optimization_config.objective, MultiObjective):
-        raise ValueError("Multi-objective optimization requires multiple objectives.")
-    if data.df.empty:
-        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
 
 
 def extract_parameter_constraints(
@@ -248,7 +164,7 @@ def extract_search_space_digest(
             fidelity_features.append(i)
             target_values[i] = assert_is_instance_of_tuple(p.target_value, (int, float))
 
-    if isinstance(search_space, HierarchicalSearchSpace):
+    if search_space.is_hierarchical:
         hierarchical_dependencies = {}
 
         for p_name, p in search_space.parameters.items():
@@ -278,113 +194,7 @@ def extract_search_space_digest(
         task_features=task_features,
         fidelity_features=fidelity_features,
         target_values=target_values,
-        robust_digest=extract_robust_digest(
-            search_space=search_space, param_names=param_names
-        ),
         hierarchical_dependencies=hierarchical_dependencies,
-    )
-
-
-def extract_robust_digest(
-    search_space: SearchSpace, param_names: list[str]
-) -> RobustSearchSpaceDigest | None:
-    """Extracts the `RobustSearchSpaceDigest`.
-
-    Args:
-        search_space: A `SearchSpace` to digest.
-        param_names: A list of names of the parameters that are used in optimization.
-            If environmental variables are present, these should be the last entries
-            in `param_names`.
-
-    Returns:
-        If the `search_space` is not a `RobustSearchSpace`, this returns None.
-        Otherwise, it returns a `RobustSearchSpaceDigest` with entries populated
-        from the properties of the `search_space`. In particular, this constructs
-        two optional callables, `sample_param_perturbations` and `sample_environmental`,
-        that require no inputs and return a `num_samples x d`-dim array of samples
-        from the corresponding parameter distributions, where `d` is the number of
-        environmental variables for `environmental_sampler and the number of
-        non-environmental parameters in `param_names` for `distribution_sampler`.
-    """
-    if not isinstance(search_space, RobustSearchSpace):
-        return None
-    dist_params = search_space._distributional_parameters
-    env_vars: dict[str, Parameter] = search_space._environmental_variables
-    pert_params = [p for p in dist_params if p not in env_vars]
-    # Make sure all distributional parameters are in param_names.
-    dist_idcs: dict[str, int] = {}
-    for p_name in dist_params:
-        if p_name not in param_names:
-            raise RuntimeError(
-                "All distributional parameters must be included in `param_names`."
-            )
-        dist_idcs[p_name] = param_names.index(p_name)
-    num_samples: int = search_space.num_samples
-    if len(env_vars) > 0:
-        num_non_env_vars: int = len(param_names) - len(env_vars)
-        env_idcs = {idx for p, idx in dist_idcs.items() if p in env_vars}
-        if env_idcs != set(range(num_non_env_vars, len(param_names))):
-            raise RuntimeError(
-                "Environmental variables must be last entries in `param_names`. "
-                "Otherwise, `AppendFeatures` will not work."
-            )
-        # NOTE: Extracting it from `param_names` in case the ordering is different.
-        environmental_variables = param_names[num_non_env_vars:]
-
-        def sample_environmental() -> npt.NDArray:
-            """Get samples from the environmental distributions.
-
-            Samples have the same dimension as the number of environmental variables.
-            The samples of an environmental variable appears in the same order it is
-            in `param_names`.
-            """
-            samples = np.zeros((num_samples, len(env_vars)))
-            # pyre-ignore [16]
-            for dist in search_space._environmental_distributions:
-                dist_samples = dist.distribution.rvs(num_samples).reshape(
-                    num_samples, -1
-                )
-                for i, p_name in enumerate(dist.parameters):
-                    target_idx = dist_idcs[p_name] - num_non_env_vars
-                    samples[:, target_idx] = dist_samples[:, i]
-            return samples
-
-    else:
-        sample_environmental = None
-        environmental_variables = []
-
-    if len(pert_params) > 0:
-        constructor: Callable[[tuple[int, int]], npt.NDArray] = (
-            np.ones if search_space.multiplicative else np.zeros
-        )
-
-        def sample_param_perturbations() -> npt.NDArray:
-            """Get samples of the input perturbations.
-
-            Samples have the same dimension as the length of `param_names`
-            minus the number of environmental variables. The samples of a
-            parameter appears in the same order it is in `param_names`. For
-            non-distributional parameters, their values are filled as 0 if
-            the perturbations are additive and 1 if multiplicative.
-            """
-            samples = constructor((num_samples, len(param_names) - len(env_vars)))
-            # pyre-ignore [16]
-            for dist in search_space._perturbation_distributions:
-                dist_samples = dist.distribution.rvs(num_samples).reshape(
-                    num_samples, -1
-                )
-                for i, p_name in enumerate(dist.parameters):
-                    samples[:, dist_idcs[p_name]] = dist_samples[:, i]
-            return samples
-
-    else:
-        sample_param_perturbations = None
-
-    return RobustSearchSpaceDigest(
-        sample_param_perturbations=sample_param_perturbations,
-        sample_environmental=sample_environmental,
-        environmental_variables=environmental_variables,
-        multiplicative=search_space.multiplicative,
     )
 
 
@@ -418,10 +228,10 @@ def extract_objective_thresholds(
     for ot in objective_thresholds:
         if ot.relative:
             raise ValueError(
-                f"Objective {ot.metric.name} has a relative threshold that is not "
-                f"supported here."
+                f"Objective {ot.metric.signature} has a relative threshold that "
+                f"is not supported here."
             )
-        objective_threshold_dict[ot.metric.name] = ot.bound
+        objective_threshold_dict[ot.metric.signature] = ot.bound
 
     # Check that all thresholds correspond to a metric.
     if set(objective_threshold_dict.keys()).difference(set(objective.metric_names)):
@@ -464,14 +274,14 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
     if isinstance(objective, ScalarizedObjective):
         s = -1.0 if objective.minimize else 1.0
         for obj_metric, obj_weight in objective.metric_weights:
-            objective_weights[outcomes.index(obj_metric.name)] = obj_weight * s
+            objective_weights[outcomes.index(obj_metric.signature)] = obj_weight * s
     elif isinstance(objective, MultiObjective):
         for obj in objective.objectives:
             s = -1.0 if obj.minimize else 1.0
-            objective_weights[outcomes.index(obj.metric.name)] = s
+            objective_weights[outcomes.index(obj.metric.signature)] = s
     else:
         s = -1.0 if objective.minimize else 1.0
-        objective_weights[outcomes.index(objective.metric.name)] = s
+        objective_weights[outcomes.index(objective.metric.signature)] = s
     return objective_weights
 
 
@@ -487,13 +297,28 @@ def extract_outcome_constraints(
         s = 1 if c.op == ComparisonOp.LEQ else -1
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric, c_weight in c.metric_weights:
-                j = outcomes.index(c_metric.name)
+                j = outcomes.index(c_metric.signature)
                 A[i, j] = s * c_weight
         else:
-            j = outcomes.index(c.metric.name)
+            j = outcomes.index(c.metric.signature)
             A[i, j] = s
         b[i, 0] = s * c.bound
     return (A, b)
+
+
+def arm_to_np_array(arm: Arm | None, parameters: list[str]) -> npt.NDArray | None:
+    """Converts an arm to a numpy array in the order of `parameters`.
+
+    Args:
+        arm: The Arm to extract values from.
+        parameters: n-length list of names of parameters.
+
+    Returns:
+        n-length array of target values.
+    """
+    if arm is None:
+        return None
+    return np.array([arm.parameters[p_name] for p_name in parameters])
 
 
 def validate_and_apply_final_transform(
@@ -502,12 +327,14 @@ def validate_and_apply_final_transform(
     linear_constraints: tuple[npt.NDArray, npt.NDArray] | None,
     pending_observations: list[npt.NDArray] | None,
     objective_thresholds: npt.NDArray | None = None,
+    pruning_target_point: npt.NDArray | None = None,
     final_transform: Callable[[npt.NDArray], Tensor] = torch.tensor,
 ) -> tuple[
     Tensor,
     tuple[Tensor, Tensor] | None,
     tuple[Tensor, Tensor] | None,
     list[Tensor] | None,
+    Tensor | None,
     Tensor | None,
 ]:
     # TODO: use some container down the road (similar to
@@ -534,12 +361,16 @@ def validate_and_apply_final_transform(
     if objective_thresholds is not None:
         # pyre-fixme[35]: Target cannot be annotated.
         objective_thresholds: Tensor = final_transform(objective_thresholds)
+    if pruning_target_point is not None:
+        # pyre-fixme[35]: Target cannot be annotated.
+        pruning_target_point: Tensor = final_transform(pruning_target_point)
     return (
         objective_weights,
         outcome_constraints,
         linear_constraints,
         pending_observations,
         objective_thresholds,
+        pruning_target_point,
     )
 
 
@@ -595,7 +426,7 @@ def pending_observations_as_array_list(
         return None
 
     pending = [np.array([]) for _ in outcome_names]
-    for metric_name, po_list in pending_observations.items():
+    for metric_signature, po_list in pending_observations.items():
         # It is possible that some metrics attached to the experiment should
         # not be included in pending features for a given model. For example,
         # if a model is fit to the initial data that is missing some of the
@@ -603,9 +434,9 @@ def pending_observations_as_array_list(
         # some of the metrics attached to the experiment, so metrics that
         # appear in pending_observations (drawn from an experiment) but not
         # in outcome_names (metrics, expected for the model) are filtered out.
-        if metric_name not in outcome_names:
+        if metric_signature not in outcome_names:
             continue
-        pending[outcome_names.index(metric_name)] = np.array(
+        pending[outcome_names.index(metric_signature)] = np.array(
             [[po.parameters[p] for p in param_names] for po in po_list]
         )
     return pending
@@ -797,7 +628,7 @@ def get_pareto_frontier_and_configs(
     if obj_t is not None:
         obj_t = array_to_tensor(obj_t)
     # Transform to tensors.
-    obj_w, oc_c, _, _, _ = validate_and_apply_final_transform(
+    obj_w, oc_c, _, _, _, _ = validate_and_apply_final_transform(
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
         linear_constraints=None,
@@ -1194,7 +1025,7 @@ def array_to_observation_data(
     for i in range(f.shape[0]):
         observation_data.append(
             ObservationData(
-                metric_names=list(outcomes),
+                metric_signatures=list(outcomes),
                 means=f[i, :].copy(),
                 covariance=cov[i, :, :].copy(),
             )
@@ -1226,9 +1057,11 @@ def observation_data_to_array(
     # Iterate over observations and extract the relevant data.
     for i, obsd in enumerate(observation_data):
         # Indices of outcomes that are observed.
-        outcome_idx = [j for j, o in enumerate(outcomes) if o in obsd.metric_names]
+        outcome_idx = [j for j, o in enumerate(outcomes) if o in obsd.metric_signatures]
         # Corresponding indices in the observation data.
-        observation_idx = [obsd.metric_names.index(outcomes[j]) for j in outcome_idx]
+        observation_idx = [
+            obsd.metric_signatures.index(outcomes[j]) for j in outcome_idx
+        ]
         means[i, outcome_idx] = obsd.means[observation_idx]
         # We can't use advanced indexing over two dimensions jointly for assignment,
         # so this has to be done in two steps.
@@ -1262,13 +1095,16 @@ def feasible_hypervolume(
     """
     # Get objective at each iteration
     obj_threshold_dict = {
-        ot.metric.name: ot.bound for ot in optimization_config.objective_thresholds
+        ot.metric.signature: ot.bound for ot in optimization_config.objective_thresholds
     }
     f_vals = np.hstack(
-        [values[m.name].reshape(-1, 1) for m in optimization_config.objective.metrics]
+        [
+            values[m.signature].reshape(-1, 1)
+            for m in optimization_config.objective.metrics
+        ]
     )
     obj_thresholds = np.array(
-        [obj_threshold_dict[m.name] for m in optimization_config.objective.metrics]
+        [obj_threshold_dict[m.signature] for m in optimization_config.objective.metrics]
     )
     # Set infeasible points to be the objective threshold
     for oc in optimization_config.outcome_constraints:
@@ -1276,7 +1112,7 @@ def feasible_hypervolume(
             raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
-        g = values[oc.metric.name]
+        g = values[oc.metric.signature]
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f_vals[~feas] = obj_thresholds
 
@@ -1335,7 +1171,6 @@ def transform_search_space(
         try:
             t_instance = t(
                 search_space=search_space,
-                observations=[],
                 adapter=None,
                 config=transform_configs.get(t.__name__),
             )

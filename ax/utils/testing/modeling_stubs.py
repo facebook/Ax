@@ -19,6 +19,7 @@ from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.experiment import Experiment
+from ax.core.metric import Metric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
@@ -72,94 +73,46 @@ def get_observation_features() -> ObservationFeatures:
     return ObservationFeatures(parameters={"x": 2.0, "y": 10.0}, trial_index=0)
 
 
-def get_observation(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}, trial_index=0),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
-        ),
-        arm_name="1_1",
-    )
-
-
 def get_observation1(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}, trial_index=0),
         data=ObservationData(
             means=np.array([2.0, 4.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
-    )
-
-
-def get_observation_status_quo0(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(
-            parameters={"w": 0.85, "x": 1, "y": "baz", "z": False},
-            trial_index=0,
-        ),
-        data=ObservationData(
-            means=np.array([2.0, 4.0]),
-            covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
-        ),
-        arm_name="0_0",
     )
 
 
 def get_observation1trans(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 9.0, "y": 121.0}, trial_index=0),
         data=ObservationData(
             means=np.array([9.0, 25.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
     )
 
 
 def get_observation2(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
+    first_metric_signature: str = "a",
+    second_metric_signature: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(parameters={"x": 3.0, "y": 2.0}, trial_index=1),
         data=ObservationData(
             means=np.array([2.0, 1.0]),
             covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
-            metric_names=[first_metric_name, second_metric_name],
-        ),
-        arm_name="1_1",
-    )
-
-
-def get_observation2trans(
-    first_metric_name: str = "a",
-    second_metric_name: str = "b",
-) -> Observation:
-    return Observation(
-        features=ObservationFeatures(parameters={"x": 16.0, "y": 9.0}, trial_index=1),
-        data=ObservationData(
-            means=np.array([9.0, 4.0]),
-            covariance=np.array([[2.0, 3.0], [4.0, 5.0]]),
-            metric_names=[first_metric_name, second_metric_name],
+            metric_signatures=[first_metric_signature, second_metric_signature],
         ),
         arm_name="1_1",
     )
@@ -194,7 +147,7 @@ def get_generation_strategy(
     if with_completion_criteria > 0:
         gs._steps[0].num_trials = -1
         gs._steps[0].completion_criteria = [
-            MinimumPreferenceOccurances(metric_name="m1", threshold=3)
+            MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
         ] * with_completion_criteria
     return gs
 
@@ -302,7 +255,7 @@ def sobol_gpei_generation_node_gs(
         )
     ]
     sobol_node = GenerationNode(
-        node_name="sobol_node",
+        name="sobol_node",
         transition_criteria=sobol_criterion,
         generator_specs=[sobol_generator_spec],
     )
@@ -319,7 +272,7 @@ def sobol_gpei_generation_node_gs(
 
     if with_auto_transition:
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=auto_mbm_criterion,
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
@@ -327,13 +280,13 @@ def sobol_gpei_generation_node_gs(
     elif with_unlimited_gen_mbm:
         # no TC defined is equivalent to unlimited gen
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
         )
     elif with_is_SOO_transition:
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=is_SOO_mbm_criterion,
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
@@ -341,7 +294,7 @@ def sobol_gpei_generation_node_gs(
 
     else:
         mbm_node = GenerationNode(
-            node_name="MBM_node",
+            name="MBM_node",
             transition_criteria=mbm_criterion,
             generator_specs=mbm_generator_specs,
             best_model_selector=best_model_selector,
@@ -350,7 +303,7 @@ def sobol_gpei_generation_node_gs(
     # in an actual GS, this would be set during transition, manually setting here for
     # testing purposes
     if with_previous_node:
-        mbm_node._previous_node_name = sobol_node.node_name
+        mbm_node._previous_node_name = sobol_node.name
 
     if with_trial_type:
         sobol_node._trial_type = Keys.LONG_RUN
@@ -388,7 +341,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
     return GenerationStrategy(
         nodes=[
             GenerationNode(
-                node_name="Sobol",
+                name="Sobol",
                 generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 transition_criteria=[
                     MinTrials(
@@ -398,7 +351,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
                 ],
             ),
             GenerationNode(
-                node_name="MBM",
+                name="MBM",
                 generator_specs=[
                     GeneratorSpec(
                         generator_enum=Generators.BOTORCH_MODULAR,
@@ -417,7 +370,7 @@ def get_sobol_MBM_MTGP_gs() -> GenerationStrategy:
                 ],
             ),
             GenerationNode(
-                node_name="MTGP",
+                name="MTGP",
                 generator_specs=[
                     GeneratorSpec(
                         generator_enum=Generators.ST_MTGP,
@@ -445,7 +398,9 @@ def get_to_new_sq_transform_type() -> type[TransformToNewSQ]:
 
 
 def get_experiment_for_value() -> Experiment:
-    return Experiment(get_search_space_for_value(), "test")
+    experiment = Experiment(get_search_space_for_value(), "test")
+    experiment.add_tracking_metrics([Metric(name="a"), Metric(name="b")])
+    return experiment
 
 
 def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:

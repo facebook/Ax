@@ -8,14 +8,12 @@
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
 from typing import Any, cast, TypeVar
 
-import pandas as pd
 from ax.adapter.base import Adapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -38,7 +36,6 @@ from pyre_extensions import none_throws
 logger: Logger = get_logger(__name__)
 
 
-MAX_CONDITIONS_GENERATED = 10000
 T = TypeVar("T")
 
 
@@ -143,7 +140,7 @@ class GenerationStrategy(Base):
     @property
     def nodes_dict(self) -> dict[str, GenerationNode]:
         """Returns a dictionary mapping node names to nodes."""
-        return {node.node_name: node for node in self._nodes}
+        return {node.name: node for node in self._nodes}
 
     @property
     def name(self) -> str:
@@ -186,7 +183,7 @@ class GenerationStrategy(Base):
     @property
     def current_node_name(self) -> str:
         """Current generation node name."""
-        return self._curr.node_name
+        return self._curr.name
 
     @property
     @step_based_gs_only
@@ -195,12 +192,12 @@ class GenerationStrategy(Base):
         is replaced by node_name in newer GenerationStrategies but surfaced here
         for backward compatibility.
         """
-        node_names_for_all_steps = [step._node_name for step in self._nodes]
+        node_names_for_all_steps = [step._name for step in self._nodes]
         assert (
-            self._curr.node_name in node_names_for_all_steps
+            self._curr.name in node_names_for_all_steps
         ), "The current step is not found in the list of steps"
 
-        return node_names_for_all_steps.index(self._curr.node_name)
+        return node_names_for_all_steps.index(self._curr.name)
 
     @property
     def adapter(self) -> Adapter | None:
@@ -244,24 +241,6 @@ class GenerationStrategy(Base):
         return self._generator_runs[-1] if self._generator_runs else None
 
     @property
-    def trials_as_df(self) -> pd.DataFrame | None:
-        """Puts information on individual trials into a data frame for easy
-        viewing.
-
-        THIS METHOD IS DEPRECATED AND WILL BE REMOVED IN A FUTURE RELEASE.
-        Please use `Experiment.to_df()` instead.
-        """
-        warnings.warn(
-            "`GenerationStrategy.trials_as_df` is deprecated and will be removed in "
-            "a future release. Please use `Experiment.to_df()` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if self._experiment is None:
-            return None
-        return self.experiment.to_df()
-
-    @property
     def optimization_complete(self) -> bool:
         """Checks whether all nodes are completed in the generation strategy."""
         return all(node.is_completed for node in self._nodes)
@@ -303,7 +282,7 @@ class GenerationStrategy(Base):
                 the `n` and produce a node-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
         """
@@ -347,7 +326,7 @@ class GenerationStrategy(Base):
             data: Optional data to be passed to the underlying node's ``gen``, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the ``experiment``.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
             n: Integer representing how many total arms should be in the generator
@@ -491,7 +470,7 @@ class GenerationStrategy(Base):
                     f"step {step.generator_name}."
                 )
 
-            step._node_name = f"GenerationStep_{str(idx)}"
+            step._name = f"GenerationStep_{str(idx)}"
             step.index = idx
 
             # Set transition_to field for all but the last step, which remains
@@ -521,13 +500,13 @@ class GenerationStrategy(Base):
         node_names = []
         for node in self._nodes:
             # validate that all node names are unique
-            if node.node_name in node_names:
+            if node.name in node_names:
                 raise GenerationStrategyMisconfiguredException(
                     error_info="All node names in a GenerationStrategy "
                     + "must be unique."
                 )
 
-            node_names.append(node.node_name)
+            node_names.append(node.name)
             node._generation_strategy = self
 
         # Validate that the next_node is in the ``GenerationStrategy`` and that all
@@ -551,7 +530,7 @@ class GenerationStrategy(Base):
                                 error_info="Only MaxGenerationParallelism transition"
                                 " criterion can have a null `transition_to` argument,"
                                 f" but {tc.criterion_class} does not define "
-                                f"`transition_to` on {node.node_name}."
+                                f"`transition_to` on {node.name}."
                             )
                 if next_node is not None and next_node not in node_names:
                     raise GenerationStrategyMisconfiguredException(
@@ -565,7 +544,7 @@ class GenerationStrategy(Base):
                 ):
                     raise GenerationStrategyMisconfiguredException(
                         error_info=f"All transition criteria on an edge "
-                        f"from node {node.node_name} to node {next_node} "
+                        f"from node {node.name} to node {next_node} "
                         "should have the same `continue_trial_generation` "
                         "setting."
                     )
@@ -646,7 +625,7 @@ class GenerationStrategy(Base):
         # TODO: Simplify this after updating GStep names to represent
         # underlying generators.
         if self.is_node_based:
-            node_names = (node.node_name for node in self._nodes)
+            node_names = (node.name for node in self._nodes)
         else:
             node_names = (
                 node.generator_spec_to_gen_from.model_key for node in self._nodes
@@ -690,7 +669,7 @@ class GenerationStrategy(Base):
             data: Optional data to be passed to the underlying node's `gen`, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the `experiment`.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
             n: Integer representing how many arms should be in the generator run
@@ -837,8 +816,8 @@ class GenerationStrategy(Base):
                 # If the last node did not specify which node to transition to,
                 # move to the next node in the list.
                 current_node_index = self._nodes.index(self._curr)
-                next_node = self._nodes[current_node_index + 1].node_name
+                next_node = self._nodes[current_node_index + 1].name
             for node in self._nodes:
-                if node.node_name == next_node:
+                if node.name == next_node:
                     self._curr = node
         return move_to_next_node

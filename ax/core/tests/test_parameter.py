@@ -403,9 +403,7 @@ class ChoiceParameterTest(TestCase):
                 name="x",
                 parameter_type=ParameterType.BOOL,
                 values=[True, False],
-                # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None,
-                #  bool, float, int, str], List[str]]]` but got `Dict[str, str]`.
-                dependents={"not_a_value": "other_param"},
+                dependents={"not_a_value": ["other_param"]},
             )
         # Check that empty dependents doesn't flag as hierarchical.
         self.param4._dependents = {}
@@ -430,6 +428,16 @@ class ChoiceParameterTest(TestCase):
                 parameter_type=ParameterType.INT,
                 values=list(range(1001)),
             )
+        # With bypass_cardinality_check=True, this should not raise an error.
+        p = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            values=list(range(1001)),
+            bypass_cardinality_check=True,
+        )
+        # Make sure the parameter can clone successfully.
+        clone = p.clone()
+        self.assertEqual(clone, p)
 
     def test_Hierarchical(self) -> None:
         # Test case where only some of the values entail dependents.
@@ -437,25 +445,22 @@ class ChoiceParameterTest(TestCase):
             name="x",
             parameter_type=ParameterType.BOOL,
             values=[True, False],
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None, bool,
-            #  float, int, str], List[str]]]` but got `Dict[bool, str]`.
-            dependents={True: "other_param"},
+            dependents={True: ["other_param"]},
         )
         self.assertTrue(hierarchical_param.is_hierarchical)
-        self.assertEqual(hierarchical_param.dependents, {True: "other_param"})
+        self.assertEqual(hierarchical_param.dependents, {True: ["other_param"]})
 
         # Test case where all of the values entail dependents.
         hierarchical_param_2 = ChoiceParameter(
             name="x",
             parameter_type=ParameterType.STRING,
             values=["a", "b"],
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None, bool,
-            #  float, int, str], List[str]]]` but got `Dict[str, str]`.
-            dependents={"a": "other_param", "b": "third_param"},
+            dependents={"a": ["other_param"], "b": ["third_param"]},
         )
         self.assertTrue(hierarchical_param_2.is_hierarchical)
         self.assertEqual(
-            hierarchical_param_2.dependents, {"a": "other_param", "b": "third_param"}
+            hierarchical_param_2.dependents,
+            {"a": ["other_param"], "b": ["third_param"]},
         )
 
         # Test case where nonexisted value entails dependents.
@@ -464,9 +469,7 @@ class ChoiceParameterTest(TestCase):
                 name="x",
                 parameter_type=ParameterType.STRING,
                 values=["a", "b"],
-                # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None,
-                #  bool, float, int, str], List[str]]]` but got `Dict[str, str]`.
-                dependents={"c": "other_param"},
+                dependents={"c": ["other_param"]},
             )
 
     def test_available_flags(self) -> None:
@@ -665,12 +668,10 @@ class FixedParameterTest(TestCase):
             name="x",
             parameter_type=ParameterType.BOOL,
             value=True,
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None, bool,
-            #  float, int, str], List[str]]]` but got `Dict[bool, str]`.
-            dependents={True: "other_param"},
+            dependents={True: ["other_param"]},
         )
         self.assertTrue(hierarchical_param.is_hierarchical)
-        self.assertEqual(hierarchical_param.dependents, {True: "other_param"})
+        self.assertEqual(hierarchical_param.dependents, {True: ["other_param"]})
 
         # Test case where nonexistent value entails dependents.
         with self.assertRaises(UserInputError):
@@ -678,9 +679,7 @@ class FixedParameterTest(TestCase):
                 name="x",
                 parameter_type=ParameterType.BOOL,
                 value=True,
-                # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None,
-                #  bool, float, int, str], List[str]]]` but got `Dict[bool, str]`.
-                dependents={False: "other_param"},
+                dependents={False: ["other_param"]},
             )
 
     def test_available_flags(self) -> None:
@@ -842,6 +841,9 @@ class DerivedParameterTest(TestCase):
 
         self.assertTrue(
             self.param1.validate(value=3.0, parameters={"a": 1.0}, raises=True)
+        )
+        self.assertTrue(
+            self.param1.validate(value=3.0 + 1e-9, parameters={"a": 1.0}, raises=True)
         )
 
     def test_set_parameter_names_to_weights(self) -> None:

@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
@@ -27,13 +27,17 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import ObjectNotFoundError, TrialMutationError
+from ax.exceptions.core import ObjectNotFoundError, TrialMutationError, UnsupportedError
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -218,8 +222,7 @@ class SQAStoreTest(TestCase):
 
     def test_GeneratorRunTypeValidation(self) -> None:
         experiment = get_experiment_with_batch_trial()
-        # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run_structs`.
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "foobar"
         with self.assertRaises(SQAEncodeError):
             self.encoder.generator_run_to_sqa(generator_run)
@@ -236,7 +239,7 @@ class SQAStoreTest(TestCase):
     def test_GeneratorRunBestArm(self) -> None:
         experiment = self.experiment
 
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "STATUS_QUO"
 
         arm = get_arm()
@@ -253,7 +256,7 @@ class SQAStoreTest(TestCase):
     def test_GeneratorRunNoBestArm(self) -> None:
         experiment = self.experiment
 
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "STATUS_QUO"
         generator_run._best_arm_predictions = None
 
@@ -265,7 +268,7 @@ class SQAStoreTest(TestCase):
     def test_GeneratorRunNoBestArmPredictions(self) -> None:
         experiment = self.experiment
 
-        generator_run = experiment.trials[0].generator_run_structs[0].generator_run
+        generator_run = experiment.trials[0].generator_runs[0]
         generator_run._generator_run_type = "STATUS_QUO"
 
         arm = get_arm()
@@ -637,6 +640,7 @@ class SQAStoreTest(TestCase):
                     for i, objective in enumerate(objectives):
                         metric = objective.metric
                         self.assertEqual(metric.name, f"m{1 + 2 * i}")
+                        self.assertEqual(metric.signature, f"m{1 + 2 * i}")
                         self.assertEqual(metric.__class__, Metric)
                 elif composite_type == "scalarized" and not immutable:
                     # Check scalarized objective children
@@ -692,15 +696,16 @@ class SQAStoreTest(TestCase):
             # 3. Try case with model state and search space + opt.config on a
             # generator run in the experiment.
             gr = Generators.SOBOL(experiment=exp).gen(1)
-            # Expecting model kwargs to have 6 fields (seed, deduplicate, init_position,
-            # scramble, generated_points, fallback_to_sample_polytope)
+            # Expecting model kwargs to have 7 fields (seed, deduplicate, init_position,
+            # scramble, generated_points, fallback_to_sample_polytope,
+            # polytope_sampler_kwargs)
             # and the rest of model-state info on generator run to have values too.
             mkw = gr._model_kwargs
             self.assertIsNotNone(mkw)
-            self.assertEqual(len(mkw), 6)
+            self.assertEqual(len(mkw), 7)
             bkw = gr._bridge_kwargs
             self.assertIsNotNone(bkw)
-            self.assertEqual(len(bkw), 8)
+            self.assertEqual(len(bkw), 6)
             # This has seed and init position.
             ms = gr._model_state_after_gen
             self.assertIsNotNone(ms)
@@ -877,9 +882,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(self.experiment, loaded_experiment)
 
         # Update a trial by attaching data again
-        self.experiment.attach_data(
-            get_data(trial_index=trial.index), combine_with_last_data=True
-        )
+        self.experiment.attach_data(get_data(trial_index=trial.index))
         save_or_update_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
@@ -910,7 +913,7 @@ class SQAStoreTest(TestCase):
 
         exp = get_branin_experiment_with_timestamp_map_metric()
         save_experiment(exp)
-        generator_run = Generators.SOBOL(search_space=exp.search_space).gen(n=1)
+        generator_run = Generators.SOBOL(experiment=exp).gen(n=1)
         trial = exp.new_trial(generator_run=generator_run)
         exp.attach_data(trial.run().fetch_data())
         save_or_update_trials(
@@ -1217,6 +1220,232 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
+    def test_ExperimentPruningTargetArm(self) -> None:
+        experiment = get_experiment_with_batch_trial()
+        pruning_target_parameterization = next(
+            iter(experiment.arms_by_name.values())
+        ).clone()
+        none_throws(
+            experiment.optimization_config
+        ).pruning_target_parameterization = pruning_target_parameterization
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertEqual(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization,
+            pruning_target_parameterization,
+        )
+
+    def test_optimization_config_pruning_target_parameterization_sqa_roundtrip(
+        self,
+    ) -> None:
+        # Setup: create experiment with basic OptimizationConfig and
+        # pruning_target_parameterization
+        experiment = get_experiment_with_batch_trial()
+        pruning_target_parameterization = Arm(
+            parameters={"w": 1.5, "x": 2.5, "y": "choice_1", "z": False}
+        )
+
+        optimization_config = OptimizationConfig(
+            objective=get_objective(),
+            outcome_constraints=[get_outcome_constraint()],
+            pruning_target_parameterization=pruning_target_parameterization,
+        )
+        experiment.optimization_config = optimization_config
+
+        # Execute: save and load experiment through SQA store
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm pruning_target_parameterization is preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization
+        )
+        self.assertEqual(
+            none_throws(experiment.optimization_config).pruning_target_parameterization,
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization,
+        )
+        # Verify the target arm parameters are correct
+        loaded_pruning_target_parameterization = none_throws(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization
+        )
+        self.assertEqual(loaded_pruning_target_parameterization.parameters["w"], 1.5)
+        self.assertEqual(loaded_pruning_target_parameterization.parameters["x"], 2.5)
+        self.assertEqual(
+            loaded_pruning_target_parameterization.parameters["y"], "choice_1"
+        )
+        self.assertEqual(loaded_pruning_target_parameterization.parameters["z"], False)
+
+    def test_multi_objective_optimization_config_pruning_target_sqa_roundtrip(
+        self,
+    ) -> None:
+        # Test that MultiObjectiveOptimizationConfig with
+        # pruning_target_parameterization can be saved/loaded correctly
+
+        # Setup: create experiment with MultiObjectiveOptimizationConfig and
+        # pruning_target_parameterization
+        experiment = get_experiment_with_batch_trial()
+        pruning_target_parameterization = next(
+            iter(experiment.arms_by_name.values())
+        ).clone()
+
+        multi_objective_config = MultiObjectiveOptimizationConfig(
+            objective=get_multi_objective_optimization_config().objective,
+            pruning_target_parameterization=pruning_target_parameterization,
+        )
+        # Can't use experiment.clone_with_args, so create new experiment
+        experiment = Experiment(
+            name=experiment.name,
+            search_space=experiment.search_space,
+            optimization_config=multi_objective_config,
+            description=experiment.description,
+            is_test=experiment.is_test,
+        )
+        # Copy trials from original experiment
+        for trial_idx, trial in experiment.trials.items():
+            experiment._trials[trial_idx] = trial
+
+        # Execute: save and load experiment through SQA store
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm pruning_target_parameterization is preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization
+        )
+        self.assertEqual(
+            none_throws(experiment.optimization_config).pruning_target_parameterization,
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization,
+        )
+
+    def test_pruning_target_update_sqa_roundtrip(self) -> None:
+        # Test that pruning_target_parameterization can be updated and modifications
+        # are preserved
+
+        # Setup: create experiment with initial pruning_target_parameterization
+        experiment = get_experiment_with_batch_trial()
+        initial_pruning_target_parameterization = next(
+            iter(experiment.arms_by_name.values())
+        ).clone()
+        none_throws(
+            experiment.optimization_config
+        ).pruning_target_parameterization = initial_pruning_target_parameterization
+        save_experiment(experiment)
+
+        # Execute: update pruning_target_parameterization with different parameters
+
+        updated_pruning_target_parameterization = Arm(
+            parameters={"x1": 999.0, "x2": 888.0}
+        )
+        none_throws(
+            experiment.optimization_config
+        ).pruning_target_parameterization = updated_pruning_target_parameterization
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm updated pruning_target_parameterization is preserved correctly
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization
+        )
+        self.assertEqual(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization,
+            updated_pruning_target_parameterization,
+        )
+        # Confirm it's different from initial pruning_target_parameterization
+        self.assertNotEqual(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization,
+            initial_pruning_target_parameterization,
+        )
+
+    def test_pruning_target_none_to_arm_sqa_roundtrip(self) -> None:
+        # Test that pruning_target_parameterization can be set from None to a
+        # valid arm
+
+        # Setup: create experiment without pruning_target_parameterization
+        experiment = get_experiment_with_batch_trial()
+        none_throws(
+            experiment.optimization_config
+        ).pruning_target_parameterization = None
+        save_experiment(experiment)
+
+        # Execute: set pruning_target_parameterization to a valid arm
+        new_pruning_target_parameterization = next(
+            iter(experiment.arms_by_name.values())
+        ).clone()
+        none_throws(
+            experiment.optimization_config
+        ).pruning_target_parameterization = new_pruning_target_parameterization
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm pruning_target_parameterization is correctly set
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNotNone(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization
+        )
+        self.assertEqual(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization,
+            new_pruning_target_parameterization,
+        )
+
+    def test_pruning_target_to_none_sqa_roundtrip(self) -> None:
+        # Test that pruning_target_parameterization can be set from a
+        # valid arm to None
+
+        # Setup: create experiment with pruning_target_parameterization
+        experiment = get_experiment_with_batch_trial()
+        initial_pruning_target_parameterization = next(
+            iter(experiment.arms_by_name.values())
+        ).clone()
+        none_throws(
+            experiment.optimization_config
+        ).pruning_target_parameterization = initial_pruning_target_parameterization
+        save_experiment(experiment)
+
+        # Execute: set pruning_target_parameterization to None
+        none_throws(
+            experiment.optimization_config
+        ).pruning_target_parameterization = None
+        save_experiment(experiment)
+
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Assert: confirm pruning_target_parameterization is correctly set to None
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNone(
+            none_throws(
+                loaded_experiment.optimization_config
+            ).pruning_target_parameterization
+        )
+
     def test_ExperimentObjectiveThresholdUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
@@ -1396,13 +1625,11 @@ class SQAStoreTest(TestCase):
         # this will also replace the status quo generator run,
         # since the weight of the status quo will have changed
         trial = experiment.trials[0]
-        # pyre-fixme[16]: `BaseTrial` has no attribute `add_arm`.
         trial.add_arm(get_arm())
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 3)
 
         generator_run = get_generator_run()
-        # pyre-fixme[16]: `BaseTrial` has no attribute `add_generator_run`.
         trial.add_generator_run(generator_run=generator_run)
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAGeneratorRun).count(), 4)
@@ -1460,6 +1687,21 @@ class SQAStoreTest(TestCase):
                     logit_scale=True,
                 )
             )
+
+    def test_bypass_cardinality_check(self) -> None:
+        choice_parameter = ChoiceParameter(
+            name="test_choice",
+            parameter_type=ParameterType.INT,
+            values=[1, 2, 3],
+            bypass_cardinality_check=True,
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "`bypass_cardinality_check` should only be set to `True` "
+            "when constructing parameters within the modeling layer. It is not "
+            "supported for storage.",
+        ):
+            self.encoder.parameter_to_sqa(parameter=choice_parameter)
 
     def test_ParameterConstraintValidation(self) -> None:
         sqa_parameter_constraint = SQAParameterConstraint(
@@ -1527,6 +1769,7 @@ class SQAStoreTest(TestCase):
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
             metric_type=CORE_METRIC_REGISTRY[BraninMetric],
+            signature="foobar",
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -1542,6 +1785,7 @@ class SQAStoreTest(TestCase):
 
         sqa_metric = SQAMetric(
             name="foobar",
+            signature="foobar",
             intent=MetricIntent.OBJECTIVE,
             metric_type=CORE_METRIC_REGISTRY[BraninMetric],
             generator_run_id=0,
@@ -1552,6 +1796,34 @@ class SQAStoreTest(TestCase):
             sqa_metric.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_metric)
+
+    def test_MetricDecodeWithNoSignatureOverride(self) -> None:
+        metric_name = "testMetric"
+        testMetric = Metric(name=metric_name)
+        sqa_metric = self.encoder.metric_to_sqa(testMetric)
+        metric = cast(Metric, self.decoder.metric_from_sqa(sqa_metric))
+        self.assertEqual(metric.name, metric_name)
+        self.assertEqual(metric.signature, metric_name)
+
+    def test_MetricDecodeWithSignatureOverride(self) -> None:
+        metric_name = "testMetric"
+        testMetric = Metric(name=metric_name, signature_override="override")
+        sqa_metric = self.encoder.metric_to_sqa(testMetric)
+        metric = cast(Metric, self.decoder.metric_from_sqa(sqa_metric))
+        self.assertEqual(metric.name, metric_name)
+        self.assertEqual(metric.signature, "override")
+
+    def test_MetricEncodeCapturesSignature(self) -> None:
+        # with override
+        metric = get_branin_metric()
+        metric.signature_override = "override"
+        sqa_metric = self.encoder.metric_to_sqa(metric)
+        self.assertEqual(sqa_metric.signature, "override")
+
+        # without override
+        metric = get_branin_metric()
+        sqa_metric = self.encoder.metric_to_sqa(metric)
+        self.assertEqual(sqa_metric.signature, metric.name)
 
     def test_MetricEncodeFailure(self) -> None:
         metric = get_branin_metric()
@@ -1577,6 +1849,36 @@ class SQAStoreTest(TestCase):
         sqa_metric.properties = {}
         with self.assertRaises(ValueError):
             self.decoder.metric_from_sqa(sqa_metric)
+
+    def test_ObjectiveThresholdFromSQAWithRelativeNone(self) -> None:
+        # Setup: Create a metric and metric_sqa with relative set to None
+        metric = get_branin_metric()
+        metric_sqa = SQAMetric(
+            name="test_metric",
+            intent=MetricIntent.OBJECTIVE_THRESHOLD,
+            metric_type=CORE_METRIC_REGISTRY[BraninMetric],
+            signature="test_metric",
+            bound=Decimal(10.0),
+            relative=None,  # Set relative to None
+        )
+
+        # Execute: Call _objective_threshold_from_sqa and verify it logs a warning
+        with self.assertLogs("ax", level=logging.WARNING) as logs:
+            objective_threshold = self.decoder._objective_threshold_from_sqa(
+                metric=metric, metric_sqa=metric_sqa
+            )
+
+        # Assert: Verify the warning message appears in logs
+        self.assertTrue(
+            any("When decoding SQAMetric" in output for output in logs.output),
+            f"Expected warning log not found. Logs: {logs.output}",
+        )
+
+        # Assert: Verify the returned ObjectiveThreshold has relative set to False
+        # (not None)
+        self.assertIsNotNone(objective_threshold)
+        self.assertEqual(objective_threshold.relative, False)
+        self.assertEqual(objective_threshold.bound, 10.0)
 
     def test_RunnerDecodeFailure(self) -> None:
         runner = get_synthetic_runner()
@@ -1621,16 +1923,32 @@ class SQAStoreTest(TestCase):
         # Extract default value.
         properties = serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
-            properties, {"name": "foo", "lower_is_better": None, "properties": {}}
+            properties,
+            {
+                "name": "foo",
+                "lower_is_better": None,
+                "properties": {},
+                "signature_override": None,
+            },
         )
 
         # Extract passed value.
         properties = serialize_init_args(
-            obj=Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
+            obj=Metric(
+                name="foo",
+                lower_is_better=True,
+                properties={"foo": "bar"},
+                signature_override="foo_signature",
+            )
         )
         self.assertEqual(
             properties,
-            {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
+            {
+                "name": "foo",
+                "lower_is_better": True,
+                "properties": {"foo": "bar"},
+                "signature_override": "foo_signature",
+            },
         )
 
     def test_RegistryAdditions(self) -> None:
@@ -1782,11 +2100,9 @@ class SQAStoreTest(TestCase):
             with_input_constructors_all_n=True
         )
         experiment.new_batch_trial(
-            generator_runs=generation_strategy._gen_with_multiple_nodes(
-                experiment=experiment
-            )
+            generator_runs=generation_strategy.gen(experiment=experiment)[0]
         )
-        generation_strategy._gen_with_multiple_nodes(experiment, data=get_branin_data())
+        generation_strategy.gen(experiment, data=get_branin_data())
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
 
@@ -2327,7 +2643,7 @@ class SQAStoreTest(TestCase):
             should_add_status_quo_arm=True,
         )
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAArm).count(), 9)
+        self.assertEqual(get_session().query(SQAArm).count(), 8)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

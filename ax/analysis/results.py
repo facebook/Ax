@@ -6,35 +6,29 @@
 # pyre-strict
 
 import itertools
-from typing import Mapping, Sequence
+from typing import final, Sequence
 
 from ax.adapter.base import Adapter
-from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
-from ax.analysis.plotly.objective_p_feasible_frontier import (
-    OBJ_PFEAS_CARDGROUP_SUBTITLE,
-    ObjectivePFeasibleFrontierPlot,
-)
 from ax.analysis.plotly.scatter import (
     SCATTER_CARDGROUP_SUBTITLE,
     SCATTER_CARDGROUP_TITLE,
     ScatterPlot,
 )
 from ax.analysis.summary import Summary
-from ax.analysis.utils import extract_relevant_adapter
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 RESULTS_CARDGROUP_TITLE = "Results Analysis"
 
@@ -55,11 +49,25 @@ ARM_EFFECTS_PAIR_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ResultsAnalysis(Analysis):
     """
     An Analysis that provides a high-level overview of the results of the optimization
     process so far, e.g. effects on all arms. It produces an analysis card group.
     """
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=True,
+            require_data=True,
+        )
 
     @override
     def compute(
@@ -68,10 +76,7 @@ class ResultsAnalysis(Analysis):
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> AnalysisCardGroup:
-        # Ensure we have an Experiment provided by the user to extract the relevant
-        # metric names from.
-        if experiment is None:
-            raise UserInputError("ResultsAnalysis requires an Experiment.")
+        experiment = none_throws(experiment)
 
         # If the Experiment has an OptimizationConfig set, extract the objective and
         # constraint names.
@@ -104,7 +109,7 @@ class ResultsAnalysis(Analysis):
             ).compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
-                adapter=adapter,
+                adapter=relevant_adapter,
             )
             if len(objective_names) > 0
             else None
@@ -125,7 +130,7 @@ class ResultsAnalysis(Analysis):
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,
-                        adapter=adapter,
+                        adapter=relevant_adapter,
                     )
                     for x, y in itertools.combinations(objective_names, 2)
                 ],
@@ -150,7 +155,7 @@ class ResultsAnalysis(Analysis):
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,
-                        adapter=adapter,
+                        adapter=relevant_adapter,
                     )
                     for objective_name in objective_names
                     for constraint_name in constraint_names
@@ -159,35 +164,6 @@ class ResultsAnalysis(Analysis):
             if len(objective_names) > 0 and len(constraint_names) > 0
             else None
         )
-
-        objective_p_feasible_group = None
-        if (
-            len(objective_names) == 1
-            and len(constraint_names) > 0
-            # check that the adapter has a BoTorchGenerator
-            and (
-                relevant_adapter is not None
-                and isinstance(relevant_adapter, TorchAdapter)
-                and isinstance(relevant_adapter.generator, BoTorchGenerator)
-            )
-        ):
-            objective_p_feasible_group = AnalysisCardGroup(
-                name="Objective vs P(feasible)",
-                title=(
-                    "Model-Estimated Pareto-Frontier Between the Objective"
-                    " and the Probability of Satisfying the Constraints"
-                ),
-                subtitle=OBJ_PFEAS_CARDGROUP_SUBTITLE,
-                children=[
-                    ObjectivePFeasibleFrontierPlot(
-                        relativize=relativize
-                    ).compute_or_error_card(
-                        experiment=experiment,
-                        generation_strategy=generation_strategy,
-                        adapter=adapter,
-                    )
-                ],
-            )
 
         # Produce a parallel coordinates plot for each objective.
         # TODO: mpolson mgarrard bring back parallel coordinates after fixing
@@ -234,7 +210,6 @@ class ResultsAnalysis(Analysis):
                 child
                 for child in (
                     arm_effect_pair_group,
-                    objective_p_feasible_group,
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,
@@ -245,6 +220,7 @@ class ResultsAnalysis(Analysis):
         )
 
 
+@final
 class ArmEffectsPair(Analysis):
     """
     Compute two ArmEffectsPlots in a single AnalysisCardGroup, one plotting model
@@ -258,8 +234,7 @@ class ArmEffectsPair(Analysis):
         trial_index: int | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         additional_arms: Sequence[Arm] | None = None,
-        labels: Mapping[str, str] | None = None,
-        show_cumulative_best: bool = False,
+        label: str | None = None,
     ) -> None:
         """
         Args:
@@ -272,10 +247,7 @@ class ArmEffectsPair(Analysis):
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
-            labels: A mapping from metric names to labels to use in the plot. If a label
-                is not provided for a metric, the metric name will be used.
-            show_cumulative_best: Whether to draw a line through the best point seen so
-                far during the optimization.
+            label: A label to use in the plot in place of the metric name.
         """
 
         self.metric_names = metric_names
@@ -283,8 +255,7 @@ class ArmEffectsPair(Analysis):
         self.trial_index = trial_index
         self.trial_statuses = trial_statuses
         self.additional_arms = additional_arms
-        self.labels: Mapping[str, str] = labels or {}
-        self.show_cumulative_best = show_cumulative_best
+        self.label = label
 
     @override
     def compute(
@@ -306,25 +277,23 @@ class ArmEffectsPair(Analysis):
         for metric_name in self.metric_names or [*experiment.metrics.keys()]:
             # TODO: Test for no effects and render a message instead of a flat line.
             predicted_analysis = ArmEffectsPlot(
-                metric_names=[metric_name],
+                metric_name=metric_name,
                 use_model_predictions=True,
                 relativize=self.relativize,
                 trial_index=self.trial_index,
                 trial_statuses=self.trial_statuses,
                 additional_arms=self.additional_arms,
-                labels=self.labels,
-                show_cumulative_best=self.show_cumulative_best,
+                label=self.label,
             )
 
             raw_analysis = ArmEffectsPlot(
-                metric_names=[metric_name],
+                metric_name=metric_name,
                 use_model_predictions=False,
                 relativize=self.relativize,
                 trial_index=self.trial_index,
                 trial_statuses=self.trial_statuses,
                 additional_arms=self.additional_arms,
-                labels=self.labels,
-                show_cumulative_best=self.show_cumulative_best,
+                label=self.label,
             )
 
             pair = AnalysisCardGroup(

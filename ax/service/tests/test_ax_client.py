@@ -16,9 +16,7 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 import numpy as np
-import pandas as pd
 import torch
-from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
@@ -34,7 +32,6 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import OrderConstraint
-from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
@@ -91,10 +88,6 @@ if TYPE_CHECKING:
 
 
 RANDOM_SEED = 239
-DUMMY_RUN_METADATA = {
-    "TEST_KEY": "TEST_VALUE",
-    "abc": {123: 456},
-}
 ARM_NAME = "test_arm_name"
 
 
@@ -368,12 +361,20 @@ class TestAxClient(TestCase):
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
             # pyre-fixme[16]: `Optional` has no attribute `objective`.
+            opt_config.objective.objectives[0].metric.signature,
+            "foo",
+        )
+        self.assertEqual(
             opt_config.objective.objectives[0].metric.name,
             "foo",
         )
         self.assertEqual(
             opt_config.objective.objectives[0].minimize,
             True,
+        )
+        self.assertEqual(
+            opt_config.objective.objectives[1].metric.signature,
+            "bar",
         )
         self.assertEqual(
             opt_config.objective.objectives[1].metric.name,
@@ -432,7 +433,7 @@ class TestAxClient(TestCase):
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
             # pyre-fixme[16]: `Optional` has no attribute `objective`.
-            opt_config.objective.metric.name,
+            opt_config.objective.metric.signature,
             "foo",
         )
         self.assertEqual(
@@ -504,7 +505,6 @@ class TestAxClient(TestCase):
                         0.0,
                     )
                 },
-                sample_size=i,
             )
         self.assertEqual(
             none_throws(ax_client.generation_strategy.adapter)._model_key, "BoTorch"
@@ -553,7 +553,12 @@ class TestAxClient(TestCase):
         f"{GenerationStrategy.__module__}.GenerationStrategy._gen_with_multiple_nodes",
         side_effect=OptimizationComplete("test error"),
     )
-    def test_optimization_complete(self, _mock_gen) -> None:
+    @patch(
+        "ax.core.Experiment.signature_to_metric",
+        autospec=True,
+        return_value={"branin": Metric(name="branin")},
+    )
+    def test_optimization_complete(self, _mock_gen, _mock_sig_to_metric) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
@@ -705,7 +710,6 @@ class TestAxClient(TestCase):
                         0.0,
                     ),
                 },
-                sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
         self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
@@ -1083,22 +1087,32 @@ class TestAxClient(TestCase):
         )
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
+        self.assertEqual(objectives[0].metric.signature, "obj_m1")
         self.assertEqual(objectives[0].metric.name, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(objectives[1].metric.signature, "obj_m2")
         self.assertEqual(objectives[1].metric.name, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
         # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
+        self.assertEqual(thresholds[0].metric.signature, "obj_m1")
         self.assertEqual(thresholds[0].metric.name, "obj_m1")
+
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(thresholds[1].metric.signature, "obj_m2")
         self.assertEqual(thresholds[1].metric.name, "obj_m2")
+
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
+        self.assertEqual(outcome_constraints[0].metric.signature, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
+        self.assertEqual(
+            ax_client.experiment.tracking_metrics[0].signature, "tracking_m4"
+        )
         self.assertEqual(ax_client.experiment.tracking_metrics[0].name, "tracking_m4")
         self.assertEqual(
             ax_client.experiment.tracking_metrics[0].properties, {"m4_opt": "m4_val"}
@@ -1178,20 +1192,25 @@ class TestAxClient(TestCase):
         )
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
+        self.assertEqual(objectives[0].metric.signature, "obj_m1")
         self.assertEqual(objectives[0].metric.name, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(objectives[1].metric.signature, "obj_m2")
         self.assertEqual(objectives[1].metric.name, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
         # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
+        self.assertEqual(thresholds[0].metric.signature, "obj_m1")
         self.assertEqual(thresholds[0].metric.name, "obj_m1")
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(thresholds[1].metric.signature, "obj_m2")
         self.assertEqual(thresholds[1].metric.name, "obj_m2")
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
+        self.assertEqual(outcome_constraints[0].metric.signature, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
         self.assertEqual(
@@ -1512,9 +1531,12 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "Raw data does not conform to the expected structure."
         ):
-            # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
-            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
-            ax_client.update_trial_data(trial_index, raw_data="invalid_data")
+            ax_client._update_trial_with_raw_data(
+                # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
+                trial_index=trial_index,
+                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[...
+                raw_data="invalid data",
+            )
 
     @mock_botorch_optimize
     def test_raw_data_format_with_map_results(self) -> None:
@@ -1655,41 +1677,21 @@ class TestAxClient(TestCase):
         ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
         self.assertEqual(ax_client.get_best_parameters()[0], params2)
         params3, idx3 = ax_client.get_next_trial()
-        ax_client.complete_trial(
-            trial_index=idx3, raw_data=-2, metadata={"dummy": "test"}
-        )
+        ax_client.complete_trial(trial_index=idx3, raw_data=-2)
         self.assertEqual(ax_client.get_best_parameters()[0], params3)
-        self.assertEqual(
-            # pyre-fixme[16]: `Optional` has no attribute `run_metadata`.
-            ax_client.experiment.trials.get(2).run_metadata.get("dummy"),
-            "test",
-        )
         best_trial_values = ax_client.get_best_parameters()[1]
         self.assertEqual(best_trial_values[0], {"branin": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
 
     def test_update_trial_data(self) -> None:
         ax_client = get_branin_optimization(support_intermediate_data=True)
-        params, idx = ax_client.get_next_trial()
-        # Can't update before completing.
-        with self.assertRaisesRegex(ValueError, ".* not in a terminal state"):
-            ax_client.update_trial_data(
-                trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})]
-            )
+        _, idx = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})])
         # Cannot complete a trial twice, should use `update_trial_data`.
         with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
             ax_client.complete_trial(
                 trial_index=idx, raw_data=[(0, {"branin": (0, 0.0)})]
             )
-        # Check that the update changes the data.
-        ax_client.update_trial_data(
-            trial_index=idx, raw_data=[(0, {"branin": (1, 0.0)})]
-        )
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
-        self.assertEqual(len(df), 1)
-        self.assertEqual(df["mean"].item(), 1.0)
-        self.assertTrue(ax_client.get_trial(idx).status.is_completed)
 
         # With early stopped trial.
         params, idx = ax_client.get_next_trial()
@@ -1699,27 +1701,21 @@ class TestAxClient(TestCase):
         )
 
         ax_client.stop_trial_early(trial_index=idx)
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        df = ax_client.experiment.lookup_data_for_trial(idx).df
         self.assertEqual(len(df), 1)
-        ax_client.update_trial_data(
-            trial_index=idx, raw_data=[(0, {"branin": (2, 0.0)})]
-        )
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
-        self.assertEqual(len(df), 1)
-        self.assertEqual(df["mean"].item(), 2.0)
-        self.assertTrue(ax_client.get_trial(idx).status.is_early_stopped)
 
         # Failed trial.
-        params, idx = ax_client.get_next_trial()
+        _, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(trial_index=idx)
-        ax_client.update_trial_data(
+        ax_client._update_trial_with_raw_data(
             trial_index=idx, raw_data=[(0, {"branin": (3, 0.0)})]
         )
-        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        df = ax_client.experiment.lookup_data_for_trial(idx).df
         self.assertEqual(df["mean"].item(), 3.0)
 
         # Incomplete trial fails
-        params, idx = ax_client.get_next_trial()
+        _, idx = ax_client.get_next_trial()
+        ax_client.add_tracking_metrics(metric_names=["missing_metric"])
         ax_client.complete_trial(
             trial_index=idx, raw_data=[(0, {"missing_metric": (0, 0.0)})]
         )
@@ -1743,40 +1739,12 @@ class TestAxClient(TestCase):
         self.assertTrue(ax_client.get_trial(idx).status.is_completed)
         # Trial with incomplete data
         params, idx = ax_client.get_next_trial()
+        ax_client.add_tracking_metrics(metric_names=["missing_metric"])
         ax_client.complete_trial(
             trial_index=idx,
             raw_data=[(2, {"missing_metric": (456, 0.0)})],
         )
         self.assertTrue(ax_client.get_trial(idx).status.is_failed)
-
-    def test_trial_completion_with_metadata_times(self) -> None:
-        for milisecond in (True, False):
-            if milisecond:
-                metadata: dict[str, str | int] = {
-                    "start_time": int(pd.Timestamp("2020-01-01").timestamp() * 1000),
-                    "end_time": int(pd.Timestamp("2020-01-05").timestamp() * 1000),
-                }
-            else:
-                metadata: dict[str, str | int] = {
-                    "start_time": "2020-01-01",
-                    "end_time": "2020-01-05 00:00:00",
-                }
-            ax_client = get_branin_optimization()
-            _, idx = ax_client.get_next_trial()
-            ax_client.complete_trial(
-                trial_index=idx, raw_data={"branin": (0, 0.0)}, metadata=metadata
-            )
-            with patch.object(
-                RandomAdapter, "_fit", autospec=True, side_effect=RandomAdapter._fit
-            ) as mock_fit:
-                ax_client.get_next_trial()
-                self.assertEqual(mock_fit.call_count, 1)
-                obs_data = mock_fit.call_args.kwargs["experiment_data"].observation_data
-                start_time = obs_data[("metadata", "start_time")].item()
-                end_time = obs_data[("metadata", "end_time")].item()
-                # Check that the data is carried on as timestamps.
-                self.assertEqual(start_time.day, 1)
-                self.assertEqual(end_time.day, 5)
 
     def test_abandon_trial(self) -> None:
         ax_client = get_branin_optimization()
@@ -1807,38 +1775,10 @@ class TestAxClient(TestCase):
         # pyre-fixme[16]: `Optional` has no attribute `status`.
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
         time.sleep(1)  # Wait for TTL to elapse.
-        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
-        # Also make sure we can no longer complete the trial as it is failed.
-        with self.assertRaisesRegex(
-            UnsupportedError, ".* has been marked FAILED, so it no longer expects data."
-        ):
-            ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
-
-        params2, idy = ax_client.get_next_trial(ttl_seconds=1)
-        ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
+        ax_client.complete_trial(trial_index=idx, raw_data=(0, 0.0))
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-        self.assertEqual(ax_client.get_best_parameters()[0], params2)
-
-    def test_start_and_end_time_in_trial_completion(self) -> None:
-        start_time = pd.Timestamp.now().isoformat()
-        ax_client = AxClient()
-        ax_client.create_experiment(
-            parameters=[
-                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
-                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
-            ],
-        )
-        params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(
-            trial_index=idx,
-            raw_data=1.0,
-            metadata={
-                "start_time": start_time,
-                "end_time": pd.Timestamp.now().isoformat(),
-            },
-        )
-        dat = ax_client.experiment.fetch_data().df
-        self.assertGreater(dat["end_time"][0], dat["start_time"][0])
+        self.assertEqual(ax_client.get_best_parameters()[0], params)
 
     def test_fail_on_batch(self) -> None:
         ax_client = AxClient()
@@ -1892,9 +1832,7 @@ class TestAxClient(TestCase):
             ],
         )
         params, idx = ax_client.attach_trial(
-            parameters={"x": 0.0, "y": 1.0},
-            run_metadata=DUMMY_RUN_METADATA,
-            arm_name=ARM_NAME,
+            parameters={"x": 0.0, "y": 1.0}, arm_name=ARM_NAME
         )
         ax_client.complete_trial(trial_index=idx, raw_data=5)
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
@@ -1926,21 +1864,12 @@ class TestAxClient(TestCase):
         # pyre-fixme[16]: `Optional` has no attribute `status`.
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
         time.sleep(1)  # Wait for TTL to elapse.
-        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
-        # Also make sure we can no longer complete the trial as it is failed.
-        with self.assertRaisesRegex(
-            UnsupportedError, ".* has been marked FAILED, so it no longer expects data."
-        ):
-            ax_client.complete_trial(trial_index=idx, raw_data=5)
-
-        params2, idx2 = ax_client.attach_trial(
-            parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
-        )
-        ax_client.complete_trial(trial_index=idx2, raw_data=5)
+        self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
+        ax_client.complete_trial(trial_index=idx, raw_data=5)
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-        self.assertEqual(ax_client.get_best_parameters()[0], params2)
+        self.assertEqual(ax_client.get_best_parameters()[0], params)
         self.assertEqual(
-            ax_client.get_trial_parameters(trial_index=idx2), {"x": 0, "y": 1}
+            ax_client.get_trial_parameters(trial_index=idx), {"x": 0, "y": 1}
         )
 
     def test_attach_trial_numpy(self) -> None:
@@ -2077,6 +2006,7 @@ class TestAxClient(TestCase):
             ],
             support_intermediate_data=True,
         )
+        ax_client.add_tracking_metrics(metric_names=["branin"])
         for _ in range(5):
             parameters, trial_index = ax_client.get_next_trial()
             value = assert_is_instance(branin(*parameters.values()), float)
@@ -2117,6 +2047,7 @@ class TestAxClient(TestCase):
         # Attach an early stopped trial.
         parameters, trial_index = ax_client.get_next_trial()
         value = assert_is_instance(branin(*parameters.values()), float)
+        ax_client.add_tracking_metrics(metric_names=["branin"])
         ax_client.update_running_trial_with_intermediate_data(
             trial_index=trial_index, raw_data=[(0, {"branin": (value, 0.0)})]
         )
@@ -2261,7 +2192,7 @@ class TestAxClient(TestCase):
     @patch(
         "ax.adapter.random.RandomAdapter._predict",
         autospec=True,
-        return_value=[get_observation1trans(first_metric_name="branin").data],
+        return_value=[get_observation1trans(first_metric_signature="branin").data],
     )
     def test_get_model_predictions(self, _predict) -> None:
         ax_client = get_branin_optimization()
@@ -2820,12 +2751,10 @@ class TestAxClient(TestCase):
                 },
             ],
             objectives={"objective": ObjectiveProperties(minimize=True)},
-            choose_generation_strategy_kwargs={"num_initialization_trials": 2},
+            choose_generation_strategy_kwargs={"num_initialization_trials": 4},
         )
-        hss = assert_is_instance(
-            ax_client.experiment.search_space, HierarchicalSearchSpace
-        )
-        self.assertTrue(hss.root.is_hierarchical)
+        self.assertTrue(ax_client.experiment.search_space.is_hierarchical)
+        self.assertTrue(ax_client.experiment.search_space["model"].is_hierarchical)
 
         ax_client.attach_trial({"model": "XGBoost", "num_boost_rounds": 2})
         ax_client.attach_trial(
@@ -2883,6 +2812,7 @@ class TestAxClient(TestCase):
         )
         parameters, idx = ax_client.get_next_trial()
         value = assert_is_instance(branin(*parameters.values()), float)
+        ax_client.add_tracking_metrics(metric_names=["branin"])
         ax_client.update_running_trial_with_intermediate_data(
             idx, raw_data=[(0, {"branin": (value, 0.0)})]
         )
@@ -3051,7 +2981,7 @@ class TestAxClient(TestCase):
             name="Sobol",
             nodes=[
                 GenerationNode(
-                    node_name="Sobol",
+                    name="Sobol",
                     generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
                 )
             ],
@@ -3062,9 +2992,9 @@ class TestAxClient(TestCase):
 
         self.assertEqual(ax_client.generation_strategy.name, "Sobol")
         self.assertEqual(
-            assert_is_instance(
-                ax_client.experiment.trials[0], Trial
-            )._generator_run._model_key,
+            none_throws(
+                assert_is_instance(ax_client.experiment.trials[0], Trial)._generator_run
+            )._model_key,
             "Sobol",
         )
         with mock.patch(

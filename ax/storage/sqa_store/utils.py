@@ -53,7 +53,6 @@ def is_foreign_key_field(field: str) -> bool:
     return len(field) > 3 and field[-3:] == "_id"
 
 
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None:
     """Takes as input two objects, `source` and `target`, that should be identical,
     except that `source` has _db_ids set and `target` doesn't. Recursively copies the

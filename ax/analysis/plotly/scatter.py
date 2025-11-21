@@ -6,18 +6,14 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Mapping, Sequence
+from typing import Any, final, Mapping, Sequence
 
 import numpy as np
-
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import Analysis
-from ax.analysis.plotly.color_constants import (
-    BOTORCH_COLOR_SCALE,
-    CONSTRAINT_VIOLATION_RED,
-)
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
@@ -38,18 +34,19 @@ from ax.analysis.plotly.utils import (
 from ax.analysis.utils import (
     extract_relevant_adapter,
     get_lower_is_better,
-    POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD,
     prepare_arm_data,
-    update_metric_names_if_using_p_feasible,
+    validate_adapter_can_predict,
+    validate_experiment,
+    validate_experiment_has_trials,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.trial_status import FAILED_ABANDONED_CANDIDATE_STATUSES, TrialStatus
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.logger import get_logger
 from plotly import graph_objects as go
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 logger: Logger = get_logger(__name__)
 
@@ -61,6 +58,7 @@ SCATTER_CARDGROUP_SUBTITLE = (
 )
 
 
+@final
 class ScatterPlot(Analysis):
     """
     Plotly Scatter plot for any two metrics. Each arm is represented by a single point
@@ -80,6 +78,52 @@ class ScatterPlot(Analysis):
         - **METRIC_NAME_mean: The observed mean of the metric specified
         - **METRIC_NAME_sem: The observed sem of the metric specified
     """
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        ScatterPlot requires an Experiment with at least one trial with data which
+        and for at least one trial pass the trial index / trial status filtering. If
+        using model predictions, a suitable adapter must also be provided.
+        """
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        experiment = none_throws(experiment)
+
+        if (
+            no_trials_reason := validate_experiment_has_trials(
+                experiment=experiment,
+                trial_indices=[self.trial_index]
+                if self.trial_index is not None
+                else None,
+                trial_statuses=self.trial_statuses,
+                required_metric_names=[self.x_metric_name, self.y_metric_name],
+            )
+        ) is not None:
+            return no_trials_reason
+
+        if self.use_model_predictions:
+            if (
+                adapter_cannot_predict_reason := validate_adapter_can_predict(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                    adapter=adapter,
+                    required_metric_names=[self.x_metric_name, self.y_metric_name],
+                )
+            ) is not None:
+                return adapter_cannot_predict_reason
 
     def __init__(
         self,
@@ -122,7 +166,15 @@ class ScatterPlot(Analysis):
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-        self.trial_statuses = trial_statuses
+        # By default, include all trials except those that are abandoned or stale.
+        if trial_statuses is not None:
+            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
+        elif self.trial_index is not None:
+            self.trial_statuses: list[TrialStatus] | None = None
+        else:
+            self.trial_statuses: list[TrialStatus] | None = [
+                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+            ]
         self.additional_arms = additional_arms
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
         self.show_pareto_frontier = show_pareto_frontier
@@ -162,14 +214,9 @@ class ScatterPlot(Analysis):
         else:
             relevant_adapter = None
 
-        # if using p_feasible, we need to get the data for the metrics involved
-        # in constraints even though we don't plot them
-        metric_names = update_metric_names_if_using_p_feasible(
-            metric_names=[self.x_metric_name, self.y_metric_name], experiment=experiment
-        )
         df = prepare_arm_data(
             experiment=experiment,
-            metric_names=metric_names,
+            metric_names=[self.x_metric_name, self.y_metric_name],
             use_model_predictions=self.use_model_predictions,
             adapter=relevant_adapter,
             trial_index=self.trial_index,
@@ -330,20 +377,15 @@ def _prepare_figure(
 ) -> go.Figure:
     # Initialize the Scatters one at a time since we cannot specify multiple different
     # error bar colors from within one trace.
-    candidate_trial = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
+    candidate_trials = df[df["trial_status"] == TrialStatus.CANDIDATE.name][
         "trial_index"
-    ].max()
-    # Filter out undesired trials like FAILED and ABANDONED trials from plot.
-    trials = df[
-        ~df["trial_status"].isin(
-            [ts.name for ts in FAILED_ABANDONED_CANDIDATE_STATUSES]
-        )
-    ]["trial_index"].unique()
+    ].unique()
+
+    trials = df["trial_index"].unique()
 
     trials_list = trials.tolist()
     trial_indices = trials_list.copy()
-    if not np.isnan(candidate_trial):
-        trial_indices.append(candidate_trial)
+    trial_indices.extend(candidate_trials)
 
     scatters = []
     scatter_trial_indices = []  # Track trial indices for each scatter
@@ -379,15 +421,6 @@ def _prepare_figure(
                 trial_index=trial_index,
                 transparent=False,
             ),
-            "line": {
-                "width": trial_df.apply(
-                    lambda row: 2
-                    if row["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-                    else 0,
-                    axis=1,
-                ),
-                "color": CONSTRAINT_VIOLATION_RED,
-            },
         }
 
         if trial_df["trial_status"].iloc[0] == TrialStatus.CANDIDATE.name:
@@ -494,22 +527,6 @@ def _prepare_figure(
             )
         )
 
-    # Add a red circle with no fill if any arms are marked as possibly infeasible.
-    if (df["p_feasible_mean"] < POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD).any():
-        legend_trace = go.Scatter(
-            # None here allows us to place a legend item without corresponding points
-            x=[None],
-            y=[None],
-            mode="markers",
-            marker={
-                "color": "rgba(0, 0, 0, 0)",
-                "line": {"width": 2, "color": "red"},
-            },
-            name="Possible Constraint Violation",
-        )
-
-        figure.add_trace(legend_trace)
-
     # Add horizontal and vertical lines for the status quo.
     if "status_quo" in df["arm_name"].values:
         x = df[df["arm_name"] == "status_quo"][f"{x_metric_name}_mean"].iloc[0]
@@ -536,17 +553,12 @@ def _prepare_figure(
             )
 
     if show_pareto_frontier:
-        # Infeasible arms are not included in the Pareto frontier
-        eligable_arms = df[
-            df["p_feasible_mean"] >= POSSIBLE_CONSTRAINT_VIOLATION_THRESHOLD
-        ]
-
         # If there are no arms which are not likely to violate constraints, return the
         # figure as is, without adding a Pareto frontier line.
-        if len(eligable_arms) == 0:
+        if len(df) == 0:
             return figure
 
-        sorted_df = eligable_arms.sort_values(
+        sorted_df = df.sort_values(
             by=f"{x_metric_name}_mean", ascending=x_lower_is_better
         )
 

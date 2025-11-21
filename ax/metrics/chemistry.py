@@ -132,6 +132,7 @@ class ChemistryMetric(Metric):
                     "mean": mean,
                     "sem": noise_sd,
                     "trial_index": trial.index,
+                    "metric_signature": self.signature,
                 }
             )
             return Ok(value=Data(df=df))

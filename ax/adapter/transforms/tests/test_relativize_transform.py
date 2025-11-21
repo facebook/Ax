@@ -6,6 +6,7 @@
 # pyre-strict
 
 from copy import deepcopy
+from itertools import product
 from unittest.mock import Mock
 
 import numpy as np
@@ -22,21 +23,16 @@ from ax.adapter.transforms.relativize import (
     RelativizeWithConstantControl,
 )
 from ax.core import BatchTrial
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    observations_from_data,
-    recombine_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import observations_from_data, recombine_observations
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.metrics.branin import BraninMetric
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
@@ -104,7 +100,7 @@ class RelativizeDataTest(TestCase):
                     observations=[
                         Observation(
                             data=ObservationData(
-                                metric_names=["foo"],
+                                metric_signatures=["foo"],
                                 means=np.array([2]),
                                 covariance=np.array([[0.1]]),
                             ),
@@ -183,7 +179,7 @@ class RelativizeDataTest(TestCase):
             results = tf.transform_observations(observations)
             for i, tsfm_obs in enumerate(results):
                 expected_mean, expected_covar = expected_mean_and_covar[i]
-                self.assertEqual(tsfm_obs.data.metric_names, metric_names)
+                self.assertEqual(tsfm_obs.data.metric_signatures, metric_signatures)
                 # status quo means must always be zero
                 self.assertTrue(
                     np.allclose(tsfm_obs.data.means, expected_mean),
@@ -210,26 +206,26 @@ class RelativizeDataTest(TestCase):
                 )
                 j += 1
 
-        metric_names: list[str] = ["foobar", "foobaz"]
+        metric_signatures: list[str] = ["foobar", "foobaz"]
         arm_names = ["status_quo", "0_0", "status_quo", "1_0"]
         obs_data = [
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([2.5, 5.5]),
                 covariance=np.array([[0.2, 0.0], [0.0, 0.3]]),
             ),
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([2.0, 11.0]),
                 covariance=np.array([[0.25, 0.0], [0.0, 0.35]]),
             ),
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([2.0, 5.0]),
                 covariance=np.array([[0.1, 0.0], [0.0, 0.2]]),
             ),
             ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=np.array([1.0, 10.0]),
                 covariance=np.array([[0.3, 0.0], [0.0, 0.4]]),
             ),
@@ -254,7 +250,6 @@ class RelativizeDataTest(TestCase):
         for relativize_cls, expected_mean_and_covar in self.cases:
             tf = relativize_cls(
                 search_space=None,
-                observations=observations,
                 adapter=adapter,
             )
             # check transform and untransform on observations
@@ -275,7 +270,6 @@ class RelativizeDataTest(TestCase):
                 )
                 tf = relativize_cls(
                     search_space=None,
-                    observations=observations,
                     adapter=adapter,
                 )
                 observations2 = deepcopy(observations)
@@ -294,11 +288,7 @@ class RelativizeDataTest(TestCase):
 
         for abstract_cls in [BaseRelativize, BadRelativize]:
             with self.assertRaisesRegex(TypeError, "Can't instantiate abstract class"):
-                abstract_cls(
-                    search_space=None,
-                    observations=None,
-                    adapter=None,
-                )
+                abstract_cls(search_space=None, adapter=None)
 
     def test_transform_status_quos_always_zero(self) -> None:
         for _ in range(1000):
@@ -312,12 +302,12 @@ class RelativizeDataTest(TestCase):
             arm_names = ["status_quo", "0_0"]
             obs_data = [
                 ObservationData(
-                    metric_names=["foo"],
+                    metric_signatures=["foo"],
                     means=np.array([sq_mean]),
                     covariance=np.array([[sq_sem]]),
                 ),
                 ObservationData(
-                    metric_names=["foo"],
+                    metric_signatures=["foo"],
                     means=np.array([mean]),
                     covariance=np.array([[sem]]),
                 ),
@@ -336,7 +326,7 @@ class RelativizeDataTest(TestCase):
             for relativize_cls in [Relativize, RelativizeWithConstantControl]:
                 transform = relativize_cls(search_space=None, adapter=adapter)
                 relative_obs = transform.transform_observations(observations)
-                self.assertEqual(relative_obs[0].data.metric_names, ["foo"])
+                self.assertEqual(relative_obs[0].data.metric_signatures, ["foo"])
                 self.assertAlmostEqual(relative_obs[0].data.means[0], 0, places=4)
                 self.assertAlmostEqual(
                     relative_obs[0].data.covariance[0][0], 0, places=4
@@ -352,8 +342,7 @@ class RelativizeDataTest(TestCase):
         )
         relative_observations = observations_from_data(
             experiment=experiment,
-            data=relativize_data(
-                data=data,
+            data=data.relativize(
                 status_quo_name="status_quo",
                 as_percent=True,
                 include_sq=True,
@@ -367,7 +356,7 @@ class RelativizeDataTest(TestCase):
             ]
             sq_obs_data.append(
                 ObservationData(
-                    metric_names=status_quo_data["metric_name"].to_list(),
+                    metric_signatures=status_quo_data["metric_signature"].to_list(),
                     means=status_quo_data["mean"].to_numpy(),
                     covariance=status_quo_data["sem"].to_numpy()[np.newaxis, :] ** 2,
                 )
@@ -395,8 +384,8 @@ class RelativizeDataTest(TestCase):
         # this assertion just checks that order is the same, which
         # is only important for the purposes of this test
         self.assertEqual(
-            [datum.data.metric_names for datum in relative_obs_t],
-            [datum.data.metric_names for datum in relative_observations],
+            [datum.data.metric_signatures for datum in relative_obs_t],
+            [datum.data.metric_signatures for datum in relative_observations],
         )
         means = [
             np.array([datum.data.means for datum in relative_obs_t]),
@@ -478,28 +467,28 @@ class RelativizeDataOptConfigTest(TestCase):
         self.model.status_quo_data_by_trial = {0: None}
 
     def test_transform_optimization_config_without_constraints(self) -> None:
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            relativize = relativize_cls(
-                search_space=None,
-                observations=[],
-                adapter=self.model,
-            )
+        for relativize_cls, pruning_target in product(
+            [Relativize, RelativizeWithConstantControl],
+            (None, Arm(parameters={"x0": 0.0, "x1": 0.0})),
+        ):
+            relativize = relativize_cls(search_space=None, adapter=self.model)
             optimization_config = get_branin_optimization_config()
+            optimization_config.pruning_target_parameterization = pruning_target
             new_config = relativize.transform_optimization_config(
                 optimization_config=optimization_config,
                 adapter=None,
                 fixed_features=Mock(),
             )
-            self.assertEqual(new_config.objective, optimization_config.objective)
+            self.assertEqual(new_config, optimization_config)
 
     def test_transform_optimization_config_with_relative_constraints(self) -> None:
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            relativize = relativize_cls(
-                search_space=None,
-                observations=[],
-                adapter=self.model,
-            )
+        for relativize_cls, pruning_target in product(
+            [Relativize, RelativizeWithConstantControl],
+            (None, Arm(parameters={"x0": 0.0, "x1": 0.0})),
+        ):
+            relativize = relativize_cls(search_space=None, adapter=self.model)
             optimization_config = get_branin_optimization_config()
+            optimization_config.pruning_target_parameterization = pruning_target
             optimization_config.outcome_constraints = [
                 OutcomeConstraint(
                     metric=BraninMetric("b2", ["x2", "x1"]),
@@ -515,6 +504,10 @@ class RelativizeDataOptConfigTest(TestCase):
             )
             self.assertEqual(new_config.objective, optimization_config.objective)
             self.assertEqual(
+                new_config.pruning_target_parameterization,
+                optimization_config.pruning_target_parameterization,
+            )
+            self.assertEqual(
                 new_config.outcome_constraints[0].bound,
                 optimization_config.outcome_constraints[0].bound,
             )
@@ -528,11 +521,7 @@ class RelativizeDataOptConfigTest(TestCase):
 
     def test_transform_optimization_config_with_non_relative_constraints(self) -> None:
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
-            relativize = relativize_cls(
-                search_space=None,
-                observations=[],
-                adapter=self.model,
-            )
+            relativize = relativize_cls(search_space=None, adapter=self.model)
             optimization_config = get_branin_optimization_config()
             optimization_config.outcome_constraints = [
                 OutcomeConstraint(
@@ -553,7 +542,6 @@ class RelativizeDataOptConfigTest(TestCase):
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
             relativize = relativize_cls(
                 search_space=None,
-                observations=[],
                 adapter=self.model,
             )
             optimization_config = get_branin_multi_objective_optimization_config(
@@ -585,7 +573,6 @@ class RelativizeDataOptConfigTest(TestCase):
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
             relativize = relativize_cls(
                 search_space=None,
-                observations=[],
                 adapter=self.model,
             )
             optimization_config = get_branin_multi_objective_optimization_config(

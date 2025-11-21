@@ -79,7 +79,7 @@ class CrossValidationTest(TestCase):
         self.observation_data = ObservationData(
             means=np.array([2.0, 1.0]),
             covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            metric_names=["m1", "m2"],
+            metric_signatures=["m1", "m2"],
         )
         self.cv_results = [
             CVResult(observed=obs, predicted=self.observation_data)
@@ -154,16 +154,19 @@ class CrossValidationTest(TestCase):
         # Check that Adapter._transform_inputs_for_cv was called correctly.
         z = mock_transform_cv.mock_calls
         self.assertEqual(len(z), 3)
-        train = [r[2]["cv_training_data"].arm_data["x"].tolist() for r in z]
-        test = [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
+        train = [call.kwargs["cv_training_data"].arm_data["x"].tolist() for call in z]
+        test = [
+            [obsf.parameters["x"] for obsf in call.kwargs["cv_test_points"]]
+            for call in z
+        ]
         # Test no overlap between train and test sets, and all points used
         for i in range(3):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
-        # Test all points used as test points
+        # Test all points used as test points -- these are transformed after call.
         all_test = np.hstack(test)
         self.assertTrue(
-            np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
+            np.array_equal(sorted(all_test), np.array([0.2, 0.2, 0.3, 0.4]))
         )
         # Test Adapter._cross_validate was called correctly.
         self.assertEqual(mock_cv.call_count, 3)

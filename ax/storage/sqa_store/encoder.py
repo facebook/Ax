@@ -25,7 +25,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -50,14 +50,14 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.exceptions.core import UnsupportedError
 from ax.exceptions.storage import SQAEncodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.encoders import arm_to_dict
 from ax.storage.sqa_store.load import _get_experiment_id
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -79,7 +79,6 @@ from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import serialize_init_args
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -208,11 +207,9 @@ class Encoder:
                 self.encode_auxiliary_experiment(aux_exp) for aux_exp in aux_exps
             ]
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
-
-        properties = experiment._properties
         runners = []
         if isinstance(experiment, MultiTypeExperiment):
-            properties[Keys.SUBCLASS] = "MultiTypeExperiment"
+            experiment._properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             for trial_type, runner in experiment._trial_type_to_runner.items():
                 runner_sqa = self.runner_to_sqa(none_throws(runner), trial_type)
                 runners.append(runner_sqa)
@@ -225,6 +222,13 @@ class Encoder:
                     ]
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
+        properties = experiment._properties.copy()
+        if (
+            oc := experiment.optimization_config
+        ) is not None and oc.pruning_target_parameterization is not None:
+            properties["pruning_target_parameterization"] = arm_to_dict(
+                oc.pruning_target_parameterization
+            )
 
         # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: type[SQAExperiment] = self.config.class_to_sqa_class[
@@ -277,8 +281,16 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+                backfill_value=parameter.backfill_value,
+                default_value=parameter.default_value,
             )
         elif isinstance(parameter, ChoiceParameter):
+            if parameter._bypass_cardinality_check:
+                raise UnsupportedError(
+                    "`bypass_cardinality_check` should only be set to `True` "
+                    "when constructing parameters within the modeling layer. "
+                    "It is not supported for storage."
+                )
             # pyre-fixme[29]: `SQAParameter` is not a function.
             return parameter_class(
                 id=parameter.db_id,
@@ -291,6 +303,8 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+                backfill_value=parameter.backfill_value,
+                default_value=parameter.default_value,
             )
         elif isinstance(parameter, FixedParameter):
             # pyre-fixme[29]: `SQAParameter` is not a function.
@@ -303,6 +317,8 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
+                backfill_value=parameter.backfill_value,
+                default_value=parameter.default_value,
             )
         elif isinstance(parameter, DerivedParameter):
             # pyre-fixme[29]: `SQAParameter` is not a function.
@@ -360,8 +376,6 @@ class Encoder:
         """Convert Ax SearchSpace to a list of SQLAlchemy Parameters and
         ParameterConstraints.
         """
-        if isinstance(search_space, RobustSearchSpace):
-            return self.robust_search_space_to_sqa(rss=search_space)
         parameters, parameter_constraints = [], []
         if search_space is not None:
             for parameter in search_space.parameters.values():
@@ -376,84 +390,6 @@ class Encoder:
 
         return parameters, parameter_constraints
 
-    def parameter_distribution_to_sqa(
-        self, distribution: ParameterDistribution, num_samples: int
-    ) -> SQAParameterConstraint:
-        """Convert Ax ParameterDistribution to SQLAlchemy.
-
-        NOTE: This saves the distributions as json blobs in `constraint_dict`
-        to avoid creating a new table in the short term. If robust optimization
-        sees more usage in the long term, the proper solution would be to
-        make a new table for these.
-        """
-        # pyre-fixme[9]: parameter_constraint_cl... used as type `SQABase`.
-        param_constraint_cls: SQAParameterConstraint = self.config.class_to_sqa_class[
-            ParameterConstraint
-        ]
-        # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
-        return param_constraint_cls(
-            id=distribution.db_id,
-            type=ParameterConstraintType.DISTRIBUTION,
-            constraint_dict=object_to_json(
-                distribution,
-                encoder_registry=self.config.json_encoder_registry,
-                class_encoder_registry=self.config.json_class_encoder_registry,
-            ),
-            bound=num_samples,
-        )
-
-    def environmental_variable_to_sqa(self, parameter: Parameter) -> SQAParameter:
-        """Convert Ax environmental variables to SQLAlchemy.
-
-        Since these are effectively just range parameters with an associated
-        distribution, which is stored separately, we will store these as new
-        parameter types.
-        """
-        # pyre-fixme: Expected `Base` for 1st...typing.Type[Parameter]`.
-        parameter_class: SQAParameter = self.config.class_to_sqa_class[Parameter]
-        if isinstance(parameter, RangeParameter):
-            # pyre-fixme[29]: `SQAParameter` is not a function.
-            return parameter_class(
-                id=parameter.db_id,
-                name=parameter.name,
-                domain_type=DomainType.ENVIRONMENTAL_RANGE,
-                parameter_type=parameter.parameter_type,
-                lower=float(parameter.lower),
-                upper=float(parameter.upper),
-                log_scale=parameter.log_scale,
-                digits=parameter.digits,
-                is_fidelity=parameter.is_fidelity,
-                target_value=parameter.target_value,
-            )
-        else:
-            raise SQAEncodeError(
-                "Cannot encode environmental variable to SQLAlchemy because "
-                f"the corresponding parameter type ({type(parameter)}) is invalid."
-            )
-
-    def robust_search_space_to_sqa(
-        self, rss: RobustSearchSpace
-    ) -> tuple[list[SQAParameter], list[SQAParameterConstraint]]:
-        parameters, parameter_constraints = [], []
-        for parameter in rss._parameters.values():
-            parameters.append(self.parameter_to_sqa(parameter=parameter))
-        for parameter in rss._environmental_variables.values():
-            parameters.append(self.environmental_variable_to_sqa(parameter=parameter))
-        for parameter_constraint in rss.parameter_constraints:
-            parameter_constraints.append(
-                self.parameter_constraint_to_sqa(
-                    parameter_constraint=parameter_constraint
-                )
-            )
-        for distribution in rss.parameter_distributions:
-            parameter_constraints.append(
-                self.parameter_distribution_to_sqa(
-                    distribution=distribution,
-                    num_samples=rss.num_samples,
-                )
-            )
-        return parameters, parameter_constraints
-
     def get_metric_type_and_properties(
         self, metric: Metric
     ) -> tuple[int, dict[str, Any]]:
@@ -462,7 +398,7 @@ class Encoder:
         json blob.
         """
         metric_class = type(metric)
-        metric_type = self.config.metric_registry.get(metric_class)
+        metric_type = int(self.config.metric_registry.get(metric_class))
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
@@ -488,6 +424,7 @@ class Encoder:
         return metric_class(
             id=metric.db_id,
             name=metric.name,
+            signature=metric.signature,
             metric_type=metric_type,
             intent=MetricIntent.TRACKING,
             properties=properties,
@@ -524,6 +461,7 @@ class Encoder:
                 metric_class(  # pyre-ignore[29]: `SQAMetric` is not a function.
                     id=objective.metric.db_id,
                     name=objective.metric.name,
+                    signature=objective.metric.signature,
                     metric_type=metric_type,
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -553,6 +491,7 @@ class Encoder:
                 objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
                     id=objective.metric.db_id,
                     name=objective.metric.name,
+                    signature=objective.metric.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -571,6 +510,7 @@ class Encoder:
                 metric_type=self.config.metric_registry[Metric],
                 intent=MetricIntent.MULTI_OBJECTIVE,
                 scalarized_objective_children_metrics=children_objectives,
+                signature="multi_objective",
             )
         )
         return parent_metric
@@ -601,6 +541,7 @@ class Encoder:
                 metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
                     id=m.db_id,
                     name=metric_name,
+                    signature=m.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
@@ -620,6 +561,7 @@ class Encoder:
             minimize=objective.minimize,
             lower_is_better=objective.minimize,
             scalarized_objective_children_metrics=children_metrics,
+            signature="scalarized_objective",
         )
         return parent_metric
 
@@ -639,6 +581,7 @@ class Encoder:
         constraint_sqa = metric_class(
             id=metric.db_id,
             name=metric.name,
+            signature=metric.signature,
             metric_type=metric_type,
             intent=MetricIntent.OUTCOME_CONSTRAINT,
             bound=outcome_constraint.bound,
@@ -673,6 +616,7 @@ class Encoder:
                 metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
                     id=m.db_id,
                     name=metric_name,
+                    signature=m.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OUTCOME_CONSTRAINT,
                     properties=type_and_properties[1],
@@ -689,6 +633,7 @@ class Encoder:
         parent_metric = parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` not a func.
             id=outcome_constraint.db_id,
             name="scalarized_outcome_constraint",
+            signature="scalarized_outcome_constraint",
             metric_type=self.config.metric_registry[Metric],
             intent=MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT,
             bound=outcome_constraint.bound,
@@ -711,6 +656,7 @@ class Encoder:
         return metric_class(
             id=metric.db_id,
             name=metric.name,
+            signature=metric.signature,
             metric_type=metric_type,
             intent=MetricIntent.OBJECTIVE_THRESHOLD,
             bound=objective_threshold.bound,
@@ -718,19 +664,6 @@ class Encoder:
             relative=objective_threshold.relative,
             properties=properties,
             lower_is_better=metric.lower_is_better,
-        )
-
-    def risk_measure_to_sqa(self, risk_measure: RiskMeasure) -> SQAMetric:
-        """Convert Ax RiskMeasure to SQLAlchemy."""
-        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
-        metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
-        # pyre-fixme[29]: `SQAMetric` is not a function.
-        return metric_class(
-            id=risk_measure.db_id,
-            name="risk measure",
-            metric_type=self.config.metric_registry[Metric],
-            intent=MetricIntent.RISK_MEASURE,
-            properties=serialize_init_args(risk_measure),
         )
 
     def optimization_config_to_sqa(
@@ -754,11 +687,6 @@ class Encoder:
                     objective_threshold=threshold
                 )
                 metrics_sqa.append(threshold_sqa)
-        if optimization_config.risk_measure is not None:
-            risk_measure_sqa = self.risk_measure_to_sqa(
-                risk_measure=optimization_config.risk_measure
-            )
-            metrics_sqa.append(risk_measure_sqa)
         return metrics_sqa
 
     def arm_to_sqa(self, arm: Arm, weight: float | None = 1.0) -> SQAArm:
@@ -993,9 +921,7 @@ class Encoder:
         if trial.runner:
             runner = self.runner_to_sqa(runner=none_throws(trial.runner))
 
-        abandoned_arms = []
-        generator_runs = []
-        status_quo_name = None
+        abandoned_arms, generator_runs = [], []
 
         if isinstance(trial, Trial) and trial.generator_run:
             gr_sqa = self.generator_run_to_sqa(
@@ -1009,40 +935,9 @@ class Encoder:
                 abandoned_arms.append(
                     self.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
                 )
-            for struct in trial.generator_run_structs:
-                gr_sqa = self.generator_run_to_sqa(
-                    generator_run=struct.generator_run, weight=1.0
-                )
+            for gr in trial._generator_runs:
+                gr_sqa = self.generator_run_to_sqa(generator_run=gr, weight=1.0)
                 generator_runs.append(gr_sqa)
-
-            trial_status_quo = trial.status_quo
-            trial_status_quo_weight_override = trial._status_quo_weight_override
-
-            if (
-                trial_status_quo is not None
-                and trial_status_quo_weight_override is not None
-            ):
-                status_quo_generator_run = GeneratorRun(
-                    arms=[trial_status_quo],
-                    weights=[trial_status_quo_weight_override],
-                    type=GeneratorRunType.STATUS_QUO.name,
-                )
-                # This is a hack necessary to get equality tests passing;
-                # otherwise you can encode same object and get two different results.
-                status_quo_generator_run._time_created = trial.time_created
-                gr_sqa = self.generator_run_to_sqa(
-                    generator_run=status_quo_generator_run
-                )
-
-                # pyre-ignore Attribute `id` declared in class `SQAGeneratorRun`
-                # has type `int` but is used as type `Optional[int]`.
-                gr_sqa.id = trial._status_quo_generator_run_db_id
-                # pyre-ignore Attribute `id` declared in class `SQAArm`
-                # has type `int` but is used as type `Optional[int]`.
-                gr_sqa.arms[0].id = trial._status_quo_arm_db_id
-
-                generator_runs.append(gr_sqa)
-                status_quo_name = trial_status_quo.name
 
         # pyre-ignore[9]: Expected `Base` for 1st...ot `typing.Type[Trial]`.
         trial_class: SQATrial = self.config.class_to_sqa_class[Trial]
@@ -1058,7 +953,11 @@ class Encoder:
             run_metadata=trial.run_metadata,
             stop_metadata=trial.stop_metadata,
             status=trial.status,
-            status_quo_name=status_quo_name,
+            status_quo_name=(
+                none_throws(assert_is_instance(trial, BatchTrial).status_quo).name
+                if isinstance(trial, BatchTrial) and trial.status_quo
+                else None
+            ),
             time_completed=trial.time_completed,
             time_created=trial.time_created,
             time_staged=trial.time_staged,
@@ -1072,11 +971,19 @@ class Encoder:
         )
         return trial_sqa
 
-    def experiment_data_to_sqa(self, experiment: Experiment) -> list[SQAData]:
-        """Convert Ax experiment data to SQLAlchemy."""
+    def experiment_data_to_sqa(
+        self,
+        experiment: Experiment,
+    ) -> list[SQAData]:
+        if (
+            experiment.experiment_type
+            in self.config.EXPERIMENT_TYPES_WITH_NO_DATA_STORAGE
+        ):
+            return []
+
         return [
             self.data_to_sqa(data=data, trial_index=trial_index, timestamp=timestamp)
-            for trial_index, data_by_timestamp in experiment.data_by_trial.items()
+            for trial_index, data_by_timestamp in experiment._data_by_trial.items()
             for timestamp, data in data_by_timestamp.items()
         ]
 
@@ -1091,7 +998,7 @@ class Encoder:
         # pyre-fixme[29]: `SQAData` is not a function.
         return data_class(
             id=data.db_id,
-            data_json=data.true_df.to_json(),
+            data_json=data.full_df.to_json(),
             time_created=timestamp,
             trial_index=trial_index,
             structure_metadata_json=json.dumps(

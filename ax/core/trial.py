@@ -18,7 +18,6 @@ from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.exceptions.core import UnsupportedError
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from pyre_extensions import none_throws, override
 
@@ -48,11 +47,11 @@ class Trial(BaseTrial):
             or `add_generator_run`, but a trial's associated genetor run is
             immutable once set.
         trial_type: Type of this trial, if used in MultiTypeExperiment.
-        ttl_seconds: If specified, trials will be considered failed after
+        ttl_seconds: If specified, trials will be considered stale after
             this many seconds since the time the trial was ran, unless the
             trial is completed before then. Meant to be used to detect
             'dead' trials, for which the evaluation process might have
-            crashed etc., and which should be considered failed after
+            crashed etc., and which should be considered stale after
             their 'time to live' has passed.
         index: If specified, the trial's index will be set accordingly.
             This should generally not be specified, as in the index will be
@@ -74,8 +73,7 @@ class Trial(BaseTrial):
             ttl_seconds=ttl_seconds,
             index=index,
         )
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._generator_run = None
+        self._generator_run: GeneratorRun | None = None
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)
 
@@ -84,16 +82,16 @@ class Trial(BaseTrial):
         """Generator run attached to this trial."""
         return self._generator_run
 
-    # pyre-ignore[6]: T77111662.
-    @copy_doc(BaseTrial.generator_runs)
     @property
     def generator_runs(self) -> list[GeneratorRun]:
-        gr = self._generator_run
-        return [gr] if gr is not None else []
+        """Generator runs attached to this trial. Since this is a one-arm
+        ``Trial`` (and not ``BatchTrial``), this will be a list of length 1.
+        """
+        return [self._generator_run] if self._generator_run else []
 
     @property
     def arm(self) -> Arm | None:
-        """The arm associated with this batch."""
+        """The ``Arm`` associated with this ``Trial``."""
         if self.generator_run is None:
             return None
 
@@ -149,14 +147,11 @@ class Trial(BaseTrial):
                 "included multiple."
             )
 
-        self.experiment.search_space.check_types(
-            generator_run.arms[0].parameters, raise_error=True
-        )
-        self._check_existing_and_name_arm(generator_run.arms[0])
+        # Call `BaseTrial._add_generator_run` to validate and name the arms,
+        # then attach the generator run to the experiment.
+        self._add_generator_run(generator_run=generator_run)
+
         self._generator_run = generator_run
-        self._set_generation_step_index(
-            generation_step_index=generator_run._generation_step_index
-        )
         return self
 
     @property
@@ -216,7 +211,6 @@ class Trial(BaseTrial):
         """
 
         fetch_result = self.lookup_data()
-
         try:
             df = fetch_result.df
             return df.loc[df["metric_name"] == metric_name].iloc[0]["mean"]
@@ -275,13 +269,7 @@ class Trial(BaseTrial):
                     "`experiment.lookup_data_for_trial` to get all attached data."
                 )
 
-    def update_trial_data(
-        self,
-        raw_data: TEvaluationOutcome,
-        metadata: dict[str, str | int] | None = None,
-        sample_size: int | None = None,
-        combine_with_last_data: bool = False,
-    ) -> str:
+    def update_trial_data(self, raw_data: TEvaluationOutcome) -> str:
         """Utility method that attaches data to a trial and
         returns an update message.
 
@@ -292,36 +280,18 @@ class Trial(BaseTrial):
                 unknown (then Ax will infer observation noise level).
                 Can also be a list of (fidelities, mapping from
                 metric name to a tuple of mean and SEM).
-            metadata: Additional metadata to track about this run, optional.
-            sample_size: Number of samples collected for the underlying arm,
-                optional.
-            combine_with_last_data: Whether to combine the given data with the
-                data that was previously attached to the trial. See
-                `Experiment.attach_data` for a detailed explanation.
 
         Returns:
             A string message summarizing the update.
         """
         arm_name = none_throws(self.arm).name
-        sample_sizes = {arm_name: sample_size} if sample_size else {}
-        raw_data_by_arm = {arm_name: raw_data}
-
-        evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data_by_arm,
-            metadata=metadata,
-            sample_sizes=sample_sizes,
-        )
+        data = self._raw_evaluations_to_data(raw_data={arm_name: raw_data})
 
         self.validate_data_for_trial(data=data)
-        self.update_run_metadata(metadata=metadata or {})
+        self.experiment.attach_data(data=data)
 
-        self.experiment.attach_data(
-            data=data, combine_with_last_data=combine_with_last_data
-        )
-
-        return str(
-            round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
-        )
+        evaluations = dict(zip(data.df["metric_name"], data.df["mean"]))
+        return str(round_floats_for_logging(item=evaluations))
 
     def clone_to(
         self,

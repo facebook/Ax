@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from typing import final
+
 import numpy as np
 import plotly.express as px
 from ax.adapter.base import Adapter
@@ -14,16 +16,17 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.utils import select_metric
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 
 from plotly import graph_objects as go
-from pyre_extensions import assert_is_instance, override
+from pyre_extensions import assert_is_instance, none_throws, override
 
 
+@final
 class ProgressionPlot(Analysis):
     """
     Plotly Scatter showing a timerseries-like metric's progression, with one line for
@@ -55,18 +58,37 @@ class ProgressionPlot(Analysis):
         self._by_wallclock_time = by_wallclock_time
 
     @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        """
+        ProgressionPlot requires an Experiment with MapData.
+        """
+        if (
+            experiment_invalid_reason := validate_experiment(
+                experiment=experiment,
+                require_trials=True,
+                require_data=True,
+            )
+        ) is not None:
+            return experiment_invalid_reason
+
+        data = none_throws(experiment).lookup_data()
+        if not isinstance(data, MapData):
+            return "Requires MapData."
+
+    @override
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategy | None = None,
         adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
-        if experiment is None:
-            raise UserInputError("ProgressionPlot requires an Experiment")
-
-        data = experiment.lookup_data()
-        if not isinstance(data, MapData):
-            raise UserInputError("ProgressionPlot requires MapData")
+        experiment = none_throws(experiment)
+        data = assert_is_instance(experiment.lookup_data(), MapData)
 
         metric_name = self._metric_name or select_metric(experiment=experiment)
 
@@ -79,13 +101,13 @@ class ProgressionPlot(Analysis):
 
         # Get the terminal step of each trial that was early stopped so we can place a
         # marker to inform the user.
+        early_stopped_trials = experiment.extract_relevant_trials(
+            trial_statuses=[TrialStatus.EARLY_STOPPED]
+        )
         data_df = data.df  # Collect dataframe with only the terminal observations
         terminal_points = data_df.loc[
             data_df["trial_index"].isin(
-                [
-                    trial.index
-                    for trial in experiment.trials_by_status[TrialStatus.EARLY_STOPPED]
-                ]
+                [trial.index for trial in early_stopped_trials]
             ),
             ["trial_index", "mean", MAP_KEY],
         ].rename(columns={MAP_KEY: "progression", "mean": metric_name})

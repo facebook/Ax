@@ -32,19 +32,23 @@ class TracesTest(TestCase):
             experiment=self.exp,
             data=self.exp.fetch_data(),
         )
+        self.model_metric_names = [
+            self.model._experiment.signature_to_metric[signature].name
+            for signature in self.model.metric_signatures
+        ]
 
     def test_Traces(self) -> None:
         # Assert that each type of plot can be constructed successfully
         plot = optimization_trace_single_method_plotly(
             np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
-            list(self.model.metric_names)[0],
+            self.model_metric_names[0],
             optimization_direction="minimize",
             autoset_axis_limits=False,
         )
         self.assertIsInstance(plot, go.Figure)
         plot = optimization_trace_single_method(
             np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
-            list(self.model.metric_names)[0],
+            self.model_metric_names[0],
             optimization_direction="minimize",
             autoset_axis_limits=False,
         )
@@ -54,7 +58,7 @@ class TracesTest(TestCase):
         for optimization_direction in ["minimize", "maximize", "passthrough"]:
             plot = optimization_trace_single_method_plotly(
                 np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
-                list(self.model.metric_names)[0],
+                self.model_metric_names[0],
                 optimization_direction=optimization_direction,
                 autoset_axis_limits=True,
             )
@@ -73,7 +77,7 @@ class TracesTest(TestCase):
         # Generate some trials with different model types, including batch trial.
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].mark_completed(unsafe=True)
-        sobol = Generators.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp)
         for _ in range(2):
             t = exp.new_trial(sobol.gen(1)).run()
             t.mark_completed()
@@ -94,7 +98,7 @@ class TracesTest(TestCase):
         # Assert that plot can be constructed successfully.
         plot = plot_objective_value_vs_trial_index(
             exp_df=exp_df,
-            metric_colname=list(self.model.metric_names)[0],
+            metric_colname=self.model_metric_names[0],
             minimize=True,
             hover_data_colnames=["trial_index"],
         )
@@ -106,7 +110,7 @@ class TracesTest(TestCase):
         del exp_df["generation_method"]
         plot = plot_objective_value_vs_trial_index(
             exp_df=exp_df,
-            metric_colname=list(self.model.metric_names)[0],
+            metric_colname=self.model_metric_names[0],
             minimize=True,
             hover_data_colnames=["trial_index"],
         )

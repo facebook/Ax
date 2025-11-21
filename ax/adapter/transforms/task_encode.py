@@ -6,13 +6,11 @@
 
 # pyre-strict
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
-from ax.adapter.transforms.deprecated_transform_mixin import DeprecatedTransformMixin
 from ax.adapter.transforms.utils import construct_new_search_space
-from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -38,7 +36,6 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
     def __init__(
         self,
         search_space: SearchSpace,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -48,7 +45,6 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
         ), "TaskChoiceToIntTaskChoice requires search space"
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -78,7 +74,7 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
             for p_name, transforms in self.encoded_parameters.items()
         }
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
@@ -108,10 +104,3 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
                 for pc in search_space.parameter_constraints
             ],
         )
-
-
-class TaskEncode(DeprecatedTransformMixin, TaskChoiceToIntTaskChoice):
-    """Deprecated alias for TaskChoiceToIntTaskChoice."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)

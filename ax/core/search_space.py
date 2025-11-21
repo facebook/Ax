@@ -10,13 +10,11 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from functools import reduce
 from logging import Logger
 from random import choice, uniform
 
-import numpy.typing as npt
 import pandas as pd
 from ax import core
 from ax.core.arm import Arm
@@ -34,7 +32,6 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import Base
@@ -45,7 +42,7 @@ from scipy.special import expit, logit
 
 
 logger: Logger = get_logger(__name__)
-PARAMETER_DF_COLNAMES: Mapping[Hashable, str] = {
+PARAMETER_DF_COLNAMES: dict[str, str] = {
     "name": "Name",
     "type": "Type",
     "domain": "Domain",
@@ -80,18 +77,14 @@ class SearchSpace(Base):
             raise ValueError("Parameter names must be unique.")
 
         self._parameters: dict[str, Parameter] = {p.name: p for p in parameters}
+
         for p in parameters:
             if isinstance(p, DerivedParameter):
                 self._validate_derived_parameter(parameter=p)
         self.set_parameter_constraints(parameter_constraints or [])
 
-    @property
-    def is_hierarchical(self) -> bool:
-        return isinstance(self, HierarchicalSearchSpace)
-
-    @property
-    def is_robust(self) -> bool:
-        return isinstance(self, RobustSearchSpace)
+        if self.is_hierarchical:
+            self._validate_hierarchical_structure()
 
     @property
     def parameters(self) -> dict[str, Parameter]:
@@ -110,11 +103,45 @@ class SearchSpace(Base):
         }
 
     @property
-    def tunable_parameters(self) -> dict[str, Parameter]:
+    def tunable_parameters(self) -> dict[str, ChoiceParameter | RangeParameter]:
         return {
             name: parameter
             for name, parameter in self.parameters.items()
-            if not isinstance(parameter, FixedParameter)
+            if isinstance(parameter, (ChoiceParameter, RangeParameter))
+        }
+
+    @property
+    def nontunable_parameters(self) -> dict[str, DerivedParameter | FixedParameter]:
+        return {
+            name: parameter
+            for name, parameter in self.parameters.items()
+            if isinstance(parameter, (DerivedParameter, FixedParameter))
+        }
+
+    @property
+    def top_level_parameters(self) -> dict[str, Parameter]:
+        """
+        Top level parameters are parameters that are not dependent on any other
+        parameters.
+        """
+        dependent_names_by_parameter_by_value = [
+            parameter.dependents.values()
+            for parameter in self.parameters.values()
+            if parameter.is_hierarchical
+        ]
+        dependent_names_by_parameter = [
+            name
+            for sublist in dependent_names_by_parameter_by_value
+            for name in sublist
+        ]
+        all_dependent_names = {
+            name for sublist in dependent_names_by_parameter for name in sublist
+        }
+
+        return {
+            name: parameter
+            for name, parameter in self.parameters.items()
+            if name not in all_dependent_names
         }
 
     def __getitem__(self, parameter_name: str) -> Parameter:
@@ -123,6 +150,34 @@ class SearchSpace(Base):
             return self.parameters[parameter_name]
         raise ValueError(
             f"Parameter '{parameter_name}' is not part of the search space."
+        )
+
+    @property
+    def is_hierarchical(self) -> bool:
+        return any(parameter.is_hierarchical for parameter in self.parameters.values())
+
+    @property
+    def height(self) -> int:
+        """
+        Height of the underlying tree structure of this hierarchical search space.
+        """
+
+        def _height_from_parameter(parameter: Parameter) -> int:
+            if not parameter.is_hierarchical:
+                return 1
+
+            return (
+                max(
+                    _height_from_parameter(parameter=self[param_name])
+                    for deps in parameter.dependents.values()
+                    for param_name in deps
+                )
+                + 1
+            )
+
+        return max(
+            _height_from_parameter(parameter=p)
+            for p in self.top_level_parameters.values()
         )
 
     def add_parameter_constraints(
@@ -153,6 +208,87 @@ class SearchSpace(Base):
                     constraint.parameters[idx] = self.parameters[parameter.name]
 
         self._parameter_constraints: list[ParameterConstraint] = parameter_constraints
+
+    def add_parameters(
+        self,
+        parameters: Sequence[Parameter],
+    ) -> None:
+        """
+        Add new parameters to the experiment's search space. This allows extending
+        the search space after the experiment has run some trials.
+
+        Backfill values must be provided for all new parameters if the experiment has
+        already run some trials. The backfill values represent the parameter values
+        that were used in the existing trials.
+        """
+        # Disabled parameters should be updated
+        parameters_to_add = []
+        parameters_to_update = []
+
+        # Check which parameters to add to the search space and which to update
+        for parameter in parameters:
+            # Parameters already exist in search space
+            if parameter.name in self.parameters.keys():
+                existing_parameter = self.parameters[parameter.name]
+                # Only disabled parameters can be re-added
+                if not existing_parameter.is_disabled:
+                    raise UserInputError(
+                        f"Parameter `{parameter.name}` already exists in search space."
+                    )
+                if type(parameter) is not type(existing_parameter):
+                    raise UserInputError(
+                        f"Parameter `{parameter.name}` already exists in search "
+                        "space. Cannot change parameter type from "
+                        f"{type(existing_parameter)} to {type(parameter)}."
+                    )
+                parameters_to_update.append(parameter)
+
+            # Parameter does not exist in search space
+            else:
+                parameters_to_add.append(parameter)
+
+        # Add new parameters to search space and status quo
+        for parameter in parameters_to_add:
+            self.add_parameter(parameter)
+
+        # Update disabled parameters in search space
+        for parameter in parameters_to_update:
+            self.update_parameter(parameter)
+
+    def disable_parameters(self, default_parameter_values: TParameterization) -> None:
+        """
+        Disable parameters in the experiment. This allows narrowing the search space
+        after the experiment has run some trials.
+
+        When parameters are disabled, they are effectively removed from the search
+        space for future trial generation. Existing trials remain valid, and the
+        disabled parameters are replaced with fixed default values for all subsequent
+        trials.
+
+        Args:
+            default_parameter_values: Fixed values to use for the disabled parameters
+                in all future trials. These values will be used for the parameter in
+                all subsequent trials.
+        """
+        parameters_to_disable = set(default_parameter_values.keys())
+        search_space_parameters = set(self.parameters.keys())
+        parameters_not_in_search_space = parameters_to_disable - search_space_parameters
+
+        # Validate that all parameters to disable are in the search space
+        if len(parameters_not_in_search_space) > 0:
+            raise UserInputError(
+                f"Cannot disable parameters {parameters_not_in_search_space} "
+                "because they are not in the search space."
+            )
+
+        # Validate that all parameters to disable have a valid default
+        for parameter_to_disable, default_value in default_parameter_values.items():
+            parameter = self.parameters[parameter_to_disable]
+            parameter.validate(default_value, raises=True)
+
+        # Disable parameters
+        for parameter_to_disable, default_value in default_parameter_values.items():
+            self.parameters[parameter_to_disable].disable(default_value)
 
     def add_parameter(self, parameter: Parameter) -> None:
         if parameter.name in self.parameters.keys():
@@ -229,7 +365,7 @@ class SearchSpace(Base):
         Returns:
             Whether the parameterization is contained in the search space.
         """
-        if check_all_parameters_present:
+        if check_all_parameters_present and not self.is_hierarchical:
             if not self.check_all_parameters_present(
                 parameterization=parameterization, raise_error=raise_error
             ):
@@ -261,6 +397,34 @@ class SearchSpace(Base):
             if not constraint.check(numerical_param_dict):
                 if raise_error:
                     raise ValueError(f"Parameter constraint {constraint} is violated.")
+                return False
+
+        if self.is_hierarchical:
+            # Check that each arm "belongs" in the hierarchical
+            # search space; ensure that it only has the parameters that make sense
+            # with each other (and does not contain dependent parameters if the
+            # parameter they depend on does not have the correct value).
+            try:
+                cast_to_hss_params = set(
+                    self._cast_parameterization(
+                        parameters=parameterization,
+                        check_all_parameters_present=check_all_parameters_present,
+                    ).keys()
+                )
+            except RuntimeError as e:
+                if raise_error:
+                    raise e
+                return False
+            parameterization_params = set(parameterization.keys())
+            if cast_to_hss_params != parameterization_params:
+                if raise_error:
+                    raise ValueError(
+                        "Parameterization violates the hierarchical structure of the "
+                        "search space; cast version would have parameters: "
+                        f"{cast_to_hss_params}, but full version contains "
+                        f"parameters: {parameterization_params}."
+                    )
+
                 return False
 
         return True
@@ -347,7 +511,7 @@ class SearchSpace(Base):
         """Construct new arm using given parameters and name. Any missing parameters
         fallback to the experiment defaults, represented as None.
         """
-        final_parameters: TParameterization = {k: None for k in self.parameters.keys()}
+        final_parameters = dict.fromkeys(self.parameters.keys(), None)
         if parameters is not None:
             # Validate the param values
             for p_name, p_value in parameters.items():
@@ -398,12 +562,62 @@ class SearchSpace(Base):
                             "parameters."
                         )
 
+    def _validate_hierarchical_structure(self) -> None:
+        """Validate the structure of this hierarchical search space, ensuring that all
+        subtrees are independent (not sharing any parameters) and that all parameters
+        are reachable and part of the tree.
+        """
+
+        def visit(parameter_name: str) -> list[str]:
+            """
+            DFS of a hierarchical search space, returning a list of all parameters
+            visited in the traversal.
+            """
+            parameter = self[parameter_name]
+
+            if parameter.is_hierarchical:
+                visited = [
+                    visit(parameter_name=child)
+                    for sublist in parameter.dependents.values()
+                    for child in sublist
+                ]
+
+                return [
+                    parameter_name,
+                    *[child for sublist in visited for child in sublist],
+                ]
+
+            return [parameter_name]
+
+        traversal = [
+            item
+            for sublist in [
+                visit(parameter_name=parameter_name)
+                for parameter_name in self.top_level_parameters.keys()
+            ]
+            for item in sublist
+        ]
+        traversal_set = {*traversal}
+
+        # Ensure that no parameters were visited more than once (i.e. no cycles).
+        if len(traversal) != len(traversal_set):
+            duplicates = [
+                parameter_name
+                for parameter_name in traversal_set
+                if traversal.count(parameter_name) > 1
+            ]
+            raise UserInputError(
+                "Hierarchical search space contains a cycle. Please check that the "
+                "hierachical search space provided is represented as a valid tree. "
+                f"{duplicates} could be reached from multiple paths."
+            )
+
     def validate_membership(self, parameters: TParameterization) -> None:
         self.check_membership(parameterization=parameters, raise_error=True)
         # `check_membership` uses int and float interchangeably, which we don't
         # want here.
         for p_name, parameter in self.parameters.items():
-            if isinstance(self, HierarchicalSearchSpace) and p_name not in parameters:
+            if self.is_hierarchical and p_name not in parameters:
                 # Parameterizations in HSS-s can be missing some of the dependent
                 # parameters based on the hierarchical structure and values of
                 # the parameters those depend on.
@@ -451,6 +665,50 @@ class SearchSpace(Base):
                     "to add an fixed value to a derived parameter."
                 )
 
+    def backfill_values(self) -> TParameterization:
+        """Backfill values for parameters that have a backfill value."""
+        return {
+            name: parameter.backfill_value
+            for name, parameter in self.parameters.items()
+            if parameter.backfill_value is not None
+        }
+
+    def hierarchical_structure_str(self, parameter_names_only: bool = False) -> str:
+        """String representation of the hierarchical structure.
+
+        Args:
+            parameter_names_only: Whether parameter should show up just as names
+                (instead of full parameter strings), useful for a more concise
+                representation.
+        """
+
+        def _hrepr(param: Parameter | None, value: str | None, level: int) -> str:
+            is_level_param = param and not value
+            if is_level_param:
+                param = none_throws(param)
+                node_name = f"{param.name if parameter_names_only else param}"
+                ret = "\t" * level + node_name + "\n"
+                if param.is_hierarchical:
+                    for val, deps in param.dependents.items():
+                        ret += _hrepr(param=None, value=str(val), level=level + 1)
+                        for param_name in deps:
+                            ret += _hrepr(
+                                param=self[param_name],
+                                value=None,
+                                level=level + 2,
+                            )
+            else:
+                value = none_throws(value)
+                node_name = f"({value})"
+                ret = "\t" * level + node_name + "\n"
+
+            return ret
+
+        return "".join(
+            _hrepr(param=param, value=None, level=0)
+            for param in self.top_level_parameters.values()
+        )
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
@@ -490,48 +748,25 @@ class SearchSpace(Base):
         ]
         return df
 
-
-class HierarchicalSearchSpace(SearchSpace):
-    def __init__(
-        self,
-        parameters: list[Parameter],
-        parameter_constraints: list[ParameterConstraint] | None = None,
-        requires_root: bool = True,
-    ) -> None:
-        super().__init__(
-            parameters=parameters, parameter_constraints=parameter_constraints
-        )
-        self._all_parameter_names: set[str] = set(self.parameters.keys())
-
-        if requires_root:
-            self._root: Parameter = self._find_root()
-            self._validate_hierarchical_structure()
-            logger.debug(f"Found root: {self.root}.")
-
-        self.requires_root = requires_root
-
-    @property
-    def root(self) -> Parameter:
-        """Root of the hierarchical search space tree, as identified during
-        ``HierarchicalSearchSpace`` construction.
-        """
-        return self._root
-
-    def clone(self) -> HierarchicalSearchSpace:
-        return self.__class__(
-            parameters=[p.clone() for p in self._parameters.values()],
-            parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
-            # Use `getattr` for backward compatibility, because hierarchical search
-            # spaces loaded from existing checkpoints do not have `.requires_root`.
-            requires_root=getattr(self, "requires_root", True),
-        )
-
     def flatten(self) -> SearchSpace:
-        """Returns a flattened ``SearchSpace`` with all the parameters in the
-        given ``HierarchicalSearchSpace``; ignores their hierarchical structure.
         """
+        Returns a new SearchSpace with all hierarchical structure removed.
+        """
+
+        def flatten_parameter(parameter: Parameter) -> Parameter:
+            if (
+                isinstance(parameter, ChoiceParameter)
+                or isinstance(parameter, FixedParameter)
+            ) and parameter.is_hierarchical:
+                cloned_parameter = parameter.clone()
+                cloned_parameter._dependents = None
+
+                return cloned_parameter
+
+            return parameter
+
         return SearchSpace(
-            parameters=list(self.parameters.values()),
+            parameters=[flatten_parameter(p) for p in self.parameters.values()],
             parameter_constraints=self.parameter_constraints,
         )
 
@@ -629,112 +864,6 @@ class HierarchicalSearchSpace(SearchSpace):
                 )
         return obs_feats
 
-    def check_membership(
-        self,
-        parameterization: Mapping[str, TParamValue],
-        raise_error: bool = False,
-        check_all_parameters_present: bool = True,
-    ) -> bool:
-        """Whether the given parameterization belongs in the search space.
-
-        Checks that the given parameter values have the same name/type as
-        search space parameters, are contained in the search space domain,
-        and satisfy the parameter constraints.
-
-        Args:
-            parameterization: Dict from parameter name to value to validate.
-            raise_error: If true parameterization does not belong, raises an error
-                with detailed explanation of why.
-            check_all_parameters_present: Ensure that parameterization specifies
-                values for all parameters as expected by the search space and its
-                hierarchical structure.
-
-        Returns:
-            Whether the parameterization is contained in the search space.
-        """
-        super().check_membership(
-            parameterization=parameterization,
-            raise_error=raise_error,
-            check_all_parameters_present=False,
-        )
-
-        # Check that each arm "belongs" in the hierarchical
-        # search space; ensure that it only has the parameters that make sense
-        # with each other (and does not contain dependent parameters if the
-        # parameter they depend on does not have the correct value).
-        try:
-            cast_to_hss_params = set(
-                self._cast_parameterization(
-                    parameters=parameterization,
-                    check_all_parameters_present=check_all_parameters_present,
-                ).keys()
-            )
-        except RuntimeError:
-            if raise_error:
-                raise
-            return False
-        parameterization_params = set(parameterization.keys())
-        if cast_to_hss_params != parameterization_params:
-            if raise_error:
-                raise ValueError(
-                    "Parameterization violates the hierarchical structure of the search"
-                    f"space; cast version would have parameters: {cast_to_hss_params},"
-                    f" but full version contains parameters: {parameterization_params}."
-                )
-
-            return False
-
-        return True
-
-    def hierarchical_structure_str(self, parameter_names_only: bool = False) -> str:
-        """String representation of the hierarchical structure.
-
-        Args:
-            parameter_names_only: Whether parameter should show up just as names
-                (instead of full parameter strings), useful for a more concise
-                representation.
-        """
-
-        def _hrepr(param: Parameter | None, value: str | None, level: int) -> str:
-            is_level_param = param and not value
-            if is_level_param:
-                param = none_throws(param)
-                node_name = f"{param.name if parameter_names_only else param}"
-                ret = "\t" * level + node_name + "\n"
-                if param.is_hierarchical:
-                    for val, deps in param.dependents.items():
-                        ret += _hrepr(param=None, value=str(val), level=level + 1)
-                        for param_name in deps:
-                            ret += _hrepr(
-                                param=self[param_name],
-                                value=None,
-                                level=level + 2,
-                            )
-            else:
-                value = none_throws(value)
-                node_name = f"({value})"
-                ret = "\t" * level + node_name + "\n"
-
-            return ret
-
-        return _hrepr(param=self.root, value=None, level=0)
-
-    def _cast_arm(self, arm: Arm) -> Arm:
-        """Cast parameterization of given arm to the types in this search space and to
-        its hierarchical structure; return the newly cast arm.
-
-        For each parameter in given arm, cast it to the proper type specified
-        in this search space and remove it from the arm if that parameter should not be
-        in the arm within the search space due to its hierarchical structure.
-        """
-        # Validate parameter values in flat search space.
-        arm = super().cast_arm(arm=arm)
-
-        return Arm(
-            parameters=self._cast_parameterization(parameters=arm.parameters),
-            name=arm._name,
-        )
-
     def _cast_parameterization(
         self,
         parameters: Mapping[str, TParamValue],
@@ -756,125 +885,53 @@ class HierarchicalSearchSpace(SearchSpace):
             f"of the search space: {self.hierarchical_structure_str}."
         )
 
-        def _find_applicable_parameters(root: Parameter) -> set[str]:
-            applicable = {root.name}
-            if check_all_parameters_present and root.name not in parameters:
+        def find_applicable_parameters(parameter: Parameter) -> set[str]:
+            if check_all_parameters_present and parameter.name not in parameters:
                 raise RuntimeError(
                     error_msg_prefix
-                    + f"Parameter '{root.name}' not in parameterization to cast."
+                    + f"Parameter {parameter.name} not in parameterization to cast."
                 )
 
-            # Return if the root parameter is not hierarchical or if it is not
-            # in the parameterization to cast.
-            if not root.is_hierarchical or root.name not in parameters:
-                return applicable
+            if (
+                parameter.is_hierarchical
+                and parameter.name in parameters
+                and parameters[parameter.name] in parameter.dependents
+            ):
+                dependents_applicable_parameters = {
+                    item
+                    for sublist in [
+                        find_applicable_parameters(self.parameters[child])
+                        for child in parameter.dependents[parameters[parameter.name]]
+                    ]
+                    for item in sublist
+                }
 
-            # Find the dependents of the current root parameter.
-            root_val = parameters[root.name]
-            for val, deps in root.dependents.items():
-                if root_val == val:
-                    for dep in deps:
-                        applicable.update(_find_applicable_parameters(root=self[dep]))
+                return {
+                    parameter.name,
+                    *dependents_applicable_parameters,
+                }
 
-            return applicable
+            return {parameter.name}
 
-        applicable_paramers = _find_applicable_parameters(root=self.root)
+        all_applicable_parameters = {
+            item
+            for sublist in [
+                find_applicable_parameters(parameter=parameter)
+                for parameter in self.top_level_parameters.values()
+            ]
+            for item in sublist
+        }
+
         if check_all_parameters_present and not all(
-            k in parameters for k in applicable_paramers
+            k in parameters for k in all_applicable_parameters
         ):
             raise RuntimeError(
                 error_msg_prefix
-                + f"Parameters {applicable_paramers - set(parameters.keys())} are"
+                + f"Parameters {all_applicable_parameters - set(parameters.keys())} are"
                 " missing."
             )
 
-        return {k: v for k, v in parameters.items() if k in applicable_paramers}
-
-    def _find_root(self) -> Parameter:
-        """Find the root of hierarchical search space: a parameter that does not depend
-        on other parameters.
-        """
-        dependent_parameter_names = set()
-        for parameter in self.parameters.values():
-            if parameter.is_hierarchical:
-                for deps in parameter.dependents.values():
-                    dependent_parameter_names.update(param_name for param_name in deps)
-
-        root_parameters = self._all_parameter_names - dependent_parameter_names
-        if len(root_parameters) != 1:
-            num_parameters = len(self.parameters)
-            # TODO: In the future, do not need to fail here; can add a "unifying" root
-            # fixed parameter, on which all independent parameters in the HSS can
-            # depend.
-            raise NotImplementedError(
-                "Could not find the root parameter; found dependent parameters "
-                f"{dependent_parameter_names}, with {num_parameters} total parameters."
-                f" Root parameter candidates: {root_parameters}. Having multiple "
-                "independent parameters is not yet supported."
-            )
-
-        return self.parameters[root_parameters.pop()]
-
-    @property
-    def height(self) -> int:
-        """
-        Height of the underlying tree structure of this hierarchical search space.
-        """
-
-        def _height_from_parameter(parameter: Parameter) -> int:
-            if not parameter.is_hierarchical:
-                return 1
-
-            return (
-                max(
-                    _height_from_parameter(parameter=self[param_name])
-                    for deps in parameter.dependents.values()
-                    for param_name in deps
-                )
-                + 1
-            )
-
-        return _height_from_parameter(parameter=self.root)
-
-    def _validate_hierarchical_structure(self) -> None:
-        """Validate the structure of this hierarchical search space, ensuring that all
-        subtrees are independent (not sharing any parameters) and that all parameters
-        are reachable and part of the tree.
-        """
-
-        def _check_subtree(root: Parameter) -> set[str]:
-            logger.debug(f"Verifying subtree with root {root}...")
-            visited = {root.name}
-            # Base case: validate leaf node.
-            if not root.is_hierarchical:
-                return visited  # TODO: Should there be other validation?
-
-            # Recursive case: validate each subtree.
-            visited_in_subtrees = (  # Generator of sets of visited parameter names.
-                _check_subtree(root=self[param_name])
-                for deps in root.dependents.values()
-                for param_name in deps
-            )
-            # Check that subtrees are disjoint and return names of visited params.
-            visited.update(
-                reduce(
-                    lambda set1, set2: _disjoint_union(set1=set1, set2=set2),
-                    visited_in_subtrees,
-                    next(visited_in_subtrees),
-                )
-            )
-            logger.debug(f"Visited parameters {visited} in subtree.")
-            return visited
-
-        # Verify that all nodes have been reached.
-        visited = _check_subtree(root=self._root)
-        if len(self._all_parameter_names - visited) != 0:
-            raise UserInputError(
-                f"Parameters {self._all_parameter_names - visited} are not reachable "
-                "from the root. Please check that the hierachical search space provided"
-                " is represented as a valid tree with a single root."
-            )
-        logger.debug(f"Visited all parameters in the tree: {visited}.")
+        return {k: v for k, v in parameters.items() if k in all_applicable_parameters}
 
     def _gen_dummy_values_to_complete_flat_parameterization(
         self,
@@ -918,192 +975,15 @@ class HierarchicalSearchSpace(SearchSpace):
         return dummy_values_to_inject
 
 
-class RobustSearchSpace(SearchSpace):
-    """Search space for robust optimization that supports environmental variables
-    and input noise.
-
-    In addition to the usual search space properties, this allows specifying
-    environmental variables (parameters) and input noise distributions.
+class HierarchicalSearchSpace(SearchSpace):
+    """
+    HierarchicalSearchSpace is deprecated. Its functionality has been upstreamed into
+    SearchSpace. Please use SearchSpace instead. The HierarchicalSearchSpace class
+    remains for backwards compatibility with previously stored experiments but will be
+    removed in the future.
     """
 
-    def __init__(
-        self,
-        parameters: list[Parameter],
-        parameter_distributions: list[ParameterDistribution],
-        num_samples: int,
-        environmental_variables: list[Parameter] | None = None,
-        parameter_constraints: list[ParameterConstraint] | None = None,
-    ) -> None:
-        """Initialize the robust search space.
-
-        Args:
-            parameters: List of parameter objects for the search space.
-            parameter_distributions: List of parameter distributions, each representing
-                the distribution of one or more parameters. These can be used to
-                specify the distribution of the environmental variables or the input
-                noise distribution on the parameters.
-            num_samples: Number of samples to draw from the `parameter_distributions`
-                for the MC approximation of the posterior risk measure. Must agree with
-                the `n_w` of the risk measure in `OptimizationConfig`.
-            environmental_variables: List of parameter objects, each denoting an
-                environmental variable. These must have associated parameter
-                distributions.
-            parameter_constraints: List of parameter constraints.
-        """
-        if len(parameter_distributions) == 0:
-            raise UserInputError(
-                "RobustSearchSpace requires at least one distributional parameter. "
-                "Use SearchSpace instead."
-            )
-        if num_samples < 1 or int(num_samples) != num_samples:
-            raise UserInputError("`num_samples` must be a positive integer!")
-        self.num_samples = num_samples
-        self.parameter_distributions = parameter_distributions
-        # Make sure that the env var names are unique.
-        environmental_variables = environmental_variables or []
-        all_env_vars: set[str] = {p.name for p in environmental_variables}
-        if len(all_env_vars) < len(environmental_variables):
-            raise UserInputError("Environmental variable names must be unique!")
-        self._environmental_variables: dict[str, Parameter] = {
-            p.name: p for p in environmental_variables
-        }
-        # Make sure that the environmental variables and parameters are distinct.
-        param_names = {p.name for p in parameters}
-        for p_name in self._environmental_variables:
-            if p_name in param_names:
-                raise UserInputError(
-                    f"Environmental variable {p_name} should not be repeated "
-                    "in parameters."
-                )
-        # NOTE: We need `_environmental_variables` set before calling `__init__`.
-        super().__init__(
-            parameters=parameters, parameter_constraints=parameter_constraints
-        )
-        self._validate_distributions()
-
-    def _validate_distributions(self) -> None:
-        r"""Validate the parameter distributions.
-
-        * All distributional parameters must be range parameters.
-        * All environmental variables must have a non-multiplicative distribution.
-        * Either all or none of the perturbation distributions must be
-        multiplicative.
-        * Each parameter can have at most one distribution associated with it.
-        """
-        distributions = self.parameter_distributions
-        # Make sure that there is at most one distribution per parameter.
-        self._distributional_parameters: set[str] = set()
-        for dist in distributions:
-            duplicates = self._distributional_parameters.intersection(dist.parameters)
-            if duplicates:
-                raise UserInputError(
-                    "Received multiple parameter distributions for parameters "
-                    f"{duplicates}. Make sure that there is at most one distribution "
-                    "specified for any given parameter / environmental variable."
-                )
-            self._distributional_parameters.update(dist.parameters)
-
-        all_env_vars = set(self._environmental_variables.keys())
-        if not all_env_vars.issubset(self._distributional_parameters):
-            raise UserInputError(
-                "All environmental variables must have a distribution specified."
-            )
-
-        self._environmental_distributions: list[ParameterDistribution] = []
-        self._perturbation_distributions: list[ParameterDistribution] = []
-        if len(all_env_vars) > 0:
-            if all_env_vars != self._distributional_parameters:
-                # NOTE: We do not support mixing env var and input noise together
-                # in a single `ParameterDistribuion`.
-                for dist in distributions:
-                    is_env = [p in all_env_vars for p in dist.parameters]
-                    if not all(is_env) and any(is_env):
-                        raise UnsupportedError(
-                            "A `ParameterDistribution` must represent either the "
-                            "distribution of a set of environmental variables or "
-                            "a set of parameter perturbations. Mixing the distribution "
-                            "of both types in a single `ParameterDistribution` is "
-                            f"not supported. Offending distribution: {dist}."
-                        )
-                    if any(is_env):
-                        self._environmental_distributions.append(dist)
-                    else:
-                        self._perturbation_distributions.append(dist)
-            else:
-                self._environmental_distributions = distributions
-            if any(d.multiplicative for d in self._environmental_distributions):
-                raise UserInputError(
-                    "Distributions of environmental variables must have "
-                    "`multiplicative=False`."
-                )
-        else:
-            self._perturbation_distributions = distributions
-
-        if not all(
-            isinstance(self.parameters[p], RangeParameter)
-            for p in self._distributional_parameters
-        ):
-            raise UserInputError(
-                "All parameters with an associated distribution must be "
-                "range parameters."
-            )
-
-        # Make sure that all or none of perturbation distributions are multiplicative.
-        mul_flags = [d.multiplicative for d in self._perturbation_distributions]
-        if not (all(mul_flags) or not any(mul_flags)):
-            raise UnsupportedError(
-                "Non-environmental parameter distributions must be either all "
-                "multiplicative or all additive (not multiplicative)."
-            )
-        self.multiplicative = any(mul_flags)
-
-    def is_environmental_variable(self, parameter_name: str) -> bool:
-        r"""Check if a given parameter is an environmental variable.
-
-        Args:
-            parameter: A string denoting the name of the parameter.
-
-        Returns:
-            A boolean denoting whether the given `parameter_name` corresponds
-            to an environmental variable of this search space.
-        """
-        return parameter_name in self._environmental_variables
-
-    @property
-    def parameters(self) -> dict[str, Parameter]:
-        """Get all parameters and environmental variables.
-
-        We include environmental variables here to support `transform_search_space`
-        and other similar functionality. It also helps avoid having to overwrite a
-        bunch of parent methods.
-        """
-        return {**self._parameters, **self._environmental_variables}
-
-    def update_parameter(self, parameter: Parameter) -> None:
-        raise UnsupportedError("RobustSearchSpace does not support `update_parameter`.")
-
-    def clone(self) -> RobustSearchSpace:
-        return self.__class__(
-            parameters=[p.clone() for p in self._parameters.values()],
-            parameter_distributions=[d.clone() for d in self.parameter_distributions],
-            num_samples=self.num_samples,
-            environmental_variables=[
-                p.clone() for p in self._environmental_variables.values()
-            ],
-            parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            "parameters=" + repr(list(self._parameters.values())) + ", "
-            "parameter_distributions=" + repr(self.parameter_distributions) + ", "
-            "num_samples=" + repr(self.num_samples) + ", "
-            "environmental_variables="
-            + repr(list(self._environmental_variables.values()))
-            + ", "
-            "parameter_constraints=" + repr(self._parameter_constraints) + ")"
-        )
+    pass
 
 
 @dataclass
@@ -1136,8 +1016,6 @@ class SearchSpaceDigest:
             fidelity parameters.
         target_values: A dictionary mapping parameter indices of fidelity or
             task parameters to their respective target value.
-        robust_digest: An optional `RobustSearchSpaceDigest` that carries the
-            additional attributes if using a `RobustSearchSpace`.
         hierarchical_dependencies: A dictionary that specifies the dependencies between
             parameters if using `HierarchicalSearchSpace`. It looks like as follows
             ```
@@ -1157,47 +1035,9 @@ class SearchSpaceDigest:
     task_features: list[int] = field(default_factory=list)
     fidelity_features: list[int] = field(default_factory=list)
     target_values: dict[int, int | float] = field(default_factory=dict)
-    robust_digest: RobustSearchSpaceDigest | None = None
     # NOTE: We restrict that hierarchical parameters have to be either categorical or
     # discrete.
     hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
-
-
-@dataclass
-class RobustSearchSpaceDigest:
-    """Container for lightweight representation of properties that are unique
-    to the `RobustSearchSpace`. This is used to append the `SearchSpaceDigest`.
-
-    NOTE: Both `sample_param_perturbations` and `sample_environmental` should
-    require no inputs and return a `num_samples x d`-dim array of samples from
-    the corresponding parameter distributions, where `d` is the number of
-    non-environmental parameters for `distribution_sampler` and the number of
-    environmental variables for `environmental_sampler`.
-
-    Attributes:
-        sample_param_perturbations: An optional callable for sampling from the
-            parameter distributions representing input perturbations.
-        sample_environmental: An optional callable for sampling from the
-            distributions of the environmental variables.
-        environmental_variables: A list of environmental variable names.
-        multiplicative: Denotes whether the distribution is multiplicative.
-            Only relevant if paired with a `distribution_sampler`.
-    """
-
-    sample_param_perturbations: Callable[[], npt.NDArray] | None = None
-    sample_environmental: Callable[[], npt.NDArray] | None = None
-    environmental_variables: list[str] = field(default_factory=list)
-    multiplicative: bool = False
-
-    def __post_init__(self) -> None:
-        if (
-            self.sample_param_perturbations is None
-            and self.sample_environmental is None
-        ):
-            raise UserInputError(
-                "`RobustSearchSpaceDigest` must be initialized with at least one of "
-                "`distribution_sampler` and `environmental_sampler`."
-            )
 
 
 def _disjoint_union(set1: set[str], set2: set[str]) -> set[str]:

@@ -11,7 +11,7 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Callable, cast, Union
+from typing import Any, Callable, cast, Union
 
 import pandas as pd
 from ax.analysis.analysis_card import (
@@ -25,11 +25,11 @@ from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -54,11 +54,10 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import _DEPRECATED_MODEL_KWARGS, object_from_json
@@ -173,6 +172,20 @@ class Decoder:
                 auxiliary_experiments_by_purpose[purpose].append(aux_experiment)
         return auxiliary_experiments_by_purpose
 
+    # TODO[@mpolson64]: Stop storing target arm in experiment properties
+    # as part of the storage refactor.
+    def _get_pruning_target_parameterization_from_experiment_properties(
+        self, properties: dict[str, Any]
+    ) -> Arm | None:
+        pruning_target_parameterization = properties.pop(
+            "pruning_target_parameterization", None
+        )
+        if pruning_target_parameterization is not None:
+            pruning_target_parameterization = assert_is_instance(
+                object_from_json(object_json=pruning_target_parameterization), Arm
+            )
+        return pruning_target_parameterization
+
     def _init_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
@@ -180,8 +193,16 @@ class Decoder:
         reduced_state: bool = False,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
+        # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
+        # so need to convert it to regular dict.
+        properties = dict(experiment_sqa.properties or {})
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics
+            metrics_sqa=experiment_sqa.metrics,
+            pruning_target_parameterization=(
+                self._get_pruning_target_parameterization_from_experiment_properties(
+                    properties=properties
+                )
+            ),
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -207,9 +228,6 @@ class Decoder:
                 "only supported for MultiTypeExperiment."
             )
 
-        # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
-        # so need to convert it to regular dict.
-        properties = dict(experiment_sqa.properties or {})
         default_data_type = experiment_sqa.default_data_type
 
         auxiliary_experiments_by_purpose = (
@@ -242,8 +260,14 @@ class Decoder:
         experiment_sqa: SQAExperiment,
     ) -> MultiTypeExperiment:
         """First step of conversion within experiment_from_sqa."""
+        properties = dict(experiment_sqa.properties or {})
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics
+            metrics_sqa=experiment_sqa.metrics,
+            pruning_target_parameterization=(
+                self._get_pruning_target_parameterization_from_experiment_properties(
+                    properties=properties
+                )
+            ),
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -278,7 +302,7 @@ class Decoder:
             trial_type_to_runner.update(
                 {t_type: None for t_type in trial_types_with_metrics}
             )
-        properties = dict(experiment_sqa.properties or {})
+
         default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
@@ -392,6 +416,8 @@ class Decoder:
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
+                backfill_value=parameter_sqa.backfill_value,
+                default_value=parameter_sqa.default_value,
             )
         elif parameter_sqa.domain_type == DomainType.CHOICE:
             target_value = parameter_sqa.target_value
@@ -415,6 +441,8 @@ class Decoder:
                 is_ordered=parameter_sqa.is_ordered,
                 is_task=bool(parameter_sqa.is_task),
                 dependents=parameter_sqa.dependents,
+                backfill_value=parameter_sqa.backfill_value,
+                default_value=parameter_sqa.default_value,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
             # Don't throw an error if parameter_sqa.fixed_value is None;
@@ -426,6 +454,8 @@ class Decoder:
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
                 dependents=parameter_sqa.dependents,
+                backfill_value=parameter_sqa.backfill_value,
+                default_value=parameter_sqa.default_value,
             )
         elif parameter_sqa.domain_type == DomainType.DERIVED:
             parameter = DerivedParameter(
@@ -504,56 +534,6 @@ class Decoder:
         constraint.db_id = parameter_constraint_sqa.id
         return constraint
 
-    def parameter_distributions_from_sqa(
-        self,
-        parameter_constraint_sqa_list: list[SQAParameterConstraint],
-    ) -> tuple[list[ParameterDistribution], int | None]:
-        """Convert SQLAlchemy ParameterConstraints to Ax ParameterDistributions."""
-        parameter_distributions: list[ParameterDistribution] = []
-        num_samples = None
-        for parameter_constraint_sqa in parameter_constraint_sqa_list:
-            if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION:
-                raise SQADecodeError(
-                    "Parameter distribution must have type `DISTRIBUTION`. "
-                    "Received type "
-                    f"{ParameterConstraintType(parameter_constraint_sqa.type).name}."
-                )
-            num_samples = int(parameter_constraint_sqa.bound)
-            distribution = object_from_json(
-                parameter_constraint_sqa.constraint_dict,
-                decoder_registry=self.config.json_decoder_registry,
-                class_decoder_registry=self.config.json_class_decoder_registry,
-            )
-            distribution.db_id = parameter_constraint_sqa.id
-            parameter_distributions.append(distribution)
-        return parameter_distributions, num_samples
-
-    def environmental_variable_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
-        """Convert SQLAlchemy Parameter to Ax environmental variable."""
-        if parameter_sqa.domain_type == DomainType.ENVIRONMENTAL_RANGE:
-            if parameter_sqa.lower is None or parameter_sqa.upper is None:
-                raise SQADecodeError(
-                    "`lower` and `upper` must be set for RangeParameter."
-                )
-            parameter = RangeParameter(
-                name=parameter_sqa.name,
-                parameter_type=parameter_sqa.parameter_type,
-                lower=float(none_throws(parameter_sqa.lower)),
-                upper=float(none_throws(parameter_sqa.upper)),
-                log_scale=parameter_sqa.log_scale or False,
-                digits=parameter_sqa.digits,
-                is_fidelity=parameter_sqa.is_fidelity or False,
-                target_value=parameter_sqa.target_value,
-            )
-        else:
-            raise SQADecodeError(
-                f"Cannot decode SQAParameter because {parameter_sqa.domain_type} "
-                "is an invalid domain type."
-            )
-
-        parameter.db_id = parameter_sqa.id
-        return parameter
-
     def search_space_from_sqa(
         self,
         parameters_sqa: list[SQAParameter],
@@ -562,42 +542,22 @@ class Decoder:
         """Convert a list of SQLAlchemy Parameters and ParameterConstraints to an
         Ax SearchSpace.
         """
-        parameters, environmental_variables = [], []
+        parameters = []
         for parameter_sqa in parameters_sqa:
-            if parameter_sqa.domain_type == DomainType.ENVIRONMENTAL_RANGE:
-                environmental_variables.append(
-                    self.environmental_variable_from_sqa(parameter_sqa=parameter_sqa)
-                )
-            else:
-                parameters.append(self.parameter_from_sqa(parameter_sqa=parameter_sqa))
+            parameters.append(self.parameter_from_sqa(parameter_sqa=parameter_sqa))
+
         parameter_constraints = [
             self.parameter_constraint_from_sqa(
                 parameter_constraint_sqa=parameter_constraint_sqa, parameters=parameters
             )
             for parameter_constraint_sqa in parameter_constraints_sqa
-            if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION
         ]
-        parameter_distributions, num_samples = self.parameter_distributions_from_sqa(
-            [
-                parameter_constraint_sqa
-                for parameter_constraint_sqa in parameter_constraints_sqa
-                if parameter_constraint_sqa.type == ParameterConstraintType.DISTRIBUTION
-            ]
-        )
 
         if len(parameters) == 0:
             return None
 
-        if num_samples is not None:
-            return RobustSearchSpace(
-                parameters=parameters,
-                parameter_distributions=parameter_distributions,
-                num_samples=num_samples,
-                environmental_variables=environmental_variables,
-                parameter_constraints=parameter_constraints,
-            )
-        elif any(p.is_hierarchical for p in parameters):
-            return HierarchicalSearchSpace(
+        if any(p.is_hierarchical for p in parameters):
+            return SearchSpace(
                 parameters=parameters, parameter_constraints=parameter_constraints
             )
         else:
@@ -607,7 +567,7 @@ class Decoder:
 
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
-    ) -> Metric | Objective | OutcomeConstraint | RiskMeasure:
+    ) -> Metric | Objective | OutcomeConstraint:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
 
         metric = self._metric_from_sqa_util(metric_sqa)
@@ -638,8 +598,6 @@ class Decoder:
             return self._objective_threshold_from_sqa(
                 metric=metric, metric_sqa=metric_sqa
             )
-        elif metric_sqa.intent == MetricIntent.RISK_MEASURE:
-            return self._risk_measure_from_sqa(metric=metric, metric_sqa=metric_sqa)
         else:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.intent} "
@@ -647,7 +605,7 @@ class Decoder:
             )
 
     def opt_config_and_tracking_metrics_from_sqa(
-        self, metrics_sqa: list[SQAMetric]
+        self, metrics_sqa: list[SQAMetric], pruning_target_parameterization: Arm | None
     ) -> tuple[OptimizationConfig | None, list[Metric]]:
         """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
         and tracking metrics.
@@ -656,7 +614,6 @@ class Decoder:
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
-        risk_measure = None
         for metric_sqa in metrics_sqa:
             metric = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(metric, Objective):
@@ -665,8 +622,6 @@ class Decoder:
                 objective_thresholds.append(metric)
             elif isinstance(metric, OutcomeConstraint):
                 outcome_constraints.append(metric)
-            elif isinstance(metric, RiskMeasure):
-                risk_measure = metric
             else:
                 tracking_metrics.append(metric)
 
@@ -680,13 +635,13 @@ class Decoder:
                 ),
                 outcome_constraints=outcome_constraints,
                 objective_thresholds=objective_thresholds,
-                risk_measure=risk_measure,
+                pruning_target_parameterization=pruning_target_parameterization,
             )
         else:
             optimization_config = OptimizationConfig(
                 objective=objective,
                 outcome_constraints=outcome_constraints,
-                risk_measure=risk_measure,
+                pruning_target_parameterization=pruning_target_parameterization,
             )
         return (optimization_config, tracking_metrics)
 
@@ -744,7 +699,8 @@ class Decoder:
                     opt_config,
                     tracking_metrics,
                 ) = self.opt_config_and_tracking_metrics_from_sqa(
-                    metrics_sqa=generator_run_sqa.metrics
+                    metrics_sqa=generator_run_sqa.metrics,
+                    pruning_target_parameterization=None,
                 )
                 if len(tracking_metrics) > 0:
                     raise SQADecodeError(
@@ -898,7 +854,7 @@ class Decoder:
             gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
             curr_node_name = gs_sqa.curr_node_name
             for node in gs._nodes:
-                if node.node_name == curr_node_name:
+                if node.name == curr_node_name:
                     gs._curr = node
                     break
         immutable_ss_and_oc = (
@@ -1003,33 +959,15 @@ class Decoder:
                 ttl_seconds=trial_sqa.ttl_seconds,
                 index=trial_sqa.index,
             )
-            generator_run_structs = [
-                GeneratorRunStruct(
-                    generator_run=self.generator_run_from_sqa(
-                        generator_run_sqa=generator_run_sqa,
-                        reduced_state=reduced_state,
-                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
-                    ),
+            generator_runs = [
+                self.generator_run_from_sqa(
+                    generator_run_sqa=generator_run_sqa,
+                    reduced_state=reduced_state,
+                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
                 )
                 for generator_run_sqa in trial_sqa.generator_runs
             ]
-            if trial_sqa.status_quo_name is not None:
-                new_generator_run_structs = []
-                for struct in generator_run_structs:
-                    if (
-                        struct.generator_run.generator_run_type
-                        == GeneratorRunType.STATUS_QUO.name
-                    ):
-                        status_quo_weight = struct.generator_run.weights[0]
-                        trial._status_quo_weight_override = status_quo_weight
-                        trial._status_quo_generator_run_db_id = (
-                            struct.generator_run.db_id
-                        )
-                        trial._status_quo_arm_db_id = struct.generator_run.arms[0].db_id
-                    else:
-                        new_generator_run_structs.append(struct)
-                generator_run_structs = new_generator_run_structs
-            trial._generator_run_structs = generator_run_structs
+            trial._generator_runs = generator_runs
             trial._abandoned_arms_metadata = {
                 abandoned_arm_sqa.name: self.abandoned_arm_from_sqa(
                     abandoned_arm_sqa=abandoned_arm_sqa
@@ -1123,6 +1061,8 @@ class Decoder:
         # NOTE: Need dtype=False, otherwise infers arm_names like
         # "4_1" should be int 41.
         kwargs["df"] = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
+        if "metric_signature" not in kwargs["df"].columns:
+            kwargs["df"]["metric_signature"] = kwargs["df"]["metric_name"]
 
         dat = data_constructor(**kwargs)
 
@@ -1228,12 +1168,17 @@ class Decoder:
             )
             or {}
         )
+
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
+
+        if metric_class is Metric and metric_sqa.signature != metric_sqa.name:
+            args["signature_override"] = metric_sqa.signature
 
         args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)
         metric.db_id = metric_sqa.id
+
         return metric
 
     def _objective_from_sqa(self, metric: Metric, metric_sqa: SQAMetric) -> Objective:
@@ -1372,34 +1317,30 @@ class Decoder:
     def _objective_threshold_from_sqa(
         self, metric: Metric, metric_sqa: SQAMetric
     ) -> ObjectiveThreshold:
-        if metric_sqa.bound is None or metric_sqa.relative is None:
+        if metric_sqa.bound is None:
             raise SQADecodeError(
                 "Cannot decode SQAMetric to ObjectiveThreshold because "
-                "bound, op, or relative is None."
+                "bound is None."
             )
+
+        if metric_sqa.relative is None:
+            logger.warning(
+                f"When decoding SQAMetric {metric.name} to ObjectiveThreshold, "
+                f"'relative' is set to None. Overwriting 'relative' to False"
+                " to prevent downstream experiment errors.  "
+            )
+        relative = metric_sqa.relative if metric_sqa.relative is not None else False
+
         ot = ObjectiveThreshold(
             metric=metric,
             bound=float(none_throws(metric_sqa.bound)),
-            relative=none_throws(metric_sqa.relative),
+            relative=relative,
             op=metric_sqa.op,
         )
         # ObjectiveThreshold constructor clones the passed-in metric, which means
         # the db id gets lost and so we need to reset it
         ot.metric._db_id = metric.db_id
         return ot
-
-    def _risk_measure_from_sqa(
-        self, metric: Metric, metric_sqa: SQAMetric
-    ) -> RiskMeasure:
-        rm = RiskMeasure(
-            **object_from_json(
-                metric_sqa.properties,
-                decoder_registry=self.config.json_decoder_registry,
-                class_decoder_registry=self.config.json_class_decoder_registry,
-            )
-        )
-        rm._db_id = metric.db_id
-        return rm
 
     def _get_and_process_children_metrics(
         self,
@@ -1432,7 +1373,7 @@ class Decoder:
         except DetachedInstanceError:
             children_metrics_sqa = fallback_function(parent_metric_sqa.id, self)
 
-        if children_metrics_sqa is None:
+        if not children_metrics_sqa:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric to {metric_type_name} "
                 "because the parent metric has no children metrics."

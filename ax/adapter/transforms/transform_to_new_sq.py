@@ -23,7 +23,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.stats.statstools import relativize, unrelativize
+from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
@@ -49,7 +49,6 @@ class TransformToNewSQ(BaseRelativize):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -64,7 +63,6 @@ class TransformToNewSQ(BaseRelativize):
         """
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -136,7 +134,7 @@ class TransformToNewSQ(BaseRelativize):
         # Get the target trial's status quo data
         target_sq_data = self.status_quo_data_by_trial[self.default_trial_idx]
 
-        metrics = experiment_data.metric_names
+        metrics = experiment_data.metric_signatures
         if not transform_mask.any():
             # Nothing to transform, set metrics to empty list to skip the loop.
             # We still need to drop SQ after.
@@ -147,7 +145,7 @@ class TransformToNewSQ(BaseRelativize):
             mean_c, sem_c = [], []
             for idx in trial_indices:
                 sq_data = self.status_quo_data_by_trial[idx]
-                j = get_metric_index(data=sq_data, metric_name=metric)
+                j = get_metric_index(data=sq_data, metric_signature=metric)
                 mean_c.append(sq_data.means[j])
                 sem_c.append(sq_data.covariance[j, j] ** 0.5)
             mean_c = np.array(mean_c)
@@ -168,7 +166,7 @@ class TransformToNewSQ(BaseRelativize):
             )
 
             # Unrelativize with respect to target trial's status quo.
-            target_j = get_metric_index(data=target_sq_data, metric_name=metric)
+            target_j = get_metric_index(data=target_sq_data, metric_signature=metric)
             target_mean_c = target_sq_data.means[target_j]
             abs_target_mean_c = np.abs(target_mean_c)
             observation_data.loc[transform_mask, ("mean", metric)] = (
@@ -248,7 +246,7 @@ class TransformToNewSQ(BaseRelativize):
     ) -> tuple[float, float]:
         """Compute (un)transformed mean and sem for a single metric."""
         target_status_quo_data = self.status_quo_data_by_trial[self.default_trial_idx]
-        j = get_metric_index(data=target_status_quo_data, metric_name=metric)
+        j = get_metric_index(data=target_status_quo_data, metric_signature=metric)
         target_mean_c = target_status_quo_data.means[j]
         abs_target_mean_c = np.abs(target_mean_c)
         if rel_op == unrelativize:

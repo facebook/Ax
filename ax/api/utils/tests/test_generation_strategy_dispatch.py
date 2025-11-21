@@ -7,16 +7,17 @@
 # pyre-unsafe
 
 
+from itertools import product
 from typing import Any
 
 import torch
-from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
-from ax.adapter.transforms.winsorize import Winsorize
+from ax.adapter.registry import Generators
 from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.dispatch_utils import get_derelativize_config
 from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.common.testutils import TestCase
@@ -122,7 +123,10 @@ class TestDispatchUtils(TestCase):
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
-                "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+                "transform_configs": get_derelativize_config(
+                    derelativize_with_raw_status_quo=True
+                ),
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
@@ -187,7 +191,10 @@ class TestDispatchUtils(TestCase):
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
-                "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+                "transform_configs": get_derelativize_config(
+                    derelativize_with_raw_status_quo=True
+                ),
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
@@ -200,7 +207,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(gs._nodes), 1)
         self.assertEqual(gs.name, "MBM:fast")
         mbm_node = gs._nodes[0]
-        self.assertEqual(mbm_node.node_name, "MBM")
+        self.assertEqual(mbm_node.name, "MBM")
 
     def test_choose_gs_center_only_initialization(self) -> None:
         struct = GenerationStrategyDispatchStruct(
@@ -210,9 +217,9 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(gs._nodes), 2)
         self.assertEqual(gs.name, "Center+MBM:fast")
         center_node = gs._nodes[0]
-        self.assertEqual(center_node.node_name, "CenterOfSearchSpace")
+        self.assertEqual(center_node.name, "CenterOfSearchSpace")
         mbm_node = gs._nodes[1]
-        self.assertEqual(mbm_node.node_name, "MBM")
+        self.assertEqual(mbm_node.name, "MBM")
 
     def test_choose_gs_single_sobol_initialization(self) -> None:
         struct = GenerationStrategyDispatchStruct(
@@ -222,6 +229,26 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(gs._nodes), 2)
         self.assertEqual(gs.name, "Sobol+MBM:fast")
         sobol_node = gs._nodes[0]
-        self.assertEqual(sobol_node.node_name, "Sobol")
+        self.assertEqual(sobol_node.name, "Sobol")
         mbm_node = gs._nodes[1]
-        self.assertEqual(mbm_node.node_name, "MBM")
+        self.assertEqual(mbm_node.name, "MBM")
+
+    def test_gs_simplify_parameter_changes(self) -> None:
+        for simplify, method in product((True, False), ("fast", "quality")):
+            struct = GenerationStrategyDispatchStruct(
+                # pyre-fixme [6]: In call
+                # `GenerationStrategyDispatchStruct.__init__`, for argument
+                # `method`, expected `Union[typing_extensions.Literal['fast'],
+                # typing_extensions.Literal['quality'],
+                # typing_extensions.Literal['random_search']]` but got `str`
+                method=method,
+                simplify_parameter_changes=simplify,
+            )
+            gs = choose_generation_strategy(struct=struct)
+            self.assertEqual(gs.name, f"Center+Sobol+MBM:{method}")
+            mbm_node = gs._nodes[2]
+            mbm_spec = mbm_node.generator_specs[0]
+            self.assertEqual(
+                mbm_spec.model_kwargs["acquisition_options"],
+                {"prune_irrelevant_parameters": simplify},
+            )

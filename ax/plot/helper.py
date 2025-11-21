@@ -136,13 +136,6 @@ def resize_subtitles(figure: dict[str, Any], size: int) -> dict[str, Any]:
     return figure
 
 
-def _filter_dict(
-    param_dict: TParameterization, subset_keys: list[str]
-) -> TParameterization:
-    """Filter a dictionary to keys present in a given list."""
-    return {k: v for k, v in param_dict.items() if k in subset_keys}
-
-
 def _get_in_sample_arms(
     model: Adapter,
     metric_names: set[str],
@@ -198,8 +191,13 @@ def _get_in_sample_arms(
     raw_data = []
     arm_name_to_parameters = {}
     for obs in observations:
+        obs_metric_names = []
+        for signature in obs.data.metric_signatures:
+            obs_metric_names.append(
+                model._experiment.signature_to_metric[signature].name
+            )
         arm_name_to_parameters[obs.arm_name] = obs.features.parameters
-        for j, metric_name in enumerate(obs.data.metric_names):
+        for j, metric_name in enumerate(obs_metric_names):
             if metric_name in metric_names:
                 raw_data.append(
                     {
@@ -224,7 +222,7 @@ def _get_in_sample_arms(
 
     # Merge multiple measurements within each Observation with IVW to get
     # un-modeled prediction
-    t = IVW(None, [])
+    t = IVW()
     observations = t.transform_observations(observations)
     # Start filling in plot data
     in_sample_plot: dict[str, PlotInSampleArm] = {}
@@ -235,7 +233,12 @@ def _get_in_sample_arms(
         # Extract raw measurement
         obs_y = {}  # Observed metric means.
         obs_se = {}  # Observed metric standard errors.
-        for j, metric_name in enumerate(obs.data.metric_names):
+        obs_metric_names = []
+        for signature in obs.data.metric_signatures:
+            obs_metric_names.append(
+                model._experiment.signature_to_metric[signature].name
+            )
+        for j, metric_name in enumerate(obs_metric_names):
             if metric_name in metric_names:
                 obs_y[metric_name] = obs.data.means[j]
                 obs_se[metric_name] = np.sqrt(obs.data.covariance[j, j])
@@ -377,7 +380,11 @@ def get_plot_data(
 
         - Mapping from arm name to parameters.
     """
-    metrics_plot = model.metric_names if metric_names is None else metric_names
+    model_metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
+    metrics_plot = set(model_metric_names) if metric_names is None else metric_names
     in_sample_plot, raw_data, cond_name_to_parameters = _get_in_sample_arms(
         model=model,
         metric_names=metrics_plot,
@@ -619,14 +626,17 @@ def contour_config_to_trace(config) -> list[dict[str, Any]]:
 
     # get in-sample arms
     arm_names = list(arm_data["in_sample"].keys())
-    arm_x = [
-        arm_data["in_sample"][arm_name]["parameters"][xvar] for arm_name in arm_names
-    ]
-    arm_y = [
-        arm_data["in_sample"][arm_name]["parameters"][yvar] for arm_name in arm_names
-    ]
+    complete_arms = []
+    arm_x = []
+    arm_y = []
+    for arm in arm_names:
+        params = arm_data["in_sample"][arm]["parameters"]
+        if xvar in params and yvar in params:
+            arm_x.append(params[xvar])
+            arm_y.append(params[yvar])
+            complete_arms.append(arm)
     arm_text = []
-    for arm_name in arm_names:
+    for arm_name in complete_arms:
         atext = f"Arm {arm_name}"
         params = arm_data["in_sample"][arm_name]["parameters"]
         ys = arm_data["in_sample"][arm_name]["y"]
@@ -785,7 +795,8 @@ def infer_is_relative(
     if model._optimization_config:
         constraints = none_throws(model._optimization_config).outcome_constraints
         constraint_relativity = {
-            constraint.metric.name: constraint.relative for constraint in constraints
+            constraint.metric.signature: constraint.relative
+            for constraint in constraints
         }
     for metric in metrics:
         if metric not in constraint_relativity:
@@ -841,7 +852,7 @@ def slice_config_to_trace(
         parameters = arm_name_to_parameters[row["arm_name"]]
         plot = True
         for p in setx.keys():
-            if p != param and parameters[p] != setx[p]:
+            if p != param and parameters.get(p, None) != setx[p]:
                 plot = False
         if plot:
             arm_x.append(parameters[param])
@@ -948,15 +959,6 @@ def slice_config_to_trace(
         )
 
     return traces
-
-
-def build_filter_trial(keep_trial_indices: list[int]) -> Callable[[Observation], bool]:
-    """Creates a callable that filters observations based on trial_index"""
-
-    def trial_filter(obs: Observation) -> bool:
-        return obs.features.trial_index in keep_trial_indices
-
-    return trial_filter
 
 
 def compose_annotation(

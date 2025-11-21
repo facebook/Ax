@@ -11,6 +11,7 @@ from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     ParameterType,
     RangeParameter,
@@ -57,6 +58,11 @@ class TestCenterGenerationNode(TestCase):
                     parameter_type=ParameterType.BOOL,
                     value=True,
                 ),
+                DerivedParameter(
+                    name="x5",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="x1 + x2",
+                ),
             ]
         )
         node = CenterGenerationNode(next_node_name="test")
@@ -76,14 +82,17 @@ class TestCenterGenerationNode(TestCase):
             .parameters
         )
         self.assertEqual(node.search_space, ss)
-        self.assertEqual(params, {"x1": 2.5, "x2": 31, "x3": "c", "x4": True})
+        self.assertEqual(
+            params, {"x1": 2.5, "x2": 31, "x3": "c", "x4": True, "x5": 33.5}
+        )
 
     def test_deduplication(self) -> None:
         exp = get_branin_experiment()
         exp.new_trial().add_arm(arm=Arm({"x1": 2.5, "x2": 7.5})).run()
         node = CenterGenerationNode(next_node_name="test")
         gr = none_throws(node.gen(experiment=exp, pending_observations=None))
-        self.assertEqual(gr._model_key, "Sobol")
+        # The existing arm is the center of search space
+        self.assertEqual(gr._model_key, "Fallback_Sobol")
 
     def test_repr(self) -> None:
         node = CenterGenerationNode(next_node_name="test")
@@ -142,4 +151,4 @@ class TestCenterGenerationNode(TestCase):
                 for log in logs.records
             )
         )
-        self.assertEqual(gr._model_key, "Sobol")
+        self.assertEqual(gr._model_key, "Fallback_Sobol")

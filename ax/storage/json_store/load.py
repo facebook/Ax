@@ -22,7 +22,6 @@ from ax.utils.common.serialization import TDecoderRegistry
 def load_experiment(
     filepath: str,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     class_decoder_registry: dict[
         str, Callable[[dict[str, Any]], Any]
     ] = CORE_CLASS_DECODER_REGISTRY,

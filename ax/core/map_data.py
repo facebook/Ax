@@ -10,8 +10,7 @@ from __future__ import annotations
 import warnings
 
 from bisect import bisect_right
-from collections.abc import Iterable, Mapping, Sequence
-from copy import deepcopy
+from collections.abc import Iterable
 from logging import Logger
 from math import nan
 from typing import Any
@@ -19,21 +18,11 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from ax.core.data import _filter_df, Data
-from ax.core.types import TMapTrialEvaluation, TTrialEvaluation
-from ax.exceptions.core import UnsupportedError
-from ax.utils.common.docutils import copy_doc
-from ax.utils.common.equality import dataframe_equals
+from ax.core.data import _filter_df, Data, MAP_KEY
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import (
-    serialize_init_args,
-    TClassDecoderRegistry,
-    TDecoderRegistry,
-)
-from pyre_extensions import assert_is_instance
+from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 
 logger: Logger = get_logger(__name__)
-MAP_KEY = "step"
 
 
 class MapData(Data):
@@ -55,11 +44,39 @@ class MapData(Data):
     The dataframe is retrieved via the `map_df` property. The data can be stored
     to an external store for future use by attaching it to an experiment using
     `experiment.attach_data()` (this requires a description to be set.)
+
+
+    Attributes:
+        full_df: DataFrame with underlying data. The required columns
+            are "arm_name", "metric_name", "mean", "sem", and "step", the latter
+            three of which must be numeric. This is close to the raw data input by the
+            user as ``df``; by contrast, the property ``self.df`` is be a subset
+            of the full data used for modeling. Constructing ``df`` can be
+            expensive, so it is better to reference ``full_df`` than ``df`` for
+            operations that do not require scanning the full data, such as
+            accessing the columns of the DataFrame.
+        _memo_df: Either ``None``, if ``self.df`` has never been accessed, or
+            equivalent to ``self.df``.
+
+    Properties:
+        df: Potentially smaller representation of the data used for modeling,
+            containing only the most recent ``step`` values
+            for each trial-arm-metric. Because constructing ``df`` can be
+            expensive, it is recommended to reference ``full_df`` for operations
+            that do not require scanning the full data, such as accessing the
+            columns of the DataFrame.
+        map_df: Equivalent to ``full_df``. ``map_df`` exists only on
+            ``MapData``, whereas ``full_df`` exists for any ``Data`` subclass.
     """
 
-    DEDUPLICATE_BY_COLUMNS = ["trial_index", "arm_name", "metric_name"]
+    DEDUPLICATE_BY_COLUMNS = [
+        "trial_index",
+        "arm_name",
+        "metric_name",
+        "metric_signature",
+    ]
 
-    _map_df: pd.DataFrame
+    full_df: pd.DataFrame
     _memo_df: pd.DataFrame | None
 
     def __init__(
@@ -80,121 +97,51 @@ class MapData(Data):
                 Intended only for use in `MapData.filter`, where the contents
                 of the DataFrame are known to be ordered and valid.
         """
-        map_key_to_type = {MAP_KEY: float}
-
-        if df is None:  # If df is None create an empty dataframe with appropriate cols
-            columns = list(self.required_columns().union({MAP_KEY}))
-            # Create columns with expected dtypes
-            dtype_dict = {**self.COLUMN_DATA_TYPES, **map_key_to_type}
-
-            self._map_df = pd.DataFrame.from_dict(
-                {col: pd.Series([], dtype=dtype_dict[col]) for col in columns}
-            )
-        elif _skip_ordering_and_validation:
-            self._map_df = df
-        else:
-            if MAP_KEY not in df.columns:
-                df[MAP_KEY] = nan
-            columns = set(df.columns)
-            missing_columns = self.required_columns() - columns
-            if missing_columns:
-                raise ValueError(
-                    f"Dataframe must contain required columns {missing_columns}."
-                )
-            supported_columns = self.supported_columns(extra_column_names=[MAP_KEY])
-            extra_columns = columns - supported_columns
-            if extra_columns:
-                raise UnsupportedError(f"Columns {extra_columns} are not supported.")
-
-            if df["trial_index"].isnull().any():
-                df = df.dropna(axis=0, how="all", ignore_index=True)
-            else:
-                # Don't do this in place so that we now have a copy, so we won't
-                # mutate the original df
-                df = df.reset_index(drop=True)
-
-            self._map_df = self._safecast_df(df=df, extra_column_types=map_key_to_type)
-
-            col_order = [
-                c
-                for c in self.column_data_types(extra_column_types=map_key_to_type)
-                if c in df.columns
-            ]
-            if not (self._map_df.columns == col_order).all():
-                self._map_df = self._map_df.reindex(columns=col_order)
-
+        if df is not None and MAP_KEY not in df.columns:
+            df[MAP_KEY] = nan
+        super().__init__(
+            df=df, _skip_ordering_and_validation=_skip_ordering_and_validation
+        )
         self._memo_df = None
 
-    def __eq__(self, o: MapData) -> bool:
-        return dataframe_equals(self.map_df, o.map_df)
-
+    # true_df is being deprecated after the release of Ax 1.1.2, so it will
+    # surface in Ax 1.1.3 or 1.2.0, so it can be removed in the minor release
+    # after that.
     @property
     def true_df(self) -> pd.DataFrame:
+        warnings.warn(
+            "MapData.true_df is deprecated. Use MapData.full_df instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.map_df
 
     def required_columns(self) -> set[str]:
         return super().required_columns().union({MAP_KEY})
 
-    @staticmethod
-    def from_multiple_map_data(data: Sequence[MapData]) -> MapData:
-        if len(data) == 0:
-            return MapData()
-
-        # Avoid concatenating empty dataframes which logs a warning.
-        non_empty_dfs = [datum.map_df for datum in data if not datum.map_df.empty]
-        df = (
-            pd.concat(non_empty_dfs)
-            if len(non_empty_dfs) > 0
-            else pd.DataFrame(
-                columns=[*{col for datum in data for col in datum.required_columns()}]
-            )
-        )
-
-        return MapData(df=df)
-
-    @staticmethod
-    def from_map_evaluations(
-        evaluations: Mapping[str, TMapTrialEvaluation], trial_index: int
-    ) -> MapData:
-        records = [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-                MAP_KEY: step,
-            }
-            for name, map_dict_and_metrics_list in evaluations.items()
-            for step, evaluation in map_dict_and_metrics_list
-            for metric_name, value in evaluation.items()
-        ]
-        return MapData(df=pd.DataFrame(records))
-
     @property
     def map_df(self) -> pd.DataFrame:
-        return self._map_df
-
-    @map_df.setter
-    # pyre-fixme[3]: Return type must be annotated.
-    def map_df(self, df: pd.DataFrame):
-        raise UnsupportedError(
-            "MapData's underlying DataFrame is immutable; create a new"
-            + " MapData via `__init__` or `from_multiple_data`."
-        )
+        return self.full_df
 
     @classmethod
     def from_multiple_data(cls, data: Iterable[Data]) -> MapData:
-        """Downcast instances of Data into instances of MapData with empty
-        map_key_infos if necessary then combine as usual (filling in empty cells with
-        default values).
         """
-        map_datas = [
-            (cls(df=datum.df) if not isinstance(datum, MapData) else datum)
+        Downcast instances of Data into instances of MapData.
+
+        If no "step" column is present, it will be filled in with NaNs.
+        """
+        map_dfs = [
+            datum.full_df
+            if isinstance(datum, MapData)
+            else datum.df.assign(**{MAP_KEY: nan})
             for datum in data
+            if not datum.full_df.empty
         ]
 
-        return cls.from_multiple_map_data(data=map_datas)
+        if len(map_dfs) == 0:
+            return MapData()
+
+        return MapData(df=pd.concat(map_dfs))
 
     @property
     def df(self) -> pd.DataFrame:
@@ -206,28 +153,6 @@ class MapData(Data):
 
         self._memo_df = _tail(map_df=self.map_df, n=1, sort=True)
         return self._memo_df
-
-    @copy_doc(Data.filter)
-    def filter(
-        self,
-        trial_indices: Iterable[int] | None = None,
-        metric_names: Iterable[str] | None = None,
-    ) -> MapData:
-        return MapData(
-            df=_filter_df(
-                df=self.map_df, trial_indices=trial_indices, metric_names=metric_names
-            ),
-            _skip_ordering_and_validation=True,
-        )
-
-    @classmethod
-    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
-        map_data = assert_is_instance(obj, MapData)
-        properties = serialize_init_args(
-            obj=map_data, exclude_fields=["_skip_ordering_and_validation"]
-        )
-        properties["df"] = map_data.map_df
-        return properties
 
     @classmethod
     def deserialize_init_args(
@@ -284,12 +209,6 @@ class MapData(Data):
                     df.rename(columns={key_to_rename: MAP_KEY}, inplace=True)
 
         return deserialized
-
-    def clone(self) -> MapData:
-        """Returns a new ``MapData`` object with the same underlying dataframe
-        and map key infos.
-        """
-        return MapData(df=deepcopy(self.map_df))
 
     def latest(self, rows_per_group: int = 1) -> MapData:
         """Return a new MapData with the most recently observed `rows_per_group`
@@ -368,20 +287,21 @@ class MapData(Data):
         subsampled_df: pd.DataFrame = pd.concat(subsampled_metric_dfs)
         return MapData(df=subsampled_df)
 
-    @classmethod
-    def from_evaluations(
-        cls,
-        evaluations: Mapping[str, TTrialEvaluation],
-        trial_index: int,
-        sample_sizes: Mapping[str, int] | None = None,
-        start_time: int | str | None = None,
-        end_time: int | str | None = None,
+    def relativize(
+        self,
+        status_quo_name: str = "status_quo",
+        as_percent: bool = False,
+        include_sq: bool = False,
+        bias_correction: bool = True,
+        control_as_constant: bool = False,
     ) -> MapData:
-        """Not supported for MapData."""
-        raise UnsupportedError(
-            "MapData.from_evaluations is not supported. "
-            "Please use MapData.from_map_evaluations instead."
-        )
+        """MapData relativization is not currently supported.
+
+        Raises:
+            NotImplementedError: Always raised as relativize is not
+                supported for MapData.
+        """
+        raise NotImplementedError("relativize is currently not supported for MapData.")
 
 
 def _ceil_divide(

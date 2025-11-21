@@ -9,11 +9,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from logging import Logger
 from typing import Any, cast, TYPE_CHECKING, Union
 
-# TODO[@mgarrard, @drfreund]: Remove this when we streamline `apply_input
+# TODO[@mgarrard, @drfreund]: Remove this when we streamline `apply_input_
 # constructors`, such that they no longer need to access individual
 # input constructor purposes.
 import ax.generation_strategy as gs_module  # @manual
@@ -58,7 +58,6 @@ from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
-TModelFactory = Callable[..., Adapter]
 MISSING_MODEL_SELECTOR_MESSAGE = (
     "A `BestModelSelector` must be provided when using multiple "
     "`GeneratorSpec`s in a `GenerationNode`. After fitting all `GeneratorSpec`s, "
@@ -83,7 +82,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     the hood and generating candidates from them.
 
     Args:
-        node_name: A unique name for the GenerationNode. Used for storage purposes.
+        name: A unique name for the GenerationNode. Used for storage purposes.
         generator_specs: A list of GeneratorSpecs to be selected from for generation
             in this GenerationNode.
         best_model_selector: A ``BestModelSelector`` used to select the
@@ -100,7 +99,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             unique arms.
         transition_criteria: List of TransitionCriterion, each of which describes a
             condition that must be met before completing a GenerationNode. All `is_met`
-            must evaluateTrue for the GenerationStrategy to move on to the next
+            must evaluate True for the GenerationStrategy to move on to the next
             GenerationNode.
         input_constructors: A dictionary mapping input constructor purpose enum to the
             input constructor enum. Each input constructor maps to a method which
@@ -127,7 +126,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     generator_specs: list[GeneratorSpec]
     # TODO: Move `should_deduplicate` to `GeneratorSpec` if possible, and make optional
     should_deduplicate: bool
-    _node_name: str
+    _name: str
 
     # Optional specifications
     _generator_spec_to_gen_from: GeneratorSpec | None = None
@@ -148,7 +147,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     def __init__(
         self,
-        node_name: str,
+        name: str,
         generator_specs: list[GeneratorSpec],
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
@@ -165,7 +164,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         should_skip: bool = False,
         fallback_specs: dict[type[Exception], GeneratorSpec] | None = None,
     ) -> None:
-        self._node_name = node_name
+        self._name = name
         # Check that the model specs have unique model keys.
         model_keys = {generator_spec.model_key for generator_spec in generator_specs}
         if len(model_keys) != len(generator_specs):
@@ -205,9 +204,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         return SortableBase.__eq__(self, other)
 
     @property
-    def node_name(self) -> str:
+    def name(self) -> str:
         """Returns the unique name of this GenerationNode"""
-        return self._node_name
+        return self._name
 
     @property
     def generator_spec_to_gen_from(self) -> GeneratorSpec:
@@ -271,7 +270,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Returns True if this GenerationNode is complete and should transition to
         the next node.
         """
-        # TODO: @mgarrard this logic more robust and general
+        # TODO: @mgarrard make this logic more robust and general
         # We won't mark a node completed if it has an AutoTransitionAfterGen criterion
         # as this is typically used in cyclic generation strategies
         return self.should_transition_to_next_node(raise_data_required_error=False)[
@@ -294,7 +293,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Returns a unique (w.r.t. parent class: ``GenerationStrategy``) id
         for this GenerationNode. Used for SQL storage.
         """
-        return self.node_name
+        return self.name
 
     @property
     def _fitted_adapter(self) -> Adapter | None:
@@ -316,7 +315,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         ``GeneratorSpec`` attributes).
         """
         str_rep = f"{self.__class__.__name__}"
-        str_rep += f"(node_name='{self.node_name}'"
+        str_rep += f"(name='{self.name}'"
         str_rep += ", generator_specs="
         generator_spec_str = (
             ", ".join([spec._brief_repr() for spec in self.generator_specs])
@@ -404,7 +403,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             data: Optional override for the experiment data used to generate candidates;
                 if not specified, will use ``experiment.lookup_data()`` (extracted in
                 ``Adapter``).
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
             model_gen_kwargs: Keyword arguments, passed through to
@@ -426,7 +425,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         # If during input constructor application we determined that we should skip
         # this node, return early.
         if self._should_skip:
-            logger.debug(f"Skipping generation for node {self.node_name}.")
+            logger.debug(f"Skipping generation for node {self.name}.")
             return None
 
         if not skip_fit:
@@ -453,7 +452,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 **model_gen_kwargs,
             )
 
-        gr._generation_node_name = self.node_name
+        gr._generation_node_name = self.name
         # TODO: @mgarrard determine a more refined way to indicate trial type
         if self._trial_type is not None:
             gen_metadata = gr.gen_metadata if gr.gen_metadata is not None else {}
@@ -483,7 +482,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             n: Optional integer representing how many arms should be in the generator
                 run produced by this method. When this is ``None``, ``n`` will be
                 determined by the ``GeneratorSpec`` that we are generating from.
-            pending_observations: A map from metric name to pending
+            pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
             model_gen_kwargs: Keyword arguments, passed through to
@@ -538,7 +537,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 **model_gen_kwargs,
             )
             if not self.should_deduplicate or not dedup_against_arms:
-                return gr  # Not deduplicationg.
+                return gr  # Not deduplicating.
             if all(arm.signature not in dedup_against_arms for arm in gr.arms):
                 return gr  # Generated a set of all-non-duplicate arms.
             logger.debug(
@@ -614,7 +613,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         grs = self.generation_strategy._generator_runs
         for gr in reversed(grs):
             if (
-                gr._generation_node_name == self.node_name
+                gr._generation_node_name == self.name
                 and gr._model_key == generator_spec.model_key
             ):
                 # Extract the fit args from the GR.
@@ -675,17 +674,17 @@ class GenerationNode(SerializationMixin, SortableBase):
     # ------------------------- Trial logic helpers. -------------------------
     @property
     def trials_from_node(self) -> set[int]:
-        """Returns a set mapping a GenerationNode to the trials it generated.
+        """Returns a set containing the indices of trials generated by this node.
 
         Returns:
-            Set[int]: A set containing all the trials indices generated by this node.
+            Set[int]: A set containing all the indices of trials generated by this node.
         """
         trials_from_node = set()
         for _idx, trial in self.experiment.trials.items():
             for gr in trial.generator_runs:
                 if (
                     gr._generation_node_name is not None
-                    and gr._generation_node_name == self.node_name
+                    and gr._generation_node_name == self.name
                 ):
                     trials_from_node.add(trial.index)
         return trials_from_node
@@ -746,7 +745,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         """
         # if no transition criteria are defined, this node can generate unlimited trials
         if len(self.transition_criteria) == 0:
-            return False, self.node_name
+            return False, self.name
 
         # For each "transition edge" (set of all transition criteria that lead from
         # current node (e.g. "node A") to another specific node ("e.g. "node B")
@@ -758,7 +757,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         # that are met, raise the error associated with that criterion.
         for next_node, all_tc in self.transition_edges.items():
             # I. Check if there are any TCs that block transition and whether all
-            # of them are met. If all fo them are met, then we should transition.
+            # of them are met. If all of them are met, then we should transition.
             transition_blocking = [tc for tc in all_tc if tc.block_transition_if_unmet]
             all_transition_blocking_met_should_transition = transition_blocking and all(
                 tc.is_met(
@@ -780,14 +779,14 @@ class GenerationNode(SerializationMixin, SortableBase):
                 for tc in generation_blocking:
                     if tc.is_met(self.experiment, curr_node=self):
                         tc.block_continued_generation_error(
-                            node_name=self.node_name,
+                            node_name=self.name,
                             experiment=self.experiment,
                             trials_from_node=self.trials_from_node,
                         )
                 # TODO[@mgarrard, @drfreund] Try replacing `block_gen_if_met` with
                 # a self-transition and rework this error block.
 
-        return False, self.node_name
+        return False, self.name
 
     def new_trial_limit(self, raise_generation_errors: bool = False) -> int:
         """How many trials can this generation strategy can currently produce
@@ -807,9 +806,11 @@ class GenerationNode(SerializationMixin, SortableBase):
             for criterion in self.transition_criteria
             if criterion.block_gen_if_met and isinstance(criterion, TrialBasedCriterion)
         ]
+        # Cache trials_from_node to avoid repeated computation.
+        trials_from_node = self.trials_from_node
         gen_blocking_criterion_delta_from_threshold = [
             criterion.num_till_threshold(
-                experiment=self.experiment, trials_from_node=self.trials_from_node
+                experiment=self.experiment, trials_from_node=trials_from_node
             )
             for criterion in trial_based_gen_blocking_criteria
         ]
@@ -828,7 +829,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                     curr_node=self,
                 ):
                     criterion.block_continued_generation_error(
-                        node_name=self.node_name,
+                        node_name=self.name,
                         experiment=self.experiment,
                         trials_from_node=self.trials_from_node,
                     )
@@ -858,9 +859,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         experiment: Experiment,
         gen_kwargs: dict[str, Any],
     ) -> dict[str, Union[int, ObservationFeatures | None]]:
-        # NOTE: In the future we might have to add new types ot the `Union` above
+        # NOTE: In the future we might have to add new types to the `Union` above
         # or allow `Any` for the value type, but until we have more different types
-        # of input constructors, this provides a bit of additional typechecking.
+        # of input constructors, this provides a bit of additional type checking.
         return {
             "n": self._determine_arms_from_node(
                 experiment=experiment,
@@ -900,7 +901,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             # arms_per_node provides a way to manually override input
             # constructors. This should be used with caution, and only
             # if you really know what you're doing. :)
-            arms_from_node = arms_per_node[self.node_name]
+            arms_from_node = arms_per_node[self.name]
         elif purpose_N not in self.input_constructors:
             # if the node does not have an input constructor for N, we first
             # use the n passed to method if it exists, then check if the model gen
@@ -947,25 +948,42 @@ class GenerationNode(SerializationMixin, SortableBase):
             An object of ObservationFeatures that represents the fixed features to
             pass into the model.
         """
+        node_fixed_features = None
         # passed_fixed_features represents the fixed features that were passed by the
         # user to the gen method as overrides.
         passed_fixed_features = gen_kwargs.get("fixed_features")
         if passed_fixed_features is not None:
-            return passed_fixed_features
-
-        node_fixed_features = None
-        input_constructors_module = gs_module.generation_node_input_constructors
-        purpose_fixed_features = (
-            input_constructors_module.InputConstructorPurpose.FIXED_FEATURES
-        )
-        if purpose_fixed_features in self.input_constructors:
-            node_fixed_features = self.input_constructors[purpose_fixed_features](
-                previous_node=self.previous_node,
-                next_node=self,
-                gs_gen_call_kwargs=gen_kwargs,
-                experiment=experiment,
+            node_fixed_features = passed_fixed_features
+        else:
+            input_constructors_module = gs_module.generation_node_input_constructors
+            purpose_fixed_features = (
+                input_constructors_module.InputConstructorPurpose.FIXED_FEATURES
             )
-        return node_fixed_features
+            if purpose_fixed_features in self.input_constructors:
+                node_fixed_features = self.input_constructors[purpose_fixed_features](
+                    previous_node=self.previous_node,
+                    next_node=self,
+                    gs_gen_call_kwargs=gen_kwargs,
+                    experiment=experiment,
+                )
+        # also pass default parameter values as fixed features for disabled parameters
+        disabled_parameters_parameterization = {
+            name: parameter.default_value
+            for name, parameter in experiment.search_space.parameters.items()
+            if parameter.is_disabled
+        }
+        if len(disabled_parameters_parameterization) == 0:
+            return node_fixed_features
+
+        if node_fixed_features is None:
+            return ObservationFeatures(parameters=disabled_parameters_parameterization)
+
+        return node_fixed_features.clone(
+            replace_parameters={
+                **disabled_parameters_parameterization,
+                **node_fixed_features.parameters,
+            }
+        )
 
 
 class GenerationStep(GenerationNode, SortableBase):
@@ -1024,6 +1042,10 @@ class GenerationStep(GenerationNode, SortableBase):
             unique arms.
         generator_name: Optional name of the generator. If not specified, defaults to
             the `model_key` of the generator spec.
+        use_all_trials_in_exp: Whether to use all trials in the experiment to determine
+            whether to transition to the next step. If False, `num_trials` and
+            `min_trials_observed` will only count trials generatd by this step. If True,
+            they will count all trials in the experiment (of corresponding statuses).
 
     Note for developers: by "generator" here we really mean an ``Adapter`` object, which
     contains a ``Generator`` under the hood. We call it "generator" here to simplify and
@@ -1042,6 +1064,7 @@ class GenerationStep(GenerationNode, SortableBase):
         enforce_num_trials: bool = True,
         should_deduplicate: bool = False,
         generator_name: str | None = None,
+        use_all_trials_in_exp: bool = False,
         use_update: bool = False,  # DEPRECATED.
         index: int = -1,  # Index of this step, set internally.
     ) -> None:
@@ -1110,6 +1133,7 @@ class GenerationStep(GenerationNode, SortableBase):
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
                     block_gen_if_met=self.enforce_num_trials,
                     block_transition_if_unmet=True,
+                    use_all_trials_in_exp=use_all_trials_in_exp,
                 )
             )
 
@@ -1123,6 +1147,7 @@ class GenerationStep(GenerationNode, SortableBase):
                     threshold=self.min_trials_observed,
                     block_gen_if_met=False,
                     block_transition_if_unmet=True,
+                    use_all_trials_in_exp=use_all_trials_in_exp,
                 )
             )
         max_parallelism = self.max_parallelism
@@ -1139,7 +1164,7 @@ class GenerationStep(GenerationNode, SortableBase):
 
         transition_criteria += self.completion_criteria
         super().__init__(
-            node_name=f"GenerationStep_{str(self.index)}",
+            name=f"GenerationStep_{str(self.index)}",
             generator_specs=[generator_spec],
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,

@@ -10,11 +10,11 @@ import asyncio
 import functools
 import threading
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from functools import partial
 from logging import Logger
-from typing import Any, Iterator, List, Type, TypeVar
+from typing import Any, TypeVar
 
 
 MAX_WAIT_SECONDS: int = 600
@@ -293,10 +293,10 @@ def execute_with_timeout(partial_func: Callable[..., T], timeout: float) -> T:
 
 @contextmanager
 def allowed_to_fail(
-    allowed_error_types: tuple[Type[Exception], ...] | None = None,
+    allowed_error_types: tuple[type[Exception], ...] | None = None,
     handler: Callable[[Exception], None] | None = None,
     logger: Logger | None = None,
-) -> Iterator[List[Exception | None]]:
+) -> Iterator[list[Exception | None]]:
     """
     A context manager to catch and handle exceptions of a specific type.
     Args:

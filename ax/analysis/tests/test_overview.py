@@ -109,7 +109,11 @@ class TestOverview(TestCase):
             )
             self.assertEqual(
                 any(
-                    card.name == "ObjectivePFeasibleFrontierPlot"
+                    (
+                        "Effect on the"
+                        " Objective vs % Chance of Satisfying the Constraints"
+                    )
+                    in card.title
                     for card_group in overview_card.children
                     for card in card_group.flatten()
                 ),
@@ -132,26 +136,11 @@ class TestOverview(TestCase):
                     search_space=client._experiment.search_space,
                 ),
             )
-            # ObjectivePFeasibleFrontierPlot should not be computed
-            # without a BoTorchGenerator
-            self.assertFalse(
-                any(
-                    card.name == "ObjectivePFeasibleFrontierPlot"
-                    for card_group in overview_card.children
-                    for card in card_group.flatten()
-                )
-            )
 
     @mock_botorch_optimize
     def test_online(self) -> None:
         # Test MetricSummary can be computed for a variety of experiments which
         # resemble those we see in an online setting.
-        try:
-            import pymoo  # noqa: F401
-
-            expect_error_for_obj_pfeasible = False
-        except ImportError:
-            expect_error_for_obj_pfeasible = True
         analysis = OverviewAnalysis()
 
         for experiment in get_online_experiments():
@@ -167,12 +156,7 @@ class TestOverview(TestCase):
             total_errors = sum(
                 isinstance(card, ErrorAnalysisCard) for card in card_group.flatten()
             )
-            self.assertEqual(
-                total_errors,
-                1
-                if (expect_error_for_obj_pfeasible and not experiment.is_moo_problem)
-                else 0,
-            )
+            self.assertEqual(total_errors, 0)
             for card in card_group.flatten():
                 # TODO: add more AnalysisCard types when they support relativization
                 if isinstance(card, (ArmEffectsPlot, ScatterPlot)):
@@ -245,6 +229,7 @@ class TestOverview(TestCase):
                         "trial_index": trial.index,
                         "arm_name": arm.name,
                         "metric_name": "booth",
+                        "metric_signature": "booth",
                         "mean": (x1 + 2 * x2 - 7) ** 2 + (2 * x1 + x2 - 5) ** 2,
                         "sem": 0.0,
                     }
@@ -256,7 +241,7 @@ class TestOverview(TestCase):
         experiment.attach_data(data)
 
         factorial_gen_node = GenerationNode(
-            node_name="FACTORIAL",
+            name="FACTORIAL",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.FACTORIAL,
@@ -271,7 +256,7 @@ class TestOverview(TestCase):
         )
 
         eb_ts_gen_node = GenerationNode(
-            node_name="EMPIRICAL_BAYES_THOMPSON_SAMPLING",
+            name="EMPIRICAL_BAYES_THOMPSON_SAMPLING",
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.EMPIRICAL_BAYES_THOMPSON,

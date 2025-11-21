@@ -412,4 +412,9 @@ class AnalysisCard(AnalysisCardBase):
 class ErrorAnalysisCard(AnalysisCard):
     # TODO: Implement improved rendering which shows the traceback.
     # def _ipython_display_(self) -> None: ...
-    pass
+    def _body_html(self, depth: int) -> str:
+        """
+        By default, this method displays the raw data in a pandas DataFrame.
+        """
+
+        return f"<div class='content'>{self.blob}</div>"

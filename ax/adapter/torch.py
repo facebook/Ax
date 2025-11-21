@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
@@ -18,12 +17,12 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.adapter.adapter_utils import (
+    arm_to_np_array,
     array_to_observation_data,
     extract_objective_thresholds,
     extract_objective_weights,
     extract_outcome_constraints,
     extract_parameter_constraints,
-    extract_risk_measure,
     extract_search_space_digest,
     get_fixed_features,
     observation_data_to_array,
@@ -46,12 +45,8 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions
 from ax.core.metric import Metric
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import separate_observations
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -66,10 +61,9 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
-from ax.generators.torch.botorch import LegacyBoTorchGenerator
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
-from ax.generators.torch.botorch_moo_defaults import infer_objective_thresholds
+from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
+from ax.generators.torch.utils import _get_X_pending_and_observed
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -113,9 +107,6 @@ class TorchAdapter(Adapter):
         default_model_gen_options: TConfig | None = None,
         torch_device: torch.device | None = None,
         data_loader_config: DataLoaderConfig | None = None,
-        fit_out_of_design: bool | None = None,
-        fit_abandoned: bool | None = None,
-        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """In addition to common arguments documented in the base ``Adapter`` class,
         ``TorchAdapter`` accepts the following arguments.
@@ -128,11 +119,6 @@ class TorchAdapter(Adapter):
                 on these tensors.
             data_loader_config: A DataLoaderConfig of options for loading data. See the
                 docstring of DataLoaderConfig for more details.
-            fit_out_of_design: Overwrites `data_loader_config.fit_out_of_design` if
-                not None.
-            fit_abandoned: Overwrites `data_loader_config.fit_abandoned` if not None.
-            fit_only_completed_map_metrics: If not None, overwrites
-                `data_loader_config.fit_only_completed_map_metrics`.
         """
         self.device: torch.device | None = torch_device
         self._default_model_gen_options: TConfig = default_model_gen_options or {}
@@ -171,18 +157,15 @@ class TorchAdapter(Adapter):
             fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
             data_loader_config=data_loader_config,
-            fit_out_of_design=fit_out_of_design,
-            fit_abandoned=fit_abandoned,
-            fit_only_completed_map_metrics=fit_only_completed_map_metrics,
         )
 
         # Re-assign self.generator for more precise typing.
         self.generator: TorchGenerator = generator
 
-    def feature_importances(self, metric_name: str) -> dict[str, float]:
+    def feature_importances(self, metric_signature: str) -> dict[str, float]:
         importances_tensor = self.generator.feature_importances()
         importances_dict = dict(zip(self.outcomes, importances_tensor, strict=True))
-        importances_arr = importances_dict[metric_name].flatten()
+        importances_arr = importances_dict[metric_signature].flatten()
         return dict(zip(self.parameters, importances_arr, strict=True))
 
     def infer_objective_thresholds(
@@ -221,32 +204,35 @@ class TorchAdapter(Adapter):
             pending_observations={},
             optimization_config=base_gen_args.optimization_config,
         )
-        if torch_opt_config.risk_measure is not None:
-            raise UnsupportedError(
-                "`infer_objective_thresholds` does not support risk measures."
-            )
         # Infer objective thresholds.
-        if isinstance(self.generator, MultiObjectiveLegacyBoTorchGenerator):
-            model = self.generator.model
-            Xs = self.generator.Xs
-        elif isinstance(self.generator, BoTorchGenerator):
+        if isinstance(self.generator, BoTorchGenerator):
             model = self.generator.surrogate.model
             Xs = self.generator.surrogate.Xs
         else:
             raise UnsupportedError(
-                "Generator must be a MultiObjectiveLegacyBoTorchGenerator or an "
-                "appropriate Modular Botorch Generator to infer_objective_thresholds. "
-                f"Found {type(self.generator)}."
+                "Generator must be a Modular Botorch Generator to "
+                f"infer_objective_thresholds. Found {type(self.generator)}."
             )
 
-        obj_thresholds = infer_objective_thresholds(
-            model=none_throws(model),
+        _, X_observed = _get_X_pending_and_observed(
+            Xs=Xs,
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
+            pending_observations=torch_opt_config.pending_observations,
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
-            Xs=Xs,
+        )
+        if X_observed is None:
+            raise DataRequiredError(
+                "No complete observations found for the given optimization config. "
+                "Cannot infer objective thresholds."
+            )
+        obj_thresholds = infer_objective_thresholds(
+            model=none_throws(model),
+            objective_weights=torch_opt_config.objective_weights,
+            X_observed=X_observed,
+            outcome_constraints=torch_opt_config.outcome_constraints,
         )
 
         return self._untransform_objective_thresholds(
@@ -387,9 +373,15 @@ class TorchAdapter(Adapter):
             mean_and_params.reset_index(level=levels_to_move, inplace=True)
         # This will include the progression if it is in parameters.
         # This is also tolerant to missing columns, which is relevant for TL.
-        params_np = mean_and_params.filter(
-            [i + "_parameter" if i in duplicated_names else i for i in parameters]
-        ).to_numpy()
+        params_np = (
+            mean_and_params.filter(
+                [i + "_parameter" if i in duplicated_names else i for i in parameters]
+            )
+            .to_numpy()
+            # In some cases, this ends up as object, which is not supported by torch.
+            # This can happen if an Int64 column had NaNs in it at some stage.
+            .astype(float)
+        )
         trial_indices_np = mean_and_params.index.get_level_values(
             "trial_index"
         ).to_numpy()
@@ -723,7 +715,7 @@ class TorchAdapter(Adapter):
         # we will only fit models to the outcomes that are extracted from optimization
         # config in Adapter.__init__.
         if update_outcomes_and_parameters and self._fit_tracking_metrics:
-            self.outcomes = sorted(experiment_data.metric_names)
+            self.outcomes = sorted(experiment_data.metric_signatures)
         # Get all relevant information on the parameters
         search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
@@ -735,10 +727,7 @@ class TorchAdapter(Adapter):
             parameters=self.parameters,
             search_space_digest=search_space_digest,
         )
-
-        # Do not support handling of auxiliary datasets in legacy BoTorch generators
-        if not isinstance(self.generator, LegacyBoTorchGenerator):
-            datasets = self._update_w_aux_exp_datasets(datasets=datasets)
+        datasets = self._update_w_aux_exp_datasets(datasets=datasets)
 
         if update_outcomes_and_parameters:
             self.outcomes = ordered_outcomes
@@ -886,9 +875,6 @@ class TorchAdapter(Adapter):
             raise NotImplementedError(
                 "Expected same number of predictions as the number of inputs but got "
                 f"predictions of shape {f.shape} for inputs of shape {X.shape}. "
-                "This was likely due to the use of one-to-many input transforms -- "
-                "typically used for robust optimization -- which are not supported in"
-                "TorchAdapter.predict."
             )
         # Convert resulting arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
@@ -948,6 +934,10 @@ class TorchAdapter(Adapter):
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
         )
+        pruning_target_point = arm_to_np_array(
+            arm=optimization_config.pruning_target_parameterization,
+            parameters=self.parameters,
+        )
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
@@ -966,30 +956,20 @@ class TorchAdapter(Adapter):
         pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
         )
-        obj_w, out_c, lin_c, pend_o, obj_t = validate_and_apply_final_transform(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            pending_observations=pending_array,
-            objective_thresholds=objective_thresholds,
-            final_transform=self._array_to_tensor,
+        obj_w, out_c, lin_c, pend_o, obj_t, pruning_target_p = (
+            validate_and_apply_final_transform(
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                linear_constraints=linear_constraints,
+                pending_observations=pending_array,
+                objective_thresholds=objective_thresholds,
+                pruning_target_point=pruning_target_point,
+                final_transform=self._array_to_tensor,
+            )
         )
         rounding_func = self._array_callable_to_tensor_callable(
             transform_callback(self.parameters, self.transforms)
         )
-        risk_measure = (
-            optimization_config.risk_measure
-            if optimization_config is not None
-            else None
-        )
-        if risk_measure is not None:
-            if not self.generator._supports_robust_optimization:
-                raise UnsupportedError(
-                    f"{self.generator.__class__.__name__} does not support robust "
-                    "optimization. Consider using modular BoTorch generator instead."
-                )
-            else:
-                risk_measure = extract_risk_measure(risk_measure=risk_measure)
 
         use_learned_objective = False
         if isinstance(optimization_config, PreferenceOptimizationConfig):
@@ -1006,9 +986,8 @@ class TorchAdapter(Adapter):
             rounding_func=rounding_func,
             opt_config_metrics=opt_config_metrics,
             is_moo=optimization_config.is_moo_problem,
-            risk_measure=risk_measure,
-            fit_out_of_design=self._data_loader_config.fit_out_of_design,
             use_learned_objective=use_learned_objective,
+            pruning_target_point=pruning_target_p,
         )
         return search_space_digest, torch_opt_config
 
@@ -1097,100 +1076,6 @@ class TorchAdapter(Adapter):
 
         return thresholds
 
-    def _validate_observation_data(
-        self, observation_data: list[ObservationData]
-    ) -> None:
-        if len(observation_data) == 0:
-            raise ValueError(
-                "Torch generators cannot be fit without observation data. Possible "
-                "reasons include empty data being passed to the generator's constructor"
-                " or data being excluded because it is out-of-design. Try setting "
-                "`fit_out_of_design`=True during construction to fix the latter."
-            )
-
-    def _extract_observation_data(
-        self,
-        observation_data: list[ObservationData],
-        observation_features: list[ObservationFeatures],
-        parameters: list[str],
-    ) -> tuple[
-        dict[str, list[Tensor]],
-        dict[str, list[Tensor]],
-        dict[str, list[Tensor]],
-        dict[str, list[TCandidateMetadata]],
-        bool,
-        dict[str, list[int]] | None,
-    ]:
-        """Extract observation features & data into tensors and metadata.
-
-        Args:
-            observation_data: A list of `ObservationData` from which to extract
-                mean `Y` and variance `Yvar` observations. Must correspond 1:1 to
-                the `observation_features`.
-            observation_features: A list of `ObservationFeatures` from which to extract
-                parameter values. Must correspond 1:1 to the `observation_data`.
-            parameters: The names of the parameters to extract. Any observation features
-                that are not included in `parameters` will be ignored.
-
-        Returns:
-            - A dictionary mapping metric names to lists of corresponding feature
-                tensors `X`.
-            - A dictionary mapping metric names to lists of corresponding mean
-                observation tensors `Y`.
-            - A dictionary mapping metric names to lists of corresponding variance
-                observation tensors `Yvar`.
-            - A dictionary mapping metric names to lists of corresponding metadata.
-            - A boolean denoting whether any candidate metadata is not none.
-            - A dictionary mapping metric names to lists of corresponding trial indices,
-                or None if trial indices are not provided. This is used to support
-                learning-curve-based modeling.
-        """
-        Xs: dict[str, list[Tensor]] = defaultdict(list)
-        Ys: dict[str, list[Tensor]] = defaultdict(list)
-        Yvars: dict[str, list[Tensor]] = defaultdict(list)
-        candidate_metadata_dict: dict[str, list[TCandidateMetadata]] = defaultdict(list)
-        any_candidate_metadata_is_not_none = False
-        trial_indices: dict[str, list[int]] = defaultdict(list)
-
-        at_least_one_trial_index_is_none = False
-        for obsd, obsf in zip(observation_data, observation_features, strict=True):
-            try:
-                x = torch.tensor(
-                    [obsf.parameters[p] for p in parameters],
-                    dtype=torch.double,
-                    device=self.device,
-                )
-            except (KeyError, TypeError):
-                raise ValueError("Out of design points cannot be converted.")
-            for metric_name, mean, var in zip(
-                obsd.metric_names, obsd.means, obsd.covariance.diagonal()
-            ):
-                Xs[metric_name].append(x)
-                Ys[metric_name].append(mean)
-                Yvars[metric_name].append(var)
-                if obsf.metadata is not None:
-                    any_candidate_metadata_is_not_none = True
-                candidate_metadata_dict[metric_name].append(obsf.metadata)
-                trial_index = obsf.trial_index
-                if trial_index is not None:
-                    trial_indices[metric_name].append(trial_index)
-                else:
-                    at_least_one_trial_index_is_none = True
-        if len(trial_indices) > 0 and at_least_one_trial_index_is_none:
-            raise ValueError(
-                "Trial indices must be provided for all observation_features "
-                "or none of them."
-            )
-
-        return (
-            Xs,
-            Ys,
-            Yvars,
-            candidate_metadata_dict,
-            any_candidate_metadata_is_not_none,
-            trial_indices if len(trial_indices) > 0 else None,
-        )
-
 
 def validate_transformed_optimization_config(
     optimization_config: OptimizationConfig, outcomes: list[str]
@@ -1220,18 +1105,19 @@ def validate_transformed_optimization_config(
             )
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric in c.metrics:
-                if c_metric.name not in outcomes:
+                if c_metric.signature not in outcomes:
                     raise DataRequiredError(
-                        f"Scalarized constraint metric component {c.metric.name} "
-                        + "not found in fitted data."
+                        f"Scalarized constraint metric component "
+                        f"{c.metric.signature} not found in fitted data."
                     )
-        elif c.metric.name not in outcomes:
+        elif c.metric.signature not in outcomes:
             raise DataRequiredError(
-                f"Outcome constraint metric {c.metric.name} not found in fitted data."
+                f"Outcome constraint metric {c.metric.signature} not found in fitted "
+                "data."
             )
-    obj_metric_names = [m.name for m in optimization_config.objective.metrics]
-    for obj_metric_name in obj_metric_names:
-        if obj_metric_name not in outcomes:
+    obj_metric_signatures = [m.signature for m in optimization_config.objective.metrics]
+    for obj_metric_signature in obj_metric_signatures:
+        if obj_metric_signature not in outcomes:
             raise DataRequiredError(
-                f"Objective metric {obj_metric_name} not found in fitted data."
+                f"Objective metric {obj_metric_signature} not found in fitted data."
             )

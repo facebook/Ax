@@ -11,10 +11,10 @@ from math import nan
 from unittest import mock
 
 import numpy as np
-
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.core.data import Data
+from ax.core.map_data import MAP_KEY, MapData
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
 from ax.exceptions.core import UnsupportedError
@@ -28,6 +28,7 @@ from ax.utils.testing.core_stubs import (
 )
 from pandas import DataFrame, MultiIndex, Timestamp
 from pandas.testing import assert_frame_equal
+from pyre_extensions import none_throws
 
 
 class TestDataUtils(TestCase):
@@ -38,7 +39,6 @@ class TestDataUtils(TestCase):
     def test_data_loader_config(self) -> None:
         # Defaults
         config = DataLoaderConfig()
-        self.assertFalse(config.fit_out_of_design)
         self.assertFalse(config.fit_abandoned)
         self.assertFalse(config.fit_only_completed_map_metrics)
         self.assertEqual(config.latest_rows_per_group, 1)
@@ -50,15 +50,17 @@ class TestDataUtils(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "must be None if either of"):
             DataLoaderConfig(latest_rows_per_group=1, limit_rows_per_metric=5)
         # With a bunch of modifications.
-        config = DataLoaderConfig(
-            fit_out_of_design=True,
-            fit_abandoned=True,
-            fit_only_completed_map_metrics=False,
-            latest_rows_per_group=None,
-            limit_rows_per_metric=10,
-            limit_rows_per_group=20,
-        )
-        self.assertTrue(config.fit_out_of_design)
+        with self.assertWarnsRegex(
+            DeprecationWarning, "`fit_out_of_design` is deprecated"
+        ):
+            config = DataLoaderConfig(
+                fit_out_of_design=True,
+                fit_abandoned=True,
+                fit_only_completed_map_metrics=False,
+                latest_rows_per_group=None,
+                limit_rows_per_metric=10,
+                limit_rows_per_group=20,
+            )
         self.assertTrue(config.fit_abandoned)
         self.assertFalse(config.fit_only_completed_map_metrics)
         self.assertIsNone(config.latest_rows_per_group)
@@ -97,7 +99,9 @@ class TestDataUtils(TestCase):
     def test_extract_experiment_data_non_map(self) -> None:
         # This is a 2 objective experiment with 2 trials, 1 arm each.
         observations = [[0.1, 1.0], [0.2, 2.0]]
-        exp = get_experiment_with_observations(observations=observations)
+        exp = get_experiment_with_observations(
+            observations=observations, signature_suffix=True
+        )
         # Add another trial but fail it.
         # Also add some custom arm metadata.
         sobol = Generators.SOBOL(experiment=exp)
@@ -118,6 +122,7 @@ class TestDataUtils(TestCase):
                         "mean": 0.4,
                         "sem": 0.2,
                         "trial_index": t.index,
+                        "metric_signature": "m1_sig",
                     }
                 ]
             )
@@ -155,7 +160,7 @@ class TestDataUtils(TestCase):
         # First 4 rows correspond to 2 metrics from the 2 completed trials.
         data_df = exp.lookup_data().df[:4]
         expected_obs_df = data_df.pivot(
-            columns="metric_name",
+            columns="metric_signature",
             index=["trial_index", "arm_name"],
             values=["mean", "sem"],
         )
@@ -171,8 +176,13 @@ class TestDataUtils(TestCase):
         self.assertTrue(
             experiment_data.observation_data.columns.equals(
                 MultiIndex.from_tuples(
-                    [("mean", "m1"), ("mean", "m2"), ("sem", "m1"), ("sem", "m2")],
-                    names=[None, "metric_name"],
+                    [
+                        ("mean", "m1_sig"),
+                        ("mean", "m2_sig"),
+                        ("sem", "m1_sig"),
+                        ("sem", "m2_sig"),
+                    ],
+                    names=[None, "metric_signature"],
                 )
             )
         )
@@ -214,7 +224,7 @@ class TestDataUtils(TestCase):
         # All data should be included.
         data_df = exp.lookup_data().df
         expected_obs_df = data_df.pivot(
-            columns="metric_name",
+            columns="metric_signature",
             index=["trial_index", "arm_name"],
             values=["mean", "sem"],
         )
@@ -258,7 +268,7 @@ class TestDataUtils(TestCase):
         )
         # Observation data: By default only includes completed map metrics.
         # There is none, so map metrics are not included.
-        metrics = set(experiment_data.metric_names)
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin"})
         self.assertEqual(len(experiment_data.observation_data), 2)
         # Complete a trial to include map metrics.
@@ -272,11 +282,11 @@ class TestDataUtils(TestCase):
             experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
         )
         # Observation data: Map metrics should be included but only with latest
-        # timestamp for trial 0.
-        metrics = set(experiment_data.metric_names)
+        # timestamp for trial 0, normalized to 1.0
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
-            [(0, "0_0", float("NaN")), (0, "0_0", 3.0), (1, "1_0", float("NaN"))],
+            [(0, "0_0", float("NaN")), (0, "0_0", 1.0), (1, "1_0", float("NaN"))],
             names=["trial_index", "arm_name", "step"],
         )
         expected_mean_df = DataFrame(
@@ -313,18 +323,19 @@ class TestDataUtils(TestCase):
             experiment_data.arm_data.drop("metadata", axis=1), expected_arm_df
         )
         # Observation data: Map metrics should be included for all timestamps.
-        metrics = set(experiment_data.metric_names)
+        # Map key is normalized to [0, 1].
+        metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin", "branin_map"})
         index = MultiIndex.from_tuples(
             [
                 (0, "0_0", nan),
                 (0, "0_0", 0.0),
-                (0, "0_0", 1.0),
-                (0, "0_0", 2.0),
-                (0, "0_0", 3.0),
+                (0, "0_0", 1.0 / 3.0),
+                (0, "0_0", 2.0 / 3.0),
+                (0, "0_0", 3.0 / 3.0),
                 (1, "1_0", nan),
                 (1, "1_0", 0.0),
-                (1, "1_0", 1.0),
+                (1, "1_0", 1.0 / 3.0),
             ],
             names=["trial_index", "arm_name", "step"],
         )
@@ -346,6 +357,90 @@ class TestDataUtils(TestCase):
         )
         # Check equality with self.
         self.assertEqual(experiment_data, experiment_data)
+
+    def test_extract_experiment_data_multiple_map(self) -> None:
+        # Checks that multiple map metrics are correctly normalized.
+        # Using a custom Data input to simplify testing.
+        t_0_metric = 55.602112642270264
+        t_1_metric = 27.702905548512433
+        exp = get_branin_experiment_with_timestamp_map_metric(
+            with_trials_and_data=True, map_tracking_metric=True
+        )
+        for identical_progression in (True, False):
+            data_df = exp.lookup_data().full_df
+            if not identical_progression:
+                data_df.loc[
+                    data_df["metric_signature"] == "tracking_branin_map", MAP_KEY
+                ] += 1000
+                # Make sure we modified the data correctly.
+                self.assertEqual(
+                    data_df[MAP_KEY].tolist(),
+                    [
+                        1000.0,
+                        1001.0,
+                        1002.0,
+                        1003.0,
+                        0.0,
+                        1.0,
+                        2.0,
+                        3.0,
+                        1000.0,
+                        1001.0,
+                        0.0,
+                        1.0,
+                    ],
+                )
+            custom_data = MapData(df=data_df)
+            experiment_data = extract_experiment_data(
+                experiment=exp,
+                data_loader_config=DataLoaderConfig(
+                    latest_rows_per_group=None,
+                ),
+                data=custom_data,
+            )
+            index = MultiIndex.from_tuples(
+                [
+                    (0, "0_0", 0.0),
+                    (0, "0_0", 1.0 / 3.0),
+                    (0, "0_0", 2.0 / 3.0),
+                    (0, "0_0", 3.0 / 3.0),
+                    (1, "1_0", 0.0),
+                    (1, "1_0", 1.0 / 3.0),
+                ],
+                names=["trial_index", "arm_name", "step"],
+            )
+            expected_mean_df = DataFrame(
+                [
+                    {
+                        "branin_map": t_0_metric,
+                        "tracking_branin_map": t_0_metric,
+                    },  # t=0
+                    {
+                        "branin_map": t_0_metric,
+                        "tracking_branin_map": t_0_metric,
+                    },  # t=1
+                    {
+                        "branin_map": t_0_metric,
+                        "tracking_branin_map": t_0_metric,
+                    },  # t=2
+                    {
+                        "branin_map": t_0_metric,
+                        "tracking_branin_map": t_0_metric,
+                    },  # t=3
+                    {
+                        "branin_map": t_1_metric,
+                        "tracking_branin_map": t_1_metric,
+                    },  # t=0
+                    {
+                        "branin_map": t_1_metric,
+                        "tracking_branin_map": t_1_metric,
+                    },  # t=1
+                ],
+                index=index,
+            )
+            self.assertTrue(
+                experiment_data.observation_data["mean"].equals(expected_mean_df)
+            )
 
     def test_extract_experiment_data_batch_trials(self) -> None:
         # Check that abandoned arms are correctly handled in BatchTrial.
@@ -384,6 +479,7 @@ class TestDataUtils(TestCase):
                     {
                         "arm_name": t.arms[0].name,
                         "metric_name": "branin_a",
+                        "metric_signature": "branin_a",
                         "mean": 0.4 * t.index,
                         "sem": 0.2 + 0.1 * t.index,
                         "trial_index": t.index,
@@ -396,6 +492,7 @@ class TestDataUtils(TestCase):
                     {
                         "arm_name": t.arms[0].name,
                         "metric_name": "branin_b",
+                        "metric_signature": "branin_b",
                         "mean": 0.4 * t.index,
                         "sem": 0.2 + 0.1 * t.index,
                         "trial_index": t.index,
@@ -552,7 +649,7 @@ class TestDataUtils(TestCase):
                 },
             ),
             data=ObservationData(
-                metric_names=["branin"],
+                metric_signatures=["branin"],
                 means=np.array([55.602112642270264]),
                 covariance=np.diag([0.0]),
             ),
@@ -565,11 +662,11 @@ class TestDataUtils(TestCase):
                     trial_index=0,
                     metadata={
                         Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY,
-                        "step": timestamp,
+                        "step": timestamp / 3.0,
                     },
                 ),
                 data=ObservationData(
-                    metric_names=["branin_map"],
+                    metric_signatures=["branin_map"],
                     means=np.array([55.602112642270264]),
                     covariance=np.diag([0.0]),
                 ),
@@ -584,7 +681,7 @@ class TestDataUtils(TestCase):
                 metadata={"step": float("NaN")},
             ),
             data=ObservationData(
-                metric_names=["branin"],
+                metric_signatures=["branin"],
                 means=np.array([27.702905548512433]),
                 covariance=np.diag([0.0]),
             ),
@@ -595,10 +692,10 @@ class TestDataUtils(TestCase):
                 features=ObservationFeatures(
                     parameters={"x1": 1.0, "x2": 1.0},
                     trial_index=1,
-                    metadata={"step": timestamp},
+                    metadata={"step": timestamp / 3.0},
                 ),
                 data=ObservationData(
-                    metric_names=["branin_map"],
+                    metric_signatures=["branin_map"],
                     means=np.array([27.702905548512433]),
                     covariance=np.diag([0.0]),
                 ),
@@ -630,7 +727,7 @@ class TestDataUtils(TestCase):
                     metadata={Keys.TRIAL_COMPLETION_TIMESTAMP: mock.ANY},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"],
+                    metric_signatures=["branin", "branin_map"],
                     # Means are deterministic based on the parameterization.
                     means=np.array([55.602112642270264, 55.602112642270264]),
                     covariance=np.diag([0.0, 0.0]),
@@ -644,7 +741,7 @@ class TestDataUtils(TestCase):
                     metadata={},
                 ),
                 data=ObservationData(
-                    metric_names=["branin", "branin_map"],
+                    metric_signatures=["branin", "branin_map"],
                     means=np.array([27.702905548512433, 27.702905548512433]),
                     covariance=np.diag([0.0, 0.0]),
                 ),
@@ -652,8 +749,16 @@ class TestDataUtils(TestCase):
             ),
         ]
         self.assertEqual(observations, expected)
+        # Check that modifying the metadata does not affect the original.
+        none_throws(observations[0].features.metadata).pop(
+            Keys.TRIAL_COMPLETION_TIMESTAMP
+        )
+        self.assertIn(
+            Keys.TRIAL_COMPLETION_TIMESTAMP,
+            experiment_data.arm_data.iloc[0]["metadata"],
+        )
 
-    def test_experiment_data_metric_names(self) -> None:
+    def test_experiment_data_metric_signatures(self) -> None:
         for experiment, expected in [
             (get_branin_experiment(), []),
             (get_branin_experiment(with_completed_trial=True), ["branin"]),
@@ -667,4 +772,4 @@ class TestDataUtils(TestCase):
             experiment_data = extract_experiment_data(
                 experiment=experiment, data_loader_config=DataLoaderConfig()
             )
-            self.assertEqual(experiment_data.metric_names, expected)
+            self.assertEqual(experiment_data.metric_signatures, expected)

@@ -54,6 +54,7 @@ class OutcomeConstraintTest(TestCase):
         self.constraint.metric = self.maximize_metric
         self.constraint.op = ComparisonOp.LEQ
         self.assertEqual(self.constraint.metric.name, "baz")
+        self.assertEqual(self.constraint.metric.signature, "baz")
 
     def test_OutcomeConstraintFail(self) -> None:
         logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
@@ -134,6 +135,7 @@ class ObjectiveThresholdTest(TestCase):
         self.threshold.metric = self.ambiguous_metric
         self.threshold.op = ComparisonOp.LEQ
         self.assertEqual(self.threshold.metric.name, "buz")
+        self.assertEqual(self.threshold.metric.signature, "buz")
 
     def test_ObjectiveThresholdFail(self) -> None:
         logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
@@ -199,10 +201,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
         self.assertEqual(len(list(self.constraint.metric_weights)), len(self.metrics))
         self.assertEqual(
             str(self.constraint),
-            (
-                "ScalarizedOutcomeConstraint(metric_names=['m1', 'm2', 'm3'], "
-                "weights=[0.1, 0.3, 0.6], >= 0%)"
-            ),
+            ("ScalarizedOutcomeConstraint(0.1 * m1 + 0.3 * m2 + 0.6 * m3 >= 0%)"),
         )
         # check that weights are set uniformly by default
         con = ScalarizedOutcomeConstraint(

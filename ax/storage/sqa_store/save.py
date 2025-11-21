@@ -294,7 +294,7 @@ def save_or_update_data_for_trials(
     )
     for trial in trials:
         trial_idcs.append(trial.index)
-        trial_datas = experiment.data_by_trial.get(trial.index, {})
+        trial_datas = experiment._data_by_trial.get(trial.index, {})
         for ts, data in trial_datas.items():
             if data.db_id is None:
                 # This is data we have not saved before; we should add it to the
@@ -710,7 +710,6 @@ def _merge_into_session_in_session_decode(
     return new_sqa
 
 
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def _copy_db_ids_if_possible(new_obj: Any, obj: Any) -> None:
     """Wraps _copy_db_ids in a try/except, and logs warnings on error."""
     try:

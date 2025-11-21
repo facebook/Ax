@@ -8,8 +8,9 @@
 
 from __future__ import annotations
 
+import inspect
+
 import logging
-import re
 import warnings
 from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
@@ -23,17 +24,17 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
+from ax.core.data import combine_dfs_favoring_recent, Data
+from ax.core.evaluations_to_data import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
-from ax.core.parameter import Parameter
+from ax.core.parameter import DerivedParameter, Parameter
 from ax.core.runner import Runner
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import (
     DEFAULT_STATUSES_TO_WARM_START,
@@ -126,24 +127,20 @@ class Experiment(Base):
         # pyre-fixme[13]: Attribute `_search_space` is never initialized.
         self._search_space: SearchSpace
         self._status_quo: Arm | None = None
-        # pyre-fixme[13]: Attribute `_is_test` is never initialized.
-        self._is_test: bool
 
         self._name = name
         self.description = description
         self.runner = runner
-        self.is_test = is_test
+        self.is_test: bool = is_test
 
         self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: str | None = experiment_type
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._optimization_config = None
+        self._optimization_config: OptimizationConfig | None = None
         self._tracking_metrics: dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._default_data_type = default_data_type or DataType.DATA
+        self._default_data_type: DataType = default_data_type or DataType.DATA
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -179,7 +176,7 @@ class Experiment(Base):
         self.add_tracking_metrics(tracking_metrics or [])
 
         # call setters defined below
-        self.search_space = search_space
+        self.search_space: SearchSpace = search_space
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
@@ -205,16 +202,6 @@ class Experiment(Base):
     def name(self, name: str) -> None:
         """Set experiment name."""
         self._name = name
-
-    @property
-    def is_test(self) -> bool:
-        """Get whether the experiment is a test."""
-        return self._is_test
-
-    @is_test.setter
-    def is_test(self, is_test: bool) -> None:
-        """Set whether the experiment is a test."""
-        self._is_test = is_test
 
     @property
     def time_created(self) -> datetime:
@@ -277,6 +264,96 @@ class Experiment(Base):
                 )
         self._search_space = search_space
 
+    def add_parameters_to_search_space(
+        self,
+        parameters: Sequence[Parameter],
+        status_quo_values: TParameterization | None = None,
+    ) -> None:
+        """
+        Add new parameters to the experiment's search space. This allows extending
+        the search space after the experiment has run some trials.
+
+        Backfill values must be provided for all new parameters if the experiment has
+        already run some trials. The backfill values represent the parameter values
+        that were used in the existing trials.
+
+        Args:
+            parameters: A sequence of parameter configurations to add to the search
+                space.
+            status_quo_values: Optional parameter values for the new parameters to
+                use in the status quo (baseline) arm, if one is defined.
+        """
+        status_quo_values = status_quo_values or {}
+
+        # Additional checks iff a trial exists
+        if len(self.trials) != 0:
+            if any(parameter.backfill_value is None for parameter in parameters):
+                raise UserInputError(
+                    "Must provide backfill values for all new parameters when "
+                    "adding parameters to an experiment with existing trials."
+                )
+            if any(isinstance(parameter, DerivedParameter) for parameter in parameters):
+                raise UserInputError(
+                    "Cannot add derived parameters to an experiment with existing "
+                    "trials."
+                )
+
+        # Validate status quo values
+        status_quo = self._status_quo
+        if status_quo_values is not None and status_quo is None:
+            logger.warning(
+                "Status quo values specified, but experiment does not have a "
+                "status quo. Ignoring provided status quo values."
+            )
+        if status_quo is not None:
+            parameter_names = {parameter.name for parameter in parameters}
+            status_quo_parameters = status_quo_values.keys()
+            disabled_parameters = {
+                parameter.name
+                for parameter in self._search_space.parameters.values()
+                if parameter.is_disabled
+            }
+            extra_status_quo_values = status_quo_parameters - parameter_names
+            if extra_status_quo_values:
+                logger.warning(
+                    "Status quo value provided for parameters "
+                    f"`{extra_status_quo_values}` which is are being added to "
+                    "the search space. Ignoring provided status quo values."
+                )
+            mising_status_quo_values = (
+                parameter_names - disabled_parameters - status_quo_parameters
+            )
+            if mising_status_quo_values:
+                raise UserInputError(
+                    "No status quo value provided for parameters "
+                    f"`{mising_status_quo_values}` which are being added to "
+                    "the search space."
+                )
+            for parameter_name, value in status_quo_values.items():
+                status_quo._parameters[parameter_name] = value
+
+        # Add parameters to search space
+        self._search_space.add_parameters(parameters)
+
+    def disable_parameters_in_search_space(
+        self, default_parameter_values: TParameterization
+    ) -> None:
+        """
+        Disable parameters in the experiment. This allows narrowing the search space
+        after the experiment has run some trials.
+
+        When parameters are disabled, they are effectively removed from the search
+        space for future trial generation. Existing trials remain valid, and the
+        disabled parameters are replaced with fixed default values for all subsequent
+        trials.
+
+        Args:
+            default_parameter_values: Fixed values to use for the disabled parameters
+                in all future trials. These values will be used for the parameter in
+                all subsequent trials.
+        """
+        self._search_space.disable_parameters(default_parameter_values)
+
     @property
     def status_quo(self) -> Arm | None:
         """The existing arm that new arms will be compared against."""
@@ -290,6 +367,9 @@ class Experiment(Base):
                 "Modifications of status_quo are disabled after trials have been "
                 "created."
             )
+        if status_quo == self.status_quo:
+            return  # No need to update the SQ arm.
+
         if status_quo is not None:
             self.search_space.check_types(
                 parameterization=status_quo.parameters,
@@ -308,24 +388,6 @@ class Experiment(Base):
                 name = f"status_quo_e{sq_idx}"
                 sq_idx += 1
             self._name_and_store_arm_if_not_exists(arm=status_quo, proposed_name=name)
-
-        # If old status_quo not present in any trials,
-        # remove from _arms_by_signature
-        if self._status_quo is not None:
-            logger.warning(
-                "Experiment's status_quo is updated. "
-                "Generally the status_quo should not be changed after being set."
-            )
-            persist_old_sq = False
-            for trial in self._trials.values():
-                # pyre-fixme[16]: `Optional` has no attribute `name`.
-                if self._status_quo.name in trial.arms_by_name:
-                    persist_old_sq = True
-                    break
-            if not persist_old_sq:
-                # pyre-fixme[16]: `Optional` has no attribute `signature`.
-                self._arms_by_signature.pop(self._status_quo.signature)
-                self._arms_by_name.pop(self._status_quo.name)
 
         self._status_quo = status_quo
 
@@ -421,14 +483,28 @@ class Experiment(Base):
         return none_throws(self.optimization_config).is_moo_problem
 
     @property
-    def data_by_trial(self) -> dict[int, OrderedDict[int, Data]]:
-        """Data stored on the experiment, indexed by trial index and storage time.
+    def is_bope_problem(self) -> bool:
+        """Whether this experiment is a BO with Preference Exploration (BOPE)
+        experiment.
 
-        First key is trial index and second key is storage time in milliseconds.
-        For a given trial, data is ordered by storage time, so first added data
-        will appear first in the list.
+        An experiment is considered a preference learning experiment if:
+        1. It has a PreferenceOptimizationConfig as its optimization config, OR
+        2. It has a PE_EXPERIMENT (preference exploration) auxiliary experiment attached
+
+        Returns:
+            True if this is a preference learning experiment, False otherwise.
         """
-        return self._data_by_trial
+        # Check if optimization config indicates preference learning
+        if self.optimization_config is not None:
+            if self.optimization_config.is_bope_problem:
+                return True
+
+        # Check if experiment has a PE_EXPERIMENT auxiliary experiment
+        return bool(
+            self.auxiliary_experiments_by_purpose.get(
+                AuxiliaryExperimentPurpose.PE_EXPERIMENT, []
+            )
+        )
 
     @property
     def immutable_search_space_and_opt_config(self) -> bool:
@@ -520,6 +596,14 @@ class Experiment(Base):
             optimization_config_metrics = self.optimization_config.metrics
         return {**self._tracking_metrics, **optimization_config_metrics}
 
+    @property
+    def signature_to_metric(self) -> dict[str, Metric]:
+        """Returns a dictionary of metrics attached to the experiment, keyed by
+        their signature. Useful for cases that require accessing metric objects
+        by their signature (e.g. plotting from observation data/adapter).
+        """
+        return {metric.signature: metric for metric in self.metrics.values()}
+
     def _metrics_by_class(
         self, metrics: list[Metric] | None = None
     ) -> dict[type[Metric], list[Metric]]:
@@ -558,11 +642,57 @@ class Experiment(Base):
                 f"experiment; original error: {e}."
             )
 
+    def bulk_configure_metrics_of_class(
+        self,
+        metric_class: type[Metric],
+        attributes_to_update: dict[str, Any],
+    ) -> None:
+        """Apply the same set of updates to all metrics of a specified type at once.
+
+        Args:
+            metric_class: the class of metric to update
+            attributes_to_update: A dictionary that maps the parameter to be updated
+                with it's new value.
+
+        Raises:
+            * If there are no metrics of the specified class on the experiment
+            * If any of the specified parameters to update are not args in the
+            metric class's initialization method
+
+        Note: All metrics of the specified class will receive the same update. For
+        custom updates to specific metrics, use `update_tracking_metric`
+        """
+        metrics_of_class = self._metrics_by_class(metrics=list(self.metrics.values()))[
+            metric_class
+        ]
+        if len(metrics_of_class) == 0:
+            raise UserInputError(
+                f"No metrics of class {metric_class} found on experiment."
+            )
+        metric_attributes = set(
+            inspect.signature(metric_class.__init__).parameters.keys()
+        )
+        if not set(attributes_to_update.keys()).issubset(metric_attributes):
+            raise (
+                UserInputError(
+                    f"Metric class {metric_class} does not contain the requested "
+                    "attributes to update. Requested updates to attributes: "
+                    f"{set(attributes_to_update.keys())} but metric class defines"
+                    f"{metric_attributes}."
+                )
+            )
+        # Update each metric on the experiment with the specified new values
+        # for each parameter to update
+        for metric in metrics_of_class:
+            new_metric = metric
+            for param_name, param_value in attributes_to_update.items():
+                setattr(new_metric, param_name, param_value)
+            self.metrics[metric.name] = new_metric
+        return
+
     def fetch_data_results(
         self,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetches data for all trials on this experiment and for either the
@@ -590,8 +720,6 @@ class Experiment(Base):
         return self._lookup_or_fetch_trials_results(
             trials=list(self.trials.values()),
             metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
 
@@ -599,8 +727,6 @@ class Experiment(Base):
         self,
         trial_indices: Iterable[int],
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetches data for specific trials on the experiment.
@@ -626,8 +752,6 @@ class Experiment(Base):
         return self._lookup_or_fetch_trials_results(
             trials=self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
 
@@ -635,8 +759,6 @@ class Experiment(Base):
         self,
         trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
         """Fetches data for all trials on this experiment and for either the
@@ -665,8 +787,6 @@ class Experiment(Base):
             if trial_indices is None
             else self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
 
@@ -682,8 +802,6 @@ class Experiment(Base):
         self,
         trials: list[BaseTrial],
         metrics: Iterable[Metric] | None = None,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         if not self.metrics and not metrics:
@@ -729,13 +847,8 @@ class Experiment(Base):
 
         if contains_new_data:
             try:
-                self.attach_fetch_results(
-                    results=results,
-                    combine_with_last_data=combine_with_last_data,
-                    overwrite_existing_data=overwrite_existing_data,
-                )
+                self.attach_fetch_results(results=results)
             except ValueError as e:
-                # TODO: Log and track these unexpected errors.
                 logger.error(
                     f"Encountered ValueError {e} while attaching results. Proceeding "
                     "and returning Results fetched without attaching."
@@ -758,54 +871,43 @@ class Experiment(Base):
 
         return {}
 
-    def attach_data(
-        self,
-        data: Data,
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
-    ) -> int:
-        """Attach data to experiment. Stores data in `experiment._data_by_trial`,
-        to be looked up via `experiment.lookup_data_for_trial`.
+    def attach_data(self, data: Data, **kwargs: Any) -> int:
+        """
+        Attach data to the experiment's `_data_by_trial` attribute.
+
+        Store data in `experiment._data_by_trial`, to be looked up via
+        ``experiment.lookup_data_for_trial`` or ``experiment.lookup_data()``.
+        When a new observation is attached to a trial that already has an
+        observation for that arm name, metric, and (if present) step, the new
+        observation replaces the old one.
 
         Args:
-            data: Data object to store.
-            combine_with_last_data: By default, when attaching data, it's identified
-                by its timestamp, and `experiment.lookup_data_for_trial` returns
-                data by most recent timestamp. Sometimes, however, we want to combine
-                the data from multiple calls to `attach_data` into one dataframe.
-                This might be because:
-                    - We attached data for some metrics at one point and data for
-                    the rest of the metrics later on.
-                    - We attached data for some fidelity at one point and data for
-                    another fidelity later one.
-                To achieve that goal, set `combine_with_last_data` to `True`.
-                In this case, we will take the most recent previously attached
-                data, append the newly attached data to it, attach a new
-                Data object with the merged result, and delete the old one.
-                Afterwards, calls to `lookup_data_for_trial` will return this
-                new combined data object. This operation will also validate that the
-                newly added data does not contain observations for metrics that
-                already have observations at the same fidelity in the most recent data.
-            overwrite_existing_data: By default, we keep around all data that has
-                ever been attached to the experiment. However, if we know that
-                the incoming data contains all the information we need for a given
-                trial, we can replace the existing data for that trial, thereby
-                reducing the amount we need to store in the database.
+            data: Data to attach.
+            kwargs: Deprecated arguments.
 
         Returns:
             Timestamp of storage in millis.
         """
-        if combine_with_last_data and overwrite_existing_data:
-            raise UnsupportedError(
-                "Cannot set both combine_with_last_data=True and "
-                "overwrite_existing_data=True. Data can either be "
-                "combined, or overwritten, or neither."
+        deprecated_arguments = ["combine_with_last_data", "overwrite_existing_data"]
+        for arg in deprecated_arguments:
+            if arg in kwargs:
+                warnings.warn(
+                    f"Passing {arg} to `attach_data` is deprecated. "
+                    "`attach_data` will behave in a way similar to the old "
+                    "`combine_with_last_data=True`, "
+                    "`overwrite_existing_data=False`. behavior.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+        unexpected_args = set(kwargs.keys()) - set(deprecated_arguments)
+        if unexpected_args:
+            raise ValueError(
+                f"Unexpected arguments {unexpected_args} passed to `attach_data`."
             )
         data_type = type(data)
-        data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
-        if data.true_df.empty:
+        if data.full_df.empty:
             raise ValueError("Data to attach is empty.")
-        metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
+        metrics_not_on_exp = set(data.full_df["metric_name"].values) - set(
             self.metrics.keys()
         )
         if metrics_not_on_exp:
@@ -818,117 +920,45 @@ class Experiment(Base):
                 "the experiment's optimization config."
             )
         cur_time_millis = current_timestamp_in_millis()
-        for trial_index, trial_df in data.true_df.groupby(data.true_df["trial_index"]):
+        for trial_index, trial_df in data.full_df.groupby("trial_index"):
             if not isinstance(data, MapData):
                 trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
-            # Overwrite `df` so that `data` only has current trial data.
-            data_init_args["df"] = trial_df
             current_trial_data = (
                 self._data_by_trial[trial_index]
                 if trial_index in self._data_by_trial
                 else OrderedDict()
             )
-            if combine_with_last_data and len(current_trial_data) > 0:
-                last_data_type, last_data = self._get_last_data_without_similar_rows(
-                    current_trial_data=current_trial_data, new_df=trial_df
+            if len(current_trial_data) == 1:
+                _, last_data = current_trial_data.popitem()
+                combined_df = combine_dfs_favoring_recent(
+                    last_df=last_data.full_df, new_df=trial_df
                 )
-                current_trial_data.popitem()
-                current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
-                    [
-                        last_data,
-                        last_data_type(**data_init_args),
-                    ]
+                data_type = (
+                    MapData
+                    if isinstance(last_data, MapData) or isinstance(data, MapData)
+                    else Data
                 )
-            elif overwrite_existing_data:
-                if len(current_trial_data) > 0:
-                    _, last_data = list(current_trial_data.items())[-1]
-                    # It may seem odd to use `true_df` here, because with
-                    # MapData, `df` is shorter, and since it is cached, it won't
-                    # be constructed too often. However, constructing MapData's
-                    # `df` is sufficiently expensive due to the groupby-apply
-                    # and sort operations needed that using `true_df` is much
-                    # faster even if repeated many times.
-                    last_data_metrics = set(last_data.true_df["metric_name"])
-                    new_data_metrics = set(trial_df["metric_name"])
-                    difference = last_data_metrics.difference(new_data_metrics)
-                    if len(difference) > 0:
-                        raise ValueError(
-                            "overwrite_trial_data is True, but the new data contains "
-                            "only a subset of the metrics that are present in the "
-                            f"previous data. Missing metrics: {difference}"
-                        )
-                current_trial_data = OrderedDict(
-                    {cur_time_millis: data_type(**data_init_args)}
-                )
+            elif len(current_trial_data) == 0:
+                combined_df = trial_df
             else:
-                current_trial_data[cur_time_millis] = data_type(**data_init_args)
+                raise ValueError(
+                    "Each dict within `_data_by_trial` should have at most one "
+                    "element."
+                )
+            current_trial_data[cur_time_millis] = data_type(df=combined_df)
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis
 
-    @staticmethod
-    def _get_last_data_without_similar_rows(
-        current_trial_data: OrderedDict[int, Data], new_df: pd.DataFrame
-    ) -> tuple[type[Data], Data]:
-        """Get a copy of last data with rows filtered out sharing values for
-        "trial_index", "metric_name", and "arm_name" with the new data so we
-        can cleanly combine them.
-
-        Args:
-            current_trial_data: The data currently attached to a trial
-            new_df: A DataFrame containing new data to be attached
-
-        Returns:
-            A tuple of two things:
-                - The type of the last data that was attached
-                - A Data object with the most recent data attached, minus the
-                    rows that share the same values
-                    for "trial_index", "metric_name", and "arm_name" in new_df
-        """
-        _, last_data = list(current_trial_data.items())[-1]
-
-        last_data_type = type(last_data)
-        merge_keys = ["trial_index", "metric_name", "arm_name"]
-        if isinstance(last_data, MapData):
-            merge_keys += [MAP_KEY]
-
-        # this merge is like a SQL left join on merge keys
-        # it will return a dataframe with the columns in merge_keys
-        # plus "_merge" and any other columns in last_data.true_df with _left appended
-        # plus any other columns in new_df with _right appended
-        merged = pd.merge(
-            last_data.true_df,
-            new_df,
-            on=merge_keys,
-            how="left",
-            indicator=True,
-            suffixes=("_left", "_right"),
-        )
-        # Filter out all rows that are also present in new_df
-        last_df = merged[merged["_merge"] == "left_only"]
-
-        # Drop the _merge column
-        last_df = last_df.drop(columns=["_merge"])
-        # Drop columns ending with "_right", which should all have null values
-        right_columns = [c for c in last_df.columns if re.match(r".*_right$", c)]
-        last_df = last_df.drop(columns=right_columns)
-
-        # Remove the "_left" suffix from the column names
-        last_df.columns = last_df.columns.str.replace(r"_left$", "", regex=True)
-
-        return type(last_data), last_data_type(df=last_df)
-
     def attach_fetch_results(
         self,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
-        combine_with_last_data: bool = False,
-        overwrite_existing_data: bool = False,
     ) -> int | None:
         """
         UNSAFE: Prefer to use attach_data directly instead.
 
         Attach fetched data results to the Experiment so they will not have to be
-        fetched again. Addtionally caches any metric fetching errors that occured
+        fetched again. Additionally caches any metric fetching errors that occurred
         to the experiment. Returns the timestamp from attachment, which is used
         as a dict key for _data_by_trial.
 
@@ -972,67 +1002,38 @@ class Experiment(Base):
             data=[ok.ok for ok in oks]
         )
 
-        return self.attach_data(
-            data=data,
-            combine_with_last_data=combine_with_last_data,
-            overwrite_existing_data=overwrite_existing_data,
-        )
+        return self.attach_data(data=data)
 
-    def lookup_data_for_ts(self, timestamp: int) -> Data:
-        """Collect data for all trials stored at this timestamp.
+    def lookup_data_for_trial(self, trial_index: int) -> Data:
+        """Look up stored data for a specific trial.
 
-        Useful when many trials' data was fetched and stored simultaneously
-        and user wants to retrieve same collection of data later.
-
-        Can also be used to lookup specific data for a single trial
-        when storage time is known.
-
-        Args:
-            timestamp: Timestamp in millis at which data was stored.
-
-        Returns:
-            Data object with all data stored at the timestamp.
-        """
-        trial_datas = []
-        for _trial_index, ts_to_data in self._data_by_trial.items():
-            if timestamp in ts_to_data:
-                trial_datas.append(ts_to_data[timestamp])
-
-        return self.default_data_constructor.from_multiple_data(trial_datas)
-
-    def lookup_data_for_trial(
-        self,
-        trial_index: int,
-    ) -> tuple[Data, int]:
-        """Lookup stored data for a specific trial.
-
-        Returns latest data object and its storage timestamp present for this trial.
-        Returns empty data and -1 if no data is present. In particular, this method
-        will not fetch data from metrics - to do that, use `fetch_data()` instead.
+        Returns latest data object for this trial. Returns empty data if no data
+        is present. This method will not fetch data from metrics - to do that,
+        use `fetch_data()` instead.
 
         Args:
             trial_index: The index of the trial to lookup data for.
 
         Returns:
-            The requested data object, and its storage timestamp in milliseconds.
+            The requested data object.
         """
         try:
             trial_data_dict = self._data_by_trial[trial_index]
         except KeyError:
-            return (self.default_data_constructor(), -1)
+            return self.default_data_constructor()
 
         if len(trial_data_dict) == 0:
-            return (self.default_data_constructor(), -1)
+            return self.default_data_constructor()
 
         storage_time = max(trial_data_dict.keys())
-        trial_data = trial_data_dict[storage_time]
-        return trial_data, storage_time
+        return trial_data_dict[storage_time]
 
     def lookup_data(
         self,
         trial_indices: Iterable[int] | None = None,
     ) -> Data:
-        """Lookup stored data for trials on this experiment.
+        """
+        Combine stored ``Data``s for trials ``trial_indices`` into one ``Data``.
 
         For each trial, returns latest data object present for this trial.
         Returns empty data if no data is present. In particular, this method
@@ -1043,19 +1044,23 @@ class Experiment(Base):
                 lookup data for all trials on the experiment.
 
         Returns:
-            Data for the trials on the experiment.
+            Data for trials ``trial_indices`` on the experiment.
         """
-        data_by_trial = []
-        trial_indices = trial_indices or list(self.trials.keys())
-        for trial_index in trial_indices:
-            trial_data, _ = self.lookup_data_for_trial(trial_index=trial_index)
-            data_by_trial.append(trial_data)
-        if not data_by_trial:
+        trial_indices = (
+            list(self.trials.keys()) if trial_indices is None else list(trial_indices)
+        )
+        if len(trial_indices) == 0:
             return self.default_data_constructor()
-        last_data = data_by_trial[-1]
-        last_data_type = type(last_data)
-        data = last_data_type.from_multiple_data(data_by_trial)
-        return data
+
+        data_by_trial = []
+        has_map_data = False
+        for trial_index in trial_indices:
+            trial_data = self.lookup_data_for_trial(trial_index=trial_index)
+            data_by_trial.append(trial_data)
+            has_map_data = has_map_data or isinstance(trial_data, MapData)
+
+        data_type = MapData if has_map_data else Data
+        return data_type.from_multiple_data(data_by_trial)
 
     @property
     def num_trials(self) -> int:
@@ -1066,11 +1071,11 @@ class Experiment(Base):
     def trials(self) -> dict[int, BaseTrial]:
         """The trials associated with the experiment.
 
-        NOTE: If some trials on this experiment specify their TTL, `RUNNING` trials
+        NOTE: If some trials on this experiment specify their TTL, `CANDIDATE` trials
         will be checked for whether their TTL elapsed during this call. Found past-
-        TTL trials will be marked as `FAILED`.
+        TTL trials will be marked as `STALE`.
         """
-        self._check_TTL_on_running_trials()
+        self._check_TTL_on_candidate_trials()
         return self._trials
 
     @property
@@ -1101,7 +1106,7 @@ class Experiment(Base):
         """Indices of trials associated with the experiment, grouped by trial
         status.
         """
-        self._check_TTL_on_running_trials()  # Marks past-TTL trials as failed.
+        self._check_TTL_on_candidate_trials()  # Marks past-TTL trials as stale.
         return self._trial_indices_by_status
 
     @property
@@ -1187,11 +1192,11 @@ class Experiment(Base):
                 through `add_arm` or `add_generator_run`, but a trial's
                 associated generator run is immutable once set.
             trial_type: Type of this trial, if used in MultiTypeExperiment.
-            ttl_seconds: If specified, trials will be considered failed after
+            ttl_seconds: If specified, trials will be considered stale after
                 this many seconds since the time the trial was ran, unless the
                 trial is completed before then. Meant to be used to detect
                 'dead' trials, for which the evaluation process might have
-                crashed etc., and which should be considered failed after
+                crashed etc., and which should be considered stale after
                 their 'time to live' has passed.
         """
         if ttl_seconds is not None:
@@ -1226,11 +1231,11 @@ class Experiment(Base):
                 trial for tracking purposes, but without a weight it will not be an
                 Arm present on the trial
             trial_type: Type of this trial, if used in MultiTypeExperiment.
-            ttl_seconds: If specified, trials will be considered failed after
+            ttl_seconds: If specified, trials will be considered stale after
                 this many seconds since the time the trial was ran, unless the
                 trial is completed before then. Meant to be used to detect
                 'dead' trials, for which the evaluation process might have
-                crashed etc., and which should be considered failed after
+                crashed etc., and which should be considered stale after
                 their 'time to live' has passed.
         """
         if ttl_seconds is not None:
@@ -1268,6 +1273,35 @@ class Experiment(Base):
                 f"Trial indices {missing} are not associated with the experiment.\n"
                 f"Trials indices available on this experiment: {list(self.trials)}."
             )
+
+    def extract_relevant_trials(
+        self,
+        trial_indices: Sequence[int] | None = None,
+        trial_statuses: Sequence[TrialStatus] | None = None,
+    ) -> list[BaseTrial]:
+        """
+        Find the trials on this experiment which meet both the trial_indices
+        filtering condition and the trial_statuses filtering condition. If None is
+        provided for either condition, the condition is not applied.
+
+        Args:
+            trial_indices: Indices of trials to include. If None, include all trials.
+                If empty list, include no trials.
+            trial_statuses: Statuses to filter by. If None, no filtering by status.
+        """
+        trials = (
+            [self.trials[i] for i in trial_indices]
+            if trial_indices is not None
+            else [*self.trials.values()]
+        )
+
+        filtered_by_status = [
+            trial
+            for trial in trials
+            if (trial_statuses is None or trial.status in trial_statuses)
+        ]
+
+        return filtered_by_status
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
@@ -1378,8 +1412,7 @@ class Experiment(Base):
         Args:
             old_experiment: The experiment from which to transfer trials and data
             copy_run_metadata_keys: A list of keys denoting which items to copy over
-                from each trial's run_metadata. Defaults to
-                ``old_experiment.runner.run_metadata_report_keys``.
+                from each trial's run_metadata. Defaults to copying all run_metadata.
             trial_statuses_to_copy: All trials with a status in this list will be
                 copied. By default, copies all ``RUNNING``, ``COMPLETED``,
                 ``ABANDONED``, and ``EARLY_STOPPED`` trials.
@@ -1395,9 +1428,6 @@ class Experiment(Base):
                 f"Can only warm-start experiments that don't yet have trials. "
                 f"Experiment {self._name} has {len(self.trials)} trials."
             )
-
-        if copy_run_metadata_keys is None and old_experiment.runner is not None:
-            copy_run_metadata_keys = old_experiment.runner.run_metadata_report_keys
 
         old_parameter_names = set(old_experiment.search_space.parameters.keys())
         parameter_names = set(self.search_space.parameters.keys())
@@ -1431,7 +1461,7 @@ class Experiment(Base):
                 none_throws(trial.arm).parameters,
                 raise_error=search_space_check_membership_raise_error,
             )
-            dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
+            dat = old_experiment.lookup_data_for_trial(trial_index=trial.index)
             # Set trial index and arm name to their values in new trial.
             new_trial = self.new_trial()
             add_arm_and_prevent_naming_collision(
@@ -1450,15 +1480,18 @@ class Experiment(Base):
                 generation_model_key = trial.generator_run._model_key or "Manual"
             new_trial._properties["generation_model_key"] = generation_model_key
 
-            if copy_run_metadata_keys is not None:
-                for run_metadata_field in copy_run_metadata_keys:
-                    new_trial.update_run_metadata(
-                        {run_metadata_field: trial.run_metadata.get(run_metadata_field)}
-                    )
+            # Copy all run_metadata by default.
+            if copy_run_metadata_keys is None:
+                copy_run_metadata_keys = list(trial.run_metadata.keys())
+
+            for run_metadata_field in copy_run_metadata_keys:
+                new_trial.update_run_metadata(
+                    {run_metadata_field: trial.run_metadata.get(run_metadata_field)}
+                )
             # Trial has data, so we replicate it on the new experiment.
-            has_data = ts != -1 and not dat.df.empty
+            has_data = not dat.df.empty
             if has_data:
-                new_df = dat.true_df.copy()
+                new_df = dat.full_df.copy()
                 new_df["trial_index"].replace(
                     {trial.index: new_trial.index}, inplace=True
                 )
@@ -1547,9 +1580,9 @@ class Experiment(Base):
         self._arms_by_signature[arm.signature] = arm
         self._arms_by_name[arm.name] = arm
 
-    def _check_TTL_on_running_trials(self) -> None:
-        """Checks whether any past-TTL trials are still marked as `RUNNING`
-        and marks them as failed if so.
+    def _check_TTL_on_candidate_trials(self) -> None:
+        """Checks whether any past-TTL trials are still marked as `CANDIDATE`
+        and marks them as stale if so.
 
         NOTE: this function just calls `trial.status` for each trial, as the
         computation of that property checks the TTL for trials.
@@ -1557,8 +1590,11 @@ class Experiment(Base):
         if not self._trials_have_ttl:
             return
 
-        running = list(self._trial_indices_by_status[TrialStatus.RUNNING])
-        for idx in running:
+        # The trial status changes during TTL check modifies the original set
+        # _trial_indices_by_status, hence create a copy of indices for iteration
+        candidate_indices = self._trial_indices_by_status[TrialStatus.CANDIDATE].copy()
+
+        for idx in candidate_indices:
             self._trials[idx].status  # `status` property checks TTL if applicable.
 
     def _cache_metric_fetch_error(
@@ -1656,9 +1692,8 @@ class Experiment(Base):
                 with a weight of 1.0. If False, the _status_quo is still set on the
                 trial for tracking purposes, but without a weight it will not be an
                 Arm present on the trial
-            ttl_seconds: If specified, will consider the trial failed after this
-                many seconds. Used to detect dead trials that were not marked
-                failed properly.
+            ttl_seconds: If specified, will consider the trial stale after this
+                many seconds. Used to detect dead trials that did not complete.
             run_metadata: Metadata to attach to the trial.
 
         Returns:
@@ -1723,9 +1758,8 @@ class Experiment(Base):
             # data for this arm "complete" in the flattened search space.
             candidate_metadata = None
             if self.search_space.is_hierarchical:
-                hss = assert_is_instance(self.search_space, HierarchicalSearchSpace)
-                candidate_metadata = hss.cast_observation_features(
-                    observation_features=hss.flatten_observation_features(
+                candidate_metadata = self.search_space.cast_observation_features(
+                    observation_features=self.search_space.flatten_observation_features(
                         observation_features=observation.ObservationFeatures(
                             parameters=parameterizations[0]
                         ),
@@ -1872,19 +1906,21 @@ class Experiment(Base):
         data_by_trial = {}
         for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
             trial = self.trials[trial_index]
-            if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
-                new_trial = trial.clone_to(
-                    cloned_experiment, clear_trial_type=clear_trial_type
-                )
-                new_index = new_trial.index
-                trial_data, timestamp = self.lookup_data_for_trial(trial_index)
-                # Clone the data to avoid overwriting the original in the DB.
-                trial_data = trial_data.clone()
-                trial_data.df["trial_index"] = new_index
-                if timestamp != -1:
-                    data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
-            else:
+            if not isinstance(trial, (Trial, BatchTrial)):
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
+            new_trial = trial.clone_to(
+                cloned_experiment, clear_trial_type=clear_trial_type
+            )
+            new_index = new_trial.index
+            if (
+                trial_index in self._data_by_trial
+                and len(trial_data_dict := self._data_by_trial[trial_index]) > 0
+            ):
+                timestamp = max(trial_data_dict.keys())
+                # Clone the data to avoid overwriting the original in the DB.
+                trial_data = trial_data_dict[timestamp].clone()
+                trial_data.df["trial_index"] = new_index
+                data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
         if data is not None:
             # If user passed in data, use it.
             cloned_experiment.attach_data(data.clone())
@@ -1967,6 +2003,7 @@ class Experiment(Base):
         trial_indices: Iterable[int] | None = None,
         trial_statuses: Sequence[TrialStatus] | None = None,
         omit_empty_columns: bool = True,
+        relativize: bool = False,
     ) -> pd.DataFrame:
         """
         High-level summary of the Experiment with one row per arm. Any values missing at
@@ -1988,19 +2025,37 @@ class Experiment(Base):
             trial_indices: If specified, only include these trial indices.
             omit_empty_columns: If True, omit columns where every value is None.
             trial_status: If specified, only include trials with this status.
+            relativize: If True and:
+                * experiment has a status quo on all of its ``BatchTrial``-s
+                * OR a status quo trial among its ``Trial``-s,
+                , relativize metrics against the status quo.
         """
 
         records = []
-        data_df = self.lookup_data(trial_indices=trial_indices).df
-        trials = (
-            self.get_trials_by_indices(trial_indices=trial_indices)
-            if trial_indices
-            else self.trials.values()
-        )
+        data = self.lookup_data(trial_indices=trial_indices)
 
-        # Filter trials by status if specified
-        if trial_statuses is not None:
-            trials = [trial for trial in trials if trial.status in trial_statuses]
+        # Relativize metrics if requested
+        if relativize:
+            if self.status_quo is None:
+                raise UserInputError(
+                    "Attempting to relativize the experiment data, however, "
+                    "the experiment status quo is None. Please set the experiment "
+                    "status quo, or set `relativize` = False"
+                )
+
+            data_df = data.relativize(
+                status_quo_name=self.status_quo.name,
+                as_percent=True,
+                include_sq=True,
+            ).df
+        else:
+            data_df = data.df
+
+        # Filter trials by trial_indices and trial_statuses
+        trials = self.extract_relevant_trials(
+            trial_indices=list(trial_indices) if trial_indices is not None else None,
+            trial_statuses=trial_statuses,
+        )
         # Iterate through trials, and for each trial, iterate through its arms
         # and add a record for each arm.
         for trial in trials:
@@ -2053,6 +2108,20 @@ class Experiment(Base):
         df = pd.DataFrame(records)
         if omit_empty_columns:
             df = df.loc[:, df.notnull().any()]
+
+        # Format metric columns as percentages with 4 significant figures when
+        # relativized
+        if relativize:
+            for metric_name in self.metrics.keys():
+                if metric_name in df.columns:
+                    df[metric_name] = df[metric_name].apply(
+                        lambda x: (
+                            f"{x:.4g}%"
+                            if pd.notna(x) and x != 0.0
+                            else ("0%" if pd.notna(x) else None)
+                        )
+                    )
+
         return df
 
     def add_auxiliary_experiment(

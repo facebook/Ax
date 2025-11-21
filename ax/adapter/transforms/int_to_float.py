@@ -16,10 +16,9 @@ from ax.adapter.transforms.rounding import (
     randomized_round_parameters,
 )
 from ax.adapter.transforms.utils import construct_new_search_space
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
@@ -51,7 +50,6 @@ class IntToFloat(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
@@ -61,7 +59,6 @@ class IntToFloat(Transform):
         )
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -103,7 +100,7 @@ class IntToFloat(Transform):
                     obsf.parameters[p_name] = float(param)
         return observation_features
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters and isinstance(p, RangeParameter):
@@ -206,43 +203,3 @@ class IntToFloat(Transform):
         return ExperimentData(
             arm_data=arm_data, observation_data=experiment_data.observation_data
         )
-
-
-class LogIntToFloat(IntToFloat):
-    """Convert a log-scale RangeParameter of type int to type float.
-
-    The behavior of this transform mirrors ``IntToFloat`` with the key difference
-    being that it only operates on log-scale parameters.
-    """
-
-    def __init__(
-        self,
-        search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
-        experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
-        config: TConfig | None = None,
-    ) -> None:
-        if config is not None and "min_choices" in config:
-            raise UserInputError(
-                "`min_choices` cannot be specified for `LogIntToFloat` transform. "
-            )
-        super().__init__(
-            search_space=search_space,
-            observations=observations,
-            experiment_data=experiment_data,
-            adapter=adapter,
-            config=config,
-        )
-        # Delete the attribute to avoid it presenting a misleading value.
-        del self.min_choices
-
-    def _get_transform_parameters(self) -> set[str]:
-        """Identify parameters that should be transformed."""
-        return {
-            p_name
-            for p_name, p in self.search_space.parameters.items()
-            if isinstance(p, RangeParameter)
-            and p.parameter_type == ParameterType.INT
-            and p.log_scale
-        }

@@ -24,11 +24,9 @@ def get_sobol_generation_strategy() -> GenerationStrategy:
 
 
 def get_sobol_benchmark_method(
-    distribute_replications: bool,
     batch_size: int = 1,
 ) -> BenchmarkMethod:
     return BenchmarkMethod(
         generation_strategy=get_sobol_generation_strategy(),
         batch_size=batch_size,
-        distribute_replications=distribute_replications,
     )

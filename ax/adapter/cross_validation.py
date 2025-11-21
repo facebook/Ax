@@ -162,13 +162,9 @@ def cross_validate(
                 )
             # Get test observations in transformed space.
             for t in model.transforms.values():
-                cv_test_data = t.transform_experiment_data(experiment_data=cv_test_data)
-            # Re-construct the test observations with the transformed data.
-            cv_test_observations = [
-                obs
-                for obs in cv_test_data.convert_to_list_of_observations()
-                if test_selector is None or test_selector(obs)
-            ]
+                cv_test_observations = t.transform_observations(
+                    observations=cv_test_observations
+                )
         # Form CVResult objects
         if len(cv_test_observations) < len(cv_test_predictions):
             msg = (
@@ -237,12 +233,12 @@ def compute_diagnostics(result: list[CVResult]) -> CVDiagnostics:
     y_pred = defaultdict(list)
     se_pred = defaultdict(list)
     for res in result:
-        for j, metric_name in enumerate(res.observed.data.metric_names):
-            y_obs[metric_name].append(res.observed.data.means[j])
+        for j, metric_signature in enumerate(res.observed.data.metric_signatures):
+            y_obs[metric_signature].append(res.observed.data.means[j])
             # Find the matching prediction
-            k = res.predicted.metric_names.index(metric_name)
-            y_pred[metric_name].append(res.predicted.means[k])
-            se_pred[metric_name].append(np.sqrt(res.predicted.covariance[k, k]))
+            k = res.predicted.metric_signatures.index(metric_signature)
+            y_pred[metric_signature].append(res.predicted.means[k])
+            se_pred[metric_signature].append(np.sqrt(res.predicted.covariance[k, k]))
     y_obs = _arrayify_dict_values(y_obs)
     y_pred = _arrayify_dict_values(y_pred)
     se_pred = _arrayify_dict_values(se_pred)
@@ -323,7 +319,7 @@ def has_good_opt_config_model_fit(
     # Bad fit criteria: Any objective metrics are poorly fit
     # TODO[]: Incl. outcome constraints in assessment
     has_good_opt_config_fit = all(
-        (m.name in assess_model_fit_result.good_fit_metrics_to_fisher_score)
+        (m.signature in assess_model_fit_result.good_fit_metrics_to_fisher_score)
         for m in optimization_config.objective.metrics
     )
     return has_good_opt_config_fit
@@ -624,29 +620,29 @@ def _predict_on_cross_validation_data(
             before cross validating. False by default.
 
     Returns:
-        A tuple containing three dictionaries, each mapping metric_name to:
+        A tuple containing three dictionaries, each mapping metric signatures to:
             1. observed metric values,
             2. LOOCV predicted mean at each observed point, and
             3. LOOCV predicted standard deviation at each observed point.
     """
     cv = cross_validate(model=adapter, untransform=untransform)
 
-    metric_names = cv[0].observed.data.metric_names
-    mean_observed = {k: [] for k in metric_names}
-    mean_predicted = {k: [] for k in metric_names}
-    std_predicted = {k: [] for k in metric_names}
+    metric_signatures = cv[0].observed.data.metric_signatures
+    mean_observed = {k: [] for k in metric_signatures}
+    mean_predicted = {k: [] for k in metric_signatures}
+    std_predicted = {k: [] for k in metric_signatures}
 
     for cvi in cv:
         obs = cvi.observed.data
-        for k, v in zip(obs.metric_names, obs.means):
+        for k, v in zip(obs.metric_signatures, obs.means):
             mean_observed[k].append(v)
 
         pred = cvi.predicted
-        for k, v in zip(pred.metric_names, pred.means):
+        for k, v in zip(pred.metric_signatures, pred.means):
             mean_predicted[k].append(v)
 
         pred_se = np.sqrt(pred.covariance.diagonal().clip(0))
-        for k, v in zip(pred.metric_names, pred_se):
+        for k, v in zip(pred.metric_signatures, pred_se):
             std_predicted[k].append(v)
 
     mean_observed = {k: np.array(v) for k, v in mean_observed.items()}

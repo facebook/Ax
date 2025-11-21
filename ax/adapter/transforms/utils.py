@@ -8,18 +8,16 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Callable
 from numbers import Number
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.transforms.derelativize import Derelativize
-from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from numpy import typing as npt
 from pyre_extensions import none_throws
@@ -72,34 +70,6 @@ class ClosestLookupDict(dict):
                 return super().__getitem__(lkey)
             else:
                 return super().__getitem__(rkey)
-
-
-def get_data(
-    observation_data: list[ObservationData],
-    metric_names: list[str] | None = None,
-    raise_on_non_finite_data: bool = True,
-) -> dict[str, list[float]]:
-    """Extract all metrics if `metric_names` is None.
-
-    Raises a value error if any data is non-finite.
-
-    Args:
-        observation_data: List of observation data.
-        metric_names: List of metric names.
-        raise_on_non_finite_data: If true, raises an exception on nan/inf.
-
-    Returns:
-        A dictionary mapping metric names to lists of metric values.
-    """
-    Ys = defaultdict(list)
-    for obsd in observation_data:
-        for i, m in enumerate(obsd.metric_names):
-            if metric_names is None or m in metric_names:
-                val = obsd.means[i]
-                if raise_on_non_finite_data and (not np.isfinite(val)):
-                    raise ValueError(f"Non-finite data found for metric {m}: {val}")
-                Ys[m].append(val)
-    return Ys
 
 
 def match_ci_width(
@@ -168,10 +138,6 @@ def construct_new_search_space(
 ) -> SearchSpace:
     """Construct a search space with the transformed arguments.
 
-    If the `search_space` is a `RobustSearchSpace`, this will use its
-    environmental variables and distributions, and remove the environmental
-    variables from `parameters` before constructing.
-
     Args:
         parameters: List of transformed parameter objects.
         parameter_constraints: List of parameter constraints.
@@ -183,19 +149,7 @@ def construct_new_search_space(
         "parameters": parameters,
         "parameter_constraints": parameter_constraints,
     }
-    if isinstance(search_space, HierarchicalSearchSpace):
-        # Temporarily relax the `requires_root` flag for the new search space. This is
-        # fine because this function is typically called during transforms.
-        new_kwargs["requires_root"] = False
 
-    if isinstance(search_space, RobustSearchSpace):
-        env_vars = list(search_space._environmental_variables.values())
-        if env_vars:
-            # Add environmental variables and remove them from parameters.
-            new_kwargs["environmental_variables"] = env_vars
-            new_kwargs["parameters"] = [p for p in parameters if p not in env_vars]
-        new_kwargs["parameter_distributions"] = search_space.parameter_distributions
-        new_kwargs["num_samples"] = search_space.num_samples
     return search_space.__class__(**new_kwargs)
 
 

@@ -10,24 +10,20 @@
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.bilog_y import BilogY
 from ax.adapter.transforms.choice_encode import (
-    ChoiceEncode,
     ChoiceToNumericChoice,
-    OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
-from ax.adapter.transforms.convert_metric_names import ConvertMetricNames
 from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.adapter.transforms.fixed_to_tunable import FixedToTunable
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
-from ax.adapter.transforms.int_to_float import IntToFloat, LogIntToFloat
+from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.adapter.transforms.ivw import IVW
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.log_y import LogY
 from ax.adapter.transforms.logit import Logit
 from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.adapter.transforms.merge_repeated_measurements import MergeRepeatedMeasurements
-from ax.adapter.transforms.metadata_to_float import MetadataToFloat
 from ax.adapter.transforms.metadata_to_task import MetadataToTask
 from ax.adapter.transforms.metrics_as_task import MetricsAsTask
 from ax.adapter.transforms.one_hot import OneHot
@@ -37,7 +33,7 @@ from ax.adapter.transforms.remove_fixed import RemoveFixed
 from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.stratified_standardize_y import StratifiedStandardizeY
-from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
+from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.adapter.transforms.time_as_feature import TimeAsFeature
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.adapter.transforms.trial_as_task import TrialAsTask
@@ -60,7 +56,8 @@ please add it to DEPRECATED_TRANSFORMS. When loading from the DB,
 we will return the replacement class.
 """
 TRANSFORM_REGISTRY: set[type[Transform]] = {
-    ConvertMetricNames,
+    Transform,
+    # ConvertMetricNames, DEPRECATED
     Derelativize,
     FixedToTunable,
     IntRangeToChoice,
@@ -68,7 +65,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     IVW,
     Log,
     OneHot,
-    OrderedChoiceEncode,  # TO BE DEPRECATED
+    # OrderedChoiceEncode,  # DEPRECATED
     OrderedChoiceToIntegerRange,
     # This transform was upstreamed into the base adapter.
     # DEPRECATED: OutOfDesign
@@ -76,18 +73,18 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     SearchSpaceToChoice,
     StandardizeY,
     StratifiedStandardizeY,
-    TaskEncode,  # TO BE DEPRECATED
+    # TaskEncode,  # DEPRECATED
     TaskChoiceToIntTaskChoice,
     TrialAsTask,
     UnitX,
     Winsorize,
     # CapParameter,  DEPRECATED
     PowerTransformY,
-    ChoiceEncode,  # TO BE DEPRECATED
+    # ChoiceEncode,  # DEPRECATED
     ChoiceToNumericChoice,
     Logit,
     # MapUnitX, DEPRECATED
-    MetadataToFloat,
+    # MetadataToFloat, DEPRECATED
     MetadataToTask,
     MetricsAsTask,
     LogY,
@@ -97,7 +94,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     TimeAsFeature,
     TransformToNewSQ,
     FillMissingParameters,
-    LogIntToFloat,
+    # LogIntToFloat, DEPRECATED
     MapKeyToFloat,
     BilogY,
 }
@@ -106,6 +103,9 @@ REMOVED_TRANSFORMS: set[str] = {
     "OutOfDesign",
     "CapParameter",
     "MapUnitX",
+    "ConvertMetricNames",
+    "LogIntToFloat",
+    "MetadataToFloat",
 }
 
 """

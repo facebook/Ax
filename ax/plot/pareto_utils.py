@@ -20,7 +20,6 @@ from ax.adapter.adapter_utils import (
     get_pareto_frontier_and_configs,
     observed_pareto_frontier,
 )
-from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import Generators, MBM_X_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.derelativize import derelativize_bound
@@ -36,12 +35,11 @@ from ax.core.outcome_constraint import (
     ObjectiveThreshold,
     OutcomeConstraint,
 )
-from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchGenerator
 from ax.utils.common.logger import get_logger
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.math_utils import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
@@ -220,9 +218,11 @@ def get_observed_pareto_frontiers(
     obj_metr_list = sorted(objective_metric_names)
     pfr_means = {name: [] for name in obj_metr_list}
     pfr_sems = {name: [] for name in obj_metr_list}
-
     for obs in pareto_observations:
-        for i, name in enumerate(obs.data.metric_names):
+        obs_metric_names = []
+        for signature in obs.data.metric_signatures:
+            obs_metric_names.append(experiment.signature_to_metric[signature].name)
+        for i, name in enumerate(obs_metric_names):
             if name in objective_metric_names:
                 pfr_means[name].append(obs.data.means[i])
                 pfr_sems[name].append(np.sqrt(obs.data.covariance[i, i]))
@@ -232,8 +232,8 @@ def get_observed_pareto_frontiers(
     objective_thresholds = {}
     if experiment.optimization_config.objective_thresholds is not None:  # pyre-ignore
         for objth in experiment.optimization_config.objective_thresholds:
-            rel_objth[objth.metric.name] = objth.relative
-            objective_thresholds[objth.metric.name] = objth.bound
+            rel_objth[objth.metric.signature] = objth.relative
+            objective_thresholds[objth.metric.signature] = objth.bound
 
     # Identify which metrics should be relativized
     if rel in [True, False]:
@@ -298,22 +298,6 @@ def get_observed_pareto_frontiers(
     return pfr_list
 
 
-def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
-    """Reduces a RobustSearchSpace to a SearchSpace.
-
-    This is a no-op for all other search spaces.
-    """
-    if isinstance(search_space, RobustSearchSpace):
-        return SearchSpace(
-            parameters=[p.clone() for p in search_space._parameters.values()],
-            parameter_constraints=[
-                pc.clone() for pc in search_space._parameter_constraints
-            ],
-        )
-    else:
-        return search_space
-
-
 def get_tensor_converter_adapter(
     experiment: Experiment, data: Data | None = None
 ) -> TorchAdapter:
@@ -336,13 +320,9 @@ def get_tensor_converter_adapter(
     # space to tensors.
     return TorchAdapter(
         experiment=experiment,
-        search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
         generator=TorchGenerator(),
         transforms=MBM_X_trans,
-        data_loader_config=DataLoaderConfig(
-            fit_out_of_design=True,
-        ),
     )
 
 
@@ -551,10 +531,10 @@ def _validate_outcome_constraints(
     objective_metrics = [primary_objective.name, secondary_objective.name]
     if outcome_constraints is not None:
         for oc in outcome_constraints:
-            if oc.metric.name in objective_metrics:
+            if oc.metric.signature in objective_metrics:
                 raise ValueError(
                     "Metric `{metric_name}` occurs in both outcome constraints "
-                    "and objectives".format(metric_name=oc.metric.name)
+                    "and objectives".format(metric_name=oc.metric.signature)
                 )
 
 
@@ -606,7 +586,7 @@ def infer_reference_point_from_experiment(
     # further down the road `get_pareto_frontier_and_configs` arbitrarily changes the
     # orders of the objectives, we fix the objective orders here based on the
     # observation_data and maintain it throughout the flow.
-    objective_orders = obs_data[0].metric_names
+    objective_orders = obs_data[0].metric_signatures
 
     # Defining a dummy reference point so that all observed points are considered
     # when calculating the Pareto front. Also, defining a multiplier to turn all
@@ -636,9 +616,11 @@ def infer_reference_point_from_experiment(
         # `objective_orders`. If there is an objective that does not exist
         # in `obs_data`, a ValueError is raised.
         try:
-            objective_index = objective_orders.index(ot.metric.name)
+            objective_index = objective_orders.index(ot.metric.signature)
         except ValueError:
-            raise ValueError(f"Metric {ot.metric.name} does not exist in `obs_data`.")
+            raise ValueError(
+                f"Metric {ot.metric.signature} does not exist in `obs_data`."
+            )
 
         if ot.op == ComparisonOp.LEQ:
             ot.bound = np.inf
@@ -684,8 +666,8 @@ def infer_reference_point_from_experiment(
     # Need to reshuffle columns of `f` and `obj_w` to be consistent
     # with objective_orders.
     order = [
-        objective_orders.index(metric_name)
-        for metric_name in frontier_observations[0].data.metric_names
+        objective_orders.index(metric_signature)
+        for metric_signature in frontier_observations[0].data.metric_signatures
     ]
     f = f[:, order]
     obj_w = obj_w[order]
@@ -711,7 +693,7 @@ def infer_reference_point_from_experiment(
 
     for obj_threshold in inferred_rp:
         obj_threshold.bound = rp[
-            objective_orders_reduced.index(obj_threshold.metric.name)
+            objective_orders_reduced.index(obj_threshold.metric.signature)
         ].item()
     return inferred_rp
 

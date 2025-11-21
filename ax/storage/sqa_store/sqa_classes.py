@@ -71,6 +71,8 @@ class SQAParameter(Base):
     )
     is_fidelity: Column[bool | None] = Column(Boolean)
     target_value: Column[TParamValue | None] = Column(JSONEncodedObject)
+    backfill_value: Column[TParamValue | None] = Column(JSONEncodedObject)
+    default_value: Column[TParamValue | None] = Column(JSONEncodedObject)
 
     # Attributes for Range Parameters
     digits: Column[int | None] = Column(Integer)
@@ -117,6 +119,7 @@ class SQAMetric(Base):
     metric_type: Column[int] = Column(Integer, nullable=False)
     name: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
     properties: Column[dict[str, Any] | None] = Column(JSONEncodedTextDict, default={})
+    signature: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
 
     # Attributes for Objectives
     minimize: Column[bool | None] = Column(Boolean)

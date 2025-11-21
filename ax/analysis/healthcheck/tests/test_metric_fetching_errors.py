@@ -30,6 +30,7 @@ TEST_DATA = Data(
                 "mean": 1.0,
                 "sem": 2.0,
                 "trial_index": 0,
+                "metric_signature": "test_metric",
             }
         ]
     )

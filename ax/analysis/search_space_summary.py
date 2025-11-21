@@ -5,16 +5,21 @@
 
 # pyre-strict
 
+from typing import final
+
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
+
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
+@final
 class SearchSpaceSummary(Analysis):
     """
     Creates a dataframe with information about each parameter in the given
@@ -30,6 +35,19 @@ class SearchSpaceSummary(Analysis):
         - Dependent Parameters: for parameters in hierarchical search spaces,
         mapping from parameter value -> list of dependent parameter names.
     """
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=False,
+            require_data=False,
+        )
 
     @override
     def compute(

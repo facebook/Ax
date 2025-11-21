@@ -12,13 +12,14 @@ Key terms used:
 
 * Replication: 1 run of an optimization loop; (BenchmarkProblem, BenchmarkMethod) pair.
 * Test: multiple replications, ran for statistical significance.
-* Full run: multiple tests on many (BenchmarkProblem, BenchmarkMethod) pairs.
 * Method: (one of) the algorithm(s) being benchmarked.
+* Full run: multiple tests on many (BenchmarkProblem, BenchmarkMethod) pairs.
 * Problem: a synthetic function, a surrogate surface, or an ML model, on which
   to assess the performance of algorithms.
 
 """
 
+import math
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -36,7 +37,7 @@ from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
-from ax.benchmark.methods.sobol import get_sobol_generation_strategy
+from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
@@ -49,9 +50,14 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.orchestrator import Orchestrator
-from ax.service.utils.best_point import get_trace
+from ax.service.utils.best_point import (
+    _prepare_data_for_trace,
+    derelativize_opt_config,
+    get_trace,
+)
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
@@ -217,37 +223,46 @@ def get_oracle_experiment_from_params(
 
 
 def get_benchmark_orchestrator_options(
-    method: BenchmarkMethod,
-    include_sq: bool = False,
+    batch_size: int | None,
+    run_trials_in_batches: bool,
+    max_pending_trials: int,
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None,
+    include_status_quo: bool = False,
     logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> OrchestratorOptions:
     """
     Get the ``OrchestratorOptions`` for the given ``BenchmarkMethod``.
 
     Args:
-        method: The ``BenchmarkMethod``.
-        include_sq: Whether to include the status quo in each trial.
+        batch_size: The batch size to use for the optimiation.
+        run_trials_in_batches: Whether to run trials in batches. This is used
+            for high-throughput settings where there are many trials and
+            generating them in bulk reduces overhead (not to be confused with
+            `BatchTrial`s, which are different).
+        max_pending_trials: The maximum number of pending trials allowed.
+        early_stopping_strategy: The early stopping strategy to use (if any).
+        include_status_quo: Whether to include the status quo in each trial.
+        logging_level: The logging level to use for the Orchestrator.
 
     Returns:
         ``OrchestratorOptions``
     """
-    if method.batch_size is None or method.batch_size > 1 or include_sq:
+    if batch_size is None or batch_size > 1 or include_status_quo:
         trial_type = TrialType.BATCH_TRIAL
     else:
         trial_type = TrialType.TRIAL
     return OrchestratorOptions(
         # No new candidates can be generated while any are pending.
-        # If batched, an entire batch must finish before the next can be
-        # generated.
-        max_pending_trials=method.max_pending_trials,
+        # If batched, an entire batch must finish before the next can be generated.
+        max_pending_trials=max_pending_trials,
         # Do not throttle, as is often necessary when polling real endpoints
         init_seconds_between_polls=0,
         min_seconds_before_poll=0,
         trial_type=trial_type,
-        batch_size=method.batch_size,
-        run_trials_in_batches=method.run_trials_in_batches,
-        early_stopping_strategy=method.early_stopping_strategy,
-        status_quo_weight=1.0 if include_sq else 0.0,
+        batch_size=batch_size,
+        run_trials_in_batches=run_trials_in_batches,
+        early_stopping_strategy=early_stopping_strategy,
+        status_quo_weight=1.0 if include_status_quo else 0.0,
         logging_level=logging_level,
     )
 
@@ -318,6 +333,27 @@ def get_inference_trace(
                 params=best_params, problem=problem
             )
     return inference_trace
+
+
+def get_is_feasible_trace(
+    experiment: Experiment, optimization_config: OptimizationConfig
+) -> list[float]:
+    """Get a trace of feasibility for the experiment.
+
+    For batch trials we return True if any arm in a given batch is feasible.
+    """
+    df = experiment.lookup_data().df.copy()  # Let's not modify the original df
+    if len(df) == 0:
+        return []
+    # Derelativize the optimization config if needed.
+    optimization_config = derelativize_opt_config(
+        optimization_config=optimization_config,
+        experiment=experiment,
+    )
+    # Compute feasibility and return feasibility per group
+    df = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
+    trial_grouped = df.groupby("trial_index")["feasible"]
+    return trial_grouped.any().tolist()
 
 
 def get_best_parameters(
@@ -421,6 +457,12 @@ def get_benchmark_result_from_experiment_and_gs(
             optimization_config=problem.optimization_config,
         )
     )
+    is_feasible_trace = np.array(
+        get_is_feasible_trace(
+            experiment=actual_params_oracle_dummy_experiment,
+            optimization_config=problem.optimization_config,
+        )
+    )
     if problem.report_inference_value_as_trace:
         inference_trace = get_inference_trace(
             trial_completion_order=trial_completion_order,
@@ -433,12 +475,38 @@ def get_benchmark_result_from_experiment_and_gs(
         inference_trace = np.full_like(oracle_trace, fill_value=np.nan)
         optimization_trace = oracle_trace
 
-    score_trace = compute_score_trace(
-        optimization_trace=optimization_trace,
-        optimal_value=problem.optimal_value,
-        baseline_value=problem.baseline_value,
-    )
+    # Need to modify the optimization trace for constrained problems
+    if len(problem.optimization_config.outcome_constraints) > 0:
+        inds_is_feas = np.where(is_feasible_trace)[0]
+        infeasible_inds = (
+            np.arange(len(optimization_trace))
+            if len(inds_is_feas) == 0
+            else np.arange(inds_is_feas[0])
+        )
+        oracle_trace[infeasible_inds] = problem.worst_feasible_value
+        if problem.report_inference_value_as_trace:
+            # Note: The inference trace isn't cumulative.
+            inference_trace[~is_feasible_trace] = problem.worst_feasible_value
+            optimization_trace[~is_feasible_trace] = problem.worst_feasible_value
+        else:
+            optimization_trace[infeasible_inds] = problem.worst_feasible_value
 
+        baseline_value = (
+            none_throws(problem.worst_feasible_value)
+            if not math.isfinite(problem.baseline_value)
+            else problem.baseline_value
+        )
+        score_trace = compute_score_trace(
+            optimization_trace=optimization_trace,
+            optimal_value=problem.optimal_value,
+            baseline_value=baseline_value,
+        )
+    else:
+        score_trace = compute_score_trace(
+            optimization_trace=optimization_trace,
+            optimal_value=problem.optimal_value,
+            baseline_value=problem.baseline_value,
+        )
     fit_time, gen_time = get_model_times(experiment=experiment)
     if strip_runner_before_saving:
         # Strip runner from experiment before returning, so that the experiment can
@@ -449,11 +517,12 @@ def get_benchmark_result_from_experiment_and_gs(
         name=experiment.name,
         seed=seed,
         experiment=experiment,
-        oracle_trace=oracle_trace,
-        inference_trace=inference_trace,
-        optimization_trace=optimization_trace,
-        score_trace=score_trace,
-        cost_trace=cost_trace,
+        oracle_trace=oracle_trace.tolist(),
+        inference_trace=inference_trace.tolist(),
+        optimization_trace=optimization_trace.tolist(),
+        is_feasible_trace=is_feasible_trace.tolist(),
+        score_trace=score_trace.tolist(),
+        cost_trace=cost_trace.tolist(),
         fit_time=fit_time,
         gen_time=gen_time,
     )
@@ -463,6 +532,8 @@ def run_optimization_with_orchestrator(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seed: int,
+    run_trials_in_batches: bool = False,
+    timeout_hours: float | None = None,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> Experiment:
     """
@@ -473,10 +544,16 @@ def run_optimization_with_orchestrator(
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
         seed: The seed to use for this replication.
+        run_trials_in_batches: Whether to run trials in batches. This is used
+            for high-throughput settings where there are many trials and
+            generating them in bulk reduces overhead (not to be confused with
+            `BatchTrial`s, which are different).
+        timeout_hours: The maximum number of hours for which to run the
+            optimization loop before timing out.
         orchestrator_logging_level: If >INFO, logs will only appear when unexpected
             things happen. If INFO, logs will update when a trial is completed
             and when an early stopping strategy, if present, decides whether or
-            not to continue a trial. If DEBUG, logs additionaly include
+            not to continue a trial. If DEBUG, logs additionally include
             information from a `BackendSimulator`, if present.
 
     Return:
@@ -488,8 +565,11 @@ def run_optimization_with_orchestrator(
         else Arm(name="status_quo", parameters=problem.status_quo_params)
     )
     orchestrator_options = get_benchmark_orchestrator_options(
-        method=method,
-        include_sq=sq_arm is not None,
+        batch_size=method.batch_size,
+        run_trials_in_batches=run_trials_in_batches,
+        max_pending_trials=method.max_pending_trials,
+        early_stopping_strategy=method.early_stopping_strategy,
+        include_status_quo=sq_arm is not None,
         logging_level=orchestrator_logging_level,
     )
     runner = get_benchmark_runner(
@@ -503,6 +583,7 @@ def run_optimization_with_orchestrator(
         optimization_config=problem.optimization_config,
         runner=runner,
         status_quo=sq_arm,
+        tracking_metrics=problem.tracking_metrics,
         auxiliary_experiments_by_purpose=problem.auxiliary_experiments_by_purpose,
     )
 
@@ -520,7 +601,7 @@ def run_optimization_with_orchestrator(
             module="ax.adapter.cross_validation",
         )
         orchestrator.run_n_trials(
-            max_trials=problem.num_trials, timeout_hours=method.timeout_hours
+            max_trials=problem.num_trials, timeout_hours=timeout_hours
         )
 
     sim_runner = runner.simulated_backend_runner
@@ -537,8 +618,10 @@ def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seed: int,
-    strip_runner_before_saving: bool = True,
+    run_trials_in_batches: bool = False,
+    timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+    strip_runner_before_saving: bool = True,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -552,13 +635,19 @@ def benchmark_replication(
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
         seed: The seed to use for this replication.
-        strip_runner_before_saving: Whether to strip the runner from the
-            experiment before saving it. This enables serialization.
+        run_trials_in_batches: Whether to run trials in batches. This is used
+            for high-throughput settings where there are many trials and
+            generating them in bulk reduces overhead (not to be confused with
+            `BatchTrial`s, which are different).
+        timeout_hours: The maximum number of hours for which to run the
+            optimization loop before timing out.
         orchestrator_logging_level: If >INFO, logs will only appear when unexpected
             things happen. If INFO, logs will update when a trial is completed
             and when an early stopping strategy, if present, decides whether or
             not to continue a trial. If DEBUG, logs additionally include
             information from a ``BackendSimulator``, if present.
+        strip_runner_before_saving: Whether to strip the runner from the
+            experiment before saving it. This enables serialization.
 
     Return:
         ``BenchmarkResult`` object.
@@ -567,15 +656,17 @@ def benchmark_replication(
         problem=problem,
         method=method,
         seed=seed,
+        run_trials_in_batches=run_trials_in_batches,
+        timeout_hours=timeout_hours,
         orchestrator_logging_level=orchestrator_logging_level,
     )
 
     benchmark_result = get_benchmark_result_from_experiment_and_gs(
-        seed=seed,
         experiment=experiment,
         generation_strategy=method.generation_strategy,
-        strip_runner_before_saving=strip_runner_before_saving,
         problem=problem,
+        seed=seed,
+        strip_runner_before_saving=strip_runner_before_saving,
     )
     return benchmark_result
 
@@ -605,8 +696,7 @@ def compute_baseline_value_from_sobol(
             `BenchmarkProblem`.
         n_repeats: Number of times to repeat the five Sobol trials.
     """
-    gs = get_sobol_generation_strategy()
-    method = BenchmarkMethod(generation_strategy=gs)
+    method = get_sobol_benchmark_method()
     target_fidelity_and_task = {} if target_fidelity_and_task is None else {}
 
     # set up a dummy problem so we can use `benchmark_replication`
@@ -617,15 +707,14 @@ def compute_baseline_value_from_sobol(
     dummy_problem = BenchmarkProblem(
         name="dummy",
         optimization_config=optimization_config,
-        search_space=search_space,
         num_trials=5,
         test_function=test_function,
-        # Optimal value and baseline value are only used
-        # to compute the score_trace, which we don't use here.
-        # The order of baseline and optimal value needs to be correct,
-        # though, as a ValueError is raised otherwise.
+        # Optimal value and baseline value are only used to compute the score_trace,
+        # which we don't use here. The order of baseline and optimal value needs to
+        # be correct, though, as a ValueError is raised otherwise.
         optimal_value=1.0 if higher_is_better else -1.0,
         baseline_value=0.0,
+        search_space=search_space,
         target_fidelity_and_task=target_fidelity_and_task,
     )
 
@@ -635,17 +724,21 @@ def compute_baseline_value_from_sobol(
             problem=dummy_problem,
             method=method,
             seed=i,
+            run_trials_in_batches=False,
+            timeout_hours=0.1,
             orchestrator_logging_level=WARNING,
         )
         values[i] = result.optimization_trace[-1]
 
-    return values.mean()
+    return values.mean().item()
 
 
 def benchmark_one_method_problem(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seeds: Iterable[int],
+    run_trials_in_batches: bool = False,
+    timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> AggregatedBenchmarkResult:
     return AggregatedBenchmarkResult.from_benchmark_results(
@@ -654,6 +747,8 @@ def benchmark_one_method_problem(
                 problem=problem,
                 method=method,
                 seed=seed,
+                run_trials_in_batches=run_trials_in_batches,
+                timeout_hours=timeout_hours,
                 orchestrator_logging_level=orchestrator_logging_level,
             )
             for seed in seeds
@@ -665,6 +760,8 @@ def benchmark_multiple_problems_methods(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
+    run_trials_in_batches: bool = False,
+    timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
 ) -> list[AggregatedBenchmarkResult]:
     """
@@ -678,6 +775,8 @@ def benchmark_multiple_problems_methods(
             problem=p,
             method=m,
             seeds=seeds,
+            run_trials_in_batches=run_trials_in_batches,
+            timeout_hours=timeout_hours,
             orchestrator_logging_level=orchestrator_logging_level,
         )
         for p, m in product(problems, methods)

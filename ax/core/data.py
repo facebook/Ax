@@ -8,26 +8,32 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from copy import deepcopy
 from io import StringIO
-from typing import Any, cast, TypeVar
+from logging import Logger
+from typing import Any, TypeVar
 
 import numpy as np
 import pandas as pd
-from ax.core.types import TTrialEvaluation
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
+from ax.utils.common.equality import dataframe_equals
+from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     extract_init_args,
     SerializationMixin,
-    serialize_init_args,
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
+from ax.utils.stats.math_utils import relativize as relativize_func
 from pyre_extensions import assert_is_instance
+
+logger: Logger = get_logger(__name__)
 
 TData = TypeVar("TData", bound="Data")
 DF_REPR_MAX_LENGTH = 1000
+MAP_KEY = "step"
 
 
 class Data(Base, SerializationMixin):
@@ -39,16 +45,37 @@ class Data(Base, SerializationMixin):
 
 
     Attributes:
-        df: DataFrame with underlying data, and required columns. For Data, the
-            required columns are "arm_name", "metric_name", "mean", and "sem", the
-            latter two of which must be numeric.
+        full_df: DataFrame with underlying data. For Data, the required columns
+            are "arm_name", "metric_name", "mean", and "sem", the latter two of
+            which must be numeric. This is close to the raw data input by the
+            user as ``df``; by contrast, in the ``Data`` subclass ``MapData``,
+            the property ``self.df`` may be a subset of the full data used for
+            modeling. Constructing ``df`` can be expensive, so it is better to
+            reference ``full_df`` than ``df`` for operations that do not require
+            scanning the full data, such as accessing the columns of the
+            DataFrame.
 
+    Properties:
+        df: Potentially smaller representation of the data used for modeling. In
+            the base class ``Data``, ``df`` equals ``full_df``. In the subclass
+            ``MapData``, ``df`` contains only the most recent ``step`` values
+            for each trial-arm-metric. Because constructing ``df`` can be
+            expensive, it is recommended to reference ``full_df`` for operations
+            that do not require scanning the full data, such as accessing the
+            columns of the DataFrame.
     """
 
     # Note: Although the SEM (standard error of the mean) is a required column,
     # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
     # either in your Metric class or in Data explicitly.
-    REQUIRED_COLUMNS = {"trial_index", "arm_name", "metric_name", "mean", "sem"}
+    REQUIRED_COLUMNS = {
+        "trial_index",
+        "arm_name",
+        "metric_name",
+        "mean",
+        "sem",
+        "metric_signature",
+    }
 
     # Note on text data: https://pandas.pydata.org/docs/user_guide/text.html
     # Its type can either be `numpy.dtypes.ObjectDType` or StringDtype extension
@@ -59,6 +86,7 @@ class Data(Base, SerializationMixin):
         "arm_name": np.dtype("O"),
         # Metric data-related columns.
         "metric_name": np.dtype("O"),
+        "metric_signature": np.dtype("O"),
         "mean": np.float64,
         "sem": np.float64,
         # Metadata columns available for all subclasses.
@@ -68,10 +96,11 @@ class Data(Base, SerializationMixin):
         # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
         "random_split": int,
-        "fidelities": np.dtype("O"),  # Dictionary stored as json
+        # Used with MapData
+        MAP_KEY: float,
     }
 
-    _df: pd.DataFrame
+    full_df: pd.DataFrame
 
     def __init__(
         self: TData,
@@ -88,10 +117,15 @@ class Data(Base, SerializationMixin):
                 of the DataFrame are known to be ordered and valid.
         """
         if df is None:
-            # Initialize with barebones DF.
-            self._df = pd.DataFrame(columns=list(self.required_columns()))
+            # Initialize with barebones DF with expected dtypes
+            self.full_df = pd.DataFrame.from_dict(
+                {
+                    col: pd.Series([], dtype=self.COLUMN_DATA_TYPES[col])
+                    for col in self.required_columns()
+                }
+            )
         elif _skip_ordering_and_validation:
-            self._df = df
+            self.full_df = df
         else:
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
@@ -99,24 +133,27 @@ class Data(Base, SerializationMixin):
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
-            extra_columns = columns - self.supported_columns()
-            if extra_columns:
-                raise ValueError(f"Columns {list(extra_columns)} are not supported.")
-            df = df.dropna(axis=0, how="all", ignore_index=True)
+            # Drop rows where every input is null. Since `dropna` can be slow, first
+            # check trial index to see if dropping nulls might be needed.
+            if df["trial_index"].isnull().any():
+                df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
-
-            # Reorder the columns for easier viewing
-            col_order = [c for c in self.column_data_types() if c in df.columns]
-            self._df = df.reindex(columns=col_order, copy=False)
+            self.full_df = self._get_df_with_cols_in_expected_order(df=df)
 
     @classmethod
-    def _safecast_df(
-        cls: type[TData],
-        df: pd.DataFrame,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Mapping[str, type] | None = None,
-    ) -> pd.DataFrame:
+    def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Reorder the columns for easier viewing"""
+        current_order = list(df.columns)  # Surprisingly slow, so do it once
+        overall_order = list(cls.COLUMN_DATA_TYPES)
+        desired_order = [c for c in overall_order if c in current_order] + [
+            c for c in current_order if c not in overall_order
+        ]
+        if current_order != desired_order:
+            return df.reindex(columns=desired_order, copy=False)
+        return df
+
+    @classmethod
+    def _safecast_df(cls: type[TData], df: pd.DataFrame) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
         Needed because numpy does not support NaNs in integer arrays.
@@ -132,9 +169,7 @@ class Data(Base, SerializationMixin):
 
         """
         dtypes = df.dtypes
-        for col, coltype in cls.column_data_types(
-            extra_column_types=extra_column_types
-        ).items():
+        for col, coltype in cls.COLUMN_DATA_TYPES.items():
             if col in df.columns.values and coltype is not Any:
                 # Pandas timestamp handlng is weird
                 dtype = "datetime64[ns]" if coltype is pd.Timestamp else coltype
@@ -142,6 +177,7 @@ class Data(Base, SerializationMixin):
                     coltype is int and df.loc[:, col].isnull().any()
                 ):
                     df[col] = df[col].astype(dtype)
+        df.reset_index(inplace=True, drop=True)
         return df
 
     def required_columns(self) -> set[str]:
@@ -149,38 +185,12 @@ class Data(Base, SerializationMixin):
         return self.REQUIRED_COLUMNS
 
     @classmethod
-    def supported_columns(
-        cls, extra_column_names: Iterable[str] | None = None
-    ) -> set[str]:
-        """Names of columns supported (but not necessarily required) by this class."""
-        extra_column_names = set(extra_column_names or [])
-        extra_column_types: dict[str, Any] = {name: Any for name in extra_column_names}
-        return cls.REQUIRED_COLUMNS.union(
-            cls.column_data_types(extra_column_types=extra_column_types)
-        )
-
-    @classmethod
-    def column_data_types(
-        cls,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Mapping[str, type] | None = None,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-    ) -> dict[str, type]:
-        """Type specification for all supported columns."""
-        extra_column_types = extra_column_types or {}
-        return {**cls.COLUMN_DATA_TYPES, **extra_column_types}
-
-    @classmethod
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """Serialize the class-dependent properties needed to initialize this Data.
         Used for storage and to help construct new similar Data.
         """
         data = assert_is_instance(obj, cls)
-        return serialize_init_args(
-            obj=data, exclude_fields=["_skip_ordering_and_validation"]
-        )
+        return {"df": data.full_df}
 
     @classmethod
     def deserialize_init_args(
@@ -202,18 +212,11 @@ class Data(Base, SerializationMixin):
         return extract_init_args(args=args, class_=cls)
 
     @property
-    def true_df(self) -> pd.DataFrame:
-        """Return the ``DataFrame`` being used as the source of truth (avoid using
-        except for caching).
-        """
-        return self._df
-
-    @property
     def df(self) -> pd.DataFrame:
-        return self._df
+        return self.full_df
 
-    @staticmethod
-    def from_multiple(data: Iterable[TData]) -> TData:
+    @classmethod
+    def from_multiple_data(cls: type[TData], data: Iterable[TData]) -> TData:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
@@ -222,88 +225,19 @@ class Data(Base, SerializationMixin):
         """
         dfs = []
 
-        cls = None
-
         for datum in data:
-            if cls is None:
-                cls = type(datum)
             if type(datum) is not cls:
                 raise TypeError(
-                    f"All data objects must be instances of the same class. Got "
+                    f"All data objects must be instances of {cls}. Got "
                     f"{cls} and {type(datum)}."
                 )
-            if len(datum.df) > 0:
+            if not datum.full_df.empty:
                 dfs.append(datum.df)
-
-        cls = cls or cast(type[TData], Data)
 
         if len(dfs) == 0:
             return cls()
 
         return cls(df=pd.concat(dfs, axis=0, sort=True))
-
-    @classmethod
-    def from_evaluations(
-        cls: type[TData],
-        evaluations: Mapping[str, TTrialEvaluation],
-        trial_index: int,
-        sample_sizes: Mapping[str, int] | None = None,
-        start_time: int | str | None = None,
-        end_time: int | str | None = None,
-    ) -> TData:
-        """
-        Convert dict of evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from arm name to outcomes, which itself is a mapping of
-                outcome names to values, means, or tuples of mean and SEM. If SEM is
-                not specified, it will be set to None and inferred from data.
-            trial_index: Trial index to which this data belongs.
-            sample_sizes: Number of samples collected for each arm.
-            start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds or iso format.  Milliseconds will be automatically
-                converted to iso format because iso format automatically works with the
-                pandas column type `Timestamp`.
-            end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds or iso format.  Milliseconds will be automatically
-                converted to iso format because iso format automatically works with the
-                pandas column type `Timestamp`.
-
-        Returns:
-            Ax object of the enclosing class.
-        """
-        records = cls._get_records(evaluations=evaluations, trial_index=trial_index)
-        records = cls._add_cols_to_records(
-            records=records,
-            sample_sizes=sample_sizes,
-            start_time=start_time,
-            end_time=end_time,
-        )
-        return cls(df=pd.DataFrame(records))
-
-    @staticmethod
-    def _add_cols_to_records(
-        records: list[dict[str, Any]],
-        sample_sizes: Mapping[str, int] | None = None,
-        start_time: int | str | None = None,
-        end_time: int | str | None = None,
-    ) -> list[dict[str, Any]]:
-        """Adds to records metadata columns that are available for all
-        Data subclasses.
-        """
-        if start_time is not None or end_time is not None:
-            if isinstance(start_time, int):
-                start_time = _ms_epoch_to_isoformat(start_time)
-            if isinstance(end_time, int):
-                end_time = _ms_epoch_to_isoformat(end_time)
-
-            for record in records:
-                record.update({"start_time": start_time, "end_time": end_time})
-        if sample_sizes:
-            for record in records:
-                record["n"] = sample_sizes[str(record["arm_name"])]
-
-        return records
 
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
@@ -312,22 +246,6 @@ class Data(Base, SerializationMixin):
             df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
         return f"{self.__class__.__name__}(df=\n{df_markdown})"
 
-    @staticmethod
-    def _get_records(
-        evaluations: Mapping[str, TTrialEvaluation], trial_index: int
-    ) -> list[dict[str, Any]]:
-        return [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-            }
-            for name, evaluation in evaluations.items()
-            for metric_name, value in evaluation.items()
-        ]
-
     @property
     def metric_names(self) -> set[str]:
         """Set of metric names that appear in the underlying dataframe of
@@ -335,63 +253,229 @@ class Data(Base, SerializationMixin):
         """
         return set() if self.df.empty else set(self.df["metric_name"].values)
 
+    @property
+    def metric_signatures(self) -> set[str]:
+        """Set of metric signatures that appear in the underlying dataframe of
+        this object.
+        """
+        return set() if self.df.empty else set(self.df["metric_signature"].values)
+
     def filter(
         self: TData,
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
     ) -> TData:
         """Construct a new object with the subset of rows corresponding to the
-        provided trial indices AND metric names. If either trial_indices or
-        metric_names are not provided, that dimension will not be filtered.
+        provided trial indices, metric names, and metric signatures. If trial_indices,
+        metric_names, or metric_signatures are not provided, that dimension will not be
+        filtered.
         """
+
+        if metric_names and metric_signatures:
+            raise UserInputError(
+                "Cannot filter by both metric names and metric signatures. "
+                "Please filter by one or the other."
+            )
 
         return self.__class__(
             df=_filter_df(
-                df=self.df, trial_indices=trial_indices, metric_names=metric_names
-            ),
+                df=self.full_df,
+                trial_indices=trial_indices,
+                metric_names=metric_names,
+                metric_signatures=metric_signatures,
+            ).reset_index(drop=True),
             _skip_ordering_and_validation=True,
         )
 
-    @classmethod
-    def from_multiple_data(cls, data: Iterable[Data]) -> Data:
-        """Combines multiple objects into one (with the concatenated
-        underlying dataframe).
+    def clone(self: TData) -> TData:
+        """Returns a new Data object with the same underlying dataframe."""
+        return self.__class__(df=deepcopy(self.full_df))
+
+    def __eq__(self, o: Data) -> bool:
+        return type(self) is type(o) and dataframe_equals(self.full_df, o.full_df)
+
+    def relativize(
+        self: TData,
+        status_quo_name: str = "status_quo",
+        as_percent: bool = False,
+        include_sq: bool = False,
+        bias_correction: bool = True,
+        control_as_constant: bool = False,
+    ) -> TData:
+        """Relativize a data object w.r.t. a status_quo arm.
 
         Args:
-            data: Iterable of Ax objects of this class to combine.
-            subset_metrics: If specified, combined object will only contain
-                metrics, names of which appear in this iterable,
-                in the underlying dataframe.
+            data: The data object to be relativized.
+            status_quo_name: The name of the status_quo arm.
+            as_percent: If True, return results as percentage change.
+            include_sq: Include status quo in final df.
+            bias_correction: Whether to apply bias correction when computing relativized
+                metric values. Uses a second-order Taylor expansion for approximating
+                the means and standard errors or the ratios, see
+                ax.utils.stats.math_utils.relativize for more details.
+            control_as_constant: If true, control is treated as a constant.
+                bias_correction is ignored when this is true.
+
+        Returns:
+            The new data object with the relativized metrics (excluding the
+                status_quo arm)
+
         """
-        return cls.from_multiple(data=data)
+        df = self.df.copy()
+        df_rel = relativize_dataframe(
+            df=df,
+            status_quo_name=status_quo_name,
+            as_percent=as_percent,
+            include_sq=include_sq,
+            bias_correction=bias_correction,
+            control_as_constant=control_as_constant,
+        )
+        return self.__class__(df=df_rel)
 
-    def clone(self) -> Data:
-        """Returns a new Data object with the same underlying dataframe."""
-        return Data(df=deepcopy(self.df))
 
+def combine_dfs_favoring_recent(
+    last_df: pd.DataFrame, new_df: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Combine last_df and new_df.
 
-def _ms_epoch_to_isoformat(epoch: int) -> str:
-    return pd.Timestamp(epoch, unit="ms").isoformat()
+    Deduplicate in favor of new_df when there are multiple observations with
+    the same "trial_index", "metric_name", and "arm_name", and, when
+    present, "step." If only one input has a "step," assign a NaN step to the other.
+
+    Args:
+        last_df: The DataFrame of data currently attached to a trial
+        new_df: A DataFrame containing new data to be attached
+
+    Returns:
+        Combined DataFrame
+    """
+    merge_keys = ["trial_index", "metric_name", "arm_name"]
+    # If only one has a "step" column, add a step column to the other one
+    if MAP_KEY in last_df.columns:
+        merge_keys += [MAP_KEY]
+        if MAP_KEY not in new_df.columns:
+            new_df["step"] = float("NaN")
+    elif MAP_KEY in new_df.columns:
+        merge_keys += [MAP_KEY]
+        last_df["step"] = float("NaN")
+
+    combined = pd.concat((last_df, new_df), ignore_index=True).drop_duplicates(
+        subset=merge_keys, keep="last", ignore_index=True
+    )
+    return assert_is_instance(combined, pd.DataFrame)
 
 
 def _filter_df(
     df: pd.DataFrame,
     trial_indices: Iterable[int] | None = None,
     metric_names: Iterable[str] | None = None,
+    metric_signatures: Iterable[str] | None = None,
 ) -> pd.DataFrame:
-    """Filter rows of a dataframe by trial indices and metric names."""
+    """Filter rows of a dataframe by trial indices, metric names, metric signatures,
+    or trial indices and either metric names or metric signatures."""
+
+    if metric_names and metric_signatures:
+        raise UserInputError(
+            "Cannot filter by both metric names and metric signatures. "
+            "Please filter by one or the other."
+        )
+
     if trial_indices is not None:
         # Trial indices is not None, metric names is not yet known.
         trial_indices_mask = df["trial_index"].isin(trial_indices)
-        if metric_names is None:
-            # If metric names is None, we can filter & return.
-            return df.loc[trial_indices_mask]
-        # Both are given, filter by both.
-        metric_names_mask = df["metric_name"].isin(metric_names)
-        return df.loc[trial_indices_mask & metric_names_mask]
+        # If metric names is not None, filter by both.
+        if metric_names:
+            metric_names_mask = df["metric_name"].isin(metric_names)
+            return df.loc[trial_indices_mask & metric_names_mask]
+        # If metric signatures is not None, filter by both.
+        if metric_signatures:
+            metric_signatures_mask = df["metric_signature"].isin(metric_signatures)
+            return df.loc[trial_indices_mask & metric_signatures_mask]
+        # If metric names and signatures are None, filter by trial indices only.
+        return df.loc[trial_indices_mask]
     if metric_names is not None:
-        # Trial indices is None, metric names is not None.
+        # Trial indices is None, metric signatures is None, metric names is not None.
         metric_names_mask = df["metric_name"].isin(metric_names)
         return df.loc[metric_names_mask]
-    # Both are None, return the dataframe as is.
+    if metric_signatures is not None:
+        # Trial indices is None, metric names is None, metric signatures is not None.
+        metric_signatures_mask = df["metric_signature"].isin(metric_signatures)
+        return df.loc[metric_signatures_mask]
+    # All three are None, return the dataframe as is.
     return df
+
+
+def relativize_dataframe(
+    df: pd.DataFrame,
+    status_quo_name: str = "status_quo",
+    as_percent: bool = False,
+    include_sq: bool = False,
+    bias_correction: bool = True,
+    control_as_constant: bool = False,
+) -> pd.DataFrame:
+    """Relativize a dataframe w.r.t. a status_quo arm.
+
+    Args:
+        df: The dataframe to be relativized.
+        status_quo_name: The name of the status_quo arm.
+        as_percent: If True, return results as percentage change.
+        include_sq: Include status quo in final df.
+        bias_correction: Whether to apply bias correction when computing relativized
+            metric values. Uses a second-order Taylor expansion for approximating
+            the means and standard errors or the ratios, see
+            ax.utils.stats.math_utils.relativize for more details.
+        control_as_constant: If true, control is treated as a constant.
+            bias_correction is ignored when this is true.
+
+    Returns:
+        The new dataframe with the relativized metrics (excluding the
+            status_quo arm)
+
+    """
+    grp_cols = list(
+        {"trial_index", "metric_name", "random_split"}.intersection(df.columns.values)
+    )
+
+    grouped_df = df.groupby(grp_cols)
+    dfs = []
+    for grp in grouped_df.groups.keys():
+        subgroup_df = grouped_df.get_group(grp)
+        is_sq = subgroup_df["arm_name"] == status_quo_name
+
+        # Check if status quo exists in this subgroup (trial)
+        sq_data = subgroup_df[is_sq][["mean", "sem"]].drop_duplicates().values
+        if len(sq_data) == 0:
+            # No status quo in this trial - skip relativization and include raw data
+            logger.debug(
+                "Status quo '%s' not found in trial group %s - "
+                "skipping relativization for this group",
+                status_quo_name,
+                grp,
+            )
+            dfs.append(subgroup_df)
+            continue
+
+        sq_mean, sq_sem = sq_data.flatten()
+
+        # rm status quo from final df to relativize
+        if not include_sq:
+            subgroup_df = subgroup_df[~is_sq]
+        means_rel, sems_rel = relativize_func(
+            means_t=subgroup_df["mean"].values,
+            sems_t=subgroup_df["sem"].values,
+            mean_c=sq_mean,
+            sem_c=sq_sem,
+            as_percent=as_percent,
+            bias_correction=bias_correction,
+            control_as_constant=control_as_constant,
+        )
+        dfs.append(subgroup_df.assign(mean=means_rel, sem=sems_rel))
+    df_rel = pd.concat(dfs, axis=0)
+    if include_sq:
+        df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0
+    df_rel.reset_index(inplace=True, drop=True)
+    # Reorder columns to match expected order (reuses Data class logic)
+    df_rel = Data._get_df_with_cols_in_expected_order(df_rel)
+    return df_rel

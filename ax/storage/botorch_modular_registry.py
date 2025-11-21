@@ -19,7 +19,6 @@ from ax.generators.torch.botorch_modular.kernels import (
 )
 
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
-from ax.generators.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -46,6 +45,7 @@ from botorch.acquisition.max_value_entropy_search import (
 from botorch.acquisition.monte_carlo import (
     qExpectedImprovement,
     qNoisyExpectedImprovement,
+    qUpperConfidenceBound,
 )
 from botorch.acquisition.multi_objective.logei import (
     qLogExpectedHypervolumeImprovement,
@@ -72,6 +72,12 @@ from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
+from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
+from botorch.models.kernels.heterogeneous_multitask import CombinatorialCovarModule
+from botorch.models.map_saas import (
+    AdditiveMapSaasSingleTaskGP,
+    EnsembleMapSaasSingleTaskGP,
+)
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
@@ -136,6 +142,9 @@ MODEL_REGISTRY: dict[type[Model], str] = {
     FullyBayesianSingleTaskGP: "FullyBayesianSingleTaskGP",
     SaasFullyBayesianMultiTaskGP: "SaasFullyBayesianMultiTaskGP",
     LCEAGP: "LCEAGP",
+    AdditiveMapSaasSingleTaskGP: "AdditiveMapSaasSingleTaskGP",
+    EnsembleMapSaasSingleTaskGP: "EnsembleMapSaasSingleTaskGP",
+    HeterogeneousMTGP: "HeterogeneousMTGP",
 }
 
 
@@ -156,6 +165,7 @@ ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
     qMultiFidelityKnowledgeGradient: "qMultiFidelityKnowledgeGradient",
     qMultiFidelityMaxValueEntropy: "qMultiFidelityMaxValueEntropy",
     qNoisyExpectedImprovement: "qNoisyExpectedImprovement",
+    qUpperConfidenceBound: "qUpperConfidenceBound",
     # LogEI family below:
     LogExpectedImprovement: "LogExpectedImprovement",
     LogNoisyExpectedImprovement: "LogNoisyExpectedImprovement",
@@ -183,6 +193,7 @@ KERNEL_REGISTRY: dict[type[Kernel], str] = {
     RBFKernel: "RBFKernel",
     DefaultRBFKernel: "DefaultRBFKernel",
     DefaultMaternKernel: "DefaultMaternKernel",
+    CombinatorialCovarModule: "CombinatorialCovarModule",
 }
 
 LIKELIHOOD_REGISTRY: dict[type[GaussianLikelihood], str] = {
@@ -326,6 +337,3 @@ def register_mll(mll_class: type[MarginalLogLikelihood]) -> None:
     class_name = mll_class.__name__
     CLASS_TO_REGISTRY[MarginalLogLikelihood].update({mll_class: class_name})
     CLASS_TO_REVERSE_REGISTRY[MarginalLogLikelihood].update({class_name: mll_class})
-
-
-register_acquisition(SEBOAcquisition)

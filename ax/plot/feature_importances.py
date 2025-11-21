@@ -64,7 +64,11 @@ def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
 def plot_feature_importance_by_metric_plotly(model: Adapter) -> go.Figure:
     """One plot per feature, showing importances by metric."""
     importances = []
-    for metric_name in sorted(model.metric_names):
+    metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
+    for metric_name in sorted(metric_names):
         try:
             vals: dict[str, Any] = model.feature_importances(metric_name)
             vals["index"] = metric_name
@@ -134,9 +138,13 @@ def plot_feature_importance_by_feature_plotly(
                 "A model is required when sensitivity values are not provided"
             )
         try:
+            metric_names = [
+                model._experiment.signature_to_metric[signature].name
+                for signature in model.metric_signatures
+            ]
             sensitivity_values = {
                 metric_name: model.feature_importances(metric_name)
-                for i, metric_name in enumerate(sorted(model.metric_names))
+                for i, metric_name in enumerate(sorted(metric_names))
             }
         except NotImplementedError:
             raise NotImplementedError(
@@ -304,7 +312,11 @@ def plot_feature_importance_by_feature(
 def plot_relative_feature_importance_plotly(model: Adapter) -> go.Figure:
     """Create a stacked bar chart of feature importances per metric"""
     importances = []
-    for metric_name in sorted(model.metric_names):
+    metric_names = [
+        model._experiment.signature_to_metric[signature].name
+        for signature in model.metric_signatures
+    ]
+    for metric_name in sorted(metric_names):
         try:
             vals: dict[str, Any] = model.feature_importances(metric_name)
             vals["index"] = metric_name

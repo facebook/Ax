@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from collections import defaultdict
 from logging import Logger
 
 import pandas as pd
@@ -20,18 +19,46 @@ from pyre_extensions import assert_is_instance
 logger: Logger = get_logger(__name__)
 
 
+def _interval_boundary(
+    progression: float, min_progression: float, interval: float
+) -> float:
+    """Calculate the interval boundary for a given progression by rounding down.
+
+    Interval boundaries are at: min_prog, min_prog + interval,
+    min_prog + 2*interval, etc. This method rounds down the given
+    progression to the nearest (lower or equal) interval boundary.
+
+    For example, with min_prog=0 and interval=10:
+    - progression=0 -> boundary=0
+    - progression=5 -> boundary=0 (rounds down)
+    - progression=10 -> boundary=10
+    - progression=15 -> boundary=10 (rounds down)
+    - progression=23 -> boundary=20 (rounds down)
+
+    Args:
+        progression: The progression value to calculate boundary for.
+        min_progression: The minimum progression value (start of first interval).
+        interval: The interval size.
+
+    Returns:
+        The interval boundary that this progression is at or past (rounded down).
+    """
+    interval_num = (progression - min_progression) // interval
+    return min_progression + interval_num * interval
+
+
 def align_partial_results(
     df: pd.DataFrame,
     metrics: list[str],
     interpolation: str = "slinear",
     do_forward_fill: bool = False,
     # TODO: Allow normalizing step (e.g. subtract min time stamp)
-) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
+) -> pd.DataFrame:
     """Helper function to align partial results with heterogeneous index
 
     Args:
         df: The DataFrame containing the raw data (in long format).
-        metrics: The names of the metrics to consider.
+        metrics: The signatures of the metrics to consider.
         interpolation: The interpolation method used to fill missing values
             (if applicable). See `pandas.DataFrame.interpolate` for
             available options. Limit area is `inside`.
@@ -48,7 +75,7 @@ def align_partial_results(
         The dataframes are indexed by timestamp ("map_key") and have columns
         corresponding to the trial index, e.g.:
         mean = {
-            "metric_name": pd.DataFrame(
+            "metric_signature": pd.DataFrame(
                 timestamp         0           1          2           3          4
                 0.0        146.138620  113.057480  44.627226  143.375669  65.033535
                 1.0        117.388086   90.815154  35.847504  115.168704  52.239184
@@ -57,14 +84,14 @@ def align_partial_results(
             )
         }
     """
-    missing_metrics = set(metrics) - set(df["metric_name"])
+    missing_metrics = set(metrics) - set(df["metric_signature"])
     if missing_metrics:
         raise ValueError(f"Metrics {missing_metrics} not found in input dataframe")
     # select relevant metrics
-    df = df[df["metric_name"].isin(metrics)]
+    df = df[df["metric_signature"].isin(metrics)]
     # log some information about raw data
     for m in metrics:
-        df_m = df[df["metric_name"] == m]
+        df_m = df[df["metric_signature"] == m]
         if len(df_m) > 0:
             logger.debug(
                 f"Metric {m} raw data has observations from "
@@ -87,7 +114,7 @@ def align_partial_results(
     for arm_name, arm_group in df.groupby("arm_name"):
         if len(arm_group["trial_index"].unique()) != 1:
             raise UnsupportedError(
-                f"Arm {arm_name} has multiple tiral indices: "
+                f"Arm {arm_name} has multiple trial indices: "
                 f"{arm_group['trial_index'].unique()}."
             )
 
@@ -95,100 +122,67 @@ def align_partial_results(
     # remove duplicates (same trial, metric, step), which can happen
     # if the same progression is erroneously reported more than once
     df = df.drop_duplicates(
-        subset=["trial_index", "metric_name", MAP_KEY], keep="first"
+        subset=["trial_index", "metric_signature", MAP_KEY], keep="first"
     )
-    # set multi-index over trial, metric, and progression key
-    df = df.set_index(["trial_index", "metric_name", MAP_KEY])
-    # sort index
-    df = df.sort_index()
-    # drop sem if all NaN (assumes presence of sem column)
     has_sem = not df["sem"].isnull().all()
-    if not has_sem:
-        df = df.drop("sem", axis=1)
-    # create the common index that every map result will be re-indexed w.r.t.
-    index_union = df.index.levels[2].unique()
-    # loop through (trial, metric) combos and align data
-    dfs_mean = defaultdict(list)
-    dfs_sem = defaultdict(list)
-    for tidx in df.index.levels[0]:  # this could be slow if there are many trials
-        for metric in df.index.levels[1]:
-            # grab trial+metric sub-df and reindex to common index
-            df_ridx = df.loc[(tidx, metric)].reindex(index_union)
-            # interpolate / fill missing results
-            # TODO: Allow passing of additional kwargs to `interpolate`
-            # TODO: Allow using an arbitrary prediction model for this instead
-            try:
-                df_interp = df_ridx.interpolate(
-                    method=interpolation, limit_area="inside"
-                )
-                if do_forward_fill:
-                    # do forward fill (with valid observations) to handle instances
-                    # where one task only has data for early progressions
-                    df_interp = df_interp.fillna(method="pad")
-            except ValueError:
-                df_interp = df_ridx
+    # wide dataframe with hierarchical columns aligned to common index
+    # (outer join of map keys across "trial_index", "metric_signature")
+    wide_df: pd.DataFrame = df.pivot(
+        index=MAP_KEY,
+        columns=["metric_signature", "trial_index"],
+        values=["mean", *(["sem"] if has_sem else [])],
+    )
+    # interpolation is only possible for columns with at least 2 entries,
+    # will raise `ValueError` otherwise
+    active = wide_df.notna().sum(axis=0) > 1
+    active_cols = wide_df.columns[active]
+    # interpolate / fill missing results
+    wide_df[active_cols] = wide_df[active_cols].interpolate(
+        method=interpolation, limit_area="inside", axis=0
+    )
+    if do_forward_fill:
+        # do forward fill (with valid observations) to handle instances
+        # where one task only has data for early progressions
+        wide_df[active_cols] = wide_df[active_cols].fillna(method="pad", axis=0)
 
-            # renaming column to trial index, append results
-            dfs_mean[metric].append(df_interp["mean"].rename(tidx))
-            if has_sem:
-                dfs_sem[metric].append(df_interp["sem"].rename(tidx))
-
-    # combine results into output dataframes
-    dfs_mean = {metric: pd.concat(dfs, axis=1) for metric, dfs in dfs_mean.items()}
-    dfs_sem = {metric: pd.concat(dfs, axis=1) for metric, dfs in dfs_sem.items()}
-
-    return dfs_mean, dfs_sem
+    return wide_df
 
 
 def estimate_early_stopping_savings(experiment: Experiment) -> float:
-    """Estimate resource savings due to early stopping by considering
-    COMPLETED and EARLY_STOPPED trials. First, use the mean of final
-    progressions of the set completed trials as a benchmark for the
-    length of a single trial. The savings is then estimated as:
+    """Estimate resource savings from early stopping trials.
 
-    resource_savings =
-      1 - actual_resource_usage / (num_trials * length of single trial)
+    Uses the average progression across completed trials as a baseline to estimate
+    how much resource each early stopped trial would have consumed.
+    Savings are computed as:
+
+        savings = total_resources_saved / total_resources_used
 
     Args:
-        experiment: The experiment.
+        experiment: The experiment to analyze.
 
     Returns:
-        The estimated resource savings as a fraction of total resource usage (i.e.
-        0.11 estimated savings indicates we would expect the experiment to have used 11%
-        more resources without early stopping present).
+        Resource savings as a fraction of total usage. For example, 0.11 indicates
+        the experiment would have used 11% more resources without early stopping.
     """
 
     map_data = assert_is_instance(experiment.lookup_data(), MapData)
-    if len(map_data.df) == 0:
+    if map_data.df.empty:
         return 0
-    # Get final number of steps of each trial
-    trial_resources = (
-        map_data.map_df[["trial_index", MAP_KEY]]
-        .groupby("trial_index")
-        .max()
-        .reset_index()
+    # Get max progression (resources used) for each trial
+    resources_used = map_data.map_df.groupby("trial_index")[MAP_KEY].max()
+
+    trials_by_status = experiment.trial_indices_by_status
+    stopped_trials = trials_by_status[TrialStatus.EARLY_STOPPED]
+    completed_trials = trials_by_status[TrialStatus.COMPLETED]
+
+    # Baseline: average resources used across completed trials
+    avg_completed_resources_used = resources_used.loc[[*completed_trials]].mean()
+
+    # Calculate resources saved per stopped trial (clip negatives to zero)
+    stopped_resources_used = resources_used.loc[[*stopped_trials]]
+    resources_saved = (avg_completed_resources_used - stopped_resources_used).clip(
+        lower=0
     )
 
-    early_stopped_trial_idcs = experiment.trial_indices_by_status[
-        TrialStatus.EARLY_STOPPED
-    ]
-    completed_trial_idcs = experiment.trial_indices_by_status[TrialStatus.COMPLETED]
-
-    # Assume that any early stopped trial would have had the mean number of steps of
-    # the completed trials
-    mean_completed_trial_resources = trial_resources[
-        trial_resources["trial_index"].isin(completed_trial_idcs)
-    ][MAP_KEY].mean()
-
-    # Calculate the steps saved per early stopped trial. If savings are estimated to be
-    # negative assume no savings
-    stopped_trial_resources = trial_resources[
-        trial_resources["trial_index"].isin(early_stopped_trial_idcs)
-    ][MAP_KEY]
-    saved_trial_resources = (
-        mean_completed_trial_resources - stopped_trial_resources
-    ).clip(0)
-
-    # Return the ratio of the total saved resources over the total resources used plus
-    # the total saved resources
-    return saved_trial_resources.sum() / trial_resources[MAP_KEY].sum()
+    # Return fraction of total resources saved
+    return resources_saved.sum() / resources_used.sum()

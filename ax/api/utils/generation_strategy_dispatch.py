@@ -8,12 +8,12 @@
 
 
 import torch
-from ax.adapter.registry import Generators, MBM_X_trans, Y_trans
-from ax.adapter.transforms.winsorize import Winsorize
+from ax.adapter.registry import Generators
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
+from ax.generation_strategy.dispatch_utils import get_derelativize_config
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStrategy,
@@ -80,7 +80,7 @@ def _get_sobol_node(
         ),
     ]
     return GenerationNode(
-        node_name="Sobol",
+        name="Sobol",
         generator_specs=[
             GeneratorSpec(
                 generator_enum=Generators.SOBOL,
@@ -95,6 +95,7 @@ def _get_sobol_node(
 def _get_mbm_node(
     method: str,
     torch_device: str | None,
+    simplify_parameter_changes: bool,
 ) -> GenerationNode:
     """Constructs an MBM node based on the method specified in
     ``struct``.
@@ -124,14 +125,19 @@ def _get_mbm_node(
     device = None if torch_device is None else torch.device(torch_device)
 
     return GenerationNode(
-        node_name="MBM",
+        name="MBM",
         generator_specs=[
             GeneratorSpec(
                 generator_enum=Generators.BOTORCH_MODULAR,
                 model_kwargs={
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
                     "torch_device": device,
-                    "transforms": MBM_X_trans + [Winsorize] + Y_trans,
+                    "transform_configs": get_derelativize_config(
+                        derelativize_with_raw_status_quo=True
+                    ),
+                    "acquisition_options": {
+                        "prune_irrelevant_parameters": simplify_parameter_changes
+                    },
                 },
             )
         ],
@@ -161,7 +167,7 @@ def choose_generation_strategy(
     if struct.method == "random_search":
         nodes = [
             GenerationNode(
-                node_name="Sobol",
+                name="Sobol",
                 generator_specs=[
                     GeneratorSpec(
                         generator_enum=Generators.SOBOL,
@@ -175,6 +181,7 @@ def choose_generation_strategy(
         mbm_node = _get_mbm_node(
             method=struct.method,
             torch_device=struct.torch_device,
+            simplify_parameter_changes=struct.simplify_parameter_changes,
         )
         if (
             struct.initialization_budget is None
@@ -198,7 +205,7 @@ def choose_generation_strategy(
     if struct.initialize_with_center and (
         struct.initialization_budget is None or struct.initialization_budget > 0
     ):
-        center_node = CenterGenerationNode(next_node_name=nodes[0].node_name)
+        center_node = CenterGenerationNode(next_node_name=nodes[0].name)
         nodes.insert(0, center_node)
         gs_name = f"Center+{gs_name}"
     return GenerationStrategy(name=gs_name, nodes=nodes)

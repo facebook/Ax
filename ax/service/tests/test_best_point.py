@@ -97,6 +97,7 @@ class TestBestPointMixin(TestCase):
                 "arm_name": "status_quo",
                 "mean": 0.0,
                 "sem": 0.0,
+                "metric_signature": m,
             }
             for m in ["m1", "m2", "m3"]
         ]
@@ -115,7 +116,7 @@ class TestBestPointMixin(TestCase):
         self.assertEqual(get_trace(exp), [])
 
         # test batch trial
-        exp = get_experiment_with_batch_trial()
+        exp = get_experiment_with_batch_trial(with_status_quo=False)
         trial = exp.trials[0]
         exp.optimization_config.outcome_constraints[0].relative = False
         trial.mark_running(no_runner_required=True).mark_completed()
@@ -129,15 +130,16 @@ class TestBestPointMixin(TestCase):
                         "arm_name": arm.name,
                         "mean": float(i),
                         "sem": 0.0,
+                        "metric_signature": m,
                     }
                     for m in exp.metrics.keys()
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict)))
-        self.assertEqual(get_trace(exp), [len(trial.arms) - 2])
+        self.assertEqual(get_trace(exp), [2.0])
         # test that there is performance metric in the trace for each
         # completed/early-stopped trial
-        trial1 = assert_is_instance(trial, BatchTrial).clone_to()
+        trial1 = assert_is_instance(trial, BatchTrial).clone_to(include_sq=False)
         trial1.mark_abandoned(unsafe=True)
         trial2 = exp.new_batch_trial(Generators.SOBOL(experiment=exp).gen(n=3))
         trial2.mark_running(no_runner_required=True).mark_completed()
@@ -151,12 +153,13 @@ class TestBestPointMixin(TestCase):
                         "arm_name": arm.name,
                         "mean": 10 * float(i),
                         "sem": 0.0,
+                        "metric_signature": m,
                     }
                     for m in exp.metrics.keys()
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
-        self.assertEqual(get_trace(exp), [2, 20.0])
+        self.assertEqual(get_trace(exp), [2.0, 20.0])
 
     def test_get_hypervolume(self) -> None:
         # W/ empty data.

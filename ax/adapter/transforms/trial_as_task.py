@@ -11,12 +11,12 @@ from typing import Optional, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
-from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
@@ -62,28 +62,21 @@ class TrialAsTask(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )
         assert adapter is not None, "TrialAsTask requires adapter"
-        if isinstance(search_space, RobustSearchSpace):
-            raise UnsupportedError(
-                "TrialAsTask transform is not supported for RobustSearchSpace."
-            )
         # Identify values of trial.
-        if experiment_data is not None:
-            trials = set(experiment_data.arm_data.index.get_level_values("trial_index"))
-        else:
-            trials = {obs.features.trial_index for obs in none_throws(observations)}
+        trials = set(
+            none_throws(experiment_data).arm_data.index.get_level_values("trial_index")
+        )
         if None in trials:
             raise ValueError(
                 "Unable to use trial as task since not all observations have "
@@ -110,9 +103,19 @@ class TrialAsTask(Transform):
                         f"Not all trials in data ({trials}) contained "
                         f"in trial level map for {_p_name} ({level_map})"
                     )
+        elif config is not None and config.get("trial_type_as_task", False):
+            # map long run trials to 0 and short run trials to 1
+            self.trial_level_map = {TRIAL_PARAM: {}}
+            for trial_index in trials:
+                trial_type = adapter._experiment.trials[trial_index].trial_type
+                if trial_type is not None and trial_type == Keys.LONG_RUN:
+                    self.trial_level_map[TRIAL_PARAM][trial_index] = "0"
+                else:
+                    self.trial_level_map[TRIAL_PARAM][trial_index] = "1"
         else:
             # Set TRIAL_PARAM for each trial to the corresponding trial_index.
             self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
+
         if len(self.trial_level_map) == 1:
             level_dict = next(iter(self.trial_level_map.values()))
             self.inverse_map: dict[int | str, int] | None = {
@@ -168,7 +171,7 @@ class TrialAsTask(Transform):
             obsf.trial_index = None
         return observation_features
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         if len(self.trial_level_map) == 0:
             # no-op
             return search_space

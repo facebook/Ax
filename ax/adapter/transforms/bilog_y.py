@@ -15,7 +15,7 @@ import numpy.typing as npt
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.log_y import match_ci_width
-from ax.core.observation import Observation, ObservationData
+from ax.core.observation import ObservationData
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
 
@@ -44,7 +44,6 @@ class BilogY(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -53,7 +52,6 @@ class BilogY(Transform):
 
         Args:
             search_space: The search space of the experiment.
-            observations: A list of observations from the experiment.
             experiment_data: A container for the parameterizations, metadata and
                 observations for the trials in the experiment.
                 Constructed using ``extract_experiment_data``.
@@ -62,7 +60,6 @@ class BilogY(Transform):
         """
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -70,7 +67,7 @@ class BilogY(Transform):
         if adapter is not None and adapter._optimization_config is not None:
             # TODO @deriksson: Add support for relative outcome constraints
             self.metric_to_bound: dict[str, float] = {
-                oc.metric.name: oc.bound
+                oc.metric.signature: oc.bound
                 for oc in adapter._optimization_config.outcome_constraints
                 if not oc.relative
             }
@@ -103,7 +100,7 @@ class BilogY(Transform):
         transform: Callable[[npt.NDArray, npt.NDArray], npt.NDArray],
     ) -> list[ObservationData]:
         for obsd in observation_data:
-            for i, m in enumerate(obsd.metric_names):
+            for i, m in enumerate(obsd.metric_signatures):
                 if m in self.metric_to_bound.keys():
                     bound = self.metric_to_bound[m]
                     obsd.means[i], obsd.covariance[i, i] = match_ci_width(
@@ -118,9 +115,9 @@ class BilogY(Transform):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         obs_data = experiment_data.observation_data
-        metric_names = experiment_data.metric_names
+        metric_signatures = experiment_data.metric_signatures
         for metric, bound in self.metric_to_bound.items():
-            if metric not in metric_names:
+            if metric not in metric_signatures:
                 continue
             obs_data[("mean", metric)], obs_data[("sem", metric)] = match_ci_width(
                 mean=obs_data[("mean", metric)].to_numpy(),

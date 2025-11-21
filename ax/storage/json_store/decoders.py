@@ -15,12 +15,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, TYPE_CHECKING, TypeVar
 
+import pandas as pd
 import torch
 from ax.adapter.transforms.base import Transform
 from ax.core.arm import Arm
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -30,6 +32,7 @@ from ax.core.parameter import (
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.core.types import TCandidateMetadata
 from ax.exceptions.storage import JSONDecodeError
 from ax.storage.botorch_modular_registry import (
     CLASS_TO_REVERSE_REGISTRY,
@@ -98,12 +101,12 @@ def batch_trial_from_json(
     time_run_started: datetime | None,
     abandoned_reason: str | None,
     run_metadata: dict[str, Any] | None,
-    generator_run_structs: list[GeneratorRunStruct],
+    generator_runs: list[GeneratorRun],
     runner: Runner | None,
     abandoned_arms_metadata: dict[str, AbandonedArm],
     num_arms_created: int,
+    # TODO: check status_quo logic
     status_quo: Arm | None,
-    status_quo_weight_override: float,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
     failed_reason: str | None = None,
@@ -123,10 +126,14 @@ def batch_trial_from_json(
     batch = BatchTrial(
         experiment=experiment,
         ttl_seconds=ttl_seconds,
+        generator_runs=generator_runs,
+        # Historically, some trials might have status quo arms that do not
+        # match the SQ set on the experiment, so we cannot just pass in
+        # `shoud_add_status_quo_arm=True` here. Instead, we manually re-add
+        # the SQ at the end of this function.
     )
     batch._index = index
     batch._trial_type = trial_type
-    batch._status = status
     batch._time_created = time_created
     batch._time_completed = time_completed
     batch._time_staged = time_staged
@@ -135,20 +142,21 @@ def batch_trial_from_json(
     batch._failed_reason = failed_reason
     batch._run_metadata = run_metadata or {}
     batch._stop_metadata = stop_metadata or {}
-    batch._generator_run_structs = generator_run_structs
+    batch._generator_runs = generator_runs
     batch._runner = runner
     batch._abandoned_arms_metadata = abandoned_arms_metadata
     batch._num_arms_created = num_arms_created
-    batch._status_quo_weight_override = status_quo_weight_override
     batch._generation_step_index = generation_step_index
-    batch._properties = properties
+    batch._properties = properties or {}
     batch._refresh_arms_by_name()  # Trigger cache build
 
     # Trial.arms_by_name only returns arms with weights
-    batch.should_add_status_quo_arm = (
-        batch.status_quo is not None and batch.status_quo.name in batch.arms_by_name
-    )
+    batch.should_add_status_quo_arm = batch.status_quo is not None
+    if batch.should_add_status_quo_arm:
+        batch.add_status_quo_arm()
 
+    # Set trial status last, after adding all the arms.
+    batch._status = status
     warn_on_kwargs(callable_with_kwargs=BatchTrial, **kwargs)
     return batch
 
@@ -462,4 +470,26 @@ def fixed_parameter_from_json(
         is_fidelity=is_fidelity,
         target_value=target_value,
         dependents=dependents,
+    )
+
+
+def observation_features_from_json(
+    parameters: dict[str, TParamValue],
+    trial_index: int,
+    start_time: pd.Timestamp | None = None,
+    end_time: pd.Timestamp | None = None,
+    metadata: TCandidateMetadata = None,
+    **kwargs: Any,
+) -> ObservationFeatures:
+    """
+    `random_split` used to be supported, so it may appear in
+    `kwargs`.
+    """
+    warn_on_kwargs(callable_with_kwargs=ObservationFeatures, **kwargs)
+    return ObservationFeatures(
+        parameters=parameters,
+        trial_index=trial_index,
+        start_time=start_time,
+        end_time=end_time,
+        metadata=metadata,
     )

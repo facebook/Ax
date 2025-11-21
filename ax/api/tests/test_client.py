@@ -15,12 +15,17 @@ import pandas as pd
 from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
-from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
+from ax.api.configs import (
+    ChoiceParameterConfig,
+    DerivedParameterConfig,
+    RangeParameterConfig,
+    StorageConfig,
+)
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
+from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
-from ax.core.formatting_utils import DataType
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -36,7 +41,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.service.utils.with_db_settings_base import (
     _save_generation_strategy_to_db_if_possible,
 )
@@ -481,6 +486,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "step": {0: np.nan},
@@ -506,6 +512,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "foo"},
+                        "metric_signature": {0: "foo", 1: "foo"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: np.nan, 1: 10.0},
@@ -515,6 +522,17 @@ class TestClient(TestCase):
         )
 
         # With extra metrics
+        # Try and attach data for a metric that doesn't exist
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Unable to find the metric signature for one or more metrics.",
+        ):
+            client.attach_data(
+                trial_index=trial_index,
+                raw_data={"foo": 1.0, "bar": 2.0},
+            )
+
+        client.configure_metrics(metrics=[DummyMetric(name="bar")])
         client.attach_data(
             trial_index=trial_index,
             raw_data={"foo": 1.0, "bar": 2.0},
@@ -533,6 +551,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0, 2: 0},
                         "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "bar"},
+                        "metric_signature": {0: "foo", 1: "foo", 2: "bar"},
                         "mean": {0: 2.0, 1: 1.0, 2: 2.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan},
                         "step": {0: 10.0, 1: np.nan, 2: np.nan},
@@ -575,6 +594,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 0},
                         "arm_name": {0: "0_0", 1: "0_0"},
                         "metric_name": {0: "foo", 1: "bar"},
+                        "metric_signature": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: np.nan, 1: np.nan},
@@ -604,6 +624,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 1, 1: 1},
                         "arm_name": {0: "1_0", 1: "1_0"},
                         "metric_name": {0: "foo", 1: "bar"},
+                        "metric_signature": {0: "foo", 1: "bar"},
                         "mean": {0: 1.0, 1: 2.0},
                         "sem": {0: np.nan, 1: np.nan},
                         "step": {0: 10.0, 1: 10.0},
@@ -630,6 +651,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 2},
                         "arm_name": {0: "2_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 1.0},
                         "sem": {0: np.nan},
                         "step": {0: np.nan},
@@ -758,6 +780,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0},
                         "arm_name": {0: "0_0"},
                         "metric_name": {0: "foo"},
+                        "metric_signature": {0: "foo"},
                         "mean": {0: 0.0},
                         "sem": {0: np.nan},
                         "step": {0: 1.0},
@@ -779,7 +802,7 @@ class TestClient(TestCase):
 
         client.set_early_stopping_strategy(
             early_stopping_strategy=PercentileEarlyStoppingStrategy(
-                metric_names=["foo"]
+                metric_signatures=["foo"]
             )
         )
 
@@ -820,6 +843,7 @@ class TestClient(TestCase):
                         "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
                         "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
+                        "metric_signature": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
                         "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
                         "step": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
@@ -1056,21 +1080,22 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
         client.configure_generation_strategy()
 
-        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-            analysis = ParallelCoordinatesPlot()
-            cards = client.compute_analyses(analyses=[analysis])
+        # Test Analysis when Experiment is not in applicable state
+        analysis = ParallelCoordinatesPlot()
+        cards = client.compute_analyses(analyses=[analysis])
 
-            self.assertEqual(len(cards), 1)
-            self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-            self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
-            self.assertEqual(
-                cards[0].subtitle,
-                "ValueError encountered while computing ParallelCoordinatesPlot.",
-            )
-            self.assertIn("Traceback", assert_is_instance(cards[0], AnalysisCard).blob)
-            self.assertTrue(
-                any(("No data found for metric") in msg for msg in lg.output)
-            )
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+        self.assertEqual(
+            cards[0].subtitle,
+            "AnalysisNotApplicableStateError encountered while computing "
+            "ParallelCoordinatesPlot.",
+        )
+        self.assertIn(
+            "Experiment has no trials",
+            assert_is_instance(cards[0], AnalysisCard).blob,
+        )
 
         for trial_index, _ in client.get_next_trials(max_trials=1).items():
             client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
@@ -1460,6 +1485,232 @@ class TestClient(TestCase):
             ScalarizedObjective,
         )
         self.assertIn(qux_metric_scalar, scalar.metrics)
+
+    def test_configure_generation_strategy_with_simplify(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
+        )
+
+        # Test with no generation strategy
+        client.configure_optimization(objective="foo")
+
+        # Test with generation strategy
+        client.configure_generation_strategy()
+        self.assertFalse(
+            client._generation_strategy._nodes[2]
+            .generator_specs[0]
+            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+        )
+        client.configure_generation_strategy(simplify_parameter_changes=True)
+        self.assertTrue(
+            client._generation_strategy._nodes[2]
+            .generator_specs[0]
+            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+        )
+
+    def test_configure_experiment_with_derived_parameter(self) -> None:
+        # Setup: Create parameters including a derived parameter
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x3",
+            expression_str="1.0 - x1 - x2",
+            parameter_type="float",
+        )
+
+        # Execute: Configure experiment with derived parameter
+        client.configure_experiment(
+            name="test_derived_param",
+            parameters=[x1, x2, derived],
+        )
+
+        # Assert: Verify derived parameter is correctly configured
+        experiment = client._experiment
+        self.assertEqual(len(experiment.search_space.parameters), 3)
+        from ax.core.parameter import DerivedParameter
+
+        self.assertIsInstance(
+            experiment.search_space.parameters["x3"], DerivedParameter
+        )
+
+    def test_configure_experiment_with_multiple_derived_parameters(self) -> None:
+        # Setup: Create multiple derived parameters
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived1 = DerivedParameterConfig(
+            name="sum_x1_x2",
+            expression_str="x1 + x2",
+            parameter_type="float",
+        )
+        derived2 = DerivedParameterConfig(
+            name="complement",
+            expression_str="1.0 - x1 - x2",
+            parameter_type="float",
+        )
+
+        # Execute: Configure with multiple derived parameters
+        client.configure_experiment(
+            name="test_multiple_derived",
+            parameters=[x1, x2, derived1, derived2],
+        )
+
+        # Assert: Verify all parameters exist
+        experiment = client._experiment
+        self.assertEqual(len(experiment.search_space.parameters), 4)
+        from ax.core.parameter import DerivedParameter
+
+        self.assertIsInstance(
+            experiment.search_space.parameters["sum_x1_x2"], DerivedParameter
+        )
+        self.assertIsInstance(
+            experiment.search_space.parameters["complement"], DerivedParameter
+        )
+
+    def test_get_next_trials_with_derived_parameters(self) -> None:
+        # Setup: Configure experiment with derived parameter
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x3",
+            expression_str="1.0 - x1 - x2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_trials_derived",
+            parameters=[x1, x2, derived],
+        )
+        client.configure_optimization(objective="objective")
+
+        # Execute: Generate trials
+        trials = client.get_next_trials(max_trials=3)
+
+        # Assert: Verify trials include derived parameter with correct values
+        self.assertEqual(len(trials), 3)
+        for trial_params in trials.values():
+            self.assertIn("x1", trial_params)
+            self.assertIn("x2", trial_params)
+            self.assertIn("x3", trial_params)
+            # Verify derived parameter is correctly computed
+            # pyre-fixme[58]: Arithmetic operations on TParameterValue
+            expected_x3 = 1.0 - trial_params["x1"] - trial_params["x2"]
+            # pyre-fixme[6]: Type mismatch on assertAlmostEqual
+            self.assertAlmostEqual(trial_params["x3"], expected_x3, places=6)
+
+    def test_complete_trial_with_derived_parameters(self) -> None:
+        # Setup: Configure experiment with derived parameter and generate trial
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x_sum",
+            expression_str="x1 + x2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_complete_trial",
+            parameters=[x1, x2, derived],
+        )
+        client.configure_optimization(objective="objective")
+        trials = client.get_next_trials(max_trials=1)
+        trial_index = list(trials.keys())[0]
+
+        # Execute: Complete trial with data
+        status = client.complete_trial(
+            trial_index=trial_index, raw_data={"objective": 0.5}
+        )
+
+        # Assert: Trial completed successfully
+        self.assertTrue(status.is_completed)
+
+    def test_get_best_parameterization_with_derived_parameters(self) -> None:
+        # Setup: Run experiment with derived parameters
+
+        client = Client()
+        x1 = RangeParameterConfig(name="x1", parameter_type="float", bounds=(0.0, 1.0))
+        x2 = RangeParameterConfig(name="x2", parameter_type="float", bounds=(0.0, 1.0))
+        derived = DerivedParameterConfig(
+            name="x_sum",
+            expression_str="x1 + x2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_best_param",
+            parameters=[x1, x2, derived],
+        )
+        client.configure_optimization(objective="loss")
+
+        # Generate and complete trials
+        for _ in range(3):
+            trials = client.get_next_trials(max_trials=1)
+            trial_index = list(trials.keys())[0]
+            client.complete_trial(
+                trial_index=trial_index, raw_data={"loss": float(trial_index)}
+            )
+
+        # Execute: Get best parameterization
+        best_params, best_values, best_trial, best_arm = (
+            client.get_best_parameterization(use_model_predictions=False)
+        )
+
+        # Assert: Best parameterization includes derived parameter
+        self.assertIn("x1", best_params)
+        self.assertIn("x2", best_params)
+        self.assertIn("x_sum", best_params)
+        self.assertIn("loss", best_values)
+
+    def test_summarize_with_derived_parameters(self) -> None:
+        # Setup: Run experiment with derived parameters
+
+        client = Client()
+        param1 = RangeParameterConfig(
+            name="param1", parameter_type="float", bounds=(0.0, 1.0)
+        )
+        param2 = RangeParameterConfig(
+            name="param2", parameter_type="float", bounds=(0.0, 1.0)
+        )
+        derived = DerivedParameterConfig(
+            name="param_sum",
+            expression_str="param1 + param2",
+            parameter_type="float",
+        )
+
+        client.configure_experiment(
+            name="test_summarize",
+            parameters=[param1, param2, derived],
+        )
+        client.configure_optimization(objective="score")
+
+        # Complete some trials
+        for i in range(3):
+            trials = client.get_next_trials(max_trials=1)
+            trial_index = list(trials.keys())[0]
+            client.complete_trial(
+                trial_index=trial_index, raw_data={"score": float(i) * 0.1}
+            )
+
+        # Execute: Get summary
+        summary_df = client.summarize()
+
+        # Assert: Summary includes derived parameter
+        self.assertIn("param1", summary_df.columns)
+        self.assertIn("param2", summary_df.columns)
+        self.assertIn("param_sum", summary_df.columns)
+        self.assertEqual(len(summary_df), 3)
 
 
 class DummyRunner(IRunner):

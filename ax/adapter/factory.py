@@ -7,7 +7,6 @@
 # pyre-strict
 
 import torch
-from ax.adapter.base import DataLoaderConfig
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import Generators
@@ -18,7 +17,6 @@ from pyre_extensions import assert_is_instance
 
 
 DEFAULT_TORCH_DEVICE = torch.device("cpu")
-DEFAULT_EHVI_BATCH_LIMIT = 5
 
 
 """
@@ -63,13 +61,10 @@ def get_sobol(
     )
 
 
-def get_factorial(search_space: SearchSpace) -> DiscreteAdapter:
+def get_factorial(experiment: Experiment) -> DiscreteAdapter:
     """Instantiates a factorial generator."""
     return assert_is_instance(
-        Generators.FACTORIAL(
-            search_space=search_space,
-            data_loader_config=DataLoaderConfig(fit_out_of_design=True),
-        ),
+        Generators.FACTORIAL(experiment=experiment),
         DiscreteAdapter,
     )
 
@@ -89,11 +84,10 @@ def get_empirical_bayes_thompson(
         Generators.EMPIRICAL_BAYES_THOMPSON(
             experiment=experiment,
             data=data,
-            search_space=search_space or experiment.search_space,
+            search_space=search_space,
             num_samples=num_samples,
             min_weight=min_weight,
             uniform_weights=uniform_weights,
-            data_loader_config=DataLoaderConfig(fit_out_of_design=True),
         ),
         DiscreteAdapter,
     )
@@ -114,11 +108,10 @@ def get_thompson(
         Generators.THOMPSON(
             experiment=experiment,
             data=data,
-            search_space=search_space or experiment.search_space,
+            search_space=search_space,
             num_samples=num_samples,
             min_weight=min_weight,
             uniform_weights=uniform_weights,
-            data_loader_config=DataLoaderConfig(fit_out_of_design=True),
         ),
         DiscreteAdapter,
     )

@@ -9,7 +9,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import torch
 from ax.adapter.torch import TorchAdapter
@@ -46,10 +45,12 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
 )
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
 
@@ -163,23 +164,24 @@ def get_moo_surrogate() -> BenchmarkProblem:
     )
 
 
-def get_benchmark_result() -> BenchmarkResult:
+def get_benchmark_result(seed: int = 0) -> BenchmarkResult:
     problem = get_single_objective_benchmark_problem()
 
     return BenchmarkResult(
         name="test_benchmarking_result",
-        seed=0,
+        seed=seed,
         experiment=Experiment(
             name="test_benchmarking_experiment",
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
             is_test=True,
         ),
-        inference_trace=np.ones(4),
-        oracle_trace=np.zeros(4),
-        cost_trace=np.zeros(4),
-        optimization_trace=np.array([3, 2, 1, 0.1]),
-        score_trace=np.array([3, 2, 1, 0.1]),
+        inference_trace=[1.0, 1.0, 1.0, 1.0],
+        oracle_trace=[0.0, 0.0, 0.0, 0.0],
+        cost_trace=[0.0, 0.0, 0.0, 0.0],
+        optimization_trace=[3.0, 2.0, 1.0, 0.1],
+        score_trace=[3.0, 2.0, 1.0, 0.1],
+        is_feasible_trace=[True, True, True, True],
         fit_time=0.1,
         gen_time=0.2,
     )
@@ -263,7 +265,7 @@ class DeterministicGenerationNode(ExternalGenerationNode):
             raise ValueError(
                 "DeterministicGenerationNode only supports ChoiceParameters."
             )
-        super().__init__(node_name="Deterministic")
+        super().__init__(name="Deterministic")
 
         self.param_name: str = param.name
         self.iterator: Iterator[TParamValue] = iter(param.values)
@@ -298,7 +300,6 @@ def get_async_benchmark_method(
     )
     return BenchmarkMethod(
         generation_strategy=gs,
-        distribute_replications=False,
         max_pending_trials=max_pending_trials,
         batch_size=1,
         early_stopping_strategy=early_stopping_strategy,
@@ -372,4 +373,34 @@ def get_mock_lcbench_data() -> LCBenchData:
         parameter_df=parameter_df,
         metric_series=metric_series,
         timestamp_series=timestamp_series,
+    )
+
+
+def get_adapter(experiment: Experiment) -> TorchAdapter:
+    """Create a generic adapter for testing different surrogate model types."""
+    adapter = TorchAdapter(
+        experiment=experiment,
+        generator=BoTorchGenerator(),
+    )
+    return adapter
+
+
+def get_saas_adapter(experiment: Experiment) -> TorchAdapter:
+    """Create an adapter with SaasFullyBayesianSingleTaskGP model."""
+    return TorchAdapter(
+        experiment=experiment,
+        generator=BoTorchGenerator(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[
+                    ModelConfig(
+                        botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                        mll_options={
+                            "warmup_steps": 2,
+                            "num_samples": 4,
+                            "thinning": 1,
+                        },
+                    ),
+                ]
+            ),
+        ),
     )

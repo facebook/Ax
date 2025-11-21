@@ -29,22 +29,12 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
 from ax.core.map_data import MAP_KEY
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    recombine_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation_utils import recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import (
-    TCandidateMetadata,
-    TModelCov,
-    TModelMean,
-    TModelPredict,
-    TParameterization,
-)
+from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
 from ax.core.utils import get_target_trial_index, has_map_metrics
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
@@ -99,6 +89,16 @@ class Adapter:
     specification.
     """
 
+    # pyre-ignore [13] Assigned in _set_and_filter_training_data.
+    _training_data: ExperimentData
+
+    # The space used for optimization.
+    _search_space: SearchSpace
+
+    # The space used for modeling. Might be larger than the optimization
+    # space to cover training data.
+    _model_space: SearchSpace
+
     def __init__(
         self,
         *,
@@ -113,11 +113,6 @@ class Adapter:
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         data_loader_config: DataLoaderConfig | None = None,
-        # fit_out_of_design, fit_abandoned, and fit_only_completed_map_metrics
-        # were deprecated in Ax 1.0.0, so they can now be reaped.
-        fit_out_of_design: bool | None = None,
-        fit_abandoned: bool | None = None,
-        fit_only_completed_map_metrics: bool | None = None,
     ) -> None:
         """
         Applies transforms and fits the generator.
@@ -163,39 +158,23 @@ class Adapter:
                 the transformed inputs.
             data_loader_config: A DataLoaderConfig of options for loading data. See the
                 docstring of DataLoaderConfig for more details.
-            fit_out_of_design: Deprecation warning: `fit_out_of_design` is deprecated.
-                Overwrites `data_loader_config.fit_out_of_design` if not None.
-            fit_abandoned: Deprecation warning: `fit_out_of_design` is deprecated.
-                Overwrites `data_loader_config.fit_abandoned` if not None.
-            fit_only_completed_map_metrics: Deprecation warning: `fit_out_of_design`
-                is deprecated. If not None, overwrites
-                `data_loader_config.fit_only_completed_map_metrics`.
         """
         if data_loader_config is None:
             data_loader_config = DataLoaderConfig()
-        self._data_loader_config: DataLoaderConfig = (
-            _legacy_overwrite_data_loader_config(
-                data_loader_config=data_loader_config,
-                fit_out_of_design=fit_out_of_design,
-                fit_abandoned=fit_abandoned,
-                fit_only_completed_map_metrics=fit_only_completed_map_metrics,
-            )
-        )
+        self._data_loader_config: DataLoaderConfig = data_loader_config
 
         t_fit_start = time.monotonic()
         transforms = transforms or []
-        transforms = [Cast] + list(transforms)
-        transform_configs = {} if transform_configs is None else transform_configs
-        if "FillMissingParameters" in transform_configs:
-            transforms = [FillMissingParameters] + transforms
-        self._raw_transforms = transforms
-        self._transform_configs: Mapping[str, TConfig] = transform_configs
+        transforms = [FillMissingParameters, Cast] + list(transforms)
+        self._transform_configs: Mapping[str, TConfig] = (
+            {} if transform_configs is None else {**transform_configs}
+        )
+        self._raw_transforms: list[type[Transform]] = transforms
+        self._set_search_space(search_space or experiment.search_space)
 
         self.fit_time: float = 0.0
         self.fit_time_since_gen: float = 0.0
-        self._metric_names: set[str] = set()
-        # pyre-ignore [13] Assigned in _set_and_filter_training_data.
-        self._training_data: ExperimentData
+        self._metric_signatures: set[str] = set()
         self._optimization_config: OptimizationConfig | None = optimization_config
         self._training_in_design_idx: list[bool] = []
         self._status_quo: Observation | None = None
@@ -204,12 +183,6 @@ class Adapter:
         self._model_key: str | None = None
         self._model_kwargs: dict[str, Any] | None = None
         self._bridge_kwargs: dict[str, Any] | None = None
-        # The space used for optimization.
-        search_space = search_space or experiment.search_space
-        self._search_space: SearchSpace = search_space.clone()
-        # The space used for modeling. Might be larger than the optimization
-        # space to cover training data.
-        self._model_space: SearchSpace = search_space.clone()
         self._fit_tracking_metrics = fit_tracking_metrics
         self.outcomes: list[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
@@ -303,6 +276,7 @@ class Adapter:
     ) -> tuple[ExperimentData, SearchSpace]:
         r"""Processes the data into ``ExperimentData`` and returns the transformed
         ``ExperimentData`` and the search space. This packages the following methods:
+        * self._set_search_space
         * self._set_and_filter_training_data
         * self._set_status_quo
         * self._transform_data
@@ -312,6 +286,10 @@ class Adapter:
             data_loader_config=self._data_loader_config,
             data=data,
         )
+        # If the search space has changed, we need to update the model space
+        if self._search_space != experiment.search_space:
+            self._set_search_space(experiment.search_space)
+            self._set_model_space(arm_data=experiment_data.arm_data)
         experiment_data = self._set_and_filter_training_data(
             experiment_data=experiment_data, search_space=self._model_space
         )
@@ -353,26 +331,29 @@ class Adapter:
                     self.transforms[t.__name__] = t_instance
         return experiment_data, search_space
 
+    def _set_search_space(
+        self,
+        search_space: SearchSpace,
+    ) -> None:
+        """Set search space and model space. Adds a FillMissingParameters transform for
+        newly added parameters."""
+        self._search_space = search_space.clone()
+        self._model_space = search_space.clone()
+
     def _set_and_filter_training_data(
         self, experiment_data: ExperimentData, search_space: SearchSpace
     ) -> ExperimentData:
         """Store non-transformed training data, and return it after filtering to
-        include only in-design points if
-        ``self._data_loader_config._fit_out_of_design=True``.
+        include only in-design points.
         """
         # NOTE: This is copied in get_training_data, so it won't be modified in-place.
         self._training_data = experiment_data
-        self._metric_names: set[str] = set(experiment_data.metric_names)
-        # Filter out-of-design points if `fit_out_of_design` is False.
-        if self._data_loader_config.fit_out_of_design:
-            self._training_in_design_idx = [True] * len(experiment_data.arm_data)
-        else:
-            self._training_in_design_idx = self._compute_in_design(
-                search_space=search_space, experiment_data=experiment_data
-            )
-        return self.get_training_data(
-            filter_in_design=self._data_loader_config.fit_out_of_design
+        self._metric_signatures: set[str] = set(experiment_data.metric_signatures)
+        # Filter out-of-design points.
+        self._training_in_design_idx = self._compute_in_design(
+            search_space=search_space, experiment_data=experiment_data
         )
+        return self.get_training_data(filter_in_design=True)
 
     def _compute_in_design(
         self,
@@ -382,13 +363,13 @@ class Adapter:
         """Compute in-design status for each row of ``experiment_data``, after
         filling missing values if ``FillMissingParameters`` transform is used.
         """
-        if "FillMissingParameters" in self._transform_configs:
-            t = FillMissingParameters(
-                config=self._transform_configs["FillMissingParameters"]
-            )
-            experiment_data = t.transform_experiment_data(
-                experiment_data=experiment_data,
-            )
+        t = FillMissingParameters(
+            search_space=search_space,
+            config=self._transform_configs.get("FillMissingParameters", None),
+        )
+        experiment_data = t.transform_experiment_data(
+            experiment_data=experiment_data,
+        )
         # TODO [T230585235]: Implement more efficient membership checks.
         return [
             search_space.check_membership(
@@ -406,11 +387,11 @@ class Adapter:
     def _set_model_space(self, arm_data: DataFrame) -> None:
         """Set model space, possibly expanding range parameters to cover data."""
         # If fill for missing values, include those in expansion.
-        fill_values: TParameterization | None = None
-        if "FillMissingParameters" in self._transform_configs:
-            fill_values = self._transform_configs[  # pyre-ignore[9]
-                "FillMissingParameters"
-            ].get("fill_values", None)
+        t = FillMissingParameters(
+            search_space=self._model_space,
+            config=self._transform_configs.get("FillMissingParameters", None),
+        )
+        fill_values = t._fill_values
         # Update model space. Expand bounds as needed to cover the values found
         # in the data. Only applies to range parameters.
         for p_name, p in self._model_space.parameters.items():
@@ -424,7 +405,18 @@ class Adapter:
                 param_vals.append(fill_values[p_name])
             if len(param_vals) == 0:
                 continue
-            p.lower = min(p.lower, min(param_vals))
+            # For log_scale parameters, ensure lower bound is > 0
+            # as OOD arms may have values <= 0
+            if p.log_scale:
+                # Find the smallest positive value from param_vals
+                positive_vals = [v for v in param_vals if v > 0]
+                if positive_vals:
+                    p.lower = min(p.lower, min(positive_vals))
+                else:
+                    # keep original lower bound
+                    continue
+            else:
+                p.lower = min(p.lower, min(param_vals))
             p.upper = max(p.upper, max(param_vals))
         # Remove parameter constraints from the model space.
         self._model_space.set_parameter_constraints([])
@@ -514,10 +506,10 @@ class Adapter:
         sq_data = obs_data.loc[
             obs_data.index.get_level_values("arm_name") == self.status_quo_name
         ]
-        metric_names = list(sq_data["mean"].columns)
+        metric_signatures = list(sq_data["mean"].columns)
         return {
             index[0]: ObservationData(
-                metric_names=metric_names,
+                metric_signatures=metric_signatures,
                 means=row["mean"].to_numpy(),
                 covariance=np.diag(row["sem"].to_numpy() ** 2),
             )
@@ -535,9 +527,9 @@ class Adapter:
         return self._status_quo_name
 
     @property
-    def metric_names(self) -> set[str]:
-        """Metric names present in training data."""
-        return self._metric_names
+    def metric_signatures(self) -> set[str]:
+        """Metric signatures present in training data."""
+        return self._metric_signatures
 
     @property
     def model_space(self) -> SearchSpace:
@@ -549,12 +541,10 @@ class Adapter:
 
         Args:
             filter_in_design: If True, the data is filtered by
-                ``self.training_in_design``. Note that this will include all
-                points if ``self._data_loader_config.fit_out_of_design is True``,
-                since all points will be marked as in-design.
+                ``self.training_in_design``.
         """
         experiment_data = deepcopy(self._training_data)
-        if not filter_in_design or self._data_loader_config.fit_out_of_design:
+        if not filter_in_design:
             return experiment_data
         arm_data = experiment_data.arm_data.loc[self.training_in_design]
         obs_data = experiment_data.observation_data
@@ -704,13 +694,7 @@ class Adapter:
     ) -> BaseGenArgs:
         if pending_observations is None:
             pending_observations = {}
-        if optimization_config is None:
-            optimization_config = (
-                self._optimization_config.clone()
-                if self._optimization_config is not None
-                else None
-            )
-        else:
+        if optimization_config is not None:
             if not self._fit_tracking_metrics:
                 # Check that the optimization config has the same metrics as
                 # the original one. Otherwise, we may attempt to optimize over
@@ -723,6 +707,32 @@ class Adapter:
                         "optimization config used while initializing the Adapter. "
                         f"Metrics {outcomes} is not a subset of {self.outcomes}."
                     )
+        else:
+            optimization_config = self._optimization_config
+
+        # set target features on optimization config as SQ, if target_features
+        # have not been specified and the SQ is in design
+        cloned_oc = False
+        if (
+            optimization_config is not None
+            and optimization_config.pruning_target_parameterization is None
+            and (sq_arm := self._experiment.status_quo) is not None
+        ):
+            sq_features = ObservationFeatures(parameters=sq_arm.parameters.copy())
+            for t in self.transforms.values():
+                if not isinstance(t, FillMissingParameters):
+                    continue
+                sq_features = t.transform_observation_features(
+                    observation_features=[sq_features]
+                )[0]
+            if search_space.check_membership(parameterization=sq_features.parameters):
+                cloned_oc = True
+                optimization_config = optimization_config.clone_with_args(
+                    pruning_target_parameterization=Arm(
+                        parameters=sq_features.parameters
+                    )
+                )
+        if not cloned_oc and optimization_config is not None:
             optimization_config = optimization_config.clone()
 
         pending_observations = deepcopy(pending_observations)
@@ -842,14 +852,11 @@ class Adapter:
 
         # Clamp the untransformed data to the original search space if
         # we don't fit/gen OOD points
-        if not self._data_loader_config.fit_out_of_design:
-            observation_features = clamp_observation_features(
-                observation_features, orig_search_space
-            )
-            if best_obsf is not None:
-                best_obsf = clamp_observation_features([best_obsf], orig_search_space)[
-                    0
-                ]
+        observation_features = clamp_observation_features(
+            observation_features, orig_search_space
+        )
+        if best_obsf is not None:
+            best_obsf = clamp_observation_features([best_obsf], orig_search_space)[0]
         best_point_predictions = None
         try:
             model_predictions = self.predict(observation_features)
@@ -880,7 +887,18 @@ class Adapter:
         immutable = getattr(
             self, "_experiment_has_immutable_search_space_and_opt_config", False
         )
-        optimization_config = None if immutable else base_gen_args.optimization_config
+        # Don't store pruning_target_parameterization on the GeneratorRun's
+        # OptimizationConfig:
+        # storage of pruning_target_parameterization is not yet fully enabled.
+        # TODO[@mpolson64]: Stop storing optimization config and search space copies
+        # on generator runs, as part of the upcoming storage refactor.
+        optimization_config = (
+            None
+            if (immutable or (base_gen_args.optimization_config is None))
+            else base_gen_args.optimization_config.clone_with_args(
+                pruning_target_parameterization=None
+            )
+        )
         # Remove information about the objective thresholds - we do not want to save
         # these as `ObjectiveThreshold` objects, as this causes storage headaches.
         gen_metadata = gen_results.gen_metadata
@@ -1042,7 +1060,7 @@ class Adapter:
     ) -> dict[str, Any]:
         return self.generator.deserialize_state(serialized_state=serialized_state)
 
-    def feature_importances(self, metric_name: str) -> dict[str, float]:
+    def feature_importances(self, metric_signature: str) -> dict[str, float]:
         """Computes feature importances for a single metric.
 
         Depending on the type of the generator, this method will approach sensitivity
@@ -1055,7 +1073,7 @@ class Adapter:
         NOTE: Currently, this is only implemented for GP-based generators.
 
         Args:
-            metric_name: Name of metric to compute feature importances for.
+            metric_signatures: Signature of metric to compute feature importances for.
 
         Returns:
             A dictionary mapping parameter names to their corresponding feature
@@ -1125,20 +1143,20 @@ def unwrap_observation_data(observation_data: list[ObservationData]) -> TModelPr
     """Converts observation data to the format for model prediction outputs.
     That format assumes each observation data has the same set of metrics.
     """
-    metrics = set(observation_data[0].metric_names)
+    metrics = set(observation_data[0].metric_signatures)
     f: TModelMean = {metric: [] for metric in metrics}
     cov: TModelCov = {m1: {m2: [] for m2 in metrics} for m1 in metrics}
     for od in observation_data:
-        if set(od.metric_names) != metrics:
+        if set(od.metric_signatures) != metrics:
             raise ValueError(
                 "Each ObservationData should use same set of metrics. "
                 "Expected {exp}, got {got}.".format(
-                    exp=metrics, got=set(od.metric_names)
+                    exp=metrics, got=set(od.metric_signatures)
                 )
             )
-        for i, m1 in enumerate(od.metric_names):
+        for i, m1 in enumerate(od.metric_signatures):
             f[m1].append(od.means[i])
-            for j, m2 in enumerate(od.metric_names):
+            for j, m2 in enumerate(od.metric_signatures):
                 cov[m1][m2].append(od.covariance[i, j])
     return f, cov
 
@@ -1193,50 +1211,6 @@ def clamp_observation_features(
     return observation_features
 
 
-def _legacy_overwrite_data_loader_config(
-    data_loader_config: DataLoaderConfig,
-    fit_out_of_design: bool | None = None,
-    fit_abandoned: bool | None = None,
-    fit_only_completed_map_metrics: bool | None = None,
-    warn_if_legacy: bool = True,
-) -> DataLoaderConfig:
-    """Overwrites data loader config with legacy keyword arguments.
-
-    Args:
-        data_loader_config: Data loader config.
-        fit_out_of_design: Whether to fit out-of-design points.
-        fit_abandoned: Whether to fit abandoned arms.
-        fit_only_completed_map_metrics: Whether to fit only completed map metrics.
-        warn_if_legacy: Whether to warn if legacy keyword arguments are used.
-
-    Returns:
-        Updated data loader config.
-    """
-    data_loader_config_dict = {}
-    for var_name, deprecated_var in (
-        ("fit_out_of_design", fit_out_of_design),
-        ("fit_abandoned", fit_abandoned),
-        ("fit_only_completed_map_metrics", fit_only_completed_map_metrics),
-    ):
-        if deprecated_var is not None:
-            if warn_if_legacy:
-                logger.warning(
-                    f"`{var_name}` is deprecated. Please pass as "
-                    f"`data_loader_config.{var_name}` instead."
-                )
-            data_loader_config_dict[var_name] = deprecated_var
-        else:
-            data_loader_config_dict[var_name] = getattr(data_loader_config, var_name)
-
-    data_loader_config = DataLoaderConfig(
-        latest_rows_per_group=data_loader_config.latest_rows_per_group,
-        limit_rows_per_metric=data_loader_config.limit_rows_per_metric,
-        limit_rows_per_group=data_loader_config.limit_rows_per_group,
-        **data_loader_config_dict,
-    )
-    return data_loader_config
-
-
 def _combine_multiple_status_quo_observations(
     status_quo_observations: list[Observation],
     metrics: set[str],
@@ -1270,7 +1244,7 @@ def _combine_multiple_status_quo_observations(
     # Check if the it includes all metrics in the opt config.
     # If not, search for observations of the remaining metrics as well.
     while remaining_metrics := metrics.difference(
-        sum((obs.data.metric_names for obs in partial_obs), [])
+        sum((obs.data.metric_signatures for obs in partial_obs), [])
     ):
         # Find observations of the remaining metrics.
         # Search using one metric at a time.
@@ -1278,7 +1252,7 @@ def _combine_multiple_status_quo_observations(
         obs_w_lookup_metric = [
             obs
             for obs in status_quo_observations
-            if lookup_metric in obs.data.metric_names
+            if lookup_metric in obs.data.metric_signatures
         ]
         if len(obs_w_lookup_metric) == 0:
             logger.warning(
@@ -1301,7 +1275,9 @@ def _combine_multiple_status_quo_observations(
             # NOTE: omitting the metadata since it can be different in each obs.
         ),
         data=ObservationData(
-            metric_names=sum((obs.data.metric_names for obs in partial_obs), []),
+            metric_signatures=sum(
+                (obs.data.metric_signatures for obs in partial_obs), []
+            ),
             means=np.concatenate([obs.data.means for obs in partial_obs], axis=0),
             covariance=np.diag(
                 np.concatenate(

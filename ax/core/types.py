@@ -33,7 +33,6 @@ TModelPredictArm = tuple[dict[str, float], Optional[dict[str, dict[str, float]]]
 # pyre-fixme[24]: Generic type `np.floating` expects 1 type parameter.
 # pyre-fixme[24]: Generic type `np.integer` expects 1 type parameter.
 FloatLike = Union[int, float, np.floating, np.integer]
-SingleMetricDataTuple = tuple[FloatLike, Optional[FloatLike]]
 SingleMetricData = Union[FloatLike, tuple[FloatLike, Optional[FloatLike]]]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.
 TTrialEvaluation = Mapping[str, SingleMetricData]

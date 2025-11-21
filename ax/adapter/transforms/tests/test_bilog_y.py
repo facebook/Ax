@@ -18,7 +18,7 @@ from ax.adapter.base import Adapter, DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.bilog_y import bilog_transform, BilogY, inv_bilog_transform
 from ax.adapter.transforms.log_y import match_ci_width
-from ax.core.observation import observations_from_data
+from ax.core.observation_utils import observations_from_data
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -102,7 +102,7 @@ class BilogYTest(TestCase):
         for obs, transform_obs in zip(observations, transformed_data):
             # Non-constraints should be the same
             self.assertEqual(
-                transform_obs.metric_names, ["branin", "branin_d", "branin_e"]
+                transform_obs.metric_signatures, ["branin", "branin_d", "branin_e"]
             )
             self.assertTrue((transform_obs.means[0:2] == obs.data.means[0:2]).all())
             self.assertTrue(
@@ -125,7 +125,7 @@ class BilogYTest(TestCase):
         ):
             # Non-constraints should be the same
             self.assertEqual(
-                untransform_obs.metric_names, ["branin", "branin_d", "branin_e"]
+                untransform_obs.metric_signatures, ["branin", "branin_d", "branin_e"]
             )
             self.assertTrue((untransform_obs.means[0:2] == obs.data.means[0:2]).all())
             self.assertTrue(

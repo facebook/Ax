@@ -6,10 +6,8 @@
 
 # pyre-strict
 
-from typing import Any
 
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
-from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multioutput_acquisition import (
     MultiOutputAcquisitionFunctionWrapper,
 )
@@ -23,17 +21,10 @@ class MultiAcquisition(Acquisition):
 
     def _instantiate_acquisition(
         self,
-        botorch_acqf_classes_with_options: list[
-            tuple[type[AcquisitionFunction], dict[str, Any]]
-        ],
     ) -> None:
-        """Constructs the acquisition function based on the provided AF clases.
-
-        Args:
-            botorch_acqf_classes: A list of BoTorch acquisition function classes.
-        """
+        """Constructs the acquisition function based on the provided AF clases."""
         self.acq_function_sequence = None
-        if len(botorch_acqf_classes_with_options) > 1:
+        if len(self.botorch_acqf_classes_with_options) > 1:
             acqfs = [
                 self._construct_botorch_acquisition(
                     botorch_acqf_class=botorch_acqf_class,
@@ -41,7 +32,7 @@ class MultiAcquisition(Acquisition):
                     model=self._model,
                 )
                 for botorch_acqf_class, botorch_acqf_options in (
-                    botorch_acqf_classes_with_options
+                    self.botorch_acqf_classes_with_options
                 )
             ]
             self.acqf = MultiOutputAcquisitionFunctionWrapper(acqfs=acqfs)
@@ -49,7 +40,7 @@ class MultiAcquisition(Acquisition):
         else:
             # Using one acqf with multiple models.
             botorch_acqf_class, botorch_acqf_options = (
-                botorch_acqf_classes_with_options[0]
+                self.botorch_acqf_classes_with_options[0]
             )
             # Default acqf is the surrogate default.
             self.acqf = self._construct_botorch_acquisition(

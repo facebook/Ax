@@ -21,6 +21,7 @@ from typing import Any, Sequence
 
 import torch
 from ax.exceptions.core import AxError
+from botorch.models.utils.gpytorch_modules import SQRT2, SQRT3
 from gpytorch.constraints import Interval
 from gpytorch.constraints.constraints import GreaterThan
 from gpytorch.kernels import PeriodicKernel
@@ -158,6 +159,23 @@ class TemporalKernel(ScaleKernel):
         )
 
 
+def default_loc_and_scale_for_lognormal_lengthscale_prior(
+    ard_num_dims: int | None,
+) -> tuple[float, float]:
+    """Get the default location and scale for the lengthscale prior.
+
+    Args:
+        ard_num_dims: The number of ARD dimensions.
+
+    Returns:
+        A tuple of the location and scale for the lengthscale prior.
+    """
+    ard_num_dims = ard_num_dims or 1
+    loc = SQRT2 + log(ard_num_dims) * 0.5
+    scale = SQRT3
+    return loc, scale
+
+
 def get_lengthscale_prior_and_initial_value(
     ard_num_dims: int | None, mle: bool
 ) -> tuple[LogNormalPrior | None, float]:
@@ -166,9 +184,10 @@ def get_lengthscale_prior_and_initial_value(
     if mle:
         # initial value comes from [Papenmeier2025hd]_.
         return None, sqrt(ard_num_dims) / 10
-    lengthscale_prior = LogNormalPrior(
-        loc=sqrt(2) + log(ard_num_dims) * 0.5, scale=sqrt(3)
+    loc, scale = default_loc_and_scale_for_lognormal_lengthscale_prior(
+        ard_num_dims=ard_num_dims
     )
+    lengthscale_prior = LogNormalPrior(loc=loc, scale=scale)
     return lengthscale_prior, lengthscale_prior.mode.item()
 
 
@@ -187,6 +206,7 @@ class DefaultRBFKernel(RBFKernel):
         active_dims: Sequence[int] | None = None,
         batch_shape: torch.Size | None = None,
         mle: bool = False,
+        lengthscale_prior: LogNormalPrior | None = None,
     ) -> None:
         """Initialize Matern kernel with dimension-scaling prior or MLE.
 
@@ -197,10 +217,14 @@ class DefaultRBFKernel(RBFKernel):
             batch_shape: The batch shape for the kernel.
             mle: A boolean indicating whether to use MLE (no priors) or a dimension
                 scaling prior.
+            lengthscale_prior: The lengthscale prior. If None, a default prior is used.
         """
-        lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
-            ard_num_dims=ard_num_dims, mle=mle
-        )
+        if lengthscale_prior is not None:
+            initial_value = lengthscale_prior.mode[0].item()
+        else:
+            lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
+                ard_num_dims=ard_num_dims, mle=mle
+            )
         super().__init__(
             ard_num_dims=ard_num_dims,
             batch_shape=batch_shape,
@@ -229,10 +253,14 @@ class DefaultMaternKernel(MaternKernel):
         batch_shape: torch.Size | None = None,
         nu: float = 2.5,
         mle: bool = False,
+        lengthscale_prior: LogNormalPrior | None = None,
     ) -> None:
-        lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
-            ard_num_dims=ard_num_dims, mle=mle
-        )
+        if lengthscale_prior is not None:
+            initial_value = lengthscale_prior.mode[0].item()
+        else:
+            lengthscale_prior, initial_value = get_lengthscale_prior_and_initial_value(
+                ard_num_dims=ard_num_dims, mle=mle
+            )
         super().__init__(
             ard_num_dims=ard_num_dims,
             batch_shape=batch_shape,

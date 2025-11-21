@@ -379,3 +379,45 @@ class TestFromBoTorch(TestCase):
             )
             metric = next(iter(problem.optimization_config.metrics.values()))
             self.assertIsInstance(metric, BenchmarkMapMetric)
+
+    def test_string_test_problem_class(self) -> None:
+        """Test that test_problem_class can be provided as a string."""
+
+        problem_from_string = create_problem_from_botorch(
+            test_problem_class="Branin",
+            test_problem_kwargs={"negate": True},
+            num_trials=1,
+            baseline_value=10.0,
+        )
+        problem_from_class = create_problem_from_botorch(
+            test_problem_class=Branin,
+            test_problem_kwargs={"negate": True},
+            num_trials=1,
+            baseline_value=10.0,
+        )
+
+        string_test_function = assert_is_instance(
+            problem_from_string.test_function, BoTorchTestFunction
+        )
+        class_test_function = assert_is_instance(
+            problem_from_class.test_function, BoTorchTestFunction
+        )
+        self.assertEqual(problem_from_string.name, "Branin")
+        string_botorch_problem = string_test_function.botorch_problem
+        class_botorch_problem = class_test_function.botorch_problem
+        self.assertIsInstance(string_botorch_problem, Branin)
+        self.assertIsInstance(class_botorch_problem, Branin)
+        self.assertTrue(string_botorch_problem.negate)
+        self.assertTrue(class_botorch_problem.negate)
+
+        self.assertEqual(
+            problem_from_string.search_space,
+            problem_from_class.search_space,
+        )
+        self.assertEqual(
+            problem_from_string.optimal_value, problem_from_class.optimal_value
+        )
+        self.assertEqual(
+            problem_from_string.optimization_config,
+            problem_from_class.optimization_config,
+        )

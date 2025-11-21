@@ -186,7 +186,7 @@ def best_feasible_objective(
     """
     # Get objective at each iteration
     objective = optimization_config.objective
-    f = values[objective.metric.name]
+    f = values[objective.metric.signature]
     # Set infeasible points to have infinitely bad values
     infeas_val = np.inf if objective.minimize else -np.inf
     for oc in optimization_config.outcome_constraints:
@@ -194,7 +194,7 @@ def best_feasible_objective(
             raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
-        g = values[oc.metric.name]
+        g = values[oc.metric.signature]
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f[~feas] = infeas_val
 
@@ -390,7 +390,6 @@ def get_pending_observation_features(
                         trial=trial,
                     ):
                         pending_features[metric_name].append(feature)
-
     return pending_features if any(x for x in pending_features.values()) else None
 
 

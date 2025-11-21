@@ -34,7 +34,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         noise_sd: float = 0.0,
         lower_is_better: bool | None = None,
         rate: float | None = None,
-        cache_evaluations: bool = True,
         decay_function_name: str = "exp_decay",
     ) -> None:
         """A Branin map metric with an optional multiplicative factor of
@@ -78,13 +77,13 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             param_names=param_names,
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
-            cache_evaluations=cache_evaluations,
         )
 
     def __eq__(self, o: BraninTimestampMapMetric) -> bool:
         """Ignore _timestamp on equality checks"""
         return (
             self.name == o.name
+            and self.signature == o.signature
             and self.param_names == o.param_names
             and self.noise_sd == o.noise_sd
             and self.lower_is_better == o.lower_is_better
@@ -122,13 +121,14 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                             else 0.0
                             for item in res
                         ],
+                        "metric_signature": self.signature,
                         MAP_KEY: [item[MAP_KEY] for item in res],
                     }
                 )
 
                 datas.append(MapData(df=df))
 
-            return Ok(value=MapData.from_multiple_map_data(datas))
+            return Ok(value=MapData.from_multiple_data(data=datas))
 
         except Exception as e:
             return Err(

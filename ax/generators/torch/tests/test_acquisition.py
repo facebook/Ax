@@ -20,7 +20,11 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, SearchSpaceExhausted
-from ax.generators.torch.botorch_modular.acquisition import Acquisition, logger
+from ax.generators.torch.botorch_modular.acquisition import (
+    _expand_and_set_single_feature_to_target,
+    Acquisition,
+    logger,
+)
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.optimizer_defaults import (
@@ -125,13 +129,13 @@ class AcquisitionTest(TestCase):
         self.Yvar = torch.tensor([[0.0], [2.0]], **self.tkwargs)
         self.fidelity_features = [2]
         self.feature_names = ["a", "b", "c"]
-        self.metric_names = ["metric"]
+        self.metric_signatures = ["metric"]
         self.training_data = [
             SupervisedDataset(
                 X=self.X,
                 Y=self.Y,
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=self.metric_signatures,
             )
         ]
         self.search_space_digest = SearchSpaceDigest(
@@ -188,7 +192,10 @@ class AcquisitionTest(TestCase):
         ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
 
     def get_acquisition_function(
-        self, fixed_features: dict[int, float] | None = None, one_shot: bool = False
+        self,
+        fixed_features: dict[int, float] | None = None,
+        one_shot: bool = False,
+        target_point: Tensor | None = None,
     ) -> Acquisition:
         return self.acquisition_class(
             botorch_acqf_class=(
@@ -197,7 +204,9 @@ class AcquisitionTest(TestCase):
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
-                self.torch_opt_config, fixed_features=fixed_features or {}
+                self.torch_opt_config,
+                fixed_features=fixed_features or {},
+                pruning_target_point=target_point,
             ),
             options=self.options,
             botorch_acqf_options=self.botorch_acqf_options,
@@ -321,51 +330,79 @@ class AcquisitionTest(TestCase):
 
     @mock_botorch_optimize
     def test_optimize(self) -> None:
-        acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
-        n = 5
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
-        ) as mock_optimize_acqf:
-            acquisition.optimize(
-                n=n,
-                search_space_digest=self.search_space_digest,
+        for prune_irrelevant_parameters in (False, True):
+            if prune_irrelevant_parameters:
+                self.options = {
+                    "prune_irrelevant_parameters": True,
+                }
+            else:
+                self.options = {}
+            acquisition = self.get_acquisition_function(
+                fixed_features=self.fixed_features,
+                target_point=torch.zeros(3, dtype=torch.double),
+            )
+            n = 5
+            with mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse, mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
+            ) as mock_optimize_acqf, mock.patch.object(
+                acquisition,
+                "_prune_irrelevant_parameters",
+                wraps=acquisition._prune_irrelevant_parameters,
+            ) as mock_prune_irrelevant_parameters:
+                acquisition.optimize(
+                    n=n,
+                    search_space_digest=self.search_space_digest,
+                    inequality_constraints=self.inequality_constraints,
+                    fixed_features=self.fixed_features,
+                    rounding_func=self.rounding_func,
+                    optimizer_options=self.optimizer_options,
+                )
+            mock_optimizer_argparse.assert_called_once_with(
+                acquisition.acqf,
+                optimizer_options=self.optimizer_options,
+                optimizer="optimize_acqf",
+            )
+            mock_optimize_acqf.assert_called_with(
+                acq_function=acquisition.acqf,
+                sequential=True,
+                bounds=mock.ANY,
+                q=n,
+                options={
+                    "init_batch_limit": INIT_BATCH_LIMIT,
+                    "batch_limit": BATCH_LIMIT,
+                    "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
+                },
                 inequality_constraints=self.inequality_constraints,
                 fixed_features=self.fixed_features,
-                rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
+                post_processing_func=self.rounding_func,
+                acq_function_sequence=None,
+                **self.optimizer_options,
             )
-        mock_optimizer_argparse.assert_called_once_with(
-            acquisition.acqf,
-            optimizer_options=self.optimizer_options,
-            optimizer="optimize_acqf",
-        )
-        mock_optimize_acqf.assert_called_with(
-            acq_function=acquisition.acqf,
-            sequential=True,
-            bounds=mock.ANY,
-            q=n,
-            options={
-                "init_batch_limit": INIT_BATCH_LIMIT,
-                "batch_limit": BATCH_LIMIT,
-                "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
-            },
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=self.fixed_features,
-            post_processing_func=self.rounding_func,
-            acq_function_sequence=None,
-            **self.optimizer_options,
-        )
-        # can't use assert_called_with on bounds due to ambiguous bool comparison
-        expected_bounds = torch.tensor(
-            self.search_space_digest.bounds,
-            dtype=acquisition.dtype,
-            device=acquisition.device,
-        ).transpose(0, 1)
-        self.assertTrue(
-            torch.equal(mock_optimize_acqf.call_args[1]["bounds"], expected_bounds)
-        )
+            if prune_irrelevant_parameters:
+                mock_prune_irrelevant_parameters.assert_called_once()
+                call_kwargs = mock_prune_irrelevant_parameters.call_args_list[0][1]
+                for kw_name in (
+                    "candidates",
+                    "search_space_digest",
+                    "inequality_constraints",
+                    "fixed_features",
+                ):
+                    self.assertIsNotNone(call_kwargs[kw_name])
+                self.assertIsNotNone(acquisition.num_pruned_dims)
+            else:
+                mock_prune_irrelevant_parameters.assert_not_called()
+                self.assertIsNone(acquisition.num_pruned_dims)
+            # can't use assert_called_with on bounds due to ambiguous bool comparison
+            expected_bounds = torch.tensor(
+                self.search_space_digest.bounds,
+                dtype=acquisition.dtype,
+                device=acquisition.device,
+            ).transpose(0, 1)
+            self.assertTrue(
+                torch.equal(mock_optimize_acqf.call_args[1]["bounds"], expected_bounds)
+            )
 
     def test_optimize_discrete(self) -> None:
         ssd1 = SearchSpaceDigest(
@@ -879,7 +916,7 @@ class AcquisitionTest(TestCase):
 
     @mock_botorch_optimize
     @mock.patch(  # pyre-ignore
-        "ax.generators.torch.botorch_moo_defaults._check_posterior_type",
+        "ax.generators.torch.botorch_moo_utils._check_posterior_type",
         wraps=lambda y: y,
     )
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
@@ -1064,6 +1101,563 @@ class AcquisitionTest(TestCase):
         self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
         self.assertIsNone(acquisition._full_objective_thresholds)
 
+    def test_expand_and_set_single_feature_to_target(self) -> None:
+        # Test helper function
+        X = torch.tensor([[1.0, 2.0, 3.0]])  # 1 x 3
+        indices = torch.tensor([0, 2])  # indices to modify
+        targets = torch.tensor([10.0, 30.0])  # target values
+
+        result = _expand_and_set_single_feature_to_target(X, indices, targets)
+
+        # Should return a 2 x 1 x 3 tensor
+        self.assertEqual(result.shape, (2, 1, 3))
+        # First row should have X[0] = 10.0
+        self.assertEqual(result[0, 0, 0].item(), 10.0)
+        self.assertEqual(result[0, 0, 1].item(), 2.0)  # unchanged
+        self.assertEqual(result[0, 0, 2].item(), 3.0)  # unchanged
+        # Second row should have X[2] = 30.0
+        self.assertEqual(result[1, 0, 0].item(), 1.0)  # unchanged
+        self.assertEqual(result[1, 0, 1].item(), 2.0)  # unchanged
+        self.assertEqual(result[1, 0, 2].item(), 30.0)  # changed
+
+    def test_prune_irrelevant_parameters_no_target_point(self) -> None:
+        # Test that ValueError is raised when no target_point is provided
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=self.torch_opt_config,
+            botorch_acqf_class=DummyAcquisitionFunction,
+            options={},  # No target_point
+        )
+
+        candidates = torch.tensor([[0.9, 0.1]])
+
+        with self.assertRaisesRegex(
+            AssertionError,
+            "Must specify pruning_target_point to prune irrelevant parameters",
+        ):
+            acq._prune_irrelevant_parameters(
+                candidates=candidates, search_space_digest=self.search_space_digest
+            )
+
+    def test_prune_irrelevant_parameters_with_log_acquisition(self) -> None:
+        # Test pruning with log-transformed acquisition function
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.5, 0.5])
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+
+        # Create mock acquisition function with log transformation
+        mock_acqf = Mock()
+        mock_acqf._log = True
+        # Log values that when exp() give predictable pruning behavior
+        evaluation_values = [
+            torch.tensor([-30.0]),  # baseline value
+            torch.tensor([0.0]),  # dense value
+            torch.tensor([-0.1, -0.69]),
+        ]
+        acq.evaluate = Mock(side_effect=evaluation_values)
+        acq.acqf = mock_acqf
+        candidates = torch.tensor([[0.9, 0.1]])
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates, search_space_digest=self.search_space_digest
+        )
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.5, 0.1]])))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([-0.1])))
+
+    def test_prune_irrelevant_parameters_zero_acquisition_value(self) -> None:
+        # Test handling of zero or negative acquisition values
+        torch.manual_seed(0)
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.5, 0.5])
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        mock_evaluate = Mock(return_value=torch.tensor([0.0]))  # Zero acquisition value
+        acq.evaluate = mock_evaluate
+        acq.acqf = mock_acqf
+
+        candidates = torch.tensor([[0.9, 0.1]])
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates, search_space_digest=self.search_space_digest
+        )
+
+        # Should handle zero acquisition value gracefully
+        self.assertEqual(pruned_candidates.shape, (1, 2))
+        self.assertEqual(pruned_values.shape, (1,))
+        # Original candidate should be unchanged when acquisition value is zero
+        torch.testing.assert_close(pruned_candidates, candidates)
+
+    def test_prune_irrelevant_parameters_single_dimension(self) -> None:
+        # Test that pruning stops when only one dimension would remain
+        torch.manual_seed(0)
+
+        # Create search space digest for 1D problem
+        search_space_digest_1d = SearchSpaceDigest(
+            feature_names=["x1"], bounds=[(0.0, 1.0)]
+        )
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest_1d,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.5])
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        acq.evaluate = Mock(side_effect=[torch.tensor([0.0]), torch.tensor([1.0])])
+
+        candidates = torch.tensor([[0.9]])  # 1D candidate
+
+        pruned_candidates, _ = acq._prune_irrelevant_parameters(
+            candidates=candidates, search_space_digest=self.search_space_digest
+        )
+
+        # Should not prune the only dimension
+        torch.testing.assert_close(pruned_candidates, candidates)
+
+    def test_prune_irrelevant_parameters_with_fixed_features(self) -> None:
+        # Test pruning with fixed features that should be excluded from pruning
+        # Create search space with fixed features
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2", "x3"],
+            bounds=[(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)],
+        )
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.5, 0.5, 0.5]),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        # all pruned points will return the same AF value as
+        # the dense point, so we should have pruned the first dimension
+        # if it weren't fixed
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([1.0]),  # baseline value
+                torch.tensor([1.0]),  # dense value
+                torch.tensor([1.0, 1.0]),  # pruned values
+            ]
+        )
+        acq.evaluate = mock_evaluate
+        acq.acqf = mock_acqf
+        acq._instantiate_acquisition = Mock()
+
+        candidates = torch.tensor([[0.9, 0.1, 0.8]])
+        fixed_features = {0: 0.9}  # Fix feature 0 to 0.9
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates,
+            search_space_digest=search_space_digest,
+            fixed_features=fixed_features,
+        )
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.9, 0.5, 0.8]])))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([1.0])))
+
+    def test_prune_irrelevant_parameters_with_custom_threshold(self) -> None:
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2", "x3"],
+            bounds=[(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)],
+        )
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.5, 0.5, 0.5]),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+            options={"irrelevance_pruning_rtol": 1.0},
+        )
+        # with a rtol of 1, we should prune the first two dimensions
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        mock_evaluate = Mock(
+            side_effect=[
+                # baseline value is zero, since X_observed is empty
+                torch.tensor([1.0]),  # dense value
+                torch.tensor([0.3, 0.2, 0.1]),  # pruned values
+                torch.tensor([0.2, 0.1]),  # pruned values
+            ]
+        )
+        acq.evaluate = mock_evaluate
+        acq.acqf = mock_acqf
+        acq._instantiate_acquisition = Mock()
+
+        candidates = torch.tensor([[0.9, 0.1, 0.8]])
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates, search_space_digest=search_space_digest
+        )
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.5, 0.5, 0.8]])))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([0.2])))
+
+    def test_prune_irrelevant_parameters_with_inequality_constraints(self) -> None:
+        # Test pruning with inequality constraints that filter out infeasible candidates
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2"],
+            bounds=[(0.0, 1.0), (0.0, 1.0)],
+        )
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.2, 0.2])
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([1.0]),  # original dense value
+                torch.tensor([0.91, 0.9]),  # pruned value (after constraint filtering)
+                torch.tensor([0.9]),
+            ]
+        )
+        acq.evaluate = mock_evaluate
+        candidates = torch.tensor([[0.8, 0.8]])
+        # Constraint: x1 + x2 >= 1.0
+        inequality_constraints = [(torch.tensor([0, 1]), torch.tensor([1.0, 1.0]), 1.0)]
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates,
+            search_space_digest=search_space_digest,
+            inequality_constraints=inequality_constraints,
+        )
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.2, 0.8]])))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([0.91])))
+
+    def test_prune_irrelevant_parameters_already_at_target(self) -> None:
+        # Test that features already at target point are excluded from pruning
+
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2", "x3"],
+            bounds=[(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)],
+        )
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.5, 0.5, 0.5]),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+
+        mock_acqf = Mock()
+        mock_acqf._log = False
+
+        acq.acqf = mock_acqf
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([1.0]),  # original value
+                torch.tensor([0.88, 0.96]),
+                torch.tensor([0.88]),
+            ]
+        )
+        acq.evaluate = mock_evaluate
+
+        # Candidate where feature 1 is already at target point
+        # only dimension 2 should be pruned
+        candidates = torch.tensor([[0.9, 0.5, 0.8]])
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates, search_space_digest=search_space_digest
+        )
+
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.9, 0.5, 0.5]])))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([0.96])))
+
+    def test_prune_irrelevant_parameters_specific_pruning_behavior(self) -> None:
+        # Test specific pruning behavior with predictable acquisition function responses
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.2, 0.8], dtype=torch.double),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        # Test case where first dimension should be pruned but second shouldn't
+        original_candidate = torch.tensor([[0.9, 0.1]], dtype=torch.double)
+        # Mock acquisition function responses:
+        # 1. Original candidate value: 1.0
+        # 2. Pruning dimension 0 to target: 0.95 (5% reduction - below 10% threshold)
+        # 3. Pruning dimension 1 to target: 0.85 (15% reduction - above 10% threshold)
+        acq.evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0], dtype=torch.double),  # baseline acquisition value
+                torch.tensor(
+                    [1.0], dtype=torch.double
+                ),  # original dense acquisition value
+                torch.tensor(
+                    [0.95, 0.85], dtype=torch.double
+                ),  # pruning dim 0: 5% reduction (should prune)
+            ]
+        )
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=original_candidate, search_space_digest=self.search_space_digest
+        )
+        self.assertTrue(
+            torch.equal(
+                pruned_candidates, torch.tensor([[0.2, 0.1]], dtype=torch.double)
+            )
+        )
+        self.assertTrue(
+            torch.equal(pruned_values, torch.tensor([0.95], dtype=torch.double))
+        )
+        self.assertEqual(acq.num_pruned_dims, [1])
+
+    def test_prune_irrelevant_parameters_no_pruning_above_threshold(self) -> None:
+        # Test that no pruning occurs when all reductions are above threshold
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.2, 0.8])
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+
+        original_candidate = torch.tensor([[0.9, 0.1]])
+
+        # All pruning attempts result in reductions above threshold
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0]),  # baseline acquisition value
+                torch.tensor([1.0]),  # original dense acquisition value
+                torch.tensor([0.8, 0.7]),
+            ]
+        )
+        acq.evaluate = mock_evaluate
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=original_candidate, search_space_digest=self.search_space_digest
+        )
+
+        # Both dimensions should remain unchanged
+        self.assertTrue(torch.equal(pruned_candidates, original_candidate))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([1.0])))
+
+    def test_prune_irrelevant_parameters_multi_candidate_exact_values(self) -> None:
+        # Test exact pruned values for multiple candidates
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.2, 0.8])
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        original_candidates = torch.tensor([[0.9, 0.1], [0.3, 0.7]])
+        # Mock responses for both candidates:
+        # Candidate 1: both dims should be pruned
+        # Candidate 2: only dim 1 should be pruned
+        mock_evaluate = Mock(
+            side_effect=[
+                # Candidate 1 evaluations
+                torch.tensor([0.0]),  # baseline value
+                torch.tensor([1.0]),  # original dense value
+                torch.tensor([0.95, 0.98]),  # prune dim 1
+                torch.tensor([-30.0]),  # compute incremental baseline
+                torch.tensor([0.8]),  # original dense value
+                torch.tensor([0.75, 0.6]),
+            ]
+        )
+        acq.evaluate = mock_evaluate
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=original_candidates, search_space_digest=self.search_space_digest
+        )
+        expected_candidates = torch.tensor(
+            [
+                [0.9, 0.8],  # Candidate 1: dim 1 pruned to target
+                [0.2, 0.7],  # Candidate 2: only dim 0 pruned to target
+            ]
+        )
+        self.assertTrue(torch.equal(pruned_candidates, expected_candidates))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([0.98, 0.75])))
+        self.assertEqual(acq.num_pruned_dims, [1, 1])
+
+    def test_prune_irrelevant_parameters_with_constraints_exact_values(self) -> None:
+        # Test exact pruned values when constraints filter out some candidates
+
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, pruning_target_point=torch.tensor([0.1, 0.1])
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        acq._instantiate_acquisition = Mock()
+
+        original_candidate = torch.tensor([[0.9, 1.0]])
+        # pruning does not reduce AF value, but pruning the dim 1 violates
+        # the constraint
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0]),  # baseline af val
+                torch.tensor([1.0]),  # dense af val
+                # pruned af val for single pruned_candidate, since the other
+                # pruned candidate is filtered out
+                torch.tensor([1.0]),
+            ]
+        )
+        acq.evaluate = mock_evaluate
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=original_candidate,
+            search_space_digest=self.search_space_digest,
+            inequality_constraints=[
+                (
+                    torch.tensor([[0, 1]], dtype=torch.long),
+                    torch.tensor([[0.0, 1.0]]),
+                    1.0,
+                )
+            ],
+        )
+
+        # Only dimension 0 should be pruned
+        expected_candidate = torch.tensor([[0.1, 1.0]])
+        self.assertTrue(torch.equal(pruned_candidates, expected_candidate))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([1.0])))
+
+    def test_prune_irrelevant_parameters_with_task_and_fidelity_features(self) -> None:
+        # Test pruning with both task and fidelity features that should be excluded
+        # from pruning
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.2, 0.0, 0.8, 0.2]),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        acq._instantiate_acquisition = Mock()
+
+        original_candidate = torch.tensor([[0.9, 0.5, 0.1, 0.3]])
+
+        # Only dimensions 2
+        # (dimensions 0 and 1 are task/fidelity features)
+        # dimension 3 is skipped since we don't prune all dimensions.
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0]),  # baseline af val
+                torch.tensor([1.0]),  # original dense acquisition value
+                torch.tensor([0.92]),  # pruning dim 2
+            ]
+        )
+        acq.evaluate = mock_evaluate
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=original_candidate,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+                task_features=[0],
+                fidelity_features=[1],
+            ),
+        )
+        expected_candidate = torch.tensor([[0.9, 0.5, 0.8, 0.3]])
+        self.assertTrue(torch.equal(pruned_candidates, expected_candidate))
+        self.assertTrue(torch.equal(pruned_values, torch.tensor([0.92])))
+
+    def test_prune_irrelevant_parameters_hss(self) -> None:
+        # Test with HSS. HSS shouldn't change the behavior
+        # of pruning
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=torch.tensor([0.2, 0.8], dtype=torch.double),
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        # Test case where first dimension should be pruned but second shouldn't
+        original_candidate = torch.tensor([[0.9, 0.1]], dtype=torch.double)
+        # Mock acquisition function responses:
+        # 1. Original candidate value: 1.0
+        # 2. Pruning dimension 0 to target: 0.95 (5% reduction - below 10% threshold)
+        # 3. Pruning dimension 1 to target: 0.85 (15% reduction - above 10% threshold)
+        acq.evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0], dtype=torch.double),  # baseline acquisition value
+                torch.tensor(
+                    [1.0], dtype=torch.double
+                ),  # original dense acquisition value
+                torch.tensor(
+                    [0.95, 0.85], dtype=torch.double
+                ),  # pruning dim 0: 5% reduction (should prune)
+            ]
+        )
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=original_candidate,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=[(0.0, 1.0), (0.0, 10.0)],
+                ordinal_features=[0],
+                hierarchical_dependencies={0: {0: [1]}},
+            ),
+        )
+        self.assertTrue(
+            torch.equal(
+                pruned_candidates, torch.tensor([[0.2, 0.1]], dtype=torch.double)
+            )
+        )
+        self.assertTrue(
+            torch.equal(pruned_values, torch.tensor([0.95], dtype=torch.double))
+        )
+
 
 class MultiAcquisitionTest(AcquisitionTest):
     acquisition_class = MultiAcquisition
@@ -1226,35 +1820,6 @@ class MultiAcquisitionTest(AcquisitionTest):
             torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=DummyAcquisitionFunction,
             n=1,
-        )
-        self.assertEqual(acq.acqf.model, model_mocks[0])
-        self.assertEqual(acq.acq_function_sequence, None)
-        self.assertEqual(len(acq.models_used), 1)
-        acq = MultiAcquisition(
-            surrogate=surrogate,
-            search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
-            botorch_acqf_class=DummyAcquisitionFunction,
-            n=2,
-        )
-        models_for_gen_mock.assert_called_once_with(n=2)
-        self.assertEqual(acq.acqf.model, model_mocks[0])
-        acqf_sequence_models = [acqf.model for acqf in acq.acq_function_sequence]
-        self.assertEqual(acqf_sequence_models, [model_mocks[1], model_mocks[2]])
-        self.assertEqual(len(acq.models_used), 2)
-        # Test gen_for_models returns only one model
-        models_for_gen_mock = mock.MagicMock()
-        models_for_gen_mock.return_value = (
-            ["a"],
-            [model_mocks[1]],
-        )
-        surrogate.models_for_gen = models_for_gen_mock
-        acq = MultiAcquisition(
-            surrogate=surrogate,
-            search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
-            botorch_acqf_class=DummyAcquisitionFunction,
-            n=3,
         )
         self.assertEqual(acq.acqf.model, model_mocks[0])
         self.assertEqual(acq.acq_function_sequence, None)

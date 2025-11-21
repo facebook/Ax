@@ -19,12 +19,9 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 
@@ -49,19 +46,32 @@ class RemoveFixedTransformTest(TestCase):
         )
         self.t = RemoveFixed(search_space=self.search_space)
 
-        self.hierarchical_search_space = HierarchicalSearchSpace(
+        # The ASCII tree is generated from https://www.text-tree-generator.com/
+        # This gaint tree is here to bump up the test coverage.
+        # root: FixedParameter
+        # ├── (0) parent1: ChoiceParameter
+        # │       ├── (0) child1: RangeParameter
+        # │       ├── (1) middle: DerivedParameter
+        # │       └── (1) child2: FixedParameter
+        # │               └── (0) grandchild: FixedParameter
+        # │                       ├── ("yee-haw") great_grandchild1: DerivedParameter
+        # │                       └── ("yee-haw") great_grandchild2: RangeParameter
+        # └── (1) parent2: ChoiceParameter
+        #         ├── (0) child3: FixedParameter
+        #         └── (1) child4: FixedParameter
+        self.hierarchical_search_space = SearchSpace(
             parameters=[
                 FixedParameter(
                     "root",
-                    parameter_type=ParameterType.BOOL,
-                    value=True,
-                    dependents={True: ["parent1", "parent2"]},
+                    parameter_type=ParameterType.INT,
+                    value=0,
+                    dependents={0: ["parent1", "parent2"]},
                 ),
                 ChoiceParameter(
                     "parent1",
-                    parameter_type=ParameterType.BOOL,
-                    values=[False, True],
-                    dependents={False: ["child1"], True: ["child2"]},
+                    parameter_type=ParameterType.INT,
+                    values=[0, 1],
+                    dependents={0: ["child1"], 1: ["child2", "the_middle_child"]},
                 ),
                 ChoiceParameter(
                     "parent2",
@@ -72,10 +82,33 @@ class RemoveFixedTransformTest(TestCase):
                 RangeParameter(
                     "child1", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
                 ),
+                DerivedParameter(
+                    "the_middle_child",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="child1 + 1.0",
+                ),
                 FixedParameter(
                     "child2",
+                    parameter_type=ParameterType.INT,
+                    value=0,
+                    dependents={0: ["grandchild"]},
+                ),
+                FixedParameter(
+                    "grandchild",
                     parameter_type=ParameterType.STRING,
                     value="yee-haw",
+                    dependents={"yee-haw": ["great_grandchild1", "great_grandchild2"]},
+                ),
+                DerivedParameter(
+                    "great_grandchild1",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="great_grandchild2 + 1.0",
+                ),
+                RangeParameter(
+                    "great_grandchild2",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
                 ),
                 FixedParameter(
                     "child3",
@@ -92,7 +125,7 @@ class RemoveFixedTransformTest(TestCase):
         self.t_hss = RemoveFixed(search_space=self.hierarchical_search_space)
 
     def test_Init(self) -> None:
-        self.assertEqual(list(self.t.fixed_or_derived_parameters.keys()), ["c", "d"])
+        self.assertEqual(list(self.t.nontunable_parameters), ["c", "d"])
 
     def test_TransformObservationFeatures(self) -> None:
         observation_features = [
@@ -119,6 +152,14 @@ class RemoveFixedTransformTest(TestCase):
         )
         self.assertEqual(t_obs, t_obs_different)
 
+        # Test untransform with empty parameters (status quo case)
+        # This would previously fail on p.compute(parameters=obsf.parameters)
+        # when obsf.parameters is {} for DerivedParameter
+        empty_obs_features = [ObservationFeatures(parameters={})]
+        result = self.t.untransform_observation_features(empty_obs_features)
+        # Should return unchanged empty observation features
+        self.assertEqual(result, [ObservationFeatures(parameters={})])
+
     def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
@@ -128,79 +169,15 @@ class RemoveFixedTransformTest(TestCase):
         # Test if dependents are removed properly.
         hss = self.hierarchical_search_space.clone()
         hss = self.t_hss.transform_search_space(hss)
-        self.assertEqual(set(hss.parameters), {"parent1", "parent2", "child1"})
         self.assertEqual(
-            hss.parameters["parent1"].dependents, {False: ["child1"], True: []}
+            set(hss.parameters), {"parent1", "parent2", "child1", "great_grandchild2"}
+        )
+        self.assertEqual(
+            hss.parameters["parent1"].dependents,
+            {0: ["child1"], 1: ["great_grandchild2"]},
         )
         # Both children of `parent2` got removed. It's not hierarchical anymore.
         self.assertFalse(hss.parameters["parent2"].is_hierarchical)
-
-        # No non-root hierarchical fixed parameter.
-        hss = HierarchicalSearchSpace(
-            parameters=[
-                ChoiceParameter(
-                    "grandparent",
-                    parameter_type=ParameterType.INT,
-                    values=[0, 1],
-                    dependents={0: [], 1: ["parent"]},
-                ),
-                FixedParameter(
-                    "parent",
-                    parameter_type=ParameterType.BOOL,
-                    value=True,
-                    dependents={True: ["child"]},
-                ),
-                ChoiceParameter(
-                    "child",
-                    parameter_type=ParameterType.INT,
-                    values=[0, 1],
-                ),
-            ]
-        )
-        t = RemoveFixed(search_space=hss.clone())
-        with self.assertRaises(NotImplementedError):
-            hss = t.transform_search_space(hss)
-
-    def test_w_parameter_distributions(self) -> None:
-        rss = get_robust_search_space()
-        rss.add_parameter(
-            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
-        )
-        # Transform a non-distributional parameter.
-        t = RemoveFixed(
-            search_space=rss,
-            observations=[],
-        )
-        rss = t.transform_search_space(rss)
-        # Make sure that the return value is still a RobustSearchSpace.
-        self.assertIsInstance(rss, RobustSearchSpace)
-        self.assertEqual(len(rss.parameters.keys()), 4)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
-        self.assertEqual(len(rss.parameter_distributions), 2)
-        self.assertNotIn("d", rss.parameters)
-        # Test with environmental variables.
-        all_params = list(rss.parameters.values())
-        rss = RobustSearchSpace(
-            parameters=all_params[2:],
-            parameter_distributions=rss.parameter_distributions,
-            # pyre-fixme[16]: `SearchSpace` has no attribute `num_samples`.
-            num_samples=rss.num_samples,
-            environmental_variables=all_params[:2],
-        )
-        rss.add_parameter(
-            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
-        )
-        t = RemoveFixed(
-            search_space=rss,
-            observations=[],
-        )
-        rss = t.transform_search_space(rss)
-        self.assertIsInstance(rss, RobustSearchSpace)
-        self.assertEqual(len(rss.parameters.keys()), 4)
-        self.assertEqual(len(rss.parameter_distributions), 2)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
-        self.assertEqual(len(rss._environmental_variables), 2)
-        self.assertNotIn("d", rss.parameters)
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [

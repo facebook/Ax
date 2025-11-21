@@ -17,7 +17,8 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
-from ax.early_stopping.utils import estimate_early_stopping_savings
+from ax.early_stopping.utils import _interval_boundary, estimate_early_stopping_savings
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -32,17 +33,18 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def __init__(
         self,
-        metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
+        interval: float | None = None,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
 
         Args:
-            metric_names: The names of the metrics the strategy will interact with.
+            metric_signatures: The names of the metrics the strategy will interact with.
                 If no metric names are provided, considers the objective metric(s).
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
@@ -62,16 +64,48 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 specified in the transformed space. IMPORTANT: Typically, `min_curves`
                 should be > 0 to ensure that at least one trial has completed and that
                 we have a reliable approximation for `prog_max`.
+            interval: If specified, throttles early-stopping checks by only
+                evaluating trials when they cross interval boundaries. Boundaries are
+                defined at `min_progression + k * interval` for k = 0, 1, 2, etc.
+                A trial is eligible if it's being checked for the first time, or if
+                its progression has crossed a boundary since the last check. This
+                prevents premature stopping decisions when the orchestrator polls
+                frequently. For example, with `interval=10` and `min_progression=0`,
+                boundaries are at 0, 10, 20, 30, etc. A trial at progression 15 is
+                eligible on first check. If checked again at progression 18, it's not
+                eligible (both in interval [10, 20)). Once it reaches progression 21,
+                it's eligible again (crossed into interval [20, 30)).
         """
-        self.metric_names = metric_names
+        # Validate interval
+        if interval is not None and not interval > 0:
+            raise UserInputError(f"Option `interval` must be positive (got {interval})")
+
+        # Validate min_progression and max_progression
+        if min_progression is not None and min_progression < 0:
+            raise UserInputError(
+                f"Option `min_progression` must be nonnegative (got {min_progression})"
+            )
+
+        if min_progression is not None and max_progression is not None:
+            if min_progression >= max_progression:
+                raise UserInputError(
+                    f"Expect min_progression < max_progression, got "
+                    f"min_progression={min_progression}, "
+                    f"max_progression={max_progression}"
+                )
+
+        self.metric_signatures = metric_signatures
         self.min_progression = min_progression
         self.max_progression = max_progression
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
         self.normalize_progressions = normalize_progressions
+        self.interval = interval
+        # Track the last progression value where each trial was checked
+        self._last_check_progressions: dict[int, float] = {}
 
     @abstractmethod
-    def should_stop_trials_early(
+    def _should_stop_trials_early(
         self,
         trial_indices: set[int],
         experiment: Experiment,
@@ -94,7 +128,62 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             A dictionary mapping trial indices that should be early stopped to
             (optional) messages with the associated reason.
         """
-        pass  # pragma: nocover
+        pass
+
+    @abstractmethod
+    def _is_harmful(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+    ) -> bool:
+        """Determine if applying early stopping would be harmful to the experiment,
+        e.g. if there are clear risks of prematurely eliminating optimal trials.
+
+        Args:
+            trial_indices: Indices of candidate trials to stop early.
+            experiment: Experiment that contains the trials and other contextual data.
+
+        Returns:
+            True if early stopping should not be applied, False otherwise.
+        """
+        pass
+
+    def should_stop_trials_early(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+        current_node: GenerationNode | None = None,
+    ) -> dict[int, str | None]:
+        """Decide whether trials should be stopped before evaluation is fully concluded.
+        This method identifies trials that should be stopped based on early signals that
+        are indicative of final performance. Early stopping is not applied if doing so
+        would risk prematurely eliminating potentially optimal trials.
+
+        Args:
+            trial_indices: Indices of candidate trials to stop early.
+            experiment: Experiment that contains the trials and other contextual data.
+            current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+                used to generate trials for the ``Experiment``. Early stopping
+                strategies may utilize components of the current node when making
+                stopping decisions.
+
+        Returns:
+            A dictionary mapping trial indices that should be early stopped to
+            (optional) messages with the associated reason. Returns an empty
+            dictionary if early stopping would be harmful.
+        """
+        return (
+            self._should_stop_trials_early(
+                trial_indices=trial_indices,
+                experiment=experiment,
+                current_node=current_node,
+            )
+            if not self._is_harmful(
+                trial_indices=trial_indices,
+                experiment=experiment,
+            )
+            else {}
+        )
 
     def estimate_early_stopping_savings(self, experiment: Experiment) -> float:
         """Estimate early stopping savings using progressions of the MapMetric present
@@ -115,10 +204,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return estimate_early_stopping_savings(experiment=experiment)
 
     def _check_validity_and_get_data(
-        self, experiment: Experiment, metric_names: list[str]
+        self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
         """Validity checks and returns the `MapData` used for early stopping that
-        is associated with `metric_names`. This function also handles normalizing
+        is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
         data = experiment.lookup_data()
@@ -128,11 +217,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 "Not stopping any trials."
             )
             return None
-        for metric_name in metric_names:
-            if metric_name not in set(data.df["metric_name"]):
+        for metric_signature in metric_signatures:
+            if metric_signature not in set(data.df["metric_signature"]):
                 logger.info(
                     f"{self.__class__.__name__} did not receive data from the "
-                    f"objective metric `{metric_name}`. Not stopping any trials."
+                    f"objective metric `{metric_signature}`. Not stopping any trials."
                 )
                 return None
 
@@ -147,7 +236,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         data = assert_is_instance(data, MapData)
         map_df = data.map_df
         # keep only relevant metrics
-        map_df = map_df[map_df["metric_name"].isin(metric_names)].copy()
+        map_df = map_df[map_df["metric_signature"].isin(metric_signatures)].copy()
         if self.normalize_progressions:
             values = map_df[MAP_KEY].astype(float)
             map_df[MAP_KEY] = values / values.abs().max()
@@ -195,6 +284,32 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         logger.info(
             f"Trial {trial_index}'s m{reason[1:]} Not early stopping this trial."
         )
+        return False, reason
+
+    @staticmethod
+    def _log_and_return_interval_boundary(
+        logger: logging.Logger,
+        trial_index: int,
+        prev_progression: float,
+        curr_progression: float,
+        interval: float,
+        min_progression: float,
+    ) -> tuple[bool, str]:
+        """Helper function for logging/constructing a reason when interval
+        boundary has not been crossed."""
+        # Calculate the interval boundaries
+        curr_boundary = _interval_boundary(prev_progression, min_progression, interval)
+        next_boundary = curr_boundary + interval
+
+        reason = (
+            f"Trial has not crossed an interval boundary. "
+            f"Progressed from {prev_progression:.2f} to {curr_progression:.2f}; "
+            f"both are in the same interval [{curr_boundary:.2f}, "
+            f"{next_boundary:.2f}). "
+            f"Must reach progression {next_boundary:.2f} to be eligible for "
+            f"early stopping."
+        )
+        logger.info(f"Trial {trial_index} not eligible for early stopping: {reason}")
         return False, reason
 
     def is_eligible_any(
@@ -253,6 +368,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             2. Check that `df` contains data for the trial `trial_index`
             3. Check that the trial has reached `self.min_progression`
             4. Check that the trial hasn't surpassed `self.max_progression`
+            5. Check that the trial has progressed sufficiently since the last
+               early-stopping decision (based on `self.interval`)
         Returns two elements: a boolean indicating if all checks are passed and a
         str indicating the reason that early stopping is not applied (None if all
         checks pass).
@@ -261,8 +378,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             trial_index: The index of the trial to check.
             experiment: The experiment containing the trial.
             df: A dataframe containing the time-dependent metrics for the trial.
-                NOTE: `df` should only contain data with `metric_name` fields that are
-                associated with the early stopping strategy. This is usually done
+                NOTE: `df` should only contain data with `metric_signature` fields that
+                are associated with the early stopping strategy. This is usually done
                 automatically in `_check_validity_and_get_data`. `is_eligible` might
                 otherwise return False even though the trial is eligible, if there are
                 secondary tracking metrics that are in `df` but shouldn't be considered
@@ -282,8 +399,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
 
         # Check eligibility of each metric.
-        for metric_name, metric_df in df.groupby("metric_name"):
+        for metric_signature, metric_df in df.groupby("metric_signature"):
             # check for no data
+            metric_name = experiment.signature_to_metric[metric_signature].name
             df_trial = metric_df[metric_df["trial_index"] == trial_index]
             df_trial = df_trial.dropna(subset=["mean"])
             if df_trial.empty:
@@ -308,7 +426,58 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                     max_progression=self.max_progression,
                     metric_name=metric_name,
                 )
+
+            # check for progression interval
+            if self.interval is not None:
+                last_check_progression = self._last_check_progressions.get(trial_index)
+                if last_check_progression is None:
+                    logger.debug(
+                        f"Trial {trial_index} is being checked for early stopping "
+                        f"for the first time at progression {trial_last_prog}."
+                    )
+                elif not self._has_crossed_interval_boundary(
+                    prev_progression=last_check_progression,
+                    curr_progression=trial_last_prog,
+                ):
+                    min_progression = (
+                        0.0 if self.min_progression is None else self.min_progression
+                    )
+                    return self._log_and_return_interval_boundary(
+                        logger=logger,
+                        trial_index=trial_index,
+                        prev_progression=last_check_progression,
+                        curr_progression=trial_last_prog,
+                        interval=none_throws(self.interval),
+                        min_progression=min_progression,
+                    )
+                # Update the last checked progression for this trial
+                self._last_check_progressions[trial_index] = trial_last_prog
+
         return True, None
+
+    def _has_crossed_interval_boundary(
+        self, prev_progression: float, curr_progression: float
+    ) -> bool:
+        """Check if the trial has crossed an interval boundary.
+
+        This prevents drift by checking if we've passed a boundary defined by
+        the interval parameter, rather than just checking if enough progression
+        has occurred since the last check.
+
+        Args:
+            prev_progression: The progression value when trial was last checked.
+            curr_progression: The current progression value.
+
+        Returns:
+            True if we've crossed an interval boundary, False otherwise.
+        """
+        min_progression = 0.0 if self.min_progression is None else self.min_progression
+        interval = none_throws(self.interval)
+        curr_interval_boundary = _interval_boundary(
+            curr_progression, min_progression=min_progression, interval=interval
+        )
+        # We've crossed a boundary if the last check was before the current boundary
+        return prev_progression < curr_interval_boundary
 
     def _default_objective_and_direction(
         self, experiment: Experiment
@@ -321,9 +490,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return next(iter(objectives_to_directions.items()))
 
     def _all_objectives_and_directions(self, experiment: Experiment) -> dict[str, bool]:
-        """A dictionary mapping metric names to corresponding directions, i.e.
+        """A dictionary mapping metric signatures to corresponding directions, i.e.
         a Boolean indicating whether the objective is minimized, for each objective in
-        the experiment or in `self.metric_names`, if specified.
+        the experiment or in `self.metric_signatures`, if specified.
 
         Args:
             experiment: The experiment containing the optimization config.
@@ -331,9 +500,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Returns: A dictionary mapping metric names to a Boolean indicating whether
             the objective is being minimized.
         """
-        if self.metric_names is None:
+        if self.metric_signatures is None:
             logger.debug(
-                "No metric names specified. Defaulting to the objective metric(s).",
+                "No metric signatures specified. "
+                "Defaulting to the objective metric(s).",
                 stacklevel=2,
             )
             optimization_config = none_throws(experiment.optimization_config)
@@ -345,15 +515,26 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
             directions = {}
             for objective in objectives:
-                metric_name = objective.metric.name
-                directions[metric_name] = objective.minimize
+                metric_signature = objective.metric.signature
+                directions[metric_signature] = objective.minimize
 
         else:
-            metric_names = list(self.metric_names)
+            metric_signatures = list(self.metric_signatures)
             directions = {}
-            for metric_name in metric_names:
-                minimize = experiment.metrics[metric_name].lower_is_better or False
-                directions[metric_name] = minimize
+            metrics_without_direction = []
+            for metric_signature in metric_signatures:
+                metric = experiment.signature_to_metric[metric_signature]
+                if metric.lower_is_better is None:
+                    metrics_without_direction.append(metric_signature)
+                else:
+                    directions[metric_signature] = metric.lower_is_better
+
+            if metrics_without_direction:
+                raise UnsupportedError(
+                    "Metrics used for early stopping must specify lower_is_better. "
+                    f"The following metrics do not specify lower_is_better: "
+                    f"{metrics_without_direction}."
+                )
 
         return directions
 
@@ -364,18 +545,19 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
-        metric_names: Iterable[str] | None = None,
+        metric_signatures: Iterable[str] | None = None,
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         min_progression_modeling: float | None = None,
+        interval: float | None = None,
     ) -> None:
         """A ModelBasedEarlyStoppingStrategy class.
 
         Args:
-            metric_names: The names of the metrics the strategy will interact with.
+            metric_signatures: The names of the metrics the strategy will interact with.
                 If no metric names are provided the objective metric is assumed.
             min_progression: Only stop trials if the latest progression value
                 (e.g. timestamp, epochs, training data used) is greater than this
@@ -398,26 +580,38 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_progression_modeling: If set, this will exclude progressions that are
                 below this threshold from being used or modeling. Useful when early data
                 is not reliable or excessively noisy.
+            interval: If specified, throttles early-stopping checks by only
+                evaluating trials when they cross interval boundaries. Boundaries are
+                defined at `min_progression + k * interval` for k = 0, 1, 2, etc.
+                A trial is eligible if it's being checked for the first time, or if
+                its progression has crossed a boundary since the last check. This
+                prevents premature stopping decisions when the orchestrator polls
+                frequently. For example, with `interval=10` and `min_progression=0`,
+                boundaries are at 0, 10, 20, 30, etc. A trial at progression 15 is
+                eligible on first check. If checked again at progression 18, it's not
+                eligible (both in interval [10, 20)). Once it reaches progression 21,
+                it's eligible again (crossed into interval [20, 30)).
         """
         super().__init__(
-            metric_names=metric_names,
+            metric_signatures=metric_signatures,
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
             trial_indices_to_ignore=trial_indices_to_ignore,
             normalize_progressions=normalize_progressions,
+            interval=interval,
         )
         self.min_progression_modeling = min_progression_modeling
 
     def _check_validity_and_get_data(
-        self, experiment: Experiment, metric_names: list[str]
+        self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
         """Validity checks and returns the `MapData` used for early stopping that
-        is associated with `metric_names`. This function also handles normalizing
+        is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
         map_data = super()._check_validity_and_get_data(
-            experiment=experiment, metric_names=metric_names
+            experiment=experiment, metric_signatures=metric_signatures
         )
         if map_data is not None and self.min_progression_modeling is not None:
             map_df = map_data.map_df

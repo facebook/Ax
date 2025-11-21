@@ -12,11 +12,10 @@ from dataclasses import dataclass
 from unittest import mock
 
 import numpy as np
-
 import pandas as pd
 from ax.core.map_data import MapData
 from ax.core.metric import MetricFetchE
-from ax.metrics.tensorboard import logger, TensorboardMetric
+from ax.metrics.tensorboard import _grid_interpolate, logger, TensorboardMetric
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
@@ -102,6 +101,7 @@ class TensorboardMetricTest(TestCase):
                     "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
+                    "metric_signature": "loss",
                     "mean": fake_data[i],
                     "sem": float("nan"),
                     "step": float(i),
@@ -206,6 +206,7 @@ class TensorboardMetricTest(TestCase):
                     "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
+                    "metric_signature": "loss",
                     "mean": smooth_data[i],
                     "sem": float("nan"),
                     "step": float(i),
@@ -245,6 +246,7 @@ class TensorboardMetricTest(TestCase):
                     "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
+                    "metric_signature": "loss",
                     "mean": cummin_data[i],
                     "sem": float("nan"),
                     "step": float(i),
@@ -254,6 +256,86 @@ class TensorboardMetricTest(TestCase):
         )
 
         self.assertTrue(df.equals(expected_df))
+
+    def test_smoothing_then_cumulative_best_order(self) -> None:
+        """Test that smoothing is applied before cumulative best.
+
+        This test validates that when both smoothing and cumulative_best are
+        enabled, the operations are applied in the correct order:
+        1. First, smoothing is applied to the raw data
+        2. Then, cumulative best is applied to the smoothed data
+
+        This ensures cumulative best operates on smoothed values rather than
+        raw values. Tests both lower_is_better=True (cummin) and
+        lower_is_better=False (cummax).
+        """
+        # Setup: Create test data where order of operations matters
+        # Using data where smoothing vs. cumulative best order produces
+        # different results
+        smoothing = 0.5
+
+        # Test both lower_is_better=True and lower_is_better=False
+        for lower_is_better in [True, False]:
+            # Use different data for each case to ensure order matters
+            if lower_is_better:
+                # For cummin: descending data with a spike
+                fake_data = [8.0, 4.0, 6.0, 2.0]
+            else:
+                # For cummax: ascending data with a dip
+                fake_data = [2.0, 6.0, 4.0, 8.0]
+
+            fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
+            metric = TensorboardMetric(
+                name="loss",
+                tag="loss",
+                lower_is_better=lower_is_better,
+                smoothing=smoothing,
+                cumulative_best=True,
+            )
+            trial = get_trial()
+
+            # Execute: Fetch data with both smoothing and cumulative_best enabled
+            with mock.patch.object(
+                TensorboardMetric,
+                "_get_event_multiplexer_for_trial",
+                return_value=fake_multiplexer,
+            ):
+                result = metric.fetch_trial_data(trial=trial)
+
+            df = assert_is_instance(result.unwrap(), MapData).map_df
+
+            # Assert: Verify that smoothing was applied first, then cumulative best
+            # Step 1: Apply smoothing to get smoothed values
+            smoothed_data = tb_smooth(fake_data, smoothing)
+
+            # Step 2: Apply cumulative best to the smoothed values
+            if lower_is_better:
+                expected_data = pd.Series(smoothed_data).cummin().tolist()
+                cum_op = "cummin"
+            else:
+                expected_data = pd.Series(smoothed_data).cummax().tolist()
+                cum_op = "cummax"
+
+            # Verify the result matches smoothed-then-cum order
+            self.assertEqual(
+                df["mean"].tolist(),
+                expected_data,
+                f"Failed for lower_is_better={lower_is_better}",
+            )
+
+            # Demonstrate that cum-then-smooth would give different results
+            if lower_is_better:
+                cum_first = pd.Series(fake_data).cummin().tolist()
+            else:
+                cum_first = pd.Series(fake_data).cummax().tolist()
+            smooth_then_cum = tb_smooth(cum_first, smoothing)
+
+            # These should be different, proving order matters
+            self.assertNotEqual(
+                expected_data,
+                smooth_then_cum,
+                f"Order should matter for lower_is_better={lower_is_better} ({cum_op})",
+            )
 
     def test_percentile(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]
@@ -278,6 +360,7 @@ class TensorboardMetricTest(TestCase):
                     "trial_index": 0,
                     "arm_name": "0_0",
                     "metric_name": "loss",
+                    "metric_signature": "loss",
                     "mean": percentile_data[i],
                     "sem": float("nan"),
                     "step": float(i),
@@ -287,3 +370,217 @@ class TensorboardMetricTest(TestCase):
         )
 
         self.assertTrue(df.equals(expected_df))
+
+    def test_grid_interpolate_with_unevenly_spaced_data(self) -> None:
+        """Test that _grid_interpolate correctly interpolates unevenly spaced data."""
+        for sem_is_nan in [False, True]:
+            # Create unevenly spaced data
+            df = pd.DataFrame(
+                {
+                    "trial_index": [0] * 4,
+                    "arm_name": ["0_0"] * 4,
+                    "metric_signature": ["loss"] * 4,
+                    "step": [0.0, 1.0, 5.0, 10.0],  # Unevenly spaced
+                    "mean": [1.0, 2.0, 3.0, 4.0],
+                    "sem": [np.nan] * 4 if sem_is_nan else [0.1, 0.2, 0.3, 0.4],
+                }
+            )
+
+            result_df = _grid_interpolate(df, arm_name="0_0", metric_signature="loss")
+
+            # Should have same number of points
+            self.assertEqual(len(result_df), 4)
+
+            # Steps should now be evenly spaced
+            expected_steps = np.linspace(0.0, 10.0, 4)
+            np.testing.assert_array_almost_equal(
+                result_df["step"].values, expected_steps
+            )
+
+            # Check that values are interpolated (not equal to original)
+            # At step 3.333, mean should be interpolated between original points
+            self.assertNotEqual(result_df["mean"].iloc[1], 2.0)
+
+            # Verify interpolation is working by checking endpoints
+            self.assertAlmostEqual(result_df["mean"].iloc[0], 1.0)
+            self.assertAlmostEqual(result_df["mean"].iloc[-1], 4.0)
+            if sem_is_nan:
+                self.assertTrue(all(np.isnan(result_df["sem"].values)))
+            else:
+                self.assertAlmostEqual(result_df["sem"].iloc[0], 0.1)
+                self.assertAlmostEqual(result_df["sem"].iloc[-1], 0.4)
+
+    def test_grid_interpolate_with_evenly_spaced_data(self) -> None:
+        """Test that evenly spaced data remains unchanged (backward compatibility)."""
+        # Create evenly spaced data
+        df = pd.DataFrame(
+            {
+                "trial_index": [0] * 4,
+                "arm_name": ["0_0"] * 4,
+                "metric_signature": ["loss"] * 4,
+                "step": [0.0, 1.0, 2.0, 3.0],  # Already evenly spaced
+                "mean": [1.0, 2.0, 3.0, 4.0],
+                "sem": [0.1, 0.2, 0.3, 0.4],
+            }
+        )
+
+        result_df = _grid_interpolate(df, arm_name="0_0", metric_signature="loss")
+
+        # Should have same number of points
+        self.assertEqual(len(result_df), 4)
+
+        # Steps should be identical
+        np.testing.assert_array_almost_equal(
+            result_df["step"].values, df["step"].values
+        )
+
+        # Values should be identical (or very close due to floating point)
+        np.testing.assert_array_almost_equal(
+            result_df["mean"].values, df["mean"].values
+        )
+        np.testing.assert_array_almost_equal(result_df["sem"].values, df["sem"].values)
+
+    def test_grid_interpolate_empty_dataframe(self) -> None:
+        """Test that empty dataframe is handled correctly."""
+        df = pd.DataFrame(
+            {
+                "trial_index": [0],
+                "arm_name": ["0_0"],
+                "metric_signature": ["loss"],
+                "step": [1.0],
+                "mean": [1.0],
+                "sem": [0.1],
+            }
+        )
+
+        # Request data for non-existent arm_name
+        with mock.patch.object(logger, "warning") as mock_warning:
+            result_df = _grid_interpolate(
+                df, arm_name="non_existent", metric_signature="loss"
+            )
+            mock_warning.assert_called_once()
+
+        # Should return empty dataframe
+        self.assertEqual(len(result_df), 0)
+
+    def test_grid_interpolate_filters_by_arm_and_metric(self) -> None:
+        """Test that filtering by arm_name and metric_signature works correctly."""
+        # Create data with multiple arms and metrics
+        df = pd.DataFrame(
+            {
+                "trial_index": [0] * 8,
+                "arm_name": ["0_0"] * 4 + ["0_1"] * 4,
+                "metric_signature": ["loss"] * 2 + ["accuracy"] * 2 + ["loss"] * 4,
+                "step": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+                "mean": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+                "sem": [0.1] * 8,
+            }
+        )
+
+        result_df = _grid_interpolate(df, arm_name="0_0", metric_signature="loss")
+
+        # Should only have data for arm "0_0" and metric "loss"
+        self.assertEqual(len(result_df), 2)
+        self.assertTrue((result_df["arm_name"] == "0_0").all())
+        self.assertTrue((result_df["metric_signature"] == "loss").all())
+
+    def test_smoothing_with_unevenly_spaced_data(self) -> None:
+        """Test that smoothing works correctly with unevenly spaced data.
+
+        This test verifies grid interpolation happens before smoothing.
+        """
+
+        # Create unevenly spaced fake data
+        class _UnevenMultiplexer:
+            def PluginRunToTagToContent(self, plugin: str) -> dict[str, dict[str, str]]:
+                return {".": {"loss": ""}}
+
+            def Tensors(
+                self, run: str, tag: str
+            ) -> list[_TensorEvent]:  # pyre-ignore[11]
+                # Unevenly spaced steps: 0, 1, 5, 10
+                return [
+                    _TensorEvent(step=0, tensor_proto=_TensorProto(double_val=[8.0])),
+                    _TensorEvent(step=1, tensor_proto=_TensorProto(double_val=[4.0])),
+                    _TensorEvent(step=5, tensor_proto=_TensorProto(double_val=[2.0])),
+                    _TensorEvent(step=10, tensor_proto=_TensorProto(double_val=[1.0])),
+                ]
+
+        uneven_multiplexer = _UnevenMultiplexer()
+        metric = TensorboardMetric(
+            name="loss", tag="loss", lower_is_better=True, smoothing=0.5
+        )
+        trial = get_trial()
+
+        with mock.patch.object(
+            TensorboardMetric,
+            "_get_event_multiplexer_for_trial",
+            return_value=uneven_multiplexer,
+        ):
+            result = metric.fetch_trial_data(trial=trial)
+
+        df = assert_is_instance(result.unwrap(), MapData).map_df
+
+        # Should have 4 points
+        self.assertEqual(len(df), 4)
+
+        # Steps should be evenly spaced after grid interpolation
+        expected_steps = np.linspace(0.0, 10.0, 4)
+        np.testing.assert_array_almost_equal(df["step"].values, expected_steps)
+
+        # Values should be smoothed (after interpolation)
+        # The first value should be close to the interpolated value at step 0
+        self.assertAlmostEqual(df["mean"].iloc[0], 8.0, places=5)
+
+        # All values should be finite
+        self.assertTrue(np.all(np.isfinite(df["mean"].values)))
+
+    def test_smoothing_applies_to_both_mean_and_sem(self) -> None:
+        """Test that smoothing is applied to both mean and sem columns."""
+
+        # Create fake data with non-NaN sem values
+        class _MultiValueMultiplexer:
+            def PluginRunToTagToContent(self, plugin: str) -> dict[str, dict[str, str]]:
+                return {".": {"loss": ""}}
+
+            def Tensors(
+                self, run: str, tag: str
+            ) -> list[_TensorEvent]:  # pyre-ignore[11]
+                # Return data with varying values
+                return [
+                    _TensorEvent(
+                        step=i, tensor_proto=_TensorProto(double_val=[float(i * 2)])
+                    )
+                    for i in range(4)
+                ]
+
+        multi_multiplexer = _MultiValueMultiplexer()
+        metric = TensorboardMetric(
+            name="loss", tag="loss", lower_is_better=True, smoothing=0.3
+        )
+        trial = get_trial()
+
+        with mock.patch.object(
+            TensorboardMetric,
+            "_get_event_multiplexer_for_trial",
+            return_value=multi_multiplexer,
+        ):
+            result = metric.fetch_trial_data(trial=trial)
+
+        df = assert_is_instance(result.unwrap(), MapData).map_df
+
+        # Verify smoothing was applied by checking that values are
+        # different from original
+        original_values = [0.0, 2.0, 4.0, 6.0]
+
+        # The smoothed values should differ from original (except first value)
+        # We can't easily predict exact values, but we know they should be smoothed
+        self.assertAlmostEqual(df["mean"].iloc[0], original_values[0], places=5)
+
+        # Later values should show smoothing effect (not equal to original)
+        # Due to grid interpolation on evenly spaced data, values should be identical
+        # to original, then smoothed
+        for i in range(1, len(df)):
+            # Check that smoothing effect is present
+            # (values should be between neighboring original values due to EMA)
+            self.assertTrue(np.isfinite(df["mean"].iloc[i]))

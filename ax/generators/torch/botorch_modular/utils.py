@@ -16,6 +16,7 @@ from logging import Logger
 from typing import Any, cast, Mapping
 
 import torch
+from ax.core.map_data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchOptConfig
@@ -31,6 +32,7 @@ from botorch.acquisition.logei import (
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
+from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.fully_bayesian import (
@@ -42,13 +44,15 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
+from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
+from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import InputTransform
+from botorch.models.transforms.input import InputTransform, Normalize
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.constraints import get_outcome_constraint_transforms
-from botorch.utils.datasets import RankingDataset, SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
@@ -59,7 +63,6 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
-MIN_OBSERVED_NOISE_LEVEL = 1e-7
 logger: Logger = get_logger(__name__)
 
 
@@ -148,10 +151,12 @@ def use_model_list(
 ) -> bool:
     model_configs = model_configs or []
     metric_to_model_configs = metric_to_model_configs or {}
+
     if len(datasets) == 1 and datasets[0].Y.shape[-1] == 1:
         # There is only one outcome, so we can use a single model.
         return False
-    elif (
+
+    if (
         len(model_configs) > 1
         or len(metric_to_model_configs) > 0
         or any(len(model_config) for model_config in metric_to_model_configs.values())
@@ -159,8 +164,13 @@ def use_model_list(
         # There are multiple outcomes and outcomes might be modeled with different
         # models
         return True
+
     if len({type(d) for d in datasets}) > 1:
         # Use a `ModelList` if there are multiple dataset classes.
+        return True
+
+    if 0 < len([d.Yvar for d in datasets if d.Yvar is not None]) < len(datasets):
+        # Use a `ModelList` if some datasets have Yvar and some do not.
         return True
 
     botorch_model_class_set = {mc.botorch_model_class for mc in model_configs}
@@ -184,6 +194,10 @@ def use_model_list(
     botorch_model_class = none_throws(next(iter(botorch_model_class_set)))
     if issubclass(botorch_model_class, FullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
+        # Use model list if there are multiple outcomes.
+        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
+    elif issubclass(botorch_model_class, EnsembleMapSaasSingleTaskGP):
+        # Ensemble MAP SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
     elif issubclass(botorch_model_class, MultiTaskGP):
@@ -213,10 +227,28 @@ def copy_model_config_with_default_values(
 ) -> ModelConfig:
     model_config_copy = deepcopy(model_config)
 
-    if model_config_copy.botorch_model_class is None:
-        model_config_copy.botorch_model_class = choose_model_class(
-            dataset=dataset, search_space_digest=search_space_digest
-        )
+    # Always call choose_model_class to handle heterogeneous datasets.
+    model_config_copy.botorch_model_class = choose_model_class(
+        dataset=dataset,
+        search_space_digest=search_space_digest,
+        specified_model_class=model_config_copy.botorch_model_class,
+    )
+
+    # HeterogeneousMTGP requires Normalize input transform
+    if model_config_copy.botorch_model_class is HeterogeneousMTGP:
+        if (
+            isinstance(model_config_copy.input_transform_classes, list)
+            and Normalize not in model_config_copy.input_transform_classes
+        ):
+            model_config_copy.input_transform_classes.append(Normalize)
+        else:
+            model_config_copy.input_transform_classes = [Normalize]
+
+        # Add Normalize options if not already present. Bounds should be None.
+        if model_config_copy.input_transform_options is None:
+            model_config_copy.input_transform_options = {}
+        if "Normalize" not in model_config_copy.input_transform_options:
+            model_config_copy.input_transform_options["Normalize"] = {"bounds": None}
 
     if model_config_copy.mll_class is None:
         model_config_copy.mll_class = (
@@ -236,6 +268,7 @@ def copy_model_config_with_default_values(
 def choose_model_class(
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
+    specified_model_class: type[Model] | None = None,
 ) -> type[Model]:
     """Chooses a BoTorch `Model` class and `MarginalLogLikelihood` class
     using the given the dataset and search_space_digest.
@@ -244,6 +277,8 @@ def choose_model_class(
         dataset: The dataset on which the model will be fitted.
         search_space_digest: The digest of the search space the model will be
             fitted within.
+        specified_model_class: If provided, this model class will be used unless
+            overridden for specific cases (e.g., heterogeneous datasets).
 
     Returns:
         A BoTorch `Model` class.
@@ -262,6 +297,31 @@ def choose_model_class(
         raise NotImplementedError(
             "Multi-task multi-fidelity optimization not yet supported."
         )
+
+    # Check for heterogeneous multi-task datasets & override model class if needed.
+    if (
+        search_space_digest.task_features
+        and isinstance(dataset, MultiTaskDataset)
+        and dataset.has_heterogeneous_features
+    ):
+        if (
+            specified_model_class is not None
+            and specified_model_class is not HeterogeneousMTGP
+        ):
+            logger.warning(
+                f"Detected heterogeneous features in MultiTaskDataset. "
+                f"Overriding specified model class {specified_model_class.__name__} "
+                f"with HeterogeneousMTGP for transfer learning with "
+                f"heterogeneous search spaces."
+            )
+        model_class = HeterogeneousMTGP
+        logger.debug(f"Chose BoTorch model class: {model_class}.")
+        return model_class
+
+    # If a model class was specified and no override is needed, use it
+    if specified_model_class is not None:
+        logger.debug(f"Using specified BoTorch model class: {specified_model_class}.")
+        return specified_model_class
 
     # Preference learning case
     if isinstance(dataset, RankingDataset):
@@ -291,6 +351,7 @@ def choose_model_class(
 
 
 def choose_botorch_acqf_class(
+    search_space_digest: SearchSpaceDigest,
     torch_opt_config: TorchOptConfig,
     datasets: Sequence[SupervisedDataset] | None,
     use_p_feasible: bool = True,
@@ -298,6 +359,7 @@ def choose_botorch_acqf_class(
     """Chooses the most suitable BoTorch `AcquisitionFunction` class.
 
     Args:
+        search_space_digest: The search space digest.
         torch_opt_config: The torch optimization config.
         datasets: The datasets that were used to fit the model.
         use_p_feasible: Whether we dispatch to `qLogProbabilityOfFeasibility` when
@@ -308,8 +370,10 @@ def choose_botorch_acqf_class(
             - `qLogProbabilityOfFeasibility` if there are outcome constraints and
                 no feasible point has been found.
             - `qLogNoisyExpectedImprovement` for single-objective optimization.
-            - `qLogNoisyExpectedHypervolumeImprovement`` for multi-objective
-                optimization.
+            - `qLogNoisyExpectedHypervolumeImprovement` for multi-objective
+                optimization with <= 4 objectives.
+            - `qLogNParEGO` for multi-objective optimization with > 4 objectives
+                to prevent slow optimization.
     """
 
     # Check if the training data is feasible.
@@ -325,7 +389,12 @@ def choose_botorch_acqf_class(
         # NOTE: `convert_to_block_design` will drop points that are only observed by
         # some of the metrics which is natural as we are using observed values to
         # determine feasibility.
-        dataset = convert_to_block_design(datasets=datasets, force=True)[0]
+        dataset = convert_to_block_design(
+            datasets=datasets,
+            force=True,
+            fixed_features=torch_opt_config.fixed_features,
+            fix_map_key_to_target=True,
+        )[0]
         con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
         feas_point_found = (con_observed <= 0).all(dim=-1).any().item()
 
@@ -335,7 +404,11 @@ def choose_botorch_acqf_class(
             return acqf_class
 
     if torch_opt_config.is_moo and not torch_opt_config.use_learned_objective:
-        acqf_class = qLogNoisyExpectedHypervolumeImprovement
+        # For MOO problems with > 4 objectives, use ParEGO to prevent slow optimization.
+        if torch_opt_config.objective_weights.count_nonzero() > 4:
+            acqf_class = qLogNParEGO
+        else:
+            acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
         acqf_class = qLogNoisyExpectedImprovement
 
@@ -424,9 +497,44 @@ def construct_acquisition_and_optimizer_options(
     )
 
 
+def _fix_map_key_to_target(
+    Xs: list[Tensor],
+    feature_names: list[str],
+    fixed_features: dict[int, float] | None,
+) -> list[Tensor]:
+    """Fixes MAP_KEY feature to the target value in a list of tensors.
+
+    This is used to avoid points getting discarded due to metrics being observed
+    at different progressions.
+
+    Args:
+        Xs: A list of tensors to fix.
+        feature_names: The feature names corresponding to the columns in the tensors.
+        fixed_features: A dictionary mapping feature indices to fixed values.
+            If the index of MAP_KEY is not in the dictionary, this is a no-op.
+
+    Returns:
+        The tensors with MAP_KEY fixed to the target value (if applicable).
+    """
+    try:
+        map_index = feature_names.index(MAP_KEY)
+    except ValueError:
+        return Xs
+
+    if fixed_features is not None and map_index in fixed_features:
+        map_value = fixed_features[map_index]
+        Xs = [X.clone() for X in Xs]
+        for X in Xs:
+            X[..., map_index] = map_value
+
+    return Xs
+
+
 def convert_to_block_design(
     datasets: Sequence[SupervisedDataset],
     force: bool = False,
+    fixed_features: dict[int, float] | None = None,
+    fix_map_key_to_target: bool = False,
 ) -> list[SupervisedDataset]:
     """Converts a list of datasets to a single block-design dataset that contains
     all outcomes.
@@ -438,6 +546,12 @@ def convert_to_block_design(
             between outcomes.
             If only a subset of the outcomes have noise observations, all noise
             observations will be dropped.
+        fixed_features: A dictionary mapping feature indices to fixed values. Used
+            to fix MAP_KEY to the target value if `fix_map_key_to_target` is True.
+        fix_map_key_to_target: If True, will fix MAP_KEY to the target value in
+            the datasets before merging them.
+            NOTE: This should not be done for modeling. It is only implemented to
+            support acquisition related utilities.
 
     Returns:
         A single element list containing the merged dataset.
@@ -462,6 +576,12 @@ def convert_to_block_design(
                 "Feature names must be the same across all datasets, "
                 f"got {dset.feature_names} and {datasets[0].feature_names}"
             )
+    if fix_map_key_to_target:
+        Xs = _fix_map_key_to_target(
+            Xs=Xs,
+            feature_names=datasets[0].feature_names,
+            fixed_features=fixed_features,
+        )
 
     # Join the outcome names of datasets.
     outcome_names = sum([ds.outcome_names for ds in datasets], [])
@@ -663,3 +783,17 @@ def get_cv_fold(
         test_X=X[idcs],
         test_Y=Y[idcs],
     )
+
+
+def get_all_task_values_from_ssd(search_space_digest: SearchSpaceDigest) -> list[int]:
+    """Get all task values from a search space digest.
+
+    Args:
+        search_space_digest: The search space digest.
+
+    Returns:
+        A list of all task values.
+    """
+    task_feature = search_space_digest.task_features[0]
+    task_bounds = search_space_digest.bounds[task_feature]
+    return list(range(int(task_bounds[0]), int(task_bounds[1] + 1)))

@@ -13,7 +13,6 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
-    _NO_RISK_MEASURE,
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
     PreferenceOptimizationConfig,
@@ -23,7 +22,6 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.risk_measures import RiskMeasure
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -37,8 +35,7 @@ OC_STR = (
     'OptimizationConfig(objective=Objective(metric_name="m1", minimize=False), '
     "outcome_constraints=[OutcomeConstraint(m3 >= -0.25%), "
     "OutcomeConstraint(m4 <= 0.25%), "
-    "ScalarizedOutcomeConstraint(metric_names=['m3', 'm4'], "
-    "weights=[0.5, 0.5], >= -0.25%)])"
+    "ScalarizedOutcomeConstraint(0.5 * m3 + 0.5 * m4 >= -0.25%)])"
 )
 
 MOOC_STR = (
@@ -84,14 +81,6 @@ class OptimizationConfigTest(TestCase):
             self.additional_outcome_constraint,
             self.scalarized_outcome_constraint,
         ]
-        self.single_output_risk_measure = RiskMeasure(
-            risk_measure="Expectation",
-            options={"n_w": 2},
-        )
-        self.multi_output_risk_measure = RiskMeasure(
-            risk_measure="MultiOutputExpectation",
-            options={"n_w": 2},
-        )
 
     def test_Init(self) -> None:
         config1 = OptimizationConfig(
@@ -115,30 +104,14 @@ class OptimizationConfigTest(TestCase):
         config2.outcome_constraints = self.outcome_constraints
         self.assertEqual(config2.outcome_constraints, self.outcome_constraints)
 
-        # Risk measure is correctly registered.
-        self.assertIsNone(config2.risk_measure)
-        config3 = OptimizationConfig(
-            objective=self.objective,
-            outcome_constraints=self.outcome_constraints,
-            risk_measure=self.single_output_risk_measure,
-        )
-        expected_str = (
-            OC_STR[:-1] + ", risk_measure=RiskMeasure(risk_measure=Expectation, "
-            "options={'n_w': 2}))"
-        )
-        self.assertEqual(str(config3), expected_str)
-        self.assertIs(config3.risk_measure, self.single_output_risk_measure)
-
     def test_Eq(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
-            risk_measure=self.single_output_risk_measure,
         )
         config2 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
-            risk_measure=self.single_output_risk_measure,
         )
         self.assertEqual(config1, config2)
 
@@ -257,7 +230,6 @@ class OptimizationConfigTest(TestCase):
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
-            risk_measure=self.single_output_risk_measure,
         )
         self.assertEqual(config1, config1.clone())
 
@@ -265,13 +237,9 @@ class OptimizationConfigTest(TestCase):
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
-            risk_measure=self.single_output_risk_measure,
         )
         config2 = OptimizationConfig(
             objective=self.objective,
-        )
-        config3 = OptimizationConfig(
-            objective=self.objective, risk_measure=_NO_RISK_MEASURE.clone()
         )
 
         # Empty args produce exact clone
@@ -284,18 +252,8 @@ class OptimizationConfigTest(TestCase):
         self.assertEqual(
             config1.clone_with_args(
                 outcome_constraints=None,
-                risk_measure=None,
             ),
             config2,
-        )
-
-        # Arguments that has same value with default won't be treated as default
-        self.assertEqual(
-            config1.clone_with_args(
-                outcome_constraints=None,
-                risk_measure=config3.risk_measure,
-            ),
-            config3,
         )
 
 
@@ -315,9 +273,6 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.objective = Objective(metric=self.metrics["m1"], minimize=True)
         self.multi_objective = MultiObjective(
             objectives=[self.objectives["o1"], self.objectives["o2"]]
-        )
-        self.multi_objective_just_m2 = MultiObjective(
-            objectives=[self.objectives["o2"]]
         )
         self.scalarized_objective = ScalarizedObjective(
             metrics=list(self.metrics.values()),
@@ -347,19 +302,8 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 relative=True,
             ),
         ]
-        self.m1_constraint = OutcomeConstraint(
-            metric=self.metrics["m1"], op=ComparisonOp.LEQ, bound=0.1, relative=True
-        )
         self.m3_constraint = OutcomeConstraint(
             metric=self.metrics["m3"], op=ComparisonOp.GEQ, bound=0.1, relative=True
-        )
-        self.single_output_risk_measure = RiskMeasure(
-            risk_measure="Expectation",
-            options={"n_w": 2},
-        )
-        self.multi_output_risk_measure = RiskMeasure(
-            risk_measure="MultiOutputExpectation",
-            options={"n_w": 2},
         )
 
     def test_Init(self) -> None:
@@ -425,26 +369,6 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 #  `List[OutcomeConstraint]`.
                 objective_thresholds=[self.additional_outcome_constraint],
             )
-
-        # Test with risk measures.
-        self.assertIsNone(config5.risk_measure)
-        config6 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
-            outcome_constraints=self.outcome_constraints,
-            risk_measure=self.multi_output_risk_measure,
-        )
-        self.assertIs(config6.risk_measure, self.multi_output_risk_measure)
-        expected_str = (
-            MOOC_STR[:-1] + ", risk_measure=RiskMeasure(risk_measure="
-            "MultiOutputExpectation, options={'n_w': 2}))"
-        )
-        self.assertEqual(str(config6), expected_str)
-        # With scalarized objective.
-        config7 = MultiObjectiveOptimizationConfig(
-            objective=self.scalarized_objective,
-            risk_measure=self.single_output_risk_measure,
-        )
-        self.assertIs(config7.risk_measure, self.single_output_risk_measure)
 
     def test_Eq(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
@@ -592,13 +516,9 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             objective=self.multi_objective,
             objective_thresholds=self.objective_thresholds,
             outcome_constraints=self.outcome_constraints,
-            risk_measure=self.multi_output_risk_measure,
         )
         config2 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
-        )
-        config3 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective, risk_measure=_NO_RISK_MEASURE.clone()
         )
 
         # Empty args produce exact clone
@@ -612,19 +532,8 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             config1.clone_with_args(
                 outcome_constraints=None,
                 objective_thresholds=None,
-                risk_measure=None,
             ),
             config2,
-        )
-
-        # Arguments that has same value with default won't be treated as default
-        self.assertEqual(
-            config1.clone_with_args(
-                outcome_constraints=None,
-                objective_thresholds=None,
-                risk_measure=config3.risk_measure,
-            ),
-            config3,
         )
 
 
@@ -655,7 +564,6 @@ class PreferenceOptimizationConfigTest(TestCase):
         self.assertEqual(config.preference_profile_name, self.preference_profile_name)
         self.assertEqual(config.objective, self.multi_objective)
         self.assertEqual(config.outcome_constraints, [])
-        self.assertIsNone(config.risk_measure)
 
         # Test that outcome_constraints are not supported
         with self.assertRaisesRegex(

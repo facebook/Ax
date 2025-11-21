@@ -30,7 +30,6 @@ class TestMethods(TestCase):
             model_cls=SingleTaskGP,
             acquisition_cls=qKnowledgeGradient,
             batch_size=batch_size,
-            distribute_replications=False,
         )
         is_batched = batch_size > 1
         expected_name = "MBM::SingleTaskGP_qKnowledgeGradient" + (
@@ -64,7 +63,6 @@ class TestMethods(TestCase):
             acquisition_cls=acqf_cls,
             num_sobol_trials=2,
             name="test",
-            distribute_replications=False,
         )
         n_sobol_trials = method.generation_strategy._steps[0].num_trials
         self.assertEqual(n_sobol_trials, 2)
@@ -78,7 +76,7 @@ class TestMethods(TestCase):
             problem=problem, method=method, seed=0, orchestrator_logging_level=WARNING
         )
         self.assertTrue(np.isfinite(result.score_trace).all())
-        self.assertEqual(result.optimization_trace.shape, (n_total_trials,))
+        self.assertEqual(len(result.optimization_trace), n_total_trials)
 
         self.assertEqual(
             len(none_throws(result.experiment).arms_by_name),
@@ -103,7 +101,7 @@ class TestMethods(TestCase):
             )
 
     def test_sobol(self) -> None:
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
         self.assertEqual(method.name, "Sobol")
         gs = method.generation_strategy
         self.assertEqual(len(gs._steps), 1)

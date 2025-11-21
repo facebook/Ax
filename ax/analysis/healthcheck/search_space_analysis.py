@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Union
+from typing import final, Union
 
 import numpy as np
 import pandas as pd
@@ -19,20 +19,15 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 )
 from ax.core.experiment import Experiment
 
-from ax.core.parameter import ChoiceParameter, Parameter, RangeParameter
-from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import assert_is_instance, override
 
-SUBTITLE_BASE = (
-    "This optimization may benefit from widened search-space bounds. Consider the "
-    "expansions recommended below.\n"
-)
 
-
+@final
 class SearchSpaceAnalysis(Analysis):
     r"""
     Analysis for checking wehther the search space of the experiment should be expanded.
@@ -67,7 +62,6 @@ class SearchSpaceAnalysis(Analysis):
             raise UserInputError("SearchSpaceAnalysis requires an Experiment.")
 
         status = HealthcheckStatus.PASS
-        title_status = "Success"
 
         trial = experiment.trials[self.trial_index]
         arms = trial.arms
@@ -77,23 +71,35 @@ class SearchSpaceAnalysis(Analysis):
             parameterizations=parametrizations,
         )
         if np.any(
-            boundary_proportions_df["proportion"] > self.boundary_proportion_threshold
+            boundary_proportions_df["Proportion of suggested values on boundary"]
+            > self.boundary_proportion_threshold
         ):
-            msg = boundary_proportions_message(
-                boundary_proportions_df=boundary_proportions_df,
-                boundary_proportion_threshold=self.boundary_proportion_threshold,
-            )
             status = HealthcheckStatus.WARNING
-            additional_subtitle = msg
-            title_status = "Warning"
+            filtered_df = boundary_proportions_df[
+                boundary_proportions_df["Proportion of suggested values on boundary"]
+                > self.boundary_proportion_threshold
+            ]
+            filtered_df["Proportion of suggested values on boundary"] = filtered_df[
+                "Proportion of suggested values on boundary"
+            ].map(lambda x: f"{x * 100:.2f}%")
+            filtered_df["Boundary"] = filtered_df["Boundary"].map(
+                lambda x: x.replace("*", r"\*")
+            )
+            markdown_df = filtered_df.to_markdown(index=False)
+            subtitle = (
+                f"More than {self.boundary_proportion_threshold * 100:.2f}% of Ax "
+                "suggested values are at the bound for the parameters and constraints "
+                "below. This may indicate that the optimal values are outside of these "
+                f"bounds. Consider relaxing the following bounds.\n\n{markdown_df}"
+            )
         else:
-            additional_subtitle = "Search space does not need to be updated."
+            subtitle = "Search space does not need to be updated."
 
         return create_healthcheck_analysis_card(
             name=self.__class__.__name__,
-            title=f"Ax search-space boundary check [{title_status}]",
-            subtitle=SUBTITLE_BASE + additional_subtitle,
-            df=boundary_proportions_df[["boundary", "proportion", "bound"]],
+            title="Search space boundary check",
+            subtitle=subtitle,
+            df=boundary_proportions_df,
             status=status,
         )
 
@@ -120,7 +126,6 @@ def search_space_boundary_proportions(
         of parameterizations that landed at the constraint boundary.
     """
 
-    parameters_and_constraints = []
     boundaries = []
     proportions = []
     bounds = []
@@ -166,12 +171,11 @@ def search_space_boundary_proportions(
         else:
             prop_lower = 0.0
             prop_upper = 0.0
-        parameters_and_constraints.extend([parameter] * 2)
         boundaries.extend(
             [f"{parameter_name} = {lower}", f"{parameter_name} = {upper}"]
         )
         proportions.extend([prop_lower, prop_upper])
-        bounds.extend(["lower", "upper"])
+        bounds.extend(["Lower bound", "Upper bound"])
     for pc in search_space.parameter_constraints:
         weighted_sums = [
             sum(
@@ -194,87 +198,18 @@ def search_space_boundary_proportions(
         else:
             prop = 0.0
         boundaries.append(
-            " + ".join(f"{v}*{k}" for k, v in sorted(pc.constraint_dict.items()))
-            + f" = {pc.bound}"
+            "("
+            + ") + (".join(f"{v}*{k}" for k, v in sorted(pc.constraint_dict.items()))
+            + f") = {pc.bound}"
         )
         proportions.append(prop)
-        parameters_and_constraints.append(pc)
-        bounds.append("upper")
+        bounds.append("Parameter constraint")
 
     df = pd.DataFrame(
         {
-            "parameter_or_constraint": parameters_and_constraints,
-            "boundary": boundaries,
-            "proportion": proportions,
-            "bound": bounds,
+            "Boundary": boundaries,
+            "Bound": bounds,
+            "Proportion of suggested values on boundary": proportions,
         }
     )
     return df
-
-
-def boundary_proportions_message(
-    boundary_proportions_df: pd.DataFrame,
-    boundary_proportion_threshold: float = 0.5,
-) -> str:
-    r"""
-    Construct a message explaning what parameter or parameter constraints bounds
-    to change based on the proportions of the parametrizations that landed at
-    the search spaces boundaries.
-    A proportion should be above the threshold in order to recommend expanding
-    the search space along the corresponding parameter or parameter constraint.
-
-    Args:
-        boundary_proportions_df: A dataframe with the following columns
-            * parameter_or_constraint: the parameter or constraint object
-                containing this row's search space boundary.
-            * boundary: a string representation of the function defining this boundary.
-            * proportion: the proportion of provided parameterizations within
-                ``tol`` of this boundary.
-            * bound: whether this is an upper or lower bound.
-        A dataframe containing parameters and parameter
-            constraints along with the proportions of the parametrizations that
-            landed at the lower or upper bounds of the parameters or at the
-            constraints boundary.
-        boundary_proportion_threshold: The minimal proportion of suggested
-            parametrizations that land at the boundary of the search space for
-            us to recommend expanding the search space.
-
-    Returns:
-        A string explaning what parameter or parameter constraints bounds to change
-        in order to expand the search space.
-    """
-
-    msg = ""
-    for _, row in boundary_proportions_df.iterrows():
-        if isinstance(row["parameter_or_constraint"], Parameter):
-            parameter = row["parameter_or_constraint"]
-            bound = row["bound"]
-            prop = row["proportion"]
-            boundary = row["boundary"]
-            if prop >= boundary_proportion_threshold:
-                change_dir = "decreasing" if bound == "lower" else "increasing"
-                msg += (
-                    f"\n - **Relax {bound} bound of `{parameter.name!r}`:** Ax is "
-                    f"frequently suggesting values at the {bound} bound of "
-                    f"`{parameter.name!r}`, `{boundary}`. This may indicate that the "
-                    f"optimal value of this parameter is outside this bound, in which "
-                    f"case {change_dir} this {bound} bound would improve optimization "
-                    f"performance. Details: {prop * 100:.2f}% of suggested arms are on "
-                    f"the parameter's {bound} bound (threshold for this alert is "
-                    f"{boundary_proportion_threshold * 100:.2f}%)."
-                )
-        elif isinstance(row["parameter_or_constraint"], ParameterConstraint):
-            pc = row["parameter_or_constraint"]
-            prop = row["proportion"]
-            if prop >= boundary_proportion_threshold:
-                msg += (
-                    f"\n - **Relax parameter constraint `{pc!r}`:** Ax is frequently "
-                    "suggesting parameterizations along the boundary of parameter"
-                    f"constraint `{pc!r}`. Consider relaxing this constraint bound "
-                    "somewhat and re-generating the candidates. "
-                    f"Details: {prop * 100:.2f}% of all suggested arms lie along the "
-                    "boundary, which exceeds the threshold of "
-                    f"{boundary_proportion_threshold * 100:.2f}%."
-                )
-
-    return msg

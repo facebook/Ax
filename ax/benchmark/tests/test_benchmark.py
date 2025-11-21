@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+import dataclasses
+import itertools
 import logging
 import tempfile
 from datetime import datetime
@@ -69,6 +71,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.objective import MultiObjective
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import (
@@ -94,7 +97,7 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
 
-from botorch.test_functions.synthetic import Branin
+from botorch.test_functions.synthetic import Branin, PressureVessel
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -148,7 +151,6 @@ class TestBenchmark(TestCase):
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     batch_size=batch_size,
-                    distribute_replications=False,
                     model_gen_kwargs={
                         "model_gen_options": {
                             "optimizer_kwargs": {"sequential": sequential}
@@ -195,7 +197,7 @@ class TestBenchmark(TestCase):
         self._test_storage(map_data=True)
 
     def test_replication_sobol_synthetic(self) -> None:
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
         problems = [
             get_single_objective_benchmark_problem(),
             get_benchmark_problem("jenatton", num_trials=6),
@@ -207,13 +209,44 @@ class TestBenchmark(TestCase):
                 problem.num_trials, len(none_throws(res.experiment).trials)
             )
             self.assertTrue(np.isfinite(res.score_trace).all())
-            self.assertTrue(np.all(res.score_trace <= 100))
+            self.assertTrue(np.all(np.array(res.score_trace) <= 100))
             experiment = none_throws(res.experiment)
             self.assertIn(f"{problem.name}|Sobol", experiment.name)
             self.assertEqual(experiment.search_space, problem.search_space)
             self.assertEqual(
                 experiment.optimization_config, problem.optimization_config
             )
+
+    def test_tracking_metrics(self) -> None:
+        method = get_sobol_benchmark_method()
+        problem = get_multi_objective_benchmark_problem()
+        oc = problem.optimization_config
+        tracking_metric = (
+            assert_is_instance(oc.objective, MultiObjective).objectives[1].metric
+        )
+        problem = dataclasses.replace(
+            problem,
+            optimization_config=get_soo_opt_config(
+                outcome_names=[f"{problem.name}_0"], lower_is_better=True
+            ),
+            tracking_metrics=[tracking_metric],
+            baseline_value=3.0,
+            optimal_value=Branin(negate=False).optimal_value,
+        )
+        res = self.benchmark_replication(problem=problem, method=method, seed=0)
+
+        self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
+        self.assertTrue(np.isfinite(res.score_trace).all())
+        self.assertTrue(all(y <= 100 for y in res.score_trace))
+        experiment = none_throws(res.experiment)
+        self.assertIn(f"{problem.name}|Sobol", experiment.name)
+        self.assertEqual(experiment.search_space, problem.search_space)
+        self.assertEqual(experiment.optimization_config, problem.optimization_config)
+        self.assertEqual(experiment.tracking_metrics, [tracking_metric])
+        self.assertEqual(
+            set(experiment.lookup_data().df["metric_name"].unique()),
+            {f"{problem.name}_0", f"{problem.name}_1"},
+        )
 
     def test_compute_score_trace(self) -> None:
         opt_trace = np.array([1, 0, -1, 2, float("nan"), 4])
@@ -241,7 +274,7 @@ class TestBenchmark(TestCase):
             self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
 
     def test_replication_sobol_surrogate(self) -> None:
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
 
         # This is kind of a weird setup - these are "surrogates" that use a Branin
         # synthetic function. The idea here is to test the machinery around the
@@ -260,7 +293,7 @@ class TestBenchmark(TestCase):
                 )
 
                 self.assertTrue(np.isfinite(res.score_trace).all())
-                self.assertTrue(np.all(res.score_trace <= 100))
+                self.assertTrue(np.all(np.array(res.score_trace) <= 100))
 
     def _test_replication_async(self, map_data: bool) -> None:
         """
@@ -421,17 +454,17 @@ class TestBenchmark(TestCase):
                     )
                 self.assertFalse(np.isnan(result.inference_trace).any())
                 self.assertEqual(
-                    result.inference_trace.tolist(),
+                    result.inference_trace,
                     expected_traces[case_name],
                     msg=case_name,
                 )
                 self.assertEqual(
-                    result.oracle_trace.tolist(),
+                    result.oracle_trace,
                     expected_traces[case_name],
                     msg=case_name,
                 )
                 self.assertEqual(
-                    result.cost_trace.tolist(),
+                    result.cost_trace,
                     expected_costs[case_name],
                     msg=case_name,
                 )
@@ -661,7 +694,6 @@ class TestBenchmark(TestCase):
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
             acquisition_cls=qLogNoisyExpectedImprovement,
-            distribute_replications=False,
             num_sobol_trials=3,
             batch_size=batch_size,
         )
@@ -684,9 +716,11 @@ class TestBenchmark(TestCase):
             not report_inference_value_as_trace,
         )
 
-        self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
+        self.assertEqual(len(res.optimization_trace), problem.num_trials)
         if report_inference_value_as_trace:
-            self.assertTrue((res.inference_trace >= res.oracle_trace).all())
+            self.assertTrue(
+                (np.array(res.inference_trace) >= np.array(res.oracle_trace)).all()
+            )
 
     def test_replication_with_inference_value(self) -> None:
         for batch_size, report_inference_value_as_trace in product(
@@ -714,7 +748,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=True,
                 ),
                 get_benchmark_problem(
                     "constrained_gramacy_observed_noise", num_trials=6
@@ -725,7 +758,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
@@ -736,7 +768,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
@@ -747,7 +778,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedHypervolumeImprovement,
-                    distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
@@ -758,7 +788,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SaasFullyBayesianSingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(num_trials=6),
                 "MBM::SAAS_qLogNEI",
@@ -767,7 +796,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qKnowledgeGradient,
-                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
                     observe_noise_sd=False, num_trials=6
@@ -778,7 +806,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    distribute_replications=False,
                 ),
                 get_augmented_branin_problem(fidelity_or_task="fidelity"),
                 "MBM::SingleTaskGP_qLogNEI",
@@ -790,7 +817,7 @@ class TestBenchmark(TestCase):
                     problem.num_trials,
                     len(none_throws(res.experiment).trials),
                 )
-                self.assertTrue(np.all(res.score_trace <= 100))
+                self.assertTrue(np.all(np.array(res.score_trace) <= 100))
                 self.assertEqual(method.name, method.generation_strategy.name)
                 self.assertEqual(method.name, expected_name)
 
@@ -799,7 +826,7 @@ class TestBenchmark(TestCase):
 
         res = self.benchmark_replication(
             problem=problem,
-            method=get_sobol_benchmark_method(distribute_replications=False),
+            method=get_sobol_benchmark_method(),
             seed=0,
         )
 
@@ -812,7 +839,7 @@ class TestBenchmark(TestCase):
             len(none_throws(res.experiment).fetch_data().df),
         )
 
-        self.assertTrue(np.all(res.score_trace <= 100))
+        self.assertTrue(np.all(np.array(res.score_trace) <= 100))
         self.assertEqual(len(res.cost_trace), problem.num_trials)
         self.assertEqual(len(res.inference_trace), problem.num_trials)
         # since inference trace is not supported for MOO, it should be all NaN
@@ -820,7 +847,7 @@ class TestBenchmark(TestCase):
 
     def test_benchmark_one_method_problem(self) -> None:
         problem = get_single_objective_benchmark_problem()
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
         with self.assertNoLogs(level="INFO"):
             agg = benchmark_one_method_problem(
                 problem=problem,
@@ -845,11 +872,10 @@ class TestBenchmark(TestCase):
     def test_benchmark_multiple_problems_methods(self) -> None:
         problems = [get_single_objective_benchmark_problem(num_trials=6)]
         methods = [
-            get_sobol_benchmark_method(distribute_replications=False),
+            get_sobol_benchmark_method(),
             get_sobol_botorch_modular_acquisition(
                 model_cls=SingleTaskGP,
                 acquisition_cls=qLogNoisyExpectedImprovement,
-                distribute_replications=False,
             ),
         ]
         with self.assertNoLogs(level="INFO"):
@@ -879,10 +905,7 @@ class TestBenchmark(TestCase):
             num_sobol_trials=1000,  # Ensures we don't use BO
         )
         timeout_seconds = 2.0
-        method = BenchmarkMethod(
-            generation_strategy=generation_strategy,
-            timeout_hours=timeout_seconds / 3600,
-        )
+        method = BenchmarkMethod(generation_strategy=generation_strategy)
 
         # Each replication will have a different number of trials
 
@@ -892,6 +915,7 @@ class TestBenchmark(TestCase):
                 problem=problem,
                 method=method,
                 seeds=(0, 1),
+                timeout_hours=timeout_seconds / 3600,
                 orchestrator_logging_level=WARNING,
             )
         elapsed = monotonic() - start
@@ -910,7 +934,7 @@ class TestBenchmark(TestCase):
             generation_strategy=GenerationStrategy(
                 nodes=[
                     GenerationNode(
-                        node_name="Sobol",
+                        name="Sobol",
                         generator_specs=[
                             GeneratorSpec(
                                 Generators.SOBOL, model_kwargs={"deduplicate": True}
@@ -1014,20 +1038,21 @@ class TestBenchmark(TestCase):
                 generation_strategy=get_sobol_mbm_generation_strategy(
                     model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
                 ),
-                distribute_replications=False,
                 max_pending_trials=2,
                 batch_size=batch_size,
             )
             orchestrator_options = get_benchmark_orchestrator_options(
-                method=method, include_sq=include_sq
+                batch_size=none_throws(method.batch_size),
+                run_trials_in_batches=False,
+                max_pending_trials=method.max_pending_trials,
+                early_stopping_strategy=method.early_stopping_strategy,
+                include_status_quo=include_sq,
             )
             self.assertEqual(orchestrator_options.max_pending_trials, 2)
             self.assertEqual(orchestrator_options.init_seconds_between_polls, 0)
             self.assertEqual(orchestrator_options.min_seconds_before_poll, 0)
             self.assertEqual(orchestrator_options.batch_size, batch_size)
-            self.assertEqual(
-                orchestrator_options.run_trials_in_batches, method.run_trials_in_batches
-            )
+            self.assertFalse(orchestrator_options.run_trials_in_batches)
             self.assertEqual(
                 orchestrator_options.early_stopping_strategy,
                 method.early_stopping_strategy,
@@ -1171,7 +1196,7 @@ class TestBenchmark(TestCase):
             new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
             self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
 
-        method = get_sobol_benchmark_method(distribute_replications=False)
+        method = get_sobol_benchmark_method()
         with self.subTest("MOO"):
             problem = get_multi_objective_benchmark_problem()
 
@@ -1220,8 +1245,8 @@ class TestBenchmark(TestCase):
         )
         self.assertTrue(np.isnan(transformed.oracle_trace).all())
         self.assertTrue(np.isnan(transformed.inference_trace).all())
-        self.assertEqual(transformed.score_trace.max(), result.score_trace.max())
-        self.assertLessEqual(transformed.score_trace.min(), result.score_trace.min())
+        self.assertEqual(max(transformed.score_trace), max(result.score_trace))
+        self.assertLessEqual(min(transformed.score_trace), min(result.score_trace))
 
     def test_get_best_parameters(self) -> None:
         """
@@ -1291,6 +1316,119 @@ class TestBenchmark(TestCase):
             )
             self.assertEqual(best_point, experiment.trials[0].arms[0].parameters)
 
+    def test_worst_feasible_value_validation(self) -> None:
+        """Test validation logic for worst_feasible_value in BenchmarkProblem."""
+        search_space = get_continuous_search_space(bounds=[(0, 1), (0, 1)])
+        test_function = IdentityTestFunction(outcome_names=["objective", "constraint"])
+
+        # MOO with constraints - must be 0.0
+        moo_config = get_moo_opt_config(
+            outcome_names=["objective", "constraint"],
+            ref_point=[1.0],
+            num_constraints=1,
+        )
+        BenchmarkProblem(
+            name="moo_valid",
+            optimization_config=moo_config,
+            search_space=search_space,
+            test_function=test_function,
+            num_trials=4,
+            baseline_value=5.0,
+            optimal_value=10.0,
+            worst_feasible_value=0.0,
+        )
+        with self.assertRaisesRegex(ValueError, "must be 0.0 for multi-objective"):
+            BenchmarkProblem(
+                name="moo_invalid",
+                optimization_config=moo_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=5.0,
+                optimal_value=10.0,
+                worst_feasible_value=5.0,
+            )
+
+        # SOO with constraints, `worst_feasible_value` must be provided
+        soo_min_config = get_soo_opt_config(
+            outcome_names=["objective", "constraint"], lower_is_better=True
+        )
+        soo_max_config = get_soo_opt_config(
+            outcome_names=["objective", "constraint"], lower_is_better=False
+        )
+        with self.assertRaisesRegex(
+            ValueError, "must be provided for constrained problems"
+        ):
+            BenchmarkProblem(
+                name="none_invalid",
+                optimization_config=soo_min_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=10.0,
+                optimal_value=5.0,
+            )
+
+        # Minimization: worst_feasible >= optimal
+        with self.assertRaisesRegex(ValueError, "must be greater than or equal to"):
+            BenchmarkProblem(
+                name="min_invalid",
+                optimization_config=soo_min_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=10.0,
+                optimal_value=5.0,
+                worst_feasible_value=3.0,
+            )
+        BenchmarkProblem(
+            name="min_valid",
+            optimization_config=soo_min_config,
+            search_space=search_space,
+            test_function=test_function,
+            num_trials=4,
+            baseline_value=10.0,
+            optimal_value=5.0,
+            worst_feasible_value=8.0,
+        )
+
+        # Maximization: worst_feasible <= optimal
+        with self.assertRaisesRegex(ValueError, "must be less than or equal to"):
+            BenchmarkProblem(
+                name="max_invalid",
+                optimization_config=soo_max_config,
+                search_space=search_space,
+                test_function=test_function,
+                num_trials=4,
+                baseline_value=5.0,
+                optimal_value=10.0,
+                worst_feasible_value=15.0,
+            )
+        BenchmarkProblem(
+            name="max_valid",
+            optimization_config=soo_max_config,
+            search_space=search_space,
+            test_function=test_function,
+            num_trials=4,
+            baseline_value=5.0,
+            optimal_value=10.0,
+            worst_feasible_value=8.0,
+        )
+
+        # No constraints - validation skipped
+        no_constraint_config = get_soo_opt_config(outcome_names=["objective"])
+        no_constraint_test_function = IdentityTestFunction(outcome_names=["objective"])
+        BenchmarkProblem(
+            name="no_constraints",
+            optimization_config=no_constraint_config,
+            search_space=search_space,
+            test_function=no_constraint_test_function,
+            num_trials=4,
+            baseline_value=10.0,
+            optimal_value=5.0,
+            worst_feasible_value=None,
+        )
+
     def test_get_benchmark_result_from_experiment_and_gs(self) -> None:
         problem = get_single_objective_benchmark_problem()
         method = BenchmarkMethod(
@@ -1344,3 +1482,98 @@ class TestBenchmark(TestCase):
                     result_inf.inference_trace, result_inf.optimization_trace
                 )
             )
+
+    def test_scoring_constrained_problem(self) -> None:
+        # Make sure the score is computed correctly for a constrained problem
+        expected_score_traces_oracle = [
+            [0.0, 0.0, 51.9295, 51.9295, 51.9295],
+            [-20.8965, -20.8965, 41.8845, 41.8845, 41.8845],
+        ]
+        expected_score_traces_inference = [
+            [0.0, 0.0, 51.9295, 0.0, 0.0],
+            [-20.8965, -20.8965, 41.8845, -20.8965, -20.8965],
+        ]
+        expected_is_feasible_trace = [False, False, True, False, False]
+        worst_feasible_value = PressureVessel().worst_feasible_value
+        feasible_value = 118769.1124  # Value of the only feasible trial
+        expected_oracle_trace = [
+            worst_feasible_value,
+            worst_feasible_value,
+            feasible_value,
+            feasible_value,
+            feasible_value,
+        ]
+        expected_inference_trace = [
+            worst_feasible_value,
+            worst_feasible_value,
+            feasible_value,  # The only feasible trial
+            worst_feasible_value,
+            worst_feasible_value,
+        ]
+
+        for (
+            baseline_value,
+            report_inference_value_as_trace,
+            num_trials,
+        ) in itertools.product([float("inf"), 200_000], [False, True], [2, 5]):
+            sobol = BenchmarkMethod(generation_strategy=get_sobol_generation_strategy())
+            problem = create_problem_from_botorch(
+                test_problem_class=PressureVessel,
+                test_problem_kwargs={},
+                num_trials=num_trials,
+                baseline_value=baseline_value,
+                report_inference_value_as_trace=report_inference_value_as_trace,
+            )
+            results = benchmark_replication(problem=problem, method=sobol, seed=2)
+
+            # Check that the traces are what we expect
+            idx = 0 if baseline_value == float("inf") else 1
+            expected = (
+                expected_score_traces_inference
+                if report_inference_value_as_trace
+                else expected_score_traces_oracle
+            )
+            self.assertTrue(
+                np.allclose(
+                    results.score_trace,
+                    expected[idx][:num_trials],
+                    atol=1e-3,
+                )
+            )
+            self.assertTrue(
+                np.allclose(
+                    results.oracle_trace,
+                    expected_oracle_trace[:num_trials],
+                    atol=1e-3,
+                )
+            )
+            self.assertTrue(
+                np.equal(
+                    none_throws(results.is_feasible_trace),
+                    expected_is_feasible_trace[:num_trials],
+                ).all()
+            )
+            if report_inference_value_as_trace:
+                self.assertTrue(
+                    np.allclose(
+                        results.inference_trace,
+                        expected_inference_trace[:num_trials],
+                        atol=1e-3,
+                    )
+                )
+                self.assertTrue(
+                    np.allclose(
+                        results.optimization_trace,
+                        expected_inference_trace[:num_trials],
+                        atol=1e-3,
+                    )
+                )
+            else:
+                self.assertTrue(np.isnan(none_throws(results.inference_trace)).all())
+                self.assertTrue(
+                    np.allclose(
+                        results.optimization_trace,
+                        expected_oracle_trace[:num_trials],
+                        atol=1e-3,
+                    )
+                )

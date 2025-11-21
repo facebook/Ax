@@ -16,7 +16,6 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import HierarchicalSearchSpace
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
@@ -276,6 +275,9 @@ class TestInstantiationtUtils(TestCase):
                 status_quo_defined=False,
             )
             self.assertEqual(single_optimization_config.objective.metric.name, "branin")
+            self.assertEqual(
+                single_optimization_config.objective.metric.signature, "branin"
+            )
 
     def test_single_valued_choice_to_fixed_param_conversion(self) -> None:
         for use_dependents in [True, False]:
@@ -360,9 +362,7 @@ class TestInstantiationtUtils(TestCase):
             parameters=parameter_dicts,
             parameter_constraints=[],
         )
-        self.assertIsInstance(search_space, HierarchicalSearchSpace)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `_root`.
-        self.assertEqual(search_space._root.name, "root")
+        self.assertTrue(search_space.is_hierarchical)
 
     def test_make_multitype_experiment_with_default_trial_type(self) -> None:
         experiment = InstantiationBase.make_experiment(

@@ -8,6 +8,7 @@
 import logging
 import os
 import re
+import time
 from collections.abc import Callable
 from datetime import timedelta
 from math import ceil
@@ -60,6 +61,7 @@ from ax.service.orchestrator import (
     OptimizationResult,
     Orchestrator,
     OrchestratorInternalError,
+    StatusQuoInfeasibleError,
 )
 from ax.service.tests.orchestrator_test_utils import (
     BrokenRunnerRuntimeError,
@@ -165,7 +167,8 @@ class TestAxOrchestrator(TestCase):
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
         "validate_metrics=True, status_quo_weight=0.0, "
         "enforce_immutable_search_space_and_opt_config=True, "
-        "mt_experiment_trial_type=None, force_candidate_generation=False))"
+        "mt_experiment_trial_type=None, "
+        "terminate_if_status_quo_infeasible=False))"
     )
 
     def setUp(self) -> None:
@@ -1021,7 +1024,7 @@ class TestAxOrchestrator(TestCase):
         # There should only be one data object for each trial, since by default the
         # `Orchestrator` should override previous data objects when it gets new ones in
         # a subsequent `fetch` call.
-        for _, datas in exp.data_by_trial.items():
+        for _, datas in exp._data_by_trial.items():
             self.assertEqual(len(datas), 1)
 
         # We also should have attempted the fetch more times
@@ -1034,7 +1037,7 @@ class TestAxOrchestrator(TestCase):
         num_attach_calls = mock_experiment_attach_data.call_count
         expected_ts_last_trial = len(exp.trials) * 1000 + num_attach_calls
         self.assertEqual(
-            next(iter(exp.data_by_trial[len(exp.trials) - 1])),
+            next(iter(exp._data_by_trial[len(exp.trials) - 1])),
             expected_ts_last_trial,
         )
 
@@ -1169,7 +1172,7 @@ class TestAxOrchestrator(TestCase):
         # All trials should be marked complete after one run.
         with patch(
             "ax.service.utils.early_stopping.should_stop_trials_early",
-            wraps=lambda trial_indices, **kwargs: {i: None for i in trial_indices},
+            wraps=lambda trial_indices, **kwargs: dict.fromkeys(trial_indices),
         ) as mock_should_stop_trials_early, patch.object(
             InfinitePollRunner, "stop", return_value=None
         ) as mock_stop_trial_run:
@@ -1197,22 +1200,21 @@ class TestAxOrchestrator(TestCase):
         total_trials = 3
 
         class OddIndexEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
+            def _is_harmful(
+                self,
+                trial_indices: set[int],
+                experiment: Experiment,
+            ) -> bool:
+                return False
+
             # Trials with odd indices will be early stopped
             # Thus, with 3 total trials, trial #1 will be early stopped
-            def should_stop_trials_early(
+            def _should_stop_trials_early(
                 self,
                 trial_indices: set[int],
                 experiment: Experiment,
                 current_node: GenerationNode | None = None,
             ) -> dict[int, str | None]:
-                # Make sure that we can lookup data for the trial,
-                # even though we won't use it in this dummy strategy
-                data = experiment.lookup_data(trial_indices=trial_indices)
-                if data.df.empty:
-                    raise Exception(
-                        f"No data found for trials {trial_indices}; "
-                        "can't determine whether or not to stop early."
-                    )
                 return {idx: None for idx in trial_indices if idx % 2 == 1}
 
         self.branin_timestamp_map_metric_experiment.runner = (
@@ -1225,9 +1227,6 @@ class TestAxOrchestrator(TestCase):
             options=OrchestratorOptions(
                 init_seconds_between_polls=0,
                 early_stopping_strategy=OddIndexEarlyStoppingStrategy(),
-                fetch_kwargs={
-                    "overwrite_existing_data": False,
-                },
                 **self.orchestrator_options_kwargs,
             ),
             db_settings=self.db_settings_if_always_needed,
@@ -1251,9 +1250,7 @@ class TestAxOrchestrator(TestCase):
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
 
-        # There should be 3 dataframes for Trial 0 -- one from its *last* intermediate
-        # poll and one from when the trial was completed.
-        self.assertEqual(len(orchestrator.experiment.data_by_trial[0]), 3)
+        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
 
         looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
@@ -1303,8 +1300,6 @@ class TestAxOrchestrator(TestCase):
                 # to cause the possibility of multiple fetches on completed trials
                 total_trials=5,
                 init_seconds_between_polls=0,  # Short between polls so test is fast.
-                # this is necessary to see how many times we fetched specific trials
-                fetch_kwargs={"overwrite_existing_data": False},
                 **self.orchestrator_options_kwargs,
             ),
             db_settings=self.db_settings,
@@ -1315,11 +1310,7 @@ class TestAxOrchestrator(TestCase):
             return_value=timedelta(hours=1),
         ):
             orchestrator.run_all_trials()
-        # Expect multiple dataframes for Trial 0 -- it should complete on
-        # the first iteration.
-        # If it's 1 it means period_of_new_data_after_trial_completion is
-        # being disregarded.
-        self.assertGreater(len(orchestrator.experiment.data_by_trial[0]), 1)
+        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
 
     def test_run_trials_in_batches(self) -> None:
         gs = self.two_sobol_steps_GS
@@ -1993,7 +1984,7 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UserInputError):
             orchestrator.get_improvement_over_baseline(
                 experiment=orchestrator.experiment,
                 generation_strategy=orchestrator.generation_strategy,
@@ -2067,50 +2058,52 @@ class TestAxOrchestrator(TestCase):
 
         self.assertEqual(len(orchestrator.experiment.completed_trials), 1)
 
-    def test_it_does_not_overwrite_data_with_combine_fetch_kwarg(self) -> None:
+    def test_it_does_not_overwrite_data(self) -> None:
         gs = self.two_sobol_steps_GS
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
-            options=OrchestratorOptions(
-                fetch_kwargs={
-                    "combine_with_last_data": True,
-                },
-                **self.orchestrator_options_kwargs,
-            ),
+            options=OrchestratorOptions(**self.orchestrator_options_kwargs),
             db_settings=self.db_settings_if_always_needed,
         )
 
         orchestrator.run_n_trials(max_trials=1)
 
         self.assertEqual(len(self.branin_experiment.completed_trials), 1)
+
+        initial_df = self.branin_experiment.lookup_data().df
+        metric_name = initial_df["metric_name"].iloc[0]
         self.branin_experiment.attach_data(
             Data(
                 df=pd.DataFrame(
                     {
                         "arm_name": ["0_0"],
-                        "metric_name": [
-                            next(iter(self.branin_experiment.metrics.keys()))
-                        ],
+                        "metric_name": [metric_name],
                         "mean": [TEST_MEAN],
                         "sem": [0.1],
                         "trial_index": [0],
+                        "metric_signature": [metric_name],
                     }
                 )
             )
         )
 
-        attached_means = self.branin_experiment.lookup_data().df["mean"].unique()
-        # the attach has overwritten the data, so we can infer that
-        # fetching happened in the next `run_n_trials()`
-        self.assertIn(TEST_MEAN, attached_means)
-        self.assertEqual(len(attached_means), 1)
+        attached_means = (
+            self.branin_experiment.lookup_data()
+            .df.loc[lambda x: x["metric_name"] == metric_name, "mean"]
+            .unique()
+        )
+        expected_means = {TEST_MEAN}
+        self.assertEqual(expected_means, set(attached_means))
 
         orchestrator.run_n_trials(max_trials=1)
-        attached_means = self.branin_experiment.lookup_data().df["mean"].unique()
-        # it did fetch again, but kept both rows because of the combine kwarg
+        attached_means = (
+            self.branin_experiment.lookup_data()
+            .df.loc[lambda x: x["metric_name"] == metric_name, "mean"]
+            .unique()
+        )
         self.assertIn(TEST_MEAN, attached_means)
-        self.assertEqual(len(attached_means), 2)
+        self.assertEqual(len(attached_means), len(self.branin_experiment.trials))
 
     @mock_botorch_optimize
     def test_it_works_with_multitask_models(
@@ -2235,9 +2228,11 @@ class TestAxOrchestrator(TestCase):
             options.batch_size,
         )
 
-    def test_generate_candidates_can_remove_stale_candidates(self) -> None:
+    def test_generate_candidates_can_remove_stale_candidates_with_ttl(
+        self,
+    ) -> None:
         init_test_engine_and_session_factory(force_init=True)
-        # GIVEN a orchestrator using a GS with MBM.
+        # GIVEN a orchestrator using a GS with MBM and TTL configured.
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
@@ -2249,6 +2244,7 @@ class TestAxOrchestrator(TestCase):
             init_seconds_between_polls=0,  # No wait bw polls so test is fast.
             batch_size=10,
             trial_type=TrialType.BATCH_TRIAL,
+            ttl_seconds_for_trials=2,  # Set TTL to 2 seconds
             **self.orchestrator_options_kwargs,
         )
         orchestrator = Orchestrator(
@@ -2258,35 +2254,38 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings,
         )
 
-        # WHEN generating candidates on a new experiment twice
+        # WHEN generating candidates on a new experiment
+        # Generate first candidate
         orchestrator.generate_candidates(num_trials=1)
-        orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=True)
 
-        # THEN the first candidate should be failed
+        # Wait for 2.1 seconds to ensure TTL is expired for first candidate
+        time.sleep(2.1)
+
+        # Generate second candidate
+        orchestrator.generate_candidates(num_trials=1)
+
+        # The first candidate should be marked as STALE
         orchestrator = Orchestrator.from_stored_experiment(
             experiment_name=self.branin_experiment.name,
             options=options,
             db_settings=self.db_settings,
         )
         self.assertEqual(len(orchestrator.experiment.trials), 2)
-        self.assertEqual(
-            orchestrator.experiment.trials[0].status,
-            TrialStatus.FAILED,
-        )
-        self.assertEqual(
-            orchestrator.experiment.trials[0].failed_reason,
-            "Newer candidates generated.",
-        )
+
         self.assertEqual(
             orchestrator.experiment.trials[1].status,
             TrialStatus.CANDIDATE,
         )
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status,
+            TrialStatus.STALE,
+        )
 
-    def test_generate_candidates_can_choose_not_to_remove_stale_candidates(
-        self,
-    ) -> None:
+    def test_generate_candidates_can_remove_stale_candidates(self) -> None:
+        # Check if candidate trials with and without TTL are marked stale correctly
         init_test_engine_and_session_factory(force_init=True)
-        # GIVEN a orchestrator using a GS with MBM.
+
+        # GIVEN an orchestrator using a GS with MBM
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
@@ -2294,7 +2293,9 @@ class TestAxOrchestrator(TestCase):
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
-        options = OrchestratorOptions(
+
+        # STEP 1: Generate initial candidate WITHOUT TTL
+        options_no_ttl = OrchestratorOptions(
             init_seconds_between_polls=0,  # No wait bw polls so test is fast.
             batch_size=10,
             trial_type=TrialType.BATCH_TRIAL,
@@ -2303,24 +2304,58 @@ class TestAxOrchestrator(TestCase):
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,
             generation_strategy=gs,
-            options=options,
+            options=options_no_ttl,
             db_settings=self.db_settings,
         )
 
-        # WHEN generating candidates on a new experiment twice
+        # Generate first candidate without TTL
         orchestrator.generate_candidates(num_trials=1)
-        orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=False)
 
-        # THEN the first candidate should be failed
+        # STEP 2: Change orchestrator to use TTL and generate second candidate WITH TTL
+        options_with_ttl = OrchestratorOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            ttl_seconds_for_trials=2,
+            **self.orchestrator_options_kwargs,
+        )
+        orchestrator.options = options_with_ttl
+
+        # Generate second candidate with TTL
+        orchestrator.generate_candidates(num_trials=1)
+
+        # STEP 3: Wait for TTL to expire
+        time.sleep(2.1)
+
+        # STEP 4: Generate third candidate
+        orchestrator.generate_candidates(num_trials=1)
+
+        # STEP 5: Verify results - reload from storage to get fresh state
         orchestrator = Orchestrator.from_stored_experiment(
             experiment_name=self.branin_experiment.name,
-            options=options,
+            options=options_with_ttl,
             db_settings=self.db_settings,
         )
-        self.assertEqual(len(orchestrator.experiment.trials), 2)
+
+        # THEN we should have 3 trials total
+        self.assertEqual(len(orchestrator.experiment.trials), 3)
+
+        # The third candidate (newest) should remain as CANDIDATE
         self.assertEqual(
-            len(orchestrator.experiment.trials_by_status[TrialStatus.CANDIDATE]),
-            2,
+            orchestrator.experiment.trials[2].status,
+            TrialStatus.CANDIDATE,
+        )
+
+        # The second candidate (with TTL, expired) should be marked as STALE
+        self.assertEqual(
+            orchestrator.experiment.trials[1].status,
+            TrialStatus.STALE,
+        )
+
+        # The first candidate (no TTL) will remain as CANDIDATE
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status,
+            TrialStatus.CANDIDATE,
         )
 
     def test_generate_candidates_does_not_fail_stale_candidates_if_fails_to_gen(
@@ -2353,7 +2388,7 @@ class TestAxOrchestrator(TestCase):
         with patch.object(
             Orchestrator, "_gen_new_trials_from_generation_strategy", return_value=[]
         ):
-            orchestrator.generate_candidates(num_trials=1, remove_stale_candidates=True)
+            orchestrator.generate_candidates(num_trials=1)
 
         # THEN the first candidate should be failed
         orchestrator = Orchestrator.from_stored_experiment(
@@ -2537,22 +2572,23 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings,
         )
 
-        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-            analysis = ParallelCoordinatesPlot()
-            cards = orchestrator.compute_analyses(analyses=[analysis])
+        # Test Analysis when Experiment is not in applicable state
+        analysis = ParallelCoordinatesPlot()
+        cards = orchestrator.compute_analyses(analyses=[analysis])
 
-            self.assertEqual(len(cards), 1)
-            # TODO[mpolson64] Rethink these tests as we work on storage
-            # it saved the error card
-            # self.assertIsNotNone(cards[0].db_id)
-            self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-            self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
-            self.assertEqual(
-                cards[0].subtitle,
-                "ValueError encountered while computing ParallelCoordinatesPlot.",
-            )
-            self.assertIn("Traceback", assert_is_instance(cards[0], AnalysisCard).blob)
-            self.assertTrue(any("No data found for metric" in msg for msg in lg.output))
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+        self.assertEqual(
+            cards[0].subtitle,
+            "AnalysisNotApplicableStateError encountered while computing "
+            "ParallelCoordinatesPlot.",
+        )
+        self.assertIn(
+            "Experiment has no trials",
+            assert_is_instance(cards[0], AnalysisCard).blob,
+        )
+
         sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
         sobol_run = sobol_generator.gen(n=1)
         trial = self.branin_experiment.new_trial(generator_run=sobol_run)
@@ -2650,6 +2686,41 @@ class TestAxOrchestrator(TestCase):
         )
         self.assertEqual(options_with_ess.seconds_between_polls_backoff_factor, 1.0)
 
+    def test_terminate_if_status_quo_infeasible(self) -> None:
+        # Create experiment with status quo and absolute constraint
+        experiment = get_branin_experiment(
+            with_status_quo=True, with_absolute_constraint=True
+        )
+        experiment.optimization_config.outcome_constraints[0].bound = 100
+
+        status_quo_trial = experiment.new_trial()
+        status_quo_trial.add_arm(experiment.status_quo)
+        status_quo_trial.mark_running(no_runner_required=True)
+        status_quo_trial.mark_completed()
+        experiment.attach_data(experiment.fetch_data())
+
+        # Verify data exists for status quo
+        data = experiment.lookup_data()
+        self.assertFalse(data.df.empty)
+        self.assertIn("status_quo", data.df["arm_name"].values)
+
+        gs = self.two_sobol_steps_GS
+        orchestrator = TestOrchestrator(
+            experiment=experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                terminate_if_status_quo_infeasible=True,
+                init_seconds_between_polls=0,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        with self.assertRaisesRegex(
+            StatusQuoInfeasibleError,
+            "Status-quo arm 'status_quo' is infeasible",
+        ):
+            orchestrator.run_n_trials(max_trials=1)
+
 
 class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     EXPECTED_orchestrator_REPR: str = (
@@ -2668,7 +2739,8 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
         "validate_metrics=True, status_quo_weight=0.0, "
         "enforce_immutable_search_space_and_opt_config=True, "
-        "mt_experiment_trial_type='type1', force_candidate_generation=False))"
+        "mt_experiment_trial_type='type1', "
+        "terminate_if_status_quo_infeasible=False))"
     )
 
     def setUp(self) -> None:

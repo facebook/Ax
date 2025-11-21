@@ -73,6 +73,7 @@ class _APIMetric(MapMetric, ABC):
                 MAP_KEY: progression,
                 "mean": mean,
                 "sem": sem,
+                "metric_signature": self.signature,
             }
             return Ok(value=MapData(df=pd.DataFrame.from_records([record])))
         except Exception as e:

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import dataclasses
 from collections import OrderedDict
 from collections.abc import Sequence
 from logging import Logger
@@ -16,12 +15,8 @@ import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.exceptions.model import ModelError
-from ax.generators.torch.botorch import (
-    get_feature_importances_from_botorch_model,
-    get_rounding_func,
-)
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -30,7 +25,11 @@ from ax.generators.torch.botorch_modular.utils import (
     construct_acquisition_and_optimizer_options,
     ModelConfig,
 )
-from ax.generators.torch.utils import _to_inequality_constraints
+from ax.generators.torch.utils import (
+    _to_inequality_constraints,
+    get_feature_importances_from_botorch_model,
+    get_rounding_func,
+)
 from ax.generators.torch_base import TorchGenerator, TorchGenResults, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
@@ -96,7 +95,6 @@ class BoTorchGenerator(TorchGenerator, Base):
     _user_specified_botorch_acqf_class: type[AcquisitionFunction] | None
     _botorch_acqf_class: type[AcquisitionFunction] | None
     _botorch_acqf_options: dict[str, Any]
-    _supports_robust_optimization: bool = True
     _acquisition: Acquisition | None = None
 
     def __init__(
@@ -327,6 +325,8 @@ class BoTorchGenerator(TorchGenerator, Base):
                 FixedSingleSampleModel,
             ):
                 gen_metadata["outcome_model_fixed_draw_weights"] = outcome_model.w
+
+        gen_metadata["num_pruned_dims"] = acqf.num_pruned_dims
         gen_metadata["models_used"] = acqf.models_used
         return gen_metadata
 
@@ -382,12 +382,6 @@ class BoTorchGenerator(TorchGenerator, Base):
         # the training data on cloned surrogate to train set and
         # use it to predict the test point.
         self._surrogate = current_surrogate.clone_reset()
-
-        # Remove the `robust_digest` since we do not want to use perturbations here.
-        search_space_digest = dataclasses.replace(
-            search_space_digest,
-            robust_digest=None,
-        )
 
         try:
             # Since each CV fold removes points from the training data, the
@@ -448,13 +442,8 @@ class BoTorchGenerator(TorchGenerator, Base):
             self._user_specified_botorch_acqf_class is None
             and self._botorch_acqf_classes_with_options is None
         ):
-            if torch_opt_config.risk_measure is not None:
-                raise UnsupportedError(
-                    "Automated selection of `botorch_acqf_class` is not supported "
-                    "for robust optimization with risk measures. Please specify "
-                    "`botorch_acqf_class` as part of `model_kwargs`."
-                )
             self._botorch_acqf_class = choose_botorch_acqf_class(
+                search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
                 datasets=self.surrogate.training_data,
                 use_p_feasible=self.use_p_feasible,

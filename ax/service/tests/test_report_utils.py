@@ -255,6 +255,7 @@ class ReportUtilsTest(TestCase):
                     "trial_index": [0, 1],
                     "n": [123] * 2,
                     "frac_nonnull": [1] * 2,
+                    "metric_signature": [OBJECTIVE_NAME] * 2,
                 }
             )
         )
@@ -285,7 +286,7 @@ class ReportUtilsTest(TestCase):
             constrained=True,
         )
         with patch(
-            f"{exp_to_df.__module__}._is_row_feasible", side_effect=KeyError(DUMMY_MSG)
+            f"{exp_to_df.__module__}.is_row_feasible", side_effect=KeyError(DUMMY_MSG)
         ), self.assertLogs(logger="ax", level=WARN) as log:
             exp_to_df(exp)
             self.assertIn(
@@ -470,16 +471,14 @@ class ReportUtilsTest(TestCase):
             experiment=exp,
             model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
-        self.assertEqual(len(plots), 8)
+        self.assertEqual(len(plots), 7)
 
     @mock_botorch_optimize
     def test_get_standard_plots_map_data(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
         exp.new_trial().add_arm(exp.status_quo)
         exp.trials[0].run()
-        exp.new_trial(
-            generator_run=Generators.SOBOL(search_space=exp.search_space).gen(n=1)
-        )
+        exp.new_trial(generator_run=Generators.SOBOL(experiment=exp).gen(n=1))
         exp.trials[1].run()
         for t in exp.trials.values():
             t.mark_completed()
@@ -509,7 +508,7 @@ class ReportUtilsTest(TestCase):
     def test_skip_contour_high_dimensional(self) -> None:
         exp = get_high_dimensional_branin_experiment()
         # Initial Sobol points
-        sobol = Generators.SOBOL(search_space=exp.search_space)
+        sobol = Generators.SOBOL(experiment=exp)
         for _ in range(1):
             exp.new_trial(sobol.gen(1)).run()
         model = Generators.BOTORCH_MODULAR(

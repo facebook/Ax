@@ -27,7 +27,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.generators.types import TConfig
-from ax.utils.stats.statstools import relativize, unrelativize
+from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
@@ -53,7 +53,6 @@ class BaseRelativize(Transform, ABC):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
@@ -61,7 +60,6 @@ class BaseRelativize(Transform, ABC):
         cls_name = self.__class__.__name__
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
@@ -134,15 +132,14 @@ class BaseRelativize(Transform, ABC):
                     )
                 obj_threshold.relative = False
 
-            new_optimization_config = MultiObjectiveOptimizationConfig(
+            new_optimization_config = optimization_config.clone_with_args(
                 objective=optimization_config.objective,
                 outcome_constraints=constraints,
                 objective_thresholds=obj_thresholds,
             )
         else:
-            new_optimization_config = OptimizationConfig(
-                objective=optimization_config.objective,
-                outcome_constraints=constraints,
+            new_optimization_config = optimization_config.clone_with_args(
+                objective=optimization_config.objective, outcome_constraints=constraints
             )
 
         return new_optimization_config
@@ -188,12 +185,12 @@ class BaseRelativize(Transform, ABC):
             )
 
         trial_indices = observation_data.index.get_level_values("trial_index")
-        for metric in experiment_data.metric_names:
+        for metric in experiment_data.metric_signatures:
             # Create arrays of control values for each row based on trial_index.
             mean_c, sem_c = [], []
             for idx in trial_indices:
                 sq_data = self.status_quo_data_by_trial[idx]
-                j = get_metric_index(data=sq_data, metric_name=metric)
+                j = get_metric_index(data=sq_data, metric_signature=metric)
                 mean_c.append(sq_data.means[j])
                 sem_c.append(sq_data.covariance[j, j] ** 0.5)
 
@@ -275,15 +272,15 @@ class BaseRelativize(Transform, ABC):
         Returns:
             (un)relativized ObservationData
         """
-        L = len(data.metric_names)
+        L = len(data.metric_signatures)
         result = ObservationData(
-            metric_names=data.metric_names,
+            metric_signatures=data.metric_signatures,
             # zeros are just to create the shape so values can be set by index
             means=np.zeros(L),
             covariance=np.zeros((L, L)),
         )
-        for i, metric in enumerate(data.metric_names):
-            j = get_metric_index(data=status_quo_data, metric_name=metric)
+        for i, metric in enumerate(data.metric_signatures):
+            j = get_metric_index(data=status_quo_data, metric_signature=metric)
             means_t = data.means[i]
             sems_t = sqrt(data.covariance[i, i])
             mean_c = status_quo_data.means[j]
@@ -324,10 +321,10 @@ class BaseRelativize(Transform, ABC):
         )
 
 
-def get_metric_index(data: ObservationData, metric_name: str) -> int:
+def get_metric_index(data: ObservationData, metric_signature: str) -> int:
     """Get the index of a metric in the ObservationData."""
     try:
-        return data.metric_names.index(metric_name)
+        return data.metric_signatures.index(metric_signature)
     except (IndexError, StopIteration):
         raise ValueError(
             "Relativization cannot be performed because "
@@ -341,7 +338,7 @@ class Relativize(BaseRelativize):
 
     Note that not all valid-valued relativized mean and
     standard error can be unrelativized when control_as_constant=True.
-    See utils.stats.statstools.unrelativize for more details.
+    See utils.stats.math_utils.unrelativize for more details.
     """
 
     @property

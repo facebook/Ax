@@ -32,18 +32,19 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
-from ax.generators.torch.botorch_moo import MultiObjectiveLegacyBoTorchGenerator
-from ax.generators.torch.botorch_moo_defaults import (
+from ax.generators.torch.botorch_moo_utils import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
 )
+from ax.generators.torch.utils import _get_X_pending_and_observed
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
+    get_branin_multi_objective_optimization_config,
+    get_experiment_with_observations,
     get_hierarchical_search_space,
-    get_hss_trials_with_fixed_parameter,
     TEST_SOBOL_SEED,
 )
 from ax.utils.testing.mock import mock_botorch_optimize, skip_fit_gpytorch_mll
@@ -104,7 +105,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         adapter = TorchAdapter(
             experiment=exp,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
         )
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
@@ -141,12 +142,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         extra_outcome = ["branin_c"] if outcome_constraints is not None else []
         observation_data = [
             ObservationData(
-                metric_names=["branin_b", "branin_a"] + extra_outcome,
+                metric_signatures=["branin_b", "branin_a"] + extra_outcome,
                 means=np.arange(1, 1 + n_outcomes),
                 covariance=np.eye(n_outcomes),
             ),
             ObservationData(
-                metric_names=["branin_a", "branin_b"] + extra_outcome,
+                metric_signatures=["branin_a", "branin_b"] + extra_outcome,
                 means=np.arange(3, 3 + n_outcomes),
                 covariance=np.eye(n_outcomes),
             ),
@@ -272,7 +273,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             experiment=exp,
             search_space=exp.search_space,
             data=exp.fetch_data(),
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             transforms=[],
         )
         observation_features = [
@@ -351,7 +352,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             adapter = TorchAdapter(
                 search_space=exp.search_space,
-                generator=MultiObjectiveLegacyBoTorchGenerator(),
+                generator=BoTorchGenerator(),
                 optimization_config=optimization_config,
                 transforms=[],
                 experiment=exp,
@@ -423,26 +424,16 @@ class MultiObjectiveTorchAdapterTest(TestCase):
     )
     @mock_botorch_optimize
     def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
-        # lightweight test
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True,
-            with_batch=True,
+            with_completed_batch=True,
             with_status_quo=True,
         )
-        for trial in exp.trials.values():
-            trial.mark_running(no_runner_required=True).mark_completed()
-        exp.attach_data(
-            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
-        )
-        data = exp.fetch_data()
         adapter = TorchAdapter(
-            search_space=exp.search_space,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
-            optimization_config=exp.optimization_config,
+            experiment=exp,
+            generator=BoTorchGenerator(),
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
-            experiment=exp,
-            data=data,
         )
         fixed_features = ObservationFeatures(parameters={"x1": 0.0})
         search_space = exp.search_space.clone()
@@ -471,6 +462,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                 fixed_features=fixed_features,
             )
             with ExitStack() as es:
+                mock_get_X_pending_and_observed = es.enter_context(
+                    patch(
+                        "ax.adapter.torch._get_X_pending_and_observed",
+                        wraps=_get_X_pending_and_observed,
+                    )
+                )
                 mock_model_infer_obj_t = es.enter_context(
                     patch(
                         "ax.adapter.torch.infer_objective_thresholds",
@@ -504,11 +501,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                     fixed_features=fixed_features,
                 )
                 expected_obj_weights = torch.tensor([-1.0, -1.0], dtype=torch.double)
-                ckwargs = mock_model_infer_obj_t.call_args[1]
+                ckwargs = mock_model_infer_obj_t.call_args.kwargs
                 self.assertTrue(
                     torch.equal(ckwargs["objective_weights"], expected_obj_weights)
                 )
-                # check that transforms have been applied (at least UnitX)
+                # check that transforms have been applied (UnitX).
+                ckwargs = mock_get_X_pending_and_observed.call_args.kwargs
                 self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
                 lc = ckwargs["linear_constraints"]
                 self.assertTrue(
@@ -533,6 +531,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                 )
             self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
             self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+            self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+            self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
             self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
             self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
             self.assertFalse(obj_thresholds[0].relative)
@@ -567,7 +567,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         set_rng_seed(0)  # make model fitting deterministic
         adapter = TorchAdapter(
             search_space=exp.search_space,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=ST_MTGP_trans,
             experiment=exp,
@@ -580,6 +580,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             fixed_features=fixed_features,
         )
         with ExitStack() as es:
+            mock_get_X_pending_and_observed = es.enter_context(
+                patch(
+                    "ax.adapter.torch._get_X_pending_and_observed",
+                    wraps=_get_X_pending_and_observed,
+                )
+            )
             mock_model_infer_obj_t = es.enter_context(
                 patch(
                     "ax.adapter.torch.infer_objective_thresholds",
@@ -598,11 +604,14 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                 optimization_config=exp.optimization_config,
                 fixed_features=fixed_features,
             )
-            ckwargs = mock_model_infer_obj_t.call_args[1]
+            mock_model_infer_obj_t.assert_called_once()
+            ckwargs = mock_get_X_pending_and_observed.call_args.kwargs
             self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
             mock_untransform_objective_thresholds.assert_called_once()
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
@@ -621,22 +630,16 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
 
         # test with HSS
-        hss = get_hierarchical_search_space(with_fixed_parameter=True)
-        exp = get_branin_experiment_with_multi_objective(has_optimization_config=True)
-        data = get_branin_data_multi_objective(trial_indices=[0, 1])
-        # Update trials to match the search space.
-        exp._search_space = hss
-        exp._trials = get_hss_trials_with_fixed_parameter(exp=exp)
+        exp = get_experiment_with_observations(
+            observations=[[0.0, 0.5], [1.0, 1.5]],
+            search_space=get_hierarchical_search_space(with_fixed_parameter=True),
+            optimization_config=get_branin_multi_objective_optimization_config(),
+        )
         adapter = TorchAdapter(
-            search_space=hss,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
-            optimization_config=exp.optimization_config,
+            experiment=exp,
+            generator=BoTorchGenerator(),
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
-            experiment=exp,
-            data=data,
-            # [T143911996] The trials get ignored without fit_out_of_design.
-            fit_out_of_design=True,
         )
         self.assertIn("Cast", adapter.transforms)
         with patch.object(
@@ -649,7 +652,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             wraps=adapter.transforms["Cast"].untransform_observation_features,
         ) as wrapped_cast:
             obj_thresholds = adapter.infer_objective_thresholds(
-                search_space=hss,
+                search_space=exp.search_space,
                 optimization_config=exp.optimization_config,
                 fixed_features=None,
             )
@@ -657,6 +660,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         self.assertEqual(wrapped_cast.call_count, 0)
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
@@ -675,15 +680,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         data = exp.fetch_data()
         adapter = TorchAdapter(
-            search_space=exp.search_space,
+            experiment=exp,
             generator=BoTorchGenerator(),
-            optimization_config=exp.optimization_config,
             transforms=Cont_X_trans + Y_trans,
             torch_device=torch.device("cuda" if cuda else "cpu"),
-            experiment=exp,
-            data=data,
-            # [T143911996] The trials get ignored without fit_out_of_design.
-            fit_out_of_design=True,
         )
         obj_thresholds = adapter.infer_objective_thresholds(
             search_space=exp.search_space,
@@ -692,6 +692,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
@@ -708,7 +710,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         adapter = TorchAdapter(
             search_space=exp.search_space,
-            generator=MultiObjectiveLegacyBoTorchGenerator(),
+            generator=BoTorchGenerator(),
             optimization_config=exp.optimization_config,
             transforms=[],
             experiment=exp,

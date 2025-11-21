@@ -26,7 +26,7 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType
 from ax.core.generator_run import GeneratorRun
@@ -53,9 +53,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.risk_measures import RiskMeasure
-from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
@@ -84,7 +82,6 @@ from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
-    MaxTrials,
     MinimumPreferenceOccurances,
     MinimumTrialsInStatus,
     MinTrials,
@@ -113,6 +110,7 @@ from ax.storage.json_store.decoders import (
     fixed_parameter_from_json,
     input_transform_type_from_json,
     multi_objective_from_json,
+    observation_features_from_json,
     outcome_transform_type_from_json,
     pathlib_from_json,
     transform_type_from_json,
@@ -150,13 +148,10 @@ from ax.storage.json_store.encoders import (
     order_parameter_constraint_to_dict,
     outcome_constraint_to_dict,
     parameter_constraint_to_dict,
-    parameter_distribution_to_dict,
     pathlib_to_dict,
     percentile_early_stopping_strategy_to_dict,
     preference_optimization_config_to_dict,
     range_parameter_to_dict,
-    risk_measure_to_dict,
-    robust_search_space_to_dict,
     runner_to_dict,
     scalarized_objective_to_dict,
     search_space_to_dict,
@@ -230,7 +225,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MapData: map_data_to_dict,
     MapMetric: metric_to_dict,
     MaxGenerationParallelism: transition_criterion_to_dict,
-    MaxTrials: transition_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
     MinimumTrialsInStatus: transition_criterion_to_dict,
@@ -254,7 +248,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
-    ParameterDistribution: parameter_distribution_to_dict,
     pathlib.Path: pathlib_to_dict,
     pathlib.PurePath: pathlib_to_dict,
     pathlib.PosixPath: pathlib_to_dict,
@@ -263,8 +256,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     pathlib.PureWindowsPath: pathlib_to_dict,
     PreferenceOptimizationConfig: preference_optimization_config_to_dict,
     RangeParameter: range_parameter_to_dict,
-    RiskMeasure: risk_measure_to_dict,
-    RobustSearchSpace: robust_search_space_to_dict,
     Round: botorch_component_to_dict,
     TransitionCriterion: transition_criterion_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
@@ -346,7 +337,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "GenerationStrategy": GenerationStrategy,
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
-    "GeneratorRunStruct": GeneratorRunStruct,
     "Generators": Generators,
     "GeneratorSpec": GeneratorSpec,
     "Hartmann6Metric": Hartmann6Metric,
@@ -363,7 +353,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "LogNormalPrior": LogNormalPrior,
     "MapData": MapData,
     "MapMetric": MapMetric,
-    "MaxTrials": MaxTrials,
+    "MaxTrials": MinTrials,
     "MaxGenerationParallelism": MaxGenerationParallelism,
     "Metric": Metric,
     "MinTrials": MinTrials,
@@ -390,7 +380,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "OutcomeConstraint": OutcomeConstraint,
     "ParameterConstraint": ParameterConstraint,
     "ParameterConstraintType": ParameterConstraintType,
-    "ParameterDistribution": ParameterDistribution,
     "ParameterType": ParameterType,
     "Path": pathlib_from_json,
     "PurePath": pathlib_from_json,
@@ -402,8 +391,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
     "RangeParameter": RangeParameter,
     "ReductionCriterion": ReductionCriterion,
-    "RiskMeasure": RiskMeasure,
-    "RobustSearchSpace": RobustSearchSpace,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": OrchestratorOptions,  # DEPRECATED; backward compatibility
@@ -423,7 +410,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "TrialType": TrialType,
     "TrialStatus": TrialStatus,
     "ThresholdEarlyStoppingStrategy": ThresholdEarlyStoppingStrategy,
-    "ObservationFeatures": ObservationFeatures,
+    "ObservationFeatures": observation_features_from_json,
     "WinsorizationConfig": WinsorizationConfig,
 }
 

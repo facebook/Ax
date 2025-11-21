@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
@@ -44,69 +44,41 @@ class TimeAsFeature(Transform):
     def __init__(
         self,
         search_space: SearchSpace | None = None,
-        observations: list[Observation] | None = None,
         experiment_data: ExperimentData | None = None,
         adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
-            observations=observations,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )
-        if isinstance(search_space, RobustSearchSpace):
-            raise UnsupportedError(
-                "TimeAsFeature transform is not supported for RobustSearchSpace."
-            )
-        self.min_start_time: float = float("inf")
-        self.max_start_time: float = float("-inf")
-        self.min_duration: float = float("inf")
-        self.max_duration: float = float("-inf")
         self.current_time: float = time()
-        if observations is not None:
-            for obs in observations:
-                obsf = obs.features
-                if obsf.start_time is None:
-                    raise ValueError(
-                        "Unable to use TimeAsFeature since not all observations have "
-                        "start time specified."
-                    )
-                start_time = none_throws(obsf.start_time).timestamp()
-                self.min_start_time = min(self.min_start_time, start_time)
-                self.max_start_time = max(self.max_start_time, start_time)
-                duration = self._get_duration(
-                    start_time=start_time, end_time=obsf.end_time
-                )
-                self.min_duration = min(self.min_duration, duration)
-                self.max_duration = max(self.max_duration, duration)
-        else:
-            obs_data = none_throws(experiment_data).observation_data
-            if len(obs_data.index.names) > 2:
-                raise UnsupportedError(
-                    "TimeAsFeature transform is not supported with map data."
-                )
-            # Dividing by 1e9 to convert from nanoseconds to seconds, to be consistent
-            # with usage of seconds in the `Observation` version.
-            start_times = obs_data[("metadata", "start_time")].astype("int64") / 1e9
-            if start_times.isna().any():
-                raise ValueError(
-                    "Unable to use TimeAsFeature since not all observations have "
-                    "start time specified."
-                )
-            current_time_ts = unixtime_to_pandas_ts(self.current_time)
-            end_times = (
-                obs_data[("metadata", "end_time")]
-                .fillna(current_time_ts)
-                .astype("int64")
-                / 1e9
+        obs_data = none_throws(experiment_data).observation_data
+        if len(obs_data.index.names) > 2:
+            raise UnsupportedError(
+                "TimeAsFeature transform is not supported with map data."
             )
-            durations = end_times - start_times
-            self.min_start_time = start_times.min()
-            self.max_start_time = start_times.max()
-            self.min_duration = durations.min()
-            self.max_duration = durations.max()
+        # Check with raw values, because coversion to int eliminates NaNs.
+        if obs_data[("metadata", "start_time")].isna().any():
+            raise ValueError(
+                "Unable to use TimeAsFeature since not all observations have "
+                "start time specified."
+            )
+        # Dividing by 1e9 to convert from nanoseconds to seconds, to be consistent
+        # with usage of seconds in the `Observation` version.
+        start_times = obs_data[("metadata", "start_time")].astype("int64") / 1e9
+        current_time_ts = unixtime_to_pandas_ts(self.current_time)
+        end_times = (
+            obs_data[("metadata", "end_time")].fillna(current_time_ts).astype("int64")
+            / 1e9
+        )
+        durations = end_times - start_times
+        self.min_start_time: float = start_times.min()
+        self.max_start_time: float = start_times.max()
+        self.min_duration: float = durations.min()
+        self.max_duration: float = durations.max()
         self.duration_range: float = self.max_duration - self.min_duration
         if self.duration_range == 0:
             # Avoid division by zero issues when the duration is constant.
@@ -141,7 +113,7 @@ class TimeAsFeature(Transform):
                 obsf.parameters["duration"] = 0.5
         return observation_features
 
-    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name in ("start_time", "duration"):
             if p_name in search_space.parameters:
                 raise ValueError(

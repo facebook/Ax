@@ -19,7 +19,10 @@ class TestContourPlot(TestCase):
     @mock_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
-        self.client = AxClient()
+
+        # There were some flaky test failures on the github side. Fix the random seed
+        # to reduce the flakiness.
+        self.client = AxClient(random_seed=42)
         self.client.create_experiment(
             is_test=True,
             name="foo",
@@ -57,7 +60,7 @@ class TestContourPlot(TestCase):
             "values, providing insights into the gradient and potential optima "
             "within the parameter space."
         )
-        self.expected_title = "x, y vs. bar"
+        self.expected_title = "bar vs. x, y"
         self.expected_name = "ContourPlot"
         self.expected_cols = {
             "x",

@@ -9,20 +9,17 @@
 from copy import deepcopy
 from unittest import mock
 
-import numpy as np
+import pandas as pd
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.time_as_feature import TimeAsFeature
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationFeatures
+from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
-from ax.utils.testing.core_stubs import (
-    get_experiment_with_observations,
-    get_robust_search_space,
-)
+from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance
 
@@ -37,24 +34,22 @@ class TimeAsFeatureTransformTest(TestCase):
                 )
             ]
         )
-        self.training_feats = [
-            ObservationFeatures(
-                {"x": i + 1},
-                trial_index=i,
-                start_time=unixtime_to_pandas_ts(float(i)),
-                end_time=unixtime_to_pandas_ts(float(i + 1 + i)),
-            )
-            for i in range(4)
-        ]
-        self.training_obs = [
-            Observation(
-                data=ObservationData(
-                    metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
-                ),
-                features=obsf,
-            )
-            for obsf in self.training_feats
-        ]
+        experiment = get_experiment_with_observations(
+            observations=[[0.1], [0.2], [0.3], [0.4]],
+            search_space=self.search_space,
+            parameterizations=[{"x": i + 1} for i in range(4)],
+            additional_data_columns=[
+                {
+                    "start_time": unixtime_to_pandas_ts(float(i)),
+                    "end_time": unixtime_to_pandas_ts(float(i + 1 + i)),
+                }
+                for i in range(4)
+            ],
+        )
+        self.training_obs = observations_from_data(
+            experiment=experiment, data=experiment.lookup_data()
+        )
+        self.training_feats = [obs.features for obs in self.training_obs]
         self.time_return_value = 5.0
         time_patcher = mock.patch(
             "ax.adapter.transforms.time_as_feature.time",
@@ -62,12 +57,16 @@ class TimeAsFeatureTransformTest(TestCase):
         )
         self.time_patcher = time_patcher.start()
         self.addCleanup(time_patcher.stop)
+
+        self.experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
         self.t = TimeAsFeature(
             search_space=self.search_space,
-            observations=self.training_obs,
+            experiment_data=self.experiment_data,
         )
 
-    def test_init(self) -> None:
+    def test_init__(self) -> None:
         self.assertEqual(self.t.current_time, self.time_return_value)
         self.assertEqual(self.t.min_duration, 1.0)
         self.assertEqual(self.t.max_duration, 4.0)
@@ -75,24 +74,52 @@ class TimeAsFeatureTransformTest(TestCase):
         self.assertEqual(self.t.min_start_time, 0.0)
         self.assertEqual(self.t.max_start_time, 3.0)
 
-        # Test validation
-        obsf = ObservationFeatures({"x": 2})
-        obs = Observation(
-            data=ObservationData([], np.array([]), np.empty((0, 0))), features=obsf
+        # Test validation with missing start time data.
+        experiment = get_experiment_with_observations(
+            observations=[[0.1], [0.2]],
+            search_space=self.search_space,
+            additional_data_columns=[
+                {
+                    "start_time": unixtime_to_pandas_ts(0.0),
+                    "end_time": unixtime_to_pandas_ts(1.0),
+                },
+                {
+                    "start_time": pd.NaT,
+                    "end_time": pd.NaT,
+                },
+            ],
         )
-        msg = (
+        experiment_data_no_time = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        with self.assertRaisesRegex(
+            ValueError,
             "Unable to use TimeAsFeature since not all observations have "
-            "start time specified."
-        )
-        with self.assertRaisesRegex(ValueError, msg):
+            "start time specified.",
+        ):
             TimeAsFeature(
                 search_space=self.search_space,
-                observations=self.training_obs + [obs],
+                experiment_data=experiment_data_no_time,
             )
 
+        # Create experiment data with just one observation.
+        experiment = get_experiment_with_observations(
+            observations=[[0.1]],
+            search_space=self.search_space,
+            parameterizations=[{"x": 1}],
+            additional_data_columns=[
+                {
+                    "start_time": unixtime_to_pandas_ts(0.0),
+                    "end_time": unixtime_to_pandas_ts(1.0),
+                }
+            ],
+        )
+        experiment_data_one = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
         t2 = TimeAsFeature(
             search_space=self.search_space,
-            observations=self.training_obs[:1],
+            experiment_data=experiment_data_one,
         )
         self.assertEqual(t2.duration_range, 1.0)
 
@@ -134,15 +161,6 @@ class TimeAsFeatureTransformTest(TestCase):
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
         self.assertEqual(p.upper, 1.0)
-
-    def test_w_robust_search_space(self) -> None:
-        rss = get_robust_search_space()
-        # Raises an error in __init__.
-        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
-            TimeAsFeature(
-                search_space=rss,
-                observations=self.training_obs,
-            )
 
     def test_with_experiment_data(self) -> None:
         experiment = get_experiment_with_observations(

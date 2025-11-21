@@ -14,6 +14,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -45,7 +46,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_experiment,
     get_hierarchical_search_space_experiment,
-    get_robust_branin_experiment,
 )
 from pyre_extensions import none_throws
 
@@ -90,11 +90,6 @@ class UtilsTest(TestCase):
             trial_index=self.hss_trial.index,
             metadata=self.hss_cand_metadata,
         )
-        self.hss_obs_feat_all_params = ObservationFeatures.from_arm(
-            arm=Arm(self.hss_full_parameterization),
-            trial_index=self.hss_trial.index,
-            metadata={Keys.FULL_PARAMETERIZATION: self.hss_full_parameterization},
-        )
         self.df = pd.DataFrame(
             [
                 {
@@ -105,6 +100,7 @@ class UtilsTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_0",
@@ -114,6 +110,7 @@ class UtilsTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_1",
@@ -123,6 +120,7 @@ class UtilsTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_1",
@@ -132,6 +130,7 @@ class UtilsTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_2",
@@ -141,6 +140,7 @@ class UtilsTest(TestCase):
                     "metric_name": "a",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "a",
                 },
                 {
                     "arm_name": "0_2",
@@ -150,6 +150,7 @@ class UtilsTest(TestCase):
                     "metric_name": "b",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "b",
                 },
                 {
                     "arm_name": "0_2",
@@ -159,6 +160,7 @@ class UtilsTest(TestCase):
                     "metric_name": "c",
                     "start_time": "2018-01-01",
                     "end_time": "2018-01-02",
+                    "metric_signature": "c",
                 },
             ]
         )
@@ -199,7 +201,7 @@ class UtilsTest(TestCase):
         self.assertEqual(list(bfo), [1.0, 1.0, 2.0])
 
     def test_get_model_times(self) -> None:
-        exp = get_robust_branin_experiment(num_sobol_trials=2)
+        exp = get_branin_experiment(num_trial=2)
         fit_times, gen_times = get_model_trace_of_times(exp)
         total_fit_time, total_gen_time = get_model_times(exp)
         fit_times_not_none = [none_throws(elt) for elt in fit_times]
@@ -228,8 +230,11 @@ class UtilsTest(TestCase):
         with patch.object(
             self.trial,
             "lookup_data",
-            return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            return_value=raw_evaluations_to_data(
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
+                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -254,7 +259,7 @@ class UtilsTest(TestCase):
             self.batch_trial,
             "fetch_data",
             return_value=Metric._wrap_trial_data_multi(
-                data=Data.from_evaluations(
+                data=raw_evaluations_to_data(
                     {
                         self.batch_trial.arms[0].name: {
                             "m1": (1, 0),
@@ -263,6 +268,12 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=self.trial.index,
+                    metric_name_to_signature={
+                        "m1": "m1",
+                        "m2": "m2",
+                        "tracking": "tracking",
+                    },
+                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -279,7 +290,7 @@ class UtilsTest(TestCase):
             self.trial,
             "fetch_data",
             return_value=Metric._wrap_trial_data_multi(
-                data=Data.from_evaluations(
+                data=raw_evaluations_to_data(
                     {
                         self.trial.arm.name: {
                             "m1": (1, 0),
@@ -288,6 +299,12 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=self.trial.index,
+                    metric_name_to_signature={
+                        "m1": "m1",
+                        "m2": "m2",
+                        "tracking": "tracking",
+                    },
+                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -325,6 +342,7 @@ class UtilsTest(TestCase):
                         "metric_name": "m1",  # Only attach data for m1, not m2
                         "start_time": "2018-01-01",
                         "end_time": "2018-01-02",
+                        "metric_signature": "m1",
                     }
                 ]
             )
@@ -375,8 +393,11 @@ class UtilsTest(TestCase):
         with patch.object(
             self.trial,
             "lookup_data",
-            return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            return_value=raw_evaluations_to_data(
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
+                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -392,16 +413,21 @@ class UtilsTest(TestCase):
         with patch.object(
             self.trial,
             "lookup_data",
-            return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            return_value=raw_evaluations_to_data(
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
+                data_type=DataType.DATA,
             ),
         ):
             with patch.object(
                 other_trial,
                 "lookup_data",
-                return_value=Data.from_evaluations(
+                return_value=raw_evaluations_to_data(
                     {other_trial.arm.name: {"m2": (1, 0), "tracking": (1, 0)}},
                     trial_index=other_trial.index,
+                    metric_name_to_signature={"m2": "m2", "tracking": "tracking"},
+                    data_type=DataType.DATA,
                 ),
             ):
                 pending = get_pending_observation_features(self.experiment)
@@ -472,9 +498,11 @@ class UtilsTest(TestCase):
         with patch.object(
             self.hss_trial,
             "lookup_data",
-            return_value=Data.from_evaluations(
+            return_value=raw_evaluations_to_data(
                 {self.hss_trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.hss_trial.index,
+                metric_name_to_signature={"m2": "m2"},
+                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -497,7 +525,7 @@ class UtilsTest(TestCase):
             hss_batch_trial,
             "fetch_data",
             return_value=Metric._wrap_trial_data_multi(
-                data=Data.from_evaluations(
+                data=raw_evaluations_to_data(
                     {
                         hss_batch_trial.arms[0].name: {
                             "m1": (1, 0),
@@ -505,6 +533,8 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=hss_batch_trial.index,
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -528,7 +558,7 @@ class UtilsTest(TestCase):
             hss_batch_trial,
             "fetch_data",
             return_value=Metric._wrap_trial_data_multi(
-                data=Data.from_evaluations(
+                data=raw_evaluations_to_data(
                     {
                         hss_batch_trial.arms[0].name: {
                             "m1": (1, 0),
@@ -536,6 +566,8 @@ class UtilsTest(TestCase):
                         }
                     },
                     trial_index=hss_batch_trial.index,
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                    data_type=DataType.DATA,
                 ),
             ),
         ):

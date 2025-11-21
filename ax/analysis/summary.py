@@ -6,19 +6,22 @@
 # pyre-strict
 
 
-from typing import Iterable, Sequence
+from typing import final, Iterable, Sequence
 
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
+from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
+from ax.core.map_data import MapData
+from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import override
 
 
+@final
 class Summary(Analysis):
     """
     High-level summary of the Experiment with one row per arm. Any values missing at
@@ -48,8 +51,23 @@ class Summary(Analysis):
         omit_empty_columns: bool = True,
     ) -> None:
         self.trial_indices = trial_indices
-        self.trial_statuses = trial_statuses
+        self.trial_statuses: Sequence[TrialStatus] = (
+            trial_statuses if trial_statuses is not None else list(NON_STALE_STATUSES)
+        )
         self.omit_empty_columns = omit_empty_columns
+
+    @override
+    def validate_applicable_state(
+        self,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+        adapter: Adapter | None = None,
+    ) -> str | None:
+        return validate_experiment(
+            experiment=experiment,
+            require_trials=False,
+            require_data=True,
+        )
 
     @override
     def compute(
@@ -61,15 +79,34 @@ class Summary(Analysis):
         if experiment is None:
             raise UserInputError("`Summary` analysis requires an `Experiment` input")
 
+        # Determine if we should relativize based on:
+        # (1) experiment has metrics and (2) experiment has status quo
+        # (3) experiment data is not MapData (MapData doesn't support relativization
+        # due to time-series step alignment complexities.)
+        data = experiment.lookup_data(trial_indices=self.trial_indices)
+        should_relativize = (
+            len(experiment.metrics) > 0
+            and experiment.status_quo is not None
+            and not isinstance(data, MapData)
+        )
+
         return self._create_analysis_card(
             title=(
                 "Summary for "
                 f"{experiment.name if experiment.has_name else 'Experiment'}"
             ),
-            subtitle="High-level summary of the `Trial`-s in this `Experiment`",
+            subtitle=(
+                "High-level summary of the `Trial`-s in this `Experiment`"
+                if not should_relativize
+                else (
+                    "High-level summary of the `Trial`-s in this `Experiment` "
+                    "Metric results are relativized against status quo."
+                )
+            ),
             df=experiment.to_df(
                 trial_indices=self.trial_indices,
                 omit_empty_columns=self.omit_empty_columns,
                 trial_statuses=self.trial_statuses,
+                relativize=should_relativize,
             ),
         )

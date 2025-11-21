@@ -9,13 +9,10 @@
 from __future__ import annotations
 
 import dataclasses
-
 from unittest.mock import patch
 
-import numpy as np
-
 import torch
-from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
+from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_modular.input_constructors.input_transforms import (
     input_transform_argparse,
 )
@@ -23,13 +20,16 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.models.transforms.input import (
     FilterFeatures,
-    InputPerturbation,
     InputStandardize,
     InputTransform,
     Normalize,
     Warp,
 )
-from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
+from botorch.utils.datasets import (
+    ContextualDataset,
+    MultiTaskDataset,
+    SupervisedDataset,
+)
 
 
 class DummyInputTransform(InputTransform):  # pyre-ignore [13]
@@ -56,7 +56,6 @@ class InputTransformArgparseTest(TestCase):
             task_features=[2],
             fidelity_features=[0],
             target_values={0: 1.0},
-            robust_digest=None,
         )
 
     def test_notImplemented(self) -> None:
@@ -193,6 +192,35 @@ class InputTransformArgparseTest(TestCase):
         self.assertEqual(input_transform_kwargs["indices"], [0, 1, 3])
         self.assertTrue(input_transform_kwargs["bounds"] is None)
 
+    def test_argparse_normalize_contextual(self) -> None:
+        dataset = ContextualDataset(
+            datasets=[
+                SupervisedDataset(
+                    X=torch.ones(3, 4),
+                    Y=torch.zeros(3, 1),
+                    feature_names=["x_a", "y_a", "x_b", "y_b"],
+                    outcome_names=["metric_a"],
+                )
+            ],
+            parameter_decomposition={"a": ["x_a", "y_a"], "b": ["x_b", "y_b"]},
+        )
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x_a", "y_a", "x_b", "y_b"],
+            bounds=[(0.0, 1.0), (2.0, 3.0), (0.0, 1.0), (2.0, 3.0)],
+        )
+        input_transform_kwargs = input_transform_argparse(
+            Normalize,
+            dataset=dataset,
+            search_space_digest=search_space_digest,
+        )
+        self.assertEqual(len(input_transform_kwargs), 3)
+        self.assertEqual(input_transform_kwargs["d"], 3)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1])
+        self.assertAllClose(
+            input_transform_kwargs["bounds"],
+            torch.tensor([[0.0, 2.0], [1.0, 3.0]]),
+        )
+
     def test_argparse_warp(self) -> None:
         self.search_space_digest.task_features = [0, 3]
         input_transform_kwargs = input_transform_argparse(
@@ -238,28 +266,6 @@ class InputTransformArgparseTest(TestCase):
             torch.equal(
                 input_transform_kwargs["bounds"],
                 torch.tensor([[0.0, 0.0, 0.0], [1.0, 2.0, 4.0]], dtype=torch.float64),
-            )
-        )
-
-    def test_argparse_input_perturbation(self) -> None:
-        self.search_space_digest.robust_digest = RobustSearchSpaceDigest(
-            sample_param_perturbations=lambda: np.zeros((2, 2)),
-        )
-
-        input_transform_kwargs = input_transform_argparse(
-            InputPerturbation,
-            dataset=self.dataset,
-            search_space_digest=self.search_space_digest,
-        )
-
-        self.assertEqual(input_transform_kwargs["multiplicative"], False)
-
-        self.assertTrue(
-            torch.all(
-                torch.isclose(
-                    input_transform_kwargs["perturbation_set"],
-                    torch.tensor([[0.0, 0.0], [0.0, 0.0]], dtype=torch.float64),
-                )
             )
         )
 
