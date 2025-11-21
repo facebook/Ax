@@ -1,6 +1,17 @@
 # Changelog
 
 The release log for Ax.
+## [1.2.1] -- Nov 21, 2025
+#### Bug fixes
+* Improved error messaging for `client.compute_analyses` when certain analyses are
+    not yet available (#4441)
+* Fix tooltip mismatch bug in `ArmEffectsPlot` (#4479)
+
+#### Other changes
+* Bumped pinned [botorch](https://github.com/pytorch/botorch) version to 0.16.1 (#4570)
+* Removed deprecated robust optimization functionality (#4493)
+* Allow `HierarchicalSearchSpace` to be constructed with multiple root nodes (#4560)
+
 ## [1.2.0] -- Oct 24, 2025
 #### New features
 * `DerivedParameterConfig` allows users to specify parameters which are not tuned,
