@@ -161,6 +161,56 @@ class TestBestPointMixin(TestCase):
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
         self.assertEqual(get_trace(exp), [2.0, 20.0])
 
+    def test_get_trace_with_include_status_quo(self) -> None:
+        exp = get_experiment_with_observations(
+            observations=[[10, 1], [8, 1], [12, 1], [7, 1]],
+            minimize=True,
+        )
+
+        # Add status quo with observations
+        exp.status_quo = Arm(parameters={"x": 0.5, "y": 0.5}, name="status_quo")
+
+        # Create a batch trial with status quo - need data for both metrics
+        trial = BatchTrial(experiment=exp).add_arm(arm=exp.status_quo)
+        df_dict = [
+            {
+                "trial_index": trial.index,
+                "metric_name": metric_name,
+                "arm_name": "status_quo",
+                "mean": mean,
+                "sem": 0.0,
+                "metric_signature": metric_name,
+            }
+            for metric_name, mean in [("m1", 9.0), ("m2", 1.0)]
+        ]
+        status_quo_data = Data(df=pd.DataFrame.from_records(df_dict))
+        exp.attach_data(data=status_quo_data)
+        trial.mark_running(no_runner_required=True).mark_completed()
+
+        with self.subTest("Default behavior: exclude status quo"):
+            # Execute: Get trace with default behavior (include_status_quo=False).
+            trace_without_sq = get_trace(exp, include_status_quo=False)
+
+            # Assert: Status quo should be excluded from trace.
+            # This is multi-objective, so trace is hypervolume.
+            # With 4 trials of [[10,1], [8,1], [12,1], [7,1]], the reference point
+            # is inferred from nadir, and hypervolume is computed.
+            self.assertIsInstance(trace_without_sq, list)
+            self.assertEqual(len(trace_without_sq), 4)
+
+        with self.subTest("Include status quo: status quo included in trace"):
+            # Execute: Get trace with include_status_quo=True.
+            trace_with_sq = get_trace(exp, include_status_quo=True)
+
+            # Assert: Status quo should be included in trace.
+            # With 5 trials now (including status quo), the trace length should be 5.
+            self.assertIsInstance(trace_with_sq, list)
+            self.assertEqual(len(trace_with_sq), 5)
+
+            # Assert: Including status quo changes the trace values
+            # (because status quo contributes to the hypervolume calculation)
+            self.assertNotEqual(trace_without_sq, trace_with_sq)
+
     def test_get_hypervolume(self) -> None:
         # W/ empty data.
         exp = get_experiment_with_trial()
