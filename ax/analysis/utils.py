@@ -9,7 +9,6 @@ from logging import Logger
 from typing import Sequence
 
 import numpy as np
-
 import pandas as pd
 import torch
 from ax.adapter.base import Adapter
@@ -774,8 +773,7 @@ def _get_sq_arm_name(experiment: Experiment) -> str:
 
     if experiment.status_quo.name is None:
         raise UserInputError(
-            "Cannot relativize data without a named status quo arm on the "
-            "experiment."
+            "Cannot relativize data without a named status quo arm on the experiment."
         )
 
     return experiment.status_quo.name
@@ -900,8 +898,7 @@ def _get_status_quo_df(
                 row = df[status_quo_mask].iloc[0]
             else:
                 raise UserInputError(
-                    "Failed to relativize, no status quo arm found in the "
-                    "experiment."
+                    "Failed to relativize, no status quo arm found in the experiment."
                 )
 
             row["trial_index"] = trial_idx

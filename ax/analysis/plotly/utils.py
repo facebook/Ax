@@ -208,8 +208,7 @@ def select_metric(experiment: Experiment) -> str:
     objective = experiment.optimization_config.objective
     if isinstance(objective, MultiObjective):
         raise UnsupportedError(
-            "Cannot infer metric to plot from MultiObjective, please "
-            "specify a metric"
+            "Cannot infer metric to plot from MultiObjective, please specify a metric"
         )
     if isinstance(objective, ScalarizedObjective):
         raise UnsupportedError(

@@ -10,10 +10,8 @@ from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
-
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
     PlotlyAnalysisCard,
@@ -171,8 +169,7 @@ class ContourPlot(Analysis):
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{metric_name} vs. "
-                f"{self.x_parameter_name}, {self.y_parameter_name}"
+                f"{metric_name} vs. {self.x_parameter_name}, {self.y_parameter_name}"
             ),
             subtitle=(
                 "The contour plot visualizes the predicted outcomes "

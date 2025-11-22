@@ -6,7 +6,6 @@
 # pyre-strict
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-
 from dataclasses import dataclass, field, InitVar
 from functools import partial
 from logging import Logger
@@ -36,7 +35,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.logger import get_logger
-
 from sklearn.compose import make_column_transformer, TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import make_pipeline

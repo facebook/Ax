@@ -11,7 +11,6 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 from ax.adapter.random import RandomAdapter
-
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment

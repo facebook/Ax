@@ -20,7 +20,6 @@ from ax.core import (
     RangeParameter,
     SearchSpace,
 )
-
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.metrics.torchx import TorchXMetric
 from ax.runners.torchx import TorchXRunner

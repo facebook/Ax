@@ -772,11 +772,14 @@ class TestGenerationStrategy(TestCase):
                     g = sobol.gen_single_trial(exp)
             elif len(fallback_specs) == 0:
                 # With no fallback specs.
-                with self.assertRaisesRegex(
-                    GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_ATTEMPTS`"
-                ), mock.patch(
-                    "ax.generation_strategy.generation_node.logger.debug"
-                ) as mock_logger:
+                with (
+                    self.assertRaisesRegex(
+                        GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_ATTEMPTS`"
+                    ),
+                    mock.patch(
+                        "ax.generation_strategy.generation_node.logger.debug"
+                    ) as mock_logger,
+                ):
                     g = sobol.gen_single_trial(exp)
                     self.assertEqual(mock_logger.call_count, 5)
                     self.assertIn(
@@ -875,8 +878,9 @@ class TestGenerationStrategy(TestCase):
         for _ in range(10):
             # During each iteration, check that all transformed observation features
             # contain all parameters of the flat search space.
-            with patch.object(RandomAdapter, "_fit") as mock_model_fit, patch.object(
-                RandomAdapter, "gen"
+            with (
+                patch.object(RandomAdapter, "_fit") as mock_model_fit,
+                patch.object(RandomAdapter, "gen"),
             ):
                 self.sobol_GS.gen_single_trial(experiment=experiment)
                 # We should only fit once for each model
@@ -918,13 +922,16 @@ class TestGenerationStrategy(TestCase):
         exp = get_experiment_with_multi_objective()
         sobol_MBM_gs = self.sobol_MBM_step_GS
 
-        with mock_patch_method_original(
-            mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
-            original_method=GeneratorSpec.gen,
-        ) as gen_spec_gen_mock, mock_patch_method_original(
-            mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.fit",
-            original_method=GeneratorSpec.fit,
-        ) as gen_spec_fit_mock:
+        with (
+            mock_patch_method_original(
+                mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+                original_method=GeneratorSpec.gen,
+            ) as gen_spec_gen_mock,
+            mock_patch_method_original(
+                mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.fit",
+                original_method=GeneratorSpec.fit,
+            ) as gen_spec_fit_mock,
+        ):
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
             grs = sobol_MBM_gs.gen(experiment=exp, num_trials=3)

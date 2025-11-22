@@ -342,15 +342,19 @@ class AcquisitionTest(TestCase):
                 target_point=torch.zeros(3, dtype=torch.double),
             )
             n = 5
-            with mock.patch(
-                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-            ) as mock_optimizer_argparse, mock.patch(
-                f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
-            ) as mock_optimize_acqf, mock.patch.object(
-                acquisition,
-                "_prune_irrelevant_parameters",
-                wraps=acquisition._prune_irrelevant_parameters,
-            ) as mock_prune_irrelevant_parameters:
+            with (
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+                ) as mock_optimizer_argparse,
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
+                ) as mock_optimize_acqf,
+                mock.patch.object(
+                    acquisition,
+                    "_prune_irrelevant_parameters",
+                    wraps=acquisition._prune_irrelevant_parameters,
+                ) as mock_prune_irrelevant_parameters,
+            ):
                 acquisition.optimize(
                     n=n,
                     search_space_digest=self.search_space_digest,
@@ -459,8 +463,9 @@ class AcquisitionTest(TestCase):
                 )
 
         optimizer_options = {"batch_initial_conditions": None}
-        with self.subTest(optimizer_options=None), self.assertRaisesRegex(
-            ValueError, "Argument "
+        with (
+            self.subTest(optimizer_options=None),
+            self.assertRaisesRegex(ValueError, "Argument "),
         ):
             acquisition.optimize(
                 n=n,
@@ -472,11 +477,15 @@ class AcquisitionTest(TestCase):
         # check this works without any fixed_feature specified
         # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
         # not be selected. [2, 3, 4] is the best point, but has already been picked
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf_discrete", wraps=optimize_acqf_discrete
-        ) as mock_optimize_acqf_discrete:
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_discrete",
+                wraps=optimize_acqf_discrete,
+            ) as mock_optimize_acqf_discrete,
+        ):
             X_selected, _, weights = acquisition.optimize(
                 n=n,
                 search_space_digest=ssd1,
@@ -519,12 +528,18 @@ class AcquisitionTest(TestCase):
             categorical_features=[0, 1, 2],
             discrete_choices={k: [0, 1, 2, 3, 4] for k in range(3)},
         )
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf_discrete", wraps=optimize_acqf_discrete
-        ) as mock_optimize_acqf_discrete, mock.patch(
-            "botorch.models.gp_regression.SingleTaskGP.batch_shape", torch.Size([16])
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_discrete",
+                wraps=optimize_acqf_discrete,
+            ) as mock_optimize_acqf_discrete,
+            mock.patch(
+                "botorch.models.gp_regression.SingleTaskGP.batch_shape",
+                torch.Size([16]),
+            ),
         ):
             X_selected, _, weights = acquisition.optimize(
                 n=3,
@@ -701,11 +716,14 @@ class AcquisitionTest(TestCase):
         ]:
             # Mock optimize_acqf_discrete_local_search because it isn't handled
             # by `mock_botorch_optimize`
-            with mock.patch(
-                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-            ) as mock_optimizer_argparse, mock.patch(
-                f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
-                return_value=(Mock(), Mock()),
+            with (
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+                ) as mock_optimizer_argparse,
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
+                    return_value=(Mock(), Mock()),
+                ),
             ):
                 acquisition.optimize(
                     n=3,
@@ -1760,11 +1778,14 @@ class MultiAcquisitionTest(AcquisitionTest):
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         n = 5
         optimizer_options = {"max_gen": 3, "population_size": 10}
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_with_nsgaii", wraps=optimize_with_nsgaii
-        ) as mock_optimize_with_nsgaii:
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_with_nsgaii", wraps=optimize_with_nsgaii
+            ) as mock_optimize_with_nsgaii,
+        ):
             acquisition.optimize(
                 n=n,
                 search_space_digest=self.search_space_digest,

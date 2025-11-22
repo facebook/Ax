@@ -21,7 +21,6 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-
 from plotly import graph_objects as go
 from pyre_extensions import assert_is_instance, none_throws, override
 

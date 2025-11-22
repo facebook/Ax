@@ -8,7 +8,6 @@
 from dataclasses import dataclass
 
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.base import Base
 

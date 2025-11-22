@@ -15,7 +15,6 @@ from threading import Event, Lock
 
 import numpy as np
 from ax.adapter.registry import Generators
-
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,

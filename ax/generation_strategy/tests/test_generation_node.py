@@ -150,11 +150,14 @@ class TestGenerationNode(TestCase):
         )
 
     def test_gen(self) -> None:
-        with patch.object(
-            self.sobol_generator_spec, "gen", wraps=self.sobol_generator_spec.gen
-        ) as mock_generator_spec_gen, patch.object(
-            self.sobol_generator_spec, "fit", wraps=self.sobol_generator_spec.fit
-        ) as mock_generator_spec_fit:
+        with (
+            patch.object(
+                self.sobol_generator_spec, "gen", wraps=self.sobol_generator_spec.gen
+            ) as mock_generator_spec_gen,
+            patch.object(
+                self.sobol_generator_spec, "fit", wraps=self.sobol_generator_spec.fit
+            ) as mock_generator_spec_fit,
+        ):
             gr = self.sobol_generation_node.gen(
                 experiment=self.branin_experiment,
                 data=self.branin_experiment.lookup_data(),
@@ -519,10 +522,13 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
     @mock_botorch_optimize
     def test_pick_fitted_adapter_with_fit_errors(self) -> None:
         # Make model fitting error out for both specs. We should get an error.
-        with patch(
-            "ax.generation_strategy.generator_spec.GeneratorSpec.fit",
-            side_effect=RuntimeError,
-        ), self.assertLogs(logger=logger, level="ERROR") as mock_logs:
+        with (
+            patch(
+                "ax.generation_strategy.generator_spec.GeneratorSpec.fit",
+                side_effect=RuntimeError,
+            ),
+            self.assertLogs(logger=logger, level="ERROR") as mock_logs,
+        ):
             self.model_selection_node._fit(experiment=self.branin_experiment)
         self.assertEqual(len(mock_logs.records), 2)
         with self.assertRaisesRegex(ModelError, "No fitted models were found"):
@@ -532,9 +538,10 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.assertIsNone(self.model_selection_node._fitted_adapter)
 
         # Only one spec errors out.
-        with patch.object(
-            self.ms_mixed, "fit", side_effect=RuntimeError
-        ), self.assertLogs(logger=logger, level="ERROR") as mock_logs:
+        with (
+            patch.object(self.ms_mixed, "fit", side_effect=RuntimeError),
+            self.assertLogs(logger=logger, level="ERROR") as mock_logs,
+        ):
             self.model_selection_node._fit(experiment=self.branin_experiment)
         self.assertEqual(len(mock_logs.records), 1)
         # Picks the model that didn't error out.

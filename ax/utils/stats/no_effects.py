@@ -10,7 +10,6 @@
 import numpy as np
 import pandas as pd
 import scipy
-
 from ax.core.data import Data
 from ax.utils.stats.math_utils import relativize
 from scipy.stats import norm

@@ -13,7 +13,6 @@ from unittest import mock
 from unittest.mock import patch, PropertyMock
 
 import numpy as np
-
 import pandas as pd
 import torch
 from ax.adapter.cross_validation import AssessModelFitResult
@@ -354,21 +353,22 @@ class TestBestPointUtils(TestCase):
         trial = exp.new_trial(generator_run=generator_run)
         trial.run().mark_completed()
 
-        with patch.object(
-            TorchAdapter,
-            "model_best_point",
-            return_value=(
-                (
-                    exp.trials[0].arms[0],
+        with (
+            patch.object(
+                TorchAdapter,
+                "model_best_point",
+                return_value=(
                     (
-                        {"branin": 34.76260622783635},
-                        {"branin": {"branin": 0.00028306433439807734}},
-                    ),
-                )
-            ),
-        ) as mock_model_best_point, self.assertLogs(
-            logger=best_point_logger, level="WARN"
-        ) as lg:
+                        exp.trials[0].arms[0],
+                        (
+                            {"branin": 34.76260622783635},
+                            {"branin": {"branin": 0.00028306433439807734}},
+                        ),
+                    )
+                ),
+            ) as mock_model_best_point,
+            self.assertLogs(logger=best_point_logger, level="WARN") as lg,
+        ):
             # Test bad model fit causes function to resort back to raw data
             with patch(
                 "ax.service.utils.best_point.assess_model_fit",
@@ -642,10 +642,13 @@ class TestBestPointUtils(TestCase):
             constraint.relative = True
 
         # Check errors.
-        with self.subTest("No fit with status quo"), self.assertRaisesRegex(
-            DataRequiredError,
-            "Optimization config has relative constraint, but model was not fit"
-            " with status quo.",
+        with (
+            self.subTest("No fit with status quo"),
+            self.assertRaisesRegex(
+                DataRequiredError,
+                "Optimization config has relative constraint, but model was not fit"
+                " with status quo.",
+            ),
         ):
             derelativize_opt_config(
                 optimization_config=input_optimization_config, experiment=exp

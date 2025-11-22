@@ -13,12 +13,10 @@ from itertools import product
 from unittest.mock import Mock, patch
 
 import numpy as np
-
 import torch
 from ax.benchmark.benchmark_runner import _add_noise, BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
-
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
@@ -37,7 +35,6 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
-
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
 from pandas import DataFrame

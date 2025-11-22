@@ -8,7 +8,6 @@
 from random import random
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
-
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
     jenatton_test_function,

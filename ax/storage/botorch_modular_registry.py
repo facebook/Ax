@@ -17,7 +17,6 @@ from ax.generators.torch.botorch_modular.kernels import (
     DefaultRBFKernel,
     ScaleMaternKernel,
 )
-
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 
 # BoTorch `AcquisitionFunction` imports

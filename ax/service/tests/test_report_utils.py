@@ -267,9 +267,10 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 2)
 
         # an experiment with more results than arms raises an error
-        with patch.object(
-            Experiment, "lookup_data", lambda self: mock_results
-        ), self.assertRaisesRegex(ValueError, "inconsistent experimental state"):
+        with (
+            patch.object(Experiment, "lookup_data", lambda self: mock_results),
+            self.assertRaisesRegex(ValueError, "inconsistent experimental state"),
+        ):
             exp_to_df(exp=get_branin_experiment())
 
         # custom added trial has a generation_method of Manual
@@ -285,9 +286,13 @@ class ReportUtilsTest(TestCase):
             observations=observations,
             constrained=True,
         )
-        with patch(
-            f"{exp_to_df.__module__}.is_row_feasible", side_effect=KeyError(DUMMY_MSG)
-        ), self.assertLogs(logger="ax", level=WARN) as log:
+        with (
+            patch(
+                f"{exp_to_df.__module__}.is_row_feasible",
+                side_effect=KeyError(DUMMY_MSG),
+            ),
+            self.assertLogs(logger="ax", level=WARN) as log,
+        ):
             exp_to_df(exp)
             self.assertIn(
                 f"Feasibility calculation failed with error: '{DUMMY_MSG}'",

@@ -553,8 +553,7 @@ def get_surrogate_as_dict() -> dict[str, Any]:
             "__type": "Type[MarginalLogLikelihood]",
             "index": "ExactMarginalLogLikelihood",
             "class": (
-                "<class 'gpytorch.mlls.marginal_log_likelihood."
-                "MarginalLogLikelihood'>"
+                "<class 'gpytorch.mlls.marginal_log_likelihood.MarginalLogLikelihood'>"
             ),
         },
         "mll_options": {},
@@ -613,8 +612,7 @@ def get_surrogate_spec_as_dict(
             "__type": "Type[MarginalLogLikelihood]",
             "index": "ExactMarginalLogLikelihood",
             "class": (
-                "<class 'gpytorch.mlls.marginal_log_likelihood"
-                ".MarginalLogLikelihood'>"
+                "<class 'gpytorch.mlls.marginal_log_likelihood.MarginalLogLikelihood'>"
             ),
         },
         "mll_kwargs": {},

@@ -111,7 +111,7 @@ def _plot_js_to_html(js_script: str, plotdivid: str) -> str:
 
     """
     plot_div = (
-        '<div id="{id}" style="width: {width};" class="plotly-graph-div">' "</div>"
+        '<div id="{id}" style="width: {width};" class="plotly-graph-div"></div>'
     ).format(id=plotdivid, width=DEFAULT_WIDTH)
     plot_js = Template(_load_js_resource(_AxPlotJSResources.PLOTLY_REQUIRES)).render(
         script=js_script

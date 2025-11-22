@@ -10,7 +10,6 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
-
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial

@@ -15,7 +15,6 @@ from datetime import datetime, timedelta
 from typing import Any, TYPE_CHECKING
 
 import pandas as pd
-
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data

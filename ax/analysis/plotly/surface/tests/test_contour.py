@@ -11,7 +11,6 @@ from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
-
 from pyre_extensions import assert_is_instance, none_throws
 
 

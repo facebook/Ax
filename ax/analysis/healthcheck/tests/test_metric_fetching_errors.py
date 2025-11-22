@@ -9,9 +9,7 @@ from datetime import datetime, timedelta
 from typing import Any, Iterable
 
 import pandas as pd
-
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
-
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult

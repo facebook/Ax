@@ -121,8 +121,7 @@ def _extract_model_kwargs(
     task_features = search_space_digest.task_features
     if len(fidelity_features) > 0 and len(task_features) > 0:
         raise NotImplementedError(
-            "Multi-Fidelity GP models with task_features are "
-            "currently not supported."
+            "Multi-Fidelity GP models with task_features are currently not supported."
         )
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
@@ -477,7 +476,7 @@ class Surrogate(Base):
         self._model_name_to_model: dict[str, dict[str, Model]] = {}
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}" f" surrogate_spec={self.surrogate_spec}>"
+        return f"<{self.__class__.__name__} surrogate_spec={self.surrogate_spec}>"
 
     @property
     def model(self) -> Model:

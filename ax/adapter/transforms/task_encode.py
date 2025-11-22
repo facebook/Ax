@@ -40,9 +40,9 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
         adapter: Optional["adapter_module.base.Adapter"] = None,
         config: TConfig | None = None,
     ) -> None:
-        assert (
-            search_space is not None
-        ), "TaskChoiceToIntTaskChoice requires search space"
+        assert search_space is not None, (
+            "TaskChoiceToIntTaskChoice requires search space"
+        )
         super().__init__(
             search_space=search_space,
             experiment_data=experiment_data,

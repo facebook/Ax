@@ -8,7 +8,6 @@
 from collections.abc import Sequence
 
 from ax.core.map_metric import MapMetric
-
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -176,8 +175,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
             bound = -1 * coefficient
         else:
             raise UserInputError(
-                "Only linear outcome constraints are supported, found "
-                f"{constraint_str}"
+                f"Only linear outcome constraints are supported, found {constraint_str}"
             )
 
     if len(constraint_dict) == 1:

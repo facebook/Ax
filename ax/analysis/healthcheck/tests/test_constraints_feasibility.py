@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
-
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )

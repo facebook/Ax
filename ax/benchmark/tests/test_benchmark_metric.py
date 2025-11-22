@@ -184,11 +184,14 @@ class TestBenchmarkMetric(TestCase):
                 )
 
             trial = get_test_trial()
-            with self.subTest(
-                f"Unsupported kwargs, metric class={metric.__class__.__name__}"
-            ), self.assertRaisesRegex(
-                NotImplementedError,
-                "Arguments {'foo'} are not supported in Benchmark",
+            with (
+                self.subTest(
+                    f"Unsupported kwargs, metric class={metric.__class__.__name__}"
+                ),
+                self.assertRaisesRegex(
+                    NotImplementedError,
+                    "Arguments {'foo'} are not supported in Benchmark",
+                ),
             ):
                 metric.fetch_trial_data(trial, foo="bar")
 
