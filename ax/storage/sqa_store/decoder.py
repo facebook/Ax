@@ -241,7 +241,7 @@ class Decoder:
             else {}
         )
 
-        return Experiment(
+        experiment = Experiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
             search_space=search_space,
@@ -254,6 +254,16 @@ class Decoder:
             default_data_type=default_data_type,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
         )
+
+        for arm in experiment_sqa.arms:
+            experiment._register_arm(
+                arm=Arm(
+                    parameters=arm.parameters,
+                    name=arm.name,
+                )
+            )
+
+        return experiment
 
     def _init_mt_experiment_from_sqa(
         self,
