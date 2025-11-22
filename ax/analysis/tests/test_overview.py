@@ -330,7 +330,11 @@ class TestOverview(TestCase):
 
     @mock_botorch_optimize
     def test_results_analysis_with_scalarized_constraints(self) -> None:
-        """Test ResultsAnalysis works correctly with ScalarizedOutcomeConstraints."""
+        """Test ResultsAnalysis handles ScalarizedOutcomeConstraints appropriately.
+
+        BestTrials analysis is expected to produce an error card because it does not
+        yet support ScalarizedOutcomeConstraints. Other analyses should succeed.
+        """
         # Create an experiment specifically with scalarized outcome constraints
         experiment = get_experiment_with_scalarized_objective_and_outcome_constraint()
         trial = experiment.new_batch_trial(
@@ -364,7 +368,7 @@ class TestOverview(TestCase):
             experiment=experiment
         )
 
-        # Test that ResultsAnalysis doesn't error with scalarized constraints
+        # Test that ResultsAnalysis handles scalarized constraints
         analysis = ResultsAnalysis()
         card_group = analysis.compute(
             experiment=experiment,
@@ -378,9 +382,20 @@ class TestOverview(TestCase):
         # Should have some children (at least one analysis card)
         self.assertGreater(len(card_group.children), 0)
 
-        # No error cards should be present
-        for card in card_group.flatten():
-            self.assertNotIsInstance(card, ErrorAnalysisCard)
+        # BestTrials is expected to produce an error card for scalarized constraints
+        # because it explicitly does not support ScalarizedOutcomeConstraints.
+        # All other analyses should succeed.
+        flattened_cards = card_group.flatten()
+        error_cards = [
+            card for card in flattened_cards if isinstance(card, ErrorAnalysisCard)
+        ]
+        # There should be exactly one error card from BestTrials
+        self.assertEqual(len(error_cards), 1)
+        self.assertIn("BestTrials", error_cards[0].name)
+        self.assertIn(
+            "ScalarizedOutcomeConstraints",
+            error_cards[0].blob,
+        )
 
         # Verify the experiment actually has scalarized outcome constraints
         self.assertIsNotNone(experiment.optimization_config)

@@ -217,11 +217,18 @@ class TrialAsTask(Transform):
             # no-op
             return observation_features
         for obsf in observation_features:
+            pval = None
             for p_name in self.trial_level_map:
-                pval = obsf.parameters.pop(p_name)
-            # pyre-fixme[61]: `pval` may not be initialized here.
-            if self.inverse_map is not None and pval in self.inverse_map:
-                # pyre-fixme[61]: `pval` may not be initialized here.
+                # Only pop the parameter if it exists in the observation features.
+                # This handles cases where observation features are created with
+                # empty parameters (e.g., in _untransform_objective_thresholds).
+                if p_name in obsf.parameters:
+                    pval = obsf.parameters.pop(p_name)
+            if (
+                self.inverse_map is not None
+                and pval is not None
+                and pval in self.inverse_map
+            ):
                 obsf.trial_index = self.inverse_map[pval]
         return observation_features
 

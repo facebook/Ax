@@ -11,6 +11,7 @@ from typing import final, Sequence
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
+from ax.analysis.best_trials import BestTrials
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.analysis.plotly.scatter import (
@@ -197,6 +198,13 @@ class ResultsAnalysis(Analysis):
             else None
         )
 
+        # Compute best trials (best trial for SOO, Pareto frontier for MOO)
+        best_trials = BestTrials().compute_or_error_card(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+            adapter=adapter,
+        )
+
         summary = Summary().compute_or_error_card(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -213,6 +221,7 @@ class ResultsAnalysis(Analysis):
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,
+                    best_trials,
                     summary,
                 )
                 if child is not None

@@ -115,6 +115,12 @@ class TestResultsAnalysis(TestCase):
             "Should have arm effects in children",
         )
 
+        # Assert: Should have best trials
+        self.assertTrue(
+            any("BestTrials" in name for name in child_names),
+            "Should have best trials in children",
+        )
+
         # Assert: No error cards should be present
         for card in card_group.flatten():
             self.assertNotIsInstance(card, ErrorAnalysisCard)
@@ -253,9 +259,23 @@ class TestResultsAnalysis(TestCase):
         self.assertEqual(card_group.title, "Results Analysis")
         self.assertGreater(len(card_group.children), 0)
 
-        # Assert: No error cards should be present
-        for card in card_group.flatten():
-            self.assertNotIsInstance(card, ErrorAnalysisCard)
+        # Assert: BestTrials is expected to produce an error card for scalarized
+        # constraints because BestTrials explicitly does not support
+        # ScalarizedOutcomeConstraints (the underlying best_point utilities cannot
+        # handle constraints composed of multiple metrics). All other analyses should
+        # succeed.
+        flattened_cards = card_group.flatten()
+        error_cards = [
+            card for card in flattened_cards if isinstance(card, ErrorAnalysisCard)
+        ]
+        # There should be exactly one error card from BestTrials
+        self.assertEqual(len(error_cards), 1)
+        self.assertIn("BestTrials", error_cards[0].name)
+        self.assertIn(
+            "does not currently support experiments with "
+            "`ScalarizedOutcomeConstraints`",
+            error_cards[0].blob,
+        )
 
     @mock_botorch_optimize
     def test_compute_with_status_quo_relativizes(self) -> None:
