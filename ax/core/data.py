@@ -68,6 +68,11 @@ class Data(Base, SerializationMixin):
     # Note: Although the SEM (standard error of the mean) is a required column,
     # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
     # either in your Metric class or in Data explicitly.
+
+    # Indicates whether this data type supports relativization.
+    # Subclasses can override this if they don't support relativization.
+    supports_relativization: bool = True
+
     REQUIRED_COLUMNS = {
         "trial_index",
         "arm_name",

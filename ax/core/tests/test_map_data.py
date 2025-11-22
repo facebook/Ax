@@ -317,6 +317,14 @@ class MapDataTest(TestCase):
         data = MapData(df=df)
         self.assertEqual(data.map_df[MAP_KEY].dtype, float)
 
+    def test_supports_relativization(self) -> None:
+        # Execute: Check supports_relativization attribute on MapData class and instance
+        map_data = MapData(df=self.df)
+
+        # Assert: MapData should not support relativization
+        self.assertFalse(MapData.supports_relativization)
+        self.assertFalse(map_data.supports_relativization)
+
     def test_true_df_deprecation(self) -> None:
         with self.assertWarnsRegex(DeprecationWarning, "true_df"):
             true_df = self.mmd.true_df
