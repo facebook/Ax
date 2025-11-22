@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from copy import deepcopy
+from dataclasses import dataclass
 from functools import wraps
 from logging import Logger
 from typing import Any, cast, TypeVar
@@ -26,12 +27,25 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
 )
-from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
+from ax.generation_strategy.generation_node import (
+    DemoGenerationNode,
+    GenerationNode,
+    GenerationStep,
+)
 from ax.generation_strategy.transition_criterion import TrialBasedCriterion
+
+from ax.thrift.agnostic_thrift_serializable import (
+    AgnosticStruct,
+    AgnosticThriftSerializable,
+)
+from ax.thrift.generation_strategy.generation_strategy.thrift_types import (
+    GenerationStrategy as ThriftGenerationStrategy,
+)
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_list
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
+from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
 
@@ -821,3 +835,33 @@ class GenerationStrategy(Base):
                 if node.name == next_node:
                     self._curr = node
         return move_to_next_node
+
+
+@dataclass
+class DemoGenerationStrategy(AgnosticThriftSerializable):
+    name: str
+    nodes: list[DemoGenerationNode]
+    current_node_index: int = 0
+
+    @classmethod
+    def thrift_type(cls) -> type[AgnosticStruct]:
+        return ThriftGenerationStrategy
+
+    def serialize(self) -> AgnosticStruct:
+        return ThriftGenerationStrategy(
+            name=self.name,
+            nodes=[node.serialize() for node in self.nodes],
+            current_node_index=self.current_node_index,
+        )
+
+    @classmethod
+    def deserialize(cls, struct: AgnosticStruct) -> Self:
+        strategy_struct = assert_is_instance(struct, ThriftGenerationStrategy)
+        return cls(
+            name=strategy_struct.name,
+            nodes=[
+                DemoGenerationNode.deserialize(struct=node_struct)
+                for node_struct in strategy_struct.nodes
+            ],
+            current_node_index=strategy_struct.current_node_index,
+        )
