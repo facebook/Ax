@@ -333,6 +333,13 @@ class Data(Base, SerializationMixin):
         )
         return self.__class__(df=df_rel)
 
+    # NOTE: It would be more efficient to cache this, but then there is a risk
+    # of cache invalidation if `self.full_df` is modified.
+    @property
+    def trial_indices(self) -> set[int]:
+        """Returns the set of trial indices in the data."""
+        return set(self.df["trial_index"].unique())
+
 
 def combine_dfs_favoring_recent(
     last_df: pd.DataFrame, new_df: pd.DataFrame
