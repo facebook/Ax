@@ -1152,6 +1152,7 @@ class TestGenerationStrategy(TestCase):
                 only_in_statuses=[TrialStatus.RUNNING],
                 block_gen_if_met=True,
                 block_transition_if_unmet=False,
+                transition_to="node_1",
             ),
         ]
         node_1 = GenerationNode(

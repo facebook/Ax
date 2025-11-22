@@ -247,6 +247,7 @@ class TestTransitionCriterion(TestCase):
                 only_in_statuses=[TrialStatus.RUNNING],
                 block_gen_if_met=True,
                 block_transition_if_unmet=False,
+                transition_to="GenerationStep_1",
             ),
         ]
         step_2_expected_transition_criteria = []
@@ -545,10 +546,11 @@ class TestTransitionCriterion(TestCase):
         )
         self.assertEqual(
             str(max_parallelism),
-            "MaxGenerationParallelism({'threshold': 3, 'only_in_statuses': "
+            "MaxGenerationParallelism({'threshold': 3, "
+            + "'transition_to': 'GenerationStep_2', "
+            + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
