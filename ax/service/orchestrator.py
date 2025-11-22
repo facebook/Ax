@@ -1105,7 +1105,8 @@ class Orchestrator(AnalysisBase, BestPointMixin):
             )
 
     def _error_if_status_quo_infeasible(self) -> None:
-        """Raises an exception if the status-quo arm is infeasible and the
+        """Raises an exception if the status-quo arm is infeasible or did
+        not complete successfully (FAILED or ABANDONED) and the
         `terminate_if_status_quo_infeasible` option is set to True.
         """
         status_quo_arm_name = none_throws(self.experiment.status_quo).name
@@ -1118,6 +1119,15 @@ class Orchestrator(AnalysisBase, BestPointMixin):
             and trial.arm is not None
             and trial.arm.name == status_quo_arm_name
         ]
+
+        if (
+            status_quo_trial[0].status.is_failed
+            or status_quo_trial[0].status.is_abandoned
+        ):
+            raise StatusQuoInfeasibleError(
+                f"Status-quo arm '{status_quo_arm_name}' terminatd with status"
+                f" {status_quo_trial[0].status.name}."
+            )
 
         if not status_quo_trial:
             # status_quo trial hasn't completed yet
@@ -1155,7 +1165,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
                 )
 
                 is_infeasible = any(
-                    feasibility is False for feasibility in feasibility_series
+                    feasibility is not True for feasibility in feasibility_series
                 )
 
                 if is_infeasible:
