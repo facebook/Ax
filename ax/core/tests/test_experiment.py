@@ -798,11 +798,10 @@ class ExperimentTest(TestCase):
         # pyre-fixme[6]: For 1st param expected `Optional[str]` but got `Dict[str,
         #  bool]`.
         new_runner = SyntheticRunner(dummy_metadata=identifier)
-
-        self.experiment.reset_runners(new_runner)
         # Don't update trials that have been run.
         self.assertEqual(batch.runner, original_runner)
         # Update default runner
+        self.experiment.runner = new_runner
         self.assertEqual(self.experiment.runner, new_runner)
         # Update candidate trial runners.
         self.assertEqual(self.experiment.trials[1].runner, new_runner)

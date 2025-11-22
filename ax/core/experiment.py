@@ -100,6 +100,7 @@ class Experiment(Base):
         default_data_type: DataType | None = None,
         auxiliary_experiments_by_purpose: None
         | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
+        default_trial_type: str | None = None,
     ) -> None:
         """Inits Experiment.
 
@@ -130,7 +131,7 @@ class Experiment(Base):
 
         self._name = name
         self.description = description
-        self.runner = runner
+        self._runner = runner
         self.is_test: bool = is_test
 
         self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
@@ -141,6 +142,12 @@ class Experiment(Base):
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
         self._default_data_type: DataType = default_data_type or DataType.DATA
+
+        # Initialize trial type to runner mapping
+        self._default_trial_type = default_trial_type
+        self._trial_type_to_runner: dict[str | None, Runner | None] = {
+            default_trial_type: runner
+        }
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -390,6 +397,26 @@ class Experiment(Base):
             self._name_and_store_arm_if_not_exists(arm=status_quo, proposed_name=name)
 
         self._status_quo = status_quo
+
+    @property
+    def runner(self) -> Runner | None:
+        """Default runner used for trials on this experiment."""
+        return self._runner
+
+    @runner.setter
+    def runner(self, runner: Runner | None) -> None:
+        """Set the default runner and update trial type mapping."""
+        self._runner = runner
+        if runner is not None:
+            self._trial_type_to_runner[self._default_trial_type] = runner
+        else:
+            self._trial_type_to_runner = {None: None}
+
+    @runner.deleter
+    def runner(self) -> None:
+        """Delete the runner."""
+        self._runner = None
+        self._trial_type_to_runner = {None: None}
 
     @property
     def parameters(self) -> dict[str, Parameter]:
@@ -1327,7 +1354,7 @@ class Experiment(Base):
             reasons = [None] * len(trials)
 
         for trial, reason in zip(trials, reasons):
-            runner = self.runner_for_trial(trial=trial)
+            runner = self.runner_for_trial_type(trial_type=trial.trial_type)
             if runner is None:
                 raise RunnerNotFoundError(
                     "Unable to stop trial runs: Runner not configured "
@@ -1335,17 +1362,6 @@ class Experiment(Base):
                 )
             runner.stop(trial=trial, reason=reason)
             trial.mark_early_stopped()
-
-    def reset_runners(self, runner: Runner) -> None:
-        """Replace all candidate trials runners.
-
-        Args:
-            runner: New runner to replace with.
-        """
-        for trial in self._trials.values():
-            if trial.status == TrialStatus.CANDIDATE:
-                trial.runner = runner
-        self.runner = runner
 
     def _attach_trial(self, trial: BaseTrial, index: int | None = None) -> int:
         """Attach a trial to this experiment.
@@ -1648,15 +1664,18 @@ class Experiment(Base):
         In the base experiment class this is always None. For experiments
         with multiple trial types, use the MultiTypeExperiment class.
         """
-        return None
+        return self._default_trial_type
 
-    def runner_for_trial(self, trial: BaseTrial) -> Runner | None:
-        """The default runner to use for a given trial.
+    def runner_for_trial_type(self, trial_type: str | None) -> Runner | None:
+        """The default runner to use for a given trial type.
 
-        In the base experiment class, this is always the default experiment runner.
-        For experiments with multiple trial types, use the MultiTypeExperiment class.
+        Looks up the appropriate runner for this trial type in the trial_type_to_runner.
         """
-        return trial._runner if trial._runner else self.runner
+        if not self.supports_trial_type(trial_type):
+            raise ValueError(f"Trial type `{trial_type}` is not supported.")
+        if (runner := self._trial_type_to_runner.get(trial_type)) is None:
+            return self.runner  # return the default runner
+        return runner
 
     def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.

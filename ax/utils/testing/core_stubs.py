@@ -280,7 +280,6 @@ def get_experiment_with_custom_runner_and_metric(
             ),
         )
         trial = experiment.new_trial(generator_run=sobol_run)
-        trial.runner = experiment.runner
         trial.mark_running()
         data = Data.from_multiple_data(
             get_data(
@@ -1735,7 +1734,7 @@ def get_batch_trial(
     batch.add_arms_and_weights(arms=arms, weights=weights)
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
-    batch.runner = SyntheticRunner()
+    experiment.runner = SyntheticRunner()
     batch.should_add_status_quo_arm = True
     batch._generation_step_index = 0
     return batch
@@ -1746,7 +1745,7 @@ def get_trial() -> Trial:
     trial = experiment.new_trial(ttl_seconds=72)
     arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
-    trial.runner = SyntheticRunner()
+    experiment.runner = SyntheticRunner()
     trial._generation_step_index = 0
     trial.update_run_metadata({"workflow_run_id": [12345]})
     return trial
