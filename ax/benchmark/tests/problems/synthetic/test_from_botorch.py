@@ -23,7 +23,6 @@ from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-
 from botorch.test_functions.base import ConstrainedBaseTestProblem
 from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import (

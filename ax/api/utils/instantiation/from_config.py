@@ -12,7 +12,6 @@ from ax.api.configs import (
     DerivedParameterConfig,
     RangeParameterConfig,
 )
-
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,

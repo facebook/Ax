@@ -9,12 +9,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
-
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.metric import Metric
-
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,

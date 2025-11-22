@@ -998,7 +998,7 @@ class Orchestrator(AnalysisBase, BestPointMixin):
 
         if timed_out:
             self.logger.error(
-                "Optimization timed out (timeout hours: " f"{timeout_hours})!"
+                f"Optimization timed out (timeout hours: {timeout_hours})!"
             )
 
         return timed_out

@@ -143,8 +143,7 @@ class Trial(BaseTrial):
         """
         if len(generator_run.arms) > 1:
             raise ValueError(
-                "Trial includes only one arm, but this generator run "
-                "included multiple."
+                "Trial includes only one arm, but this generator run included multiple."
             )
 
         # Call `BaseTrial._add_generator_run` to validate and name the arms,

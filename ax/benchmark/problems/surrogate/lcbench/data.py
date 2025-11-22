@@ -10,7 +10,6 @@ from dataclasses import dataclass, field, InitVar
 from pathlib import Path
 
 import pandas as pd
-
 import torch
 from ax.benchmark.problems.data import AbstractParquetDataLoader
 from ax.benchmark.problems.surrogate.lcbench.utils import (

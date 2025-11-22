@@ -729,9 +729,12 @@ class UtilsTest(TestCase):
         exp_with_many_trials_and_batch.new_batch_trial().add_arm(self.arm)
 
         m = extract_pending_observations.__module__
-        with patch(f"{m}.get_pending_observation_features") as mock_pending, patch(
-            f"{m}.get_pending_observation_features_based_on_trial_status"
-        ) as mock_pending_ts:
+        with (
+            patch(f"{m}.get_pending_observation_features") as mock_pending,
+            patch(
+                f"{m}.get_pending_observation_features_based_on_trial_status"
+            ) as mock_pending_ts,
+        ):
             # Check the typical case: few trials, we can use regular `get_pending...`.
             extract_pending_observations(experiment=self.experiment)
             mock_pending.assert_called_once_with(

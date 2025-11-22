@@ -8,7 +8,6 @@
 
 import inspect
 from collections.abc import Callable, Iterable, Mapping
-
 from logging import Logger
 from typing import Any
 

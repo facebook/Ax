@@ -8,11 +8,9 @@
 from __future__ import annotations
 
 import traceback
-
 from abc import ABC, abstractmethod, abstractproperty
 from collections.abc import Callable
 from functools import reduce
-
 from typing import Any, cast, Generic, NoReturn, TypeVar
 
 

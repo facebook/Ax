@@ -7,9 +7,7 @@
 
 
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
-
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy

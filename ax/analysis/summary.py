@@ -9,7 +9,6 @@
 from typing import final, Iterable, Sequence
 
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.utils import validate_experiment

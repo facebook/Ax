@@ -631,15 +631,20 @@ class SurrogateTest(TestCase):
             )
 
             with self.subTest("Arguments passed through correctly"):
-                with patch.object(
-                    botorch_model_class,
-                    "construct_inputs",
-                    wraps=botorch_model_class.construct_inputs,
-                ) as mock_construct_inputs, patch.object(
-                    botorch_model_class, "__init__", return_value=None, autospec=True
-                ) as mock_init, patch(
-                    f"{SURROGATE_PATH}.fit_botorch_model"
-                ) as mock_fit:
+                with (
+                    patch.object(
+                        botorch_model_class,
+                        "construct_inputs",
+                        wraps=botorch_model_class.construct_inputs,
+                    ) as mock_construct_inputs,
+                    patch.object(
+                        botorch_model_class,
+                        "__init__",
+                        return_value=None,
+                        autospec=True,
+                    ) as mock_init,
+                    patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit,
+                ):
                     model = surrogate._construct_model(
                         dataset=self.training_data[0],
                         search_space_digest=self.search_space_digest,
@@ -735,11 +740,13 @@ class SurrogateTest(TestCase):
     def test_construct_model_warm_start(self) -> None:
         for warm_start_refit in (False, True):
             surrogate = Surrogate(warm_start_refit=warm_start_refit)
-            with patch.object(
-                SingleTaskGP, "__init__", return_value=None, autospec=True
-            ), patch(f"{SURROGATE_PATH}.fit_botorch_model"), patch.object(
-                SingleTaskGP, "load_state_dict"
-            ) as mock_load_state_dict:
+            with (
+                patch.object(
+                    SingleTaskGP, "__init__", return_value=None, autospec=True
+                ),
+                patch(f"{SURROGATE_PATH}.fit_botorch_model"),
+                patch.object(SingleTaskGP, "load_state_dict") as mock_load_state_dict,
+            ):
                 surrogate._construct_model(
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,
@@ -896,13 +903,17 @@ class SurrogateTest(TestCase):
                 covar_module_options={"remove_task_features": remove_task_features},
             )
 
-            with patch.object(
-                botorch_model_class,
-                "construct_inputs",
-                wraps=botorch_model_class.construct_inputs,
-            ), patch.object(
-                botorch_model_class, "__init__", return_value=None, autospec=True
-            ) as mock_init, patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit:
+            with (
+                patch.object(
+                    botorch_model_class,
+                    "construct_inputs",
+                    wraps=botorch_model_class.construct_inputs,
+                ),
+                patch.object(
+                    botorch_model_class, "__init__", return_value=None, autospec=True
+                ) as mock_init,
+                patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit,
+            ):
                 surrogate._construct_model(
                     dataset=dataset,
                     search_space_digest=self.search_space_digest,
@@ -1050,13 +1061,18 @@ class SurrogateTest(TestCase):
                 else:
                     dataset = self.training_data_standardized[0]
                     search_space_digest = self.search_space_digest
-                with patch.object(
-                    surrogate, "model_selection", wraps=surrogate.model_selection
-                ) as mock_model_selection, patch.object(
-                    surrogate, "cross_validate", wraps=surrogate.cross_validate
-                ) as mock_cross_validate, patch.object(
-                    surrogate, "_construct_model", wraps=surrogate._construct_model
-                ) as mock_construct_model, warnings.catch_warnings(record=True) as ws:
+                with (
+                    patch.object(
+                        surrogate, "model_selection", wraps=surrogate.model_selection
+                    ) as mock_model_selection,
+                    patch.object(
+                        surrogate, "cross_validate", wraps=surrogate.cross_validate
+                    ) as mock_cross_validate,
+                    patch.object(
+                        surrogate, "_construct_model", wraps=surrogate._construct_model
+                    ) as mock_construct_model,
+                    warnings.catch_warnings(record=True) as ws,
+                ):
                     # Disable default warning filtering in tests.
                     warnings.filterwarnings("always")
                     surrogate.fit(
@@ -1263,11 +1279,14 @@ class SurrogateTest(TestCase):
             )
         )
         training_data = self.training_data + [self.ds2]
-        with patch.object(
-            surrogate, "model_selection", wraps=surrogate.model_selection
-        ) as mock_model_selection, patch.object(
-            surrogate, "cross_validate", wraps=surrogate.cross_validate
-        ) as mock_cross_validate:
+        with (
+            patch.object(
+                surrogate, "model_selection", wraps=surrogate.model_selection
+            ) as mock_model_selection,
+            patch.object(
+                surrogate, "cross_validate", wraps=surrogate.cross_validate
+            ) as mock_cross_validate,
+        ):
             surrogate.fit(
                 datasets=training_data,
                 search_space_digest=self.search_space_digest,
@@ -1518,10 +1537,11 @@ class SurrogateTest(TestCase):
 
             # `best_in_sample_point` requires `objective_weights`
             with self.subTest("no objective weights"):
-                with patch(
-                    f"{SURROGATE_PATH}.best_in_sample_point", return_value=None
-                ) as mock_best_in_sample, self.assertRaisesRegex(
-                    ValueError, "Could not obtain"
+                with (
+                    patch(
+                        f"{SURROGATE_PATH}.best_in_sample_point", return_value=None
+                    ) as mock_best_in_sample,
+                    self.assertRaisesRegex(ValueError, "Could not obtain"),
                 ):
                     surrogate.best_in_sample_point(
                         search_space_digest=self.search_space_digest,
@@ -1581,11 +1601,14 @@ class SurrogateTest(TestCase):
 
             # Case 3: Errors when all points are infeasible
             with self.subTest("No points are in the search space"):
-                with patch(
-                    f"{SURROGATE_PATH}.best_in_sample_point",
-                    wraps=best_in_sample_point,
-                ) as mock_best_in_sample, self.assertRaisesRegex(
-                    ValueError, "Could not obtain best in-sample point."
+                with (
+                    patch(
+                        f"{SURROGATE_PATH}.best_in_sample_point",
+                        wraps=best_in_sample_point,
+                    ) as mock_best_in_sample,
+                    self.assertRaisesRegex(
+                        ValueError, "Could not obtain best in-sample point."
+                    ),
                 ):
                     surrogate.best_in_sample_point(
                         search_space_digest=self.search_space_digest,

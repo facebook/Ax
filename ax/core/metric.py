@@ -11,12 +11,10 @@ from __future__ import annotations
 import traceback
 import warnings
 from collections.abc import Iterable, Mapping
-
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import reduce
 from logging import Logger
-
 from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data

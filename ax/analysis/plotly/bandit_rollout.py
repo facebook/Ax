@@ -17,7 +17,6 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.utils import STALE_FAIL_REASON
-
 from ax.analysis.utils import validate_experiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment

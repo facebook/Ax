@@ -8,7 +8,6 @@
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
-
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
@@ -21,7 +20,6 @@ from ax.analysis.healthcheck.individual_constraints_feasibility import (
     IndividualConstraintsFeasibilityAnalysis,
 )
 from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
-
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 

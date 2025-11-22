@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import warnings
-
 from bisect import bisect_right
 from collections.abc import Iterable
 from logging import Logger

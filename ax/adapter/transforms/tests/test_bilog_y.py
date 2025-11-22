@@ -13,7 +13,6 @@ from functools import partial
 from itertools import product
 
 import numpy as np
-
 from ax.adapter.base import Adapter, DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.bilog_y import bilog_transform, BilogY, inv_bilog_transform

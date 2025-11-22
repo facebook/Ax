@@ -8,10 +8,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractproperty
-
 from collections import ChainMap
 from collections.abc import Callable
-
 from functools import cached_property
 from typing import Any
 

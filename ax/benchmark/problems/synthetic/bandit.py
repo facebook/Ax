@@ -8,7 +8,6 @@
 from warnings import warn
 
 import numpy as np
-
 from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
 from ax.core.parameter import ChoiceParameter, ParameterType

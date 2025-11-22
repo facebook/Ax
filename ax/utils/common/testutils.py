@@ -123,8 +123,7 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 def _deprecate(original_func: Callable) -> Callable:
     def _deprecated_func(*args: list[Any], **kwargs: dict[str, Any]) -> None:
         raise RuntimeError(
-            f"This function is deprecated please use {original_func.__name__} "
-            "instead."
+            f"This function is deprecated please use {original_func.__name__} instead."
         )
 
     return _deprecated_func

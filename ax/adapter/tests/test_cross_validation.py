@@ -138,16 +138,19 @@ class CrossValidationTest(TestCase):
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
         # Test LOO in transformed space
-        with mock.patch.object(
-            self.adapter,
-            "_transform_inputs_for_cv",
-            wraps=self.adapter._transform_inputs_for_cv,
-        ) as mock_transform_cv, mock.patch.object(
-            self.adapter,
-            "_cross_validate",
-            side_effect=lambda **kwargs: [self.observation_data]
-            * len(kwargs["cv_test_points"]),
-        ) as mock_cv:
+        with (
+            mock.patch.object(
+                self.adapter,
+                "_transform_inputs_for_cv",
+                wraps=self.adapter._transform_inputs_for_cv,
+            ) as mock_transform_cv,
+            mock.patch.object(
+                self.adapter,
+                "_cross_validate",
+                side_effect=lambda **kwargs: [self.observation_data]
+                * len(kwargs["cv_test_points"]),
+            ) as mock_cv,
+        ):
             result = cross_validate(model=self.adapter, folds=-1, untransform=False)
         result_predicted_obs_data = [cv_result.predicted for cv_result in result]
         self.assertEqual(result_predicted_obs_data, [self.observation_data] * 4)

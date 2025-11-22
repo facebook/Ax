@@ -11,7 +11,6 @@ from typing import final
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-
 from ax.analysis.healthcheck.healthcheck_analysis import (
     create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,

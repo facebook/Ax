@@ -11,11 +11,9 @@ import numpy as np
 import numpy.typing as npt
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.registry import rel_EB_ashr_trans
-
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation_utils import observations_from_data
-
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.discrete.eb_ashr import EBAshr
 from pyre_extensions import assert_is_instance

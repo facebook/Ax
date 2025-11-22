@@ -20,7 +20,6 @@ from ax.core.types import TNumeric, TParameterization, TParamValue
 from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-
 from ax.utils.common.string_utils import sanitize_name, unsanitize_name
 from pyre_extensions import assert_is_instance, none_throws
 from sympy.core.add import Add

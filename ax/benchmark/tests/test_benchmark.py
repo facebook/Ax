@@ -68,7 +68,6 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
 )
-
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
@@ -85,7 +84,6 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import get_logger
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
@@ -96,7 +94,6 @@ from botorch.acquisition.multi_objective.logei import (
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
-
 from botorch.test_functions.synthetic import Branin, PressureVessel
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -526,9 +523,11 @@ class TestBenchmark(TestCase):
                 none_throws(runner.simulated_backend_runner).simulator._verbose_logging
             )
 
-        with self.subTest("Logs not produced by default"), self.assertNoLogs(
-            level=logging.INFO, logger=logger
-        ), self.assertNoLogs(logger=logger):
+        with (
+            self.subTest("Logs not produced by default"),
+            self.assertNoLogs(level=logging.INFO, logger=logger),
+            self.assertNoLogs(logger=logger),
+        ):
             run_optimization_with_orchestrator(
                 problem=problem,
                 method=method,
@@ -1267,8 +1266,11 @@ class TestBenchmark(TestCase):
             optimization_config=moo_config,
         )
 
-        with self.subTest("MOO not supported"), self.assertRaisesRegex(
-            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        with (
+            self.subTest("MOO not supported"),
+            self.assertRaisesRegex(
+                NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+            ),
         ):
             get_best_parameters(experiment=experiment, generation_strategy=gs)
 

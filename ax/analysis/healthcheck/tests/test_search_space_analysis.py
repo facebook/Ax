@@ -8,7 +8,6 @@
 
 import numpy as np
 import pandas as pd
-
 from ax.analysis.healthcheck.search_space_analysis import (
     search_space_boundary_proportions,
     SearchSpaceAnalysis,

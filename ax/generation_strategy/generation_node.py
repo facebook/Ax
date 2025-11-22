@@ -17,7 +17,6 @@ from typing import Any, cast, TYPE_CHECKING, Union
 # constructors`, such that they no longer need to access individual
 # input constructor purposes.
 import ax.generation_strategy as gs_module  # @manual
-
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun

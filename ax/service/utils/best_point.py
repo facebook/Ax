@@ -11,7 +11,6 @@ from collections.abc import Iterable, Mapping
 from logging import Logger
 
 import numpy as np
-
 import pandas as pd
 import torch
 from ax.adapter.adapter_utils import (

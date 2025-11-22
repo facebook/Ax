@@ -13,7 +13,6 @@ from threading import Event, Lock, Thread
 from typing import Any
 
 from ax.core.types import TEvaluationOutcome, TParameterization
-
 from ax.exceptions.core import DataRequiredError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.service.ax_client import AxClient

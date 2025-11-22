@@ -10,9 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
-
 from ax.benchmark.problems.data import AbstractParquetDataLoader
-
 from ax.utils.common.testutils import TestCase
 
 

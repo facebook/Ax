@@ -513,8 +513,7 @@ class ExperimentTest(TestCase):
         with self.assertRaises(UnsupportedError) as e:
             self.experiment.status_quo = Arm(sq_parameters)
         self.assertIn(
-            "Modifications of status_quo are disabled after trials have been "
-            "created",
+            "Modifications of status_quo are disabled after trials have been created",
             str(e.exception),
         )
 
@@ -1684,11 +1683,13 @@ class ExperimentTest(TestCase):
 
     def test_stop_trial(self) -> None:
         self.experiment.new_trial()
-        with patch.object(self.experiment, "runner"), patch.object(
-            self.experiment.runner, "stop", return_value=None
-        ) as mock_runner_stop, patch.object(
-            BaseTrial, "mark_early_stopped"
-        ) as mock_mark_stopped:
+        with (
+            patch.object(self.experiment, "runner"),
+            patch.object(
+                self.experiment.runner, "stop", return_value=None
+            ) as mock_runner_stop,
+            patch.object(BaseTrial, "mark_early_stopped") as mock_mark_stopped,
+        ):
             self.experiment.stop_trial_runs(trials=[self.experiment.trials[0]])
             mock_runner_stop.assert_called_once()
             mock_mark_stopped.assert_called_once()

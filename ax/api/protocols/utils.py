@@ -14,7 +14,6 @@ from typing import Any
 
 import pandas as pd
 from ax.api.types import TParameterization
-
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric

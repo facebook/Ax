@@ -87,9 +87,9 @@ def get_mnist_surrogate_search_space() -> SearchSpace:
     return search_space
 
 
-def get_mnist_surrogate_arguments() -> (
-    tuple[list[list[str]], list[str], list[dict[str, bool]], list[XGBRegressor]]
-):
+def get_mnist_surrogate_arguments() -> tuple[
+    list[list[str]], list[str], list[dict[str, bool]], list[XGBRegressor]
+]:
     lst_active_param_names: list[list[str]] = [
         ["lr"],
         ["lr", "weight_decay"],

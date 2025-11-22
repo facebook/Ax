@@ -8,7 +8,6 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-
 import torch
 from ax.adapter.torch import TorchAdapter
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction

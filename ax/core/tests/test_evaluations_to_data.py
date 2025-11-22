@@ -34,7 +34,7 @@ class TestRawEvaluationsToData(TestCase):
                 self.assertEqual(df["metric_signature"].iloc[0], signature)
 
         with self.subTest(
-            "No metric name in eval and multiple in " "metric_name_to_signature"
+            "No metric name in eval and multiple in metric_name_to_signature"
         ):
             with self.assertRaisesRegex(
                 UserInputError,

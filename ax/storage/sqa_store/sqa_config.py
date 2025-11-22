@@ -12,7 +12,6 @@ from enum import Enum
 from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
-
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm

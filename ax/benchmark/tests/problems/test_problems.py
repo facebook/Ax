@@ -31,11 +31,14 @@ class TestProblems(TestCase):
                 continue
 
             # Avoid downloading data from the internet
-            with patch(
-                "ax.benchmark.problems.surrogate."
-                "lcbench.early_stopping.load_lcbench_data",
-                return_value=get_mock_lcbench_data(),
-            ), patch.object(Pipeline, "fit"):
+            with (
+                patch(
+                    "ax.benchmark.problems.surrogate."
+                    "lcbench.early_stopping.load_lcbench_data",
+                    return_value=get_mock_lcbench_data(),
+                ),
+                patch.object(Pipeline, "fit"),
+            ):
                 problem = get_benchmark_problem(problem_key=name)
             self.assertIsInstance(problem, BenchmarkProblem, msg=name)
 
@@ -68,11 +71,14 @@ class TestProblems(TestCase):
         problem_names = set()
         problem_keys = []
         # Avoid downloading data from the internet
-        with patch(
-            "ax.benchmark.problems.surrogate."
-            "lcbench.early_stopping.load_lcbench_data",
-            return_value=get_mock_lcbench_data(),
-        ), patch.object(Pipeline, "fit"):
+        with (
+            patch(
+                "ax.benchmark.problems.surrogate."
+                "lcbench.early_stopping.load_lcbench_data",
+                return_value=get_mock_lcbench_data(),
+            ),
+            patch.object(Pipeline, "fit"),
+        ):
             for problem_key in BENCHMARK_PROBLEM_REGISTRY.keys():
                 if "MNIST" in problem_key:
                     continue  # Skip these as they cause the test to take a long time

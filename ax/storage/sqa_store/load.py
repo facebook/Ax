@@ -10,9 +10,7 @@ from math import ceil
 from typing import Any, cast
 
 from ax.analysis.analysis_card import AnalysisCard, AnalysisCardBase
-
 from ax.core.auxiliary import AuxiliaryExperiment
-
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric

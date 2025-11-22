@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import inspect
-
 import logging
 import warnings
 from collections import defaultdict, OrderedDict
@@ -942,8 +941,7 @@ class Experiment(Base):
                 combined_df = trial_df
             else:
                 raise ValueError(
-                    "Each dict within `_data_by_trial` should have at most one "
-                    "element."
+                    "Each dict within `_data_by_trial` should have at most one element."
                 )
             current_trial_data[cur_time_millis] = data_type(df=combined_df)
             self._data_by_trial[trial_index] = current_trial_data

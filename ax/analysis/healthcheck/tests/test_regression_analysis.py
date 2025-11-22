@@ -8,7 +8,6 @@
 
 import numpy as np
 import pandas as pd
-
 from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
 from ax.core.data import Data
 from ax.utils.common.testutils import TestCase

@@ -124,8 +124,7 @@ class StratifiedStandardizeY(Transform):
         experiment_data = none_throws(experiment_data)
         if len(experiment_data.observation_data.index.names) > 2:
             raise NotImplementedError(
-                "StratifiedStandardizeY does not support experiment data with "
-                "map keys."
+                "StratifiedStandardizeY does not support experiment data with map keys."
             )
         strata = (
             experiment_data.arm_data[self.p_name]

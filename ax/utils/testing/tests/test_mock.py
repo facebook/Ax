@@ -89,13 +89,16 @@ class TestMock(TestCase):
         from pymoo.optimize import minimize
 
         experiment = get_branin_experiment(with_completed_batch=True)
-        with patch(
-            "botorch.utils.multi_objective.optimize.minimize",
-            wraps=minimize,
-        ) as mock_minimize, patch(
-            "botorch.utils.multi_objective.optimize.NSGA2",
-            wraps=NSGA2,
-        ) as mock_nsgaii:
+        with (
+            patch(
+                "botorch.utils.multi_objective.optimize.minimize",
+                wraps=minimize,
+            ) as mock_minimize,
+            patch(
+                "botorch.utils.multi_objective.optimize.NSGA2",
+                wraps=NSGA2,
+            ) as mock_nsgaii,
+        ):
             with mock_botorch_optimize_context_manager():
                 Generators.BOTORCH_MODULAR(
                     experiment=experiment,

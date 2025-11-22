@@ -18,7 +18,6 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-
 from ax.core.search_space import SearchSpace
 from xgboost import XGBRegressor
 
@@ -98,9 +97,9 @@ def get_cifar10_surrogate_search_space() -> SearchSpace:
     return search_space
 
 
-def get_cifar10_surrogate_arguments() -> (
-    tuple[list[list[str]], list[str], list[dict[str, bool]], list[XGBRegressor]]
-):
+def get_cifar10_surrogate_arguments() -> tuple[
+    list[list[str]], list[str], list[dict[str, bool]], list[XGBRegressor]
+]:
     """
     Construct the arguments to be passed to `HierarchicalSearchSpaceSurrogate` that
     creates a surrogate model on CIFAR10.

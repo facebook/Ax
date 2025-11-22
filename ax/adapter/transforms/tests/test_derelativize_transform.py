@@ -242,10 +242,15 @@ class DerelativizeTransformTest(TestCase):
         t2.transform_optimization_config(deepcopy(oc), g, None)
 
         # But not if sq arm is not available.
-        with patch(
-            f"{Derelativize.__module__}.unwrap_observation_data", return_value=({}, {})
-        ), self.assertRaisesRegex(
-            DataRequiredError, "Status-quo metric value not yet available for metric "
+        with (
+            patch(
+                f"{Derelativize.__module__}.unwrap_observation_data",
+                return_value=({}, {}),
+            ),
+            self.assertRaisesRegex(
+                DataRequiredError,
+                "Status-quo metric value not yet available for metric ",
+            ),
         ):
             t2.transform_optimization_config(deepcopy(oc), g, None)
 
@@ -262,11 +267,15 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ],
         )
-        with patch(
-            f"{Derelativize.__module__}.unwrap_observation_data", return_value=({}, {})
-        ), self.assertRaisesRegex(
-            DataRequiredError,
-            "Status-quo metric value not yet available for metric\\(s\\) ",
+        with (
+            patch(
+                f"{Derelativize.__module__}.unwrap_observation_data",
+                return_value=({}, {}),
+            ),
+            self.assertRaisesRegex(
+                DataRequiredError,
+                "Status-quo metric value not yet available for metric\\(s\\) ",
+            ),
         ):
             t2.transform_optimization_config(deepcopy(oc_scalarized_only), g, None)
 
@@ -390,8 +399,9 @@ class DerelativizeTransformTest(TestCase):
             {m: [10.0] for m in exp.metrics},
             {m: {m: [0.0]} for m in exp.metrics},
         ]
-        with mock.patch.object(
-            adapter, "predict", return_value=mock_predictions
-        ), self.assertLogs(logger=logger) as mock_logs:
+        with (
+            mock.patch.object(adapter, "predict", return_value=mock_predictions),
+            self.assertLogs(logger=logger) as mock_logs,
+        ):
             adapter.gen(n=1)
         self.assertIn("deviate more than", mock_logs.records[0].getMessage())

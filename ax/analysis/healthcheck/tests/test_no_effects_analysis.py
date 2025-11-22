@@ -7,7 +7,6 @@
 # pyre-strict
 
 import pandas as pd
-
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
 from ax.analysis.healthcheck.no_effects_analysis import TestOfNoEffectAnalysis
 from ax.core.data import Data

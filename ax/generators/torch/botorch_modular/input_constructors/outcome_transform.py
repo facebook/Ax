@@ -13,7 +13,6 @@ from typing import Any
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_modular.utils import get_all_task_values_from_ssd
-
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models.transforms.outcome import (
     OutcomeTransform,

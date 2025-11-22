@@ -9,7 +9,6 @@
 import random
 import time
 from dataclasses import dataclass
-
 from logging import Logger
 
 from ax.core.trial_status import TrialStatus

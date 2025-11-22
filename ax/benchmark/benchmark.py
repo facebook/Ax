@@ -63,7 +63,6 @@ from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
 from ax.utils.testing.backend_simulator import BackendSimulator
-
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)

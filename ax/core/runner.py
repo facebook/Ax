@@ -124,8 +124,7 @@ class Runner(Base, SerializationMixin, ABC):
             Exception string.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement a `poll_exception` "
-            "method."
+            f"{self.__class__.__name__} does not implement a `poll_exception` method."
         )
 
     def stop(

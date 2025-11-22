@@ -642,15 +642,18 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             torch_device=torch.device("cuda" if cuda else "cpu"),
         )
         self.assertIn("Cast", adapter.transforms)
-        with patch.object(
-            adapter,
-            "_untransform_objective_thresholds",
-            wraps=adapter._untransform_objective_thresholds,
-        ) as mock_untransform, patch.object(
-            adapter.transforms["Cast"],
-            "untransform_observation_features",
-            wraps=adapter.transforms["Cast"].untransform_observation_features,
-        ) as wrapped_cast:
+        with (
+            patch.object(
+                adapter,
+                "_untransform_objective_thresholds",
+                wraps=adapter._untransform_objective_thresholds,
+            ) as mock_untransform,
+            patch.object(
+                adapter.transforms["Cast"],
+                "untransform_observation_features",
+                wraps=adapter.transforms["Cast"].untransform_observation_features,
+            ) as wrapped_cast,
+        ):
             obj_thresholds = adapter.infer_objective_thresholds(
                 search_space=exp.search_space,
                 optimization_config=exp.optimization_config,

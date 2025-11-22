@@ -256,8 +256,7 @@ class BotorchMOOUtilsTest(TestCase):
             with ExitStack() as es:
                 _mock_infer_reference_point = es.enter_context(
                     mock.patch(
-                        "ax.generators.torch.botorch_moo_utils"
-                        ".infer_reference_point",
+                        "ax.generators.torch.botorch_moo_utils.infer_reference_point",
                         wraps=infer_reference_point,
                     )
                 )
@@ -324,8 +323,7 @@ class BotorchMOOUtilsTest(TestCase):
             with ExitStack() as es:
                 _mock_infer_reference_point = es.enter_context(
                     mock.patch(
-                        "ax.generators.torch.botorch_moo_utils"
-                        ".infer_reference_point",
+                        "ax.generators.torch.botorch_moo_utils.infer_reference_point",
                         wraps=infer_reference_point,
                     )
                 )

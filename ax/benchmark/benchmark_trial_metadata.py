@@ -9,7 +9,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import pandas as pd
-
 from ax.utils.testing.backend_simulator import BackendSimulator
 
 

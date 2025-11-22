@@ -9,7 +9,6 @@ from typing import final, Mapping, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE

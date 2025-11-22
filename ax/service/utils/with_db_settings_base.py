@@ -59,7 +59,6 @@ try:  # We don't require SQLAlchemy by default.
         _load_generation_strategy_by_experiment_name,
         get_generation_strategy_id,
     )
-
     from ax.storage.sqa_store.save import (
         _save_experiment,
         _save_generation_strategy,

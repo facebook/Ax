@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from ax.core.data import Data
-
 from ax.core.map_data import MapData
 from ax.core.metric import Metric, MetricFetchE
 from ax.utils.common.result import Result
