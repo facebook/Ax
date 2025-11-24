@@ -20,6 +20,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
@@ -482,7 +483,7 @@ def choose_generation_strategy_legacy(
             jit_compile = None
 
         model_kwargs: dict[str, Any] = {"torch_device": torch_device}
-        if suggested_model is Generators.BOTORCH_MODULAR:
+        if suggested_model.model_class is BoTorchGenerator:
             model_kwargs["acquisition_options"] = {
                 "prune_irrelevant_parameters": simplify_parameter_changes
             }
