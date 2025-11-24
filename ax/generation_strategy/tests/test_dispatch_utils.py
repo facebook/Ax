@@ -193,6 +193,7 @@ class TestDispatchUtils(TestCase):
             expected_model_kwargs = {
                 "torch_device": None,
                 "transform_configs": expected_transform_configs,
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed search space)"):
@@ -206,6 +207,7 @@ class TestDispatchUtils(TestCase):
             expected_model_kwargs = {
                 "torch_device": None,
                 "transform_configs": expected_transform_configs,
+                "acquisition_options": {"prune_irrelevant_parameters": False},
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
@@ -215,7 +217,9 @@ class TestDispatchUtils(TestCase):
                 objective=MultiObjective(objectives=[])
             )
             moo_mixed = choose_generation_strategy_legacy(
-                search_space=search_space, optimization_config=optimization_config
+                search_space=search_space,
+                optimization_config=optimization_config,
+                simplify_parameter_changes=True,
             )
             self.assertEqual(moo_mixed._steps[0].generator, Generators.SOBOL)
             self.assertEqual(moo_mixed._steps[0].num_trials, 5)
@@ -223,7 +227,10 @@ class TestDispatchUtils(TestCase):
             model_kwargs = none_throws(moo_mixed._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
-                {"torch_device", "transform_configs"},
+                {"torch_device", "transform_configs", "acquisition_options"},
+            )
+            self.assertEqual(
+                model_kwargs["acquisition_options"]["prune_irrelevant_parameters"], True
             )
         with self.subTest("SAASBO"):
             sobol_fullybayesian = choose_generation_strategy_legacy(
@@ -231,6 +238,7 @@ class TestDispatchUtils(TestCase):
                 use_batch_trials=True,
                 num_initialization_trials=3,
                 use_saasbo=True,
+                simplify_parameter_changes=True,
             )
             self.assertEqual(sobol_fullybayesian._steps[0].generator, Generators.SOBOL)
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
@@ -239,6 +247,9 @@ class TestDispatchUtils(TestCase):
             model_config = bo_step.model_kwargs["surrogate_spec"].model_configs[0]
             self.assertEqual(
                 model_config.botorch_model_class, SaasFullyBayesianSingleTaskGP
+            )
+            self.assertEqual(
+                model_kwargs["acquisition_options"]["prune_irrelevant_parameters"], True
             )
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy_legacy(
