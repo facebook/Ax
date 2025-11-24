@@ -619,7 +619,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 # Extract the fit args from the GR.
                 return _extract_model_state_after_gen(
                     generator_run=gr,
-                    model_class=curr_model.model_class,
+                    generator_class=curr_model.generator_class,
                 )
         # No previous GR from this model.
         return {}

@@ -169,7 +169,7 @@ class ModelSetup(NamedTuple):
     """
 
     adapter_class: type[Adapter]
-    model_class: type[Generator]
+    generator_class: type[Generator]
     transforms: Sequence[type[Transform]]
     default_model_kwargs: Mapping[str, Any] | None = None
     standard_bridge_kwargs: Mapping[str, Any] | None = None
@@ -183,52 +183,52 @@ standard arguments a given model requires.
 MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     "BoTorch": ModelSetup(
         adapter_class=TorchAdapter,
-        model_class=ModularBoTorchGenerator,
+        generator_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
     ),
     "EB": ModelSetup(
         adapter_class=DiscreteAdapter,
-        model_class=EmpiricalBayesThompsonSampler,
+        generator_class=EmpiricalBayesThompsonSampler,
         transforms=TS_trans,
     ),
     "EB_Ashr": ModelSetup(
         adapter_class=DiscreteAdapter,
-        model_class=EBAshr,
+        generator_class=EBAshr,
         transforms=EB_ashr_trans,
     ),
     "Factorial": ModelSetup(
         adapter_class=DiscreteAdapter,
-        model_class=FullFactorialGenerator,
+        generator_class=FullFactorialGenerator,
         transforms=Discrete_X_trans,
     ),
     "Thompson": ModelSetup(
         adapter_class=DiscreteAdapter,
-        model_class=ThompsonSampler,
+        generator_class=ThompsonSampler,
         transforms=TS_trans,
     ),
     "Sobol": ModelSetup(
         adapter_class=RandomAdapter,
-        model_class=SobolGenerator,
+        generator_class=SobolGenerator,
         transforms=Cont_X_trans,
     ),
     "Uniform": ModelSetup(
         adapter_class=RandomAdapter,
-        model_class=UniformGenerator,
+        generator_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
     "ST_MTGP": ModelSetup(
         adapter_class=TorchAdapter,
-        model_class=ModularBoTorchGenerator,
+        generator_class=ModularBoTorchGenerator,
         transforms=MBM_MTGP_trans,
     ),
     "BO_MIXED": ModelSetup(
         adapter_class=TorchAdapter,
-        model_class=ModularBoTorchGenerator,
+        generator_class=ModularBoTorchGenerator,
         transforms=Mixed_transforms + Y_trans,
     ),
     "SAASBO": ModelSetup(
         adapter_class=TorchAdapter,
-        model_class=ModularBoTorchGenerator,
+        generator_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
@@ -242,7 +242,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     ),
     "SAAS_MTGP": ModelSetup(
         adapter_class=TorchAdapter,
-        model_class=ModularBoTorchGenerator,
+        generator_class=ModularBoTorchGenerator,
         transforms=MBM_MTGP_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
@@ -268,9 +268,9 @@ class GeneratorRegistryBase(Enum):
         return MODEL_KEY_TO_MODEL_SETUP
 
     @property
-    def model_class(self) -> type[Generator]:
-        """Type of `Model` used for the given model+adapter setup."""
-        return self.model_key_to_model_setup[self.value].model_class
+    def generator_class(self) -> type[Generator]:
+        """Type of `Generator` used for the given model+adapter setup."""
+        return self.model_key_to_model_setup[self.value].generator_class
 
     @property
     def adapter_class(self) -> type[Adapter]:
@@ -288,13 +288,13 @@ class GeneratorRegistryBase(Enum):
         if self.value not in self.model_key_to_model_setup:
             raise UserInputError(f"Unknown model {self.value}")
         model_setup_info = self.model_key_to_model_setup[self.value]
-        model_class = model_setup_info.model_class
+        generator_class = model_setup_info.generator_class
         adapter_class = model_setup_info.adapter_class
         search_space = experiment.search_space
 
         if not silently_filter_kwargs:
             # Check correct kwargs are present
-            callables = (model_class, adapter_class)
+            callables = (generator_class, adapter_class)
             kwargs_to_check = {
                 "search_space": search_space,
                 "experiment": experiment,
@@ -320,19 +320,19 @@ class GeneratorRegistryBase(Enum):
                     f"Arguments {extra_keywords} are not expected by any of {callables}"
                 )
 
-        # Create model with consolidated arguments: defaults + passed in kwargs.
-        model_kwargs = consolidate_kwargs(
+        # Create generator with consolidated arguments: defaults + passed in kwargs.
+        generator_kwargs = consolidate_kwargs(
             kwargs_iterable=[
-                get_function_default_arguments(model_class),
+                get_function_default_arguments(generator_class),
                 model_setup_info.default_model_kwargs,
                 kwargs,
             ],
-            keywords=get_function_argument_names(model_class),
+            keywords=get_function_argument_names(generator_class),
         )
-        generator = model_class(**model_kwargs)
+        generator = generator_class(**generator_kwargs)
 
         # Create `Adapter`: defaults + standard kwargs + passed in kwargs.
-        bridge_kwargs = consolidate_kwargs(
+        adapter_kwargs = consolidate_kwargs(
             kwargs_iterable=[
                 get_function_default_arguments(adapter_class),
                 model_setup_info.standard_bridge_kwargs,
@@ -350,19 +350,19 @@ class GeneratorRegistryBase(Enum):
             experiment=experiment,
             data=data,
             generator=generator,
-            **bridge_kwargs,
+            **adapter_kwargs,
         )
 
         if model_setup_info.not_saved_model_kwargs:
             for key in model_setup_info.not_saved_model_kwargs:
-                model_kwargs.pop(key, None)
+                generator_kwargs.pop(key, None)
 
         # Store all kwargs on adapter, to be saved on generator run.
         model_key = model_key_override if model_key_override else self.value
         adapter._set_kwargs_to_save(
             model_key=model_key,
-            model_kwargs=_encode_callables_as_references(model_kwargs),
-            bridge_kwargs=_encode_callables_as_references(bridge_kwargs),
+            generator_kwargs=_encode_callables_as_references(generator_kwargs),
+            adapter_kwargs=_encode_callables_as_references(adapter_kwargs),
         )
         return adapter
 
@@ -387,10 +387,13 @@ class GeneratorRegistryBase(Enum):
         Returns:
             A tuple of annotated keyword arguments for the model and the adapter.
         """
-        model_class = self.model_class
+        generator_class = self.generator_class
         adapter_class = self.adapter_class
         return (
-            {kw: p.annotation for kw, p in signature(model_class).parameters.items()},
+            {
+                kw: p.annotation
+                for kw, p in signature(generator_class).parameters.items()
+            },
             {kw: p.annotation for kw, p in signature(adapter_class).parameters.items()},
         )
 
@@ -399,8 +402,8 @@ class GeneratorRegistryBase(Enum):
         info: ModelSetup, kwargs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return consolidate_kwargs(
-            [get_function_default_arguments(info.model_class), kwargs],
-            keywords=get_function_argument_names(info.model_class),
+            [get_function_default_arguments(info.generator_class), kwargs],
+            keywords=get_function_argument_names(info.generator_class),
         )
 
     @staticmethod
@@ -455,13 +458,13 @@ class Generators(GeneratorRegistryBase):
 
 
 def _extract_model_state_after_gen(
-    generator_run: GeneratorRun, model_class: type[Generator]
+    generator_run: GeneratorRun, generator_class: type[Generator]
 ) -> dict[str, Any]:
     """Extracts serialized post-generation model state from a generator run and
     deserializes it.
     """
     serialized_model_state = generator_run._model_state_after_gen or {}
-    return model_class.deserialize_state(serialized_model_state)
+    return generator_class.deserialize_state(serialized_model_state)
 
 
 def _encode_callables_as_references(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
