@@ -25,13 +25,13 @@ JSON_ATTRS = ["baseline_workflow_inputs"]
 #   of that data, so the recursion could fail somewhere)
 COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_best_arm_predictions",
-    "_bridge_kwargs",
+    "_adapter_kwargs",
     "_candidate_metadata_by_arm_signature",
     "_curr",
     "_experiment",
     "_gen_metadata",
     "_memo_df",
-    "_model_kwargs",
+    "_generator_kwargs",
     "_model_predictions",
     "_model_state_after_gen",
     "_model",
@@ -82,7 +82,8 @@ def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None
                     error_message_prefix + "Encountered two objects of different "
                     f"types: {type(source)} and {type(target)}. Continuing in the "
                     "special case that `source is None` and `target` is a "
-                    "`SearchSpace`."
+                    "`SearchSpace`.",
+                    stacklevel=2,
                 )
             else:
                 raise SQADecodeError(

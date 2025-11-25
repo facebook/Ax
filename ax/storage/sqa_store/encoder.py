@@ -782,9 +782,11 @@ class Encoder:
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
             model_key=generator_run._model_key,
+            # TODO: rename these in the db schema?
+            # We could just wait for the storage refactor instead.
             model_kwargs=(
                 object_to_json(
-                    generator_run._model_kwargs,
+                    generator_run._generator_kwargs,
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
@@ -793,7 +795,7 @@ class Encoder:
             ),
             bridge_kwargs=(
                 object_to_json(
-                    generator_run._bridge_kwargs,
+                    generator_run._adapter_kwargs,
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
