@@ -2220,7 +2220,7 @@ class TestAxOrchestrator(TestCase):
         candidate_trial = orchestrator.experiment.trials[0]
         self.assertEqual(len(candidate_trial.generator_runs), 1)
         self.assertEqual(
-            candidate_trial.generator_runs[0]._model_key,
+            candidate_trial.generator_runs[0]._generator_key,
             Generators.SOBOL.value,
         )
         self.assertEqual(
@@ -2484,7 +2484,7 @@ class TestAxOrchestrator(TestCase):
         self.assertEqual(candidate_trial.status, TrialStatus.CANDIDATE)
         self.assertEqual(len(candidate_trial.generator_runs), 1)
         self.assertEqual(
-            candidate_trial.generator_runs[0]._model_key,
+            candidate_trial.generator_runs[0]._generator_key,
             Generators.BOTORCH_MODULAR.value,
         )
         # MBM may generate less than the requested batch size.

@@ -88,11 +88,11 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
-            self.assertEqual(sobol_run._model_key, "Sobol")
+            self.assertEqual(sobol_run._generator_key, "Sobol")
             exp.new_batch_trial().add_generator_run(sobol_run).run()
         saasbo = Generators.SAASBO(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(saasbo, TorchAdapter)
-        self.assertEqual(saasbo._model_key, "SAASBO")
+        self.assertEqual(saasbo._generator_key, "SAASBO")
         generator = assert_is_instance(saasbo.generator, BoTorchGenerator)
         surrogate_spec = generator.surrogate_spec
         self.assertEqual(

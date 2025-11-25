@@ -630,9 +630,9 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
         return trial_generation_property
 
     generation_methods = {
-        none_throws(generator_run._model_key)
+        none_throws(generator_run._generator_key)
         for generator_run in trial.generator_runs
-        if generator_run._model_key is not None
+        if generator_run._generator_key is not None
     }
 
     # add "Manual" if any generator_runs are manual

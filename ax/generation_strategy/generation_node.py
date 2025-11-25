@@ -72,7 +72,7 @@ MAX_GEN_ATTEMPTS_EXCEEDED_MESSAGE = (
 )
 DEFAULT_FALLBACK: dict[type[Exception], GeneratorSpec] = {
     cast(type[Exception], GenerationStrategyRepeatedPoints): GeneratorSpec(
-        generator_enum=Generators.SOBOL, model_key_override="Fallback_Sobol"
+        generator_enum=Generators.SOBOL, generator_key_override="Fallback_Sobol"
     )
 }
 
@@ -166,8 +166,10 @@ class GenerationNode(SerializationMixin, SortableBase):
     ) -> None:
         self._name = name
         # Check that the model specs have unique model keys.
-        model_keys = {generator_spec.model_key for generator_spec in generator_specs}
-        if len(model_keys) != len(generator_specs):
+        generator_keys = {
+            generator_spec.generator_key for generator_spec in generator_specs
+        }
+        if len(generator_keys) != len(generator_specs):
             raise UserInputError(
                 "Model keys must be unique across all model specs in a GenerationNode."
             )
@@ -220,12 +222,12 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self._generator_spec_to_gen_from
 
     @property
-    def model_to_gen_from_name(self) -> str | None:
-        """Returns the name of the model that will be used for gen, if there is one.
+    def generator_to_gen_from_name(self) -> str | None:
+        """Returns the name of the generator that will be used for gen, if there is one.
         Otherwise, returns None.
         """
         if self._generator_spec_to_gen_from is not None:
-            return self._generator_spec_to_gen_from.model_key
+            return self._generator_spec_to_gen_from.generator_key
         else:
             return None
 
@@ -373,7 +375,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 # If there are other model specs, try to handle gracefully.
                 logger.exception(
                     "Model fitting failed for `GeneratorSpec` "
-                    f"{generator_spec.model_key}. Original error message: {e}."
+                    f"{generator_spec.generator_key}. Original error message: {e}."
                 )
                 # Discard any previously fitted models for this spec.
                 generator_spec._fitted_adapter = None
@@ -614,7 +616,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         for gr in reversed(grs):
             if (
                 gr._generation_node_name == self.name
-                and gr._model_key == generator_spec.model_key
+                and gr._generator_key == generator_spec.generator_key
             ):
                 # Extract the fit args from the GR.
                 return _extract_model_state_after_gen(
@@ -1116,7 +1118,7 @@ class GenerationStep(GenerationNode, SortableBase):
                 model_gen_kwargs=model_gen_kwargs,
             )
         if not generator_name:
-            generator_name = generator_spec.model_key
+            generator_name = generator_spec.generator_key
         self.generator_name: str = generator_name
 
         # Create transition criteria for this step. If num_trials is provided to

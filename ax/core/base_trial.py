@@ -772,9 +772,9 @@ class BaseTrial(ABC, SortableBase):
             return warm_start_model_key
 
         generation_methods = {
-            none_throws(generator_run._model_key)
+            none_throws(generator_run._generator_key)
             for generator_run in self.generator_runs
-            if generator_run._model_key is not None
+            if generator_run._generator_key is not None
         }
 
         # Add generator-run-type strings for non-Adapter generator runs.

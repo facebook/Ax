@@ -105,7 +105,7 @@ class BaseAdapterTest(TestCase):
         self.assertEqual(adapter._training_in_design_idx, [])
         self.assertIsNone(adapter._status_quo)
         self.assertIsNone(adapter._status_quo_name)
-        self.assertIsNone(adapter._model_key)
+        self.assertIsNone(adapter._generator_key)
         self.assertIsNone(adapter._generator_kwargs)
         self.assertIsNone(adapter._adapter_kwargs)
         self.assertEqual(adapter._search_space, exp.search_space)
@@ -238,7 +238,9 @@ class BaseAdapterTest(TestCase):
         )
         oc = get_optimization_config_no_constraints()
         adapter._set_kwargs_to_save(
-            model_key="TestModel", generator_kwargs={}, adapter_kwargs={}
+            generator_key="test_model",
+            generator_kwargs={},
+            adapter_kwargs={},
         )
         # Test input error when generating 0 candidates.
         with self.assertRaisesRegex(UserInputError, "Attempted to generate"):
@@ -253,7 +255,7 @@ class BaseAdapterTest(TestCase):
                 },
                 fixed_features=ObservationFeatures({"x1": -5.0}),
             )
-        self.assertEqual(gr._model_key, "TestModel")
+        self.assertEqual(gr._generator_key, "test_model")
         tf_search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -447,7 +449,7 @@ class BaseAdapterTest(TestCase):
             ),
         )
         adapter._set_kwargs_to_save(
-            model_key="TestModel", generator_kwargs={}, adapter_kwargs={}
+            generator_key="TestModel", generator_kwargs={}, adapter_kwargs={}
         )
         with self.assertLogs("ax", level="INFO") as cm:
             adapter.gen(

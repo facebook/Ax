@@ -507,7 +507,7 @@ class TestAxClient(TestCase):
                 },
             )
         self.assertEqual(
-            none_throws(ax_client.generation_strategy.adapter)._model_key, "BoTorch"
+            none_throws(ax_client.generation_strategy.adapter)._generator_key, "BoTorch"
         )
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
@@ -711,8 +711,9 @@ class TestAxClient(TestCase):
                     ),
                 },
             )
-        # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
+        self.assertEqual(
+            none_throws(ax_client.generation_strategy.adapter)._generator_key, "BoTorch"
+        )
         ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
         trials_df = ax_client.get_trials_data_frame()
@@ -2380,8 +2381,9 @@ class TestAxClient(TestCase):
             num_trials=20, outcome_constraints=outcome_constraints
         )
         ax_client.fit_model()
+        gs = ax_client.generation_strategy
         self.assertEqual(
-            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
+            gs._curr.generator_spec_to_gen_from.generator_key,
             "BoTorch",
         )
 
@@ -2450,8 +2452,9 @@ class TestAxClient(TestCase):
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
+        gs = ax_client.generation_strategy
         self.assertEqual(
-            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
+            gs._curr.generator_spec_to_gen_from.generator_key,
             "Sobol",
         )
 
@@ -2771,7 +2774,7 @@ class TestAxClient(TestCase):
         # Make sure we actually tried a Botorch iteration and all the transforms it
         # applies.
         self.assertEqual(
-            ax_client.generation_strategy._generator_runs[-1]._model_key, "BoTorch"
+            ax_client.generation_strategy._generator_runs[-1]._generator_key, "BoTorch"
         )
         self.assertEqual(len(ax_client.experiment.trials), 6)
         ax_client.attach_trial(
@@ -2994,7 +2997,7 @@ class TestAxClient(TestCase):
         self.assertEqual(
             none_throws(
                 assert_is_instance(ax_client.experiment.trials[0], Trial)._generator_run
-            )._model_key,
+            )._generator_key,
             "Sobol",
         )
         with mock.patch(

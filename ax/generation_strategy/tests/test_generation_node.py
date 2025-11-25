@@ -75,7 +75,8 @@ class TestGenerationNode(TestCase):
         mbm_specs = [
             GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR),
             GeneratorSpec(
-                generator_enum=Generators.BOTORCH_MODULAR, model_key_override="MBM v2"
+                generator_enum=Generators.BOTORCH_MODULAR,
+                generator_key_override="MBM v2",
             ),
         ]
         with self.assertRaisesRegex(UserInputError, MISSING_MODEL_SELECTOR_MESSAGE):
@@ -162,7 +163,7 @@ class TestGenerationNode(TestCase):
                 pending_observations={"branin": []},
             )
             self.assertIsNotNone(gr)
-            self.assertEqual(gr._model_key, self.sobol_generator_spec.model_key)
+            self.assertEqual(gr._generator_key, self.sobol_generator_spec.generator_key)
             generator_kwargs = gr._generator_kwargs
             self.assertIsNotNone(generator_kwargs)
             self.assertEqual(generator_kwargs.get("init_position"), 3)
@@ -273,7 +274,7 @@ class TestGenerationNode(TestCase):
                 ),
             ],
         )
-        self.assertEqual(node.model_to_gen_from_name, "BoTorch")
+        self.assertEqual(node.generator_to_gen_from_name, "BoTorch")
         node._fit(
             experiment=self.branin_experiment,
             data=self.branin_data,
@@ -286,7 +287,7 @@ class TestGenerationNode(TestCase):
             node.generator_spec_to_gen_from.model_kwargs,
             node.generator_specs[0].model_kwargs,
         )
-        self.assertEqual(node.model_to_gen_from_name, "BoTorch")
+        self.assertEqual(node.generator_to_gen_from_name, "BoTorch")
         self.assertEqual(
             node.generator_spec_to_gen_from.model_gen_kwargs,
             node.generator_specs[0].model_gen_kwargs,
@@ -326,7 +327,7 @@ class TestGenerationNode(TestCase):
             string_rep,
             "GenerationNode(name='test', "
             "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
-            "model_key_override=None)], "
+            "generator_key_override=None)], "
             "transition_criteria=[MinTrials(transition_to='None')])",
         )
 
@@ -507,7 +508,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         # May pick either one.
         self.assertIsNotNone(gr)
         self.assertEqual(
-            self.model_selection_node.model_to_gen_from_name, gr._model_key
+            self.model_selection_node.generator_to_gen_from_name, gr._generator_key
         )
         mock_fit.assert_called_with(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()

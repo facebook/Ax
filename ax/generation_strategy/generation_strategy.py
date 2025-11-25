@@ -581,7 +581,7 @@ class GenerationStrategy(Base):
 
             generator_spec = step._generator_spec_to_gen_from
             if generator_spec is not None:
-                model_name = generator_spec.model_key
+                model_name = generator_spec.generator_key
             else:
                 model_name = "model with unknown name"
 
@@ -628,7 +628,7 @@ class GenerationStrategy(Base):
             node_names = (node.name for node in self._nodes)
         else:
             node_names = (
-                node.generator_spec_to_gen_from.model_key for node in self._nodes
+                node.generator_spec_to_gen_from.generator_key for node in self._nodes
             )
             # Trim the "get_" beginning of the factory function if it's there.
             node_names = (n[4:] if n[:4] == "get_" else n for n in node_names)

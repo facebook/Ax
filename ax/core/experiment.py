@@ -1477,7 +1477,7 @@ class Experiment(Base):
             # Associates a generation_model_key to the new trial.
             generation_model_key = trial._properties.get("generation_model_key")
             if generation_model_key is None and trial.generator_run is not None:
-                generation_model_key = trial.generator_run._model_key or "Manual"
+                generation_model_key = trial.generator_run._generator_key or "Manual"
             new_trial._properties["generation_model_key"] = generation_model_key
 
             # Copy all run_metadata by default.

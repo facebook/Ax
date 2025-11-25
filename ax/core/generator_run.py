@@ -92,7 +92,7 @@ class GeneratorRun(SortableBase):
         type: str | None = None,
         fit_time: float | None = None,
         gen_time: float | None = None,
-        model_key: str | None = None,
+        generator_key: str | None = None,
         generator_kwargs: dict[str, Any] | None = None,
         adapter_kwargs: dict[str, Any] | None = None,
         gen_metadata: TGenMetadata | None = None,
@@ -120,7 +120,7 @@ class GeneratorRun(SortableBase):
                 this generator run. For models with multiple invocations of gen, this is
                 typically the fitting time since the last call to gen.
             gen_time: Optional number of seconds generation took.
-            model_key: Optional name of the model that was used to produce this
+            generator_key: Optional name of the generator that was used to produce this
                 generator run.
             generator_kwargs: Optional dictionary of keyword arguments to the generator
                 that was used to produce this generator run.
@@ -159,9 +159,10 @@ class GeneratorRun(SortableBase):
                 f"{len(arms)}, weights have length {len(weights)}."
             )
         if adapter_kwargs is not None or generator_kwargs is not None:
-            if model_key is None:
+            if generator_key is None:
                 raise ValueError(
-                    "Model key is required if generator or adapterkwargs are provided."
+                    "Generator key is required if generator or adapter kwargs "
+                    "are provided."
                 )
             if adapter_kwargs is None or generator_kwargs is None:
                 raise ValueError(
@@ -179,7 +180,7 @@ class GeneratorRun(SortableBase):
         self._best_arm_predictions = best_arm_predictions
         self._fit_time = fit_time
         self._gen_time = gen_time
-        self._model_key = model_key
+        self._generator_key = generator_key
         self._generator_kwargs = generator_kwargs
         self._adapter_kwargs = adapter_kwargs
         self._gen_metadata = gen_metadata
@@ -336,7 +337,7 @@ class GeneratorRun(SortableBase):
             type=self.generator_run_type,
             fit_time=self.fit_time,
             gen_time=self.gen_time,
-            model_key=self._model_key,
+            generator_key=self._generator_key,
             generator_kwargs=self._generator_kwargs,
             adapter_kwargs=self._adapter_kwargs,
             gen_metadata=self._gen_metadata,
@@ -346,7 +347,7 @@ class GeneratorRun(SortableBase):
             generation_node_name=self._generation_node_name,
         )
         generator_run._time_created = self._time_created
-        generator_run._model_key = self._model_key
+        generator_run._generator_key = self._generator_key
         generator_run._generator_kwargs = (
             self._generator_kwargs.copy()
             if self._generator_kwargs is not None

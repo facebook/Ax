@@ -427,7 +427,7 @@ class TestClient(TestCase):
         self.assertEqual(len(trials), 1)
         self.assertIn(0, trials)
         trial = client._experiment.trials[0]
-        self.assertEqual(trial.generator_runs[0]._model_key, "Sobol")
+        self.assertEqual(trial.generator_runs[0]._generator_key, "Sobol")
         client.complete_trial(
             trial_index=trial.index, raw_data={"foo": (random.random(), 1.0)}
         )
@@ -452,7 +452,7 @@ class TestClient(TestCase):
         self.assertEqual(len(trials), 1)
         self.assertIn(2, trials)
         trial = client2._experiment.trials[2]
-        self.assertEqual(trial.generator_runs[0]._model_key, "BoTorch")
+        self.assertEqual(trial.generator_runs[0]._generator_key, "BoTorch")
 
     def test_attach_data(self) -> None:
         client = Client()
