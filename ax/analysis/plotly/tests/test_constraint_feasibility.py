@@ -162,6 +162,7 @@ class TestConstraintFeasibilityPlot(TestCase):
 
         expected_columns = {
             "trial_index",
+            "arm_name",
             "trial_status",
             "generation_node",
             "overall p(feasible)",
