@@ -538,10 +538,10 @@ class TestGenerationStrategy(TestCase):
                 self.mock_torch_adapter.assert_called()
             else:
                 self.assertEqual(g._model_key, "Sobol")
-                mkw = g._model_kwargs
-                self.assertIsNotNone(mkw)
+                generator_kwargs = g._generator_kwargs
+                self.assertIsNotNone(generator_kwargs)
                 self.assertEqual(
-                    mkw,
+                    generator_kwargs,
                     {
                         "seed": expected_seed,
                         "deduplicate": True,
@@ -553,7 +553,7 @@ class TestGenerationStrategy(TestCase):
                     },
                 )
                 self.assertEqual(
-                    g._bridge_kwargs,
+                    g._adapter_kwargs,
                     {
                         "optimization_config": None,
                         "transform_configs": None,
@@ -1475,9 +1475,8 @@ class TestGenerationStrategy(TestCase):
                 self.mock_torch_adapter.assert_called()
             else:
                 self.assertEqual(g._model_key, "Sobol")
-                mkw = g._model_kwargs
                 self.assertEqual(
-                    mkw,
+                    g._generator_kwargs,
                     {
                         "seed": expected_seed,
                         "deduplicate": True,
@@ -1489,7 +1488,7 @@ class TestGenerationStrategy(TestCase):
                     },
                 )
                 self.assertEqual(
-                    g._bridge_kwargs,
+                    g._adapter_kwargs,
                     {
                         "optimization_config": None,
                         "transform_configs": None,

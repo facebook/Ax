@@ -75,9 +75,9 @@ class GeneratorRunTest(TestCase):
             )
 
         with self.assertRaises(ValueError):
-            GeneratorRun(arms=self.arms, model_kwargs={"a": 1})
+            GeneratorRun(arms=self.arms, generator_kwargs={"a": 1})
         with self.assertRaises(ValueError):
-            GeneratorRun(arms=self.arms, model_key="b", bridge_kwargs={"a": 1})
+            GeneratorRun(arms=self.arms, model_key="b", adapter_kwargs={"a": 1})
 
         # Check that an error will be raised if cand. metadata contains an arm
         # signature that doesn't match any arms in generator run.
