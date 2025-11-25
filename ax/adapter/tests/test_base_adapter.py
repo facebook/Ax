@@ -238,7 +238,7 @@ class BaseAdapterTest(TestCase):
         )
         oc = get_optimization_config_no_constraints()
         adapter._set_kwargs_to_save(
-            model_key="TestModel", model_kwargs={}, bridge_kwargs={}
+            model_key="TestModel", generator_kwargs={}, adapter_kwargs={}
         )
         # Test input error when generating 0 candidates.
         with self.assertRaisesRegex(UserInputError, "Attempted to generate"):
@@ -447,7 +447,7 @@ class BaseAdapterTest(TestCase):
             ),
         )
         adapter._set_kwargs_to_save(
-            model_key="TestModel", model_kwargs={}, bridge_kwargs={}
+            model_key="TestModel", generator_kwargs={}, adapter_kwargs={}
         )
         with self.assertLogs("ax", level="INFO") as cm:
             adapter.gen(

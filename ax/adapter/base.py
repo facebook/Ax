@@ -1037,17 +1037,17 @@ class Adapter:
     def _set_kwargs_to_save(
         self,
         model_key: str,
-        model_kwargs: dict[str, Any],
-        bridge_kwargs: dict[str, Any],
+        generator_kwargs: dict[str, Any],
+        adapter_kwargs: dict[str, Any],
     ) -> None:
-        """Set properties used to save the model that created a given generator
+        """Set properties used to save the generator that created a given generator
         run, on the `GeneratorRun` object. Each generator run produced by the
         `gen` method of this adapter will have the model key and kwargs
         fields set as provided in arguments to this function.
         """
         self._model_key = model_key
-        self._model_kwargs = model_kwargs
-        self._bridge_kwargs = bridge_kwargs
+        self._model_kwargs = generator_kwargs
+        self._bridge_kwargs = adapter_kwargs
 
     def _get_serialized_model_state(self) -> dict[str, Any]:
         """Obtains the state of the underlying generator (if using a stateful one)
