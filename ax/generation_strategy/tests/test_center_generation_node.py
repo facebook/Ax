@@ -7,6 +7,7 @@
 # pyre-strict
 
 
+from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.parameter import (
@@ -23,14 +24,33 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyRepeatedPoints,
 )
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
-from ax.generation_strategy.generation_node import logger
-from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
+    AutoTransitionAfterGenOrExhaustion,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from pyre_extensions import none_throws
 
 
 class TestCenterGenerationNode(TestCase):
+    def _create_center_to_sobol_gs(self, exp: Experiment) -> GenerationStrategy:
+        """Helper to create a GenerationStrategy with CenterGenerationNode -> Sobol."""
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                CenterGenerationNode(next_node_name="sobol"),
+                GenerationNode(
+                    name="sobol",
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
+                ),
+            ],
+        )
+        gs.experiment = exp
+        return gs
+
     def test_center_generation(self) -> None:
         ss = SearchSpace(
             parameters=[
@@ -70,7 +90,7 @@ class TestCenterGenerationNode(TestCase):
         self.assertEqual(
             node.transition_criteria,
             [
-                AutoTransitionAfterGen(
+                AutoTransitionAfterGenOrExhaustion(
                     transition_to="test", continue_trial_generation=False
                 )
             ],
@@ -87,12 +107,18 @@ class TestCenterGenerationNode(TestCase):
         )
 
     def test_deduplication(self) -> None:
+        """Test that CenterGenerationNode skips generation when center already exists.
+
+        Previously, this would fallback to Sobol. It now skips generation and allows
+        transition to the next node.
+        """
         exp = get_branin_experiment()
         exp.new_trial().add_arm(arm=Arm({"x1": 2.5, "x2": 7.5})).run()
         node = CenterGenerationNode(next_node_name="test")
-        gr = none_throws(node.gen(experiment=exp, pending_observations=None))
-        # The existing arm is the center of search space
-        self.assertEqual(gr._model_key, "Fallback_Sobol")
+        gr = node.gen(experiment=exp, pending_observations=None)
+        # The existing arm is the center of search space, so we skip generation
+        self.assertIsNone(gr)
+        self.assertTrue(node._should_skip)
 
     def test_repr(self) -> None:
         node = CenterGenerationNode(next_node_name="test")
@@ -115,6 +141,11 @@ class TestCenterGenerationNode(TestCase):
         self.assertEqual(node, node2)
 
     def test_with_constraints(self) -> None:
+        """Test that CenterGenerationNode skips when center is infeasible.
+
+        Previously, this would fallback to Sobol. It now skips generation and allows
+        transition to the next node when the center violates parameter constraints.
+        """
         ss = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -140,15 +171,75 @@ class TestCenterGenerationNode(TestCase):
             set(node.fallback_specs.keys()),
             {AxGenerationException, GenerationStrategyRepeatedPoints},
         )
-        # Generate and check for Sobol fallback.
         exp = Experiment(search_space=ss)
-        with self.assertLogs(logger=logger) as logs:
-            gr = none_throws(node.gen(experiment=exp, pending_observations=None))
-        self.assertTrue(
-            any(
-                "Center of the search space does not satisfy parameter constraints."
-                in log.message
-                for log in logs.records
-            )
+        gr = node.gen(experiment=exp, pending_observations=None)
+        # Center is infeasible, so we skip generation
+        self.assertIsNone(gr)
+        self.assertTrue(node._should_skip)
+
+    def test_with_custom_trials_containing_center(self) -> None:
+        """Test CenterGenerationNode transitions when custom trials contain the center.
+
+        This test validates the fix for the issue where CenterGenerationNode would
+        fail with a fallback to Sobol when custom trials already contained the center
+        point, instead of transitioning to the next node.
+        """
+        exp = get_branin_experiment()
+
+        # Add a custom trial with the center point of the search space
+        center_arm = Arm(parameters={"x1": 2.5, "x2": 7.5})
+        exp.new_trial().add_arm(arm=center_arm)
+
+        gs = self._create_center_to_sobol_gs(exp)
+
+        # Execute: Generate the first trial
+        gr = gs.gen(experiment=exp, n=1)[0]
+
+        # Assert: CenterGenerationNode should skip generation and transition to Sobol
+        # (not use the Fallback_Sobol)
+        self.assertEqual(len(gr), 1)
+        self.assertEqual(gr[0]._generation_node_name, "sobol")
+        self.assertEqual(gr[0]._model_key, "Sobol")  # Regular Sobol, not Fallback
+        self.assertEqual(gs.current_node_name, "sobol")
+
+    def test_with_infeasible_center(self) -> None:
+        """Test CenterGenerationNode transitions when the center is infeasible.
+
+        This test validates that CenterGenerationNode properly transitions to the next
+        node when the center point violates parameter constraints, instead of using
+        a Sobol fallback.
+        """
+        # Setup: Create a search space where the center violates constraints
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=-5.0,
+                    upper=10.0,
+                ),
+                RangeParameter(
+                    name="x2",
+                    parameter_type=ParameterType.INT,
+                    lower=10.0,
+                    upper=100.0,
+                ),
+            ],
+            parameter_constraints=[
+                # Constraint that makes center (x1=2.5, x2=55) infeasible: x1 <= 0
+                ParameterConstraint(constraint_dict={"x1": 1.0}, bound=0.0)
+            ],
         )
-        self.assertEqual(gr._model_key, "Fallback_Sobol")
+
+        exp = Experiment(search_space=ss)
+        gs = self._create_center_to_sobol_gs(exp)
+
+        # Execute: Generate the first trial
+        gr = gs.gen(experiment=exp, n=1)[0]
+
+        # Assert: CenterGenerationNode should skip and transition to Sobol
+        # Since the center is infeasible, it should skip and go straight to sobol
+        self.assertEqual(len(gr), 1)
+        self.assertEqual(gr[0]._generation_node_name, "sobol")
+        self.assertEqual(gr[0]._model_key, "Sobol")
+        self.assertEqual(gs.current_node_name, "sobol")

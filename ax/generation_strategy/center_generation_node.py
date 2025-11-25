@@ -8,10 +8,14 @@
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 from ax.adapter.registry import Generators
+from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -23,7 +27,9 @@ from ax.core.types import TParameterization
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
+from ax.generation_strategy.transition_criterion import (
+    AutoTransitionAfterGenOrExhaustion,
+)
 from pyre_extensions import none_throws
 
 
@@ -43,7 +49,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         super().__init__(
             name="CenterOfSearchSpace",
             transition_criteria=[
-                AutoTransitionAfterGen(
+                AutoTransitionAfterGenOrExhaustion(
                     transition_to=next_node_name,
                     continue_trial_generation=False,
                 )
@@ -59,8 +65,91 @@ class CenterGenerationNode(ExternalGenerationNode):
             **self.fallback_specs,  # This includes the default fallbacks.
         }
 
+    def gen(
+        self,
+        experiment: Experiment,
+        data: Data | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        skip_fit: bool = False,
+        **gs_gen_kwargs: Any,
+    ) -> GeneratorRun | None:
+        """Generate candidates or skip if search space is exhausted.
+
+        This method checks if the center point already exists or is infeasible
+        before attempting generation. If so, it sets _should_skip to True and
+        returns None, allowing the generation strategy to transition to the next node.
+        """
+        # Check if center already exists or is infeasible
+        self.search_space = experiment.search_space
+        center_params = self._compute_center_params()
+        if center_params is not None:
+            search_space = none_throws(self.search_space)
+
+            # Check if center already exists in experiment
+            center_arm = Arm(parameters=center_params)
+            if center_arm.signature in experiment.arms_by_signature:
+                self._should_skip = True
+                return None
+
+            # Check if center violates parameter constraints
+            if not search_space.check_membership(parameterization=center_params):
+                self._should_skip = True
+                return None
+
+        # Otherwise, proceed with normal generation
+        return super().gen(
+            experiment=experiment,
+            data=data,
+            pending_observations=pending_observations,
+            skip_fit=skip_fit,
+            **gs_gen_kwargs,
+        )
+
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         self.search_space = experiment.search_space
+
+    def _compute_center_params(self) -> TParameterization | None:
+        """Compute the center of the search space without checking constraints.
+
+        Returns None if the search space is not set yet or if computing the center
+        raises an exception (e.g., logit_scale not supported).
+        """
+        if self.search_space is None:
+            return None
+
+        try:
+            search_space = none_throws(self.search_space)
+            parameters = {}
+            derived_params = []
+            for name, p in search_space.parameters.items():
+                if isinstance(p, RangeParameter):
+                    if p.logit_scale:
+                        return None
+                    if p.log_scale:
+                        center = 10 ** (
+                            (math.log10(p.lower) + math.log10(p.upper)) / 2.0
+                        )
+                    else:
+                        center = (float(p.lower) + float(p.upper)) / 2.0
+                    parameters[name] = p.cast(center)
+                elif isinstance(p, ChoiceParameter):
+                    parameters[name] = p.values[int(len(p.values) / 2)]
+                elif isinstance(p, FixedParameter):
+                    parameters[name] = p.value
+                elif isinstance(p, DerivedParameter):
+                    derived_params.append(p)
+                else:
+                    return None
+
+            for p in derived_params:
+                parameters[p.name] = p.compute(parameters=parameters)
+
+            if search_space.is_hierarchical:
+                parameters = search_space._cast_parameterization(parameters=parameters)
+
+            return parameters
+        except Exception:
+            return None
 
     def get_next_candidate(
         self, pending_parameters: list[TParameterization]
@@ -78,29 +167,13 @@ class CenterGenerationNode(ExternalGenerationNode):
         Fixed parameters are returned at their only allowed value.
         """
         search_space = none_throws(self.search_space)
-        parameters = {}
-        derived_params = []
-        for name, p in search_space.parameters.items():
-            if isinstance(p, RangeParameter):
-                if p.logit_scale:
-                    raise NotImplementedError(f"`logit_scale` is not supported. {p=}")
-                if p.log_scale:
-                    center = 10 ** ((math.log10(p.lower) + math.log10(p.upper)) / 2.0)
-                else:
-                    center = (float(p.lower) + float(p.upper)) / 2.0
-                parameters[name] = p.cast(center)
-            elif isinstance(p, ChoiceParameter):
-                parameters[name] = p.values[int(len(p.values) / 2)]
-            elif isinstance(p, FixedParameter):
-                parameters[name] = p.value
-            elif isinstance(p, DerivedParameter):
-                derived_params.append(p)
-            else:
-                raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
-        for p in derived_params:
-            parameters[p.name] = p.compute(parameters=parameters)
-        if search_space.is_hierarchical:
-            parameters = search_space._cast_parameterization(parameters=parameters)
+        parameters = self._compute_center_params()
+
+        if parameters is None:
+            raise NotImplementedError(
+                "Unable to compute center of the search space. This may be due to "
+                "unsupported parameter types or logit_scale parameters."
+            )
 
         # Check for search space membership, which will check if the generated
         # point satisfies the parameter constraints.
