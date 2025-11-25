@@ -1098,11 +1098,11 @@ class JSONStoreTest(TestCase):
         generator_run = object_from_json(json)
         self.assertIsInstance(generator_run, GeneratorRun)
         self.assertEqual(
-            generator_run._model_kwargs,
+            generator_run._generator_kwargs,
             {"deduplicate": False, "seed": None},
         )
         self.assertEqual(
-            generator_run._bridge_kwargs,
+            generator_run._adapter_kwargs,
             {
                 "transforms": {},
                 "transform_configs": None,

@@ -181,8 +181,8 @@ class Adapter:
         self._status_quo_name: str | None = None
         self.transforms: MutableMapping[str, Transform] = OrderedDict()
         self._model_key: str | None = None
-        self._model_kwargs: dict[str, Any] | None = None
-        self._bridge_kwargs: dict[str, Any] | None = None
+        self._generator_kwargs: dict[str, Any] | None = None
+        self._adapter_kwargs: dict[str, Any] | None = None
         self._fit_tracking_metrics = fit_tracking_metrics
         self.outcomes: list[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
@@ -916,8 +916,8 @@ class Adapter:
             fit_time=self.fit_time_since_gen,
             gen_time=time.monotonic() - t_gen_start,
             model_key=self._model_key,
-            model_kwargs=self._model_kwargs,
-            bridge_kwargs=self._bridge_kwargs,
+            generator_kwargs=self._generator_kwargs,
+            adapter_kwargs=self._adapter_kwargs,
             gen_metadata=gen_metadata,
             model_state_after_gen=self._get_serialized_model_state(),
             candidate_metadata_by_arm_signature=candidate_metadata,
@@ -1037,17 +1037,17 @@ class Adapter:
     def _set_kwargs_to_save(
         self,
         model_key: str,
-        model_kwargs: dict[str, Any],
-        bridge_kwargs: dict[str, Any],
+        generator_kwargs: dict[str, Any],
+        adapter_kwargs: dict[str, Any],
     ) -> None:
-        """Set properties used to save the model that created a given generator
+        """Set properties used to save the generator that created a given generator
         run, on the `GeneratorRun` object. Each generator run produced by the
         `gen` method of this adapter will have the model key and kwargs
         fields set as provided in arguments to this function.
         """
         self._model_key = model_key
-        self._model_kwargs = model_kwargs
-        self._bridge_kwargs = bridge_kwargs
+        self._generator_kwargs = generator_kwargs
+        self._adapter_kwargs = adapter_kwargs
 
     def _get_serialized_model_state(self) -> dict[str, Any]:
         """Obtains the state of the underlying generator (if using a stateful one)
