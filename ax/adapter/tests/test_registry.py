@@ -216,12 +216,12 @@ class ModelRegistryTest(TestCase):
         kwarg.
         """
         for model_setup_info in MODEL_KEY_TO_MODEL_SETUP.values():
-            model_class = model_setup_info.model_class
+            generator_class = model_setup_info.generator_class
             adapter_class = model_setup_info.adapter_class
-            model_args = set(get_function_argument_names(model_class))
-            bridge_args = set(get_function_argument_names(adapter_class))
+            generator_args = set(get_function_argument_names(generator_class))
+            adapter_args = set(get_function_argument_names(adapter_class))
             # Intersection of two sets should be empty
-            self.assertEqual(model_args & bridge_args, set())
+            self.assertEqual(adapter_args & generator_args, set())
 
     @mock_botorch_optimize
     def test_ST_MTGP(self, use_saas: bool = False) -> None:
@@ -317,12 +317,12 @@ class ModelRegistryTest(TestCase):
         expected_state = sobol.generator._get_state()
         self.assertEqual(gr._model_state_after_gen, expected_state)
         extracted = _extract_model_state_after_gen(
-            generator_run=gr, model_class=SobolGenerator
+            generator_run=gr, generator_class=SobolGenerator
         )
         self.assertEqual(extracted, expected_state)
         # Test with empty state.
         gr._model_state_after_gen = None
         extracted = _extract_model_state_after_gen(
-            generator_run=gr, model_class=SobolGenerator
+            generator_run=gr, generator_class=SobolGenerator
         )
         self.assertEqual(extracted, {})

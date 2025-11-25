@@ -483,7 +483,7 @@ def choose_generation_strategy_legacy(
             jit_compile = None
 
         model_kwargs: dict[str, Any] = {"torch_device": torch_device}
-        if suggested_model.model_class is BoTorchGenerator:
+        if suggested_model.generator_class is BoTorchGenerator:
             model_kwargs["acquisition_options"] = {
                 "prune_irrelevant_parameters": simplify_parameter_changes
             }
