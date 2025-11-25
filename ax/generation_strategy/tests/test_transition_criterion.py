@@ -23,6 +23,7 @@ from ax.generation_strategy.generation_strategy import (
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
+    AutoTransitionAfterGenOrExhaustion,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
@@ -373,6 +374,63 @@ class TestTransitionCriterion(TestCase):
             .is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
+    def test_auto_transition_after_gen_or_exhaustion(self) -> None:
+        """Test AutoTransitionAfterGenOrExhaustion criterion works"""
+        experiment = self.branin_experiment
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    name="sobol_1",
+                    generator_specs=[self.sobol_generator_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenOrExhaustion(transition_to="sobol_2")
+                    ],
+                ),
+                GenerationNode(
+                    name="sobol_2", generator_specs=[self.sobol_generator_spec]
+                ),
+            ],
+        )
+        gs.experiment = experiment
+
+        # Generate from first node
+        gs.gen(experiment=experiment)
+        self.assertEqual(gs.current_node_name, "sobol_1")
+
+        # Should transition to next node on next gen
+        gs.gen(experiment=experiment)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+
+    def test_auto_transition_after_gen_or_exhaustion_with_should_skip(self) -> None:
+        """Test AutoTransitionAfterGenOrExhaustion criterion with _should_skip flag"""
+        experiment = self.branin_experiment
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    name="sobol_1",
+                    generator_specs=[self.sobol_generator_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenOrExhaustion(transition_to="sobol_2")
+                    ],
+                ),
+                GenerationNode(
+                    name="sobol_2", generator_specs=[self.sobol_generator_spec]
+                ),
+            ],
+        )
+
+        # Set _should_skip flag to simulate exhausted search space
+        gs._nodes[0]._should_skip = True
+
+        # Criterion should be met even without generation
+        self.assertTrue(
+            gs._nodes[0]
+            .transition_criteria[0]
+            .is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
     def test_is_single_objective_does_not_transition(self) -> None:
         exp = self.branin_experiment
         exp.optimization_config = get_branin_multi_objective_optimization_config()
@@ -559,5 +617,5 @@ class TestTransitionCriterion(TestCase):
             str(auto_transition),
             "AutoTransitionAfterGen({'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': True, "
-            + "'continue_trial_generation': True})",
+            + "'continue_trial_generation': False})",
         )
