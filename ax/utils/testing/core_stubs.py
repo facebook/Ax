@@ -2650,6 +2650,7 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(self, early_stop_trials: dict[int, str | None] | None = None) -> None:
+        super().__init__()
         self.early_stop_trials: dict[int, str | None] = early_stop_trials or {}
 
     def _is_harmful(

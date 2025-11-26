@@ -44,6 +44,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         interval: float | None = None,
+        check_safe: bool = False,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
 
@@ -79,6 +80,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 eligible on first check. If checked again at progression 18, it's not
                 eligible (both in interval [10, 20)). Once it reaches progression 21,
                 it's eligible again (crossed into interval [20, 30)).
+            check_safe: If True, applies the relevant safety checks to gate
+                early-stopping when it is likely to be harmful. If False (default),
+                bypasses the safety check and directly applies early-stopping decisions.
         """
         # Validate interval
         if interval is not None and not interval > 0:
@@ -105,6 +109,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.trial_indices_to_ignore = trial_indices_to_ignore
         self.normalize_progressions = normalize_progressions
         self.interval = interval
+        self.check_safe = check_safe
         # Track the last progression value where each trial was checked
         self._last_check_progressions: dict[int, float] = {}
 
@@ -174,19 +179,18 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Returns:
             A dictionary mapping trial indices that should be early stopped to
             (optional) messages with the associated reason. Returns an empty
-            dictionary if early stopping would be harmful.
+            dictionary if early stopping would be harmful (when safety check is
+            enabled).
         """
-        return (
-            self._should_stop_trials_early(
-                trial_indices=trial_indices,
-                experiment=experiment,
-                current_node=current_node,
-            )
-            if not self._is_harmful(
-                trial_indices=trial_indices,
-                experiment=experiment,
-            )
-            else {}
+        if self.check_safe and self._is_harmful(
+            trial_indices=trial_indices,
+            experiment=experiment,
+        ):
+            return {}
+        return self._should_stop_trials_early(
+            trial_indices=trial_indices,
+            experiment=experiment,
+            current_node=current_node,
         )
 
     def estimate_early_stopping_savings(self, experiment: Experiment) -> float:
@@ -593,6 +597,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         normalize_progressions: bool = False,
         min_progression_modeling: float | None = None,
         interval: float | None = None,
+        check_safe: bool = False,
     ) -> None:
         """A ModelBasedEarlyStoppingStrategy class.
 
@@ -640,6 +645,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             trial_indices_to_ignore=trial_indices_to_ignore,
             normalize_progressions=normalize_progressions,
             interval=interval,
+            check_safe=check_safe,
         )
         self.min_progression_modeling = min_progression_modeling
 
