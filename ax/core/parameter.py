@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import math
 from abc import ABCMeta, abstractmethod, abstractproperty
 from copy import deepcopy
 from enum import Enum
@@ -20,7 +21,6 @@ from ax.core.types import TNumeric, TParameterization, TParamValue
 from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-
 from ax.utils.common.string_utils import sanitize_name, unsanitize_name
 from pyre_extensions import assert_is_instance, none_throws
 from sympy.core.add import Add
@@ -447,7 +447,7 @@ class RangeParameter(Parameter):
 
     @property
     def log_scale(self) -> bool:
-        """Whether the parameter's random values should be sampled from log space."""
+        """Whether the parameter's values should be sampled from log space."""
         return self._log_scale
 
     @property
@@ -629,6 +629,8 @@ class ChoiceParameter(Parameter):
         sort_values: Whether to sort ``values`` before encoding.
             Defaults to False if ``parameter_type`` is STRING, else
             True.
+        log_scale: Whether to sample choice values from log space. Only valid
+            for numerical (int or float) parameters with all positive values.
         dependents: Optional mapping for parameters in hierarchical search
             spaces; format is { value -> list of dependent parameter names }.
         bypass_cardinality_check: Whether to bypass the cardinality check
@@ -650,6 +652,7 @@ class ChoiceParameter(Parameter):
         is_fidelity: bool = False,
         target_value: TParamValue = None,
         sort_values: bool | None = None,
+        log_scale: bool | None = None,
         dependents: dict[TParamValue, list[str]] | None = None,
         bypass_cardinality_check: bool = False,
         backfill_value: TParamValue = None,
@@ -720,6 +723,34 @@ class ChoiceParameter(Parameter):
             values = cast(list[TParamValue], sorted([none_throws(v) for v in values]))
         self._values: list[TParamValue] = self._cast_values(values)
 
+        # Auto-detect log_scale if not explicitly set
+        if log_scale is None:
+            log_scale = self._get_default_log_scale(
+                values=self._values, parameter_type=parameter_type
+            )
+
+        # Validate log_scale constraints
+        if log_scale:
+            if not parameter_type.is_numeric:
+                raise UserInputError(
+                    f"log_scale is only supported for numerical parameters. "
+                    f"Parameter {name} has type {parameter_type.name}."
+                )
+            # Check that all values are positive
+            for value in self._values:
+                if float(value) <= 0:
+                    raise UserInputError(
+                        f"log_scale requires all values to be positive. "
+                        f"Parameter {name} has value {value} which is <= 0."
+                    )
+            # Check that parameter is ordered -- doesn't make sense for categoricals.
+            if not self._is_ordered:
+                raise UserInputError(
+                    f"log_scale is only supported for ordered parameters. "
+                    f"Parameter {name} has is_ordered=False."
+                )
+        self._log_scale: bool = log_scale
+
         if dependents:
             for value in dependents:
                 if value not in self.values:
@@ -763,6 +794,67 @@ class ChoiceParameter(Parameter):
         )
         return default_bool
 
+    def _get_default_log_scale(
+        self, values: list[TParamValue], parameter_type: ParameterType
+    ) -> bool:
+        """Get the default value for log_scale.
+
+        Returns True if all values are positive and any of the following
+        heuristics is satisfied:
+        1. Exponential spacing (generalized): Values follow the pattern c * base^p
+           where c is a constant, base is inferred from the data, and p are integers
+           (possibly with some skipped). This handles:
+           - Equal ratios: [2, 4, 8, 16] = [2^1, 2^2, 2^3, 2^4]
+           - Skipped powers: [64, 128, 512] = [2^6, 2^7, 2^9]
+           - Constant factor: [10, 20, 40, 80] = 10 * [2^0, 2^1, 2^2, 2^3]
+           - Any base: [3, 9, 27] = [3^1, 3^2, 3^3]
+        2. Spans orders of magnitude: Values span at least 2 orders of magnitude
+           (e.g., 0.01 to 1.0 or 1 to 100). This also captures cases where
+           max/min >= 100.
+
+        Args:
+            values: List of parameter values to check.
+            parameter_type: The parameter type.
+
+        Returns:
+            True if values should be modeled in log-scale, False otherwise.
+        """
+        if not parameter_type.is_numeric or not self._is_ordered:
+            # Only numeric types & ordered parameters can have log-scale.
+            return False
+        if len(values) < 3:
+            # Need at least 3 values to detect a pattern.
+            return False
+        vals = [float(v) for v in values]  # refine type.
+        if any(v <= 0.0 for v in vals):
+            # All values must be positive.
+            return False
+
+        # Heuristic 1: Generalized exponential spacing
+        # Infer the base from the ratio of first two values, then check if all
+        # values follow the pattern c * base^p for some constant c and integer powers p.
+        # If values are of the form c * base^p, then log_base(v) = log_base(c) + p.
+        # The fractional parts of log_base(v) should all be approximately equal.
+        inferred_base = vals[1] / vals[0]
+        log_vals = [math.log(val) / math.log(inferred_base) for val in vals]
+        fractional_parts = [log_val - round(log_val) for log_val in log_vals]
+
+        # Check if all fractional parts are approximately equal
+        first_frac = fractional_parts[0]
+        # Allow 0.1 tolerance in the fractional part
+        if all(abs(frac - first_frac) < 0.1 for frac in fractional_parts):
+            return True
+
+        # Heuristic 2: Spans orders of magnitude
+        # Check if values span at least 2 orders of magnitude.
+        log_min = math.floor(math.log10(vals[0]))
+        log_max = math.floor(math.log10(vals[-1]))
+        orders_spanned = log_max - log_min
+        if orders_spanned >= 2:
+            return True
+
+        return False
+
     def cardinality(self) -> float:
         return len(self.values)
 
@@ -781,6 +873,11 @@ class ChoiceParameter(Parameter):
     @property
     def values(self) -> list[TParamValue]:
         return self._values
+
+    @property
+    def log_scale(self) -> bool:
+        """Whether the parameter's values should be sampled from log space."""
+        return self._log_scale
 
     def set_values(self, values: list[TParamValue]) -> ChoiceParameter:
         """Set the list of allowed values for parameter.
@@ -852,6 +949,7 @@ class ChoiceParameter(Parameter):
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
             sort_values=self._sort_values,
+            log_scale=self._log_scale,
             dependents=deepcopy(self._dependents),
             bypass_cardinality_check=self._bypass_cardinality_check,
             backfill_value=self._backfill_value,
@@ -874,6 +972,7 @@ class ChoiceParameter(Parameter):
             "is_hierarchical",
             "is_task",
             "sort_values",
+            "log_scale",
         ]
 
     @property

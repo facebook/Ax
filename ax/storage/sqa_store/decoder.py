@@ -440,6 +440,7 @@ class Decoder:
                 target_value=target_value,
                 is_ordered=parameter_sqa.is_ordered,
                 is_task=bool(parameter_sqa.is_task),
+                log_scale=parameter_sqa.log_scale,
                 dependents=parameter_sqa.dependents,
                 backfill_value=parameter_sqa.backfill_value,
                 default_value=parameter_sqa.default_value,
