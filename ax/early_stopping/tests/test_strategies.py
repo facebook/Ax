@@ -489,6 +489,60 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             self.assertEqual(strategy.min_progression, 0)
             self.assertEqual(strategy.max_progression, 5.0)
 
+    def test_check_safe_parameter(self) -> None:
+        """Test that check_safe parameter controls whether _is_harmful is called."""
+        experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        trial_indices = {0, 1}
+
+        with self.subTest("check_safe_false_bypasses_is_harmful"):
+            # Setup: Create strategy with check_safe=False (default)
+            strategy = FakeStrategy(check_safe=False)
+
+            # Execute: Patch _is_harmful to verify it's not called
+            with patch.object(strategy, "_is_harmful") as mock_is_harmful:
+                strategy.should_stop_trials_early(
+                    trial_indices=trial_indices,
+                    experiment=experiment,
+                )
+
+                # Assert: _is_harmful should not be called when check_safe=False
+                mock_is_harmful.assert_not_called()
+
+        with self.subTest("check_safe_true_calls_is_harmful"):
+            # Setup: Create strategy with check_safe=True
+            strategy = FakeStrategy(check_safe=True)
+
+            # Execute: Patch _is_harmful to verify it's called
+            with patch.object(
+                strategy, "_is_harmful", return_value=False
+            ) as mock_is_harmful:
+                strategy.should_stop_trials_early(
+                    trial_indices=trial_indices,
+                    experiment=experiment,
+                )
+
+                # Assert: _is_harmful should be called when check_safe=True
+                mock_is_harmful.assert_called_once_with(
+                    trial_indices=trial_indices,
+                    experiment=experiment,
+                )
+
+        with self.subTest("check_safe_true_returns_empty_dict_when_harmful"):
+            # Setup: Create strategy with check_safe=True
+            strategy = FakeStrategy(check_safe=True)
+
+            # Execute: Patch _is_harmful to return True (indicating harmful)
+            with patch.object(strategy, "_is_harmful", return_value=True):
+                result = strategy.should_stop_trials_early(
+                    trial_indices=trial_indices,
+                    experiment=experiment,
+                )
+
+                # Assert: Should return empty dict when early stopping is harmful
+                self.assertEqual(result, {})
+
     def test_early_stopping_savings(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric()
         es_strategy = ModelBasedFakeStrategy(min_progression=3, max_progression=5)

@@ -33,6 +33,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_curves: int | None = 5,
         trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
+        check_safe: bool = False,
     ) -> None:
         """Construct a ThresholdEarlyStoppingStrategy instance.
 
@@ -60,6 +61,9 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 specified in the transformed space. IMPORTANT: Typically, `min_curves`
                 should be > 0 to ensure that at least one trial has completed and that
                 we have a reliable approximation for `prog_max`.
+            check_safe: If True, applies the relevant safety checks to gate
+                early-stopping when it is likely to be harmful. If False (default),
+                bypasses the safety check and directly applies early-stopping decisions.
         """
         super().__init__(
             metric_signatures=metric_signatures,
@@ -68,6 +72,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_curves=min_curves,
             trial_indices_to_ignore=trial_indices_to_ignore,
             normalize_progressions=normalize_progressions,
+            check_safe=check_safe,
         )
         self.metric_threshold = metric_threshold
 
