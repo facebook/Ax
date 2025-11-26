@@ -19,6 +19,7 @@ from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
 from ax.analysis.plotly.surface.contour import ContourPlot
 from ax.analysis.plotly.surface.slice import SlicePlot
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
+from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
 
 __all__ = [
     "ArmEffectsPlot",
@@ -35,4 +36,5 @@ __all__ = [
     "SensitivityAnalysisPlot",
     "SlicePlot",
     "TopSurfacesAnalysis",
+    "UtilityProgressionAnalysis",
 ]

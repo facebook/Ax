@@ -37,7 +37,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
@@ -560,9 +560,13 @@ def is_row_feasible(
     # constrained metric values are feasible, (in)feasibility cannot be determined
     # conclusively.
     has_missing_metric_mask = pd.Series([False] * len(df), index=df.index)
-    constrained_metric_names = {
-        oc.metric.name for oc in optimization_config.all_constraints
-    }
+    constrained_metric_names = set()
+    for oc in optimization_config.all_constraints:
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            # ScalarizedOutcomeConstraint has multiple metrics
+            constrained_metric_names.update({m.name for m in oc.metrics})
+        else:
+            constrained_metric_names.add(oc.metric.name)
     for arm_name, arm_group in df.groupby("arm_name"):
         metrics_for_arm = set(arm_group["metric_name"].unique())
         missing_metrics = constrained_metric_names - metrics_for_arm
@@ -576,9 +580,16 @@ def is_row_feasible(
             )
 
     # Computing feasibility on a per-row (metric-arm-combination) basis.
-    is_feasible_per_constraint_list = [
-        compute_feasibility_per_constraint(oc=oc)
+    # TODO: Support scalarized outcome constraints by getting weights and scalarizing
+    # the bounds here.
+    # For now, filter out ScalarizedOutcomeConstraint from feasibility checks
+    non_scalarized_constraints = [
+        oc
         for oc in optimization_config.all_constraints
+        if not isinstance(oc, ScalarizedOutcomeConstraint)
+    ]
+    is_feasible_per_constraint_list = [
+        compute_feasibility_per_constraint(oc=oc) for oc in non_scalarized_constraints
     ]
     # stacking the feasibility masks for each constraint an checking if all are feasible
     is_feasible_mask = pd.DataFrame(is_feasible_per_constraint_list).all(axis=0)
@@ -937,7 +948,11 @@ def get_trace(
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
     for cons in optimization_config.outcome_constraints:
-        metric_names.update({cons.metric.name})
+        if isinstance(cons, ScalarizedOutcomeConstraint):
+            # ScalarizedOutcomeConstraint has multiple metrics
+            metric_names.update({m.name for m in cons.metrics})
+        else:
+            metric_names.update({cons.metric.name})
     metric_names = list(metric_names)
 
     # Don't compute results for status quo data (for compatibility with legacy behavior)
