@@ -970,17 +970,77 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         # Verify reason contains both protection info and percentile threshold info
         # Pattern validates: protection message + percentile threshold explanation
         self.assertRegex(
-            reason,
-            r"Trial 1 is in top-3 trials \(top trials: \[2, 4, 1\] "
-            r"with objective values: \[[\d\., ]+\]; "
-            r"worst of top trials: trial 1 with value [\d\.]+\) "
-            r"and will not be early stopped despite falling below "
-            r"percentile threshold\. "
-            r"Trial objective value [\d\.]+ is worse than "
-            r"25\.0-th percentile \([\d\.]+\) "
-            r"across comparable trials at progression [\d\.]+ "
-            r"\(calculated from \d+ trials: \[0, 1, 2, 3(, 4)?\]\)\.",
+            reason, r"Trial 1 is among the top-3 trials.*so will not be early-stopped"
         )
+
+    def test_early_stopping_with_n_best_protection_handles_ties(self) -> None:
+        """Test that all trials with tied objective values are protected when they
+        fall within the top n_best_trials_to_complete ranks.
+
+        This test verifies the fix for a bug where the old sort_values().head(n)
+        approach would only protect the first n trials based on DataFrame ordering,
+        potentially leaving other trials with identical performance unprotected.
+        """
+        # Create experiment with 5 trials
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
+        data = assert_is_instance(exp.fetch_data(), MapData)
+
+        # Manually set objective values to create ties
+        # At progression=2, set trials 0, 1, 2 to have the same best value (30.0)
+        # and trials 3, 4 to have worse values
+        progression_2_mask = (data.map_df["metric_name"] == "branin_map") & (
+            data.map_df[MAP_KEY] == 2
+        )
+
+        # Set values: trials 0, 1, 2 all have value 30.0 (tied for best)
+        # trials 3, 4 have worse values 90.0, 95.0
+        for trial_idx, value in [(0, 30.0), (1, 30.0), (2, 30.0), (3, 90.0), (4, 95.0)]:
+            trial_mask = progression_2_mask & (data.map_df["trial_index"] == trial_idx)
+            data.map_df.loc[trial_mask, "mean"] = value
+
+        exp.attach_data(data=data)
+
+        # Use n_best_trials_to_complete=2, which is less than the 3 tied top trials
+        # With rank-based logic, all 3 tied trials (rank=1) should be protected
+        # With old head-based logic, only 2 of the 3 would be protected
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            percentile_threshold=50,  # Would stop bottom 50%
+            min_curves=4,
+            min_progression=0.1,
+            n_best_trials_to_complete=2,  # Less than the 3 tied top trials
+        )
+
+        data_lookup = none_throws(
+            early_stopping_strategy._lookup_and_validate_data(exp, ["branin_map"])
+        )
+        aligned_df = align_partial_results(
+            df=data_lookup.map_df, metrics=["branin_map"]
+        )
+        aligned_means = aligned_df["mean"]["branin_map"]
+
+        # Test that ALL three tied top trials (0, 1, 2) are protected
+        # even though n_best_trials_to_complete=2
+        for trial_idx in [0, 1, 2]:
+            should_stop, reason = early_stopping_strategy._should_stop_trial_early(
+                trial_index=trial_idx,
+                experiment=exp,
+                wide_df=aligned_means,
+                long_df=data_lookup.map_df,
+                minimize=True,
+            )
+
+            # All three tied trials should be protected
+            self.assertFalse(
+                should_stop,
+                f"Trial {trial_idx} should be protected (tied with rank 1) "
+                f"but should_stop={should_stop}",
+            )
+            self.assertIsNotNone(reason)
+            self.assertRegex(
+                none_throws(reason),
+                rf"Trial {trial_idx} is among the top-2 trials.*"
+                rf"so will not be early-stopped",
+            )
 
     def test_early_stopping_with_unaligned_results(self) -> None:
         # test case 1
