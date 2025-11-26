@@ -126,3 +126,43 @@ class ObjectiveTest(TestCase):
             self.scalarized_objective.get_unconstrainable_metrics(),
             [self.metrics["m1"], self.metrics["m2"]],
         )
+
+    def test_ScalarizedObjective_expression(self) -> None:
+        """Test the expression property of ScalarizedObjective."""
+        test_cases = [
+            # (name, metrics, weights, expected_expression)
+            (
+                "default_weights",
+                [self.metrics["m1"], self.metrics["m3"]],
+                None,
+                "m1 + m3",
+            ),
+            (
+                "custom_weights",
+                [self.metrics["m1"], self.metrics["m3"]],
+                [1.0, 2.0],
+                "m1 + 2.0*m3",
+            ),
+            (
+                "negative_weight",
+                [Metric(name="accuracy"), Metric(name="latency")],
+                [1.0, -0.5],
+                "accuracy - 0.5*latency",
+            ),
+            (
+                "negative_one_weight",
+                [Metric(name="reward"), Metric(name="cost")],
+                [2.0, -1.0],
+                "2.0*reward - cost",
+            ),
+        ]
+
+        for name, metrics, weights, expected in test_cases:
+            with self.subTest(name=name, expected=expected):
+                if weights is None:
+                    obj = ScalarizedObjective(metrics=metrics, minimize=False)
+                else:
+                    obj = ScalarizedObjective(
+                        metrics=metrics, weights=weights, minimize=False
+                    )
+                self.assertEqual(obj.expression, expected)
