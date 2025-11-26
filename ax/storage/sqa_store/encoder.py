@@ -300,6 +300,7 @@ class Encoder:
                 choice_values=parameter.values,
                 is_ordered=parameter.is_ordered,
                 is_task=parameter.is_task,
+                log_scale=parameter.log_scale,
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,

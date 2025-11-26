@@ -194,6 +194,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
         "name": parameter.name,
         "parameter_type": parameter.parameter_type,
         "values": parameter.values,
+        "log_scale": parameter.log_scale,
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
