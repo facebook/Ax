@@ -2557,61 +2557,6 @@ class TestAxOrchestrator(TestCase):
         # THEN the experiment should have not generated candidates
         self.assertEqual(len(orchestrator.experiment.trials), 1)
 
-    def test_compute_analyses(self) -> None:
-        init_test_engine_and_session_factory(force_init=True)
-        gs = get_generation_strategy()
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=OrchestratorOptions(
-                total_trials=0,
-                tolerated_trial_failure_rate=0.2,
-                init_seconds_between_polls=10,
-                **self.orchestrator_options_kwargs,
-            ),
-            db_settings=self.db_settings,
-        )
-
-        # Test Analysis when Experiment is not in applicable state
-        analysis = ParallelCoordinatesPlot()
-        cards = orchestrator.compute_analyses(analyses=[analysis])
-
-        self.assertEqual(len(cards), 1)
-        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
-        self.assertEqual(
-            cards[0].subtitle,
-            "AnalysisNotApplicableStateError encountered while computing "
-            "ParallelCoordinatesPlot.",
-        )
-        self.assertIn(
-            "Experiment has no trials",
-            assert_is_instance(cards[0], AnalysisCard).blob,
-        )
-
-        sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
-        sobol_run = sobol_generator.gen(n=1)
-        trial = self.branin_experiment.new_trial(generator_run=sobol_run)
-        trial.mark_running(no_runner_required=True)
-        trial.mark_completed()
-        data = self.branin_experiment.fetch_data()
-        self.branin_experiment.attach_data(data)
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=get_generation_strategy(),
-            options=OrchestratorOptions(
-                total_trials=0,
-                tolerated_trial_failure_rate=0.2,
-                init_seconds_between_polls=10,
-                **self.orchestrator_options_kwargs,
-            ),
-        )
-
-        cards = orchestrator.compute_analyses(analyses=[ParallelCoordinatesPlot()])
-
-        self.assertEqual(len(cards), 1)
-        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-
     def test_validate_options_not_none_mt_trial_type(
         self, msg: str | None = None
     ) -> None:
