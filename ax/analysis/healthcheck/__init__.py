@@ -22,6 +22,7 @@ from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
 
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
+from ax.analysis.healthcheck.support_tier import SupportTierHealthcheck
 
 __all__ = [
     "create_healthcheck_analysis_card",
@@ -33,4 +34,5 @@ __all__ = [
     "ShouldGenerateCandidates",
     "SearchSpaceAnalysis",
     "RegressionAnalysis",
+    "SupportTierHealthcheck",
 ]
