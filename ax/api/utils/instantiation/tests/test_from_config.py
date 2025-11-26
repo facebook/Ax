@@ -109,7 +109,6 @@ class TestFromConfig(TestCase):
                     100.0,
                 ],
                 is_ordered=True,
-                sort_values=False,
             ),
         )
 

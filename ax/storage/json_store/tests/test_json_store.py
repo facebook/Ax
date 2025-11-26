@@ -1591,6 +1591,48 @@ class JSONStoreTest(TestCase):
         ):
             choice_parameter_to_dict(choice_parameter)
 
+    def test_choice_parameter_backward_compatibility_sort_values(self) -> None:
+        """Test that numeric ordered parameters with sort_values=False can be loaded."""
+        # Setup: JSON with numeric ordered parameter with sort_values=False
+        # (as would be stored by old versions before validation was added)
+        parameter_json = {
+            "__type": "ChoiceParameter",
+            "name": "x",
+            "parameter_type": {"__type": "ParameterType", "name": "INT"},
+            "values": [1, 2, 3],
+            "is_ordered": True,
+            "is_task": False,
+            "is_fidelity": False,
+            "target_value": None,
+            "sort_values": False,  # Invalid for numeric ordered parameters
+            "log_scale": None,
+            "dependents": None,
+        }
+
+        # Execute: Load parameter from JSON and verify warning is logged
+        with self.assertLogs("ax.storage.json_store.decoders", level="WARNING") as cm:
+            loaded_parameter = object_from_json(
+                parameter_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Assert: Parameter loads successfully with sort_values=True
+        self.assertIsInstance(loaded_parameter, ChoiceParameter)
+        self.assertEqual(loaded_parameter.name, "x")
+        self.assertEqual(loaded_parameter.parameter_type, ParameterType.INT)
+        self.assertTrue(loaded_parameter.is_ordered)
+        self.assertTrue(loaded_parameter.sort_values)  # Overridden to True
+        self.assertEqual(loaded_parameter.values, [1, 2, 3])
+
+        # Assert: Warning was logged about the override
+        self.assertTrue(
+            any(
+                "sort_values=False" in warning and "backward compatibility" in warning
+                for warning in cm.output
+            )
+        )
+
     def test_surrogate_spec_backwards_compatibility(self) -> None:
         # This is an invalid example that has both deprecated args
         # and model config specified. Deprecated args will be ignored.

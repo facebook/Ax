@@ -53,7 +53,6 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                     parameter_type=ParameterType.FLOAT,
                     values=[10.0, 100.0, 1000.0],
                     is_ordered=True,
-                    sort_values=False,
                 ),
                 ChoiceParameter(
                     "d",
@@ -128,9 +127,10 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                 self.assertEqual(
                     transformed_param.is_ordered, original_param.is_ordered
                 )
+                # Transformed param is numeric, so it is sorted if it is ordered.
                 self.assertEqual(
                     transformed_param.sort_values,
-                    original_param.sort_values,
+                    transformed_param.is_ordered or original_param.sort_values,
                 )
                 if self.t_class == ChoiceToNumericChoice:
                     self.assertEqual(
@@ -190,7 +190,6 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                         values=[0, 1, 2],
                         is_ordered=True,
                         is_fidelity=True,
-                        sort_values=False,
                         target_value=2,
                     )
                 ]

@@ -628,7 +628,8 @@ class ChoiceParameter(Parameter):
             task parameter.
         sort_values: Whether to sort ``values`` before encoding.
             Defaults to False if ``parameter_type`` is STRING, else
-            True.
+            True. Note: Numeric ordered parameters (int or float with
+            ``is_ordered=True``) must have ``sort_values=True``.
         log_scale: Whether to sample choice values from log space. Only valid
             for numerical (int or float) parameters with all positive values.
         dependents: Optional mapping for parameters in hierarchical search
@@ -719,6 +720,13 @@ class ChoiceParameter(Parameter):
             if sort_values is not None
             else self._get_default_sort_values_and_warn()
         )
+        # Validate that numeric ordered parameters have sort_values=True
+        if self._is_ordered and parameter_type.is_numeric and not self._sort_values:
+            raise UserInputError(
+                f"Numeric ordered choice parameters must have sort_values=True. "
+                f"Parameter {name} is ordered with type {parameter_type.name} but "
+                f"has sort_values=False."
+            )
         if self.sort_values:
             values = cast(list[TParamValue], sorted([none_throws(v) for v in values]))
         self._values: list[TParamValue] = self._cast_values(values)
@@ -784,14 +792,16 @@ class ChoiceParameter(Parameter):
 
     def _get_default_sort_values_and_warn(self) -> bool:
         default_bool = self._parameter_type != ParameterType.STRING
-        warn(
-            f'`sort_values` is not specified for `ChoiceParameter` "{self._name}". '
-            f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
-            f"{self.parameter_type.name}. To override this behavior (or avoid this "
-            f"warning), specify `sort_values` during `ChoiceParameter` construction.",
-            AxParameterWarning,
-            stacklevel=3,
-        )
+        # Don't warn for numeric ordered parameters since we enforce sort_values=True
+        if not (self._is_ordered and self._parameter_type.is_numeric):
+            warn(
+                f'`sort_values` is not specified for `ChoiceParameter` "{self._name}". '
+                f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
+                f"{self.parameter_type.name}. To override this behavior (or avoid this "
+                f"warning), specify `sort_values` during `ChoiceParameter` construction.",
+                AxParameterWarning,
+                stacklevel=3,
+            )
         return default_bool
 
     def _get_default_log_scale(

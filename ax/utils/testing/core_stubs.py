@@ -1891,7 +1891,6 @@ def get_hierarchical_choice_parameter(parameter_type: ParameterType) -> ChoicePa
         parameter_type=parameter_type,
         values=values,  # pyre-ignore [6]
         is_ordered=True,
-        sort_values=False,
         dependents={values[0]: ["y"], values[1]: ["z"]},
     )
 
