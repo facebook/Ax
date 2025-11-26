@@ -19,6 +19,22 @@ from pyre_extensions import assert_is_instance
 logger: Logger = get_logger(__name__)
 
 
+def _is_worse(a: float, b: float, minimize: bool) -> bool:
+    """Determine if value `a` is worse than value `b` based on optimization direction.
+
+    Args:
+        a: The first value to compare.
+        b: The second value (threshold) to compare against.
+        minimize: If True, use minimization logic (a is worse if a > b).
+            If False, use maximization logic (a is worse if a < b).
+
+    Returns:
+        True if `a` is worse than `b` according to the optimization direction,
+        False otherwise.
+    """
+    return a > b if minimize else a < b
+
+
 def _interval_boundary(
     progression: float, min_progression: float, interval: float
 ) -> float:
