@@ -36,6 +36,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         normalize_progressions: bool = False,
         n_best_trials_to_complete: int | None = None,
         interval: float | None = None,
+        check_safe: bool = False,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
 
@@ -76,6 +77,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 trials cross interval boundaries (at min_progression + k * interval,
                 k = 0, 1, 2...). Prevents premature stopping decisions when the
                 orchestrator (ex, GAIN) polls frequently.
+            check_safe: If True, applies the relevant safety checks to gate
+                early-stopping when it is likely to be harmful. If False (default),
+                bypasses the safety check and directly applies early-stopping decisions.
         """
         super().__init__(
             metric_signatures=metric_signatures,
@@ -85,6 +89,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_curves=min_curves,
             normalize_progressions=normalize_progressions,
             interval=interval,
+            check_safe=check_safe,
         )
 
         self.percentile_threshold = percentile_threshold
