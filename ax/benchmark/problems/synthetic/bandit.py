@@ -44,7 +44,6 @@ def get_bandit_problem(num_choices: int = 30, num_trials: int = 3) -> BenchmarkP
         parameter_type=ParameterType.INT,
         values=list(range(num_choices)),
         is_ordered=False,
-        sort_values=False,
     )
     search_space = SearchSpace(parameters=[parameter])
     test_function = IdentityTestFunction()

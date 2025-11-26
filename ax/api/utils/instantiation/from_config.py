@@ -55,7 +55,6 @@ def parameter_from_config(
                 parameter_type=_parameter_type_converter(config.parameter_type),
                 values=[*np.arange(lower, upper + step_size, step_size)],
                 is_ordered=True,
-                sort_values=False,  # already sorted by np.arange.
             )
 
         return RangeParameter(

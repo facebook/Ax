@@ -107,7 +107,9 @@ class ChoiceToNumericChoice(Transform):
                     target_value=encoding[p.target_value]
                     if p.target_value is not None
                     else None,
-                    sort_values=p.sort_values,
+                    # Retain the original sort_values if the parameter is not ordered.
+                    # Ordered numeric parameters are always sorted.
+                    sort_values=p.sort_values if not p.is_ordered else True,
                     dependents=dependents,
                 )
             else:

@@ -435,6 +435,21 @@ def choice_parameter_from_json(
             for key, value in dependents.items()
         }
 
+    # Backward compatibility: Override sort_values=False for numeric ordered parameters
+    # to prevent validation errors when loading old experiments.
+    if (
+        sort_values is False
+        and parameter_type.is_numeric
+        and (is_ordered or (is_ordered is None and len(values) == 2))
+    ):
+        logger.warning(
+            f"Parameter '{name}' is numeric ordered with sort_values=False. "
+            f"Overriding to sort_values=True for backward compatibility. "
+            f"This parameter was likely stored before the validation requiring "
+            f"sort_values=True for numeric ordered parameters was added."
+        )
+        sort_values = True
+
     return ChoiceParameter(
         name=name,
         parameter_type=parameter_type,

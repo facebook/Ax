@@ -296,6 +296,18 @@ class ChoiceParameterTest(TestCase):
                 values=["foo", "foo2"],
                 is_task=True,
             )
+        # Test that numeric ordered parameters must have sort_values=True
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Numeric ordered choice parameters must have sort_values=True",
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                values=[1, 2, 3],
+                is_ordered=True,
+                sort_values=False,
+            )
 
     def test_Eq(self) -> None:
         param4 = ChoiceParameter(
@@ -579,7 +591,6 @@ class ChoiceParameterTest(TestCase):
                     name="x",
                     parameter_type=parameter_type,
                     values=values,  # pyre-ignore
-                    sort_values=False,
                 )
                 self.assertEqual(p._is_ordered, True)
 
