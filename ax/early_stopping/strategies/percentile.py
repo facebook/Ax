@@ -226,6 +226,23 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 f"specified minimum number for early stopping ({self.min_curves})."
             )
 
+        # Check if trial is in top n_best_trials_to_complete
+        # and should be protected from early stopping
+        if self.n_best_trials_to_complete is not None:
+            # method='dense' assigns same rank to ties
+            ranks = ref_objectives_latest_prog.rank(method="dense", ascending=minimize)
+            # Trials with rank <= n_best_trials_to_complete are in the top N
+            best_criterion = ranks <= self.n_best_trials_to_complete
+            if best_criterion[trial_index]:
+                best_trials = ref_objectives_latest_prog[best_criterion]
+                reason = (
+                    f"Trial {trial_index} is among the top-"
+                    f"{self.n_best_trials_to_complete} trials "
+                    f"{best_trials.to_dict()} so will not be early-stopped."
+                )
+                logger.info(reason)
+                return False, reason
+
         # Calculate the percentile threshold value from reference trials.
         # For minimization problems, we flip the percentile (e.g., 25th percentile
         # becomes 75th percentile) to identify the worst-performing trials.
@@ -253,31 +270,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             f"(calculated from {len(ref_trial_indices)} trials: "
             f"{sorted(ref_trial_indices.tolist())})."
         )
-
-        # Check if trial is in top n_best_trials_to_complete
-        # and should be protected from early stopping
-        if should_early_stop and self.n_best_trials_to_complete is not None:
-            # Rank trials by objective value at last progression
-            sorted_values = ref_objectives_latest_prog.sort_values(ascending=minimize)
-            best_trial_values = sorted_values.head(self.n_best_trials_to_complete)
-            best_trial_indices = set(best_trial_values.index)
-            if trial_index in best_trial_indices:
-                # Get the worst (last) value among the top trials
-                worst_of_best_value = best_trial_values.iloc[-1]
-                worst_of_best_index = best_trial_values.index[-1]
-
-                top_trials_reason = (
-                    f"Trial {trial_index} is in top-"
-                    f"{self.n_best_trials_to_complete} trials "
-                    f"(top trials: {best_trial_values.index.tolist()} "
-                    f"with objective values: {best_trial_values.tolist()}; "
-                    f"worst of top trials: trial {worst_of_best_index} "
-                    f"with value {worst_of_best_value}) and will not be "
-                    f"early stopped despite falling below percentile threshold. "
-                    f"{percentile_reason}"
-                )
-                logger.info(top_trials_reason)
-                return False, top_trials_reason
 
         if should_early_stop:
             logger.info(f"Early stopping trial {trial_index}: {percentile_reason}.")
