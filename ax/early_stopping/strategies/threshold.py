@@ -110,7 +110,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
         )
-        data = self._check_validity_and_get_data(
+        data = self._lookup_and_validate_data(
             experiment=experiment, metric_signatures=[metric_signature]
         )
         if data is None:
