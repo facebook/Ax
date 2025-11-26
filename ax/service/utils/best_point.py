@@ -901,6 +901,7 @@ def get_trace_by_arm_pull_from_data(
 def get_trace(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None = None,
+    include_status_quo: bool = False,
 ) -> list[float]:
     """Compute the optimization trace at each iteration.
 
@@ -920,6 +921,9 @@ def get_trace(
         experiment: The experiment to get the trace for.
         optimization_config: Optimization config to use in place of the one
             stored on the experiment.
+        include_status_quo: If True, include status quo in the trace computation.
+            If False (default), exclude status quo for compatibility with legacy
+            behavior.
 
     Returns:
         A list of performance values at each iteration.
@@ -945,17 +949,20 @@ def get_trace(
     )
     idx = df["metric_name"].isin(metric_names) & trial_is_completed
     # Don't include status quo (for compatibility with legacy behavior)
-    if (status_quo := experiment.status_quo) is not None:
+    if not include_status_quo and (status_quo := experiment.status_quo) is not None:
         idx &= df["arm_name"] != status_quo.name
     df = df.loc[idx, :]
     if len(df) == 0:
         return []
 
-    # Derelativize the optimization config.
-    optimization_config = derelativize_opt_config(
-        optimization_config=optimization_config,
-        experiment=experiment,
-    )
+    # Derelativize the optimization config only if needed (i.e., if there are
+    # relative constraints). This avoids unnecessary data pivoting that can
+    # fail with duplicate indices.
+    if any(oc.relative for oc in optimization_config.all_constraints):
+        optimization_config = derelativize_opt_config(
+            optimization_config=optimization_config,
+            experiment=experiment,
+        )
 
     # Get a value for each trial_index + arm
     value_by_arm_pull = get_trace_by_arm_pull_from_data(
