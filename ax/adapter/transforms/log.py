@@ -17,6 +17,7 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TNumeric, TParamValue
 from ax.generators.types import TConfig
+from ax.utils.common.typeutils import assert_is_instance_of_tuple
 from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
@@ -49,7 +50,14 @@ class Log(Transform):
         self.transform_parameters: dict[str, ParameterType] = {
             p_name: p.parameter_type
             for p_name, p in search_space.parameters.items()
-            if isinstance(p, RangeParameter) and p.is_numeric and p.log_scale
+            if isinstance(p, (RangeParameter, ChoiceParameter)) and p.log_scale
+        }
+        # For choice parameters, store the original values so that we can
+        # match them exactly when untransforming.
+        self.original_values: dict[str, list[TParamValue]] = {
+            p_name: p.values
+            for p_name, p in search_space.parameters.items()
+            if isinstance(p, ChoiceParameter) and p.log_scale
         }
 
     def transform_observation_features(
@@ -81,29 +89,39 @@ class Log(Transform):
                 elif (
                     isinstance(p, RangeParameter)
                     and p.parameter_type == ParameterType.INT
-                ):
-                    # Convert integer valued RangeParameter to ChoiceParameter
-                    lower = assert_is_instance(p.lower, int)
-                    upper = assert_is_instance(p.upper, int)
-                    values = list(range(lower, upper + 1))
-                    transformed_values = [
-                        assert_is_instance(math.log10(v), TParamValue) for v in values
-                    ]
+                ) or isinstance(p, ChoiceParameter):
+                    # Handle both int RangeParameter and ChoiceParameter
+                    # by converting to log-transformed ChoiceParameter
+                    if isinstance(p, RangeParameter):
+                        lower = assert_is_instance(p.lower, int)
+                        upper = assert_is_instance(p.upper, int)
+                        values = list(range(lower, upper + 1))
+                        is_ordered = True
+                    else:  # ChoiceParameter
+                        values = p.values
+                        is_ordered = p.is_ordered
 
+                    # Apply log10 transformation
+                    transformed_values = [
+                        assert_is_instance(math.log10(float(v)), TParamValue)
+                        for v in values
+                    ]
                     target_value = p.target_value
                     if target_value is not None:
-                        target_value = assert_is_instance(target_value, int)
-                        target_value = math.log10(target_value)
+                        target_value = math.log10(
+                            assert_is_instance_of_tuple(target_value, (float, int))
+                        )
 
-                    # Create new ChoiceParameter to replace the RangeParameter
+                    # Create new ChoiceParameter with transformed values.
                     choice_param = ChoiceParameter(
                         name=p.name,
                         parameter_type=ParameterType.FLOAT,
                         values=transformed_values,
-                        is_ordered=True,
+                        is_ordered=is_ordered,
                         is_fidelity=p.is_fidelity,
                         target_value=target_value,
-                        sort_values=True,
+                        sort_values=False,
+                        log_scale=False,
                         bypass_cardinality_check=True,
                     )
 
@@ -120,7 +138,15 @@ class Log(Transform):
                     param: float = assert_is_instance(obsf.parameters[p_name], float)
                     val = math.pow(10, param)
 
-                    # Round to nearest integer if original parameter type is int
+                    # Match original values exactly for ChoiceParameter.
+                    if p_name in self.original_values:
+                        val = assert_is_instance_of_tuple(
+                            min(
+                                self.original_values[p_name], key=lambda x: abs(x - val)
+                            ),
+                            (float, int),
+                        )
+                    # Round to nearest integer if original parameter type is int.
                     if p_type == ParameterType.INT:
                         val = round(val)
 
