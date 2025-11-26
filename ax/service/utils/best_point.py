@@ -291,16 +291,40 @@ def get_best_parameters_from_model_predictions_with_trial_index(
     cv_results = cross_validate(model=adapter)
     diagnostics = compute_diagnostics(result=cv_results)
     assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
-    objective_name = optimization_config.objective.metric.name
-    # If model fit is bad use raw results
-    if objective_name in assess_model_fit_results.bad_fit_metrics_to_fisher_score:
-        logger.warning("Model fit is poor; falling back on raw data for best point.")
 
-        if not _is_all_noiseless(df=data.df, metric_name=objective_name):
+    # For ScalarizedObjective, check model fit for all component metrics
+    # For regular Objective, check model fit for the single objective metric
+    if isinstance(optimization_config.objective, ScalarizedObjective):
+        objective_metric_names = [
+            metric.name for metric in optimization_config.objective.metrics
+        ]
+    else:
+        objective_metric_names = [optimization_config.objective.metric.name]
+
+    # If model fit is bad for any objective metric, use raw results
+    bad_fit_objective_metrics = [
+        name
+        for name in objective_metric_names
+        if name in assess_model_fit_results.bad_fit_metrics_to_fisher_score
+    ]
+
+    if bad_fit_objective_metrics:
+        logger.warning(
+            f"Model fit is poor for objective metric(s) {bad_fit_objective_metrics}; "
+            "falling back on raw data for best point."
+        )
+
+        # Check if any of the objective metrics are noisy
+        noisy_metrics = [
+            name
+            for name in bad_fit_objective_metrics
+            if not _is_all_noiseless(df=data.df, metric_name=name)
+        ]
+        if noisy_metrics:
             logger.warning(
-                "Model fit is poor and data on objective metric "
-                + f"{objective_name} is noisy; interpret best points "
-                + "results carefully."
+                f"Model fit is poor and data on objective metric(s) "
+                f"{noisy_metrics} is noisy; interpret best points "
+                "results carefully."
             )
 
         return get_best_by_raw_objective_with_trial_index(
