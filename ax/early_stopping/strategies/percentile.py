@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.early_stopping.utils import align_partial_results
+from ax.early_stopping.utils import _is_worse
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
@@ -129,42 +129,28 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
         )
-        data = self._check_validity_and_get_data(
+        maybe_aligned_dataframes = self._prepare_aligned_data(
             experiment=experiment, metric_signatures=[metric_signature]
         )
-        if data is None:
-            # don't stop any trials if we don't get data back
+        if maybe_aligned_dataframes is None:
             return {}
 
-        df = data.map_df
+        long_df, multilevel_wide_df = maybe_aligned_dataframes
+        wide_df = multilevel_wide_df["mean"][metric_signature]
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do
         # early stopping at all and return {}
         if not self.is_eligible_any(
-            trial_indices=trial_indices, experiment=experiment, df=df
+            trial_indices=trial_indices, experiment=experiment, df=long_df
         ):
             return {}
 
-        try:
-            aligned_df = align_partial_results(
-                df=df,
-                metrics=[metric_signature],
-            )
-        except Exception as e:
-            logger.warning(
-                f"Encountered exception while aligning data: {e}. "
-                "Not early stopping any trials."
-            )
-            return {}
-
-        metric_to_aligned_means = aligned_df["mean"]
-        aligned_means = metric_to_aligned_means[metric_signature]
         decisions = {
             trial_index: self._should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
-                df=aligned_means,
-                df_raw=df,
+                wide_df=wide_df,
+                long_df=long_df,
                 minimize=minimize,
             )
             for trial_index in trial_indices
@@ -179,8 +165,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_index: int,
         experiment: Experiment,
-        df: pd.DataFrame,
-        df_raw: pd.DataFrame,
+        wide_df: pd.DataFrame,
+        long_df: pd.DataFrame,
         minimize: bool,
     ) -> tuple[bool, str | None]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
@@ -189,9 +175,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Args:
             trial_index: Indices of candidate trial to stop early.
             experiment: Experiment that contains the trials and other contextual data.
-            df: Dataframe of partial results after applying interpolation,
-                filtered to objective metric.
-            df_raw: The original MapData dataframe (before interpolation).
+            wide_df: Dataframe of partial results after applying interpolation,
+                filtered to objective metric (wide format, non-hierarchical).
+            long_df: The original MapData dataframe (long format, before interpolation).
             minimize: Whether objective value is being minimized.
 
         Returns:
@@ -201,18 +187,18 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """
 
         stopping_eligible, reason = self.is_eligible(
-            trial_index=trial_index, experiment=experiment, df=df_raw
+            trial_index=trial_index, experiment=experiment, df=long_df
         )
         if not stopping_eligible:
             return False, reason
 
         # Extract the metric curve for the trial under consideration
-        trial_series = df[trial_index]
+        trial_series = wide_df[trial_index]
         # Find the latest progression with a recorded value for this trial
         trial_latest_prog = trial_series.last_valid_index()
 
         # Get objective values for all trials at this progression
-        objective_latest_prog = df.loc[trial_latest_prog]
+        objective_latest_prog = wide_df.loc[trial_latest_prog]
         # Filter to trials that have reached this progression (exclude NaN values)
         ref_selector = objective_latest_prog.notna()
         ref_objectives_latest_prog = objective_latest_prog[ref_selector]
@@ -248,10 +234,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_objective_value = objective_latest_prog[trial_index]
         # Determine if this trial should be stopped based on its performance
         # relative to the threshold
-        should_early_stop = (
-            trial_objective_value > ref_threshold_value
-            if minimize
-            else trial_objective_value < ref_threshold_value
+        should_early_stop = _is_worse(
+            trial_objective_value, ref_threshold_value, minimize=minimize
         )
 
         # Build the percentile threshold message that explains performance

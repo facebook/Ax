@@ -216,7 +216,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             experiment=experiment
         )
 
-        map_data = es_strategy._check_validity_and_get_data(
+        map_data = es_strategy._lookup_and_validate_data(
             experiment,
             metric_signatures=[metric_signature],
         )
@@ -243,7 +243,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             fake_reason, "No data available to make an early stopping decision."
         )
 
-        fake_map_data = es_strategy._check_validity_and_get_data(
+        fake_map_data = es_strategy._lookup_and_validate_data(
             experiment,
             metric_signatures=["fake_metric_name"],
         )
@@ -292,7 +292,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             experiment=experiment
         )
 
-        map_data = es_strategy._check_validity_and_get_data(
+        map_data = es_strategy._lookup_and_validate_data(
             experiment,
             metric_signatures=[metric_signature],
         )
@@ -363,7 +363,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             experiment=experiment
         )
 
-        map_data = es_strategy._check_validity_and_get_data(
+        map_data = es_strategy._lookup_and_validate_data(
             experiment,
             metric_signatures=[metric_signature],
         )
@@ -846,7 +846,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
         # Use _should_stop_trial_early directly to get reason for non-stopped trial
         data = none_throws(
-            early_stopping_strategy._check_validity_and_get_data(
+            early_stopping_strategy._lookup_and_validate_data(
                 experiment, metric_signatures=["branin_map"]
             )
         )
@@ -856,8 +856,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         should_stop, reason = early_stopping_strategy._should_stop_trial_early(
             trial_index=2,  # Best trial
             experiment=experiment,
-            df=aligned_means,
-            df_raw=data.map_df,
+            wide_df=aligned_means,
+            long_df=data.map_df,
             minimize=True,
         )
         self.assertFalse(should_stop)
@@ -896,7 +896,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
 
         data = none_throws(
-            early_stopping_strategy._check_validity_and_get_data(exp, ["branin_map"])
+            early_stopping_strategy._lookup_and_validate_data(exp, ["branin_map"])
         )
         aligned_df = align_partial_results(df=data.map_df, metrics=["branin_map"])
         aligned_means = aligned_df["mean"]["branin_map"]
@@ -905,8 +905,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         should_stop, reason = early_stopping_strategy._should_stop_trial_early(
             trial_index=1,  # Trial 1 is in top 3 but below percentile
             experiment=exp,
-            df=aligned_means,
-            df_raw=data.map_df,
+            wide_df=aligned_means,
+            long_df=data.map_df,
             minimize=True,
         )
 
@@ -1246,7 +1246,7 @@ def _evaluate_early_stopping_with_df(
     """Helper function for testing PercentileEarlyStoppingStrategy
     on an arbitrary (MapData) df."""
     data = none_throws(
-        early_stopping_strategy._check_validity_and_get_data(experiment, [metric_name])
+        early_stopping_strategy._lookup_and_validate_data(experiment, [metric_name])
     )
     aligned_df = align_partial_results(df=data.map_df, metrics=[metric_name])
     metric_to_aligned_means = aligned_df["mean"]
@@ -1255,8 +1255,8 @@ def _evaluate_early_stopping_with_df(
         trial_index: early_stopping_strategy._should_stop_trial_early(
             trial_index=trial_index,
             experiment=experiment,
-            df=aligned_means,
-            df_raw=data.map_df,
+            wide_df=aligned_means,
+            long_df=data.map_df,
             minimize=cast(
                 OptimizationConfig, experiment.optimization_config
             ).objective.minimize,

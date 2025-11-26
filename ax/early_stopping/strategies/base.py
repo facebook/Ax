@@ -17,7 +17,11 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
-from ax.early_stopping.utils import _interval_boundary, estimate_early_stopping_savings
+from ax.early_stopping.utils import (
+    _interval_boundary,
+    align_partial_results,
+    estimate_early_stopping_savings,
+)
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.base import Base
@@ -203,10 +207,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         return estimate_early_stopping_savings(experiment=experiment)
 
-    def _check_validity_and_get_data(
+    def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
-        """Validity checks and returns the `MapData` used for early stopping that
+        """Looks up and validates the `MapData` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
@@ -538,6 +542,42 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         return directions
 
+    def _prepare_aligned_data(
+        self, experiment: Experiment, metric_signatures: list[str]
+    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+        """Get raw experiment data and align it for early stopping evaluation.
+
+        Args:
+            experiment: Experiment that contains the trials and other contextual data.
+            metric_signatures: List of metric signatures to include in the aligned data.
+
+        Returns:
+            A tuple of (long_df, multilevel_wide_df) where:
+            - long_df: The raw MapData dataframe (long format) before interpolation
+            - multilevel_wide_df: Hierarchical wide dataframe (indexed by progression)
+              with first level ["mean", "sem"] and second level metric signatures
+            Returns None if data cannot be retrieved or aligned.
+        """
+        data = self._lookup_and_validate_data(
+            experiment=experiment, metric_signatures=metric_signatures
+        )
+        if data is None:
+            return None
+
+        try:
+            multilevel_wide_df = align_partial_results(
+                df=(long_df := data.map_df),
+                metrics=metric_signatures,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Encountered exception while aligning data: {e}. "
+                "Cannot proceed with early stopping."
+            )
+            return None
+
+        return long_df, multilevel_wide_df
+
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     """A base class for model based early stopping strategies. Includes
@@ -603,14 +643,14 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         )
         self.min_progression_modeling = min_progression_modeling
 
-    def _check_validity_and_get_data(
+    def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
-        """Validity checks and returns the `MapData` used for early stopping that
+        """Looks up and validates the `MapData` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
-        map_data = super()._check_validity_and_get_data(
+        map_data = super()._lookup_and_validate_data(
             experiment=experiment, metric_signatures=metric_signatures
         )
         if map_data is not None and self.min_progression_modeling is not None:
