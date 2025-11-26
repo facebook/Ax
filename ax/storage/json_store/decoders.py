@@ -424,6 +424,7 @@ def choice_parameter_from_json(
     is_fidelity: bool = False,
     target_value: TParamValue = None,
     sort_values: bool | None = None,
+    log_scale: bool | None = None,
     dependents: dict[TParamValue, list[str]] | None = None,
 ) -> ChoiceParameter:
     # JSON converts dictionary keys to strings. We need to convert them back.
@@ -443,6 +444,7 @@ def choice_parameter_from_json(
         is_fidelity=is_fidelity,
         target_value=target_value,
         sort_values=sort_values,
+        log_scale=log_scale,
         dependents=dependents,
     )
 

@@ -273,11 +273,12 @@ class ChoiceParameterTest(TestCase):
         self.param4 = ChoiceParameter(
             name="x",
             parameter_type=ParameterType.INT,
-            values=[1, 2],
+            values=[1, 2, 4],
+            log_scale=True,
         )
         self.param4_repr = (
             "ChoiceParameter(name='x', parameter_type=INT, "
-            "values=[1, 2], is_ordered=True, sort_values=True)"
+            "values=[1, 2, 4], is_ordered=True, sort_values=True, log_scale=True)"
         )
 
     def test_BadCreations(self) -> None:
@@ -479,6 +480,7 @@ class ChoiceParameterTest(TestCase):
             "is_hierarchical",
             "is_task",
             "sort_values",
+            "log_scale",
         ]
         self.assertListEqual(self.param1.available_flags, choice_flags)
         self.assertListEqual(self.param2.available_flags, choice_flags)
@@ -489,7 +491,7 @@ class ChoiceParameterTest(TestCase):
         self.assertEqual(self.param1.domain_repr, "values=['foo', 'bar', 'baz']")
         self.assertEqual(self.param2.domain_repr, "values=['foo', 'bar', 'baz']")
         self.assertEqual(self.param3.domain_repr, "values=['foo', 'bar']")
-        self.assertEqual(self.param4.domain_repr, "values=[1, 2]")
+        self.assertEqual(self.param4.domain_repr, "values=[1, 2, 4]")
 
     def test_summary_dict(self) -> None:
         self.assertDictEqual(
@@ -529,9 +531,9 @@ class ChoiceParameterTest(TestCase):
             {
                 "name": "x",
                 "type": "Choice",
-                "domain": "values=[1, 2]",
+                "domain": "values=[1, 2, 4]",
                 "parameter_type": "int",
-                "flags": "ordered, sorted",
+                "flags": "ordered, sorted, log_scale",
             },
         )
 
@@ -580,6 +582,162 @@ class ChoiceParameterTest(TestCase):
                     sort_values=False,
                 )
                 self.assertEqual(p._is_ordered, True)
+
+    def test_log_scale(self) -> None:
+        # Test explicit log_scale values
+        for log_scale, expected in ((True, True), (False, False), (None, True)):
+            param = ChoiceParameter(
+                name="learning_rate",
+                parameter_type=ParameterType.FLOAT,
+                values=[0.001, 0.01, 0.1, 1.0],
+                log_scale=log_scale,
+            )
+            self.assertEqual(param.log_scale, expected)
+
+        # Heuristic 1: Exponential spacing
+        # Example 1: Equal ratios - [2, 4, 8, 16] = [2^1, 2^2, 2^3, 2^4]
+        param_equal_ratios = ChoiceParameter(
+            name="batch_size",
+            parameter_type=ParameterType.INT,
+            values=[2, 4, 8, 16],
+        )
+        self.assertTrue(param_equal_ratios.log_scale)
+
+        # Example 2: Skipped powers - [64, 128, 512] = [2^6, 2^7, 2^9]
+        param_skipped_powers = ChoiceParameter(
+            name="embedding_dim",
+            parameter_type=ParameterType.INT,
+            values=[64, 128, 512],
+        )
+        self.assertTrue(param_skipped_powers.log_scale)
+
+        # Example 3: Constant factor - [10, 20, 40, 80] = 10 * [2^0, 2^1, 2^2, 2^3]
+        param_constant_factor = ChoiceParameter(
+            name="learning_rate_scaled",
+            parameter_type=ParameterType.INT,
+            values=[10, 20, 40, 80],
+        )
+        self.assertTrue(param_constant_factor.log_scale)
+
+        # Example 4: Different base - [3, 9, 27] = [3^1, 3^2, 3^3]
+        param_any_base = ChoiceParameter(
+            name="num_filters",
+            parameter_type=ParameterType.INT,
+            values=[3, 9, 27],
+        )
+        self.assertTrue(param_any_base.log_scale)
+
+        # Approximate scaling. Similar to powers of 3 but not exact.
+        param_approximate = ChoiceParameter(
+            name="num_filters",
+            parameter_type=ParameterType.INT,
+            values=[3, 9, 26, 80],
+        )
+        self.assertTrue(param_approximate.log_scale)
+
+        # Heuristic 2: Spans orders of magnitude
+        param_two_orders = ChoiceParameter(
+            name="step_size",
+            parameter_type=ParameterType.FLOAT,
+            values=[0.01, 0.2, 0.5, 1.0],
+        )
+        self.assertTrue(param_two_orders.log_scale)
+
+        param_irregular = ChoiceParameter(
+            name="num_samples",
+            parameter_type=ParameterType.INT,
+            values=[5, 10, 50, 100, 500],
+        )
+        self.assertTrue(param_irregular.log_scale)
+
+        # Negative cases
+        # Linear spacing
+        param_linear = ChoiceParameter(
+            name="num_layers",
+            parameter_type=ParameterType.INT,
+            values=[1, 2, 3, 4, 5],
+        )
+        self.assertFalse(param_linear.log_scale)
+
+        # String values
+        param_string = ChoiceParameter(
+            name="optimizer",
+            parameter_type=ParameterType.STRING,
+            values=["adam", "sgd", "rmsprop"],
+        )
+        self.assertFalse(param_string.log_scale)
+
+        # Too few values (need at least 3)
+        param_few = ChoiceParameter(
+            name="mode",
+            parameter_type=ParameterType.INT,
+            values=[2, 4],
+        )
+        self.assertFalse(param_few.log_scale)
+
+        # Negative values
+        param_negative = ChoiceParameter(
+            name="temperature",
+            parameter_type=ParameterType.FLOAT,
+            values=[-1.0, 0.0, 1.0, 2.0],
+        )
+        self.assertFalse(param_negative.log_scale)
+
+        # Categorical.
+        param_categorical = ChoiceParameter(
+            name="temperature",
+            parameter_type=ParameterType.FLOAT,
+            values=[2, 4, 8, 16],
+            is_ordered=False,
+        )
+        self.assertFalse(param_categorical.log_scale)
+
+    def test_log_scale_validation_errors(self) -> None:
+        """Test that log_scale=True raises appropriate errors for invalid inputs."""
+        # Negative values
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale requires all values to be positive"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                values=[-1.0, 1.0, 10.0],
+                log_scale=True,
+            )
+
+        # Zero values
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale requires all values to be positive"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                values=[0.0, 1.0, 10.0],
+                log_scale=True,
+            )
+
+        # Non-numerical type
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale is only supported for numerical parameters"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b", "c"],
+                log_scale=True,
+            )
+
+        # Unordered parameter (log_scale requires ordered)
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale is only supported for ordered parameters"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                values=[1, 2, 4],
+                is_ordered=False,
+                log_scale=True,
+            )
 
 
 class FixedParameterTest(TestCase):
