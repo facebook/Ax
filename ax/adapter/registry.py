@@ -98,7 +98,7 @@ Cont_X_trans: list[type[Transform]] = [
 # optimizer for mixed discrete/continuous problems.
 MBM_X_trans_base: list[type[Transform]] = [
     RemoveFixed,
-    OrderedChoiceToIntegerRange,
+    ChoiceToNumericChoice,
     OneHot,
     Log,
     Logit,
