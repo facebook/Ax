@@ -8,7 +8,6 @@
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
-
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
     RESTRICTIVE_P_FEAS_THRESHOLD,
@@ -18,8 +17,8 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
+from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
-
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 
@@ -33,4 +32,5 @@ __all__ = [
     "ShouldGenerateCandidates",
     "SearchSpaceAnalysis",
     "RegressionAnalysis",
+    "PredictableMetricsAnalysis",
 ]
