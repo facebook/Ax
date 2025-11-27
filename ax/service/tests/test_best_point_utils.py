@@ -32,6 +32,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.metrics.noisy_function import GenericNoisyFunctionMetric
 from ax.service.ax_client import AxClient
 from ax.service.utils.best_point import (
     _extract_best_arm_from_gr,
@@ -900,6 +901,203 @@ class TestBestPointUtils(TestCase):
                 experiment=experiment_with_no_valid_baseline,
                 baseline_arm_name=None,
             )
+
+    @mock_botorch_optimize
+    def test_best_parameters_from_model_predictions_scalarized(self) -> None:
+        """Test model predictions with ScalarizedObjective.
+
+        Validates that:
+        - Model predictions are used when all component metrics have good fit
+        - Fallback to raw data when one metric has bad fit
+        - Fallback to raw data when all metrics have bad fit
+        - Appropriate warning messages are logged
+        """
+        exp = get_branin_experiment()
+        gs = choose_generation_strategy_legacy(
+            search_space=exp.search_space,
+            num_initialization_trials=3,
+            suggested_model_override=Generators.BOTORCH_MODULAR,
+        )
+
+        # Create a ScalarizedObjective with multiple metrics
+        metric1 = get_branin_metric(name="branin")
+        metric2 = GenericNoisyFunctionMetric(
+            name="distance_from_origin",
+            f=lambda params: (params["x1"] ** 2 + params["x2"] ** 2) ** 0.5,
+            noise_sd=0.01,
+            lower_is_better=True,
+        )
+        exp.add_tracking_metric(metric2)
+        exp.optimization_config = OptimizationConfig(
+            ScalarizedObjective(
+                metrics=[metric1, metric2],
+                weights=[0.5, 0.5],
+                minimize=True,
+            )
+        )
+
+        # Run trials and generate data
+        for _ in range(3):
+            generator_run = gs.gen_single_trial(experiment=exp, n=1)
+            trial = exp.new_trial(generator_run=generator_run)
+            trial.run().mark_completed()
+            exp.attach_data(exp.fetch_data())
+
+        generator_run = gs.gen_single_trial(experiment=exp, n=1)
+        trial = exp.new_trial(generator_run=generator_run)
+        trial.run().mark_completed()
+
+        with patch.object(
+            TorchAdapter,
+            "model_best_point",
+            return_value=(
+                (
+                    exp.trials[0].arms[0],
+                    (
+                        {"branin": 34.76, "distance_from_origin": 7.21},
+                        {
+                            "branin": {
+                                "branin": 0.0003,
+                                "distance_from_origin": 0.0001,
+                            },
+                            "distance_from_origin": {
+                                "branin": 0.0001,
+                                "distance_from_origin": 0.0003,
+                            },
+                        },
+                    ),
+                )
+            ),
+        ) as mock_model_best_point:
+            # Test 1: All metrics have good fit - should use model predictions
+            with patch(
+                "ax.service.utils.best_point.assess_model_fit",
+                return_value=AssessModelFitResult(
+                    good_fit_metrics_to_fisher_score={
+                        "branin": 0.8,
+                        "distance_from_origin": 0.9,
+                    },
+                    bad_fit_metrics_to_fisher_score={},
+                ),
+            ):
+                result = get_best_parameters_from_model_predictions_with_trial_index(
+                    experiment=exp, adapter=gs.adapter
+                )
+                self.assertIsNotNone(result)
+                mock_model_best_point.assert_called()
+                mock_model_best_point.reset_mock()
+
+            # Test 2: One metric has bad fit - should fallback to raw data
+            with self.assertLogs(logger=best_point_logger, level="WARN") as lg, patch(
+                "ax.service.utils.best_point.assess_model_fit",
+                return_value=AssessModelFitResult(
+                    good_fit_metrics_to_fisher_score={
+                        "branin": 0.8,
+                    },
+                    bad_fit_metrics_to_fisher_score={
+                        "distance_from_origin": 0.1,
+                    },
+                ),
+            ):
+                result = get_best_parameters_from_model_predictions_with_trial_index(
+                    experiment=exp, adapter=gs.adapter
+                )
+                self.assertIsNotNone(result)
+                # Should not call model_best_point due to bad fit
+                mock_model_best_point.assert_not_called()
+                # Check warning message mentions the bad fit metric
+                self.assertTrue(
+                    any(
+                        "Model fit is poor for objective metric(s) "
+                        "['distance_from_origin']" in warning
+                        for warning in lg.output
+                    ),
+                    msg=lg.output,
+                )
+                mock_model_best_point.reset_mock()
+
+            # Test 3: All metrics have bad fit - should fallback to raw data
+            with self.assertLogs(logger=best_point_logger, level="WARN") as lg, patch(
+                "ax.service.utils.best_point.assess_model_fit",
+                return_value=AssessModelFitResult(
+                    good_fit_metrics_to_fisher_score={},
+                    bad_fit_metrics_to_fisher_score={
+                        "branin": 0.1,
+                        "distance_from_origin": 0.2,
+                    },
+                ),
+            ):
+                result = get_best_parameters_from_model_predictions_with_trial_index(
+                    experiment=exp, adapter=gs.adapter
+                )
+                self.assertIsNotNone(result)
+                # Should not call model_best_point due to bad fit
+                mock_model_best_point.assert_not_called()
+                # Check warning message mentions both bad fit metrics
+                self.assertTrue(
+                    any(
+                        "Model fit is poor for objective metric(s)" in warning
+                        and ("branin" in warning or "distance_from_origin" in warning)
+                        for warning in lg.output
+                    ),
+                    msg=lg.output,
+                )
+
+    @mock_botorch_optimize
+    def test_get_best_trial_with_scalarized_objective(self) -> None:
+        """Integration test for ScalarizedObjective with actual E2E flow.
+
+        Tests that get_best_parameters_from_model_predictions works end-to-end
+        with ScalarizedObjective using actual metric evaluations (not mocks).
+        """
+        exp = get_branin_experiment()
+        gs = choose_generation_strategy_legacy(
+            search_space=exp.search_space,
+            num_initialization_trials=3,
+            suggested_model_override=Generators.BOTORCH_MODULAR,
+        )
+
+        # Create a ScalarizedObjective with branin and distance metrics
+        metric1 = get_branin_metric(name="branin")
+        metric2 = GenericNoisyFunctionMetric(
+            name="distance",
+            f=lambda params: (params["x1"] ** 2 + params["x2"] ** 2) ** 0.5,
+            noise_sd=0.01,
+            lower_is_better=True,
+        )
+        exp.add_tracking_metric(metric2)
+        exp.optimization_config = OptimizationConfig(
+            objective=ScalarizedObjective(
+                metrics=[metric1, metric2],
+                weights=[0.5, 0.5],
+                minimize=True,
+            )
+        )
+
+        # Run trials and generate data
+        for _ in range(3):
+            generator_run = gs.gen_single_trial(experiment=exp, n=1)
+            trial = exp.new_trial(generator_run=generator_run)
+            trial.run().mark_completed()
+            exp.attach_data(exp.fetch_data())
+
+        generator_run = gs.gen_single_trial(experiment=exp, n=1)
+        trial = exp.new_trial(generator_run=generator_run)
+        trial.run().mark_completed()
+        exp.attach_data(exp.fetch_data())
+
+        # Test: get_best_parameters_from_model_predictions should work without error
+        result = get_best_parameters_from_model_predictions_with_trial_index(
+            experiment=exp, adapter=gs.adapter
+        )
+        self.assertIsNotNone(result)
+        trial_index, best_params, predictions = none_throws(result)
+        self.assertIsNotNone(trial_index)
+        self.assertIsNotNone(best_params)
+        self.assertIsNotNone(predictions)
+        # Verify we get predictions for both metrics in the ScalarizedObjective
+        self.assertIn("branin", predictions[0])
+        self.assertIn("distance", predictions[0])
 
     # NOTE: Can't use mock optimize here, since we rely on model predictions.
     # It is still very cheap even with model fitting.
