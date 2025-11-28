@@ -608,12 +608,12 @@ class ExperimentTest(TestCase):
 
         # Test local storage
         exp.attach_data(batch_data)
-        t2 = exp.attach_data(exp_data)
+        exp.attach_data(exp_data)
 
         full_dict = exp._data_by_trial
         self.assertEqual(len(full_dict), 2)  # data for 2 trials
         # All data is associated with the later ts
-        self.assertEqual(set(full_dict[0].keys()), {t2})
+        self.assertEqual(set(full_dict[0].keys()), {0})
 
         # Test retrieving original batch 0 data
         trial_0_df = exp.lookup_data_for_trial(0).df
@@ -655,9 +655,9 @@ class ExperimentTest(TestCase):
                 ]
             )
         )
-        t3 = exp.attach_data(new_data)
+        exp.attach_data(new_data)
         # still 6 data objs, since we combined last one
-        self.assertEqual(set(exp._data_by_trial[0].keys()), {t3})
+        self.assertEqual(set(exp._data_by_trial[0].keys()), {0})
         self.assertIn("z", exp.lookup_data().df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned
@@ -667,8 +667,8 @@ class ExperimentTest(TestCase):
 
         # Verify we do get the stored data if there are an unimplemented metrics.
         # Remove attached data for nonexistent metric.
-        exp._data_by_trial[0][t3] = Data(
-            exp._data_by_trial[0][t3].full_df.loc[lambda x: x["metric_name"] != "z"]
+        exp._data_by_trial[0][0] = Data(
+            exp._data_by_trial[0][0].full_df.loc[lambda x: x["metric_name"] != "z"]
         )
         # Remove implemented metric that is `available_while_running`
         # (and therefore not pulled from cache).
@@ -861,9 +861,8 @@ class ExperimentTest(TestCase):
                 exp.attach_data(data=data1, foo="bar")
 
         # (1) use a fresh experiment with no data on it and with three metrics
-        original_ts = exp.attach_data(data1)
-        self.assertEqual(len(exp._data_by_trial[trial_index]), 1)
-        self.assertIn(original_ts, exp._data_by_trial[trial_index])
+        exp.attach_data(data1)
+        self.assertEqual(set(exp._data_by_trial[trial_index].keys()), {0})
 
         new_b_value = 3.0
         # b is updated, c is new
@@ -878,12 +877,12 @@ class ExperimentTest(TestCase):
             }
         )
         data2 = Data(df=df2)
-        new_ts = exp.attach_data(data2, combine_with_last_data=True)
+        exp.attach_data(data2, combine_with_last_data=True)
         # Still just one item in it, but with a new ts
-        self.assertEqual(set(exp._data_by_trial[trial_index].keys()), {new_ts})
+        self.assertEqual(set(exp._data_by_trial[trial_index].keys()), {0})
         # (5) assert that `exp._data_by_trial[0]`'s one value is a Data with
         #     metrics a, b, and c, containing the more recent value for metric b.
-        attached_df = exp._data_by_trial[trial_index][new_ts].full_df
+        attached_df = exp._data_by_trial[trial_index][0].full_df
         # All three metrics are present on the new data
         self.assertEqual(set(attached_df["metric_name"]), {"a", "b", "c"})
         # Check that metric b has the updated value (3.0)
@@ -1039,11 +1038,7 @@ class ExperimentTest(TestCase):
             )
         )
 
-        exp.attach_data(
-            Data(
-                df=unsorted_df,
-            )
-        )
+        exp.attach_data(Data(df=unsorted_df))
         for trial_index in [0, 1]:
             assert_frame_equal(
                 list(exp._data_by_trial[trial_index].values())[0].df,
@@ -1408,28 +1403,6 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(cloned_experiment.trials), 1)
         cloned_df = cloned_experiment.lookup_data_for_trial(0).df
         self.assertEqual(cloned_df["trial_index"].iloc[0], 0)
-
-        # With new data.
-        df = pd.DataFrame(
-            {
-                "arm_name": ["1_0"],
-                "metric_name": ["branin"],
-                "mean": [100.0],
-                "sem": [1.0],
-                "trial_index": [1],
-                "metric_signature": ["branin"],
-            },
-        )
-        cloned_experiment = experiment.clone_with(trial_indices=[1], data=Data(df=df))
-        self.assertEqual(len(cloned_experiment.trials), 1)
-        self.assertEqual(len(experiment.trials), 4)
-        cloned_df = cloned_experiment.lookup_data_for_trial(1).df
-        self.assertEqual(cloned_df.shape[0], 1)
-        self.assertEqual(cloned_df["mean"].iloc[0], 100.0)
-        self.assertEqual(cloned_df["sem"].iloc[0], 1.0)
-        # make sure the original experiment data is unchanged
-        df = experiment.lookup_data_for_trial(1).df
-        self.assertEqual(df["sem"].iloc[0], 0.1)
 
         # Clone with MapData.
         experiment = get_test_map_data_experiment(

@@ -118,7 +118,6 @@ def _build_stream_formatter() -> logging.Formatter:
     )
 
 
-# pyre-ignore (ignoring Any in argument and output typing)
 def _round_floats_for_logging(item: Any, decimal_places: int = 2) -> Any:
     """Round a number or numbers in a mapping to a given number of decimal places.
     If item or values in dictionary is not a number, returns it as it.

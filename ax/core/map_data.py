@@ -334,6 +334,13 @@ class MapData(Data):
         """
         raise NotImplementedError("relativize is currently not supported for MapData.")
 
+    @property
+    def trial_indices(self) -> set[int]:
+        """Returns a list of trial indices in the data."""
+        if self._memo_df is not None:
+            return set(self._memo_df["trial_index"].unique())
+        return set(self.full_df["trial_index"].unique())
+
 
 def _ceil_divide(
     a: int | np.int_ | npt.NDArray[np.int_], b: int | np.int_ | npt.NDArray[np.int_]
