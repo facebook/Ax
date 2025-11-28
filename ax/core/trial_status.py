@@ -173,3 +173,8 @@ STALE_ABANDONED_CANDIDATE_STATUSES: list[TrialStatus] = [
     TrialStatus.STALE,
     TrialStatus.CANDIDATE,
 ]
+
+DEFAULT_SUCCESSFUL_TRIAL_STATUSES: list[TrialStatus] = [
+    TrialStatus.COMPLETED,
+    TrialStatus.EARLY_STOPPED,
+]
