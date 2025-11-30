@@ -27,23 +27,28 @@ from ax.adapter.cross_validation import (
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.derelativize import Derelativize
+from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.plot.pareto_utils import get_tensor_converter_adapter
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from ax.utils.preference.preference_utils import get_preference_adapter
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from numpy import nan
 from numpy.typing import NDArray
@@ -808,6 +813,101 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
     )
 
 
+def _compute_utility_from_preference_model(
+    df_wide: pd.DataFrame,
+    experiment: Experiment,
+    optimization_config: PreferenceOptimizationConfig,
+) -> NDArray:
+    """Compute utility predictions for each arm using the learned preference model.
+
+    This function accesses the PE_EXPERIMENT auxiliary experiment, fits a PairwiseGP
+    model to the preference data, and uses it to predict utility values for each
+    arm's metric values.
+
+    Args:
+        df_wide: DataFrame with columns for trial_index, arm_name, feasible,
+            and metric values.
+        experiment: The main experiment containing the PE_EXPERIMENT auxiliary.
+        optimization_config: PreferenceOptimizationConfig specifying the preference
+            profile to use.
+
+    Returns:
+        Array of utility predictions, one for each row in df_wide. Infeasible
+        arms will have utility of negative infinity.
+
+    Raises:
+        DataRequiredError: If PE_EXPERIMENT has no data.
+        UserInputError: If PE_EXPERIMENT is not found for the specified profile.
+    """
+    # Get the preference profile name
+    pref_profile_name = optimization_config.preference_profile_name
+
+    # Find the PE_EXPERIMENT auxiliary experiment
+    pe_aux_exp = experiment.find_auxiliary_experiment_by_name(
+        purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+        auxiliary_experiment_name=pref_profile_name,
+        raise_if_not_found=False,
+    )
+
+    if pe_aux_exp is None:
+        raise UserInputError(
+            f"Preference profile '{pref_profile_name}' not found in experiment "
+            f"'{experiment.name}'. Cannot compute utility-based trace without "
+            "PE_EXPERIMENT data."
+        )
+
+    pe_experiment = pe_aux_exp.experiment
+    pe_data = pe_experiment.lookup_data()
+
+    if pe_data.df.empty:
+        raise DataRequiredError(
+            f"No preference data found in PE_EXPERIMENT '{pref_profile_name}'. "
+            "Cannot compute utility-based trace without preference comparisons."
+        )
+
+    # Get metric names in sorted order (must match PE_EXPERIMENT parameter order)
+    metric_names = sorted(optimization_config.objective.metric_names)
+
+    # Create adapter with fitted preference model
+    try:
+        adapter = get_preference_adapter(experiment=pe_experiment, data=pe_data)
+    except Exception as e:
+        raise DataRequiredError(
+            f"Failed to fit preference model for PE_EXPERIMENT "
+            f"'{pref_profile_name}': {e}. This may indicate insufficient "
+            "preference data or model training issues."
+        )
+
+    # Create ObservationFeatures for each arm with metric values as parameters
+    observation_features = []
+    for _, row in df_wide.iterrows():
+        # Create parameters dict with metric names as keys and their values
+        parameters = {metric_name: row[metric_name] for metric_name in metric_names}
+        obs_feat = ObservationFeatures(parameters=parameters)
+        observation_features.append(obs_feat)
+
+    # Use adapter.predict() to get predictions - this handles metric ordering,
+    # applies transforms, and calls model.posterior() under the hood
+    try:
+        f_dict, cov_dict = adapter.predict(
+            observation_features=observation_features,
+            use_posterior_predictive=False,
+        )
+
+        # Extract utility metric predictions
+        # PE_EXPERIMENT always has a single metric: "pairwise_pref_query"
+        utility_metric_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        utilities = np.array(f_dict[utility_metric_name])
+    except Exception as e:
+        raise DataRequiredError(
+            f"Failed to predict utilities using preference model for PE_EXPERIMENT "
+            f"'{pref_profile_name}': {e}. This may indicate insufficient "
+            "preference data or model training issues."
+        )
+
+    return utilities
+
+
 def _prepare_data_for_trace(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
@@ -867,6 +967,7 @@ def get_trace_by_arm_pull_from_data(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
     use_cumulative_best: bool = True,
+    experiment: Experiment | None = None,
 ) -> pd.DataFrame:
     """
     Get a trace of the objective value or hypervolume of outcomes.
@@ -875,6 +976,11 @@ def get_trace_by_arm_pull_from_data(
     function returns a single value for each arm pull, even if there are
     multiple arms per trial or if an arm is repeated in multiple trials.
 
+    For preference learning experiments, this function computes
+    utility predictions using the learned preference model from the PE_EXPERIMENT
+    auxiliary experiment. If no PE_EXPERIMENT data is available, falls back to
+    computing hypervolume over the objective metrics.
+
     Args:
         df: Data in the format returned by ``Data.df``, with a separate row for
             each trial index-arm name-metric.
@@ -882,10 +988,13 @@ def get_trace_by_arm_pull_from_data(
             not be in relative form.
         use_cumulative_best: If True, the trace will be the cumulative best
             objective. Otherwise, the trace will be the value of each point.
+        experiment: Optional experiment object. Required for preference learning
+            experiments to access the PE_EXPERIMENT auxiliary experiment.
 
     Return:
         A DataFrame containing columns 'trial_index', 'arm_name', and "value",
-        where "value" is the value of the outcomes attained.
+        where "value" is the value of the outcomes attained (or predicted utility
+        for preference learning experiments).
     """
     if any(oc.relative for oc in optimization_config.all_constraints):
         raise ValueError(
@@ -899,6 +1008,28 @@ def get_trace_by_arm_pull_from_data(
     df_wide = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
     if len(df_wide) == 0:
         return empty_result
+
+    # Handle preference learning experiments
+    if experiment is not None and isinstance(
+        optimization_config, PreferenceOptimizationConfig
+    ):
+        try:
+            logger.info(
+                f"Computing utility-based trace for preference learning experiment "
+                f"using PE_EXPERIMENT '{optimization_config.preference_profile_name}'."
+            )
+            df_wide["value"] = _compute_utility_from_preference_model(
+                df_wide=df_wide,
+                experiment=experiment,
+                optimization_config=optimization_config,
+            )
+            return df_wide[["trial_index", "arm_name", "value"]]
+        except (DataRequiredError, UserInputError) as e:
+            logger.warning(
+                f"Failed to compute utility-based trace for preference learning: {e}. "
+                "Falling back to hypervolume computation."
+            )
+            # Fall through to standard MOO hypervolume computation
 
     # MOO and *not* ScalarizedObjective
     if isinstance(optimization_config.objective, MultiObjective):
@@ -934,6 +1065,13 @@ def get_trace(
     the hypervolume. For single objective, the performance is computed as
     the best observed objective value.
 
+    For BOPE experiments, the utility of each trial is computed using
+    the learned preference model from the PE_EXPERIMENT auxiliary experiment. The
+    preference model is used to predict the utility of each trial's metric values,
+    and the trace represents the best predicted utility over time. If no PE_EXPERIMENT
+    data is available, the trace falls back to computing hypervolume over the objective
+    metrics.
+
     Infeasible points (that violate constraints) do not contribute to
     improvements in the optimization trace. If the first trial(s) are infeasible,
     the trace can start at inf or -inf.
@@ -958,6 +1096,7 @@ def get_trace(
     df = experiment.lookup_data().df
     if len(df) == 0:
         return []
+
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
     for cons in optimization_config.outcome_constraints:
@@ -993,6 +1132,7 @@ def get_trace(
         df=df,
         optimization_config=optimization_config,
         use_cumulative_best=True,
+        experiment=experiment,
     )
     # Aggregate to trial level
     objective = optimization_config.objective
