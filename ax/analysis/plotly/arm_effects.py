@@ -197,15 +197,25 @@ class ArmEffectsPlot(Analysis):
             else truncate_label(label=self.metric_name)
         )
 
+        status_quo_str = (
+            experiment.status_quo.name
+            if experiment.status_quo is not None
+            else "status quo"
+        )
+
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{'Modeled' if self.use_model_predictions else 'Observed'} "
-                f"{'Relativized ' if self.relativize else ''}Arm "
-                f"Effects on {metric_label}"
+                ("Modeled " if self.use_model_predictions else "Observed ")
+                + f"Arm Effects on {metric_label}"
                 + (
                     f" for trial {self.trial_index}"
                     if self.trial_index is not None
+                    else ""
+                )
+                + (
+                    f' relative to "{status_quo_str}"'
+                    if self.relativize and experiment.status_quo is not None
                     else ""
                 )
             ),
@@ -348,6 +358,10 @@ def _prepare_figure(
         # Skip trials with no valid data points as they will not end up in the plot
         if xy_df.empty:
             continue
+        if is_relative and status_quo_arm_name is not None:
+            # Exclude status quo arms from relativized plots, since arms are relative
+            # with respect to the status quo.
+            xy_df = xy_df[xy_df["arm_name"] != status_quo_arm_name]
 
         arm_order = arm_order + xy_df["x_key_order"].to_list()
         arm_label = arm_label + xy_df["arm_name"].to_list()
