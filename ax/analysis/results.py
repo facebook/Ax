@@ -18,6 +18,7 @@ from ax.analysis.plotly.scatter import (
     SCATTER_CARDGROUP_TITLE,
     ScatterPlot,
 )
+from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.arm import Arm
@@ -197,6 +198,17 @@ class ResultsAnalysis(Analysis):
             else None
         )
 
+        # Add utility progression if there's an optimization config
+        utility_progression_card = (
+            UtilityProgressionAnalysis().compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            if len(objective_names) > 0
+            else None
+        )
+
         summary = Summary().compute_or_error_card(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -209,6 +221,7 @@ class ResultsAnalysis(Analysis):
             children=[
                 child
                 for child in (
+                    utility_progression_card,
                     arm_effect_pair_group,
                     objective_scatter_group,
                     constraint_scatter_group,

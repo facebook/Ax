@@ -378,9 +378,12 @@ class TestOverview(TestCase):
         # Should have some children (at least one analysis card)
         self.assertGreater(len(card_group.children), 0)
 
-        # No error cards should be present
-        for card in card_group.flatten():
-            self.assertNotIsInstance(card, ErrorAnalysisCard)
+        all_cards = card_group.flatten()
+        error_cards = [
+            card for card in all_cards if isinstance(card, ErrorAnalysisCard)
+        ]
+
+        self.assertEqual(len(error_cards), 0)
 
         # Verify the experiment actually has scalarized outcome constraints
         self.assertIsNotNone(experiment.optimization_config)
