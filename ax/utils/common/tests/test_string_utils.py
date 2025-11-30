@@ -30,3 +30,38 @@ class StringUtilsTest(TestCase):
             ):
                 sanitize_name(s=s)
         self.assertEqual(sanitize_name(s="foo"), "foo")
+
+    def test_sanitize_name_sympy_conflicts(self) -> None:
+        """Test that sanitize_name detects conflicts with sympy's global dict."""
+        # Test with 'test' which is a known sympy function
+        with self.assertRaisesRegex(
+            ValueError,
+            r"contains identifiers that conflict with sympy's built-in names",
+        ):
+            sanitize_name("test + 1")
+
+        # Test with multiple conflicts
+        with self.assertRaisesRegex(
+            ValueError,
+            r"contains identifiers that conflict with sympy's built-in names",
+        ):
+            sanitize_name("E + I + pi")
+
+        # Test with 'S' which is also a sympy symbol
+        with self.assertRaisesRegex(
+            ValueError,
+            r"contains identifiers that conflict with sympy's built-in names",
+        ):
+            sanitize_name("S * 2")
+
+        # Test that non-conflicting names still work
+        self.assertEqual(sanitize_name("my_test + 1"), "my_test + 1")
+        self.assertEqual(
+            sanitize_name("testing + another_var"), "testing + another_var"
+        )
+
+        # Test that E in scientific notation is not flagged (it's not an identifier)
+        self.assertEqual(sanitize_name("1E5 + 2.3E-4"), "1E5 + 2.3E-4")
+
+        # Test that math functions are not flagged
+        self.assertEqual(sanitize_name("sin(1) + cos(2)"), "sin(1) + cos(2)")
