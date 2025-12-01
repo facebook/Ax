@@ -19,8 +19,6 @@ from unittest.mock import call, Mock, patch
 import pandas as pd
 from ax.adapter.cross_validation import compute_model_fit_metrics_from_adapter
 from ax.adapter.registry import Generators, MBM_MTGP_trans
-from ax.analysis.analysis_card import AnalysisCard
-from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -114,7 +112,6 @@ from ax.utils.testing.core_stubs import (
     get_sobol,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import StaleDataError
 
