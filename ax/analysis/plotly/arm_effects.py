@@ -197,15 +197,25 @@ class ArmEffectsPlot(Analysis):
             else truncate_label(label=self.metric_name)
         )
 
+        status_quo_str = (
+            experiment.status_quo.name
+            if experiment.status_quo is not None
+            else "status quo"
+        )
+
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{'Modeled' if self.use_model_predictions else 'Observed'} "
-                f"{'Relativized ' if self.relativize else ''}Arm "
-                f"Effects on {metric_label}"
+                ("Modeled " if self.use_model_predictions else "Observed ")
+                + f"Arm Effects on {metric_label}"
                 + (
                     f" for trial {self.trial_index}"
                     if self.trial_index is not None
+                    else ""
+                )
+                + (
+                    f' relative to "{status_quo_str}"'
+                    if self.relativize and experiment.status_quo is not None
                     else ""
                 )
             ),

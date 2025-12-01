@@ -337,3 +337,10 @@ class TestArmEffectsPlotRel(TestCase):
 
                     self.assertFalse(card.df["branin_mean"].isna().any())
                     self.assertFalse(card.df["branin_sem"].isna().any())
+
+                    # The title should include status quo name when relativize is True
+                    expected_prefix = "Modeled" if use_model_predictions else "Observed"
+                    expected_suffix = 'relative to "status_quo"'
+                    self.assertIn(expected_prefix, card.title)
+                    self.assertIn("Arm Effects on branin", card.title)
+                    self.assertIn(expected_suffix, card.title)
