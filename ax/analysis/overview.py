@@ -80,6 +80,7 @@ class OverviewAnalysis(Analysis):
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
+                * SupportTierAnalysis (not included by default, requires experiment_summary)
             * Trial-Level Analyses
                 * Trial 0
                     * ArmEffectsPlot
