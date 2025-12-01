@@ -17,6 +17,7 @@ from ax.analysis.healthcheck.can_generate_candidates import (
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
+from ax.analysis.healthcheck.early_stopping import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
@@ -154,6 +155,7 @@ class OverviewAnalysis(Analysis):
 
         health_check_analyses = [
             MetricFetchingErrorsAnalysis(),
+            EarlyStoppingAnalysis(),
             CanGenerateCandidatesAnalysis(
                 can_generate_candidates=self.can_generate,
                 reason=self.can_generate_reason,
