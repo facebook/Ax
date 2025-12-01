@@ -712,6 +712,7 @@ def _prepare_p_feasible_per_constraint(
 def _relativize_df_with_sq(
     df: pd.DataFrame,
     status_quo_df: pd.DataFrame,
+    status_quo_name: str | None = None,
     as_percent: bool = False,
 ) -> pd.DataFrame:
     """
@@ -723,6 +724,8 @@ def _relativize_df_with_sq(
             column identifying the trial and a column identifying the status quo
             arm for each trial.
         status_quo_df: DataFrame containing the status quo data for each trial.
+        status_quo_name: Name of the status quo arm. If provided, the status quo
+            arm's mean will be set to exactly 0 and sem to 0 after relativization.
 
     Returns:
         A DataFrame with the same structure as the input, but with 'METRIC_NAME_mean'
@@ -750,6 +753,15 @@ def _relativize_df_with_sq(
 
             rel_df.loc[rel_df["trial_index"] == trial_idx, mean_col] = y_rel
             rel_df.loc[rel_df["trial_index"] == trial_idx, sem_col] = y_se_rel
+
+    # Set status quo arm's mean to exactly 0 and sem to 0
+    if status_quo_name is not None:
+        status_quo_mask = rel_df["arm_name"] == status_quo_name
+        for metric_name in metric_names:
+            mean_col = f"{metric_name}_mean"
+            sem_col = f"{metric_name}_sem"
+            rel_df.loc[status_quo_mask, mean_col] = 0.0
+            rel_df.loc[status_quo_mask, sem_col] = 0.0
 
     return rel_df
 
@@ -832,7 +844,10 @@ def relativize_data(
             trial_statuses=trial_statuses,
             target_trial_index=target_trial_index,
         )
-    return _relativize_df_with_sq(df=df, status_quo_df=status_quo_df)
+    status_quo_name = _get_sq_arm_name(experiment=experiment)
+    return _relativize_df_with_sq(
+        df=df, status_quo_df=status_quo_df, status_quo_name=status_quo_name
+    )
 
 
 def _get_status_quo_df(
