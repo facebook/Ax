@@ -19,6 +19,7 @@ from ax.analysis.healthcheck.constraints_feasibility import (
 )
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
+from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 from ax.analysis.insights import InsightsAnalysis
@@ -78,6 +79,7 @@ class OverviewAnalysis(Analysis):
                 * MetricFetchingErrorsAnalysis
                 * CanGenerateCandidatesAnalysis
                 * ConstraintsFeasibilityAnalysis
+                * PredictableMetricsHealthcheck
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
             * Trial-Level Analyses
@@ -164,6 +166,7 @@ class OverviewAnalysis(Analysis):
             and self.can_generate_days_till_fail is not None
             else None,
             ConstraintsFeasibilityAnalysis(),
+            PredictableMetricsAnalysis(),
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials
