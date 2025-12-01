@@ -600,7 +600,9 @@ class TestUtils(TestCase):
         )
 
         rel_df = _relativize_df_with_sq(
-            df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
+            df=df,
+            status_quo_df=df[df["arm_name"] == "status_quo"],
+            status_quo_name="status_quo",
         )
 
         np.testing.assert_almost_equal(
@@ -608,7 +610,9 @@ class TestUtils(TestCase):
         )  # status quo
         np.testing.assert_almost_equal(rel_df.loc[1, "foo_mean"], 0.2, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[2, "foo_mean"], 0.5, decimal=1)
-        np.testing.assert_almost_equal(rel_df.loc[0, "foo_sem"], 0.1, decimal=1)
+        np.testing.assert_almost_equal(
+            rel_df.loc[0, "foo_sem"], 0.0, decimal=1
+        )  # status quo sem should be 0
         np.testing.assert_almost_equal(rel_df.loc[1, "foo_sem"], 0.2, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_mean"], 0.1, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_sem"], 0.2, decimal=1)
@@ -626,7 +630,9 @@ class TestUtils(TestCase):
         )
 
         rel_df = _relativize_df_with_sq(
-            df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
+            df=df,
+            status_quo_df=df[df["arm_name"] == "status_quo"],
+            status_quo_name="status_quo",
         )
 
         np.testing.assert_almost_equal(
@@ -655,6 +661,21 @@ class TestUtils(TestCase):
                 "foo_mean"
             ].iloc[0],
             0.5,
+            decimal=1,
+        )
+        # Verify that status quo sem is 0 for both trials
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 0) & (rel_df["arm_name"] == "status_quo")][
+                "foo_sem"
+            ].iloc[0],
+            0.0,
+            decimal=1,
+        )
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 1) & (rel_df["arm_name"] == "status_quo")][
+                "foo_sem"
+            ].iloc[0],
+            0.0,
             decimal=1,
         )
 
