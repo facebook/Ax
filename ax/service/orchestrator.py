@@ -46,7 +46,6 @@ from ax.exceptions.generation_strategy import (
     OptimizationConfigRequired,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point import derelativize_opt_config, is_row_feasible
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
@@ -150,7 +149,7 @@ class MessageOutput:
         self.text += text
 
 
-class Orchestrator(AnalysisBase, BestPointMixin):
+class Orchestrator(WithDBSettingsBase, BestPointMixin):
     """Closed-loop manager class for Ax optimization.
 
     Attributes:
