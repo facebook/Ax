@@ -758,7 +758,7 @@ class Decoder:
             #  typing.Dict[str, typing.Dict[str, List[float]]]], ...]]`.
             model_predictions=model_predictions,
             model_key=generator_run_sqa.model_key,
-            model_kwargs=(
+            generator_kwargs=(
                 None
                 if reduced_state
                 else object_from_json(
@@ -767,7 +767,7 @@ class Decoder:
                     class_decoder_registry=self.config.json_class_decoder_registry,
                 )
             ),
-            bridge_kwargs=(
+            adapter_kwargs=(
                 None
                 if reduced_state
                 else object_from_json(
@@ -802,17 +802,17 @@ class Decoder:
             ),
             generation_node_name=generator_run_sqa.generation_node_name,
         )
-        # Remove deprecated kwargs from model kwargs & adapter kwargs.
-        if generator_run._model_kwargs is not None:
-            generator_run._model_kwargs = {
+        # Remove deprecated kwargs from generator kwargs & adapter kwargs.
+        if generator_run._generator_kwargs is not None:
+            generator_run._generator_kwargs = {
                 k: v
-                for k, v in generator_run._model_kwargs.items()
+                for k, v in generator_run._generator_kwargs.items()
                 if k not in _DEPRECATED_MODEL_KWARGS
             }
-        if generator_run._bridge_kwargs is not None:
-            generator_run._bridge_kwargs = {
+        if generator_run._adapter_kwargs is not None:
+            generator_run._adapter_kwargs = {
                 k: v
-                for k, v in generator_run._bridge_kwargs.items()
+                for k, v in generator_run._adapter_kwargs.items()
                 if k not in _DEPRECATED_MODEL_KWARGS
             }
         generator_run._time_created = generator_run_sqa.time_created

@@ -68,7 +68,7 @@ from ax.storage.sqa_store.load import (
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
 )
-from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
+from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS, SQA_COL_TO_GR_ATTR
 from ax.storage.sqa_store.save import (
     save_analysis_card,
     save_experiment,
@@ -700,12 +700,12 @@ class SQAStoreTest(TestCase):
             # scramble, generated_points, fallback_to_sample_polytope,
             # polytope_sampler_kwargs)
             # and the rest of model-state info on generator run to have values too.
-            mkw = gr._model_kwargs
-            self.assertIsNotNone(mkw)
-            self.assertEqual(len(mkw), 7)
-            bkw = gr._bridge_kwargs
-            self.assertIsNotNone(bkw)
-            self.assertEqual(len(bkw), 6)
+            generator_kwargs = gr._generator_kwargs
+            self.assertIsNotNone(generator_kwargs)
+            self.assertEqual(len(generator_kwargs), 7)
+            adapter_kwargs = gr._adapter_kwargs
+            self.assertIsNotNone(adapter_kwargs)
+            self.assertEqual(len(adapter_kwargs), 6)
             # This has seed and init position.
             ms = gr._model_state_after_gen
             self.assertIsNotNone(ms)
@@ -732,8 +732,8 @@ class SQAStoreTest(TestCase):
             self.assertNotEqual(loaded_experiment, exp)
             # Remove all fields that are not part of the reduced state and
             # check that everything else is equal as expected.
-            exp.trials.get(1).generator_run._model_kwargs = None
-            exp.trials.get(1).generator_run._bridge_kwargs = None
+            exp.trials.get(1).generator_run._generator_kwargs = None
+            exp.trials.get(1).generator_run._adapter_kwargs = None
             exp.trials.get(1).generator_run._gen_metadata = None
             exp.trials.get(1).generator_run._model_state_after_gen = None
             exp.trials.get(1).generator_run._search_space = None
@@ -981,7 +981,8 @@ class SQAStoreTest(TestCase):
         gr = gs.gen_single_trial(experiment=exp)
 
         for key in [attr.key for attr in GR_LARGE_MODEL_ATTRS]:
-            self.assertIsNotNone(getattr(gr, f"_{key}"))
+            python_attr = SQA_COL_TO_GR_ATTR[key]
+            self.assertIsNotNone(getattr(gr, f"_{python_attr}"))
 
         gr_sqa_reduced_state = self.encoder.generator_run_to_sqa(
             generator_run=gr, weight=None, reduced_state=True
@@ -994,7 +995,8 @@ class SQAStoreTest(TestCase):
         )
 
         for key in [attr.key for attr in GR_LARGE_MODEL_ATTRS]:
-            setattr(gr, f"_{key}", None)
+            python_attr = SQA_COL_TO_GR_ATTR[key]
+            setattr(gr, f"_{python_attr}", None)
 
         self.assertEqual(gr, gr_decoded_reduced_state)
 
@@ -2209,8 +2211,8 @@ class SQAStoreTest(TestCase):
         # Generation strategies should not be equal, since its generator run #0
         # should be missing model state (and #1 should have it).
         self.assertNotEqual(new_generation_strategy, generation_strategy)
-        generation_strategy._generator_runs[0]._model_kwargs = None
-        generation_strategy._generator_runs[0]._bridge_kwargs = None
+        generation_strategy._generator_runs[0]._generator_kwargs = None
+        generation_strategy._generator_runs[0]._adapter_kwargs = None
         generation_strategy._generator_runs[0]._gen_metadata = None
         generation_strategy._generator_runs[0]._model_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
@@ -2267,14 +2269,14 @@ class SQAStoreTest(TestCase):
         # state along with the generation strategy.
         self.assertNotEqual(new_generation_strategy.experiment, experiment)
         # Adjust experiment and GS to reduced state.
-        experiment.trials.get(0).generator_run._model_kwargs = None
-        experiment.trials.get(0).generator_run._bridge_kwargs = None
+        experiment.trials.get(0).generator_run._generator_kwargs = None
+        experiment.trials.get(0).generator_run._adapter_kwargs = None
         experiment.trials.get(0).generator_run._gen_metadata = None
         experiment.trials.get(0).generator_run._model_state_after_gen = None
         experiment.trials.get(0).generator_run._search_space = None
         experiment.trials.get(0).generator_run._optimization_config = None
-        generation_strategy._generator_runs[0]._model_kwargs = None
-        generation_strategy._generator_runs[0]._bridge_kwargs = None
+        generation_strategy._generator_runs[0]._generator_kwargs = None
+        generation_strategy._generator_runs[0]._adapter_kwargs = None
         generation_strategy._generator_runs[0]._gen_metadata = None
         generation_strategy._generator_runs[0]._model_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
@@ -2656,9 +2658,8 @@ class SQAStoreTest(TestCase):
         gs = get_generation_strategy(with_callable_model_kwarg=False)
         trial = exp.new_trial(gs.gen_single_trial(experiment=exp))
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
-            self.assertIsNotNone(
-                getattr(trial.generator_run, f"_{instrumented_attr.key}")
-            )
+            python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
+            self.assertIsNotNone(getattr(trial.generator_run, f"_{python_attr}"))
 
         # Save and reload the experiment, ensure the modeling-related fields were
         # loaded are non-null.
@@ -2667,12 +2668,14 @@ class SQAStoreTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `generator_run`.
         loaded_gr = loaded_exp.trials.get(0).generator_run
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
-            self.assertIsNotNone(getattr(loaded_gr, f"_{instrumented_attr.key}"))
+            python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
+            self.assertIsNotNone(getattr(loaded_gr, f"_{python_attr}"))
 
         # Set modeling-related fields to `None`.
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
-            setattr(loaded_gr, f"_{instrumented_attr.key}", None)
-            self.assertIsNone(getattr(loaded_gr, f"_{instrumented_attr.key}"))
+            python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
+            setattr(loaded_gr, f"_{python_attr}", None)
+            self.assertIsNone(getattr(loaded_gr, f"_{python_attr}"))
 
         # Save and reload the experiment, ensuring that setting the fields to `None`
         # was not propagated to the DB.
@@ -2680,7 +2683,8 @@ class SQAStoreTest(TestCase):
         newly_loaded_exp = load_experiment(exp.name)
         newly_loaded_gr = newly_loaded_exp.trials.get(0).generator_run
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
-            self.assertIsNotNone(getattr(newly_loaded_gr, f"_{instrumented_attr.key}"))
+            python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
+            self.assertIsNotNone(getattr(newly_loaded_gr, f"_{python_attr}"))
 
     @patch("ax.storage.sqa_store.db.SESSION_FACTORY", None)
     def test_MissingSessionFactory(self) -> None:

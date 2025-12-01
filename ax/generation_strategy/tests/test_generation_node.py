@@ -163,9 +163,9 @@ class TestGenerationNode(TestCase):
             )
             self.assertIsNotNone(gr)
             self.assertEqual(gr._model_key, self.sobol_generator_spec.model_key)
-            model_kwargs = gr._model_kwargs
-            self.assertIsNotNone(model_kwargs)
-            self.assertEqual(model_kwargs.get("init_position"), 3)
+            generator_kwargs = gr._generator_kwargs
+            self.assertIsNotNone(generator_kwargs)
+            self.assertEqual(generator_kwargs.get("init_position"), 3)
         mock_generator_spec_fit.assert_called_with(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()
         )

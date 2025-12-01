@@ -20,6 +20,15 @@ GR_LARGE_MODEL_ATTRS: list[InstrumentedAttribute] = [  # pyre-ignore[9]
 ]
 
 
+# Mapping from SQA column names to GeneratorRun Python attribute names
+SQA_COL_TO_GR_ATTR = {
+    "model_kwargs": "generator_kwargs",
+    "bridge_kwargs": "adapter_kwargs",
+    "gen_metadata": "gen_metadata",
+    "model_state_after_gen": "model_state_after_gen",
+}
+
+
 GR_PARAMS_METRICS_COLS = [
     "parameters",
     "parameter_constraints",
