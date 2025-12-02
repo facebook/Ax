@@ -171,7 +171,7 @@ def estimate_early_stopping_savings(experiment: Experiment) -> float:
     how much resource each early stopped trial would have consumed.
     Savings are computed as:
 
-        savings = total_resources_saved / total_resources_used
+        savings = total_resources_saved / (total_resources_saved + total_resources_used)
 
     Args:
         experiment: The experiment to analyze.
@@ -200,5 +200,8 @@ def estimate_early_stopping_savings(experiment: Experiment) -> float:
         lower=0
     )
 
-    # Return fraction of total resources saved
-    return resources_saved.sum() / resources_used.sum()
+    resources_saved_sum = resources_saved.sum()
+    resources_used_sum = resources_used.sum()
+
+    # Return fraction of savings compared to total resource usage without early stopping
+    return resources_saved_sum / (resources_saved_sum + resources_used_sum)
