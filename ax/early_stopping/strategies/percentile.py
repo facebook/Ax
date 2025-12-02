@@ -9,12 +9,11 @@
 from collections.abc import Iterable
 from logging import Logger
 
-import numpy as np
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import _is_worse
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
 
@@ -36,6 +35,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         normalize_progressions: bool = False,
         n_best_trials_to_complete: int | None = None,
         interval: float | None = None,
+        patience: float = 0.0,
         check_safe: bool = False,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
@@ -77,6 +77,14 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 trials cross interval boundaries (at min_progression + k * interval,
                 k = 0, 1, 2...). Prevents premature stopping decisions when the
                 orchestrator (ex, GAIN) polls frequently.
+            patience: If non-zero, requires that a trial underperforms the percentile
+                threshold consistently across all steps in the patience window
+                [step - patience, step] before stopping. This helps avoid stopping
+                trials with noisy curves. If 0, the original behavior is used
+                (checking only the latest step). The patience is measured in training
+                progressions, so irregular spacing is handled naturally. Returns False
+                if fewer than 2 progressions are contained in the window. Must be
+                non-negative.
             check_safe: If True, applies the relevant safety checks to gate
                 early-stopping when it is likely to be harmful. If False (default),
                 bypasses the safety check and directly applies early-stopping decisions.
@@ -92,8 +100,12 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             check_safe=check_safe,
         )
 
+        if patience < 0:
+            raise UserInputError(f"patience must be non-negative, got {patience}.")
+
         self.percentile_threshold = percentile_threshold
         self.n_best_trials_to_complete = n_best_trials_to_complete
+        self.patience = patience
 
         if metric_signatures is not None and len(list(metric_signatures)) > 1:
             raise UnsupportedError(
@@ -175,7 +187,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         minimize: bool,
     ) -> tuple[bool, str | None]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
-        of the trials at the same step.
+        of the trials at the same step. With patience, requires consistent
+        underperformance across the patience window.
 
         Args:
             trial_index: Indices of candidate trial to stop early.
@@ -197,81 +210,119 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if not stopping_eligible:
             return False, reason
 
-        # Extract the metric curve for the trial under consideration
-        trial_series = wide_df[trial_index]
-        # Find the latest progression with a recorded value for this trial
-        trial_latest_prog = trial_series.last_valid_index()
+        # Find the latest progression with a recorded value
+        # for the trial under consideration
+        window_end = wide_df[trial_index].last_valid_index()
 
-        # Get objective values for all trials at this progression
-        objective_latest_prog = wide_df.loc[trial_latest_prog]
-        # Filter to trials that have reached this progression (exclude NaN values)
-        ref_selector = objective_latest_prog.notna()
-        ref_objectives_latest_prog = objective_latest_prog[ref_selector]
-        ref_trial_indices = objective_latest_prog.index[ref_selector]
+        # Define evaluation window [window_end - patience, window_end]
+        # When patience=0, this is just a single point [window_end]
+        window_start = window_end - self.patience
+        # Ensure window_start respects min_progression to avoid including
+        # data from progressions where early stopping should not be evaluated
+        window_start = max(window_start, self.min_progression or float("-inf"))
 
-        # Verify that sufficiently many trials have data at this progression.
-        # Note: `is_eligible_any` in `should_stop_trials_early` already checks
-        # that at least `min_curves` trials have completed and uses
+        window_selector = (wide_df.index >= window_start) & (
+            wide_df.index <= window_end
+        )
+        window_progressions = wide_df.index[window_selector]
+
+        # Need two or more progressions when using patience > 0
+        if self.patience > 0 and not len(window_progressions) > 1:
+            reason = (
+                f"Fewer than 2 progressions in patience window "
+                f"[{window_start:.2f}, {window_end:.2f}] "
+                f"({window_progressions.tolist()}). Not stopping trial."
+            )
+            return False, reason
+
+        window_values = wide_df[window_selector]
+        window_active_trials = window_values.notna()
+        # Series of lists of active trial indices for each progression in the window
+        window_active_trial_indices: pd.Series = window_active_trials.apply(
+            lambda mask: window_values.columns[mask].tolist(),
+            axis=1,
+        )
+        window_num_active_trials: pd.Series = window_active_trials.sum(axis=1)
+
+        # Verify that sufficiently many trials have data at each progression in
+        # the patience window. Note: `is_eligible_any` in `should_stop_trials_early`
+        # already checks that at least `min_curves` trials have completed and uses
         # `align_partial_results` to interpolate missing values. This condition
         # should only trigger if `align_partial_results` fails or if this method
         # is called with non-aligned data.
-        if (
-            self.min_curves is not None
-            and len(ref_trial_indices) < self.min_curves  # pyre-ignore[58]
-        ):
-            return False, (
-                f"Number of trials with data ({len(ref_trial_indices)}: "
-                f"{sorted(ref_trial_indices.tolist())}) at "
-                f"latest progression ({trial_latest_prog}) is less than the "
-                f"specified minimum number for early stopping ({self.min_curves})."
-            )
+        if self.min_curves is not None:
+            is_insufficient = window_num_active_trials < self.min_curves
+            if is_insufficient.any():
+                return False, (
+                    f"Insufficiently many trials with data at progressions in window "
+                    f"[{window_start:.2f}, {window_end:.2f}]\n"
+                    f"- Progressions: {window_values[is_insufficient].index.tolist()}\n"
+                    f"- Number of trials: "
+                    f"{window_num_active_trials[is_insufficient].tolist()}\n"
+                    f"- Trial indices: "
+                    f"{window_active_trial_indices[is_insufficient].tolist()}\n"
+                    f"- Minimum required: {self.min_curves}"
+                )
 
         # Check if trial is in top n_best_trials_to_complete
         # and should be protected from early stopping
         if self.n_best_trials_to_complete is not None:
             # method='dense' assigns same rank to ties
-            ranks = ref_objectives_latest_prog.rank(method="dense", ascending=minimize)
+            window_ranks = window_values.rank(
+                method="dense", axis=1, ascending=minimize
+            )
             # Trials with rank <= n_best_trials_to_complete are in the top N
-            best_criterion = ranks <= self.n_best_trials_to_complete
-            if best_criterion[trial_index]:
-                best_trials = ref_objectives_latest_prog[best_criterion]
+            best_criterion = window_ranks <= self.n_best_trials_to_complete
+            if best_criterion[trial_index].any():
+                # Create a Series of dictionaries that map progressions in
+                # the window to the indices of best trials for that progression.
+                window_best_trials = window_values.apply(
+                    lambda row: row[best_criterion.loc[row.name]].to_dict(), axis=1
+                )
                 reason = (
                     f"Trial {trial_index} is among the top-"
-                    f"{self.n_best_trials_to_complete} trials "
-                    f"{best_trials.to_dict()} so will not be early-stopped."
+                    f"{self.n_best_trials_to_complete} trials at one or more "
+                    f"progressions in window [{window_start:.2f}, {window_end:.2f}] "
+                    "so will not be early-stopped.\n"
+                    f"- Progressions: {window_values.index.tolist()}\n"
+                    f"- Best trials: {window_best_trials.tolist()}"
                 )
                 logger.info(reason)
                 return False, reason
 
-        # Calculate the percentile threshold value from reference trials.
+        # Calculate the percentile threshold for each progression.
         # For minimization problems, we flip the percentile (e.g., 25th percentile
         # becomes 75th percentile) to identify the worst-performing trials.
-        percentile_threshold = (
-            100.0 - self.percentile_threshold if minimize else self.percentile_threshold
+        q = self.percentile_threshold / 100.0
+        q = 1 - q if minimize else q
+        window_thresholds = window_values.quantile(q=q, axis=1)
+        trial_window_values = window_values[trial_index]
+
+        # Determine if this trial underperforms relative to the threshold at each
+        # progression
+        underperforms = _is_worse(
+            trial_window_values, window_thresholds, minimize=minimize
         )
-        ref_threshold_value = np.percentile(
-            ref_objectives_latest_prog,
-            q=percentile_threshold,
-        )
-        trial_objective_value = objective_latest_prog[trial_index]
-        # Determine if this trial should be stopped based on its performance
-        # relative to the threshold
-        should_early_stop = _is_worse(
-            trial_objective_value, ref_threshold_value, minimize=minimize
-        )
+        # Trial should be stopped if it underperforms at *all* progression in the window
+        should_early_stop = underperforms.all()
 
         # Build the percentile threshold message that explains performance
         # relative to threshold
-        comp = "worse" if should_early_stop else "better"
-        percentile_reason = (
-            f"Trial objective value {trial_objective_value:.3f} is {comp} than "
-            f"{percentile_threshold:.1f}-th percentile ({ref_threshold_value:.3f}) "
-            f"across comparable trials at progression {trial_latest_prog} "
-            f"(calculated from {len(ref_trial_indices)} trials: "
-            f"{sorted(ref_trial_indices.tolist())})."
+        reason = (
+            f"Trial objective values at progressions in "
+            f"[{window_start:.2f}, {window_end:.2f}] are"
+            f"{'' if should_early_stop else ' not'} all worse than "
+            f"{self.percentile_threshold:.1f}-th percentile across comparable "
+            f"trials \n"
+            f"- Progressions: {window_values.index.tolist()}\n"
+            f"- Underperforms: {underperforms.tolist()}\n"
+            f"- Trial objective values: {trial_window_values.tolist()}\n"
+            f"- Thresholds: {window_thresholds.tolist()}\n"
+            f"- Number of trials: {window_num_active_trials.tolist()}\n"
+            f"- Trial indices: {window_active_trial_indices.tolist()}"
         )
 
         if should_early_stop:
-            logger.info(f"Early stopping trial {trial_index}: {percentile_reason}.")
+            logger.info(f"Early stopping trial {trial_index}: {reason}.")
 
-        return should_early_stop, percentile_reason
+        return should_early_stop, reason
