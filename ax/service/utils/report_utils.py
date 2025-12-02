@@ -1338,6 +1338,15 @@ def maybe_extract_baseline_comparison_values(
         for objective in multi_objective.objectives:
             name = objective.metric.name
             minimize = objective.minimize
+
+            # Check if metric column exists in both comparison and baseline dataframes
+            if (
+                name not in comparison_arm_df.columns
+                or name not in baseline_rows.columns
+            ):
+                logger.debug(f"compare_to_baseline: metric '{name}' not found in data.")
+                return None
+
             opt_index = (
                 comparison_arm_df[name].idxmin()
                 if minimize
@@ -1358,6 +1367,17 @@ def maybe_extract_baseline_comparison_values(
         return result_list if result_list else None
 
     objective_name = optimization_config.objective.metric.name
+
+    # Check if metric column exists in both comparison and baseline dataframes
+    if (
+        objective_name not in comparison_arm_df.columns
+        or objective_name not in baseline_rows.columns
+    ):
+        logger.debug(
+            f"compare_to_baseline: metric '{objective_name}' not found in data."
+        )
+        return None
+
     baseline_value = baseline_rows.iloc[0][objective_name]
     comparison_row = comparison_arm_df.iloc[0]
 
