@@ -835,7 +835,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                     )
         if len(gen_blocking_criterion_delta_from_threshold) == 0:
             return -1
-        return min(gen_blocking_criterion_delta_from_threshold)
+        return max(min(gen_blocking_criterion_delta_from_threshold), -1)
 
     def _brief_transition_criteria_repr(self) -> str:
         """Returns a brief string representation of the
