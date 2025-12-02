@@ -27,7 +27,7 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
@@ -86,11 +86,12 @@ class DataLoaderConfig:
     def statuses_to_fit(self) -> set[TrialStatus]:
         """The data from trials in these statuses will be used to fit the model
         for non map metrics. Defaults to all trial statuses if
-        `fit_abandoned is True` and all statuses except ABANDONED, otherwise.
+        `fit_abandoned is True` and trials that are expected to have data
+        (RUNNING, COMPLETED, EARLY_STOPPED) plus CANDIDATE, otherwise.
         """
         if self.fit_abandoned:
             return set(TrialStatus)
-        return NON_ABANDONED_STATUSES
+        return {*STATUSES_EXPECTING_DATA, TrialStatus.CANDIDATE}
 
     @property
     def statuses_to_fit_map_metric(self) -> set[TrialStatus]:
