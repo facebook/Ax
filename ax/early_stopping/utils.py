@@ -7,6 +7,7 @@
 # pyre-strict
 
 from logging import Logger
+from typing import Any
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -19,7 +20,7 @@ from pyre_extensions import assert_is_instance
 logger: Logger = get_logger(__name__)
 
 
-def _is_worse(a: float, b: float, minimize: bool) -> bool:
+def _is_worse(a: Any, b: Any, minimize: bool) -> Any:
     """Determine if value `a` is worse than value `b` based on optimization direction.
 
     Args:
