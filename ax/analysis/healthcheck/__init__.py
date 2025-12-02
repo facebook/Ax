@@ -13,6 +13,7 @@ from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
     RESTRICTIVE_P_FEAS_THRESHOLD,
 )
+from ax.analysis.healthcheck.early_stopping import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import (
     create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
@@ -30,6 +31,7 @@ __all__ = [
     "CanGenerateCandidatesAnalysis",
     "HealthcheckAnalysisCard",
     "HealthcheckStatus",
+    "EarlyStoppingAnalysis",
     "ShouldGenerateCandidates",
     "SearchSpaceAnalysis",
     "RegressionAnalysis",
