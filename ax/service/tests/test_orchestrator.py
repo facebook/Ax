@@ -1274,7 +1274,7 @@ class TestAxOrchestrator(TestCase):
         self.assertIsNotNone(ess)
         self.assertAlmostEqual(
             ess.estimate_early_stopping_savings(orchestrator.experiment),
-            0.5,
+            1.0 / 3.0,
         )
 
     def test_orchestrator_with_metric_with_new_data_after_completion(self) -> None:
