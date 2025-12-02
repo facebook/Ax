@@ -85,9 +85,6 @@ class Cast(Transform):
                 bool,
             )
         )
-        self.use_random_dummy_values: bool = assert_is_instance(
-            config.pop("use_random_dummy_values", False), bool
-        )
         if config:
             raise UserInputError(
                 f"Unexpected config parameters for `Cast` transform: {config}."
@@ -177,7 +174,6 @@ class Cast(Transform):
                     inject_dummy_values_to_complete_flat_parameterization=(
                         self.inject_dummy_values_to_complete_flat_parameterization
                     ),
-                    use_random_dummy_values=self.use_random_dummy_values,
                 )
                 for obs_feats in observation_features
             ]
@@ -260,8 +256,7 @@ class Cast(Transform):
         # Any parameter values that are missing in the corresponding columns
         # are filled with the values from `metadata["Keys.FULL_PARAMETERIZATION"]`.
         # If the metadata does not include the full parameterization, a dummy
-        # value is constructed, either randomly or by using the middle of the
-        # parameter domain, depending on the `use_random_dummy_values` flag.
+        # value is constructed using the middle of the parameter domain.
         if self.search_space.is_hierarchical:
             # NOTE: This could probably be vectorized to operate more efficiently,
             # however it is non-trivial since we need to extract values from the
@@ -278,7 +273,6 @@ class Cast(Transform):
                     inject_dummy_values_to_complete_flat_parameterization=(
                         self.inject_dummy_values_to_complete_flat_parameterization
                     ),
-                    use_random_dummy_values=self.use_random_dummy_values,
                 )
                 return Series(
                     name=row.name,
