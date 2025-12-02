@@ -112,6 +112,34 @@ class TestFromConfig(TestCase):
             ),
         )
 
+        fractional_step_size_config = RangeParameterConfig(
+            name="fractional_step_size_param",
+            parameter_type="float",
+            bounds=(0, 1),
+            step_size=0.1,
+        )
+        self.assertEqual(
+            parameter_from_config(config=fractional_step_size_config),
+            ChoiceParameter(
+                name="fractional_step_size_param",
+                parameter_type=CoreParameterType.FLOAT,
+                values=[
+                    0.0,
+                    0.1,
+                    0.2,
+                    0.3,
+                    0.4,
+                    0.5,
+                    0.6,
+                    0.7,
+                    0.8,
+                    0.9,
+                    1.0,
+                ],
+                is_ordered=True,
+            ),
+        )
+
         with self.assertRaisesRegex(
             UserInputError,
             "Non-linear parameter scaling is not supported when using step_size",
