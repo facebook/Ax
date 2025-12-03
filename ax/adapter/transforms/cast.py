@@ -12,11 +12,17 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.observation_utils import separate_observations
-from ax.core.parameter import PARAMETER_PYTHON_TYPE_MAP, ParameterType, RangeParameter
+from ax.core.parameter import (
+    get_dummy_value_for_parameter,
+    PARAMETER_PYTHON_TYPE_MAP,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
-from pandas import Series
+from ax.utils.common.constants import Keys
+from pandas import DataFrame
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
@@ -167,8 +173,6 @@ class Cast(Transform):
             # got removed during casting to HSS as they were not applicable under the
             # hierarchical structure of the search space.
             return [
-                # pyre-ignore[16]: The search space in this if-branch is a HSS, and
-                # does have `flatten_observation_features`.
                 self.search_space.flatten_observation_features(
                     observation_features=obs_feats,
                     inject_dummy_values_to_complete_flat_parameterization=(
@@ -201,8 +205,6 @@ class Cast(Transform):
             # The inactive parameters in the HSS have been filled with dummy values,
             # which should be removed from the observations.
             return [
-                # pyre-ignore[16]: The search space in this if-branch is a HSS, and
-                # does have `case_observation_features`.
                 self.search_space.cast_observation_features(
                     observation_features=obs_feats
                 )
@@ -258,28 +260,7 @@ class Cast(Transform):
         # If the metadata does not include the full parameterization, a dummy
         # value is constructed using the middle of the parameter domain.
         if self.search_space.is_hierarchical:
-            # NOTE: This could probably be vectorized to operate more efficiently,
-            # however it is non-trivial since we need to extract values from the
-            # metadata of each row and fill any missing values after.
-            # This is applying the logic of `Cast.transform_observation_features`
-            # to the df as a quick solution.
-            def flatten_row(row: Series) -> Series:
-                obs_ft = ObservationFeatures(
-                    parameters=row.drop("metadata").dropna().to_dict(),
-                    metadata=row["metadata"],
-                )
-                flattened = self.search_space.flatten_observation_features(
-                    observation_features=obs_ft,
-                    inject_dummy_values_to_complete_flat_parameterization=(
-                        self.inject_dummy_values_to_complete_flat_parameterization
-                    ),
-                )
-                return Series(
-                    name=row.name,
-                    data=flattened.parameters | {"metadata": row["metadata"]},
-                )
-
-            arm_data = arm_data.apply(flatten_row, axis=1)
+            arm_data = self._flatten_arm_data(arm_data=arm_data)
 
         parameter_names = list(arm_data.columns)
         parameter_names.remove("metadata")
@@ -320,3 +301,47 @@ class Cast(Transform):
                 arm_data[p_name] = arm_data[p_name].round(parameter.digits)
 
         return ExperimentData(arm_data=arm_data, observation_data=observation_data)
+
+    def _flatten_arm_data(self, arm_data: DataFrame) -> DataFrame:
+        """Flatten hierarchical search space parameterizations in arm_data using
+        vectorized pandas operations.
+
+        This method:
+        1. Extracts full parameterizations from metadata
+        2. Fills missing parameter values from metadata using vectorized operations
+        3. Injects dummy values for remaining missing parameters (if configured)
+
+        Args:
+            arm_data: DataFrame with arm parameterizations and metadata.
+                Modified in-place.
+
+        Returns:
+            DataFrame updated with flattened parameterizations, in-place.
+        """
+        # Extract full parameterizations from metadata column.
+        full_params_df = DataFrame(
+            arm_data["metadata"]
+            .apply(lambda md: md.get(Keys.FULL_PARAMETERIZATION, {}))
+            .tolist(),
+            index=arm_data.index,
+        )
+
+        # Fill missing values from full parameterizations.
+        for param_name in full_params_df.columns:
+            if param_name not in arm_data.columns:
+                arm_data[param_name] = full_params_df[param_name]
+        arm_data.fillna(full_params_df, inplace=True)
+
+        # Inject dummy values for remaining missing parameters if configured.
+        if self.inject_dummy_values_to_complete_flat_parameterization:
+            for param_name, param in self.search_space.parameters.items():
+                dummy_value = get_dummy_value_for_parameter(param=param)
+                if param_name not in arm_data.columns:
+                    arm_data[param_name] = dummy_value
+                else:
+                    # Fill missing values with dummy value
+                    missing_mask = arm_data[param_name].isna()
+                    if missing_mask.any():
+                        arm_data.loc[missing_mask, param_name] = dummy_value
+
+        return arm_data
