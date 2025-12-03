@@ -136,14 +136,14 @@ class TestDispatchUtils(TestCase):
         for trial in experiment.trials.values():
             none_throws(
                 assert_is_instance(trial, Trial).generator_run
-            )._model_key = "Manual"
+            )._generator_key = "Manual"
         # Generate 5 trials and make sure they're from the correct nodes.
         run_trials_with_gs(experiment=experiment, gs=gs, num_trials=5)
         self.assertEqual(len(experiment.trials), 7)
         for trial in experiment.trials.values():
             model_key = none_throws(
                 assert_is_instance(trial, Trial).generator_run
-            )._model_key
+            )._generator_key
             if trial.index < 2:
                 self.assertEqual(model_key, "Manual")
             elif trial.index == 2:

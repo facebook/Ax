@@ -54,7 +54,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         self.next_node_name = next_node_name
         self.fallback_specs: dict[type[Exception], GeneratorSpec] = {
             AxGenerationException: GeneratorSpec(
-                generator_enum=Generators.SOBOL, model_key_override="Fallback_Sobol"
+                generator_enum=Generators.SOBOL, generator_key_override="Fallback_Sobol"
             ),
             **self.fallback_specs,  # This includes the default fallbacks.
         }

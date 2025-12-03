@@ -572,7 +572,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         logger.info(
             f"Generated new trial {trial.index} with parameters "
             f"{round_floats_for_logging(item=none_throws(trial.arm).parameters)} "
-            f"using model {none_throws(trial.generator_run)._model_key}."
+            f"using model {none_throws(trial.generator_run)._generator_key}."
         )
         trial.mark_running(no_runner_required=True)
         self._save_or_update_trial_in_db_if_possible(

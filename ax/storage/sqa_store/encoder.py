@@ -782,9 +782,9 @@ class Encoder:
             best_arm_parameters=best_arm_parameters,
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
-            model_key=generator_run._model_key,
             # TODO: rename these in the db schema?
             # We could just wait for the storage refactor instead.
+            model_key=generator_run._generator_key,
             model_kwargs=(
                 object_to_json(
                     generator_run._generator_kwargs,

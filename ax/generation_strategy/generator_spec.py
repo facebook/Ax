@@ -50,9 +50,9 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
     model_cv_kwargs: dict[str, Any] = field(default_factory=dict)
-    # An optional override for the model key. Each `GeneratorSpec` in a
+    # An optional override for the generator key. Each `GeneratorSpec` in a
     # `GenerationNode` must have a unique key to ensure identifiability.
-    model_key_override: str | None = None
+    generator_key_override: str | None = None
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `GeneratorSpec.fit`
@@ -96,10 +96,10 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         self.model_gen_kwargs["fixed_features"] = value
 
     @property
-    def model_key(self) -> str:
-        """Key string to identify the model used by this ``GeneratorSpec``."""
-        if self.model_key_override is not None:
-            return self.model_key_override
+    def generator_key(self) -> str:
+        """Key string to identify the generator used by this ``GeneratorSpec``."""
+        if self.generator_key_override is not None:
+            return self.generator_key_override
         else:
             return self.generator_enum.value
 
@@ -140,7 +140,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             self._fitted_adapter = self.generator_enum(
                 experiment=experiment,
                 data=data,
-                model_key_override=self.model_key_override,
+                generator_key_override=self.generator_key_override,
                 **combined_model_kwargs,
             )
             self._last_fit_arg_ids = self._get_fit_arg_ids(
@@ -245,7 +245,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             model_kwargs=deepcopy(self.model_kwargs),
             model_gen_kwargs=deepcopy(self.model_gen_kwargs),
             model_cv_kwargs=deepcopy(self.model_cv_kwargs),
-            model_key_override=self.model_key_override,
+            generator_key_override=self.generator_key_override,
         )
 
     def _safe_to_update(
@@ -259,7 +259,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         model for the same experiment, which is a very reasonable expectation
         since this all happens on the same `GeneratorSpec` instance.
         """
-        if self.model_key == "TRBO":
+        if self.generator_key == "TRBO":
             # Temporary hack to unblock TRBO.
             # TODO[T167756515] Remove when TRBO revamp diff lands.
             return True
@@ -289,7 +289,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         return (
             "GeneratorSpec("
             f"\tgenerator_enum={self.generator_enum.value}, "
-            f"\tmodel_key_override={self.model_key_override}"
+            f"\tgenerator_key_override={self.generator_key_override}"
             ")"
         )
 
@@ -309,7 +309,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             f"\tmodel_kwargs={model_kwargs}, "
             f"\tmodel_gen_kwargs={model_gen_kwargs}, "
             f"\tmodel_cv_kwargs={model_cv_kwargs}, "
-            f"\tmodel_key_override={self.model_key_override}"
+            f"\tgenerator_key_override={self.generator_key_override}"
             ")"
         )
 
