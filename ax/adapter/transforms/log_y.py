@@ -58,19 +58,16 @@ class LogY(Transform):
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        metric_signatures = [
-            assert_is_instance(m, str)
-            for m in list(assert_is_instance(config.get("metrics", []), Iterable))
-        ]
-        if len(metric_signatures) == 0:
-            raise ValueError("Must specify at least one metric in the config.")
         super().__init__(
             search_space=search_space,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )
-        self.metric_signatures: list[str] = metric_signatures
+        self.metric_signatures: list[str] = [
+            assert_is_instance(m, str)
+            for m in list(assert_is_instance(config.get("metrics", []), Iterable))
+        ]
         if config.get("match_ci_width", False):
             # perform moment-matching to compute variance that results in a CI
             # of same width as the when transforming the moments
@@ -112,29 +109,35 @@ class LogY(Transform):
             [npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]
         ],
     ) -> list[ObservationData]:
+        if len(self.metric_signatures) == 0:
+            return observation_data
         for obsd in observation_data:
             cov = obsd.covariance
+            # Check for correlations in the covariance matrix
+            diff = cov - np.diag(np.diag(cov))
+            if not np.all(np.isnan(diff) | (diff == 0)):
+                raise NotImplementedError(
+                    "LogY transform does not support correlated observations"
+                )
+
             idcs = [
                 i
                 for i, m in enumerate(obsd.metric_signatures)
                 if m in self.metric_signatures
             ]
             if len(idcs) != len(obsd.metric_signatures):
-                # TODO: Support covariances for a subset of observations
-                diff = cov - np.diag(np.diag(cov))
-                if not np.all(np.isnan(diff) | (diff == 0)):
-                    raise NotImplementedError(
-                        "LogY transform for a subset of metrics not supported for "
-                        " correlated observations"
-                    )
                 for i, m in enumerate(obsd.metric_signatures):
                     if m in self.metric_signatures:
-                        obsd.means[i], obsd.covariance[i, i] = transform(
-                            np.array(obsd.means[i], ndmin=1),
-                            np.array(obsd.covariance[i, i], ndmin=1),
-                        )
+                        mean_i = np.array(obsd.means[i], ndmin=1)
+                        var_i = np.array([obsd.covariance[i, i]])
+                        transformed_mean, transformed_var = transform(mean_i, var_i)
+                        obsd.means[i] = transformed_mean[0]
+                        obsd.covariance[i, i] = transformed_var[0]
             else:
-                obsd.means, obsd.covariance = transform(obsd.means, obsd.covariance)
+                # All metrics are being transformed
+                variance = np.diag(cov)
+                obsd.means, transformed_var = transform(obsd.means, variance)
+                obsd.covariance = np.diag(transformed_var)
         return observation_data
 
     def _transform_observation_data(
@@ -161,47 +164,60 @@ class LogY(Transform):
                 c.bound = np.exp(c.bound)
         return outcome_constraints
 
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        if len(self.metric_signatures) == 0:
+            return experiment_data
+        obs_data = experiment_data.observation_data
+        for metric in self.metric_signatures:
+            means = obs_data["mean", metric]
+            variances = obs_data["sem", metric] ** 2
+            transformed_means, transformed_variances = self._transform(means, variances)
+            obs_data["mean", metric] = transformed_means
+            obs_data["sem", metric] = np.sqrt(transformed_variances)
+        return ExperimentData(
+            arm_data=experiment_data.arm_data, observation_data=obs_data
+        )
+
 
 def lognorm_to_norm(
     mu_ln: npt.NDArray,
-    Cov_ln: npt.NDArray,
+    var_ln: npt.NDArray,
 ) -> tuple[npt.NDArray, npt.NDArray]:
-    """Compute mean and covariance of a MVN from those of the associated log-MVN.
+    """Compute mean and variance of a MVN from those of the associated log-MVN.
 
-    If `Y` is log-normal with mean mu_ln and covariance Cov_ln, then
-    `X ~ N(mu_n, Cov_n)` with
+    If `Y` is log-normal with mean mu_ln and variance var_ln, then
+    `X ~ N(mu_n, var_n)` with
 
-        Cov_n_{ij} = log(1 + Cov_ln_{ij} / (mu_ln_{i} * mu_n_{j}))
-        mu_n_{i} = log(mu_ln_{i}) - 0.5 * log(1 + Cov_ln_{ii} / mu_ln_{i}**2)
+        var_n_{i} = log(1 + var_ln_{i} / mu_ln_{i}**2)
+        mu_n_{i} = log(mu_ln_{i}) - 0.5 * var_n_{i}
 
     NOTE: If the observation noise is not provided, we simply log-transform the
     mean as if the observation noise was zero. This can be inaccurate when the
     unknown observation noise is large.
     """
-    Cov_n = np.log(1 + Cov_ln / np.outer(mu_ln, mu_ln))
-    mu_n = np.log(mu_ln) - 0.5 * np.nan_to_num(np.diag(Cov_n), nan=0.0)
-    return mu_n, Cov_n
+    var_n = np.log(1 + var_ln / (mu_ln**2))
+    mu_n = np.log(mu_ln) - 0.5 * np.nan_to_num(var_n, nan=0.0)
+    return mu_n, var_n
 
 
 def norm_to_lognorm(
     mu_n: npt.NDArray,
-    Cov_n: npt.NDArray,
+    var_n: npt.NDArray,
 ) -> tuple[npt.NDArray, npt.NDArray]:
-    """Compute mean and covariance of a log-MVN from its MVN sufficient statistics.
+    """Compute mean and variance of a log-MVN from its MVN sufficient statistics.
 
-    If `X ~ N(mu_n, Cov_n)` and `Y = exp(X)`, then `Y` is log-normal with
+    If `X ~ N(mu_n, var_n)` and `Y = exp(X)`, then `Y` is log-normal with
 
-        mu_ln_{i} = exp(mu_n_{i}) + 0.5 * Cov_n_{ii}
-        Cov_ln_{ij} = exp(mu_n_{i} + mu_n_{j} + 0.5 * (Cov_n_{ii} + Cov_n_{jj})) *
-        (exp(Cov_n_{ij}) - 1)
-
+        mu_ln_{i} = exp(mu_n_{i} + 0.5 * var_n_{i})
+        var_ln_{i} = (exp(var_n_{i}) - 1) * exp(2 * mu_n_{i} + var_n_{i})
 
     NOTE: If the observation noise is not provided, we simply take the exponent of the
     mean as if the observation noise was zero. This can be inaccurate when the
     unknown observation noise is large.
     """
-    diag_n = np.diag(Cov_n)
-    b = mu_n + 0.5 * np.nan_to_num(diag_n, nan=0.0)
+    b = mu_n + 0.5 * np.nan_to_num(var_n, nan=0.0)
     mu_ln = np.exp(b)
-    Cov_ln = (np.exp(Cov_n) - 1) * np.exp(b.reshape(-1, 1) + b.reshape(1, -1))
-    return mu_ln, Cov_ln
+    var_ln = (np.exp(var_n) - 1) * np.exp(2 * b)
+    return mu_ln, var_ln
