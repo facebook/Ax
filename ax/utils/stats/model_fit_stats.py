@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ax.utils.common.logger import get_logger
-from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
+from scipy.stats import fisher_exact, kendalltau, norm, pearsonr, spearmanr
 from sklearn.neighbors import KernelDensity
 
 
@@ -31,6 +31,7 @@ RANK_CORRELATION = "Rank correlation"
 FISHER_EXACT_TEST_P = "Fisher exact test p"
 LOG_LIKELIHOOD = "Log likelihood"
 MSE = "MSE"
+KENDALL_TAU_RANK_CORRELATION = "Kendall tau rank correlation"
 
 
 class ModelFitMetricDirection(Enum):
@@ -277,6 +278,16 @@ def _rank_correlation(
     return float(rho)
 
 
+def _kendall_tau_rank_correlation(
+    y_obs: npt.NDArray,
+    y_pred: npt.NDArray,
+    se_pred: npt.NDArray,
+) -> float:
+    with np.errstate(invalid="ignore"):
+        rho, _ = kendalltau(x=y_pred, y=y_obs)
+    return float(rho)
+
+
 def _fisher_exact_test_p(
     y_obs: npt.NDArray,
     y_pred: npt.NDArray,
@@ -325,6 +336,7 @@ DIAGNOSTIC_FNS: dict[str, ModelFitMetricProtocol] = {
     TOTAL_RAW_EFFECT: _total_raw_effect,
     CORRELATION_COEFFICIENT: _correlation_coefficient,
     RANK_CORRELATION: _rank_correlation,
+    KENDALL_TAU_RANK_CORRELATION: _kendall_tau_rank_correlation,
     FISHER_EXACT_TEST_P: _fisher_exact_test_p,
     LOG_LIKELIHOOD: _log_likelihood,
     MSE: _mse,
