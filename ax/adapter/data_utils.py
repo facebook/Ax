@@ -27,7 +27,7 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
@@ -90,7 +90,7 @@ class DataLoaderConfig:
         """
         if self.fit_abandoned:
             return set(TrialStatus)
-        return NON_ABANDONED_STATUSES
+        return set(STATUSES_EXPECTING_DATA)
 
     @property
     def statuses_to_fit_map_metric(self) -> set[TrialStatus]:

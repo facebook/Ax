@@ -16,7 +16,7 @@ from ax.adapter.registry import Generators
 from ax.core.data import Data
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -44,8 +44,11 @@ class TestDataUtils(TestCase):
         self.assertEqual(config.latest_rows_per_group, 1)
         self.assertIsNone(config.limit_rows_per_group)
         self.assertIsNone(config.limit_rows_per_metric)
-        self.assertEqual(config.statuses_to_fit, NON_ABANDONED_STATUSES)
-        self.assertEqual(config.statuses_to_fit_map_metric, NON_ABANDONED_STATUSES)
+        self.assertEqual(config.statuses_to_fit, set(STATUSES_EXPECTING_DATA))
+        self.assertEqual(
+            config.statuses_to_fit_map_metric,
+            set(STATUSES_EXPECTING_DATA),
+        )
         # Validation for latest / limit rows.
         with self.assertRaisesRegex(UnsupportedError, "must be None if either of"):
             DataLoaderConfig(latest_rows_per_group=1, limit_rows_per_metric=5)
@@ -502,6 +505,9 @@ class TestDataUtils(TestCase):
             )
         )
         exp.attach_data(data)
+        # Complete all trials, so their data is extracted.
+        for trial in exp.trials.values():
+            trial.run().mark_completed()
         # Extract experiment data.
         experiment_data = extract_experiment_data(
             experiment=exp, data_loader_config=DataLoaderConfig()

@@ -12,7 +12,6 @@ from typing import Optional
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-
 from ax.analysis.analysis_card import ErrorAnalysisCard
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
@@ -20,7 +19,6 @@ from ax.analysis.plotly.scatter import ScatterPlot
 from ax.analysis.results import ResultsAnalysis
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
-
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -86,7 +84,7 @@ class TestOverview(TestCase):
                         + (2.0 * parameters["x1"] + parameters["x2"] - 5.0) ** 2.0,
                     }
                     if use_constraint:
-                        raw_data["foo"] = float(parameters["x1"])  # pyre-ignore[58]
+                        raw_data["foo"] = float(parameters["x1"])
                     client.complete_trial(trial_index=trial_index, raw_data=raw_data)
 
             # Add a CANDIDATE batch trial to produce some trial analysis cards
@@ -218,7 +216,7 @@ class TestOverview(TestCase):
             # Create batch trials with arms
             arms = [Arm(parameters={"x1": x1, "x2": x2}) for x1, x2 in arm_coords]
             trial = experiment.new_batch_trial()
-            trial.add_arms_and_weights(arms=arms)
+            trial.add_arms_and_weights(arms=arms).mark_running(no_runner_required=True)
             trials.append(trial)
 
             # Generate data rows in same loop
