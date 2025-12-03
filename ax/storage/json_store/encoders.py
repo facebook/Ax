@@ -387,7 +387,7 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> dict[str, Any]:
         "generator_run_type": gr.generator_run_type,
         "fit_time": gr.fit_time,
         "gen_time": gr.gen_time,
-        "model_key": gr._model_key,
+        "generator_key": gr._generator_key,
         "generator_kwargs": gr._generator_kwargs,
         "adapter_kwargs": gr._adapter_kwargs,
         "gen_metadata": gr._gen_metadata,

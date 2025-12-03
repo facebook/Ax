@@ -161,76 +161,76 @@ ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + MTGP_Y_trans
 MBM_MTGP_trans: list[type[Transform]] = MBM_X_trans + MTGP_Y_trans
 
 
-class ModelSetup(NamedTuple):
-    """A model setup defines a coupled combination of a model, an adapter,
+class GeneratorSetup(NamedTuple):
+    """A generator setup defines a coupled combination of a generator, an adapter,
     standard set of transforms, and standard adapter keyword arguments.
-    This coupled combination yields a given standard modeling strategy in Ax,
+    This coupled combination is used to build a node of a generation strategy in Ax,
     such as BoTorch GP+EI, a Thompson sampler, or a Sobol quasirandom generator.
     """
 
     adapter_class: type[Adapter]
     generator_class: type[Generator]
     transforms: Sequence[type[Transform]]
-    default_model_kwargs: Mapping[str, Any] | None = None
-    standard_bridge_kwargs: Mapping[str, Any] | None = None
-    not_saved_model_kwargs: Sequence[str] | None = None
+    default_generator_kwargs: Mapping[str, Any] | None = None
+    standard_adapter_kwargs: Mapping[str, Any] | None = None
+    not_saved_generator_kwargs: Sequence[str] | None = None
 
 
-"""A mapping of string keys that indicate a model, to the corresponding
-model setup, which defines which model, adapter, transforms, and
-standard arguments a given model requires.
+"""A mapping of string keys that indicate a generator, to the corresponding
+generator setup, which defines which generator, adapter, transforms, and
+standard arguments a given generator requires.
 """
-MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
-    "BoTorch": ModelSetup(
+GENERATOR_KEY_TO_GENERATOR_SETUP: dict[str, GeneratorSetup] = {
+    "BoTorch": GeneratorSetup(
         adapter_class=TorchAdapter,
         generator_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
     ),
-    "EB": ModelSetup(
+    "EB": GeneratorSetup(
         adapter_class=DiscreteAdapter,
         generator_class=EmpiricalBayesThompsonSampler,
         transforms=TS_trans,
     ),
-    "EB_Ashr": ModelSetup(
+    "EB_Ashr": GeneratorSetup(
         adapter_class=DiscreteAdapter,
         generator_class=EBAshr,
         transforms=EB_ashr_trans,
     ),
-    "Factorial": ModelSetup(
+    "Factorial": GeneratorSetup(
         adapter_class=DiscreteAdapter,
         generator_class=FullFactorialGenerator,
         transforms=Discrete_X_trans,
     ),
-    "Thompson": ModelSetup(
+    "Thompson": GeneratorSetup(
         adapter_class=DiscreteAdapter,
         generator_class=ThompsonSampler,
         transforms=TS_trans,
     ),
-    "Sobol": ModelSetup(
+    "Sobol": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=SobolGenerator,
         transforms=Cont_X_trans,
     ),
-    "Uniform": ModelSetup(
+    "Uniform": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
-    "ST_MTGP": ModelSetup(
+    "ST_MTGP": GeneratorSetup(
         adapter_class=TorchAdapter,
         generator_class=ModularBoTorchGenerator,
         transforms=MBM_MTGP_trans,
     ),
-    "BO_MIXED": ModelSetup(
+    "BO_MIXED": GeneratorSetup(
         adapter_class=TorchAdapter,
         generator_class=ModularBoTorchGenerator,
         transforms=Mixed_transforms + Y_trans,
     ),
-    "SAASBO": ModelSetup(
+    "SAASBO": GeneratorSetup(
         adapter_class=TorchAdapter,
         generator_class=ModularBoTorchGenerator,
         transforms=MBM_X_trans + Y_trans,
-        default_model_kwargs={
+        default_generator_kwargs={
             "surrogate_spec": SurrogateSpec(
                 model_configs=[
                     ModelConfig(
@@ -240,11 +240,11 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
             )
         },
     ),
-    "SAAS_MTGP": ModelSetup(
+    "SAAS_MTGP": GeneratorSetup(
         adapter_class=TorchAdapter,
         generator_class=ModularBoTorchGenerator,
         transforms=MBM_MTGP_trans,
-        default_model_kwargs={
+        default_generator_kwargs={
             "surrogate_spec": SurrogateSpec(
                 model_configs=[
                     ModelConfig(
@@ -260,34 +260,34 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
 
 class GeneratorRegistryBase(Enum):
     """Base enum that provides instrumentation of `__call__` on enum values,
-    for enums that link their values to `ModelSetup`-s like `Generators`.
+    for enums that link their values to `GeneratorSetup`-s like `Generators`.
     """
 
     @property
-    def model_key_to_model_setup(self) -> dict[str, ModelSetup]:
-        return MODEL_KEY_TO_MODEL_SETUP
+    def GENERATOR_KEY_TO_GENERATOR_SETUP(self) -> dict[str, GeneratorSetup]:
+        return GENERATOR_KEY_TO_GENERATOR_SETUP
 
     @property
     def generator_class(self) -> type[Generator]:
         """Type of `Generator` used for the given model+adapter setup."""
-        return self.model_key_to_model_setup[self.value].generator_class
+        return self.GENERATOR_KEY_TO_GENERATOR_SETUP[self.value].generator_class
 
     @property
     def adapter_class(self) -> type[Adapter]:
         """Type of `Adapter` used for the given model+adapter setup."""
-        return self.model_key_to_model_setup[self.value].adapter_class
+        return self.GENERATOR_KEY_TO_GENERATOR_SETUP[self.value].adapter_class
 
     def __call__(
         self,
         experiment: Experiment,
         data: Data | None = None,
         silently_filter_kwargs: bool = False,
-        model_key_override: str | None = None,
+        generator_key_override: str | None = None,
         **kwargs: Any,
     ) -> Adapter:
-        if self.value not in self.model_key_to_model_setup:
+        if self.value not in self.GENERATOR_KEY_TO_GENERATOR_SETUP:
             raise UserInputError(f"Unknown model {self.value}")
-        model_setup_info = self.model_key_to_model_setup[self.value]
+        model_setup_info = self.GENERATOR_KEY_TO_GENERATOR_SETUP[self.value]
         generator_class = model_setup_info.generator_class
         adapter_class = model_setup_info.adapter_class
         search_space = experiment.search_space
@@ -324,7 +324,7 @@ class GeneratorRegistryBase(Enum):
         generator_kwargs = consolidate_kwargs(
             kwargs_iterable=[
                 get_function_default_arguments(generator_class),
-                model_setup_info.default_model_kwargs,
+                model_setup_info.default_generator_kwargs,
                 kwargs,
             ],
             keywords=get_function_argument_names(generator_class),
@@ -335,7 +335,7 @@ class GeneratorRegistryBase(Enum):
         adapter_kwargs = consolidate_kwargs(
             kwargs_iterable=[
                 get_function_default_arguments(adapter_class),
-                model_setup_info.standard_bridge_kwargs,
+                model_setup_info.standard_adapter_kwargs,
                 {"transforms": model_setup_info.transforms},
                 kwargs,
             ],
@@ -353,14 +353,14 @@ class GeneratorRegistryBase(Enum):
             **adapter_kwargs,
         )
 
-        if model_setup_info.not_saved_model_kwargs:
-            for key in model_setup_info.not_saved_model_kwargs:
+        if model_setup_info.not_saved_generator_kwargs:
+            for key in model_setup_info.not_saved_generator_kwargs:
                 generator_kwargs.pop(key, None)
 
         # Store all kwargs on adapter, to be saved on generator run.
-        model_key = model_key_override if model_key_override else self.value
+        generator_key = generator_key_override if generator_key_override else self.value
         adapter._set_kwargs_to_save(
-            model_key=model_key,
+            generator_key=generator_key,
             generator_kwargs=_encode_callables_as_references(generator_kwargs),
             adapter_kwargs=_encode_callables_as_references(adapter_kwargs),
         )
@@ -374,7 +374,9 @@ class GeneratorRegistryBase(Enum):
         Returns:
             A tuple of default keyword arguments for the model and the adapter.
         """
-        model_setup_info = none_throws(self.model_key_to_model_setup.get(self.value))
+        model_setup_info = none_throws(
+            self.GENERATOR_KEY_TO_GENERATOR_SETUP.get(self.value)
+        )
         return (
             self._get_model_kwargs(info=model_setup_info),
             self._get_bridge_kwargs(info=model_setup_info),
@@ -399,7 +401,7 @@ class GeneratorRegistryBase(Enum):
 
     @staticmethod
     def _get_model_kwargs(
-        info: ModelSetup, kwargs: dict[str, Any] | None = None
+        info: GeneratorSetup, kwargs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return consolidate_kwargs(
             [get_function_default_arguments(info.generator_class), kwargs],
@@ -408,12 +410,12 @@ class GeneratorRegistryBase(Enum):
 
     @staticmethod
     def _get_bridge_kwargs(
-        info: ModelSetup, kwargs: dict[str, Any] | None = None
+        info: GeneratorSetup, kwargs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return consolidate_kwargs(
             [
                 get_function_default_arguments(info.adapter_class),
-                info.standard_bridge_kwargs,
+                info.standard_adapter_kwargs,
                 {"transforms": info.transforms},
                 kwargs,
             ],
@@ -426,7 +428,7 @@ class GeneratorRegistryBase(Enum):
 class Generators(GeneratorRegistryBase):
     """Registry of available models.
 
-    Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and adapter,
+    Uses GENERATOR_KEY_TO_GENERATOR_SETUP to retrieve settings for model and adapter,
     by the key stored in the enum value.
 
     To instantiate a model in this enum, simply call an enum member like so:

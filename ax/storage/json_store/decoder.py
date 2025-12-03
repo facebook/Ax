@@ -351,6 +351,8 @@ def generator_run_from_json(
     object_json.pop("objective_thresholds", None)
 
     # Backwards compatibility: handle old field names
+    if "model_key" in object_json:
+        object_json["generator_key"] = object_json.pop("model_key")
     if "model_kwargs" in object_json:
         object_json["generator_kwargs"] = object_json.pop("model_kwargs")
     if "bridge_kwargs" in object_json:

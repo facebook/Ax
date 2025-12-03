@@ -17,9 +17,9 @@ from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
     _extract_model_state_after_gen,
     Cont_X_trans,
+    GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
     MBM_MTGP_trans,
-    MODEL_KEY_TO_MODEL_SETUP,
 )
 from ax.adapter.torch import TorchAdapter
 from ax.core.arm import Arm
@@ -177,15 +177,15 @@ class TestGenerationStrategy(TestCase):
 
         # Mock in `Generators` registry.
         self.registry_setup_dict_patcher = patch.dict(
-            f"{Generators.__module__}.MODEL_KEY_TO_MODEL_SETUP",
+            f"{Generators.__module__}.GENERATOR_KEY_TO_GENERATOR_SETUP",
             {
-                "Factorial": MODEL_KEY_TO_MODEL_SETUP["Factorial"]._replace(
+                "Factorial": GENERATOR_KEY_TO_GENERATOR_SETUP["Factorial"]._replace(
                     adapter_class=self.mock_discrete_adapter
                 ),
-                "Thompson": MODEL_KEY_TO_MODEL_SETUP["Thompson"]._replace(
+                "Thompson": GENERATOR_KEY_TO_GENERATOR_SETUP["Thompson"]._replace(
                     adapter_class=self.mock_discrete_adapter
                 ),
-                "BoTorch": MODEL_KEY_TO_MODEL_SETUP["BoTorch"]._replace(
+                "BoTorch": GENERATOR_KEY_TO_GENERATOR_SETUP["BoTorch"]._replace(
                     adapter_class=self.mock_torch_adapter
                 ),
             },
@@ -473,7 +473,7 @@ class TestGenerationStrategy(TestCase):
             "GenerationStrategy(name='test', nodes=[GenerationNode("
             "name='test', "
             "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
-            "model_key_override=None)], "
+            "generator_key_override=None)], "
             "transition_criteria=[])])",
         )
 
@@ -537,7 +537,7 @@ class TestGenerationStrategy(TestCase):
             if i > 4:
                 self.mock_torch_adapter.assert_called()
             else:
-                self.assertEqual(g._model_key, "Sobol")
+                self.assertEqual(g._generator_key, "Sobol")
                 generator_kwargs = g._generator_kwargs
                 self.assertIsNotNone(generator_kwargs)
                 self.assertEqual(
@@ -624,13 +624,13 @@ class TestGenerationStrategy(TestCase):
 
         # Initial factorial batch.
         exp.new_batch_trial(generator_runs=factorial_thompson_gs.gen(experiment=exp)[0])
-        args, kwargs = mock_adapter._set_kwargs_to_save.call_args
-        self.assertEqual(kwargs.get("model_key"), "Factorial")
+        _, kwargs = mock_adapter._set_kwargs_to_save.call_args
+        self.assertEqual(kwargs.get("generator_key"), "Factorial")
 
         # Subsequent Thompson sampling batch.
         exp.new_batch_trial(generator_runs=factorial_thompson_gs.gen(experiment=exp)[0])
-        args, kwargs = mock_adapter._set_kwargs_to_save.call_args
-        self.assertEqual(kwargs.get("model_key"), "Thompson")
+        _, kwargs = mock_adapter._set_kwargs_to_save.call_args
+        self.assertEqual(kwargs.get("generator_key"), "Thompson")
 
     def test_clone_reset(self) -> None:
         ftgs = GenerationStrategy(
@@ -719,7 +719,7 @@ class TestGenerationStrategy(TestCase):
             {
                 GenerationStrategyRepeatedPoints: GeneratorSpec(
                     generator_enum=Generators.SOBOL,
-                    model_key_override="Fallback_Sobol",
+                    generator_key_override="Fallback_Sobol",
                     model_kwargs={"deduplicate": False},
                 )
             },
@@ -1474,7 +1474,7 @@ class TestGenerationStrategy(TestCase):
             if i > 4:
                 self.mock_torch_adapter.assert_called()
             else:
-                self.assertEqual(g._model_key, "Sobol")
+                self.assertEqual(g._generator_key, "Sobol")
                 self.assertEqual(
                     g._generator_kwargs,
                     {

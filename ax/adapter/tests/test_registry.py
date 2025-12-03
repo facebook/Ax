@@ -11,8 +11,8 @@ from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
     _extract_model_state_after_gen,
     Cont_X_trans,
+    GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
-    MODEL_KEY_TO_MODEL_SETUP,
 )
 from ax.adapter.torch import TorchAdapter
 from ax.core.observation import ObservationFeatures
@@ -88,11 +88,11 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
-            self.assertEqual(sobol_run._model_key, "Sobol")
+            self.assertEqual(sobol_run._generator_key, "Sobol")
             exp.new_batch_trial().add_generator_run(sobol_run).run()
         saasbo = Generators.SAASBO(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(saasbo, TorchAdapter)
-        self.assertEqual(saasbo._model_key, "SAASBO")
+        self.assertEqual(saasbo._generator_key, "SAASBO")
         generator = assert_is_instance(saasbo.generator, BoTorchGenerator)
         surrogate_spec = generator.surrogate_spec
         self.assertEqual(
@@ -211,11 +211,11 @@ class ModelRegistryTest(TestCase):
             ),
         )
 
-    def test_ModelSetups_do_not_share_kwargs(self) -> None:
+    def test_GeneratorSetups_do_not_share_kwargs(self) -> None:
         """Tests that none of the preset model and adapter combinations share a
         kwarg.
         """
-        for model_setup_info in MODEL_KEY_TO_MODEL_SETUP.values():
+        for model_setup_info in GENERATOR_KEY_TO_GENERATOR_SETUP.values():
             generator_class = model_setup_info.generator_class
             adapter_class = model_setup_info.adapter_class
             generator_args = set(get_function_argument_names(generator_class))

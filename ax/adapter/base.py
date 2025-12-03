@@ -180,7 +180,7 @@ class Adapter:
         self._status_quo: Observation | None = None
         self._status_quo_name: str | None = None
         self.transforms: MutableMapping[str, Transform] = OrderedDict()
-        self._model_key: str | None = None
+        self._generator_key: str | None = None
         self._generator_kwargs: dict[str, Any] | None = None
         self._adapter_kwargs: dict[str, Any] | None = None
         self._fit_tracking_metrics = fit_tracking_metrics
@@ -915,7 +915,7 @@ class Adapter:
             ),
             fit_time=self.fit_time_since_gen,
             gen_time=time.monotonic() - t_gen_start,
-            model_key=self._model_key,
+            generator_key=self._generator_key,
             generator_kwargs=self._generator_kwargs,
             adapter_kwargs=self._adapter_kwargs,
             gen_metadata=gen_metadata,
@@ -1036,16 +1036,16 @@ class Adapter:
 
     def _set_kwargs_to_save(
         self,
-        model_key: str,
+        generator_key: str,
         generator_kwargs: dict[str, Any],
         adapter_kwargs: dict[str, Any],
     ) -> None:
         """Set properties used to save the generator that created a given generator
         run, on the `GeneratorRun` object. Each generator run produced by the
-        `gen` method of this adapter will have the model key and kwargs
+        `gen` method of this adapter will have the generator key and kwargs
         fields set as provided in arguments to this function.
         """
-        self._model_key = model_key
+        self._generator_key = generator_key
         self._generator_kwargs = generator_kwargs
         self._adapter_kwargs = adapter_kwargs
 

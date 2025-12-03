@@ -212,7 +212,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
             arms=[Arm(parameters=params) for params in generated_params],
             fit_time=self.fit_time_since_gen,
             gen_time=time.monotonic() - t_gen_start,
-            model_key=self.name,
+            generator_key=self.name,
         )
         # TODO: This shares the same bug as Adapter.gen. In both cases, after
         # deduplication, the generator run will record fit_time as 0.

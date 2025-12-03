@@ -757,7 +757,7 @@ class Decoder:
             #  `Optional[typing.Tuple[Union[typing.Dict[str, List[float]],
             #  typing.Dict[str, typing.Dict[str, List[float]]]], ...]]`.
             model_predictions=model_predictions,
-            model_key=generator_run_sqa.model_key,
+            generator_key=generator_run_sqa.model_key,
             generator_kwargs=(
                 None
                 if reduced_state

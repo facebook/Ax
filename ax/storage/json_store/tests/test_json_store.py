@@ -1111,6 +1111,7 @@ class JSONStoreTest(TestCase):
                 "fit_on_init": True,
             },
         )
+        self.assertEqual(generator_run._generator_key, "Sobol")
 
     def test_generation_node_backwards_compatibility(self) -> None:
         # Checks that deprecated input constructors are discarded gracefully.

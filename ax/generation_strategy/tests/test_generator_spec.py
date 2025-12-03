@@ -64,17 +64,17 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         )
         wrapped_extract_ssd.assert_called_once()
 
-    def test_model_key(self) -> None:
+    def test_generator_key(self) -> None:
         ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
-        self.assertEqual(ms.model_key, "BoTorch")
+        self.assertEqual(ms.generator_key, "BoTorch")
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_key_override="MBM with defaults",
+            generator_key_override="MBM with defaults",
         )
-        self.assertEqual(ms.model_key, "MBM with defaults")
+        self.assertEqual(ms.generator_key, "MBM with defaults")
         ms.fit(experiment=self.experiment, data=self.data)
         gr = ms.gen(n=1)
-        self.assertEqual(gr._model_key, "MBM with defaults")
+        self.assertEqual(gr._generator_key, "MBM with defaults")
 
     @patch(f"{GeneratorSpec.__module__}.compute_diagnostics")
     @patch(
@@ -183,7 +183,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             model_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
         )
-        ms.model_key_override = "test_model_key_override"
+        ms.generator_key_override = "test_model_key_override"
 
         repr_str = repr(ms)
 
@@ -200,7 +200,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             model_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
         )
-        ms.model_key_override = "test_model_key_override"
+        ms.generator_key_override = "test_model_key_override"
 
         repr_str = ms._brief_repr()
 

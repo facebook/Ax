@@ -2361,7 +2361,7 @@ def get_generator_run() -> GeneratorRun:
         best_arm_predictions=(arms[0], arm_predictions[arms[0].signature]),
         fit_time=10.0,
         gen_time=5.0,
-        model_key="Sobol",
+        generator_key="Sobol",
         generator_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
         adapter_kwargs={"transforms": Cont_X_trans},
         generation_step_index=0,
