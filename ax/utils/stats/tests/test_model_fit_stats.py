@@ -8,11 +8,50 @@
 
 import numpy as np
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.model_fit_stats import _fisher_exact_test_p, entropy_of_observations
-from scipy.stats import fisher_exact
+from ax.utils.stats.model_fit_stats import (
+    _fisher_exact_test_p,
+    _kendall_tau_rank_correlation,
+    entropy_of_observations,
+)
+from scipy.stats import fisher_exact, kendalltau
 
 
 class TestModelFitStats(TestCase):
+    def test_kendall_tau_rank_correlation(self) -> None:
+        # Create a dummy set of observations and predictions
+        y_obs = np.array([1.0, 3.0, 2.0, 5.0, 7.0, 3.0])
+        y_pred = np.array([2.0, 4.0, 1.0, 6.0, 8.0, 2.5])
+        se_pred = np.full(len(y_obs), np.nan)  # not used for kendall tau
+
+        # Compute expected result using scipy
+        expected_tau, _ = kendalltau(x=y_pred, y=y_obs)
+
+        # Compute result using ax
+        ax_result = _kendall_tau_rank_correlation(y_obs, y_pred, se_pred)
+
+        self.assertEqual(expected_tau, ax_result)
+
+    def test_kendall_tau_rank_correlation_with_ties(self) -> None:
+        # Test with tied values
+        y_obs = np.array([1.0, 2.0, 2.0, 3.0, 3.0, 3.0])
+        y_pred = np.array([1.0, 2.0, 2.0, 3.0, 3.0, 3.0])
+        se_pred = np.full(len(y_obs), np.nan)
+
+        expected_tau, _ = kendalltau(x=y_pred, y=y_obs)
+        ax_result = _kendall_tau_rank_correlation(y_obs, y_pred, se_pred)
+
+        self.assertEqual(expected_tau, ax_result)
+
+    def test_kendall_tau_rank_correlation_perfect_negative(self) -> None:
+        # Test with perfectly negatively correlated data
+        y_obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y_pred = np.array([5.0, 4.0, 3.0, 2.0, 1.0])
+        se_pred = np.full(len(y_obs), np.nan)
+
+        ax_result = _kendall_tau_rank_correlation(y_obs, y_pred, se_pred)
+
+        self.assertAlmostEqual(ax_result, -1.0)
+
     def test_entropy_of_observations(self) -> None:
         np.random.seed(1234)
         n = 16

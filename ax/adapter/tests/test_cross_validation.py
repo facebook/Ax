@@ -384,6 +384,9 @@ class CrossValidationTest(TestCase):
         self.assertAlmostEqual(diag["Log likelihood"]["m2"], -25.82334285505847)
         self.assertEqual(diag["MSE"]["m1"], 18.75)
         self.assertEqual(diag["MSE"]["m2"], 38.75)
+        # Kendall tau rank correlation (NaN because y_pred is constant)
+        self.assertTrue(np.isnan(diag["Kendall tau rank correlation"]["m1"]))
+        self.assertTrue(np.isnan(diag["Kendall tau rank correlation"]["m2"]))
 
     def test_assess_model_fit(self) -> None:
         # Construct diagnostics
