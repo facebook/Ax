@@ -23,6 +23,7 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.string_utils import sanitize_name, unsanitize_name
 from pyre_extensions import assert_is_instance, none_throws
+from scipy.special import expit, logit
 from sympy.core.add import Add
 from sympy.core.mul import Mul
 from sympy.core.numbers import Float, Integer
@@ -1122,6 +1123,44 @@ class FixedParameter(Parameter):
             return f"value='{self._value}'"
         else:
             return f"value={self._value}"
+
+
+def get_dummy_value_for_parameter(param: Parameter) -> TParamValue:
+    """Calculate the dummy value for a parameter (middle of domain).
+
+    This is used when flattening hierarchical search spaces or filling in
+    missing parameter values. The dummy value represents a "neutral" or
+    "middle" value in the parameter's domain.
+
+    Args:
+        param: Parameter to calculate dummy value for.
+
+    Returns:
+        The middle of the parameter domain as the dummy value for the parameter.
+    """
+
+    if isinstance(param, FixedParameter):
+        return param.value
+    elif isinstance(param, ChoiceParameter):
+        return param.values[len(param.values) // 2]
+    elif isinstance(param, RangeParameter):
+        lower, upper = float(param.lower), float(param.upper)
+        if param.log_scale:
+            log_lower, log_upper = math.log10(lower), math.log10(upper)
+            log_mid = (log_upper + log_lower) / 2.0
+            val = math.pow(10, log_mid)
+        elif param.logit_scale:
+            logit_lower, logit_upper = logit(lower).item(), logit(upper).item()
+            logit_mid = (logit_upper + logit_lower) / 2.0
+            val = expit(logit_mid).item()
+        else:
+            val = (upper + lower) / 2.0
+        if param.parameter_type is ParameterType.INT:
+            # This makes the distribution uniform after casting to int.
+            val += 0.5
+        return param.cast(val)
+    else:
+        raise NotImplementedError(f"Unhandled parameter type on parameter {param}.")
 
 
 class DerivedParameter(Parameter):

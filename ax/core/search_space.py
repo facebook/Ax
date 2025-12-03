@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import math
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -21,6 +20,7 @@ from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
     FixedParameter,
+    get_dummy_value_for_parameter,
     Parameter,
     ParameterType,
     RangeParameter,
@@ -37,7 +37,6 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
-from scipy.special import expit, logit
 
 
 logger: Logger = get_logger(__name__)
@@ -837,15 +836,9 @@ class SearchSpace(Base):
         if len(obs_feats.parameters) < len(self.parameters):
             if inject_dummy_values_to_complete_flat_parameterization:
                 # Inject dummy values for parameters missing from the parameterization.
-                dummy_values_to_inject = (
-                    self._gen_dummy_values_to_complete_flat_parameterization(
-                        observation_features=obs_feats,
-                    )
-                )
-                obs_feats.parameters = {
-                    **dummy_values_to_inject,
-                    **obs_feats.parameters,
-                }
+                for p_name, p in self.parameters.items():
+                    if p_name not in obs_feats.parameters:
+                        obs_feats.parameters[p_name] = get_dummy_value_for_parameter(p)
             else:
                 # The parameterization is still incomplete.
                 warnings.warn(
@@ -926,41 +919,6 @@ class SearchSpace(Base):
             )
 
         return {k: v for k, v in parameters.items() if k in all_applicable_parameters}
-
-    def _gen_dummy_values_to_complete_flat_parameterization(
-        self,
-        observation_features: core.observation.ObservationFeatures,
-    ) -> dict[str, TParamValue]:
-        dummy_values_to_inject = {}
-        for param_name, param in self.parameters.items():
-            if param_name in observation_features.parameters:
-                continue
-            if isinstance(param, FixedParameter):
-                dummy_values_to_inject[param_name] = param.value
-            elif isinstance(param, ChoiceParameter):
-                dummy_value = param.values[len(param.values) // 2]
-                dummy_values_to_inject[param_name] = dummy_value
-            elif isinstance(param, RangeParameter):
-                lower, upper = float(param.lower), float(param.upper)
-                if param.log_scale:
-                    log_lower, log_upper = math.log10(lower), math.log10(upper)
-                    log_mid = (log_upper + log_lower) / 2.0
-                    val = math.pow(10, log_mid)
-                elif param.logit_scale:
-                    logit_lower, logit_upper = logit(lower).item(), logit(upper).item()
-                    logit_mid = (logit_upper + logit_lower) / 2.0
-                    val = expit(logit_mid).item()
-                else:
-                    val = (upper + lower) / 2.0
-                if param.parameter_type is ParameterType.INT:
-                    # This makes the distribution uniform after casting to int.
-                    val += 0.5
-                dummy_values_to_inject[param_name] = param.cast(val)
-            else:
-                raise NotImplementedError(
-                    f"Unhandled parameter type on parameter {param}."
-                )
-        return dummy_values_to_inject
 
 
 class HierarchicalSearchSpace(SearchSpace):
