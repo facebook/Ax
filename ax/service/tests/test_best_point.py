@@ -89,7 +89,7 @@ class TestBestPointMixin(TestCase):
         with self.assertRaisesRegex(DataRequiredError, "relative constraint"):
             get_trace(exp)
         # Add data for status quo.
-        trial = Trial(experiment=exp).add_arm(arm=exp.status_quo)
+        trial = Trial(experiment=exp).add_arm(arm=exp.status_quo).run().mark_completed()
         df_dict = [
             {
                 "trial_index": trial.index,
