@@ -162,7 +162,7 @@ class CastTransformTest(TestCase):
         with patch.object(
             self.t_hss.search_space,
             "flatten_observation_features",
-            wraps=self.t_hss.search_space.flatten_observation_features,  # pyre-ignore
+            wraps=self.t_hss.search_space.flatten_observation_features,
         ) as mock_flatten_obsf:
             transformed_obs_feats = self.t_hss.transform_observation_features(
                 observation_features=obs_feats
@@ -202,14 +202,13 @@ class CastTransformTest(TestCase):
             search_space=self.hss,
             config={
                 "inject_dummy_values_to_complete_flat_parameterization": True,
-                "use_random_dummy_values": True,
             },
         )
         self.assertTrue(t.inject_dummy_values_to_complete_flat_parameterization)
         with patch.object(
             t.search_space,
             "flatten_observation_features",
-            wraps=t.search_space.flatten_observation_features,  # pyre-ignore
+            wraps=t.search_space.flatten_observation_features,
         ) as mock_flatten_obsf:
             t.transform_observation_features(observation_features=[self.obs_feats_hss])
         mock_flatten_obsf.assert_called_once()
@@ -218,14 +217,13 @@ class CastTransformTest(TestCase):
                 "inject_dummy_values_to_complete_flat_parameterization"
             ]
         )
-        self.assertTrue(mock_flatten_obsf.call_args.kwargs["use_random_dummy_values"])
 
     def test_untransform_observation_features_HSS(self) -> None:
         # Test transformation in one subtree of HSS.
         with patch.object(
             self.t_hss.search_space,
             "cast_observation_features",
-            wraps=self.t_hss.search_space.cast_observation_features,  # pyre-ignore
+            wraps=self.t_hss.search_space.cast_observation_features,
         ) as mock_cast_obsf:
             obs_feats = self.t_hss.untransform_observation_features(
                 observation_features=[self.obs_feats_hss]

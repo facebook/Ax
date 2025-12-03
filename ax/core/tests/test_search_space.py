@@ -8,8 +8,6 @@
 
 import dataclasses
 import warnings
-from random import choice
-from unittest import mock
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -914,76 +912,73 @@ class HierarchicalSearchSpaceTest(TestCase):
             any("Cannot flatten observation features" in str(w.message) for w in ws)
         )
 
-    @mock.patch(f"{SearchSpace.__module__}.uniform", return_value=0.6)
-    def test_flatten_observation_features_inject_dummy_parameter_values_with_random(
-        self, mock_uniform: mock.MagicMock
+    def test_flatten_observation_features_inject_dummy_parameter_values(
+        self,
     ) -> None:
-        # Case 1: Linear arm
+        """Test that dummy values are injected correctly using middle values.
+
+        Tests various parameter types:
+        - Int-Range parameters
+        - Float-Range parameters
+        - Choice parameters (bool and string)
+        - Fixed parameters
+        - Log-scale Range parameters
+        - Logit-scale Range parameters
+        """
+        # Case 1: Linear arm - test int range dummy values
         hss_obs_feats = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast)
         hss_obs_feats_flattened = self.hss_1.flatten_observation_features(
-            observation_features=hss_obs_feats, use_random_dummy_values=True
+            observation_features=hss_obs_feats
         )
-        mock_uniform.assert_not_called()
         self.assertNotIn("num_boost_rounds", hss_obs_feats_flattened.parameters)
         flattened_with_dummies = self.hss_1.flatten_observation_features(
             observation_features=hss_obs_feats,
             inject_dummy_values_to_complete_flat_parameterization=True,
-            use_random_dummy_values=True,
         ).parameters
-        mock_uniform.assert_called()
-        self.assertIn("num_boost_rounds", flattened_with_dummies)
+        # Should use middle value for int range: (10 + 20) / 2 + 0.5 = 15.5, floor = 15
         self.assertEqual(
             flattened_with_dummies["num_boost_rounds"],
-            1,  # int(0.6 + 0.5) = floor(0.6 + 0.5) = 1
+            15,
         )
         self.assertIsInstance(  # Ensure we coerced parameter type correctly, too.
             flattened_with_dummies["num_boost_rounds"],
             int,
         )
 
-        # Case 2: XGBoost arm
-        mock_uniform.reset_mock()
+        # Case 2: XGBoost arm - test float range dummy values
         hss_obs_feats = ObservationFeatures.from_arm(arm=self.hss_1_arm_2_cast)
         hss_obs_feats_flattened = self.hss_1.flatten_observation_features(
-            observation_features=hss_obs_feats, use_random_dummy_values=True
+            observation_features=hss_obs_feats
         )
-        mock_uniform.assert_not_called()
         self.assertNotIn("learning_rate", hss_obs_feats_flattened.parameters)
         self.assertNotIn("l2_reg_weight", hss_obs_feats_flattened.parameters)
         flattened_with_dummies = (
             self.hss_1.flatten_observation_features(
                 observation_features=hss_obs_feats,
                 inject_dummy_values_to_complete_flat_parameterization=True,
-                use_random_dummy_values=True,
             )
         ).parameters
-        mock_uniform.assert_called()
-        self.assertIn("learning_rate", flattened_with_dummies)
-        self.assertIn("l2_reg_weight", flattened_with_dummies)
+        # Should use middle values for float ranges
         self.assertEqual(
             flattened_with_dummies["learning_rate"],
-            mock_uniform.return_value,
+            0.0505,  # (0.001 + 0.1) / 2
         )
         self.assertEqual(
             flattened_with_dummies["l2_reg_weight"],
-            mock_uniform.return_value,
+            0.000505,  # (0.00001 + 0.001) / 2
         )
 
         # Case 3: test setting of choice parameters
-        with mock.patch(
-            f"{SearchSpace.__module__}.choice", wraps=choice
-        ) as mock_choice:
-            flattened_only_dummies = self.hss_2.flatten_observation_features(
-                observation_features=ObservationFeatures(
-                    parameters={"num_boost_rounds": 12}
-                ),
-                inject_dummy_values_to_complete_flat_parameterization=True,
-                use_random_dummy_values=True,
-            ).parameters
-            self.assertEqual(
-                mock_choice.call_args_list,
-                [mock.call([False, True]), mock.call(["Linear", "XGBoost"])],
-            )
+        flattened_only_dummies = self.hss_2.flatten_observation_features(
+            observation_features=ObservationFeatures(
+                parameters={"num_boost_rounds": 12}
+            ),
+            inject_dummy_values_to_complete_flat_parameterization=True,
+        ).parameters
+        # Should use middle index: bool has 2 values, index 1 = True
+        self.assertEqual(flattened_only_dummies["use_linear"], True)
+        # String choice has 2 values ["Linear", "XGBoost"], index 1 = "XGBoost"
+        self.assertEqual(flattened_only_dummies["model"], "XGBoost")
         self.assertEqual(
             set(flattened_only_dummies.keys()), set(self.hss_2.parameters.keys())
         )
@@ -992,39 +987,25 @@ class HierarchicalSearchSpaceTest(TestCase):
         flattened_only_dummies = self.hss_with_fixed.flatten_observation_features(
             observation_features=ObservationFeatures(parameters={"use_linear": True}),
             inject_dummy_values_to_complete_flat_parameterization=True,
-            use_random_dummy_values=True,
         ).parameters
         self.assertEqual(
             set(flattened_only_dummies.keys()),
             set(self.hss_with_fixed.parameters.keys()),
         )
 
-    def test_flatten_observation_features_inject_dummy_parameter_values_non_random(
-        self,
-    ) -> None:
-        """Check behavior with different parameter cases:
-        Choice, Int-Range, Log-Range & Logit-Range.
-
-        HSS2 has enough parameters that we can modify to test all cases.
-        - `use_linear` is bool-Choice
-        - `model` is string-Choice
-        - `learning_rate` is Range, can be made log-scale
-        - `l2_reg_weight` is Range, can be made logit-scale
-        - `num_boost_rounds` is Int-Range.
-        """
+        # Case 5: test log-scale and logit-scale ranges
+        # Modify hss_2 parameters to test log and logit scale
         assert_is_instance(
             self.hss_2.parameters["learning_rate"], RangeParameter
         )._log_scale = True
         assert_is_instance(
             self.hss_2.parameters["l2_reg_weight"], RangeParameter
         )._logit_scale = True
-        # This has no other parameters on it, so they should all be set to
-        # middle value in their respective domains.
+
         obs_ft = ObservationFeatures(parameters={"use_linear": False})
         flat_obs_ft = self.hss_2.flatten_observation_features(
             observation_features=obs_ft,
             inject_dummy_values_to_complete_flat_parameterization=True,
-            use_random_dummy_values=False,
         )
         expected_parameters = {
             "use_linear": False,
