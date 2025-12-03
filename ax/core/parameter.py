@@ -798,7 +798,7 @@ class ChoiceParameter(Parameter):
                 f'`sort_values` is not specified for `ChoiceParameter` "{self._name}". '
                 f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
                 f"{self.parameter_type.name}. To override this behavior (or avoid this "
-                f"warning), specify `sort_values` during `ChoiceParameter` "
+                "warning), specify `sort_values` during `ChoiceParameter` "
                 "construction.",
                 AxParameterWarning,
                 stacklevel=3,

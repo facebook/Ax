@@ -44,7 +44,9 @@ def parameter_from_config(
                     "step_size."
                 )
 
-            if (upper - lower) % step_size != 0:
+            remainder = (upper - lower) % step_size
+            # Use tolerance-based comparison to handle floating point precision issues
+            if not np.isclose(remainder, 0) and not np.isclose(remainder, step_size):
                 raise UserInputError(
                     "The range of the parameter must be evenly divisible by the "
                     "step size."
