@@ -14,7 +14,7 @@ from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -24,6 +24,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from pyre_extensions import assert_is_instance
 
 
 class StandardizeYTransformTest(TestCase):
@@ -212,6 +213,67 @@ class StandardizeYTransformTest(TestCase):
             ],
         )
         assert_frame_equal(observation_data["sem"], expected_sems)
+
+    def test_TransformOptimizationConfigWithScalarizedObjective(self) -> None:
+        # Test with ScalarizedObjective
+        # Given: objective = w1*m1 + w2*m2 with w1=0.5, w2=0.5
+        # After standardization: zi = (yi - mu_i) / si
+        # The objective becomes: w1*s1*z1 + w2*s2*z2 (constant term doesn't matter)
+        # Expected weights: [0.5 * 1.0, 0.5 * sqrt(1/3)]
+        m1 = Metric(name="m1")
+        m2 = Metric(name="m2")
+        m3 = Metric(name="m3")
+
+        # Test with ScalarizedObjective that has all required metrics
+        objective = ScalarizedObjective(
+            metrics=[m1, m2], weights=[0.5, 0.5], minimize=False
+        )
+        oc = OptimizationConfig(objective=objective)
+        oc_transformed = self.t.transform_optimization_config(oc, None, None)
+
+        # Check that weights are scaled by standard deviations
+        expected_weights = [0.5 * 1.0, 0.5 * sqrt(1 / 3)]
+        transformed_objective = assert_is_instance(
+            oc_transformed.objective, ScalarizedObjective
+        )
+        self.assertTrue(np.allclose(transformed_objective.weights, expected_weights))
+
+        # Test with ScalarizedObjective missing a metric
+        objective_missing = ScalarizedObjective(
+            metrics=[m1, m3], weights=[0.5, 0.5], minimize=False
+        )
+        oc_missing = OptimizationConfig(objective=objective_missing)
+        with self.assertRaisesRegex(
+            DataRequiredError, "`StandardizeY` transform requires objective metric"
+        ):
+            self.t.transform_optimization_config(oc_missing, None, None)
+
+        # Test with different weights and minimize=True
+        objective_minimize = ScalarizedObjective(
+            metrics=[m1, m2], weights=[1.0, -2.0], minimize=True
+        )
+        oc_minimize = OptimizationConfig(objective=objective_minimize)
+        oc_minimize_transformed = self.t.transform_optimization_config(
+            oc_minimize, None, None
+        )
+
+        # Check that weights are scaled by standard deviations
+        expected_weights_minimize = [1.0 * 1.0, -2.0 * sqrt(1 / 3)]
+        transformed_objective_minimize = assert_is_instance(
+            oc_minimize_transformed.objective, ScalarizedObjective
+        )
+        self.assertTrue(
+            np.allclose(
+                transformed_objective_minimize.weights, expected_weights_minimize
+            )
+        )
+
+        # Multi-objective with scalarized objective should error out
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Scalarized objectives are not supported for a `MultiObjective`.",
+        ):
+            MultiObjective([objective_minimize, Objective(metric=m3, minimize=False)])
 
 
 def osd_allclose(osd1: ObservationData, osd2: ObservationData) -> bool:

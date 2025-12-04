@@ -36,7 +36,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
@@ -297,11 +297,9 @@ class BaseAdapterTest(TestCase):
             model_gen_options=None,
         )
 
-        # Gen with multi-objective optimization config.
+        # Gen with a different optimization config.
         oc2 = OptimizationConfig(
-            objective=ScalarizedObjective(
-                metrics=[Metric(name="test_metric"), Metric(name="test_metric_2")]
-            )
+            objective=Objective(metric=Metric(name="branin"), minimize=True)
         )
         with mock.patch(ADAPTER__GEN_PATH, return_value=mock_return_value) as mock_gen:
             adapter.gen(n=1, search_space=search_space, optimization_config=oc2)
