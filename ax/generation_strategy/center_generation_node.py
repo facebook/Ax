@@ -31,6 +31,7 @@ from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGenOrExhaustion,
 )
 from pyre_extensions import none_throws
+from scipy.special import expit, logit
 
 
 @dataclass(init=False)
@@ -115,8 +116,9 @@ class CenterGenerationNode(ExternalGenerationNode):
         for name, p in search_space.parameters.items():
             if isinstance(p, RangeParameter):
                 if p.logit_scale:
-                    raise NotImplementedError(f"`logit_scale` is not supported. {p=}")
-                if p.log_scale:
+                    # Leverage scipy's numerically stable logit and expit functions
+                    center = expit((logit(p.lower) + logit(p.upper)) / 2.0)
+                elif p.log_scale:
                     center = 10 ** ((math.log10(p.lower) + math.log10(p.upper)) / 2.0)
                 else:
                     center = (float(p.lower) + float(p.upper)) / 2.0
@@ -142,7 +144,8 @@ class CenterGenerationNode(ExternalGenerationNode):
 
         For range parameters, the center is the midpoint of the range. If the
         parameter is log-scale, then the center point will correspond to the
-        mid-point in log-scale.
+        mid-point in log-scale. If the parameter is logit-scale, then the center
+        point will correspond to the mid-point in logit-scale.
         For choice parameters, the center point is determined as the value
         that is at the middle of the values list.
         For both choice and integer range parameters, the ties are broken in
