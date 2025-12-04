@@ -916,9 +916,9 @@ class TestClient(TestCase):
         summary_df = client.summarize()
         self.assertTrue(summary_df.empty)
 
-        # Add manual trial.
+        # Add manual trial (not at center so CenterGenerationNode won't be skipped).
         index = client.attach_trial(
-            parameters={"x1": 0.5, "x2": 0.5}, arm_name="manual"
+            parameters={"x1": 0.3, "x2": 0.7}, arm_name="manual"
         )
         client.attach_data(trial_index=index, raw_data={"foo": 0.0, "bar": 0.5})
         summary_df = client.summarize()
