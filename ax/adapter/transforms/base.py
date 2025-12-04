@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
@@ -83,7 +84,7 @@ class Transform:
             )
         if config is None:
             config = {}
-        self.config = config
+        self.config = deepcopy(config)
         self.adapter = adapter
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:

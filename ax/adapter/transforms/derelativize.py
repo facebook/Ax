@@ -6,8 +6,10 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from logging import Logger
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.base import unwrap_observation_data
@@ -50,7 +52,7 @@ class Derelativize(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         use_raw_sq = self.config.get("use_raw_status_quo", False)

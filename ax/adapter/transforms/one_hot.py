@@ -6,7 +6,10 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from copy import deepcopy
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -88,7 +91,7 @@ class OneHot(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "OneHot requires search space"
@@ -101,15 +104,16 @@ class OneHot(Transform):
         # Identify parameters that should be transformed
         # pyre-fixme[4]: Attribute must be annotated.
         self.rounding = "strict"
-        if config is not None:
-            self.rounding = config.get("rounding", "strict")
+        if self.config is not None:
+            self.rounding = self.config.get("rounding", "strict")
         self.encoder: dict[str, OneHotEncoder] = {}
         self.encoded_parameters: dict[str, list[str]] = {}
         self.encoded_values: dict[str, list[TParamValue]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and not p.is_ordered and not p.is_task:
-                self.encoded_values[p.name] = p.values
-                self.encoder[p.name] = OneHotEncoder(p.values)
+                values = deepcopy(p.values)
+                self.encoded_values[p.name] = values
+                self.encoder[p.name] = OneHotEncoder(values)
                 encoded_len = self.encoder[p.name].encoded_len
                 if encoded_len == 1:
                     # Two levels handled in one parameter

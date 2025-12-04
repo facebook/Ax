@@ -6,7 +6,9 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
@@ -54,7 +56,7 @@ class Cast(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         self.search_space: SearchSpace = none_throws(search_space).clone()
@@ -64,7 +66,6 @@ class Cast(Transform):
             adapter=adapter,
             config=config,
         )
-        config = (config or {}).copy()
 
         # 1. The default behavior for non-hierarchical search spaces: The flag
         # `flatten_hss` is irrelevant. It's simply ignored.
@@ -80,20 +81,20 @@ class Cast(Transform):
         # exploit the hierarchical structure, it infers which parameter is active based
         # on `search_space_digest.hierarchical_dependencies`.
         self.flatten_hss: bool = assert_is_instance(
-            config.pop("flatten_hss", none_throws(search_space).is_hierarchical),
+            self.config.pop("flatten_hss", none_throws(search_space).is_hierarchical),
             bool,
         )
         self.inject_dummy_values_to_complete_flat_parameterization: bool = (
             assert_is_instance(
-                config.pop(
+                self.config.pop(
                     "inject_dummy_values_to_complete_flat_parameterization", True
                 ),
                 bool,
             )
         )
-        if config:
+        if self.config:
             raise UserInputError(
-                f"Unexpected config parameters for `Cast` transform: {config}."
+                f"Unexpected config parameters for `Cast` transform: {self.config}."
             )
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:

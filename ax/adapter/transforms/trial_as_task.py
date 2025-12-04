@@ -6,8 +6,10 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from logging import Logger
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
@@ -63,7 +65,7 @@ class TrialAsTask(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
@@ -83,9 +85,9 @@ class TrialAsTask(Transform):
                 "trial specified."
             )
         # Get trial level map
-        if config is not None and "trial_level_map" in config:
+        if "trial_level_map" in self.config:
             # pyre-ignore [9]
-            trial_level_map: dict[str, dict[int | str, int | str]] = config[
+            trial_level_map: dict[str, dict[int | str, int | str]] = self.config[
                 "trial_level_map"
             ]
             # Validate
@@ -103,7 +105,7 @@ class TrialAsTask(Transform):
                         f"Not all trials in data ({trials}) contained "
                         f"in trial level map for {_p_name} ({level_map})"
                     )
-        elif config is not None and config.get("trial_type_as_task", False):
+        elif self.config.get("trial_type_as_task", False):
             # map long run trials to 0 and short run trials to 1
             self.trial_level_map = {TRIAL_PARAM: {}}
             for trial_index in trials:
@@ -132,8 +134,8 @@ class TrialAsTask(Transform):
                 # create a task parameter and the transform is a no-op.
                 del self.trial_level_map[p_name]
                 continue
-            if config is not None and "target_trial" in config:
-                target_trial = int(config["target_trial"])
+            if "target_trial" in self.config:
+                target_trial = int(self.config["target_trial"])
             else:
                 target_trial = none_throws(
                     get_target_trial_index(

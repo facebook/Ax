@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from copy import deepcopy
 from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
-from ax.adapter import Adapter
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -64,16 +64,16 @@ class BaseRelativize(Transform, ABC):
             adapter=adapter,
             config=config,
         )
-        # self.adapter should NOT be modified
-        self.adapter: Adapter = none_throws(
-            adapter, f"{cls_name} transform requires an adapter"
-        )
-
-        sq_data_by_trial = self.adapter.status_quo_data_by_trial
+        sq_data_by_trial = none_throws(
+            self.adapter, f"{cls_name} transform requires an adapter"
+        ).status_quo_data_by_trial
         if not sq_data_by_trial:  # None or empty dict.
             raise DataRequiredError(f"{cls_name} requires status quo data.")
         self.status_quo_data_by_trial: dict[int, ObservationData] = none_throws(
-            sq_data_by_trial.copy()
+            deepcopy(sq_data_by_trial)
+        )
+        self.status_quo_name: str = none_throws(
+            none_throws(self.adapter).status_quo_name
         )
         # use latest index of latest observed trial by default
         # to handle pending trials, which may not have a trial_index
@@ -208,8 +208,7 @@ class BaseRelativize(Transform, ABC):
 
         # Set the SQ values to 0.
         mask = (
-            observation_data.index.get_level_values("arm_name")
-            == self.adapter.status_quo_name
+            observation_data.index.get_level_values("arm_name") == self.status_quo_name
         )
         observation_data.loc[mask, "mean"] = 0
         observation_data.loc[mask, "sem"] = 0

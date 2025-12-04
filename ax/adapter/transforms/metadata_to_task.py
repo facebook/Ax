@@ -56,10 +56,9 @@ class MetadataToTask(MetadataToParameterMixin, Transform):
             adapter=adapter,
             config=config,
         )
-        config = config or {}
         task_values: list[TParamValue] = [
             assert_is_instance(v, TParamValue)
-            for v in assert_is_instance(config["task_values"], list)
+            for v in assert_is_instance(self.config["task_values"], list)
         ]
         self.parameters: dict[str, dict[str, Any]] = {Keys.TASK_FEATURE_NAME.value: {}}
         self._parameter_list = [
