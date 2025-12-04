@@ -102,6 +102,72 @@ class TestCenterGenerationNode(TestCase):
             params, {"x1": 2.5, "x2": 31, "x3": "c", "x4": True, "x5": 33.5}
         )
 
+    def test_center_generation_with_logit_scale(self) -> None:
+        """Test that center computation works correctly for logit-scale parameters."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.1,
+                    upper=0.9,
+                    logit_scale=True,
+                ),
+                RangeParameter(
+                    name="x2",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+        node = CenterGenerationNode(next_node_name="test")
+        experiment = Experiment(search_space=ss)
+        params = (
+            none_throws(node.gen(experiment=experiment, pending_observations=None))
+            .arms[0]
+            .parameters
+        )
+        # For logit-scale parameter with bounds [0.1, 0.9]:
+        # logit(0.1) = log(0.1 / 0.9) ≈ -2.197
+        # logit(0.9) = log(0.9 / 0.1) ≈ 2.197
+        # center in logit space = 0
+        # inverse_logit(0) = 1 / (1 + exp(0)) = 0.5
+        self.assertAlmostEqual(float(params["x1"]), 0.5, places=5)
+        self.assertEqual(params["x2"], 0.5)
+
+    def test_center_generation_with_logit_scale_extreme_bounds(self) -> None:
+        """Test logit-scale with asymmetric extreme bounds from near 0 to near 1."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0001,
+                    upper=0.999,
+                    logit_scale=True,
+                ),
+            ]
+        )
+        node = CenterGenerationNode(next_node_name="test")
+        experiment = Experiment(search_space=ss)
+        params = (
+            none_throws(node.gen(experiment=experiment, pending_observations=None))
+            .arms[0]
+            .parameters
+        )
+        # For asymmetric extreme bounds, center is NOT at the linear midpoint
+        # logit(0.0001) = log(0.0001) - log(0.9999) ≈ -9.210
+        # logit(0.999) = log(0.999) - log(0.001) ≈ 6.906
+        # center in logit space = (-9.210 + 6.906) / 2 ≈ -1.152
+        # expit(-1.152) ≈ 0.240
+        center = float(params["x1"])
+        self.assertGreater(center, 0.0001)  # Above lower bound
+        self.assertLess(center, 0.999)  # Below upper bound
+        # Verify it's at the asymmetric logit-space center (~0.24)
+        # NOT at the linear midpoint (0.4995) or symmetric logit center (0.5)
+        self.assertAlmostEqual(center, 0.240, places=2)
+
     def test_deduplication(self) -> None:
         """Test that CenterGenerationNode skips generation and transitions to the next
         node when center already exists.
