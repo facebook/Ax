@@ -14,9 +14,10 @@ import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.standardize_y import compute_standardization_parameters
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -175,7 +176,9 @@ class StratifiedStandardizeY(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
-        if len(optimization_config.all_constraints) == 0:
+        if len(optimization_config.all_constraints) == 0 and not isinstance(
+            optimization_config.objective, ScalarizedObjective
+        ):
             return optimization_config
         if fixed_features is None or self.p_name not in fixed_features.parameters:
             raise ValueError(
@@ -184,15 +187,41 @@ class StratifiedStandardizeY(Transform):
             )
         v = none_throws(fixed_features.parameters[self.p_name])
         strata = self.strata_mapping[v]
+
+        # Handle ScalarizedObjective: update weights by multiplying with std.
+        # Transform \sum (wi * yi) to \sum (wi * si * zi) where zi = (yi - mu_i) / si
+        # The constant term \sum (wi * mu_i) doesn't affect optimization.
+        if isinstance(objective := optimization_config.objective, ScalarizedObjective):
+            objective.weights = [
+                objective.weights[i] * float(self.Ystd[(metric.signature, strata)])
+                for i, metric in enumerate(objective.metrics)
+            ]
+
         for c in optimization_config.all_constraints:
             if c.relative:
                 raise ValueError(
                     "StratifiedStandardizeY transform does not support relative "
                     f"constraint {c}"
                 )
-            c.bound = (c.bound - self.Ymean[(c.metric.signature, strata)]) / self.Ystd[
-                (c.metric.signature, strata)
-            ]
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                # Transform \sum (wi * yi) <= C to
+                # \sum (wi * si * zi) <= C - \sum (wi * mu_i)
+                # Update bound and weights.
+                c.bound = float(
+                    c.bound
+                    - sum(
+                        c.weights[i] * self.Ymean[(m.signature, strata)]
+                        for i, m in enumerate(c.metrics)
+                    )
+                )
+                c.weights = [
+                    c.weights[i] * self.Ystd[(m.signature, strata)]
+                    for i, m in enumerate(c.metrics)
+                ]
+            else:
+                c.bound = (
+                    c.bound - self.Ymean[(c.metric.signature, strata)]
+                ) / self.Ystd[(c.metric.signature, strata)]
         return optimization_config
 
     def untransform_observations(
@@ -228,10 +257,26 @@ class StratifiedStandardizeY(Transform):
                 raise ValueError(
                     "StratifiedStandardizeY does not support relative constraints"
                 )
-            c.bound = float(
-                c.bound * self.Ystd[(c.metric.signature, strata)]
-                + self.Ymean[(c.metric.signature, strata)]
-            )
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                # Untransform \sum (wi * si * zi) <= C' back to \sum (wi * yi) <= C
+                # where C' = C - \sum (wi * mu_i) and weights were multiplied by si.
+                # First untransform weights, then untransform bound.
+                c.weights = [
+                    c.weights[i] / self.Ystd[(m.signature, strata)]
+                    for i, m in enumerate(c.metrics)
+                ]
+                c.bound = float(
+                    c.bound
+                    + sum(
+                        c.weights[i] * self.Ymean[(m.signature, strata)]
+                        for i, m in enumerate(c.metrics)
+                    )
+                )
+            else:
+                c.bound = float(
+                    c.bound * self.Ystd[(c.metric.signature, strata)]
+                    + self.Ymean[(c.metric.signature, strata)]
+                )
         return outcome_constraints
 
     def transform_experiment_data(
