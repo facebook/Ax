@@ -8,10 +8,14 @@
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 from ax.adapter.registry import Generators
+from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -23,7 +27,9 @@ from ax.core.types import TParameterization
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
+from ax.generation_strategy.transition_criterion import (
+    AutoTransitionAfterGenOrExhaustion,
+)
 from pyre_extensions import none_throws
 
 
@@ -43,7 +49,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         super().__init__(
             name="CenterOfSearchSpace",
             transition_criteria=[
-                AutoTransitionAfterGen(
+                AutoTransitionAfterGenOrExhaustion(
                     transition_to=next_node_name,
                     continue_trial_generation=False,
                 )
@@ -62,21 +68,47 @@ class CenterGenerationNode(ExternalGenerationNode):
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         self.search_space = experiment.search_space
 
-    def get_next_candidate(
-        self, pending_parameters: list[TParameterization]
-    ) -> TParameterization:
-        """Sample the center of the search space.
+    def gen(
+        self,
+        experiment: Experiment,
+        data: Data | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        skip_fit: bool = False,
+        **gs_gen_kwargs: Any,
+    ) -> GeneratorRun | None:
+        """Generate candidates or skip if search space is exhausted.
 
-        For range parameters, the center is the midpoint of the range. If the
-        parameter is log-scale, then the center point will correspond to the
-        mid-point in log-scale.
-        For choice parameters, the center point is determined as the value
-        that is at the middle of the values list.
-        For both choice and integer range parameters, the ties are broken in
-        favor of the larger value / index. For example, a binary parameter with
-        values [0, 1] will be sampled as 1.
-        Fixed parameters are returned at their only allowed value.
+        This method checks if the center point already exists or is infeasible
+        before attempting generation. If so, it sets _should_skip to True and
+        returns None, allowing the generation strategy to transition to the next node.
         """
+        # Check if center already exists or is infeasible
+        self.search_space = experiment.search_space
+        center_params = self._compute_center_params()
+        search_space = none_throws(self.search_space)
+
+        # Check if center already exists in experiment
+        center_arm = Arm(parameters=center_params)
+        if center_arm.signature in experiment.arms_by_signature:
+            self._should_skip = True
+            return None
+
+        # Check if center violates parameter constraints
+        if not search_space.check_membership(parameterization=center_params):
+            self._should_skip = True
+            return None
+
+        # Otherwise, proceed with normal generation
+        return super().gen(
+            experiment=experiment,
+            data=data,
+            pending_observations=pending_observations,
+            skip_fit=skip_fit,
+            **gs_gen_kwargs,
+        )
+
+    def _compute_center_params(self) -> TParameterization:
+        """Compute the center of the search space."""
         search_space = none_throws(self.search_space)
         parameters = {}
         derived_params = []
@@ -101,6 +133,25 @@ class CenterGenerationNode(ExternalGenerationNode):
             parameters[p.name] = p.compute(parameters=parameters)
         if search_space.is_hierarchical:
             parameters = search_space._cast_parameterization(parameters=parameters)
+        return parameters
+
+    def get_next_candidate(
+        self, pending_parameters: list[TParameterization]
+    ) -> TParameterization:
+        """Sample the center of the search space.
+
+        For range parameters, the center is the midpoint of the range. If the
+        parameter is log-scale, then the center point will correspond to the
+        mid-point in log-scale.
+        For choice parameters, the center point is determined as the value
+        that is at the middle of the values list.
+        For both choice and integer range parameters, the ties are broken in
+        favor of the larger value / index. For example, a binary parameter with
+        values [0, 1] will be sampled as 1.
+        Fixed parameters are returned at their only allowed value.
+        """
+        search_space = none_throws(self.search_space)
+        parameters = self._compute_center_params()
 
         # Check for search space membership, which will check if the generated
         # point satisfies the parameter constraints.

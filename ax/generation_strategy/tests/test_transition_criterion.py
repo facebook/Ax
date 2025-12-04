@@ -11,10 +11,12 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.adapter.registry import Generators
+from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
+from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -23,6 +25,7 @@ from ax.generation_strategy.generation_strategy import (
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
+    AutoTransitionAfterGenOrExhaustion,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
@@ -371,6 +374,69 @@ class TestTransitionCriterion(TestCase):
             gs._nodes[0]
             .transition_criteria[0]
             .is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+    def test_auto_transition_after_gen_or_exhaustion(self) -> None:
+        """Test AutoTransitionAfterGenOrExhaustion transitions after generation
+        or when search space is exhausted.
+        """
+        experiment = self.branin_experiment
+
+        # Test 1: Transition after successful generation (like AutoTransitionAfterGen)
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    name="sobol_1",
+                    generator_specs=[self.sobol_generator_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenOrExhaustion(transition_to="sobol_2")
+                    ],
+                ),
+                GenerationNode(
+                    name="sobol_2", generator_specs=[self.sobol_generator_spec]
+                ),
+            ],
+        )
+        gs.experiment = experiment
+
+        # Generate from first node
+        gs.gen(experiment=experiment)
+        self.assertEqual(gs.current_node_name, "sobol_1")
+
+        # Should transition to next node on next gen after generating
+        gs.gen(experiment=experiment)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+
+        # Test 2: Transition immediately when search space is exhausted
+        # Use CenterGenerationNode which can only generate one unique candidate
+        experiment2 = get_branin_experiment()
+        # Add the center point so it's already in the experiment
+        center_arm = Arm(parameters={"x1": 2.5, "x2": 7.5})
+        experiment2.new_trial().add_arm(arm=center_arm)
+
+        gs2 = GenerationStrategy(
+            name="test_exhaustion",
+            nodes=[
+                CenterGenerationNode(next_node_name="sobol"),
+                GenerationNode(
+                    name="sobol", generator_specs=[self.sobol_generator_spec]
+                ),
+            ],
+        )
+        gs2.experiment = experiment2
+
+        # Since center already exists, should skip CenterGenerationNode
+        # and transition directly to sobol
+        gr = gs2.gen(experiment=experiment2, n=1)[0]
+        self.assertEqual(gr[0]._generation_node_name, "sobol")
+        self.assertEqual(gs2.current_node_name, "sobol")
+
+        # Test 3: Call block_continued_generation_error
+        criterion = AutoTransitionAfterGenOrExhaustion(transition_to="sobol_2")
+        # This method has a pass statement, so calling it should not raise an error
+        criterion.block_continued_generation_error(
+            node_name="sobol_1", experiment=experiment, trials_from_node=set()
         )
 
     def test_is_single_objective_does_not_transition(self) -> None:
