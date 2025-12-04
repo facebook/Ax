@@ -57,7 +57,6 @@ class LogY(Transform):
         adapter: base_adapter.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        config = config or {}
         super().__init__(
             search_space=search_space,
             experiment_data=experiment_data,
@@ -66,9 +65,9 @@ class LogY(Transform):
         )
         self.metric_signatures: list[str] = [
             assert_is_instance(m, str)
-            for m in list(assert_is_instance(config.get("metrics", []), Iterable))
+            for m in list(assert_is_instance(self.config.get("metrics", []), Iterable))
         ]
-        if config.get("match_ci_width", False):
+        if self.config.get("match_ci_width", False):
             # perform moment-matching to compute variance that results in a CI
             # of same width as the when transforming the moments
             self._transform: T_MATCH_CI_WIDTH = lambda m, v: match_ci_width(

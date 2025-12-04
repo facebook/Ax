@@ -6,8 +6,10 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 import warnings
-from typing import Optional, TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -92,7 +94,7 @@ class Winsorize(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
@@ -102,18 +104,19 @@ class Winsorize(Transform):
             config=config,
         )
         optimization_config = adapter._optimization_config if adapter else None
-        if config is None and optimization_config is None:
+        if not self.config and optimization_config is None:
             # We can't winsorize without an optimization config.
             # The lack of an optimization config often points to a manual
             # adapter creation, in which case we can just skip winsorization.
             self.cutoffs = {}
             return
-        if config is None:
-            config = {}
 
         # Get config settings.
-        winsorization_config = config.get("winsorization_config", {})
-        use_raw_sq = _get_and_validate_use_raw_sq(config=config)
+        winsorization_config = cast(
+            WinsorizationConfig | dict[str, WinsorizationConfig],
+            self.config.get("winsorization_config", {}),
+        )
+        use_raw_sq = _get_and_validate_use_raw_sq(config=self.config)
         means_df = none_throws(experiment_data).observation_data["mean"]
         # Dropping NaNs here since the DF will have NaN for missing values.
         all_metric_values = {
@@ -171,7 +174,7 @@ def _get_cutoffs(
     metric_signature: str,
     metric_values: list[float],
     winsorization_config: WinsorizationConfig | dict[str, WinsorizationConfig],
-    adapter: Optional["adapter_module.base.Adapter"],
+    adapter: adapter_module.base.Adapter | None,
     optimization_config: OptimizationConfig | None,
     use_raw_sq: bool,
 ) -> tuple[float, float]:

@@ -6,8 +6,10 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from numbers import Real
-from typing import cast, Optional, TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
@@ -33,7 +35,7 @@ class IntRangeToChoice(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
@@ -43,9 +45,8 @@ class IntRangeToChoice(Transform):
             config=config,
         )
         assert search_space is not None, "IntRangeToChoice requires search space"
-        config = config or {}
         self.max_choices: float = float(
-            cast(Real, (config.get("max_choices", float("inf"))))
+            cast(Real, (self.config.get("max_choices", float("inf"))))
         )
         # Identify parameters that should be transformed
         self.transform_parameters: set[str] = {

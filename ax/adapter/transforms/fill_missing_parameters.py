@@ -6,8 +6,10 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from logging import Logger
-from typing import cast, Optional, TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
@@ -33,7 +35,7 @@ class FillMissingParameters(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,  # Deprecated
     ) -> None:
         super().__init__(

@@ -6,14 +6,15 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
-from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
+from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
 from ax.adapter.transforms.utils import construct_new_search_space
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParamValue
 from ax.generators.types import TConfig
 
 if TYPE_CHECKING:
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
-class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
+class TaskChoiceToIntTaskChoice(ChoiceToNumericChoice):
     """Convert task ChoiceParameters to integer-valued ChoiceParameters.
 
     Parameters will be transformed to an integer ChoiceParameter with
@@ -37,42 +38,36 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
         self,
         search_space: SearchSpace,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        assert (
-            search_space is not None
-        ), "TaskChoiceToIntTaskChoice requires search space"
         super().__init__(
             search_space=search_space,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )
-        # Identify parameters that should be transformed
-        self.encoded_parameters: dict[str, dict[TParamValue, int]] = {}
-        self.target_values: dict[str, int] = {}
-        for p in search_space.parameters.values():
-            if isinstance(p, ChoiceParameter) and p.is_task:
-                if p.is_fidelity:
-                    raise ValueError(
-                        f"Task parameter {p.name} cannot simultaneously be "
-                        "a fidelity parameter."
-                    )
-                self.encoded_parameters[p.name] = {
-                    original_value: transformed_value
-                    for transformed_value, original_value in enumerate(p.values)
-                }
-                self.target_values[p.name] = self.encoded_parameters[p.name][
-                    p.target_value
-                ]
-        self.encoded_parameters_inverse: dict[str, dict[int, TParamValue]] = {
-            p_name: {
-                transformed_value: original_value
-                for original_value, transformed_value in transforms.items()
-            }
-            for p_name, transforms in self.encoded_parameters.items()
+        self.target_values: dict[str, int | None] = {
+            p.name: self.encoded_parameters[p.name][p.target_value]
+            if p.target_value is not None
+            else None
+            for p in search_space.parameters.values()
+            if self._should_encode(p=p)
         }
+
+    def _should_encode(self, p: Parameter) -> bool:
+        """Check if a parameter should be encoded.
+        Encodes task choice parameters.
+        Raises an error if the task parameter is also a fidelity parameter.
+        """
+        if isinstance(p, ChoiceParameter) and p.is_task:
+            if p.is_fidelity:
+                raise ValueError(
+                    f"Task parameter {p.name} cannot simultaneously be "
+                    "a fidelity parameter."
+                )
+            return True
+        return False
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}

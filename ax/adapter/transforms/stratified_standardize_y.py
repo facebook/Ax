@@ -6,7 +6,9 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
@@ -49,7 +51,7 @@ class StratifiedStandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize StratifiedStandardizeY.
@@ -76,20 +78,20 @@ class StratifiedStandardizeY(Transform):
         )
         # Get parameter name for standardization.
         self.strata_mapping = None  # pyre-ignore [8]
-        if config is not None and "parameter_name" in config:
+        if "parameter_name" in self.config:
             # pyre: Attribute `p_name` declared in class `ax.adapter.
             # pyre: transforms.stratified_standardize_y.
             # pyre: StratifiedStandardizeY` has type `str` but is used as type
             # pyre-fixme[8]: `typing.Union[float, int, str]`.
-            self.p_name: str = config["parameter_name"]
+            self.p_name: str = self.config["parameter_name"]
             strat_p = search_space.parameters[self.p_name]
             if not isinstance(strat_p, ChoiceParameter):
                 raise ValueError(f"{self.p_name} not a ChoiceParameter")
-            if "strata_mapping" in config:
+            if "strata_mapping" in self.config:
                 # pyre-ignore [8]
                 self.strata_mapping: dict[
                     bool | float | int | str, bool | float | int | str
-                ] = config["strata_mapping"]
+                ] = self.config["strata_mapping"]
                 if set(strat_p.values) != set(self.strata_mapping.keys()):
                     raise ValueError(
                         f"{self.p_name} values {strat_p.values} do not match "
@@ -170,7 +172,7 @@ class StratifiedStandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         if len(optimization_config.all_constraints) == 0:

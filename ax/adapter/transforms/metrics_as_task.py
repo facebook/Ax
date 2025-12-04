@@ -6,7 +6,9 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
@@ -44,7 +46,7 @@ class MetricsAsTask(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
@@ -54,9 +56,9 @@ class MetricsAsTask(Transform):
             config=config,
         )
         # Use config to specify metric task map
-        if config is None or "metric_task_map" not in config:
+        if "metric_task_map" not in self.config:
             raise ValueError("config must specify metric_task_map")
-        self.metric_task_map: dict[str, list[str]] = config[  # pyre-ignore
+        self.metric_task_map: dict[str, list[str]] = self.config[  # pyre-ignore
             "metric_task_map"
         ]
         self.task_values: list[str] = list(self.metric_task_map.keys())

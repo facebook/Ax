@@ -79,11 +79,9 @@ class PowerTransformY(Transform):
             config=config,
         )
         # pyre-fixme[9]: Can't annotate config["metrics"] properly.
-        metric_signatures: list[str] | None = (
-            config.get("metrics", None) if config else None
-        )
-        self.clip_mean: bool = (
-            assert_is_instance(config.get("clip_mean", True), bool) if config else True
+        metric_signatures: list[str] | None = self.config.get("metrics", None)
+        self.clip_mean: bool = assert_is_instance(
+            self.config.get("clip_mean", True), bool
         )
         means_df = none_throws(experiment_data).observation_data["mean"]
         # Dropping NaNs here since the DF will have NaN for missing values.

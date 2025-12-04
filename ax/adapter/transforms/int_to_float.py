@@ -6,8 +6,10 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from logging import Logger
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
@@ -51,7 +53,7 @@ class IntToFloat(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         self.search_space: SearchSpace = none_throws(
@@ -63,12 +65,15 @@ class IntToFloat(Transform):
             adapter=adapter,
             config=config,
         )
-        config = config or {}
-        self.rounding: str = assert_is_instance(config.get("rounding", "strict"), str)
-        self.max_round_attempts: int = assert_is_instance(
-            config.get("max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS), int
+        self.rounding: str = assert_is_instance(
+            self.config.get("rounding", "strict"), str
         )
-        self.min_choices: int = assert_is_instance(config.get("min_choices", 0), int)
+        self.max_round_attempts: int = assert_is_instance(
+            self.config.get("max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS), int
+        )
+        self.min_choices: int = assert_is_instance(
+            self.config.get("min_choices", 0), int
+        )
 
         # Identify parameters that should be transformed
         self.transform_parameters: set[str] = self._get_transform_parameters()
