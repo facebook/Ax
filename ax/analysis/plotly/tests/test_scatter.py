@@ -14,6 +14,7 @@ from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
@@ -65,6 +66,25 @@ class TestScatterPlot(TestCase):
                         - 2 * assert_is_instance(parameterization["x2"], float),
                     },
                 )
+
+    def test_trial_statuses_behavior(self) -> None:
+        # When neither trial_statuses nor trial_index is provided,
+        # should use default statuses (excluding ABANDONED and STALE)
+        analysis = ScatterPlot(x_metric_name="foo", y_metric_name="bar")
+        expected_statuses = {*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+        self.assertEqual(set(none_throws(analysis.trial_statuses)), expected_statuses)
+
+        # When trial_statuses is explicitly provided, it should be used
+        explicit_statuses = [TrialStatus.COMPLETED, TrialStatus.RUNNING]
+        analysis = ScatterPlot(
+            x_metric_name="foo", y_metric_name="bar", trial_statuses=explicit_statuses
+        )
+        self.assertEqual(analysis.trial_statuses, explicit_statuses)
+
+        # When trial_index is provided (and trial_statuses is None),
+        # trial_statuses should be None to allow filtering by trial_index
+        analysis = ScatterPlot(x_metric_name="foo", y_metric_name="bar", trial_index=0)
+        self.assertIsNone(analysis.trial_statuses)
 
     def test_validation(self) -> None:
         with self.assertRaisesRegex(
