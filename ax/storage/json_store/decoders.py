@@ -33,6 +33,9 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata
+from ax.early_stopping.strategies.base import REMOVED_EARLY_STOPPING_STRATEGY_KWARGS
+from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrategy
+from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.exceptions.storage import JSONDecodeError
 from ax.storage.botorch_modular_registry import (
     CLASS_TO_REVERSE_REGISTRY,
@@ -510,3 +513,27 @@ def observation_features_from_json(
         end_time=end_time,
         metadata=metadata,
     )
+
+
+def percentile_early_stopping_strategy_from_json(
+    **kwargs: Any,
+) -> PercentileEarlyStoppingStrategy:
+    """Load PercentileEarlyStoppingStrategy from JSON.
+
+    Discards removed kwargs for backwards compatibility.
+    """
+    for key in REMOVED_EARLY_STOPPING_STRATEGY_KWARGS:
+        kwargs.pop(key, None)
+    return PercentileEarlyStoppingStrategy(**kwargs)
+
+
+def threshold_early_stopping_strategy_from_json(
+    **kwargs: Any,
+) -> ThresholdEarlyStoppingStrategy:
+    """Load ThresholdEarlyStoppingStrategy from JSON.
+
+    Discards removed kwargs for backwards compatibility.
+    """
+    for key in REMOVED_EARLY_STOPPING_STRATEGY_KWARGS:
+        kwargs.pop(key, None)
+    return ThresholdEarlyStoppingStrategy(**kwargs)

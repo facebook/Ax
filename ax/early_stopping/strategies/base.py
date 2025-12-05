@@ -31,6 +31,11 @@ from pyre_extensions import assert_is_instance, none_throws
 logger: Logger = get_logger(__name__)
 
 
+# Kwargs removed from early stopping strategies that should be discarded for
+# backwards compatibility when loading old strategies.
+REMOVED_EARLY_STOPPING_STRATEGY_KWARGS: set[str] = {"trial_indices_to_ignore"}
+
+
 class BaseEarlyStoppingStrategy(ABC, Base):
     """Interface for heuristics that halt trials early, typically based on early
     results from that trial."""
@@ -41,7 +46,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
-        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         interval: float | None = None,
         check_safe: bool = False,
@@ -61,7 +65,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            trial_indices_to_ignore: Trial indices that should not be early stopped.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -106,7 +109,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.min_progression = min_progression
         self.max_progression = max_progression
         self.min_curves = min_curves
-        self.trial_indices_to_ignore = trial_indices_to_ignore
         self.normalize_progressions = normalize_progressions
         self.interval = interval
         self.check_safe = check_safe
@@ -251,18 +253,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return MapData(df=map_df)
 
     @staticmethod
-    def _log_and_return_trial_ignored(
-        logger: logging.Logger, trial_index: int
-    ) -> tuple[bool, str]:
-        """Helper function for logging/constructing a reason when a trial
-        should be ignored."""
-        logger.info(
-            f"Trial {trial_index} should be ignored and not considered "
-            "for early stopping."
-        )
-        return False, "Specified as a trial to be ignored for early stopping."
-
-    @staticmethod
     def _log_and_return_no_data(
         logger: logging.Logger, trial_index: int, metric_name: str
     ) -> tuple[bool, str]:
@@ -372,11 +362,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     ) -> tuple[bool, str | None]:
         """Perform a series of default checks for a specific trial `trial_index` and
         determines whether it is eligible for further stopping logic:
-            1. Check for ignored indices based on `self.trial_indices_to_ignore`
-            2. Check that `df` contains data for the trial `trial_index`
-            3. Check that the trial has reached `self.min_progression`
-            4. Check that the trial hasn't surpassed `self.max_progression`
-            5. Check that the trial has progressed sufficiently since the last
+            1. Check that `df` contains data for the trial `trial_index`
+            2. Check that the trial has reached `self.min_progression`
+            3. Check that the trial hasn't surpassed `self.max_progression`
+            4. Check that the trial has progressed sufficiently since the last
                early-stopping decision (based on `self.interval`)
         Returns two elements: a boolean indicating if all checks are passed and a
         str indicating the reason that early stopping is not applied (None if all
@@ -397,15 +386,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             A tuple of two elements: a boolean indicating if the trial is eligible and
                 an optional string indicating any reason for ineligiblity.
         """
-        # check for ignored indices
-        if (
-            self.trial_indices_to_ignore is not None
-            and trial_index in self.trial_indices_to_ignore
-        ):
-            return self._log_and_return_trial_ignored(
-                logger=logger, trial_index=trial_index
-            )
-
         # Check eligibility of each metric.
         for metric_signature, metric_df in df.groupby("metric_signature"):
             # check for no data
@@ -593,7 +573,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
-        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         min_progression_modeling: float | None = None,
         interval: float | None = None,
@@ -614,7 +593,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            trial_indices_to_ignore: Trial indices that should not be early stopped.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -642,7 +620,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
-            trial_indices_to_ignore=trial_indices_to_ignore,
             normalize_progressions=normalize_progressions,
             interval=interval,
             check_safe=check_safe,
