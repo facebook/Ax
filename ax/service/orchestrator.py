@@ -1294,19 +1294,25 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         trial_indices_with_updated_data_or_status.update(trial_indices_with_new_data)
 
         # EARLY STOP TRIALS
-        stop_trial_info = early_stopping_utils.should_stop_trials_early(
-            early_stopping_strategy=self.options.early_stopping_strategy,
-            trial_indices=self.running_trial_indices,
-            experiment=self.experiment,
-            current_node=self.generation_strategy._curr,
-        )
-        self.experiment.stop_trial_runs(
-            trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_info],
-            reasons=list(stop_trial_info.values()),
-        )
-        if len(stop_trial_info) > 0:
-            trial_indices_with_updated_data_or_status.update(set(stop_trial_info))
-            updated_any_trial_status = True
+        # Only run early stopping checks when new data is available, since early
+        # stopping decisions are based on trial data. This avoids redundant
+        # expensive checks when no new data has been fetched.
+        if len(trial_indices_with_new_data) > 0:
+            stop_trial_info = early_stopping_utils.should_stop_trials_early(
+                early_stopping_strategy=self.options.early_stopping_strategy,
+                trial_indices=self.running_trial_indices,
+                experiment=self.experiment,
+                current_node=self.generation_strategy._curr,
+            )
+            self.experiment.stop_trial_runs(
+                trials=[
+                    self.experiment.trials[trial_idx] for trial_idx in stop_trial_info
+                ],
+                reasons=list(stop_trial_info.values()),
+            )
+            if len(stop_trial_info) > 0:
+                trial_indices_with_updated_data_or_status.update(set(stop_trial_info))
+                updated_any_trial_status = True
 
         # UPDATE TRIALS IN DB
         if (
