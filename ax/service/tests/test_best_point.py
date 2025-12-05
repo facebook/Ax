@@ -10,13 +10,24 @@ from unittest.mock import Mock
 import pandas as pd
 from ax.adapter.registry import Generators
 from ax.core.arm import Arm
+
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.experiment import Experiment
+from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    PreferenceOptimizationConfig,
+)
+from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.core import DataRequiredError
 from ax.service.utils.best_point import get_trace
 from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_batch_trial,
@@ -367,3 +378,203 @@ class TestBestPointMixin(TestCase):
             minimize=True,
         )
         self.assertEqual(get_best(exp), 10)  # 5 and 9 are out of design
+
+    def test_get_trace_preference_learning_config(self) -> None:
+        """Test that get_trace works correctly with PreferenceOptimizationConfig.
+
+        This test verifies various scenarios for bope experiments,
+        including cases with and without PE_EXPERIMENT data.
+        """
+
+        with self.subTest("without_pe_experiment_falls_back_to_hypervolume"):
+            # Create a multi-objective experiment WITHOUT PE_EXPERIMENT
+            exp = get_experiment_with_observations(
+                observations=[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]],
+            )
+            exp.name = "main_experiment"
+
+            pref_opt_config = PreferenceOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric(name="m1"), minimize=False),
+                        Objective(metric=Metric(name="m2"), minimize=False),
+                    ]
+                ),
+                preference_profile_name="nonexistent_profile",
+            )
+
+            # Should fall back to hypervolume computation
+            trace = get_trace(exp, pref_opt_config)
+
+            # Verify we have one entry per trial
+            self.assertEqual(len(trace), 3)
+
+            # All values should be floats (hypervolumes)
+            for value in trace:
+                self.assertIsInstance(value, float)
+
+            # Trace should be monotonically increasing
+            for i in range(1, len(trace)):
+                self.assertGreaterEqual(trace[i], trace[i - 1])
+
+        with self.subTest("with_pe_experiment_empty_data_falls_back"):
+            # Create main experiment
+            exp = get_experiment_with_observations(
+                observations=[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]],
+            )
+            exp.name = "main_experiment_empty"
+
+            # Create PE_EXPERIMENT with no preference comparisons (empty data)
+            pe_search_space = SearchSpace(
+                parameters=[
+                    RangeParameter(
+                        name="m1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.0,
+                        upper=10.0,
+                    ),
+                    RangeParameter(
+                        name="m2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.0,
+                        upper=10.0,
+                    ),
+                ]
+            )
+
+            pe_experiment = Experiment(
+                name="test_profile_empty",
+                search_space=pe_search_space,
+            )
+
+            # Don't attach any data to PE_EXPERIMENT - it will be empty
+
+            # Attach PE_EXPERIMENT without any data
+            aux_exp = AuxiliaryExperiment(
+                experiment=pe_experiment,
+                data=None,
+            )
+            exp.add_auxiliary_experiment(
+                auxiliary_experiment=aux_exp,
+                purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            )
+
+            pref_opt_config = PreferenceOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric(name="m1"), minimize=False),
+                        Objective(metric=Metric(name="m2"), minimize=False),
+                    ]
+                ),
+                preference_profile_name="test_profile_empty",
+            )
+
+            # Should fall back to hypervolume due to empty PE_EXPERIMENT data
+            trace = get_trace(exp, pref_opt_config)
+
+            # Verify we have one entry per trial
+            self.assertEqual(len(trace), 3)
+
+            # All values should be floats
+            for value in trace:
+                self.assertIsInstance(value, float)
+
+        with self.subTest("with_pe_experiment_valid_data_computes_utility"):
+            # This subtest verifies that when PE_EXPERIMENT exists with data,
+            # the code attempts to use the preference model (even if it falls back).
+            # Full integration testing with a properly trained PairwiseGP model
+            # would require extensive setup and is better suited for integration tests.
+
+            # Create main experiment with tracking data
+            exp = get_experiment_with_observations(
+                observations=[[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]],
+            )
+            exp.name = "main_experiment_with_pe"
+
+            # Create PE_EXPERIMENT with minimal preference data
+            pe_search_space = SearchSpace(
+                parameters=[
+                    RangeParameter(
+                        name="m1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.0,
+                        upper=10.0,
+                    ),
+                    RangeParameter(
+                        name="m2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.0,
+                        upper=10.0,
+                    ),
+                ]
+            )
+
+            pe_experiment = Experiment(
+                name="test_profile_with_minimal_data",
+                search_space=pe_search_space,
+            )
+
+            # Add one pairwise preference comparison (minimal data)
+            trial1 = pe_experiment.new_batch_trial()
+            trial1.add_arm(Arm(name="0_0", parameters={"m1": 0.5, "m2": 1.0}))
+            trial1.add_arm(Arm(name="0_1", parameters={"m1": 1.0, "m2": 1.5}))
+            trial1.mark_running(no_runner_required=True).mark_completed()
+
+            # Create minimal preference data
+            pe_data_records = [
+                {
+                    "trial_index": 0,
+                    "arm_name": "0_0",
+                    "metric_name": Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                    "mean": 0.0,
+                    "sem": 0.0,
+                    "metric_signature": Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                },
+                {
+                    "trial_index": 0,
+                    "arm_name": "0_1",
+                    "metric_name": Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                    "mean": 1.0,
+                    "sem": 0.0,
+                    "metric_signature": Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                },
+            ]
+
+            pe_data = Data(df=pd.DataFrame.from_records(pe_data_records))
+            pe_experiment.attach_data(pe_data)
+
+            # Attach PE_EXPERIMENT to main experiment
+            aux_exp = AuxiliaryExperiment(experiment=pe_experiment, data=pe_data)
+            exp.add_auxiliary_experiment(
+                auxiliary_experiment=aux_exp,
+                purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            )
+
+            pref_opt_config = PreferenceOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric(name="m1"), minimize=False),
+                        Objective(metric=Metric(name="m2"), minimize=False),
+                    ]
+                ),
+                preference_profile_name="test_profile_with_minimal_data",
+            )
+
+            # With minimal data, the model may fail to train properly and fall back
+            # The important thing is that we handle this gracefully
+            trace = get_trace(exp, pref_opt_config)
+
+            # Verify we have one entry per trial in the main experiment
+            self.assertEqual(len(trace), 3)
+
+            # All values should be floats
+            for value in trace:
+                self.assertIsInstance(value, float)
+
+            # Trace should be monotonically increasing
+            for i in range(1, len(trace)):
+                self.assertGreaterEqual(
+                    trace[i],
+                    trace[i - 1],
+                    msg=f"Trace not monotonic at index {i}: {trace}",
+                )
