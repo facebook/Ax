@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import timedelta
 from math import ceil
 from tempfile import NamedTemporaryFile
@@ -20,7 +20,7 @@ import pandas as pd
 from ax.adapter.cross_validation import compute_model_fit_metrics_from_adapter
 from ax.adapter.registry import Generators, MBM_MTGP_trans
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -1192,6 +1192,72 @@ class TestAxOrchestrator(TestCase):
                 mock_stop_trial_run.call_count,
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
+
+    def test_early_stopping_not_called_without_new_data(self) -> None:
+        """Test that ESS is only called when new data is available."""
+        total_trials = 2
+
+        # Create a runner that simulates polls without new data
+        class RunnerWithIntermittentData(SyntheticRunnerWithStatusPolling):
+            def __init__(self) -> None:
+                super().__init__()
+                self.poll_count = 0
+
+            def poll_trial_status(
+                self, trials: Iterable[BaseTrial]
+            ) -> dict[TrialStatus, set[int]]:
+                """Return RUNNING for several polls before completing trials."""
+                self.poll_count += 1
+                # Only complete trials on specific polls to create gaps
+                if self.poll_count == 5:  # Complete first trial late
+                    return {TrialStatus.COMPLETED: {0}, TrialStatus.RUNNING: {1}}
+                elif self.poll_count == 10:  # Complete second trial even later
+                    return {TrialStatus.COMPLETED: {0, 1}}
+                # Most polls return RUNNING (no status change = no new data to fetch)
+                return {
+                    TrialStatus.RUNNING: {
+                        t.index for t in trials if t.status.is_running
+                    }
+                }
+
+        self.branin_experiment.runner = RunnerWithIntermittentData()
+        gs = self.two_sobol_steps_GS
+        orchestrator = TestOrchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        # Track fetch results
+        fetch_results: list[set[int]] = []
+        original_fetch: Callable[[set[int]], set[int]] = (
+            orchestrator._fetch_data_and_return_trial_indices_with_new_data
+        )
+
+        def track_fetch_results(*args: Any, **kwargs: Any) -> set[int]:
+            result = original_fetch(*args, **kwargs)
+            fetch_results.append(result)
+            return result
+
+        with patch(
+            "ax.service.utils.early_stopping.should_stop_trials_early",
+            return_value={},
+        ) as mock_should_stop, patch.object(
+            orchestrator,
+            "_fetch_data_and_return_trial_indices_with_new_data",
+            side_effect=track_fetch_results,
+        ) as mock_fetch:
+            orchestrator.run_n_trials(max_trials=total_trials)
+            # Calculate fetches with actual new data
+            num_fetches_with_new_data = sum(1 for r in fetch_results if len(r) > 0)
+            # ESS should only be called when there's new data
+            self.assertEqual(mock_should_stop.call_count, num_fetches_with_new_data)
+            # Verify we actually had polls without new data
+            self.assertLess(num_fetches_with_new_data, mock_fetch.call_count)
 
     def test_orchestrator_with_odd_index_early_stopping_strategy(self) -> None:
         total_trials = 3
