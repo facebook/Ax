@@ -2606,7 +2606,6 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
         percentile_threshold=0.25,
         min_progression=0.2,
         min_curves=10,
-        trial_indices_to_ignore=[0, 1, 2],
         normalize_progressions=True,
     )
 
@@ -2619,7 +2618,6 @@ def get_percentile_early_stopping_strategy_with_non_objective_metric_signature()
         percentile_threshold=0.25,
         min_progression=0.2,
         min_curves=10,
-        trial_indices_to_ignore=[0, 1, 2],
         normalize_progressions=True,
     )
 
@@ -2628,7 +2626,6 @@ def get_threshold_early_stopping_strategy() -> ThresholdEarlyStoppingStrategy:
     return ThresholdEarlyStoppingStrategy(
         metric_threshold=0.1,
         min_progression=0.2,
-        trial_indices_to_ignore=[0, 1, 2],
         normalize_progressions=True,
     )
 

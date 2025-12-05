@@ -713,19 +713,6 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         self.assertEqual(set(should_stop), {0})
 
-        # test ignore trial indices
-        early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_signatures=metric_signatures,
-            percentile_threshold=25,
-            min_curves=4,
-            min_progression=0.1,
-            trial_indices_to_ignore=[0],
-        )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
-            trial_indices=idcs, experiment=exp
-        )
-        self.assertEqual(should_stop, {})
-
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             metric_signatures=metric_signatures,
             percentile_threshold=50,
@@ -1629,17 +1616,6 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
             trial_indices={0}, experiment=exp
         )
         self.assertEqual(set(should_stop), {0})
-
-        # test ignore trial indices
-        early_stopping_strategy = ThresholdEarlyStoppingStrategy(
-            metric_threshold=50,
-            min_progression=1,
-            trial_indices_to_ignore=[0],
-        )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
-            trial_indices=idcs, experiment=exp
-        )
-        self.assertEqual(set(should_stop), {1, 3})
 
         # test did not reach min progression
         early_stopping_strategy = ThresholdEarlyStoppingStrategy(

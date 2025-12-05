@@ -650,7 +650,6 @@ def percentile_early_stopping_strategy_to_dict(
         "percentile_threshold": strategy.percentile_threshold,
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
-        "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
         "normalize_progressions": strategy.normalize_progressions,
     }
 
@@ -664,7 +663,6 @@ def threshold_early_stopping_strategy_to_dict(
         "metric_signatures": strategy.metric_signatures,
         "metric_threshold": strategy.metric_threshold,
         "min_progression": strategy.min_progression,
-        "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
         "normalize_progressions": strategy.normalize_progressions,
     }
 

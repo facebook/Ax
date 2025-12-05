@@ -113,6 +113,8 @@ from ax.storage.json_store.decoders import (
     observation_features_from_json,
     outcome_transform_type_from_json,
     pathlib_from_json,
+    percentile_early_stopping_strategy_from_json,
+    threshold_early_stopping_strategy_from_json,
     transform_type_from_json,
 )
 from ax.storage.json_store.encoders import (
@@ -388,7 +390,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PreferenceOptimizationConfig": PreferenceOptimizationConfig,
     "PurePosixPath": pathlib_from_json,
     "PureWindowsPath": pathlib_from_json,
-    "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
+    "PercentileEarlyStoppingStrategy": percentile_early_stopping_strategy_from_json,
     "RangeParameter": RangeParameter,
     "ReductionCriterion": ReductionCriterion,
     "Round": Round,
@@ -409,7 +411,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Trial": Trial,
     "TrialType": TrialType,
     "TrialStatus": TrialStatus,
-    "ThresholdEarlyStoppingStrategy": ThresholdEarlyStoppingStrategy,
+    "ThresholdEarlyStoppingStrategy": threshold_early_stopping_strategy_from_json,
     "ObservationFeatures": observation_features_from_json,
     "WinsorizationConfig": WinsorizationConfig,
 }

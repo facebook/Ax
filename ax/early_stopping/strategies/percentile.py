@@ -31,7 +31,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_progression: float | None = 10,
         max_progression: float | None = None,
         min_curves: int | None = 5,
-        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         n_best_trials_to_complete: int | None = None,
         interval: float | None = None,
@@ -60,7 +59,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            trial_indices_to_ignore: Trial indices that should not be early stopped.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -91,7 +89,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """
         super().__init__(
             metric_signatures=metric_signatures,
-            trial_indices_to_ignore=trial_indices_to_ignore,
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
