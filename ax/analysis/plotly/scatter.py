@@ -352,12 +352,8 @@ def get_xy_trial_data(
         error = {
             "type": "data",
             "array": xy_df[sem_name] * Z_SCORE_95_CI,
-            "color": trial_index_to_color(
-                trial_df=trial_df,
-                trials_list=trials_list,
-                trial_index=trial_index,
-                transparent=True,
-            ),
+            "color": "silver",
+            "thickness": 1,
         }
     else:
         error = None
