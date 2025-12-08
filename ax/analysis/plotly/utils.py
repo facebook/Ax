@@ -217,3 +217,19 @@ def select_metric(experiment: Experiment) -> str:
             "specify a metric"
         )
     return experiment.optimization_config.objective.metric.name
+
+
+def get_trial_statuses_with_fallback(
+    trial_statuses: Sequence[TrialStatus] | None, trial_index: int | None
+) -> list[TrialStatus] | None:
+    """Get the default trial statuses to plot.
+
+    By default, include all trials except those that are abandoned or stale.
+    If trial_index is provided, then we only filter based on trial_index,
+    and therefore this function returns None.
+    """
+    if trial_index is not None:
+        return None
+    elif trial_statuses is not None:
+        return [*trial_statuses]
+    return [*{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}]
