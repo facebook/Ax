@@ -22,6 +22,7 @@ from ax.analysis.plotly.plotly_analysis import (
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
+    get_trial_statuses_with_fallback,
     get_trial_trace_name,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
@@ -151,6 +152,8 @@ class ScatterPlot(Analysis):
                 quo arm. If multiple status quo arms are present, relativize each arm
                 against the status quo arm from the same trial.
             trial_index: If present, only use arms from the trial with the given index.
+            trial_statuses: If present, only use arms from trials with the given
+                statuses. By default, exclude STALE and ABANDONED trials.
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
@@ -166,15 +169,11 @@ class ScatterPlot(Analysis):
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-        # By default, include all trials except those that are abandoned or stale.
-        if trial_statuses is not None:
-            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
-        elif self.trial_index is not None:
-            self.trial_statuses: list[TrialStatus] | None = None
-        else:
-            self.trial_statuses: list[TrialStatus] | None = [
-                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
-            ]
+        self.trial_statuses: list[TrialStatus] | None = (
+            get_trial_statuses_with_fallback(
+                trial_statuses=trial_statuses, trial_index=trial_index
+            )
+        )
         self.additional_arms = additional_arms
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
         self.show_pareto_frontier = show_pareto_frontier

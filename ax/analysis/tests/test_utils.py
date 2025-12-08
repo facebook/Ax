@@ -246,23 +246,31 @@ class TestUtils(TestCase):
         # Check that all SEMs have the correct value
         self.assertTrue((only_trial_0_df["foo_sem"] == 0.1).all())
 
-        only_completed_trials_df = prepare_arm_data(
-            experiment=self.client._experiment,
-            metric_names=["foo", "bar"],
-            use_model_predictions=False,
-            trial_statuses=[TrialStatus.COMPLETED],
-        )
+    def test_prepare_arm_data_raw_trial_statuses(self) -> None:
+        """Test that trial_statuses filter works correctly for raw data."""
+        for trial_statuses in (
+            [TrialStatus.COMPLETED],
+            [TrialStatus.COMPLETED, TrialStatus.FAILED],
+        ):
+            with self.subTest(trial_statuses=trial_statuses):
+                df = prepare_arm_data(
+                    experiment=self.client._experiment,
+                    metric_names=["foo", "bar"],
+                    use_model_predictions=False,
+                    trial_statuses=trial_statuses,
+                )
 
-        # Check that we have two rows per arm and that each arm appears only once
-        self.assertEqual(
-            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
-        )
+                # Check that all trials in df have the expected status
+                for _, row in df.iterrows():
+                    self.assertIn(TrialStatus[row["trial_status"]], trial_statuses)
 
-        # Check that all means are not NaN
-        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
-
-        # Check that all SEMs have the correct value
-        self.assertTrue((only_completed_trials_df["foo_sem"] == 0.1).all())
+                # Check that the number of rows matches expected count
+                expected_count = sum(
+                    1
+                    for trial in self.client._experiment.trials.values()
+                    if trial.status in trial_statuses
+                )
+                self.assertEqual(len(df), expected_count)
 
     def test_prepare_arm_data_use_model_predictions_with_abandoned_arms(self) -> None:
         search_space = self.client._experiment.search_space.clone()
@@ -505,25 +513,42 @@ class TestUtils(TestCase):
         self.assertFalse(with_additional_arms_df["bar_mean"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_sem"].isna().any())
 
-        only_completed_trials_df = prepare_arm_data(
-            experiment=self.client._experiment,
-            metric_names=["foo", "bar"],
-            use_model_predictions=True,
-            adapter=self.client._generation_strategy.adapter,
-            trial_statuses=[TrialStatus.COMPLETED],
-        )
+    def test_prepare_arm_data_model_predictions_trial_statuses(self) -> None:
+        """Test that trial_statuses filter works correctly with model predictions."""
+        for trial_statuses in (
+            [TrialStatus.COMPLETED],
+            [TrialStatus.FAILED],
+            [TrialStatus.COMPLETED, TrialStatus.FAILED],
+        ):
+            with self.subTest(trial_statuses=trial_statuses):
+                df = prepare_arm_data(
+                    experiment=self.client._experiment,
+                    metric_names=["foo", "bar"],
+                    use_model_predictions=True,
+                    adapter=self.client._generation_strategy.adapter,
+                    trial_statuses=trial_statuses,
+                )
 
-        # Check that we have two rows per arm and that each arm appears only once
-        self.assertEqual(
-            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
-        )
+                # Check that all trials in df have the expected status
+                for _, row in df.iterrows():
+                    self.assertIn(TrialStatus[row["trial_status"]], trial_statuses)
 
-        # Check that all means are not NaN
-        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
+                # Check that the number of rows matches expected count
+                expected_count = sum(
+                    1
+                    for trial in self.client._experiment.trials.values()
+                    if trial.status in trial_statuses
+                )
+                self.assertEqual(len(df), expected_count)
 
-        # Check that all SEMs are not NaN
-        self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
+                # Check that all means and SEMs are not NaN for completed trials
+                if TrialStatus.COMPLETED in trial_statuses:
+                    completed_df = df[df["trial_status"] == "COMPLETED"]
+                    self.assertFalse(completed_df["foo_mean"].isna().any())
+                    self.assertFalse(completed_df["foo_sem"].isna().any())
 
+    def test_prepare_arm_data_out_of_distribution_arm(self) -> None:
+        """Test that out-of-distribution arms get model predictions."""
         # add an arm that is not in the search space
         trial = self.client._experiment.new_trial()
         trial.add_arm(Arm(name="ood_arm", parameters={"x1": 0.5, "x2": 2.0}))

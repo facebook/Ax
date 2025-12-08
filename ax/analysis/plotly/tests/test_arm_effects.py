@@ -13,6 +13,7 @@ from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_a
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
+from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -71,6 +72,23 @@ class TestArmEffectsPlot(TestCase):
                         - 2 * assert_is_instance(parameterization["x2"], float),
                     },
                 )
+
+    def test_trial_statuses_behavior(self) -> None:
+        # When neither trial_statuses nor trial_index is provided,
+        # should use default statuses (excluding ABANDONED and STALE)
+        analysis = ArmEffectsPlot(metric_name="foo")
+        expected_statuses = {*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+        self.assertEqual(set(none_throws(analysis.trial_statuses)), expected_statuses)
+
+        # When trial_statuses is explicitly provided, it should be used
+        explicit_statuses = [TrialStatus.COMPLETED, TrialStatus.RUNNING]
+        analysis = ArmEffectsPlot(metric_name="foo", trial_statuses=explicit_statuses)
+        self.assertEqual(analysis.trial_statuses, explicit_statuses)
+
+        # When trial_index is provided (and trial_statuses is None),
+        # trial_statuses should be None to allow filtering by trial_index
+        analysis = ArmEffectsPlot(metric_name="foo", trial_index=0)
+        self.assertIsNone(analysis.trial_statuses)
 
     def test_validation(self) -> None:
         with self.assertRaisesRegex(
