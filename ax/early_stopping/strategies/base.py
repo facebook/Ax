@@ -247,6 +247,19 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         map_df = data.map_df
         # keep only relevant metrics
         map_df = map_df[map_df["metric_signature"].isin(metric_signatures)].copy()
+
+        # Drop rows with NaN values in MAP_KEY column to prevent issues in
+        # align_partial_results which uses MAP_KEY as the pivot index
+        nan_mask = map_df[MAP_KEY].isna()
+        if nan_mask.any():
+            num_nan_rows = nan_mask.sum()
+            nan_trial_indices = map_df.loc[nan_mask, "trial_index"].unique().tolist()
+            logger.warning(
+                f"Dropped {num_nan_rows} row(s) with NaN values in the progression "
+                f"column ('{MAP_KEY}') for trial(s) {nan_trial_indices}."
+            )
+            map_df = map_df[~nan_mask]
+
         if self.normalize_progressions:
             values = map_df[MAP_KEY].astype(float)
             map_df[MAP_KEY] = values / values.abs().max()
