@@ -59,13 +59,16 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            normalize_progressions: Normalizes the progression column of the MapData df
-                by dividing by the max. If the values were originally in [0, `prog_max`]
-                (as we would expect), the transformed values will be in [0, 1]. Useful
-                for inferring the max progression and allows `min_progression` to be
-                specified in the transformed space. IMPORTANT: Typically, `min_curves`
-                should be > 0 to ensure that at least one trial has completed and that
-                we have a reliable approximation for `prog_max`.
+            normalize_progressions: If True, normalizes the progression values
+                for each metric to the [0, 1] range using the observed minimum and
+                maximum progression values for that metric. This transformation maps
+                the original progression range [`min_prog`, `max_prog`] to [0, 1]
+                via (x - min_prog) / (max_prog - min_prog). Useful when progression
+                values have arbitrary scales or when you want to specify
+                `min_progression` and `max_progression` in a normalized [0, 1]
+                space. Note: At least one trial should have completed (i.e.,
+                `min_curves` > 0) to ensure reliable estimates of the progression
+                range.
             n_best_trials_to_complete: If specified, guarantees that the top
                 `n_best_trials_to_complete` trials (based on current objective value
                 at the last progression) will never be early stopped, even if they
