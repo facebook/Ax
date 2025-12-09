@@ -1471,7 +1471,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 raw_data=raw_data, trial_index=trial_index
             ):
                 logger.warning(
-                    "Marking the trial as failed because it is missing one"
+                    "Marking the trial as failed because it is missing one "
                     "or more required metrics."
                 )
                 trial.mark_failed()
