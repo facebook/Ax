@@ -63,6 +63,7 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
+MIN_NUM_OBJECTIVES_PAREGO = 5
 logger: Logger = get_logger(__name__)
 
 
@@ -405,7 +406,10 @@ def choose_botorch_acqf_class(
 
     if torch_opt_config.is_moo and not torch_opt_config.use_learned_objective:
         # For MOO problems with > 4 objectives, use ParEGO to prevent slow optimization.
-        if torch_opt_config.objective_weights.count_nonzero() > 4:
+        if (
+            torch_opt_config.objective_weights.count_nonzero()
+            >= MIN_NUM_OBJECTIVES_PAREGO
+        ):
             acqf_class = qLogNParEGO
         else:
             acqf_class = qLogNoisyExpectedHypervolumeImprovement
