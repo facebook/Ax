@@ -497,6 +497,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         objective: MultiObjective,
         preference_profile_name: str,
         outcome_constraints: list[OutcomeConstraint] | None = None,
+        expect_relativized_outcomes: bool = False,
         pruning_target_parameterization: Arm | None = None,
     ) -> None:
         """Inits PreferenceOptimizationConfig.
@@ -509,6 +510,11 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
                 this name and purpose PE_EXPERIMENT should be attached to
                 the experiment.
             outcome_constraints: Constraints on metrics. Not yet supported.
+            expect_relativized_outcomes: Whether the learned objective expects outcomes
+                in relative percentage scale (e.g., -1 means -1% change vs. status quo)
+                after transforms. When True, validates that a Relativize transform
+                exists in the pipeline to convert absolute outcomes to relative scale
+                before reaching the preference model.
             pruning_target_parameterization: Arm containing the target values for
                 irrelevant parameters. The target values are used to prune irrelevant
                 parameters from candidates generated via Bayesian optimization: when
@@ -535,6 +541,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
             pruning_target_parameterization=pruning_target_parameterization,
         )
         self.preference_profile_name = preference_profile_name
+        self.expect_relativized_outcomes = expect_relativized_outcomes
 
     @property
     def is_bope_problem(self) -> bool:
@@ -552,6 +559,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         objective: MultiObjective | None = None,
         preference_profile_name: str | None = None,
         outcome_constraints: list[OutcomeConstraint] | None = _NO_OUTCOME_CONSTRAINTS,
+        expect_relativized_outcomes: bool | None = None,
         pruning_target_parameterization: Arm
         | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> PreferenceOptimizationConfig:
@@ -572,6 +580,11 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
             if outcome_constraints is _NO_OUTCOME_CONSTRAINTS
             else outcome_constraints
         )
+        expect_relativized_outcomes = (
+            self.expect_relativized_outcomes
+            if expect_relativized_outcomes is None
+            else expect_relativized_outcomes
+        )
         pruning_target_parameterization = (
             self.pruning_target_parameterization
             if pruning_target_parameterization is _NO_PRUNING_TARGET_PARAMETERIZATION
@@ -582,6 +595,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
             objective=objective,
             preference_profile_name=preference_profile_name,
             outcome_constraints=outcome_constraints,
+            expect_relativized_outcomes=expect_relativized_outcomes,
             pruning_target_parameterization=pruning_target_parameterization,
         )
 
@@ -590,5 +604,8 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
             f"{self.__class__.__name__}("
             "objective=" + repr(self.objective) + ", "
             "preference_profile_name=" + repr(self.preference_profile_name) + ", "
-            "outcome_constraints=" + repr(self.outcome_constraints)
+            "outcome_constraints=" + repr(self.outcome_constraints) + ", "
+            "expect_relativized_outcomes="
+            + repr(self.expect_relativized_outcomes)
+            + ")"
         )
