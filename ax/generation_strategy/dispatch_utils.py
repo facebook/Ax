@@ -262,7 +262,7 @@ def _suggest_gp_model(
 def calculate_num_initialization_trials(
     num_tunable_parameters: int,
     num_trials: int | None,
-    use_batch_trials: bool,
+    use_batch_trials: bool = False,
 ) -> int:
     """
     Applies rules from high to low priority
