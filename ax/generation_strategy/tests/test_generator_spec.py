@@ -95,7 +95,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             data=self.experiment.trials[0].fetch_data(),
         )
         cv_results, cv_diagnostics = ms.cross_validate()
-        mock_cv.assert_called_with(model=fake_mb, test_key="test-value")
+        mock_cv.assert_called_with(adapter=fake_mb, test_key="test-value")
         mock_diagnostics.assert_called_with(["fake-cv-result"])
 
         self.assertIsNotNone(cv_results)
@@ -125,7 +125,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
 
             self.assertIsNotNone(cv_results)
             self.assertIsNotNone(cv_diagnostics)
-            mock_cv.assert_called_with(model=fake_mb, test_key="test-value")
+            mock_cv.assert_called_with(adapter=fake_mb, test_key="test-value")
             mock_diagnostics.assert_called_with(["fake-cv-result"])
 
         with self.subTest("pass in optional kwargs"):
@@ -138,7 +138,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
 
             self.assertIsNotNone(cv_results)
             self.assertIsNotNone(cv_diagnostics)
-            mock_cv.assert_called_with(model=fake_mb, test_key="test-value", test=1)
+            mock_cv.assert_called_with(adapter=fake_mb, test_key="test-value", test=1)
             self.assertEqual(ms._last_cv_kwargs, {"test": 1, "test_key": "test-value"})
 
     @patch(f"{GeneratorSpec.__module__}.compute_diagnostics")
@@ -165,7 +165,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertIsNone(cv_results)
         self.assertIsNone(cv_diagnostics)
 
-        mock_cv.assert_called_with(model="fake-adapter", test_key="test-value")
+        mock_cv.assert_called_with(adapter="fake-adapter", test_key="test-value")
         mock_diagnostics.assert_not_called()
 
     def test_fixed_features(self) -> None:

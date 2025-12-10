@@ -200,7 +200,7 @@ class ClientTest(TestCase):
         self.assertListEqual(dataset.feature_names, ["width", "height"])
 
         # Check that cross validation works.
-        cross_validate(model=adapter)
+        cross_validate(adapter=adapter)
 
     def _test_early_stopping(self, complete_with_progression: bool) -> None:
         self._simulate(
@@ -247,7 +247,7 @@ class ClientTest(TestCase):
         self.assertEqual(int(candidate_metadata["step"]), 1.0)
 
         # Check that cross validation works.
-        cross_validate(model=adapter)
+        cross_validate(adapter=adapter)
 
     def test_no_early_stopping_with_progression(self) -> None:
         self._test_no_early_stopping(with_progression=True)

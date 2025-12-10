@@ -11,17 +11,20 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from logging import Logger
-from typing import NamedTuple
+from typing import cast, NamedTuple
 from warnings import warn
 
 import numpy as np
 import numpy.typing as npt
+from ax.adapter.adapter_utils import array_to_observation_data
 from ax.adapter.base import Adapter, unwrap_observation_data
 from ax.adapter.data_utils import ExperimentData
+from ax.adapter.torch import TorchAdapter
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UnsupportedError
 from ax.exceptions.model import CrossValidationError
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.model_fit_stats import (
     coefficient_of_determination,
@@ -32,8 +35,12 @@ from ax.utils.stats.model_fit_stats import (
     ModelFitMetricProtocol,
     std_of_the_standardized_error,
 )
+from botorch.cross_validation import loo_cv
+from botorch.models.gpytorch import GPyTorchModel
+from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.settings import validate_input_scaling
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
+
 
 logger: Logger = get_logger(__name__)
 
@@ -54,6 +61,9 @@ class CVData(NamedTuple):
     test_data: ExperimentData
 
 
+FoldGenerator = Callable[[ExperimentData], Iterable[CVData]]
+
+
 class AssessModelFitResult(NamedTuple):
     """Container for model fit assessment results"""
 
@@ -62,14 +72,278 @@ class AssessModelFitResult(NamedTuple):
 
 
 def cross_validate(
-    model: Adapter,
+    adapter: Adapter,
+    folds: int = -1,
+    test_selector: Callable[[Observation], bool] | None = None,
+    untransform: bool = True,
+    use_posterior_predictive: bool = False,
+    fold_generator: FoldGenerator | None = None,
+) -> list[CVResult]:
+    """Cross validation for model.
+
+    Splits the model's training data into train/test folds and makes
+    out-of-sample predictions on the test folds.
+
+    Train/test splits are made based on arm_name, so that repeated
+    observations of a point are always together in the train or test
+    set.
+
+    Args:
+        adapter: Fitted Adapter to cross validate.
+        folds: Number of folds. Use -1 for leave-one-out (LOO) CV, which will
+            use efficient O(n^3) computation when the model supports it and
+            is configured with refit_on_cv=False.
+        test_selector: Function to filter observations for cross validation.
+            If provided, only observations for which this function returns
+            True will be used as test points. Other observations will always
+            be in training set for every fold.
+        untransform: If True (default), predictions are untransformed before
+            being returned.
+        use_posterior_predictive: If True, return the posterior predictive
+            (i.e., include observation noise in the predicted variance). If False,
+            return the posterior (i.e., predict the noise-free latent function).
+        fold_generator: Optional custom fold generator for custom splitting.
+
+    Returns:
+        A CVResult for each point held out as the "test" set during CV.
+    """
+    # Check if model is a TorchAdapter with a BoTorchGenerator
+    is_torch_adapter = isinstance(adapter, TorchAdapter)
+    has_botorch_generator = is_torch_adapter and isinstance(
+        adapter.generator, BoTorchGenerator
+    )
+
+    # Check if the experiment has auxiliary experiments (which are not supported
+    # by efficient LOO CV because they lead to tuple train_inputs)
+    has_auxiliary_experiments = (
+        is_torch_adapter
+        and adapter._experiment is not None
+        and bool(adapter._experiment.auxiliary_experiments_by_purpose)
+    )
+
+    # Try to use efficient LOO CV when applicable
+    # Only use efficient LOO CV when:
+    # 1. LOO CV is requested (folds == -1)
+    # 2. No custom test_selector or fold_generator
+    # 3. The model is a TorchAdapter with a BoTorchGenerator
+    # 4. The generator has refit_on_cv=False (so hyperparameters are fixed)
+    # 5. The experiment has no auxiliary experiments (they cause tuple train_inputs)
+    use_efficient_loo = (
+        folds == -1
+        and test_selector is None
+        and fold_generator is None
+        and has_botorch_generator
+        and not cast(BoTorchGenerator, adapter.generator).refit_on_cv
+        and not has_auxiliary_experiments
+    )
+
+    if use_efficient_loo:
+        try:
+            return _efficient_loo_cross_validate(
+                adapter=adapter,
+                untransform=untransform,
+                use_posterior_predictive=use_posterior_predictive,
+            )
+        except Exception as e:
+            # Fall back to the standard approach if efficient LOO is not supported
+            logger.debug(
+                f"Efficient LOO CV failed, falling back to fold-by-fold CV: {e}"
+            )
+
+    # Standard fold-by-fold cross-validation
+    return _fold_cross_validate(
+        adapter=adapter,
+        folds=folds,
+        test_selector=test_selector,
+        untransform=untransform,
+        use_posterior_predictive=use_posterior_predictive,
+        fold_generator=fold_generator,
+    )
+
+
+def _efficient_loo_cross_validate(
+    adapter: Adapter,
+    untransform: bool = True,
+    use_posterior_predictive: bool = False,
+) -> list[CVResult]:
+    """Use efficient O(n^3) LOO CV when the model supports it.
+
+    This avoids the O(n^4) cost of naive LOO CV by computing all n
+    leave-one-out predictions at once using the efficient formulas
+    from GPyTorch's LeaveOneOutPseudoLikelihood.
+
+    Args:
+        model: Fitted model (Adapter) to cross validate.
+        untransform: If True (default), predictions are untransformed.
+        use_posterior_predictive: If True, include observation noise in variance.
+
+    Returns:
+        A CVResult for each training point.
+
+    Raises:
+        ValueError: If the model doesn't support efficient LOO CV.
+    """
+    # Check if model is a TorchAdapter with a BoTorchGenerator
+    if not isinstance(adapter, TorchAdapter):
+        raise ValueError(
+            "Efficient LOO cross-validation requires a TorchAdapter. "
+            f"Got {type(adapter).__name__}."
+        )
+
+    if not isinstance(adapter.generator, BoTorchGenerator):
+        raise ValueError(
+            "Efficient LOO cross-validation requires a BoTorchGenerator. "
+            f"Got {type(adapter.generator).__name__}."
+        )
+
+    surrogate = adapter.generator.surrogate
+    if surrogate is None or surrogate.model is None:
+        raise ValueError(
+            "Efficient LOO cross-validation requires a fitted surrogate model."
+        )
+
+    botorch_model = none_throws(surrogate.model)
+
+    # Check model is a GPyTorchModel (required for efficient LOO CV)
+    if not isinstance(botorch_model, GPyTorchModel):
+        raise ValueError(
+            "Model must be a GPyTorchModel for efficient LOO CV. "
+            f"Got {type(botorch_model).__name__}."
+        )
+
+    # Get training observations for observed values (filter to in-design data
+    # for consistency with naive CV path in _fold_cross_validate)
+    training_data = adapter.get_training_data(filter_in_design=True)
+    training_observations = training_data.convert_to_list_of_observations()
+
+    # Check for sufficient training data
+    arm_name_vals = set(training_data.arm_data.index.unique(level="arm_name"))
+    if len(arm_name_vals) < 2:
+        raise ValueError(
+            f"Efficient LOO CV requires at least two in-design arms. "
+            f"Only {len(arm_name_vals)} in-design arms were found."
+        )
+
+    # Use loo_cv which automatically dispatches based on model type
+    # observation_noise parameter corresponds to use_posterior_predictive
+    loo_results = loo_cv(botorch_model, observation_noise=use_posterior_predictive)
+    posterior = loo_results.posterior
+
+    # Extract predictions for all training points
+    if isinstance(posterior, GaussianMixturePosterior):
+        # Use mixture statistics for ensemble models.
+        # NOTE: This can be misleading when the mixture posterior is far from
+        # Gaussian (e.g., if the posterior is bimodal/multimodal). The mixture
+        # mean and variance don't fully capture the uncertainty in such cases,
+        # which can lead to counterintuitive cross-validation results and plots.
+        # This is a known limitation for fully Bayesian models and models with
+        # non-Gaussian posteriors (such as PFNs).
+        # Shape: n x 1 x m
+        loo_means = posterior.mixture_mean.detach().cpu().numpy()
+        loo_vars = posterior.mixture_variance.detach().cpu().numpy()
+    else:
+        # Shape: n x 1 x m
+        loo_means = posterior.mean.detach().cpu().numpy()
+        loo_vars = posterior.variance.detach().cpu().numpy()
+
+    # Squeeze out the q dimension: n x 1 x m -> n x m
+    loo_means = loo_means.squeeze(1)
+    loo_vars = loo_vars.squeeze(1)
+
+    # Handle the case where there's only one outcome (1D array after squeeze)
+    if loo_means.ndim == 1:
+        loo_means = loo_means[:, np.newaxis]
+        loo_vars = loo_vars[:, np.newaxis]
+
+    n_predictions = loo_means.shape[0]
+    n_observations = len(training_observations)
+
+    # Check that the number of observations matches the number of predictions
+    # If not, raise an error (some transforms may have changed the data)
+    if n_observations != n_predictions:
+        raise ValueError(
+            f"Number of training observations ({n_observations}) does not match "
+            f"number of LOO predictions ({n_predictions}). This can happen when "
+            "transforms modify the training data. Falling back to naive CV."
+        )
+
+    # Build CVResult objects from LOO predictions and training observations
+    return _build_cv_results(
+        loo_means=loo_means,
+        loo_vars=loo_vars,
+        training_observations=training_observations,
+        adapter=adapter,
+        untransform=untransform,
+    )
+
+
+def _build_cv_results(
+    loo_means: npt.NDArray,
+    loo_vars: npt.NDArray,
+    training_observations: list[Observation],
+    adapter: Adapter,
+    untransform: bool,
+) -> list[CVResult]:
+    """Build CVResult objects from LOO predictions and training observations.
+
+    Args:
+        loo_means: LOO mean predictions with shape (n, num_outcomes).
+        loo_vars: LOO variance predictions with shape (n, num_outcomes).
+        training_observations: List of training observations.
+        adapter: The adapter used for training.
+        untransform: Whether to untransform predictions back to original space.
+
+    Returns:
+        List of CVResult objects, one per training observation.
+    """
+    n_obs, num_outcomes = loo_means.shape
+
+    # Build diagonal covariance matrices for all observations efficiently
+    # loo_covs has shape (n_obs, num_outcomes, num_outcomes) with variances on diagonal
+    loo_covs = np.zeros((n_obs, num_outcomes, num_outcomes))
+    diag_idx = np.arange(num_outcomes)
+    loo_covs[:, diag_idx, diag_idx] = loo_vars
+
+    # Convert all predictions to ObservationData at once
+    all_predictions = array_to_observation_data(
+        f=loo_means,
+        cov=loo_covs,
+        outcomes=adapter.outcomes,
+    )
+
+    # Create Observation objects for predictions, pairing with training features
+    pred_observations = [
+        Observation(features=obs.features, data=pred)
+        for obs, pred in zip(training_observations, all_predictions, strict=True)
+    ]
+
+    # Transform observations and predictions to the appropriate space
+    observations = list(training_observations)
+    if untransform:
+        # Untransform predictions to original space (observations are already there)
+        for t in reversed(list(adapter.transforms.values())):
+            pred_observations = t.untransform_observations(pred_observations)
+    else:
+        # Transform observations to model space (predictions are already there)
+        for t in adapter.transforms.values():
+            observations = t.transform_observations(observations)
+
+    # Build CVResult objects from paired observations and predictions
+    return [
+        CVResult(observed=obs, predicted=pred_obs.data)
+        for obs, pred_obs in zip(observations, pred_observations, strict=True)
+    ]
+
+
+def _fold_cross_validate(
+    adapter: Adapter,
     folds: int = -1,
     test_selector: Callable[[Observation], bool] | None = None,
     untransform: bool = True,
     use_posterior_predictive: bool = False,
     fold_generator: Callable[[ExperimentData], Iterable[CVData]] | None = None,
 ) -> list[CVResult]:
-    """Cross validation for model predictions.
+    """Cross validation for model predictions using fold-by-fold approach.
 
     Splits the model's training data into train/test folds and makes
     out-of-sample predictions on the test folds.
@@ -87,7 +361,7 @@ def cross_validate(
     If not provided, all observations will be available for the test set.
 
     Args:
-        model: Fitted model (Adapter) to cross validate.
+        adapter: Fitted model (Adapter) to cross validate.
         folds: Number of folds. Use -1 for leave-one-out, otherwise will be
             k-fold. Unless fold_generator is used to specify different behavior.
         test_selector: Function for selecting observations for the test set.
@@ -115,7 +389,7 @@ def cross_validate(
         A CVResult for each observation in the training data.
     """
     # Get in-design training data.
-    training_data = model.get_training_data(filter_in_design=True)
+    training_data = adapter.get_training_data(filter_in_design=True)
     if fold_generator is None:
 
         def fold_generator(training_data: ExperimentData) -> Iterable[CVData]:
@@ -136,7 +410,7 @@ def cross_validate(
 
         # Make the prediction
         if untransform:
-            cv_test_predictions = model.cross_validate(
+            cv_test_predictions = adapter.cross_validate(
                 cv_training_data=cv_training_data,
                 cv_test_points=cv_test_points,
                 use_posterior_predictive=use_posterior_predictive,
@@ -147,21 +421,21 @@ def cross_validate(
                 cv_training_data,
                 cv_test_points,
                 search_space,
-            ) = model._transform_inputs_for_cv(
+            ) = adapter._transform_inputs_for_cv(
                 cv_training_data=cv_training_data, cv_test_points=cv_test_points
             )
             # Since each CV fold removes points from the training data, the
             # remaining observations will not pass the input scaling checks.
             # To avoid confusing users with warnings, we disable these checks.
             with validate_input_scaling(False):
-                cv_test_predictions = model._cross_validate(
+                cv_test_predictions = adapter._cross_validate(
                     search_space=search_space,
                     cv_training_data=cv_training_data,
                     cv_test_points=cv_test_points,
                     use_posterior_predictive=use_posterior_predictive,
                 )
             # Get test observations in transformed space.
-            for t in model.transforms.values():
+            for t in adapter.transforms.values():
                 cv_test_observations = t.transform_observations(
                     observations=cv_test_observations
                 )
@@ -625,7 +899,7 @@ def _predict_on_cross_validation_data(
             2. LOOCV predicted mean at each observed point, and
             3. LOOCV predicted standard deviation at each observed point.
     """
-    cv = cross_validate(model=adapter, untransform=untransform)
+    cv = cross_validate(adapter=adapter, untransform=untransform)
 
     metric_signatures = cv[0].observed.data.metric_signatures
     mean_observed = {k: [] for k in metric_signatures}

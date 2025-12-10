@@ -288,7 +288,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
         return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
     # Check to see if the adapter is worth using.
-    cv_results = cross_validate(model=adapter)
+    cv_results = cross_validate(adapter=adapter)
     diagnostics = compute_diagnostics(result=cv_results)
     assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
 

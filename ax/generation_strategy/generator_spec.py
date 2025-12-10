@@ -177,7 +177,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
         self._assert_fitted()
         try:
-            self._cv_results = cross_validate(model=self.fitted_adapter, **cv_kwargs)
+            self._cv_results = cross_validate(adapter=self.fitted_adapter, **cv_kwargs)
         except NotImplementedError:
             warnings.warn(
                 f"{self.generator_enum.value} cannot be cross validated", stacklevel=2

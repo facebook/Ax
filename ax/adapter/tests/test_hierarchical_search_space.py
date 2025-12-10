@@ -219,7 +219,7 @@ class TestHierarchicalSearchSpace(TestCase):
                     )
                 ]
             )
-        cv_res = cross_validate(model=mbm)
+        cv_res = cross_validate(adapter=mbm)
         self.assertEqual(len(cv_res), len(experiment.trials))
 
     def test_with_non_hierarchical_hss(self) -> None:

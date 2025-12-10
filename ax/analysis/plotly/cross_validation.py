@@ -132,7 +132,7 @@ class CrossValidationPlot(Analysis):
 
         cards = []
         cv_results = cross_validate(
-            model=relevant_adapter, folds=self.folds, untransform=self.untransform
+            adapter=relevant_adapter, folds=self.folds, untransform=self.untransform
         )
         relevant_adapter_metric_names = [
             relevant_adapter._experiment.signature_to_metric[signature].name
