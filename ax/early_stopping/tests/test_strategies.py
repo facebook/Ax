@@ -1363,8 +1363,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
     def test_patience_with_insufficient_data(self) -> None:
         """Test that trials are not stopped when there is insufficient data."""
-        with self.subTest("insufficient_progressions"):
-            # Test with too few progressions in the window
+        with self.subTest("single_progression_with_patience"):
+            # Test with only 1 progression in the window - should still evaluate
             exp = get_test_map_data_experiment(
                 num_trials=5,
                 num_fetches=1,  # Only 1 fetch (step 0 only)
@@ -1373,9 +1373,9 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             """
             With only 1 progression (0) and patience=2:
             - Latest progression: 0
-            - Window: [0-2, 0] = [-2, 0]
+            - Window: [0-2, 0] = [-2, 0], clamped to [0, 0]
             - Only progression 0 exists in this range
-            - We need >1 progressions in window when patience > 0
+            - With patience > 0, we should still check this single progression
             """
             early_stopping_strategy = PercentileEarlyStoppingStrategy(
                 percentile_threshold=25,
@@ -1400,12 +1400,13 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 minimize=True,
             )
 
-            # Should not stop due to insufficient progressions
-            self.assertFalse(should_stop)
+            # With single progression, we should still get a decision based on
+            # that progression's performance relative to the percentile threshold
+            # The reason message should contain progression info, not an error
             reason = none_throws(reason)
             self.assertRegex(
                 reason,
-                r"Fewer than 2 progressions in patience window.*Not stopping trial",
+                r"Trial objective values at progressions in",
             )
 
         with self.subTest("insufficient_curves_at_progression"):
