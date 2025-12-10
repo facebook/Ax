@@ -18,10 +18,12 @@ import numpy as np
 import numpy.typing as npt
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.core.objective import MultiObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
@@ -118,7 +120,16 @@ class BaseRelativize(Transform, ABC):
         for constraint in constraints:
             constraint.relative = False
 
-        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+        if isinstance(optimization_config, PreferenceOptimizationConfig):
+            objective = optimization_config.objective
+            assert isinstance(
+                objective, MultiObjective
+            ), f"Expected MultiObjective, got {type(objective).__name__}"
+            new_optimization_config = optimization_config.clone_with_args(
+                objective=objective,
+                outcome_constraints=constraints,
+            )
+        elif isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             # Getting objective thresholds
             obj_thresholds = [
                 obj_threshold.clone()
