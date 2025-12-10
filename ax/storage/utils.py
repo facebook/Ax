@@ -31,6 +31,7 @@ class MetricIntent(enum.Enum):
 
     OBJECTIVE = "objective"
     MULTI_OBJECTIVE = "multi_objective"
+    PREFERENCE_OBJECTIVE = "preference_objective"
     SCALARIZED_OBJECTIVE = "scalarized_objective"
     # Additional objective is not yet supported in Ax open-source.
     ADDITIONAL_OBJECTIVE = "additional_objective"
@@ -39,6 +40,11 @@ class MetricIntent(enum.Enum):
     OBJECTIVE_THRESHOLD = "objective_threshold"
     TRACKING = "tracking"
     RISK_MEASURE = "risk_measure"  # DEPRECATED
+
+
+# Keys for PreferenceOptimizationConfig properties stored in SQAMetric.properties
+PREFERENCE_PROFILE_NAME = "preference_profile_name"
+EXPECT_RELATIVIZED_OUTCOMES = "expect_relativized_outcomes"
 
 
 class ParameterConstraintType(enum.Enum):
