@@ -8,8 +8,10 @@
 
 from collections.abc import Sized
 from contextlib import ExitStack
+from itertools import product
 from typing import Any
 from unittest import mock
+from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -19,6 +21,7 @@ from ax.adapter.cross_validation import cross_validate
 from ax.adapter.registry import Cont_X_trans, MBM_X_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.one_hot import OneHot
+from ax.adapter.transforms.relativize import RelativizeWithConstantControl
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
@@ -34,7 +37,7 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -52,6 +55,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.preference_stubs import get_pbo_experiment
+from botorch.acquisition import LearnedObjective
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.preference import (
     AnalyticExpectedUtilityOfBestOption,
@@ -912,6 +916,7 @@ class TorchAdapterTest(TestCase):
 
     @mock_botorch_optimize
     def test_fitting_auxiliary_experiment_dataset(self) -> None:
+        """Test BOPE with auxiliary PE experiment."""
         pref_metrics = ["metric2", "metric3"]
         metric_names = ["metric1", "metric2", "metric3"]
 
@@ -936,6 +941,7 @@ class TorchAdapterTest(TestCase):
             preference_profile_name=pe_exp_with_data.name,
         )
 
+        # Experiment has all 3 metrics; PE optimization only uses 2
         exp = get_pbo_experiment(
             num_parameters=4,
             num_experimental_metrics=3,
@@ -997,31 +1003,50 @@ class TorchAdapterTest(TestCase):
             ),
         ]
 
-        for surrogate_spec in surrogate_specs:
-            adapter = TorchAdapter(
-                experiment=exp,
-                data=exp.lookup_data(),
-                generator=BoTorchGenerator(
-                    surrogate_spec=surrogate_spec,
-                ),
-            )
+        # Test with both fit_tracking_metrics settings
+        for fit_tracking_metrics, surrogate_spec in product(
+            [True, False], surrogate_specs
+        ):
+            with self.subTest(f"{fit_tracking_metrics=}, {surrogate_spec=}"):
+                adapter = TorchAdapter(
+                    experiment=exp,
+                    data=exp.lookup_data(),
+                    generator=BoTorchGenerator(
+                        surrogate_spec=surrogate_spec,
+                    ),
+                    fit_tracking_metrics=fit_tracking_metrics,
+                )
 
-            generator = assert_is_instance(adapter.generator, BoTorchGenerator)
-            # With PE data, we should use a model list by default
-            self.assertIsInstance(generator.surrogate.model, ModelListGP)
-            # 3 outcomes + 1 aux experiments = 4 datasets
-            self.assertEqual(
-                len(assert_is_instance(generator.surrogate.model.models, Sized)), 3
-            )
-            # using PairwiseGP for the preference dataset
-            self.assertIsInstance(
-                generator.surrogate._submodels[(Keys.PAIRWISE_PREFERENCE_QUERY.value,)],
-                PairwiseGP,
-            )
+                generator = assert_is_instance(adapter.generator, BoTorchGenerator)
+                # With PE aux exp, we should use a model list by default
+                self.assertIsInstance(generator.surrogate.model, ModelListGP)
 
-            # Checking CV and gen works correctly
-            cross_validate(adapter)
-            adapter.gen(n=2)
+                # Verify correct number of outcome models based on fit_tracking_metrics
+                # This does not include the preference model, which is in _submodels
+                if fit_tracking_metrics:
+                    expected_num_models = 3
+                    expected_outcomes = {"metric1", "metric2", "metric3"}
+                else:
+                    expected_num_models = 2
+                    expected_outcomes = {"metric2", "metric3"}
+
+                models = assert_is_instance(generator.surrogate.model.models, Sized)
+                self.assertEqual(len(models), expected_num_models)
+
+                self.assertEqual(set(adapter.outcomes), expected_outcomes)
+
+                # Preference model should always be fitted
+                # (independent of fit_tracking_metrics)
+                self.assertIsInstance(
+                    generator.surrogate._submodels[
+                        (Keys.PAIRWISE_PREFERENCE_QUERY.value,)
+                    ],
+                    PairwiseGP,
+                )
+
+                # Checking CV and gen works correctly in both cases
+                cross_validate(adapter)
+                adapter.gen(n=2)
 
     def test_fitting_auxiliary_experiment_empty_dataset(self) -> None:
         pref_metrics = ["metric2", "metric3"]
@@ -1310,3 +1335,347 @@ class TorchAdapterTest(TestCase):
         torch.testing.assert_close(
             torch_opt_config.pruning_target_point, expected_target
         )
+
+
+class AdapterWithPLBOTest(TestCase):
+    """Test the PLBO (Preference-Learning-guided BO) step in BOPE (Bayesian
+    Optimization with Preference Exploration), the BO candidate generation
+    part of BOPE. The preference game (i.e., the PE step) still uses BOPEAdapter
+    at the moment."""
+
+    def setUp(self) -> None:
+        """Set up common test fixtures for BOPE validation tests."""
+        super().setUp()
+
+        self.pref_metrics = ["metric2", "metric3"]
+        self.metric_names = ["metric1", "metric2", "metric3"]
+        self.num_bo_parameters = 4
+        self.num_bo_trials = 4
+
+        self.pe_exp_with_data = get_pbo_experiment(
+            num_parameters=len(self.pref_metrics),
+            num_experimental_metrics=0,
+            parameter_names=self.pref_metrics,
+            num_experimental_trials=0,
+            num_preference_trials=3,
+            num_preference_trials_w_repeated_arm=5,
+            unbounded_search_space=True,
+            experiment_name="pe_exp",
+        )
+
+        self.pref_opt_config = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name=m), minimize=False)
+                    for m in self.pref_metrics
+                ]
+            ),
+            preference_profile_name=self.pe_exp_with_data.name,
+        )
+
+        self.exp = get_pbo_experiment(
+            num_parameters=self.num_bo_parameters,
+            num_experimental_metrics=len(self.metric_names),
+            tracking_metric_names=self.metric_names,
+            num_experimental_trials=self.num_bo_trials,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp",
+            optimization_config=self.pref_opt_config,
+        )
+        self.exp.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=self.pe_exp_with_data),
+        )
+
+        self.pe_exp_no_data = get_pbo_experiment(
+            num_parameters=len(self.pref_metrics),
+            num_experimental_metrics=0,
+            parameter_names=self.pref_metrics,
+            num_experimental_trials=0,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            unbounded_search_space=True,
+            experiment_name="pe_exp_no_data",
+        )
+
+        pref_opt_config_no_data = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name=m), minimize=False)
+                    for m in self.pref_metrics
+                ]
+            ),
+            preference_profile_name=self.pe_exp_no_data.name,
+        )
+
+        self.exp_no_pe_data = get_pbo_experiment(
+            num_parameters=self.num_bo_parameters,
+            num_experimental_metrics=len(self.metric_names),
+            tracking_metric_names=self.metric_names,
+            num_experimental_trials=self.num_bo_trials,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp_no_data",
+            optimization_config=pref_opt_config_no_data,
+        )
+        self.exp_no_pe_data.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=self.pe_exp_no_data),
+        )
+
+        self.pref_metrics_mismatched = ["metric3", "metric2"]
+
+        self.pe_exp_mismatched = get_pbo_experiment(
+            num_parameters=len(self.pref_metrics_mismatched),
+            num_experimental_metrics=0,
+            parameter_names=self.pref_metrics_mismatched,
+            num_experimental_trials=0,
+            num_preference_trials=3,
+            num_preference_trials_w_repeated_arm=5,
+            unbounded_search_space=True,
+            experiment_name="pe_exp_mismatched",
+        )
+
+        pref_opt_config_mismatched = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name=m), minimize=False)
+                    for m in self.pref_metrics_mismatched
+                ]
+            ),
+            preference_profile_name=self.pe_exp_mismatched.name,
+        )
+
+        self.exp_mismatched_metrics = get_pbo_experiment(
+            num_parameters=self.num_bo_parameters,
+            num_experimental_metrics=len(self.metric_names),
+            tracking_metric_names=self.metric_names,
+            num_experimental_trials=self.num_bo_trials,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp_mismatched",
+            optimization_config=pref_opt_config_mismatched,
+        )
+        self.exp_mismatched_metrics.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=self.pe_exp_mismatched),
+        )
+
+        self.pref_opt_config_with_relativize = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name=m), minimize=False)
+                    for m in self.pref_metrics
+                ]
+            ),
+            preference_profile_name=self.pe_exp_with_data.name,
+            expect_relativized_outcomes=True,
+        )
+
+        self.exp_with_relativize = get_pbo_experiment(
+            num_parameters=self.num_bo_parameters,
+            num_experimental_metrics=len(self.metric_names),
+            tracking_metric_names=self.metric_names,
+            num_experimental_trials=self.num_bo_trials,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp_relativize",
+            optimization_config=self.pref_opt_config_with_relativize,
+        )
+        self.exp_with_relativize.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=self.pe_exp_with_data),
+        )
+
+        self.exp_with_sq = get_pbo_experiment(
+            num_parameters=self.num_bo_parameters,
+            num_experimental_metrics=len(self.metric_names),
+            tracking_metric_names=self.metric_names,
+            num_experimental_trials=self.num_bo_trials,
+            num_preference_trials=0,
+            num_preference_trials_w_repeated_arm=0,
+            experiment_name="bo_exp_with_sq",
+            optimization_config=self.pref_opt_config,
+            include_sq=True,
+        )
+        self.exp_with_sq.add_auxiliary_experiment(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment=AuxiliaryExperiment(experiment=self.pe_exp_with_data),
+        )
+
+    @mock_botorch_optimize
+    def test_plbo_with_learned_objective_and_extra_metrics(self) -> None:
+        """Test BOPE correctly subsets outcomes when main experiment tracks
+        extra metrics beyond what preference optimization needs.
+
+        Setup: Main exp tracks [metric1, metric2, metric3],
+        PE optimizes [metric2, metric3]
+        Validates:
+        1. Surrogate fits on all 3 metrics
+        2. Preference model receives correct 2 metrics in correct order
+        3. Acquisition function gets model subsetted to correct indices [1, 2]
+        """
+
+        # Adapter creation should fail with DataRequiredError
+        with self.assertRaisesRegex(
+            DataRequiredError,
+            "No data found in the auxiliary preference exploration experiment",
+        ):
+            TorchAdapter(
+                experiment=self.exp_no_pe_data,
+                data=self.exp_no_pe_data.lookup_data(),
+                generator=BoTorchGenerator(),
+            )
+
+        adapter = TorchAdapter(
+            experiment=self.exp,  # Has metric1, metric2, metric3
+            data=self.exp.lookup_data(),
+            generator=BoTorchGenerator(),
+            optimization_config=self.pref_opt_config,  # Only needs metric2, metric3
+        )
+
+        with patch(
+            "ax.generators.torch.utils.LearnedObjective",
+            wraps=LearnedObjective,
+        ) as mock_learned_objective:
+            gen_run = adapter.gen(n=2)
+        self.assertEqual(len(gen_run.arms), 2)
+
+        generator = assert_is_instance(adapter.generator, BoTorchGenerator)
+
+        # Surrogate model fitted on all 3 metrics
+        self.assertEqual(adapter.outcomes, ["metric1", "metric2", "metric3"])
+        outcome_model = generator.surrogate.model
+        self.assertIsInstance(outcome_model, ModelListGP)
+        models = assert_is_instance(outcome_model.models, Sized)
+        self.assertEqual(len(models), 3)
+
+        # Preference model has correct 2-metric input in correct order
+        mock_learned_objective.assert_called_once()
+        pref_model = mock_learned_objective.call_args.kwargs["pref_model"]
+        self.assertEqual(pref_model.dim, 2)
+
+        pref_dataset = generator.surrogate._last_datasets[
+            (Keys.PAIRWISE_PREFERENCE_QUERY.value,)
+        ]
+        self.assertEqual(pref_dataset.feature_names, ["metric2", "metric3"])
+
+        # Acquisition function gets model subsetted to correct indices
+        acquisition = none_throws(generator._acquisition)
+        subset_indices = none_throws(acquisition._subset_idcs)
+        self.assertTrue(
+            torch.equal(subset_indices, torch.tensor([1, 2])),
+            f"Expected subset indices [1, 2] for metric2 and metric3, "
+            f"got {subset_indices.tolist()}",
+        )
+
+        # Verify subsetted model has 2 outputs
+        acqf_model = acquisition.acqf.model
+        if isinstance(acqf_model, ModelListGP):
+            self.assertEqual(len(acqf_model.models), 2)
+        else:
+            self.assertEqual(acqf_model.num_outputs, 2)
+
+    @mock_botorch_optimize
+    def test_plbo_validation_fails_with_allowed_and_disallowed_transform(self) -> None:
+        """Validation fails/passes when using disallowed/allowed transforms."""
+        # Create adapter with StandardizeY (not allowed for BOPE)
+        adapter = TorchAdapter(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+            generator=BoTorchGenerator(),
+            transforms=[UnitX, StandardizeY],  # StandardizeY is not BOPE-allowed
+        )
+
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Transforms.*StandardizeY.*are not allowed with BOPE",
+        ):
+            adapter.gen(n=2)
+
+        # Create adapter with UnitX (parameter transform, allowed)
+        adapter = TorchAdapter(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+            generator=BoTorchGenerator(),
+            transforms=[UnitX],  # UnitX is BOPE-allowed
+        )
+
+        gen_run = adapter.gen(n=2)
+        self.assertEqual(len(gen_run.arms), 2)
+
+    @mock_botorch_optimize
+    def test_plbo_validation_relativize_transform(self) -> None:
+        """Test Relativize transform validation with expect_relativized_outcomes flag.
+
+        Validates two scenarios:
+        1. expect_relativized_outcomes=True requires Relativize transform
+        2. expect_relativized_outcomes=False rejects Relativize transform
+        """
+        # Case 1: expect_relativized_outcomes=True WITHOUT Relativize should fail
+        adapter = TorchAdapter(
+            experiment=self.exp_with_relativize,
+            data=self.exp_with_relativize.lookup_data(),
+            generator=BoTorchGenerator(),
+            transforms=[UnitX],  # No Relativize
+        )
+
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Preference model expects outcomes in relative scale.*"
+            "but no Relativize transform found",
+        ):
+            adapter.gen(n=2)
+
+        # Case 2: expect_relativized_outcomes=False WITH Relativize should fail
+        adapter = TorchAdapter(
+            experiment=self.exp_with_sq,
+            data=self.exp_with_sq.lookup_data(),
+            generator=BoTorchGenerator(),
+            transforms=[UnitX, RelativizeWithConstantControl],
+        )
+
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Relativize transform found in pipeline, but preference model "
+            "expects outcomes in absolute scale",
+        ):
+            adapter.gen(n=2)
+
+    @mock_botorch_optimize
+    def test_plbo_validation_preference_profile_name_mismatch(self) -> None:
+        """Test that validation fails when preference profile name doesn't match."""
+        adapter = TorchAdapter(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+            generator=BoTorchGenerator(),
+        )
+
+        # Change preference profile name to cause mismatch
+        mismatched_config = PreferenceOptimizationConfig(
+            objective=assert_is_instance(
+                self.pref_opt_config.objective, MultiObjective
+            ),
+            preference_profile_name="wrong_profile_name",
+        )
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "preference profile name in the optimization config does not match",
+        ):
+            adapter.gen(n=2, optimization_config=mismatched_config)
+
+    def test_plbo_validation_requires_botorch_generator(self) -> None:
+        """Test that BOPE validation fails when using non-BoTorchGenerator."""
+        adapter = TorchAdapter(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+            generator=TorchGenerator(),
+        )
+
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Preference optimization requires a BoTorchGenerator",
+        ):
+            adapter.gen(n=2, optimization_config=self.pref_opt_config)
