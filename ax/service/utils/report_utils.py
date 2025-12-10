@@ -92,8 +92,8 @@ UNPREDICTABLE_METRICS_MESSAGE = (
 )
 
 
-def _get_cross_validation_plots(model: Adapter) -> list[go.Figure]:
-    cv = cross_validate(model=model)
+def _get_cross_validation_plots(adapter: Adapter) -> list[go.Figure]:
+    cv = cross_validate(adapter=adapter)
     return [
         interact_cross_validation_plotly(
             cv_results=cv, caption=CROSS_VALIDATION_CAPTION
@@ -407,7 +407,7 @@ def get_standard_plots(
 
         try:
             logger.debug("Starting cross validation plot.")
-            output_plot_list.extend(_get_cross_validation_plots(model=model))
+            output_plot_list.extend(_get_cross_validation_plots(adapter=model))
             logger.debug("Finished cross validation plot.")
         except Exception as e:
             logger.exception(f"Cross-validation plot failed with error: {e}")
