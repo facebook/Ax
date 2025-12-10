@@ -85,8 +85,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 [step - patience, step] before stopping. This helps avoid stopping
                 trials with noisy curves. If 0, the original behavior is used
                 (checking only the latest step). The patience is measured in training
-                progressions, so irregular spacing is handled naturally. Returns False
-                if fewer than 2 progressions are contained in the window. Must be
+                progressions, so irregular spacing is handled naturally. Must be
                 non-negative.
             check_safe: If True, applies the relevant safety checks to gate
                 early-stopping when it is likely to be harmful. If False (default),
@@ -270,17 +269,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         window_selector = (wide_df.index >= window_start) & (
             wide_df.index <= window_end
         )
-        window_progressions = wide_df.index[window_selector]
-
-        # Need two or more progressions when using patience > 0
-        if self.patience > 0 and not len(window_progressions) > 1:
-            reason = (
-                f"Fewer than 2 progressions in patience window "
-                f"[{window_start:.2f}, {window_end:.2f}] "
-                f"({window_progressions.tolist()}). Not stopping trial."
-            )
-            return False, reason
-
         window_values = wide_df[window_selector]
         window_active_trials = window_values.notna()
         # Series of lists of active trial indices for each progression in the window
