@@ -10,6 +10,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from logging import Logger
+from typing import cast
 
 import pandas as pd
 from ax.adapter.data_utils import _maybe_normalize_map_key
@@ -475,8 +476,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """
         min_progression = 0.0 if self.min_progression is None else self.min_progression
         interval = none_throws(self.interval)
-        curr_interval_boundary = _interval_boundary(
-            curr_progression, min_progression=min_progression, interval=interval
+        curr_interval_boundary = cast(
+            float,
+            _interval_boundary(
+                progression=curr_progression,
+                min_progression=min_progression,
+                interval=interval,
+            ),
         )
         # We've crossed a boundary if the last check was before the current boundary
         return prev_progression < curr_interval_boundary

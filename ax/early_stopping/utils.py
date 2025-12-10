@@ -9,6 +9,7 @@
 from logging import Logger
 from typing import Any
 
+import numpy.typing as npt
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
@@ -37,8 +38,10 @@ def _is_worse(a: Any, b: Any, minimize: bool) -> Any:
 
 
 def _interval_boundary(
-    progression: float, min_progression: float, interval: float
-) -> float:
+    progression: float | npt.NDArray,
+    min_progression: float,
+    interval: float,
+) -> float | npt.NDArray:
     """Calculate the interval boundary for a given progression by rounding down.
 
     Interval boundaries are at: min_prog, min_prog + interval,
@@ -61,6 +64,7 @@ def _interval_boundary(
         The interval boundary that this progression is at or past (rounded down).
     """
     interval_num = (progression - min_progression) // interval
+    # pyre-ignore[58]: Numpy handles float + ndarray correctly at runtime
     return min_progression + interval_num * interval
 
 
@@ -141,6 +145,9 @@ def align_partial_results(
     df = df.drop_duplicates(
         subset=["trial_index", "metric_signature", MAP_KEY], keep="first"
     )
+    # sort by MAP_KEY to ensure correct interpolation behavior
+    # (pivot preserves order of first occurrence, not sorted order)
+    df = df.sort_values(MAP_KEY)
     has_sem = not df["sem"].isnull().all()
     # wide dataframe with hierarchical columns aligned to common index
     # (outer join of map keys across "trial_index", "metric_signature")
