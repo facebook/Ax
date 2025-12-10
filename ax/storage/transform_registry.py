@@ -28,7 +28,11 @@ from ax.adapter.transforms.metadata_to_task import MetadataToTask
 from ax.adapter.transforms.metrics_as_task import MetricsAsTask
 from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.power_transform_y import PowerTransformY
-from ax.adapter.transforms.relativize import Relativize, RelativizeWithConstantControl
+from ax.adapter.transforms.relativize import (
+    Relativize,
+    RelativizeWithConstantControl,
+    SelectiveRelativizeWithConstantControl,
+)
 from ax.adapter.transforms.remove_fixed import RemoveFixed
 from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.adapter.transforms.standardize_y import StandardizeY
@@ -90,6 +94,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     LogY,
     Relativize,
     RelativizeWithConstantControl,
+    SelectiveRelativizeWithConstantControl,
     MergeRepeatedMeasurements,
     TimeAsFeature,
     TransformToNewSQ,

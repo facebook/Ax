@@ -27,7 +27,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generators.types import TConfig
 from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import none_throws
@@ -365,3 +365,102 @@ class RelativizeWithConstantControl(BaseRelativize):
     @property
     def control_as_constant(self) -> bool:
         return True
+
+
+class SelectiveRelativizeWithConstantControl(RelativizeWithConstantControl):
+    """
+    A selective relativization transform that applies RelativizeWithConstantControl
+    only when PreferenceOptimizationConfig.expect_relativized_outcomes=True.
+
+    This transform inspects the optimization config from the adapter during
+    initialization. If the config is a PreferenceOptimizationConfig with
+    expect_relativized_outcomes=True, the parent RelativizeWithConstantControl
+    is initialized and all transform operations are delegated to it. Otherwise,
+    all transform methods act as no-ops (pass-through).
+
+    This enables BOPE/PLBO to work with any MBM generation node in a single
+    transform pipeline: preference-based optimization gets relativized outcomes
+    while regular BO passes through unchanged.
+
+    Usage:
+        Include this transform in the transform pipeline for nodes that may
+        be used for both regular BO and preference-based optimization:
+        - When PreferenceOptimizationConfig.expect_relativized_outcomes=True,
+          outcomes are relativized via the parent RelativizeWithConstantControl.
+        - When using regular OptimizationConfig or expect_relativized_outcomes=False,
+          no transformation is applied.
+    """
+
+    def __init__(
+        self,
+        search_space: SearchSpace | None = None,
+        experiment_data: ExperimentData | None = None,
+        adapter: adapter_module.base.Adapter | None = None,
+        config: TConfig | None = None,
+    ) -> None:
+        if adapter is None:
+            raise UnsupportedError(
+                "SelectiveRelativizeWithConstantControl requires an adapter "
+                "having a experiment optimization_config"
+            )
+
+        opt_config = adapter._experiment.optimization_config
+        # no-op by default
+        self._should_relativize: bool = False
+        if isinstance(opt_config, PreferenceOptimizationConfig):
+            self._should_relativize = opt_config.expect_relativized_outcomes
+
+        super().__init__(
+            search_space=search_space,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
+
+    def transform_optimization_config(
+        self,
+        optimization_config: OptimizationConfig,
+        adapter: adapter_module.base.Adapter | None = None,
+        fixed_features: ObservationFeatures | None = None,
+    ) -> OptimizationConfig:
+        if self._should_relativize:
+            return super().transform_optimization_config(
+                optimization_config=optimization_config,
+                adapter=adapter,
+                fixed_features=fixed_features,
+            )
+        return optimization_config
+
+    def untransform_outcome_constraints(
+        self,
+        outcome_constraints: list[OutcomeConstraint],
+        fixed_features: ObservationFeatures | None = None,
+    ) -> list[OutcomeConstraint]:
+        if self._should_relativize:
+            return super().untransform_outcome_constraints(
+                outcome_constraints=outcome_constraints,
+                fixed_features=fixed_features,
+            )
+        return outcome_constraints
+
+    def transform_observations(
+        self,
+        observations: list[Observation],
+    ) -> list[Observation]:
+        if self._should_relativize:
+            return super().transform_observations(observations=observations)
+        return observations
+
+    def untransform_observations(
+        self, observations: list[Observation]
+    ) -> list[Observation]:
+        if self._should_relativize:
+            return super().untransform_observations(observations=observations)
+        return observations
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        if self._should_relativize:
+            return super().transform_experiment_data(experiment_data=experiment_data)
+        return experiment_data
