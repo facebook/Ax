@@ -1205,17 +1205,51 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
     def test_patience_parameter_validation(self) -> None:
         """Test that patience parameter is validated correctly."""
-        with self.assertRaisesRegex(
-            UserInputError, "patience must be non-negative, got -1"
-        ):
-            PercentileEarlyStoppingStrategy(patience=-1)
+        with self.subTest("negative_patience"):
+            with self.assertRaisesRegex(
+                UserInputError, "patience must be non-negative, got -1"
+            ):
+                PercentileEarlyStoppingStrategy(patience=-1)
 
-        # Valid patience values should not raise
-        strategy_zero = PercentileEarlyStoppingStrategy(patience=0)
-        self.assertEqual(strategy_zero.patience, 0)
+        with self.subTest("patience_greater_than_min_progression"):
+            # patience=5 > min_progression=2 should fail
+            with self.assertRaisesRegex(
+                UserInputError,
+                r"patience must be <= min_progression.*"
+                r"got patience=5.* and min_progression=2",
+            ):
+                PercentileEarlyStoppingStrategy(patience=5, min_progression=2)
 
-        strategy_positive = PercentileEarlyStoppingStrategy(patience=5)
-        self.assertEqual(strategy_positive.patience, 5)
+        with self.subTest("patience_greater_than_zero_min_progression"):
+            # patience=1 > min_progression=0 should fail
+            with self.assertRaisesRegex(
+                UserInputError,
+                r"patience must be <= min_progression.*"
+                r"got patience=1.* and min_progression=0",
+            ):
+                PercentileEarlyStoppingStrategy(patience=1, min_progression=0)
+
+        with self.subTest("valid_patience_zero"):
+            strategy_zero = PercentileEarlyStoppingStrategy(patience=0)
+            self.assertEqual(strategy_zero.patience, 0)
+
+        with self.subTest("valid_patience_with_min_progression_none"):
+            # When min_progression is None, any non-negative patience is valid
+            strategy = PercentileEarlyStoppingStrategy(
+                patience=100, min_progression=None
+            )
+            self.assertEqual(strategy.patience, 100)
+            self.assertIsNone(strategy.min_progression)
+
+        with self.subTest("valid_patience_equals_min_progression"):
+            strategy = PercentileEarlyStoppingStrategy(patience=5, min_progression=5)
+            self.assertEqual(strategy.patience, 5)
+            self.assertEqual(strategy.min_progression, 5)
+
+        with self.subTest("valid_patience_less_than_min_progression"):
+            strategy = PercentileEarlyStoppingStrategy(patience=3, min_progression=10)
+            self.assertEqual(strategy.patience, 3)
+            self.assertEqual(strategy.min_progression, 10)
 
     def test_patience_basic_functionality(self) -> None:
         """Test basic patience functionality."""
@@ -1252,7 +1286,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             # Trial 0 is in bottom 25% at all steps [0, 1, 2], so should stop
             early_stopping_strategy = PercentileEarlyStoppingStrategy(
                 percentile_threshold=25,
-                min_progression=0,
+                min_progression=2,  # Must be >= patience
                 min_curves=4,
                 patience=2,
             )
@@ -1303,6 +1337,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             early_stopping_strategy = PercentileEarlyStoppingStrategy(
                 percentile_threshold=25,
                 min_curves=4,
+                min_progression=2,  # Must be >= patience
                 patience=2,
             )
             should_stop = early_stopping_strategy.should_stop_trials_early(
@@ -1350,6 +1385,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             early_stopping_strategy = PercentileEarlyStoppingStrategy(
                 percentile_threshold=50,
                 min_curves=4,
+                min_progression=4,  # Must be >= patience
                 patience=2,
             )
 
@@ -1363,52 +1399,6 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
     def test_patience_with_insufficient_data(self) -> None:
         """Test that trials are not stopped when there is insufficient data."""
-        with self.subTest("single_progression_with_patience"):
-            # Test with only 1 progression in the window - should still evaluate
-            exp = get_test_map_data_experiment(
-                num_trials=5,
-                num_fetches=1,  # Only 1 fetch (step 0 only)
-                num_complete=4,
-            )
-            """
-            With only 1 progression (0) and patience=2:
-            - Latest progression: 0
-            - Window: [0-2, 0] = [-2, 0], clamped to [0, 0]
-            - Only progression 0 exists in this range
-            - With patience > 0, we should still check this single progression
-            """
-            early_stopping_strategy = PercentileEarlyStoppingStrategy(
-                percentile_threshold=25,
-                min_curves=3,
-                min_progression=0.0,  # Set to 0 to allow step 0
-                patience=2,
-            )
-
-            data_lookup = none_throws(
-                early_stopping_strategy._lookup_and_validate_data(exp, ["branin_map"])
-            )
-            aligned_df = align_partial_results(
-                df=data_lookup.map_df, metrics=["branin_map"]
-            )
-            aligned_means = aligned_df["mean"]["branin_map"]
-
-            should_stop, reason = early_stopping_strategy._should_stop_trial_early(
-                trial_index=0,
-                experiment=exp,
-                wide_df=aligned_means,
-                long_df=data_lookup.map_df,
-                minimize=True,
-            )
-
-            # With single progression, we should still get a decision based on
-            # that progression's performance relative to the percentile threshold
-            # The reason message should contain progression info, not an error
-            reason = none_throws(reason)
-            self.assertRegex(
-                reason,
-                r"Trial objective values at progressions in",
-            )
-
         with self.subTest("insufficient_curves_at_progression"):
             # Test with insufficient curves/trials at a progression
             MIN_CURVES = 4
@@ -1422,7 +1412,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             early_stopping_strategy = PercentileEarlyStoppingStrategy(
                 percentile_threshold=50,
                 min_curves=MIN_CURVES,
-                min_progression=0.0,
+                min_progression=1.0,  # Must be >= patience
                 patience=1,  # Window [1, 2]
             )
 
@@ -1486,7 +1476,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         """
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=75,
-            min_progression=0,
+            min_progression=2,  # Must be >= patience
             min_curves=4,
             patience=2,
             n_best_trials_to_complete=3,
@@ -1509,7 +1499,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=25,
-            min_progression=0,
+            min_progression=2,  # Must be >= patience
             min_curves=4,
             patience=2,
         )
@@ -1541,81 +1531,6 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertRegex(reason, r"Underperforms:")
         self.assertRegex(reason, r"Trial objective values:")
         self.assertRegex(reason, r"Thresholds:")
-
-    def test_patience_respects_min_progression(self) -> None:
-        """Test that patience window respects min_progression boundary."""
-        exp = get_test_map_data_experiment(
-            num_trials=5,
-            num_fetches=5,  # Create progressions [0, 1, 2, 3, 4]
-            num_complete=5,
-        )
-        data = assert_is_instance(exp.fetch_data(), MapData)
-
-        # Create a trial that is consistently bad from step 0-4
-        # Trial 0: [100, 100, 100, 100, 100] - consistently worst
-        # Other trials: [50, 50, 50, 50, 50] - medium performance
-        modified_df = data.map_df.copy()
-
-        # Create base mask for branin_map metric once
-        branin_mask = modified_df["metric_name"] == "branin_map"
-
-        # Set trial 0 to consistently bad performance
-        trial_0_mask = branin_mask & (modified_df["trial_index"] == 0)
-        modified_df.loc[trial_0_mask, "mean"] = 100.0
-
-        # Set other trials to medium performance
-        other_trials_mask = branin_mask & (
-            modified_df["trial_index"].isin([1, 2, 3, 4])
-        )
-        modified_df.loc[other_trials_mask, "mean"] = 50.0
-
-        # Create new MapData with modified dataframe
-        data = MapData(df=modified_df)
-        exp.attach_data(data=data)
-
-        """
-        Test scenario:
-        - min_progression = 2.0 (we don't trust data before step 2)
-        - patience = 10 (very large, would normally look back to step -6)
-        - window_end = 4
-        - window_start should be max(2.0, 4 - 10) = max(2.0, -6) = 2.0
-
-        So the patience window should be [2, 3, 4], NOT [0, 1, 2, 3, 4].
-        This ensures we only evaluate based on data
-        from progressions >= min_progression.
-        """
-        early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=50,
-            min_curves=4,
-            min_progression=2.0,  # Don't trust data before step 2
-            patience=10,  # Very large patience
-        )
-
-        data_lookup = none_throws(
-            early_stopping_strategy._lookup_and_validate_data(exp, ["branin_map"])
-        )
-        aligned_df = align_partial_results(
-            df=data_lookup.map_df, metrics=["branin_map"]
-        )
-        aligned_means = aligned_df["mean"]["branin_map"]
-
-        should_stop, reason = early_stopping_strategy._should_stop_trial_early(
-            trial_index=0,
-            experiment=exp,
-            wide_df=aligned_means,
-            long_df=data_lookup.map_df,
-            minimize=True,
-        )
-
-        # Trial 0 should be stopped (underperforms at all steps in window [2, 3, 4])
-        self.assertTrue(should_stop)
-        reason = none_throws(reason)
-        # Verify the reason message shows window starting at min_progression (2.0)
-        # not at window_end - patience (-6)
-        self.assertRegex(
-            reason,
-            r"Trial objective values at progressions in \[2\.00, 4\.00\]",
-        )
 
     def test_early_stopping_with_unaligned_results(self) -> None:
         # test case 1

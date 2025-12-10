@@ -52,9 +52,10 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 absolute values; if `minimize` is False, then "bottom" actually refers
                 to the top trials in terms of metric value.
             min_progression: Only stop trials if the latest progression value
-                (i.e. "step") is greater than this
-                threshold. Prevents stopping prematurely before enough data is gathered
-                to make a decision.
+                (i.e. "step") is greater than this threshold. Prevents stopping
+                prematurely before enough data is gathered to make a decision.
+                Must be >= patience to ensure the patience window does not
+                become negative.
             max_progression: Do not stop trials that have passed `max_progression`.
                 Useful if we prefer finishing a trial that are already near completion.
             min_curves: Trials will not be stopped until a number of trials
@@ -86,7 +87,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 trials with noisy curves. If 0, the original behavior is used
                 (checking only the latest step). The patience is measured in training
                 progressions, so irregular spacing is handled naturally. Must be
-                non-negative.
+                non-negative and <= min_progression to ensure the patience window
+                does not become negative.
             check_safe: If True, applies the relevant safety checks to gate
                 early-stopping when it is likely to be harmful. If False (default),
                 bypasses the safety check and directly applies early-stopping decisions.
@@ -103,6 +105,13 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         if patience < 0:
             raise UserInputError(f"patience must be non-negative, got {patience}.")
+
+        if min_progression is not None and patience > min_progression:
+            raise UserInputError(
+                f"patience must be <= min_progression to ensure the patience window "
+                f"does not become negative, got patience={patience} and "
+                f"min_progression={min_progression}."
+            )
 
         self.percentile_threshold = percentile_threshold
         self.n_best_trials_to_complete = n_best_trials_to_complete
@@ -261,10 +270,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         # Define evaluation window [window_end - patience, window_end]
         # When patience=0, this is just a single point [window_end]
+        # Note: We require patience <= min_progression at construction time,
+        # so window_start is guaranteed to be >= 0 when window_end >= min_progression
         window_start = window_end - self.patience
-        # Ensure window_start respects min_progression to avoid including
-        # data from progressions where early stopping should not be evaluated
-        window_start = max(window_start, self.min_progression or float("-inf"))
 
         window_selector = (wide_df.index >= window_start) & (
             wide_df.index <= window_end
