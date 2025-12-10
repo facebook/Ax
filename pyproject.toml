@@ -24,7 +24,7 @@ dependencies = [
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
-    "scikit-learn==1.7.2",
+    "scikit-learn<1.8.0",
     "ipywidgets",
     # Needed for compatibility with ipywidgets >= 8.0.0
     "plotly>=5.12.0",
