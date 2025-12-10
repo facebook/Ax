@@ -12,6 +12,7 @@ from collections.abc import Iterable, Sequence
 from logging import Logger
 
 import pandas as pd
+from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MAP_KEY, MapData
@@ -65,13 +66,16 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            normalize_progressions: Normalizes the progression column of the MapData df
-                by dividing by the max. If the values were originally in [0, `prog_max`]
-                (as we would expect), the transformed values will be in [0, 1]. Useful
-                for inferring the max progression and allows `min_progression` to be
-                specified in the transformed space. IMPORTANT: Typically, `min_curves`
-                should be > 0 to ensure that at least one trial has completed and that
-                we have a reliable approximation for `prog_max`.
+            normalize_progressions: If True, normalizes the progression values
+                for each metric to the [0, 1] range using the observed minimum and
+                maximum progression values for that metric. This transformation maps
+                the original progression range [`min_prog`, `max_prog`] to [0, 1]
+                via (x - min_prog) / (max_prog - min_prog). Useful when progression
+                values have arbitrary scales or when you want to specify
+                `min_progression` and `max_progression` in a normalized [0, 1]
+                space. Note: At least one trial should have completed (i.e.,
+                `min_curves` > 0) to ensure reliable estimates of the progression
+                range.
             interval: If specified, throttles early-stopping checks by only
                 evaluating trials when they cross interval boundaries. Boundaries are
                 defined at `min_progression + k * interval` for k = 0, 1, 2, etc.
@@ -243,10 +247,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
             return None
 
-        data = assert_is_instance(data, MapData)
-        map_df = data.map_df
-        # keep only relevant metrics
-        map_df = map_df[map_df["metric_signature"].isin(metric_signatures)].copy()
+        map_df = assert_is_instance(data, MapData).map_df
+        map_df = map_df[map_df["metric_signature"].isin(metric_signatures)]
 
         # Drop rows with NaN values in MAP_KEY column to prevent issues in
         # align_partial_results which uses MAP_KEY as the pivot index
@@ -261,8 +263,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             map_df = map_df[~nan_mask]
 
         if self.normalize_progressions:
-            values = map_df[MAP_KEY].astype(float)
-            map_df[MAP_KEY] = values / values.abs().max()
+            map_df = _maybe_normalize_map_key(df=map_df)
         return MapData(df=map_df)
 
     @staticmethod
@@ -606,13 +607,16 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            normalize_progressions: Normalizes the progression column of the MapData df
-                by dividing by the max. If the values were originally in [0, `prog_max`]
-                (as we would expect), the transformed values will be in [0, 1]. Useful
-                for inferring the max progression and allows `min_progression` to be
-                specified in the transformed space. IMPORTANT: Typically, `min_curves`
-                should be > 0 to ensure that at least one trial has completed and that
-                we have a reliable approximation for `prog_max`.
+            normalize_progressions: If True, normalizes the progression values
+                for each metric to the [0, 1] range using the observed minimum and
+                maximum progression values for that metric. This transformation maps
+                the original progression range [`min_prog`, `max_prog`] to [0, 1]
+                via (x - min_prog) / (max_prog - min_prog). Useful when progression
+                values have arbitrary scales or when you want to specify
+                `min_progression` and `max_progression` in a normalized [0, 1]
+                space. Note: At least one trial should have completed (i.e.,
+                `min_curves` > 0) to ensure reliable estimates of the progression
+                range.
             min_progression_modeling: If set, this will exclude progressions that are
                 below this threshold from being used or modeling. Useful when early data
                 is not reliable or excessively noisy.

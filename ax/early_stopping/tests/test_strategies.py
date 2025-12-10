@@ -102,6 +102,119 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             #  `BaseEarlyStoppingStrategy`.
             BaseEarlyStoppingStrategy()
 
+    def test_normalize_progressions(self) -> None:
+        """Test that normalize_progressions applies proper min-max normalization.
+
+        Verifies that progression values are normalized using the formula:
+            (x - min) / (max - min)
+        which maps the progression range [min, max] to [0, 1].
+        """
+        with self.subTest("zero_min_progressions"):
+            # Test with progressions starting at 0 (typical case)
+            experiment = get_test_map_data_experiment(
+                num_trials=3, num_fetches=5, num_complete=3
+            )
+            metric_signature, _ = FakeStrategy()._default_objective_and_direction(
+                experiment=experiment
+            )
+
+            # Get the original map data to verify our test assumptions
+            original_data = assert_is_instance(experiment.lookup_data(), MapData)
+            original_df = original_data.map_df[
+                original_data.map_df["metric_signature"] == metric_signature
+            ]
+            original_progressions = original_df[MAP_KEY].astype(float)
+
+            # Verify original progressions start at 0
+            self.assertEqual(original_progressions.min(), 0.0)
+            original_max = original_progressions.max()
+            self.assertGreater(original_max, 0.0)
+
+            # Test with normalize_progressions=True
+            es_strategy_normalized = FakeStrategy(normalize_progressions=True)
+            normalized_data = es_strategy_normalized._lookup_and_validate_data(
+                experiment, metric_signatures=[metric_signature]
+            )
+            normalized_data = assert_is_instance(normalized_data, MapData)
+            normalized_progressions = normalized_data.map_df[MAP_KEY].astype(float)
+
+            # Verify normalized progressions are in [0, 1] range
+            self.assertAlmostEqual(normalized_progressions.min(), 0.0)
+            self.assertAlmostEqual(normalized_progressions.max(), 1.0)
+
+            # Verify all unique values are correctly normalized using min-max formula
+            expected_normalized_values = {
+                v / original_max for v in original_progressions.unique()
+            }
+            actual_normalized_values = set(normalized_progressions.unique())
+            self.assertEqual(expected_normalized_values, actual_normalized_values)
+
+        with self.subTest("normalize_progressions_false"):
+            # Test with normalize_progressions=False (default behavior)
+            experiment = get_test_map_data_experiment(
+                num_trials=3, num_fetches=5, num_complete=3
+            )
+            metric_signature, _ = FakeStrategy()._default_objective_and_direction(
+                experiment=experiment
+            )
+            original_data = assert_is_instance(experiment.lookup_data(), MapData)
+            original_df = original_data.map_df[
+                original_data.map_df["metric_signature"] == metric_signature
+            ]
+            original_max = original_df[MAP_KEY].astype(float).max()
+
+            es_strategy_unnormalized = FakeStrategy(normalize_progressions=False)
+            unnormalized_data = es_strategy_unnormalized._lookup_and_validate_data(
+                experiment, metric_signatures=[metric_signature]
+            )
+            unnormalized_data = assert_is_instance(unnormalized_data, MapData)
+            unnormalized_progressions = unnormalized_data.map_df[MAP_KEY].astype(float)
+
+            # Verify progressions are NOT normalized (should match original range)
+            self.assertAlmostEqual(unnormalized_progressions.min(), 0.0)
+            self.assertAlmostEqual(unnormalized_progressions.max(), original_max)
+
+        with self.subTest("nonzero_min_progressions"):
+            # Test with progressions that don't start at 0
+            experiment = get_test_map_data_experiment(
+                num_trials=3, num_fetches=3, num_complete=3
+            )
+            metric_signature, _ = FakeStrategy()._default_objective_and_direction(
+                experiment=experiment
+            )
+
+            # Modify the data to have non-zero minimum progressions
+            data = assert_is_instance(experiment.lookup_data(), MapData)
+            modified_df = data.map_df.copy()
+
+            # Shift progressions by 10: [0, 1, 2] -> [10, 11, 12]
+            modified_df[MAP_KEY] = modified_df[MAP_KEY].astype(float) + 10.0
+
+            # Verify the modified progressions have non-zero min
+            metric_mask = modified_df["metric_signature"] == metric_signature
+            updated_progressions = modified_df.loc[metric_mask, MAP_KEY].astype(float)
+            self.assertEqual(updated_progressions.min(), 10.0)
+            self.assertEqual(updated_progressions.max(), 12.0)
+
+            # Attach modified data and apply normalization
+            experiment.attach_data(data=MapData(df=modified_df))
+
+            es_strategy = FakeStrategy(normalize_progressions=True)
+            normalized_data = es_strategy._lookup_and_validate_data(
+                experiment, metric_signatures=[metric_signature]
+            )
+            normalized_data = assert_is_instance(normalized_data, MapData)
+            normalized_progressions = normalized_data.map_df[MAP_KEY].astype(float)
+
+            # Verify min-max normalization produces [0, 1] range
+            self.assertAlmostEqual(normalized_progressions.min(), 0.0)
+            self.assertAlmostEqual(normalized_progressions.max(), 1.0)
+
+            # Verify all normalized values are within [0, 1] range
+            self.assertTrue(
+                all(0.0 <= v <= 1.0 for v in normalized_progressions.unique())
+            )
+
     def test_nan_map_key_values_dropped_with_warning(self) -> None:
         """Test that NaN values in MAP_KEY column are dropped with a warning."""
         experiment = get_test_map_data_experiment(
@@ -139,7 +252,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             # Verify warning was called with appropriate message
             mock_warning.assert_called_once()
 
-            warning_msg, *_ = mock_warning.call_args.args
+            (warning_msg,) = mock_warning.call_args.args
             self.assertRegex(
                 warning_msg,
                 r"Dropped 1 row\(s\) with NaN values in the progression column "
