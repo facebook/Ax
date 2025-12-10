@@ -11,7 +11,7 @@ import time
 from collections.abc import Sequence
 from logging import INFO, Logger
 
-from ax.analysis.analysis_card import AnalysisCardBase
+from ax.core.analysis_card import AnalysisCardBase
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun

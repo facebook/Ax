@@ -9,7 +9,6 @@ from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardBase, AnalysisCardGroup
 from ax.analysis.plotly.marginal_effects import MarginalEffectsPlot
 from ax.analysis.plotly.objective_p_feasible_frontier import (
     ObjectivePFeasibleFrontierPlot,
@@ -17,6 +16,7 @@ from ax.analysis.plotly.objective_p_feasible_frontier import (
 from ax.analysis.plotly.p_feasible import PFeasiblePlot
 from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCardBase, AnalysisCardGroup
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment

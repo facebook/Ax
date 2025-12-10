@@ -11,7 +11,6 @@ import pandas as pd
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
@@ -35,6 +34,7 @@ from ax.analysis.utils import (
     validate_experiment,
     validate_experiment_has_trials,
 )
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.base_trial import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment

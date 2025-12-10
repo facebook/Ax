@@ -9,9 +9,9 @@ from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy

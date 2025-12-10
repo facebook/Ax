@@ -7,9 +7,9 @@
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCard
-from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
+from ax.core.analysis_card import AnalysisCardGroup
 from ax.utils.common.testutils import TestCase
 from plotly import graph_objects as go, io as pio
 

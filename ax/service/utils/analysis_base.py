@@ -8,8 +8,8 @@
 from collections.abc import Iterable
 
 from ax.analysis.analysis import Analysis, display_cards
-from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.overview import OverviewAnalysis
+from ax.core.analysis_card import AnalysisCardBase
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase

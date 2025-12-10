@@ -10,12 +10,6 @@ from typing import final, Literal
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import (
-    AnalysisCard,
-    AnalysisCardBase,
-    AnalysisCardGroup,
-    ErrorAnalysisCard,
-)
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.sensitivity import SensitivityAnalysisPlot
 from ax.analysis.plotly.surface.contour import (
@@ -33,6 +27,12 @@ from ax.analysis.utils import (
     extract_relevant_adapter,
     validate_experiment,
     validate_experiment_has_trials,
+)
+from ax.core.analysis_card import (
+    AnalysisCard,
+    AnalysisCardBase,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
 )
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError

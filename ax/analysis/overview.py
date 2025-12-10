@@ -9,7 +9,6 @@ from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
-from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.diagnostics import DiagnosticAnalysis
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
@@ -25,6 +24,7 @@ from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.analysis.trials import AllTrialsAnalysis
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError

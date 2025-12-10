@@ -13,7 +13,6 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 from ax.analysis.analysis import Analysis, display_cards
-from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.summary import Summary
 from ax.api.configs import (
@@ -30,6 +29,7 @@ from ax.api.utils.instantiation.from_string import optimization_config_from_stri
 from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.storage import db_settings_from_storage_config
 from ax.api.utils.structs import ExperimentStruct, GenerationStrategyDispatchStruct
+from ax.core.analysis_card import AnalysisCardBase
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective

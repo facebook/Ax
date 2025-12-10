@@ -11,8 +11,8 @@ from typing import final, Iterable, Sequence
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
