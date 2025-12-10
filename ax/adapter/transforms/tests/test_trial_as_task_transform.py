@@ -126,16 +126,24 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft1 = deepcopy(self.training_feats)
         obs_ft2 = deepcopy(self.training_feats)
         obs_ft_trans1 = [
-            ObservationFeatures({"x1": 1, "x2": 1, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x1": 2, "x2": 2, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x1": 3, "x2": 3, "TRIAL_PARAM": "1"}),
-            ObservationFeatures({"x1": 4, "x2": 4, "TRIAL_PARAM": "2"}),
+            ObservationFeatures({"x1": 1, "x2": 1, "TRIAL_PARAM": "0"}, trial_index=0),
+            ObservationFeatures({"x1": 2, "x2": 2, "TRIAL_PARAM": "0"}, trial_index=0),
+            ObservationFeatures({"x1": 3, "x2": 3, "TRIAL_PARAM": "1"}, trial_index=1),
+            ObservationFeatures({"x1": 4, "x2": 4, "TRIAL_PARAM": "2"}, trial_index=2),
         ]
         obs_ft_trans2 = [
-            ObservationFeatures({"x1": 1, "x2": 1, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x1": 2, "x2": 2, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x1": 3, "x2": 3, "bp1": "v2", "bp2": "u1"}),
-            ObservationFeatures({"x1": 4, "x2": 4, "bp1": "v3", "bp2": "u2"}),
+            ObservationFeatures(
+                {"x1": 1, "x2": 1, "bp1": "v1", "bp2": "u1"}, trial_index=0
+            ),
+            ObservationFeatures(
+                {"x1": 2, "x2": 2, "bp1": "v1", "bp2": "u1"}, trial_index=0
+            ),
+            ObservationFeatures(
+                {"x1": 3, "x2": 3, "bp1": "v2", "bp2": "u1"}, trial_index=1
+            ),
+            ObservationFeatures(
+                {"x1": 4, "x2": 4, "bp1": "v3", "bp2": "u2"}, trial_index=2
+            ),
         ]
         obs_ft1 = self.t.transform_observation_features(obs_ft1)
         self.assertEqual(obs_ft1, obs_ft_trans1)
@@ -157,17 +165,25 @@ class TrialAsTaskTransformTest(TestCase):
             )
         )
         obs_ft_trans = [
-            ObservationFeatures({"x1": 1, "x2": 1, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x1": 2, "x2": 2, "TRIAL_PARAM": "0"}),
-            ObservationFeatures({"x1": 3, "x2": 3, "TRIAL_PARAM": "1"}),
-            ObservationFeatures({"x1": 4, "x2": 4, "TRIAL_PARAM": "2"}),
+            ObservationFeatures({"x1": 1, "x2": 1, "TRIAL_PARAM": "0"}, trial_index=0),
+            ObservationFeatures({"x1": 2, "x2": 2, "TRIAL_PARAM": "0"}, trial_index=0),
+            ObservationFeatures({"x1": 3, "x2": 3, "TRIAL_PARAM": "1"}, trial_index=1),
+            ObservationFeatures({"x1": 4, "x2": 4, "TRIAL_PARAM": "2"}, trial_index=2),
             ObservationFeatures({"x1": 20, "x2": 20, "TRIAL_PARAM": "2"}),
         ]
         obs_ft_trans2 = [
-            ObservationFeatures({"x1": 1, "x2": 1, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x1": 2, "x2": 2, "bp1": "v1", "bp2": "u1"}),
-            ObservationFeatures({"x1": 3, "x2": 3, "bp1": "v2", "bp2": "u1"}),
-            ObservationFeatures({"x1": 4, "x2": 4, "bp1": "v3", "bp2": "u2"}),
+            ObservationFeatures(
+                {"x1": 1, "x2": 1, "bp1": "v1", "bp2": "u1"}, trial_index=0
+            ),
+            ObservationFeatures(
+                {"x1": 2, "x2": 2, "bp1": "v1", "bp2": "u1"}, trial_index=0
+            ),
+            ObservationFeatures(
+                {"x1": 3, "x2": 3, "bp1": "v2", "bp2": "u1"}, trial_index=1
+            ),
+            ObservationFeatures(
+                {"x1": 4, "x2": 4, "bp1": "v3", "bp2": "u2"}, trial_index=2
+            ),
             ObservationFeatures({"x1": 20, "x2": 20, "bp1": "v3", "bp2": "u2"}),
         ]
 
@@ -314,6 +330,48 @@ class TrialAsTaskTransformTest(TestCase):
             transformed_data.arm_data["bp2"].to_list(),
             make_expected(values=("u1", "u1", "u2")),
         )
+
+    def test_many_to_one_trial_to_task_mapping(self) -> None:
+        """Test that trial_index is preserved when multiple trials map to same task.
+
+        This is a critical test case because if trial_index were removed during
+        transform (as it was before), we would not be able to recover it during
+        untransform when multiple trials map to the same task value.
+        """
+        # Create a trial_level_map where trials 0 and 1 both map to "v1"
+        many_to_one_map = {
+            "task_param": {0: "v1", 1: "v1", 2: "v2"},
+        }
+        t_many_to_one = TrialAsTask(
+            search_space=self.exp.search_space,
+            experiment_data=self.experiment_data,
+            adapter=self.adapter,
+            config={"trial_level_map": many_to_one_map},
+        )
+
+        # Original features with trial indices
+        obs_feats = [
+            ObservationFeatures({"x1": 1, "x2": 1}, trial_index=0),
+            ObservationFeatures({"x1": 2, "x2": 2}, trial_index=1),
+            ObservationFeatures({"x1": 3, "x2": 3}, trial_index=2),
+        ]
+        obs_feats_clone = deepcopy(obs_feats)
+
+        # Transform: task param should be added, trial_index should be PRESERVED
+        transformed = t_many_to_one.transform_observation_features(obs_feats_clone)
+
+        expected_transformed = [
+            ObservationFeatures({"x1": 1, "x2": 1, "task_param": "v1"}, trial_index=0),
+            ObservationFeatures({"x1": 2, "x2": 2, "task_param": "v1"}, trial_index=1),
+            ObservationFeatures({"x1": 3, "x2": 3, "task_param": "v2"}, trial_index=2),
+        ]
+        self.assertEqual(transformed, expected_transformed)
+
+        # Untransform: task param should be removed, trial_index should remain
+        untransformed = t_many_to_one.untransform_observation_features(transformed)
+
+        # After untransform, we should get back the original observation features
+        self.assertEqual(untransformed, obs_feats)
 
     def test_trial_type_as_task(self) -> None:
         # Test that trial_level_map is properly constructed when

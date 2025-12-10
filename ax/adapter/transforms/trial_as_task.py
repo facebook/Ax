@@ -170,7 +170,6 @@ class TrialAsTask(Transform):
                     # most recent trial. This is needed for generating trials composed
                     # of points from multiple models.
                     obsf.parameters[p_name] = level_dict[max(level_dict)]
-            obsf.trial_index = None
         return observation_features
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
@@ -220,11 +219,7 @@ class TrialAsTask(Transform):
             return observation_features
         for obsf in observation_features:
             for p_name in self.trial_level_map:
-                pval = obsf.parameters.pop(p_name)
-            # pyre-fixme[61]: `pval` may not be initialized here.
-            if self.inverse_map is not None and pval in self.inverse_map:
-                # pyre-fixme[61]: `pval` may not be initialized here.
-                obsf.trial_index = self.inverse_map[pval]
+                obsf.parameters.pop(p_name)
         return observation_features
 
     def transform_experiment_data(
