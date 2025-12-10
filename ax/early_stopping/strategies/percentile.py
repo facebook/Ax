@@ -11,6 +11,8 @@ from logging import Logger
 
 import pandas as pd
 from ax.core.experiment import Experiment
+from ax.core.trial_status import TrialStatus
+from ax.early_stopping.simulation import best_trial_vulnerable
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import _is_worse
 from ax.exceptions.core import UnsupportedError, UserInputError
@@ -119,7 +121,51 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_indices: set[int],
         experiment: Experiment,
     ) -> bool:
-        return False
+        """Check if the early stopping strategy would stop the globally best trial.
+
+        This method simulates the early stopping strategy as it would have run
+        from the beginning to determine if the globally best trial would have
+        been stopped. The trial_indices parameter is ignored - this is a global
+        safety check on the overall best trial.
+
+        Args:
+            trial_indices: Set of trial indices being evaluated (ignored).
+            experiment: Experiment that contains the trials and other contextual data.
+
+        Returns:
+            True if the strategy would have stopped the globally best trial,
+            False otherwise.
+        """
+        metric_signature, minimize = self._default_objective_and_direction(
+            experiment=experiment
+        )
+        maybe_aligned_dataframes = self._prepare_aligned_data(
+            experiment=experiment, metric_signatures=[metric_signature]
+        )
+        if maybe_aligned_dataframes is None:
+            return False
+
+        long_df, multilevel_wide_df = maybe_aligned_dataframes
+        wide_df = multilevel_wide_df["mean"][metric_signature]
+
+        # Get completed trials
+        completed_trials = experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+
+        # Run simulation to check if the globally best trial would be stopped
+        simulated_result = best_trial_vulnerable(
+            wide_df=wide_df,
+            minimize=minimize,
+            completed_trials=completed_trials,
+            percentile_threshold=self.percentile_threshold,
+            min_progression=self.min_progression,
+            max_progression=self.max_progression,
+            min_curves=self.min_curves,
+            patience=self.patience,
+            interval=self.interval,
+            n_best_trials_to_complete=self.n_best_trials_to_complete,
+        )
+
+        return simulated_result.best_stopped
 
     def _should_stop_trials_early(
         self,
