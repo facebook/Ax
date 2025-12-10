@@ -65,6 +65,7 @@ from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
+from ax.storage.utils import EXPECT_RELATIVIZED_OUTCOMES, PREFERENCE_PROFILE_NAME
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from ax.utils.testing.backend_simulator import (
@@ -349,7 +350,10 @@ def preference_optimization_config_to_dict(
         "__type": preference_optimization_config.__class__.__name__,
         "objective": preference_optimization_config.objective,
         "outcome_constraints": preference_optimization_config.outcome_constraints,
-        "preference_profile_name": pref_profile_name,
+        PREFERENCE_PROFILE_NAME: pref_profile_name,
+        EXPECT_RELATIVIZED_OUTCOMES: (
+            preference_optimization_config.expect_relativized_outcomes
+        ),
         "pruning_target_parameterization": (
             preference_optimization_config.pruning_target_parameterization
         ),

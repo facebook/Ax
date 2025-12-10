@@ -32,6 +32,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
@@ -75,7 +76,13 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import (
+    DomainType,
+    EXPECT_RELATIVIZED_OUTCOMES,
+    MetricIntent,
+    ParameterConstraintType,
+    PREFERENCE_PROFILE_NAME,
+)
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -516,6 +523,64 @@ class Encoder:
         )
         return parent_metric
 
+    def preference_objective_to_sqa(
+        self,
+        multi_objective: MultiObjective,
+        preference_profile_name: str,
+        expect_relativized_outcomes: bool,
+    ) -> SQAMetric:
+        """Convert Ax PreferenceOptimizationConfig objective to SQLAlchemy.
+
+        Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
+            corresponding to `metrics` attribute of the `MultiObjective` from
+            `PreferenceOptimizationConfig`. The parent stores the config-level
+            properties (preference_profile_name, expect_relativized_outcomes)
+            in its properties field.
+            NOTE: The parent is used as a placeholder for storage purposes.
+        """
+        # Constructing children SQAMetric classes (these are the real metrics in
+        # the `MultiObjective`).
+        children_objectives = []
+        for objective in multi_objective.objectives:
+            objective_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            type_and_properties = self.get_metric_type_and_properties(
+                metric=objective.metric
+            )
+            children_objectives.append(
+                objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
+                    id=objective.metric.db_id,
+                    name=objective.metric.name,
+                    signature=objective.metric.signature,
+                    metric_type=type_and_properties[0],
+                    intent=MetricIntent.OBJECTIVE,
+                    minimize=objective.minimize,
+                    properties=type_and_properties[1],
+                    lower_is_better=objective.metric.lower_is_better,
+                )
+            )
+
+        # Store config-level properties in parent metric's properties field
+        parent_properties = {
+            PREFERENCE_PROFILE_NAME: preference_profile_name,
+            EXPECT_RELATIVIZED_OUTCOMES: expect_relativized_outcomes,
+        }
+
+        # Constructing a parent SQAMetric class (not a real metric, only a placeholder
+        # to group the metrics together and store PreferenceOptimizationConfig fields).
+        parent_metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+        parent_metric = (
+            parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
+                id=multi_objective.db_id,
+                name="preference_objective",
+                metric_type=self.config.metric_registry[Metric],
+                intent=MetricIntent.PREFERENCE_OBJECTIVE,
+                scalarized_objective_children_metrics=children_objectives,
+                signature="preference_objective",
+                properties=parent_properties,
+            )
+        )
+        return parent_metric
+
     def scalarized_objective_to_sqa(self, objective: ScalarizedObjective) -> SQAMetric:
         """Convert Ax Scalarized Objective to SQLAlchemy.
 
@@ -675,14 +740,34 @@ class Encoder:
             return []
 
         metrics_sqa = []
-        obj_sqa = self.objective_to_sqa(objective=optimization_config.objective)
+
+        # Handle PreferenceOptimizationConfig separately
+        if isinstance(optimization_config, PreferenceOptimizationConfig):
+            objective = optimization_config.objective
+            if not isinstance(objective, MultiObjective):
+                raise SQAEncodeError(
+                    f"PreferenceOptimizationConfig requires a MultiObjective, "
+                    f"got {type(objective).__name__}"
+                )
+            obj_sqa = self.preference_objective_to_sqa(
+                multi_objective=objective,
+                preference_profile_name=optimization_config.preference_profile_name,
+                expect_relativized_outcomes=(
+                    optimization_config.expect_relativized_outcomes
+                ),
+            )
+        else:
+            obj_sqa = self.objective_to_sqa(objective=optimization_config.objective)
+
         metrics_sqa.append(obj_sqa)
         for constraint in optimization_config.outcome_constraints:
             constraint_sqa = self.outcome_constraint_to_sqa(
                 outcome_constraint=constraint
             )
             metrics_sqa.append(constraint_sqa)
-        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig) and not (
+            isinstance(optimization_config, PreferenceOptimizationConfig)
+        ):
             for threshold in optimization_config.objective_thresholds:
                 threshold_sqa = self.objective_threshold_to_sqa(
                     objective_threshold=threshold
