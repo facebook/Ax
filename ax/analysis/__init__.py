@@ -7,6 +7,7 @@
 
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCard
+from ax.analysis.best_trials import BestTrials
 from ax.analysis.metric_summary import MetricSummary
 from ax.analysis.search_space_summary import SearchSpaceSummary
 from ax.analysis.summary import Summary
@@ -17,6 +18,7 @@ from ax.analysis.plotly import *  # noqa
 __all__ = [
     "Analysis",
     "AnalysisCard",
+    "BestTrials",
     "MetricSummary",
     "SearchSpaceSummary",
     "Summary",

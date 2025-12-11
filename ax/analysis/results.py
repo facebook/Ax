@@ -11,6 +11,7 @@ from typing import final, Sequence
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.analysis_card import AnalysisCardGroup
+from ax.analysis.best_trials import BestTrials
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.analysis.plotly.scatter import (
@@ -96,11 +97,13 @@ class ResultsAnalysis(Analysis):
             adapter=adapter,
         )
 
-        # Relativize the effects if the status quo is set and there are BatchTrials
-        # present.
-        relativize = experiment.status_quo is not None and any(
+        # Check if there are BatchTrials present.
+        has_batch_trials = any(
             isinstance(trial, BatchTrial) for trial in experiment.trials.values()
         )
+        # Relativize the effects if the status quo is set and there are BatchTrials
+        # present.
+        relativize = experiment.status_quo is not None and has_batch_trials
         # Compute both observed and modeled effects for each objective and constraint.
         arm_effect_pair_group = (
             ArmEffectsPair(
@@ -197,6 +200,22 @@ class ResultsAnalysis(Analysis):
             else None
         )
 
+        # Compute best trials, skip for experiments with ScalarizedOutcomeConstraints or
+        # BatchTrials as it is not supported yet
+        has_scalarized_outcome_constraints = optimization_config is not None and any(
+            isinstance(oc, ScalarizedOutcomeConstraint)
+            for oc in optimization_config.outcome_constraints
+        )
+        best_trials_card = (
+            BestTrials().compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            if not has_batch_trials and not has_scalarized_outcome_constraints
+            else None
+        )
+
         summary = Summary().compute_or_error_card(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -213,6 +232,7 @@ class ResultsAnalysis(Analysis):
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,
+                    best_trials_card,
                     summary,
                 )
                 if child is not None
