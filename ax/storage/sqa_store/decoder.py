@@ -36,6 +36,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
@@ -78,7 +79,13 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import are_relationships_loaded
-from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import (
+    DomainType,
+    EXPECT_RELATIVIZED_OUTCOMES,
+    MetricIntent,
+    ParameterConstraintType,
+    PREFERENCE_PROFILE_NAME,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pandas import read_json
@@ -579,8 +586,16 @@ class Decoder:
             return self._objective_from_sqa(metric=metric, metric_sqa=metric_sqa)
         elif (
             metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE
-        ):  # metric_sqa is a parent whose children are individual
+            # metric_sqa is a parent whose children are individual
             # metrics in MultiObjective
+            or metric_sqa.intent == MetricIntent.PREFERENCE_OBJECTIVE
+            # PREFERENCE_OBJECTIVE stores a MultiObjective, similar to
+            # MULTI_OBJECTIVE. The config-level properties
+            # (preference_profile_name, expect_relativized_outcomes) are stored
+            # in the parent metric's properties field and are extracted in
+            # opt_config_and_tracking_metrics_from_sqa to create the full
+            # PreferenceOptimizationConfig.
+        ):
             return self._multi_objective_from_sqa(parent_metric_sqa=metric_sqa)
         elif (
             metric_sqa.intent == MetricIntent.SCALARIZED_OBJECTIVE
@@ -608,14 +623,19 @@ class Decoder:
     def opt_config_and_tracking_metrics_from_sqa(
         self, metrics_sqa: list[SQAMetric], pruning_target_parameterization: Arm | None
     ) -> tuple[OptimizationConfig | None, list[Metric]]:
-        """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
+        """Convert a list of SQLAlchemy Metrics to Ax OptimizationConfig
         and tracking metrics.
         """
         objective = None
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
+        preference_objective_sqa = None
+
         for metric_sqa in metrics_sqa:
+            if metric_sqa.intent == MetricIntent.PREFERENCE_OBJECTIVE:
+                preference_objective_sqa = metric_sqa
+
             metric = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(metric, Objective):
                 objective = metric
@@ -629,7 +649,22 @@ class Decoder:
         if objective is None:
             return None, tracking_metrics
 
-        if objective_thresholds or type(objective) is MultiObjective:
+        if preference_objective_sqa is not None:
+            if objective_thresholds:
+                raise SQADecodeError(
+                    "PreferenceOptimizationConfig cannot have objective thresholds."
+                )
+            properties = preference_objective_sqa.properties or {}
+            optimization_config = PreferenceOptimizationConfig(
+                objective=assert_is_instance(objective, MultiObjective),
+                preference_profile_name=properties.get(PREFERENCE_PROFILE_NAME, ""),
+                expect_relativized_outcomes=properties.get(
+                    EXPECT_RELATIVIZED_OUTCOMES, False
+                ),
+                outcome_constraints=outcome_constraints,
+                pruning_target_parameterization=pruning_target_parameterization,
+            )
+        elif objective_thresholds or type(objective) is MultiObjective:
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=assert_is_instance(
                     objective, Union[MultiObjective, ScalarizedObjective]

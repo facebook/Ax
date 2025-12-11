@@ -30,6 +30,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -1447,6 +1448,57 @@ class SQAStoreTest(TestCase):
                 loaded_experiment.optimization_config
             ).pruning_target_parameterization
         )
+
+    def test_preference_optimization_config_sqa_roundtrip(self) -> None:
+        # Test that PreferenceOptimizationConfig with expect_relativized_outcomes
+        # can be saved/loaded correctly through SQA storage
+        base_experiment = get_experiment_with_batch_trial()
+        multi_objective = MultiObjective(
+            objectives=[
+                Objective(metric=Metric(name="m1"), minimize=False),
+                Objective(metric=Metric(name="m2"), minimize=True),
+            ]
+        )
+
+        test_test_profile = "test_profile_name"
+        for expect_relativized_outcomes in (True, False):
+            with self.subTest(f"{expect_relativized_outcomes=}"):
+                pref_config = PreferenceOptimizationConfig(
+                    objective=multi_objective,
+                    preference_profile_name=test_test_profile,
+                    expect_relativized_outcomes=expect_relativized_outcomes,
+                )
+                experiment = Experiment(
+                    name=f"test_pref_opt_config_sqa_{expect_relativized_outcomes}",
+                    search_space=base_experiment.search_space,
+                    optimization_config=pref_config,
+                    is_test=base_experiment.is_test,
+                )
+
+                save_experiment(experiment)
+                loaded_experiment = load_experiment(experiment.name)
+
+                loaded_config = assert_is_instance(
+                    loaded_experiment.optimization_config, PreferenceOptimizationConfig
+                )
+                self.assertEqual(
+                    loaded_config.preference_profile_name, test_test_profile
+                )
+                self.assertEqual(
+                    loaded_config.expect_relativized_outcomes,
+                    expect_relativized_outcomes,
+                )
+                loaded_objective = assert_is_instance(
+                    loaded_config.objective, MultiObjective
+                )
+                self.assertEqual(
+                    len(loaded_objective.objectives),
+                    len(multi_objective.objectives),
+                )
+                loaded_metric_names = {
+                    obj.metric.name for obj in loaded_objective.objectives
+                }
+                self.assertEqual(loaded_metric_names, {"m1", "m2"})
 
     def test_ExperimentObjectiveThresholdUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
