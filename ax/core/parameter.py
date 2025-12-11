@@ -142,6 +142,37 @@ class Parameter(SortableBase, metaclass=ABCMeta):
             type(value) is int and self.python_type is float
         )
 
+    def is_compatible_with(self, other: Parameter) -> bool:
+        """Check whether parameters are compatible.
+
+        Two parameters are compatible if they have the same parameter type and
+        domain type. Additional checks are performed based on the domain type.
+
+        Args:
+            other: Another Ax parameter object to compare against.
+
+        Returns:
+            Whether the parameters are compatible or not.
+        """
+        if self.parameter_type != other.parameter_type:
+            return False
+        return self._is_domain_compatible(other)
+
+    @abstractmethod
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility.
+
+        This method is called after verifying that parameter types match.
+        Subclasses should implement domain-specific compatibility checks.
+
+        Args:
+            other: Another Ax parameter object to compare against.
+
+        Returns:
+            Whether the parameters are domain-compatible or not.
+        """
+        pass
+
     @property
     def is_numeric(self) -> bool:
         return self.parameter_type.is_numeric
@@ -606,6 +637,14 @@ class RangeParameter(Parameter):
         """List of boolean attributes that can be set on this parameter."""
         return super().available_flags + ["log_scale", "logit_scale"]
 
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for RangeParameter.
+
+        Two RangeParameters are compatible if they are both RangeParameters.
+        The bounds do not need to overlap.
+        """
+        return isinstance(other, RangeParameter)
+
     @property
     def domain_repr(self) -> str:
         """Returns a string representation of the domain."""
@@ -987,6 +1026,15 @@ class ChoiceParameter(Parameter):
             "log_scale",
         ]
 
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for ChoiceParameter.
+
+        Two ChoiceParameters are compatible if they have the same set of values.
+        """
+        if not isinstance(other, ChoiceParameter):
+            return False
+        return set(self.values) == set(other.values)
+
     @property
     def domain_repr(self) -> str:
         """Returns a string representation of the domain."""
@@ -1115,6 +1163,15 @@ class FixedParameter(Parameter):
     def available_flags(self) -> list[str]:
         """List of boolean attributes that can be set on this parameter."""
         return super().available_flags + ["is_hierarchical"]
+
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for FixedParameter.
+
+        Two FixedParameters are compatible if they have the same value.
+        """
+        if not isinstance(other, FixedParameter):
+            return False
+        return self.value == other.value
 
     @property
     def domain_repr(self) -> str:
@@ -1341,6 +1398,10 @@ class DerivedParameter(Parameter):
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
         )
+
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for DerivedParameter."""
+        return False
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()
