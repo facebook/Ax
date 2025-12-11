@@ -11,7 +11,6 @@ from logging import Logger
 from time import perf_counter
 
 from ax.adapter.registry import Generators
-
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
