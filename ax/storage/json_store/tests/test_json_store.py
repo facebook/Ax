@@ -83,6 +83,7 @@ from ax.storage.json_store.registry import (
 )
 from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
+from ax.storage.utils import EXPECT_RELATIVIZED_OUTCOMES, PREFERENCE_PROFILE_NAME
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -1479,6 +1480,46 @@ class JSONStoreTest(TestCase):
             preference_config.pruning_target_parameterization,
             deserialized_config.pruning_target_parameterization,
         )
+
+    def test_preference_optimization_config_expect_relativized_outcomes_roundtrip(
+        self,
+    ) -> None:
+        test_profile_name = "test_profile_name"
+        for expect_relativized_outcomes in (True, False):
+            with self.subTest(f"{expect_relativized_outcomes=}"):
+                pref_opt_config = PreferenceOptimizationConfig(
+                    objective=get_multi_objective(),
+                    preference_profile_name=test_profile_name,
+                    expect_relativized_outcomes=expect_relativized_outcomes,
+                )
+
+                json_data = object_to_json(
+                    pref_opt_config,
+                    encoder_registry=CORE_ENCODER_REGISTRY,
+                    class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+                )
+
+                # Verify expect_relativized_outcomes is in the JSON
+                self.assertEqual(json_data[PREFERENCE_PROFILE_NAME], test_profile_name)
+                self.assertEqual(
+                    json_data[EXPECT_RELATIVIZED_OUTCOMES], expect_relativized_outcomes
+                )
+
+                # Simulate full serialization round-trip
+                json_str = json.dumps(json_data)
+                json_data = json.loads(json_str)
+
+                deserialized_config = object_from_json(
+                    json_data,
+                    decoder_registry=CORE_DECODER_REGISTRY,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+
+                self.assertEqual(pref_opt_config, deserialized_config)
+                self.assertEqual(
+                    deserialized_config.expect_relativized_outcomes,
+                    expect_relativized_outcomes,
+                )
 
     def test_optimization_config_with_none_pruning_target_json_roundtrip(self) -> None:
         # Test that OptimizationConfig with

@@ -306,10 +306,12 @@ def _set_sqa_metric_to_base_type(
     the metric class from the DB.
     """
     sqa_metric.metric_type = base_metric_type_int
-    # Handle composite metrics (multi-objective, scalarized objectives, and
-    # scalarized outcome constraints) that are not directly attached to the experiment
+    # Handle composite metrics (multi-objective, preference objective,
+    # scalarized objectives, and scalarized outcome constraints) that are not
+    # directly attached to the experiment
     composite_metric_intents = {
         MetricIntent.MULTI_OBJECTIVE,
+        MetricIntent.PREFERENCE_OBJECTIVE,
         MetricIntent.SCALARIZED_OBJECTIVE,
         MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT,
     }
