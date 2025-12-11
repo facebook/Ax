@@ -12,8 +12,10 @@ import torch
 from ax.adapter.adapter_utils import (
     _get_adapter_training_data,
     arm_to_np_array,
+    can_map_to_binary,
     extract_search_space_digest,
     feasible_hypervolume,
+    is_unordered_choice,
     process_contextual_datasets,
     transform_search_space,
     validate_and_apply_final_transform,
@@ -414,3 +416,106 @@ class TestAdapterUtils(TestCase):
 
         # Assert: confirm target point remains None
         self.assertIsNone(target_p)
+
+    def test_is_unordered_choice(self) -> None:
+        # Test cases where is_unordered_choice should return True
+        # (with min_choices=3, max_choices=5)
+        for p in [
+            ChoiceParameter("p", ParameterType.INT, values=[0, 1, 2], is_ordered=False),
+            ChoiceParameter(
+                "p", ParameterType.INT, values=[0, 1, 2, 4, 5], is_ordered=False
+            ),
+            ChoiceParameter(
+                "p", ParameterType.STRING, values=["a", "b", "c", "d"], is_ordered=False
+            ),
+        ]:
+            with self.subTest(p=p):
+                self.assertTrue(is_unordered_choice(p, min_choices=3, max_choices=5))
+
+        # Test cases where is_unordered_choice should return False
+        # (with min_choices=3, max_choices=5)
+        for p in [
+            # Too few choices
+            ChoiceParameter("p", ParameterType.INT, values=[0, 1], is_ordered=False),
+            # Ordered choice (INT)
+            ChoiceParameter(
+                "p", ParameterType.INT, values=[0, 1, 2, 4], is_ordered=True
+            ),
+            # Range parameter (not a choice)
+            RangeParameter("p", parameter_type=ParameterType.INT, lower=0, upper=3),
+            # Ordered choice (STRING)
+            ChoiceParameter(
+                "p", ParameterType.STRING, values=["0", "1", "2"], is_ordered=True
+            ),
+        ]:
+            with self.subTest(p=p):
+                self.assertFalse(is_unordered_choice(p, min_choices=3, max_choices=5))
+
+        # Test error cases
+        p = ChoiceParameter("p", ParameterType.INT, values=[0, 1, 2], is_ordered=False)
+        with self.assertRaisesRegex(
+            UserInputError, "`min_choices` must be a non-negative integer."
+        ):
+            is_unordered_choice(p, min_choices=-3)
+        with self.assertRaisesRegex(
+            UserInputError, "`max_choices` must be a non-negative integer."
+        ):
+            is_unordered_choice(p, max_choices=-1)
+        with self.assertRaisesRegex(
+            UserInputError, "`min_choices` cannot be larger than than `max_choices`."
+        ):
+            is_unordered_choice(p, min_choices=3, max_choices=2)
+
+    def test_can_map_to_binary(self) -> None:
+        # Test cases where can_map_to_binary should return True
+        for p in [
+            # Int range with exactly 2 values
+            RangeParameter(
+                name="p", parameter_type=ParameterType.INT, lower=0, upper=1
+            ),
+            RangeParameter(
+                name="p", parameter_type=ParameterType.INT, lower=3, upper=4
+            ),
+            # Choice with exactly 2 values
+            ChoiceParameter(
+                name="p",
+                parameter_type=ParameterType.INT,
+                values=[0, 1],
+                is_ordered=False,
+            ),
+            ChoiceParameter(
+                name="p",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b"],
+                is_ordered=False,
+            ),
+        ]:
+            with self.subTest(p=p):
+                self.assertTrue(can_map_to_binary(p))
+
+        # Test cases where can_map_to_binary should return False
+        for p in [
+            # Float range (continuous, not binary)
+            RangeParameter(
+                name="p", parameter_type=ParameterType.FLOAT, lower=0, upper=1
+            ),
+            # Int range with more than 2 values
+            RangeParameter(
+                name="p", parameter_type=ParameterType.INT, lower=0, upper=3
+            ),
+            # Choice with more than 2 values
+            ChoiceParameter(
+                name="p",
+                parameter_type=ParameterType.INT,
+                values=[0, 1, 2],
+                is_ordered=False,
+            ),
+            ChoiceParameter(
+                name="p",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b", "c"],
+                is_ordered=False,
+            ),
+        ]:
+            with self.subTest(p=p):
+                self.assertFalse(can_map_to_binary(p))
