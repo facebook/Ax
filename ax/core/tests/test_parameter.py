@@ -234,6 +234,37 @@ class RangeParameterTest(TestCase):
             },
         )
 
+    def test_is_compatible_with(self) -> None:
+        with self.subTest("compatible_same_name_and_type"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            self.assertTrue(range_param_1.is_compatible_with(range_param_2))
+
+        with self.subTest("incompatible_different_type"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                lower=0,
+                upper=10,
+            )
+            self.assertFalse(range_param_1.is_compatible_with(range_param_2))
+
 
 class ChoiceParameterTest(TestCase):
     def setUp(self) -> None:
@@ -750,6 +781,19 @@ class ChoiceParameterTest(TestCase):
                 log_scale=True,
             )
 
+    def test_is_compatible_with(self) -> None:
+        choice_param_1 = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["foo", "bar"],
+        )
+        choice_param_2 = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["foo", "bar"],
+        )
+        self.assertTrue(choice_param_1.is_compatible_with(choice_param_2))
+
 
 class FixedParameterTest(TestCase):
     def setUp(self) -> None:
@@ -879,6 +923,55 @@ class FixedParameterTest(TestCase):
                 "parameter_type": "string",
             },
         )
+
+    def test_is_compatible_with(self) -> None:
+        with self.subTest("compatible_string_same_value"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
+
+        with self.subTest("compatible_int_same_value"):
+            fixed_param_1 = FixedParameter(
+                name="x", parameter_type=ParameterType.INT, value=1
+            )
+            fixed_param_2 = FixedParameter(
+                name="x", parameter_type=ParameterType.INT, value=1
+            )
+            self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
+
+        with self.subTest("compatible_bool_same_value"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.BOOL,
+                value=True,
+            )
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.BOOL,
+                value=True,
+            )
+            self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
+
+        with self.subTest("incompatible_different_value"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="bar",
+            )
+            self.assertFalse(fixed_param_1.is_compatible_with(fixed_param_2))
 
 
 class DerivedParameterTest(TestCase):
