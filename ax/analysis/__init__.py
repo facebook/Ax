@@ -6,10 +6,10 @@
 # pyre-strict
 
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.metric_summary import MetricSummary
 from ax.analysis.search_space_summary import SearchSpaceSummary
 from ax.analysis.summary import Summary
+from ax.core.analysis_card import AnalysisCard
 from ax.analysis.graphviz import *  # noqa
 from ax.analysis.markdown import *  # noqa
 from ax.analysis.plotly import *  # noqa

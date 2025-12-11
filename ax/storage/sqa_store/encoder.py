@@ -10,15 +10,16 @@ from enum import Enum
 from logging import Logger
 from typing import Any, cast
 
-from ax.analysis.analysis_card import (
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
+
+from ax.core.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
     AnalysisCardGroup,
     ErrorAnalysisCard,
 )
-from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
-from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial

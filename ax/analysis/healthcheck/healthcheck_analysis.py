@@ -9,7 +9,7 @@ import json
 from enum import IntEnum
 
 import pandas as pd
-from ax.analysis.analysis_card import AnalysisCard
+from ax.core.analysis_card import AnalysisCard
 
 
 class HealthcheckStatus(IntEnum):
