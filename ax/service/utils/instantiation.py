@@ -939,6 +939,7 @@ class InstantiationBase:
             properties=properties,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
             is_test=is_test,
+            runner=default_runner,
         )
 
     @classmethod

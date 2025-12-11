@@ -383,6 +383,13 @@ class Decoder:
             for trial_index, data_by_timestamp in data_by_trial.items()
         }
 
+        trial_type_to_runner = {
+            sqa_runner.trial_type: self.runner_from_sqa(sqa_runner)
+            for sqa_runner in experiment_sqa.runners
+        }
+        if len(trial_type_to_runner) == 0:
+            trial_type_to_runner = {None: None}
+
         experiment._trials = {trial.index: trial for trial in trials}
         experiment._arms_by_name = {}
         for trial in trials:
@@ -398,6 +405,11 @@ class Decoder:
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
         experiment._data_by_trial = dict(data_by_trial)
+        # `_trial_type_to_runner` is set in _init_mt_experiment_from_sqa
+        if subclass != "MultiTypeExperiment":
+            experiment._trial_type_to_runner = cast(
+                dict[str | None, Runner | None], trial_type_to_runner
+            )
         experiment.db_id = experiment_sqa.id
         return experiment
 
@@ -1066,13 +1078,6 @@ class Decoder:
             else None
         )
         trial._num_arms_created = trial_sqa.num_arms_created
-        trial._runner = (
-            self.runner_from_sqa(
-                trial_sqa.runner,
-            )
-            if trial_sqa.runner
-            else None
-        )
         trial._generation_step_index = trial_sqa.generation_step_index
         trial._properties = dict(trial_sqa.properties or {})
         trial.db_id = trial_sqa.id

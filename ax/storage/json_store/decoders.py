@@ -146,7 +146,6 @@ def batch_trial_from_json(
     batch._run_metadata = run_metadata or {}
     batch._stop_metadata = stop_metadata or {}
     batch._generator_runs = generator_runs
-    batch._runner = runner
     batch._abandoned_arms_metadata = abandoned_arms_metadata
     batch._num_arms_created = num_arms_created
     batch._generation_step_index = generation_step_index
@@ -210,7 +209,6 @@ def trial_from_json(
     trial._failed_reason = failed_reason
     trial._run_metadata = run_metadata or {}
     trial._stop_metadata = stop_metadata or {}
-    trial._runner = runner
     trial._num_arms_created = num_arms_created
     trial._generation_step_index = generation_step_index
     trial._properties = properties or {}
