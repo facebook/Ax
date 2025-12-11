@@ -295,7 +295,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if self.min_curves is not None:
             is_insufficient = window_num_active_trials < self.min_curves
             if is_insufficient.any():
-                return False, (
+                reason = (
                     f"Insufficiently many trials with data at progressions in window "
                     f"[{window_start:.2f}, {window_end:.2f}]\n"
                     f"- Progressions: {window_values[is_insufficient].index.tolist()}\n"
@@ -305,6 +305,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                     f"{window_active_trial_indices[is_insufficient].tolist()}\n"
                     f"- Minimum required: {self.min_curves}"
                 )
+                logger.debug(reason)
+                return False, reason
 
         # Check if trial is in top n_best_trials_to_complete
         # and should be protected from early stopping
@@ -329,7 +331,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                     f"- Progressions: {window_values.index.tolist()}\n"
                     f"- Best trials: {window_best_trials.tolist()}"
                 )
-                logger.info(reason)
+                logger.debug(reason)
                 return False, reason
 
         # Calculate the percentile threshold for each progression.
@@ -363,8 +365,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             f"- Number of trials: {window_num_active_trials.tolist()}\n"
             f"- Trial indices: {window_active_trial_indices.tolist()}"
         )
-
-        if should_early_stop:
-            logger.info(f"Early stopping trial {trial_index}: {reason}.")
+        logger.debug(f"Early stopping trial {trial_index}: {reason}.")
 
         return should_early_stop, reason
