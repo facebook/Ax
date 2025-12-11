@@ -8,12 +8,14 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
 from typing import Any, cast, TypeVar
 
+import pandas as pd
 from ax.adapter.base import Adapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -239,6 +241,24 @@ class GenerationStrategy(Base):
         """
         # Used to restore current node when decoding a serialized GS.
         return self._generator_runs[-1] if self._generator_runs else None
+
+    @property
+    def trials_as_df(self) -> pd.DataFrame | None:
+        """Puts information on individual trials into a data frame for easy
+        viewing.
+
+        THIS METHOD IS DEPRECATED AND WILL BE REMOVED IN A FUTURE RELEASE.
+        Please use `Experiment.to_df()` instead.
+        """
+        warnings.warn(
+            "`GenerationStrategy.trials_as_df` is deprecated and will be removed in "
+            "a future release. Please use `Experiment.to_df()` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if self._experiment is None:
+            return None
+        return self.experiment.to_df()
 
     @property
     def optimization_complete(self) -> bool:
