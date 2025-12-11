@@ -1550,7 +1550,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def _set_runner(self, experiment: Experiment) -> None:
         """Overridable method to sets a runner on the experiment."""
-        experiment.runner = None
+        pass
 
     def _set_generation_strategy(
         self, choose_generation_strategy_kwargs: dict[str, Any] | None = None

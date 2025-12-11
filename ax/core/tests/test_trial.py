@@ -168,7 +168,7 @@ class TrialTest(TestCase):
 
     def test_failed(self) -> None:
         fail_reason = "testing"
-        self.trial.runner = SyntheticRunner()
+        self.trial.experiment.runner = SyntheticRunner()
         self.trial.run()
         self.trial.mark_failed(reason=fail_reason)
 
@@ -196,7 +196,7 @@ class TrialTest(TestCase):
             self.trial.mark_stale()
 
     def test_trial_run_does_not_overwrite_existing_metadata(self) -> None:
-        self.trial.runner = SyntheticRunner(dummy_metadata="y")
+        self.trial.experiment.runner = SyntheticRunner(dummy_metadata="y")
         self.trial.update_run_metadata({"orig_metadata": "x"})
         self.trial.run()
         self.assertDictEqual(
@@ -286,7 +286,7 @@ class TrialTest(TestCase):
             (TrialStatus.COMPLETED, TrialStatus.ABANDONED, TrialStatus.EARLY_STOPPED),
         ):
             self.setUp()
-            self.trial._runner = DummyStopRunner()
+            self.experiment.runner = DummyStopRunner()
             self.trial.mark_running()
             self.assertEqual(self.trial.status, TrialStatus.RUNNING)
             self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})

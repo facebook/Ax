@@ -2066,6 +2066,7 @@ class JSONStoreTest(TestCase):
                 }
             },
             "properties": {},
+            "_trial_type_to_runner": {None: None},
             "default_data_type": {"__type": "DataType", "name": "DATA"},
         }
         decoded = object_from_json(object_json=experiment_json)
