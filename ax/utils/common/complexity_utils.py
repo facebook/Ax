@@ -525,3 +525,33 @@ def format_tier_message(
             )
             msg += why_msg
     return msg
+
+
+def get_tier_msg(
+    experiment: Experiment,
+    options: Any,
+    tier_metadata: dict[str, Any] | None = None,
+) -> str:
+    """Figure out the tier of the experiment.
+
+    Args:
+        experiment: The Ax Experiment.
+        options: The orchestrator options.
+        tier_metadata: tier-related meta-data from the orchestrator.
+
+    Returns:
+        A markdown-formatted string explaining the tier.
+    """
+    tier_metadata = tier_metadata or {}
+    tier, why_not_is_in_wheelhouse, why_not_supported = check_if_in_wheelhouse(
+        summarize_ax_optimization_complexity(
+            experiment=experiment, options=options, tier_metadata=tier_metadata
+        )
+    )
+
+    # Convert to user-friendly message
+    return format_tier_message(
+        tier=tier,
+        why_not_is_in_wheelhouse=why_not_is_in_wheelhouse,
+        why_not_supported=why_not_supported,
+    )
