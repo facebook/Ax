@@ -11,14 +11,14 @@ from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrat
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
-    get_branin_experiment_with_multi_objective,
+    get_branin_experiment_with_timestamp_map_metric,
 )
 from pyre_extensions import none_throws
 
 
 class TestGetDefaultEss(TestCase):
     def test_get_default_ess_single_objective_unconstrained(self) -> None:
-        exp = get_branin_experiment()
+        exp = get_branin_experiment_with_timestamp_map_metric()
         strategy = none_throws(get_default_ess_or_none(experiment=exp))
         self.assertIsInstance(strategy, PercentileEarlyStoppingStrategy)
 
@@ -34,10 +34,12 @@ class TestGetDefaultEss(TestCase):
     def test_get_default_ess_null_conditions(self) -> None:
         # Checks that None is returned for currently unsupported conditions.
         for exp in [
-            get_branin_experiment(has_optimization_config=False),
-            get_branin_experiment(
-                has_optimization_config=True, with_absolute_constraint=True
+            get_branin_experiment(has_optimization_config=True),  # No MapMetric.
+            get_branin_experiment(has_optimization_config=False),  # No opt config.
+            get_branin_experiment_with_timestamp_map_metric(  # Outcome constraint.
+                with_outcome_constraint=True
             ),
-            get_branin_experiment_with_multi_objective(has_optimization_config=True),
+            # Multi-objective.
+            get_branin_experiment_with_timestamp_map_metric(multi_objective=True),
         ]:
             self.assertIsNone(get_default_ess_or_none(experiment=exp))
