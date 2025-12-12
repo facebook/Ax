@@ -6,6 +6,7 @@
 # pyre-strict
 
 import pandas as pd
+from ax.adapter.registry import Generators
 from ax.analysis.analysis_card import AnalysisCardGroup, ErrorAnalysisCard
 from ax.analysis.results import ArmEffectsPair, ResultsAnalysis
 from ax.api.client import Client
@@ -113,6 +114,12 @@ class TestResultsAnalysis(TestCase):
         self.assertTrue(
             any("ArmEffects" in name for name in child_names),
             "Should have arm effects in children",
+        )
+
+        # Assert: Should have best trials
+        self.assertTrue(
+            any("BestTrials" in name for name in child_names),
+            "Should have best trials in children",
         )
 
         # Assert: No error cards should be present
@@ -382,7 +389,6 @@ class TestResultsAnalysis(TestCase):
         trial.mark_completed()
 
         # Create bandit generation strategy
-        from ax.adapter.registry import Generators
 
         factorial_node = GenerationNode(
             name="FACTORIAL",
