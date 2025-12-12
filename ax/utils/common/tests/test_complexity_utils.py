@@ -86,7 +86,7 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
         test_cases = [
             (
                 "with_values",
-                {"user_supplied_max_trials": 50, "all_inputs_are_configs": True},
+                {"user_supplied_max_trials": 50, "uses_standard_api": True},
                 50,
                 True,
             ),
@@ -114,7 +114,7 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
 
                 # THEN the summary should reflect tier metadata values
                 self.assertEqual(summary.max_trials, expected_max_trials)
-                self.assertEqual(summary.all_inputs_are_configs, expected_all_configs)
+                self.assertEqual(summary.uses_standard_api, expected_all_configs)
 
     def test_orchestrator_options_extraction(self) -> None:
         # GIVEN custom orchestrator options
@@ -226,7 +226,7 @@ class TestFormatTierMessage(TestCase):
             )
 
 
-def get_experiment_summary(
+def get_optimization_summary(
     max_trials: int | None = 100,
     num_params: int = 10,
     num_binary: int = 0,
@@ -237,7 +237,7 @@ def get_experiment_summary(
     num_outcome_constraints: int = 0,
     uses_early_stopping: bool = False,
     uses_global_stopping: bool = False,
-    all_inputs_are_configs: bool = True,
+    uses_standard_api: bool = True,
     tolerated_trial_failure_rate: float | None = 0.5,
     max_pending_trials: int | None = 5,
     min_failed_trials_for_failure_rate_check: int | None = 5,
@@ -256,7 +256,7 @@ def get_experiment_summary(
         num_outcome_constraints=num_outcome_constraints,
         uses_early_stopping=uses_early_stopping,
         uses_global_stopping=uses_global_stopping,
-        all_inputs_are_configs=all_inputs_are_configs,
+        uses_standard_api=uses_standard_api,
         tolerated_trial_failure_rate=tolerated_trial_failure_rate,
         max_pending_trials=max_pending_trials,
         min_failed_trials_for_failure_rate_check=(
@@ -272,7 +272,7 @@ class TestCheckIfInWheelhouse(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.base_summary = get_experiment_summary()
+        self.base_summary = get_optimization_summary()
 
     def test_wheelhouse_tier_for_simple_experiment(self) -> None:
         """Test that a simple experiment is classified as Wheelhouse tier."""
@@ -287,28 +287,28 @@ class TestCheckIfInWheelhouse(TestCase):
     def test_advanced_tier_conditions(self) -> None:
         """Test conditions that result in Advanced tier."""
         test_cases: list[tuple[OptimizationSummary, str]] = [
-            (get_experiment_summary(max_trials=250), "250 total trials"),
-            (get_experiment_summary(num_params=60), "60 tunable parameter(s)"),
-            (get_experiment_summary(num_binary=75), "75 binary tunable parameter(s)"),
+            (get_optimization_summary(max_trials=250), "250 total trials"),
+            (get_optimization_summary(num_params=60), "60 tunable parameter(s)"),
+            (get_optimization_summary(num_binary=75), "75 binary tunable parameter(s)"),
             (
-                get_experiment_summary(num_categorical_3_5=1),
+                get_optimization_summary(num_categorical_3_5=1),
                 "1 unordered choice parameter(s)",
             ),
             (
-                get_experiment_summary(num_parameter_constraints=4),
+                get_optimization_summary(num_parameter_constraints=4),
                 "4 parameter constraints",
             ),
-            (get_experiment_summary(num_objectives=3), "3 objectives"),
+            (get_optimization_summary(num_objectives=3), "3 objectives"),
             (
-                get_experiment_summary(num_outcome_constraints=3),
+                get_optimization_summary(num_outcome_constraints=3),
                 "3 outcome constraints",
             ),
             (
-                get_experiment_summary(uses_early_stopping=True),
+                get_optimization_summary(uses_early_stopping=True),
                 "Early stopping is enabled",
             ),
             (
-                get_experiment_summary(uses_global_stopping=True),
+                get_optimization_summary(uses_global_stopping=True),
                 "Global stopping is enabled",
             ),
         ]
@@ -327,44 +327,47 @@ class TestCheckIfInWheelhouse(TestCase):
     def test_unsupported_tier_conditions(self) -> None:
         """Test conditions that result in Unsupported tier."""
         test_cases: list[tuple[OptimizationSummary, str]] = [
-            (get_experiment_summary(max_trials=510), "510 total trials"),
-            (get_experiment_summary(num_params=201), "201 tunable parameter(s)"),
-            (get_experiment_summary(num_binary=101), "101 binary tunable parameter(s)"),
+            (get_optimization_summary(max_trials=510), "510 total trials"),
+            (get_optimization_summary(num_params=201), "201 tunable parameter(s)"),
             (
-                get_experiment_summary(num_categorical_3_5=6),
+                get_optimization_summary(num_binary=101),
+                "101 binary tunable parameter(s)",
+            ),
+            (
+                get_optimization_summary(num_categorical_3_5=6),
                 "unordered choice parameters with more than 3 options",
             ),
             (
-                get_experiment_summary(num_categorical_6_inf=2),
+                get_optimization_summary(num_categorical_6_inf=2),
                 "unordered choice parameters with more than 5 options",
             ),
             (
-                get_experiment_summary(num_parameter_constraints=6),
+                get_optimization_summary(num_parameter_constraints=6),
                 "6 parameter constraints",
             ),
-            (get_experiment_summary(num_objectives=5), "5 objectives"),
+            (get_optimization_summary(num_objectives=5), "5 objectives"),
             (
-                get_experiment_summary(num_outcome_constraints=6),
+                get_optimization_summary(num_outcome_constraints=6),
                 "6 outcome constraints",
             ),
             (
-                get_experiment_summary(all_inputs_are_configs=False),
+                get_optimization_summary(uses_standard_api=False),
                 "uses_standard_api=False",
             ),
             (
-                get_experiment_summary(tolerated_trial_failure_rate=0.99),
+                get_optimization_summary(tolerated_trial_failure_rate=0.99),
                 "tolerated_trial_failure_rate=0.99",
             ),
             (
-                get_experiment_summary(non_default_advanced_options=True),
+                get_optimization_summary(non_default_advanced_options=True),
                 "Non-default advanced_options",
             ),
             (
-                get_experiment_summary(uses_merge_multiple_curves=True),
+                get_optimization_summary(uses_merge_multiple_curves=True),
                 "merge_multiple_curves=True",
             ),
             (
-                get_experiment_summary(
+                get_optimization_summary(
                     max_pending_trials=3, min_failed_trials_for_failure_rate_check=7
                 ),
                 "min_failed_trials_for_failure_rate_check=7",
@@ -380,8 +383,8 @@ class TestCheckIfInWheelhouse(TestCase):
                 self.assertIn(expected_msg, why_not_supported[0])
 
     def test_max_trials_none_raises(self) -> None:
-        """Test max_trials=None with all_inputs_are_configs=True raises error."""
-        summary = get_experiment_summary(all_inputs_are_configs=True, max_trials=None)
+        """Test max_trials=None with uses_standard_api=True raises error."""
+        summary = get_optimization_summary(uses_standard_api=True, max_trials=None)
 
         with self.assertRaisesRegex(UserInputError, "`max_trials` should not be None!"):
             check_if_in_wheelhouse(summary)

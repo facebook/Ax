@@ -17,8 +17,10 @@ from ax.service.orchestrator import OrchestratorOptions
 
 WHEELHOUSE_TIER_MESSAGE = """This experiment is in tier 'Wheelhouse'.
 
-Experiments belonging to this tier should not run into any problems! If an issue \
-does occur, please post to our github issues page.
+Experiments in the 'Wheelhouse' tier use standard features that are \
+thoroughly tested and should work reliably. If you encounter any issues, \
+they are typically easy to diagnose and resolve. Otherwise, please post \
+to our github issues page for help.
 """
 
 ADVANCED_TIER_MESSAGE = """This experiment is in tier 'Advanced'.
@@ -33,25 +35,26 @@ your setup can solve your issue.
 UNSUPPORTED_TIER_MESSAGE = """This experiment is in tier 'Unsupported'.
 
 You are pushing Ax beyond its limits. Please post to our github issues page for help \
-in improving/simplifying your configuration to conform to a more \
-well-supported usage tier if possible.
+with improving/simplifying your configuration to conform to a more \
+well-supported usage tier if possible. We strongly recommend simplifying your \
+configuration to fall within a supported tier.
 """
-
-WIKI_TIER_MESSAGE = "https://ax.dev/docs/why-ax"
 
 UNKNOWN_TIER_MESSAGE = """Failed to determine the tier of this experiment.
 
 Please post on our github issues page or reach out to the Ax user group \
 to determine the support tier of your workflow.
+This may indicate an issue with your experiment configuration or an internal \
+error during tier classification. Please review your configuration for any \
+unusual settings, or consult our github issues page documentation for guidance.
 """
 
-NOT_STANDARD_API_MESSAGE = (
-    "The experiment summary indicates that this workflow is not using a standard \
-    API (`uses_standard_api=False`). Tier classification works best when the full \
-    experiment configuration is known upfront. If you are building a tool on top \
-    of this function, ensure that `uses_standard_api` is set to `True` in the \
-    `OptimizationSummary` when your tool uses a standard API."
-)
+NOT_STANDARD_API_MESSAGE = """The experiment summary indicates that this workflow \
+is not using a standard API (`uses_standard_api=False`). Tier classification works \
+best when the full experiment configuration is known upfront. If you are building a \
+tool on top of this function, ensure that `uses_standard_api` is set to `True` in the \
+`OptimizationSummary` when your tool uses a standard API.
+"""
 
 
 @dataclass(frozen=True)
@@ -68,11 +71,11 @@ class OptimizationSummary:
         num_outcome_constraints: Number of outcome constraints.
         uses_early_stopping: Whether early stopping is enabled.
         uses_global_stopping: Whether global stopping is enabled.
-        all_inputs_are_configs: Whether all inputs are high-level configs
+        uses_standard_api: Whether all inputs are high-level configs
             (as opposed to low-level Ax abstractions).
 
     Optional Keys:
-        max_trials: Maximum number of trials (required if all_inputs_are_configs
+        max_trials: Maximum number of trials (required if uses_standard_api
             is True).
         tolerated_trial_failure_rate: Maximum tolerated trial failure rate
             (should be <= 0.9).
@@ -94,7 +97,7 @@ class OptimizationSummary:
     num_outcome_constraints: int
     uses_early_stopping: bool
     uses_global_stopping: bool
-    all_inputs_are_configs: bool
+    uses_standard_api: bool
     # Optional keys
     max_trials: int | None = None
     tolerated_trial_failure_rate: float | None = None
@@ -158,6 +161,11 @@ def summarize_ax_optimization_complexity(
             uses_merge_multiple_curves = True
             break
 
+    # Support both new key and old key for backward compatibility
+    uses_standard_api = tier_metadata.get("uses_standard_api")
+    if uses_standard_api is None:
+        uses_standard_api = tier_metadata.get("all_inputs_are_configs", False)
+
     return OptimizationSummary(
         max_trials=max_trials,
         num_params=num_params,
@@ -170,7 +178,7 @@ def summarize_ax_optimization_complexity(
         uses_early_stopping=uses_early_stopping,
         uses_global_stopping=uses_global_stopping,
         uses_merge_multiple_curves=uses_merge_multiple_curves,
-        all_inputs_are_configs=tier_metadata.get("all_inputs_are_configs", False),
+        uses_standard_api=uses_standard_api,
         tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
         max_pending_trials=options.max_pending_trials,
         min_failed_trials_for_failure_rate_check=(
@@ -331,7 +339,7 @@ def _check_if_is_in_wheelhouse_other_settings(
     """
     is_in_wheelhouse, is_supported = True, True
     max_trials = optimization_summary.max_trials
-    if not optimization_summary.all_inputs_are_configs:
+    if not optimization_summary.uses_standard_api:
         is_in_wheelhouse, is_supported = False, False
         why_not_supported.append(NOT_STANDARD_API_MESSAGE)
     elif max_trials is None:
@@ -417,7 +425,7 @@ def check_if_in_wheelhouse(
               num_categorical_6_inf, num_parameter_constraints
             - Optimization config: num_objectives, num_outcome_constraints
             - Other settings: max_trials, uses_early_stopping, uses_global_stopping,
-              all_inputs_are_configs, tolerated_trial_failure_rate, max_pending_trials,
+              uses_standard_api, tolerated_trial_failure_rate, max_pending_trials,
               min_failed_trials_for_failure_rate_check, non_default_advanced_options,
               uses_merge_multiple_curves
 
@@ -516,9 +524,4 @@ def format_tier_message(
                 f"\n{why_msg}\n"
             )
             msg += why_msg
-
-    msg += (
-        "\n\nFor more information about the definition of each tier and what "
-        f"level of support you can expect: {WIKI_TIER_MESSAGE}"
-    )
     return msg
