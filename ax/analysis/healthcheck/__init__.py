@@ -8,6 +8,7 @@
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
+from ax.analysis.healthcheck.complexity_rating import ComplexityRatingAnalysis
 
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
@@ -33,4 +34,5 @@ __all__ = [
     "ShouldGenerateCandidates",
     "SearchSpaceAnalysis",
     "RegressionAnalysis",
+    "ComplexityRatingAnalysis",
 ]

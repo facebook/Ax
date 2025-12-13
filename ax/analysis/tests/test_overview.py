@@ -34,6 +34,7 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MinTrials
+from ax.service.orchestrator import OrchestratorOptions
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -394,4 +395,56 @@ class TestOverview(TestCase):
             len(scalarized_constraints),
             0,
             "Experiment should have at least one ScalarizedOutcomeConstraint",
+        )
+
+    def test_overview_with_orchestrator_options_runs_complexity_rating(self) -> None:
+        """Test that passing OrchestratorOptions to OverviewAnalysis triggers
+        ComplexityRatingAnalysis."""
+
+        client = Client()
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    bounds=(-10.0, 10.0),
+                    parameter_type="float",
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    bounds=(-10.0, 10.0),
+                    parameter_type="float",
+                ),
+            ],
+        )
+        client.configure_optimization(objective="-1 * objective")
+
+        # Run a few trials to have some data (using only Sobol phase)
+        for trial_index, parameters in client.get_next_trials(max_trials=1).items():
+            raw_data = {
+                "objective": float(parameters["x1"]) ** 2
+                + float(parameters["x2"]) ** 2,
+            }
+            client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+
+        # Create OrchestratorOptions to pass to OverviewAnalysis
+        orchestrator_options = OrchestratorOptions()
+
+        # Compute overview with orchestrator_options
+        overview_card = OverviewAnalysis(
+            orchestrator_options=orchestrator_options
+        ).compute(
+            experiment=client._experiment,
+            generation_strategy=client._generation_strategy,
+        )
+
+        # Flatten all cards and check that ComplexityRatingAnalysis is included
+        all_cards = overview_card.flatten()
+        card_names = [card.name for card in all_cards]
+
+        self.assertIn(
+            "ComplexityRatingAnalysis",
+            card_names,
+            "ComplexityRatingAnalysis should be included when orchestrator_options "
+            "is provided",
         )

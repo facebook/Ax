@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import final
+from typing import Any, final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
@@ -14,6 +14,7 @@ from ax.analysis.diagnostics import DiagnosticAnalysis
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
+from ax.analysis.healthcheck.complexity_rating import ComplexityRatingAnalysis
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
@@ -29,6 +30,7 @@ from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.service.orchestrator import OrchestratorOptions
 from pyre_extensions import override
 
 
@@ -80,6 +82,7 @@ class OverviewAnalysis(Analysis):
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
+                * ComplexityRatingAnalysis
             * Trial-Level Analyses
                 * Trial 0
                     * ArmEffectsPlot
@@ -93,6 +96,7 @@ class OverviewAnalysis(Analysis):
         can_generate_days_till_fail: int | None = None,
         should_generate: bool | None = None,
         should_generate_reason: str | None = None,
+        orchestrator_options: OrchestratorOptions | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -100,6 +104,7 @@ class OverviewAnalysis(Analysis):
         self.can_generate_days_till_fail = can_generate_days_till_fail
         self.should_generate = should_generate
         self.should_generate_reason = should_generate_reason
+        self.orchestrator_options = orchestrator_options
 
     @override
     def validate_applicable_state(
@@ -178,6 +183,11 @@ class OverviewAnalysis(Analysis):
                 if self.should_generate is not None
                 and self.should_generate_reason is not None
             ],
+            ComplexityRatingAnalysis(
+                options=self.orchestrator_options,
+            )
+            if self.orchestrator_options is not None
+            else None,
         ]
 
         health_check_cards = [
