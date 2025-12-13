@@ -8,7 +8,13 @@
 
 from ax.exceptions.core import OptimizationNotConfiguredError
 from ax.service.orchestrator import OrchestratorOptions
-from ax.utils.common.complexity_utils import summarize_ax_optimization_complexity
+from ax.utils.common.complexity_utils import (
+    ADVANCED_TIER_MESSAGE,
+    format_tier_message,
+    summarize_ax_optimization_complexity,
+    UNSUPPORTED_TIER_MESSAGE,
+    WHEELHOUSE_TIER_MESSAGE,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment,
@@ -160,3 +166,78 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
 
         # THEN num_parameter_constraints should be greater than 0
         self.assertGreater(summary["num_parameter_constraints"], 0)
+
+
+class TestFormatTierMessage(TestCase):
+    """Tests for format_tier_message."""
+
+    def test_tier_messages(self) -> None:
+        """Test formatting of tier messages for all tiers."""
+        test_cases: list[
+            tuple[
+                str,
+                list[str] | None,
+                list[str] | None,
+                str,
+                list[str],
+            ]
+        ] = [
+            (
+                "Wheelhouse",
+                None,
+                None,
+                WHEELHOUSE_TIER_MESSAGE,
+                ["tier 'Wheelhouse'"],
+            ),
+            (
+                "Advanced",
+                ["51 tunable parameters", "Early stopping is enabled"],
+                None,
+                ADVANCED_TIER_MESSAGE,
+                [
+                    "tier 'Advanced'",
+                    "Why this experiment is not in the 'Wheelhouse' tier:",
+                    "51 tunable parameters",
+                    "Early stopping is enabled",
+                ],
+            ),
+            (
+                "Unsupported",
+                ["51 tunable parameters"],
+                ["201 tunable parameters"],
+                UNSUPPORTED_TIER_MESSAGE,
+                [
+                    "tier 'Unsupported'",
+                    "Why this experiment is not in the 'Wheelhouse' tier:",
+                    "51 tunable parameters",
+                    "Why this experiment is not in the 'Advanced' tier:",
+                    "201 tunable parameters",
+                ],
+            ),
+        ]
+
+        for (
+            tier,
+            why_not_wheelhouse,
+            why_not_supported,
+            expected_message,
+            expected_contents,
+        ) in test_cases:
+            with self.subTest(tier=tier):
+                msg = format_tier_message(
+                    tier=tier,
+                    why_not_is_in_wheelhouse=why_not_wheelhouse,
+                    why_not_supported=why_not_supported,
+                )
+                self.assertIn(expected_message, msg)
+                for content in expected_contents:
+                    self.assertIn(content, msg)
+
+    def test_unknown_tier_raises_error(self) -> None:
+        """Test that unknown tier raises ValueError."""
+        with self.assertRaisesRegex(ValueError, 'Got unexpected tier "BadTier"'):
+            format_tier_message(
+                tier="BadTier",
+                why_not_is_in_wheelhouse=None,
+                why_not_supported=None,
+            )
