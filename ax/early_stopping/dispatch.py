@@ -7,6 +7,7 @@
 # pyre-strict
 
 from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrategy
 
@@ -20,6 +21,8 @@ def get_default_ess_or_none(
     for single objective unconstrained problems. For all other problem types
     (multi-objective, constrained, or no optimization config), returns None.
 
+    Experiment objective must be a MapMetric. Will return None otherwise.
+
     Args:
         experiment: The experiment to create an early stopping strategy for.
 
@@ -32,6 +35,7 @@ def get_default_ess_or_none(
         opt_config is None
         or isinstance(opt_config, MultiObjectiveOptimizationConfig)
         or len(opt_config.outcome_constraints) > 0
+        or not any(isinstance(m, MapMetric) for m in opt_config.metrics.values())
     ):
         return None
 

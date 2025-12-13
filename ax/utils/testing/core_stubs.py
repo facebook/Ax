@@ -438,6 +438,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     has_objective_thresholds: bool = False,
     bounds: list[float] | None = None,
     with_choice_parameter: bool = False,
+    with_outcome_constraint: bool = False,
 ) -> Experiment:
     """Returns an experiment with the search space including parameters
 
@@ -455,6 +456,8 @@ def get_branin_experiment_with_timestamp_map_metric(
             bounds determines the precise objective thresholds.
         with_choice_parameter: Whether to include a choice parameter.
             If true, `x2` will be a ChoiceParameter.
+        with_outcome_constraint: If True, adds an outcome constraint with an additional
+            non-map Branin metric.
 
 
     Returns:
@@ -467,6 +470,16 @@ def get_branin_experiment_with_timestamp_map_metric(
         decay_function_name=decay_function_name,
     )
     experiment_name = "branin_with_timestamp_map_metric"
+    if with_outcome_constraint:
+        outcome_constraints = [
+            OutcomeConstraint(
+                metric=BraninMetric(name="branin_constraint", param_names=["x1", "x2"]),
+                op=ComparisonOp.LEQ,
+                bound=100.0,
+            )
+        ]
+    else:
+        outcome_constraints = None
     if multi_objective:
         experiment_name = "multi_objective_" + experiment_name
         num_objectives = 2
@@ -499,6 +512,7 @@ def get_branin_experiment_with_timestamp_map_metric(
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(objectives=objectives),
             objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
         )
 
     else:  # single objective case
@@ -506,7 +520,8 @@ def get_branin_experiment_with_timestamp_map_metric(
             objective=Objective(
                 metric=local_get_map_metric(name="branin_map"),
                 minimize=True,
-            )
+            ),
+            outcome_constraints=outcome_constraints,
         )
 
         if map_tracking_metric:
