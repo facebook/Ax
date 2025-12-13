@@ -11,6 +11,7 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
 from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.diagnostics import DiagnosticAnalysis
+from ax.analysis.healthcheck.baseline_improvement import BaselineImprovementAnalysis
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
@@ -164,6 +165,7 @@ class OverviewAnalysis(Analysis):
             and self.can_generate_days_till_fail is not None
             else None,
             ConstraintsFeasibilityAnalysis(),
+            BaselineImprovementAnalysis(),
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials
@@ -194,7 +196,12 @@ class OverviewAnalysis(Analysis):
             card
             for card in health_check_cards
             if (isinstance(card, HealthcheckAnalysisCard) and not card.is_passing())
-            or isinstance(card, ErrorAnalysisCard)
+            or (
+                isinstance(card, ErrorAnalysisCard)
+                # Exclude ErrorAnalysisCards caused by AnalysisNotApplicableStateError
+                # as these are expected when an analysis doesn't apply to the experiment
+                and "AnalysisNotApplicableStateError" not in card.subtitle
+            )
         ]
 
         health_checks_group = (
