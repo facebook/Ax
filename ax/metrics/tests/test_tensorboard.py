@@ -217,6 +217,19 @@ class TensorboardMetricTest(TestCase):
 
         self.assertTrue(df.equals(expected_df))
 
+        # Test that smoothing must be in the range [0, 1).
+        # Valid smoothing values
+        for smoothing in [0, 0.5, 0.99]:
+            with self.subTest(f"smoothing={smoothing}"):
+                TensorboardMetric(name="loss", tag="loss", smoothing=smoothing)
+
+        # Invalid smoothing values
+        expected_str = r"smoothing must be in the range \[0, 1\)"
+        for smoothing in [1, 1.5, -0.1]:
+            with self.subTest(f"smoothing={smoothing}"):
+                with self.assertRaisesRegex(ValueError, expected_str):
+                    TensorboardMetric(name="loss", tag="loss", smoothing=smoothing)
+
     def test_cumulative_best(self) -> None:
         fake_data = [4.0, 8.0, 2.0, 1.0]
         cummin_data = pd.Series(fake_data).cummin().tolist()
