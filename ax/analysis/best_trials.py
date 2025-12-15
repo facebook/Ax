@@ -11,9 +11,9 @@ from typing import final, Sequence
 from ax.adapter.base import Adapter
 
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.summary import Summary
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial_status import TrialStatus

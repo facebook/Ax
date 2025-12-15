@@ -6,7 +6,7 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis_card import AnalysisCard
+from ax.core.analysis_card import AnalysisCard
 from graphviz import Digraph, Source
 
 

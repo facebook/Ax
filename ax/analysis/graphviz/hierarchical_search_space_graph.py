@@ -7,13 +7,13 @@
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.graphviz.graphviz_analysis import (
     create_graphviz_analysis_card,
     GraphvizAnalysisCard,
 )
 from ax.analysis.search_space_summary import SearchSpaceSummary
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.parameter import Parameter
 from ax.core.search_space import SearchSpace

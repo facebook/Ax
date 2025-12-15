@@ -9,7 +9,7 @@
 from math import ceil
 from typing import Any, cast
 
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardBase
+from ax.core.analysis_card import AnalysisCard, AnalysisCardBase
 
 from ax.core.auxiliary import AuxiliaryExperiment
 

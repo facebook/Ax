@@ -13,7 +13,7 @@ from typing import Protocol, Sequence
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.analysis.analysis_card import (
+from ax.core.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
     AnalysisCardGroup,

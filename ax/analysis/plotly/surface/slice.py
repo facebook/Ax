@@ -11,7 +11,6 @@ from typing import final
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
 
 from ax.analysis.plotly.plotly_analysis import (
@@ -35,6 +34,7 @@ from ax.analysis.utils import (
     validate_adapter_can_predict,
     validate_experiment,
 )
+from ax.core.analysis_card import AnalysisCardBase
 from ax.core.experiment import Experiment
 from ax.core.parameter import DerivedParameter
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
