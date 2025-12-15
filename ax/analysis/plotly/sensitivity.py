@@ -10,7 +10,6 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
@@ -21,6 +20,7 @@ from ax.analysis.plotly.utils import (
     truncate_label,
 )
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens

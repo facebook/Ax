@@ -10,7 +10,6 @@ from typing import final, Sequence
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.best_trials import BestTrials
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
@@ -21,6 +20,7 @@ from ax.analysis.plotly.scatter import (
 )
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
+from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
