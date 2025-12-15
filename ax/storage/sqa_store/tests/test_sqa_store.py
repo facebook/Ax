@@ -685,8 +685,6 @@ class SQAStoreTest(TestCase):
                 skip_runners_and_metrics=skip_runners_and_metrics,
             )
             loaded_experiment.runner = exp.runner
-            for i in loaded_experiment.trials.keys():
-                loaded_experiment.trials[i]._runner = exp.trials[i].runner
             self.assertEqual(loaded_experiment, exp)
             # Make sure decoder function was called with `reduced_state=True`.
             self.assertTrue(_mock_exp_from_sqa.call_args[1].get("reduced_state"))
@@ -725,7 +723,6 @@ class SQAStoreTest(TestCase):
                 skip_runners_and_metrics=skip_runners_and_metrics,
             )
             loaded_experiment.runner = exp.runner
-            loaded_experiment._trials[0]._runner = exp._trials[0]._runner
             self.assertTrue(_mock_exp_from_sqa.call_args[1].get("reduced_state"))
             self.assertTrue(_mock_trial_from_sqa.call_args[1].get("reduced_state"))
             # 2 generator runs from trial #0 + 1 from trial #1.
@@ -821,7 +818,6 @@ class SQAStoreTest(TestCase):
             experiment.name, skip_runners_and_metrics=True
         )
         self.assertEqual(loaded_experiment.default_trial_type, "type1")
-        # pyre-fixme[16]: `Experiment` has no attribute `_trial_type_to_runner`.
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type1"])
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type2"])
         # pyre-fixme[16]: `Experiment` has no attribute `metric_to_trial_type`.
@@ -1606,7 +1602,7 @@ class SQAStoreTest(TestCase):
         runner = get_synthetic_runner()
         experiment.runner = runner
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQARunner).count(), 2)
+        self.assertEqual(get_session().query(SQARunner).count(), 1)
 
         # update runner
         # (should perform update in place)
@@ -1615,13 +1611,13 @@ class SQAStoreTest(TestCase):
         runner.dummy_metadata = {"foo": "bar"}
         experiment.runner = runner
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQARunner).count(), 2)
+        self.assertEqual(get_session().query(SQARunner).count(), 1)
 
         # remove runner
         # (old one should be deleted)
         experiment.runner = None
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQARunner).count(), 1)
+        self.assertEqual(get_session().query(SQARunner).count(), 0)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
@@ -1635,17 +1631,17 @@ class SQAStoreTest(TestCase):
         # add trial
         trial = experiment.new_batch_trial()
         runner = get_synthetic_runner()
-        trial.runner = runner
+        trial.experiment.runner = runner
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQATrial).count(), 2)
-        self.assertEqual(get_session().query(SQARunner).count(), 2)
+        self.assertEqual(get_session().query(SQARunner).count(), 1)
 
         # update trial's runner
         runner.dummy_metadata = "dummy metadata"
-        trial.runner = runner
+        trial.experiment.runner = runner
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQATrial).count(), 2)
-        self.assertEqual(get_session().query(SQARunner).count(), 2)
+        self.assertEqual(get_session().query(SQARunner).count(), 1)
 
         trial.run()
         save_experiment(experiment)

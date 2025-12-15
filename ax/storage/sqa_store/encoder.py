@@ -1006,9 +1006,6 @@ class Encoder:
         """
 
         runner = None
-        if trial.runner:
-            runner = self.runner_to_sqa(runner=none_throws(trial.runner))
-
         abandoned_arms, generator_runs = [], []
 
         if isinstance(trial, Trial) and trial.generator_run:

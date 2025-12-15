@@ -141,7 +141,14 @@ def object_from_json(
         if "__type" not in object_json:
             # this is just a regular dictionary, e.g. the one in Parameter
             # containing parameterizations
-            return {k: _object_from_json(v) for k, v in object_json.items()}
+            result = {}
+            for k, v in object_json.items():
+                # Convert "null" string back to None for dictionary keys
+                # This handles the case where _trial_type_to_runner has None keys
+                # that get serialized to "null" strings in JSON
+                key = None if k == "null" else k
+                result[key] = _object_from_json(v)
+            return result
 
         _type = object_json.pop("__type")
 
@@ -627,6 +634,11 @@ def experiment_from_json(
 ) -> Experiment:
     """Load Ax Experiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
+    _trial_type_to_runner = object_from_json(
+        object_json.pop("_trial_type_to_runner"),
+        decoder_registry=decoder_registry,
+        class_decoder_registry=class_decoder_registry,
+    )
 
     experiment = Experiment(
         **{
@@ -639,6 +651,7 @@ def experiment_from_json(
         }
     )
     experiment._arms_by_name = {}
+    experiment._trial_type_to_runner = _trial_type_to_runner
 
     _load_experiment_info(
         exp=experiment,
