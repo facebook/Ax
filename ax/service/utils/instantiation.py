@@ -1089,11 +1089,12 @@ def _process_linear_constraint(
     comparison_multiplier = (
         1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
     )
+    constraint_dict = {
+        p: comparison_multiplier * parameter_weights[p] for p in parameter_weights
+    }
+    expr = " + ".join(f"{coeff} * {param}" for param, coeff in constraint_dict.items())
     return ParameterConstraint(
-        constraint_dict={
-            p: comparison_multiplier * parameter_weights[p] for p in parameter_weights
-        },
-        bound=comparison_multiplier * bound,
+        inequality=f"{expr} <= {comparison_multiplier * bound}",
     )
 
 

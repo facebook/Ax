@@ -506,13 +506,27 @@ def parameter_constraints_from_json(
                 )
             )
         else:
-            parameter_constraints.append(
-                object_from_json(
-                    constraint,
-                    decoder_registry=decoder_registry,
-                    class_decoder_registry=class_decoder_registry,
+            # Respect legacy json representation of parameter constraints
+            if "constraint_dict" in constraint and "bound" in constraint:
+                expr = " + ".join(
+                    f"{coeff} * {param}"
+                    for param, coeff in constraint["constraint_dict"].items()
                 )
-            )
+
+                parameter_constraints.append(
+                    ParameterConstraint(
+                        inequality=f"{expr} <= {constraint['bound']}",
+                    )
+                )
+
+            else:
+                parameter_constraints.append(
+                    object_from_json(
+                        constraint,
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                )
     return parameter_constraints
 
 

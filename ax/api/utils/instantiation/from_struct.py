@@ -6,11 +6,13 @@
 # pyre-strict
 
 from ax.api.utils.instantiation.from_config import parameter_from_config
-from ax.api.utils.instantiation.from_string import parse_parameter_constraint
 from ax.api.utils.structs import ExperimentStruct
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
-from ax.core.parameter_constraint import validate_constraint_parameters
+from ax.core.parameter_constraint import (
+    ParameterConstraint,
+    validate_constraint_parameters,
+)
 from ax.core.search_space import SearchSpace
 
 
@@ -22,8 +24,8 @@ def experiment_from_struct(struct: ExperimentStruct) -> Experiment:
     ]
 
     constraints = [
-        parse_parameter_constraint(constraint_str=constraint_str)
-        for constraint_str in struct.parameter_constraints
+        ParameterConstraint(inequality=inequality)
+        for inequality in struct.parameter_constraints
     ]
 
     # Ensure that all ParameterConstraints are valid and acting on existing parameters

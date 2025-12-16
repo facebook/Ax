@@ -1579,9 +1579,7 @@ def get_branin_search_space(
         )
 
     if with_parameter_constraint:
-        constraints = [
-            ParameterConstraint(constraint_dict={"x1": 1, "x2": 1}, bound=15.0)
-        ]
+        constraints = [ParameterConstraint(inequality="x1 + x2 <= 15")]
     else:
         constraints = None
 
@@ -1981,7 +1979,7 @@ def get_order_constraint() -> OrderConstraint:
 def get_parameter_constraint(
     param_x: str = "x", param_y: str = "w"
 ) -> ParameterConstraint:
-    return ParameterConstraint(constraint_dict={param_x: 1.0, param_y: -1.0}, bound=1.0)
+    return ParameterConstraint(inequality=f"{param_x} - {param_y} <= 1")
 
 
 def get_sum_constraint1() -> SumConstraint:

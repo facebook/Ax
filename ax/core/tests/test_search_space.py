@@ -196,9 +196,7 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    ParameterConstraint(constraint_dict={"g": 1}, bound=0)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="g <= 0")],
             )
 
         # Constraint on non-numeric parameter
@@ -254,9 +252,7 @@ class SearchSpaceTest(TestCase):
         ):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    ParameterConstraint(constraint_dict={"h": 1}, bound=0)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="h <= 0")],
             )
 
     def test_BadSetter(self) -> None:
