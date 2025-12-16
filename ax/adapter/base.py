@@ -919,7 +919,7 @@ class Adapter:
             generator_kwargs=self._generator_kwargs,
             adapter_kwargs=self._adapter_kwargs,
             gen_metadata=gen_metadata,
-            model_state_after_gen=self._get_serialized_model_state(),
+            generator_state_after_gen=self._get_serialized_model_state(),
             candidate_metadata_by_arm_signature=candidate_metadata,
         )
         if len(generator_run.arms) < n:

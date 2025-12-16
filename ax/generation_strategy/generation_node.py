@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 from ax.adapter.base import Adapter
 from ax.adapter.registry import (
-    _extract_model_state_after_gen,
+    _extract_generator_state_after_gen,
     GeneratorRegistryBase,
     Generators,
 )
@@ -343,8 +343,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         NOTE: During fitting of the ``GeneratorSpec``, state of this ``GeneratorSpec``
         after its last candidate generation is extracted from the last
         ``GeneratorRun`` it produced (if any was captured in
-        ``GeneratorRun.model_state_after_gen``) and passed into ``GeneratorSpec.fit``
-        as keyword arguments.
+        ``GeneratorRun.generator_state_after_gen``) and passed into
+        ``GeneratorSpec.fit`` as keyword arguments.
 
         Args:
             experiment: The experiment to fit the model to.
@@ -619,7 +619,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 and gr._generator_key == generator_spec.generator_key
             ):
                 # Extract the fit args from the GR.
-                return _extract_model_state_after_gen(
+                return _extract_generator_state_after_gen(
                     generator_run=gr,
                     generator_class=curr_model.generator_class,
                 )

@@ -9,7 +9,7 @@
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
-    _extract_model_state_after_gen,
+    _extract_generator_state_after_gen,
     Cont_X_trans,
     GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
@@ -309,20 +309,20 @@ class ModelRegistryTest(TestCase):
     def test_SAAS_MTGP(self) -> None:
         self.test_ST_MTGP(use_saas=True)
 
-    def test_extract_model_state_after_gen(self) -> None:
+    def test_extract_generator_state_after_gen(self) -> None:
         # Test with actual state.
         exp = get_branin_experiment()
         sobol = Generators.SOBOL(experiment=exp)
         gr = sobol.gen(n=1)
         expected_state = sobol.generator._get_state()
-        self.assertEqual(gr._model_state_after_gen, expected_state)
-        extracted = _extract_model_state_after_gen(
+        self.assertEqual(gr._generator_state_after_gen, expected_state)
+        extracted = _extract_generator_state_after_gen(
             generator_run=gr, generator_class=SobolGenerator
         )
         self.assertEqual(extracted, expected_state)
         # Test with empty state.
-        gr._model_state_after_gen = None
-        extracted = _extract_model_state_after_gen(
+        gr._generator_state_after_gen = None
+        extracted = _extract_generator_state_after_gen(
             generator_run=gr, generator_class=SobolGenerator
         )
         self.assertEqual(extracted, {})

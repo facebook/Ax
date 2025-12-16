@@ -706,7 +706,7 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(adapter_kwargs)
             self.assertEqual(len(adapter_kwargs), 6)
             # This has seed and init position.
-            ms = gr._model_state_after_gen
+            ms = gr._generator_state_after_gen
             self.assertIsNotNone(ms)
             self.assertEqual(len(ms), 2)
             gm = gr._gen_metadata
@@ -733,7 +733,7 @@ class SQAStoreTest(TestCase):
             exp.trials.get(1).generator_run._generator_kwargs = None
             exp.trials.get(1).generator_run._adapter_kwargs = None
             exp.trials.get(1).generator_run._gen_metadata = None
-            exp.trials.get(1).generator_run._model_state_after_gen = None
+            exp.trials.get(1).generator_run._generator_state_after_gen = None
             exp.trials.get(1).generator_run._search_space = None
             exp.trials.get(1).generator_run._optimization_config = None
             self.assertEqual(loaded_experiment, exp)
@@ -2262,7 +2262,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._generator_runs[0]._generator_kwargs = None
         generation_strategy._generator_runs[0]._adapter_kwargs = None
         generation_strategy._generator_runs[0]._gen_metadata = None
-        generation_strategy._generator_runs[0]._model_state_after_gen = None
+        generation_strategy._generator_runs[0]._generator_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
         generation_strategy._generator_runs[0]._optimization_config = None
         generation_strategy._generator_runs[1]._search_space = None
@@ -2320,13 +2320,13 @@ class SQAStoreTest(TestCase):
         experiment.trials.get(0).generator_run._generator_kwargs = None
         experiment.trials.get(0).generator_run._adapter_kwargs = None
         experiment.trials.get(0).generator_run._gen_metadata = None
-        experiment.trials.get(0).generator_run._model_state_after_gen = None
+        experiment.trials.get(0).generator_run._generator_state_after_gen = None
         experiment.trials.get(0).generator_run._search_space = None
         experiment.trials.get(0).generator_run._optimization_config = None
         generation_strategy._generator_runs[0]._generator_kwargs = None
         generation_strategy._generator_runs[0]._adapter_kwargs = None
         generation_strategy._generator_runs[0]._gen_metadata = None
-        generation_strategy._generator_runs[0]._model_state_after_gen = None
+        generation_strategy._generator_runs[0]._generator_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
         generation_strategy._generator_runs[0]._optimization_config = None
         generation_strategy._generator_runs[1]._search_space = None
