@@ -103,7 +103,9 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             for timestamp in range(self._trial_index_to_timestamp[trial.index]):
                 res = [
                     self.f(
-                        np.fromiter(arm.parameters.values(), dtype=float),
+                        np.array(
+                            [arm.parameters[p] for p in self.param_names], dtype=float
+                        ),
                         timestamp=timestamp,
                     )
                     for arm in trial.arms
