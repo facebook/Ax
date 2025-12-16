@@ -68,7 +68,7 @@ jobs:
     - if: ${{ !inputs.minimal_dependencies && matrix.python-version == 3.10 }}
       # Only upload codecov once per workflow.
       name: Upload coverage
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         # This will sometimes fail because of
         # https://github.com/codecov/codecov-action/issues/1580
