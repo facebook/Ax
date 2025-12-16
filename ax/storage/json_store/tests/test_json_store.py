@@ -51,6 +51,7 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -333,6 +334,17 @@ TEST_CASES = [
         partial(sobol_gpei_generation_node_gs, with_is_SOO_transition=True),
     ),
     ("GeneratorRun", get_generator_run),
+    (
+        "GeneratorSpec",
+        partial(
+            GeneratorSpec,
+            generator_enum=Generators.BOTORCH_MODULAR,
+            model_kwargs={"some_kwarg": "some_value"},
+            model_gen_kwargs={"n": 5},
+            model_cv_kwargs={"untransform": False},
+            generator_key_override="custom_generator_key",
+        ),
+    ),
     ("Hartmann6Metric", get_hartmann_metric),
     (
         "HeterogeneousMTGP",
