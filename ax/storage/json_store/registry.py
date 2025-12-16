@@ -48,11 +48,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -147,7 +143,6 @@ from ax.storage.json_store.encoders import (
     objective_to_dict,
     observation_features_to_dict,
     optimization_config_to_dict,
-    order_parameter_constraint_to_dict,
     outcome_constraint_to_dict,
     parameter_constraint_to_dict,
     pathlib_to_dict,
@@ -247,7 +242,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     ObjectiveThreshold: outcome_constraint_to_dict,
     OptimizationConfig: optimization_config_to_dict,
     OrEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
-    OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     pathlib.Path: pathlib_to_dict,
@@ -378,7 +372,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "OptimizationConfig": OptimizationConfig,
     "OrchestratorOptions": OrchestratorOptions,
     "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
-    "OrderConstraint": OrderConstraint,
+    "OrderConstraint": ParameterConstraint,  # DEPRECATED; backward compatibility
     "OutcomeConstraint": OutcomeConstraint,
     "ParameterConstraint": ParameterConstraint,
     "ParameterConstraintType": ParameterConstraintType,

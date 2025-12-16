@@ -34,11 +34,7 @@ from ax.core.parameter import (
     FixedParameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -226,17 +222,6 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> dict[str, Any]:
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
-    }
-
-
-def order_parameter_constraint_to_dict(
-    parameter_constraint: OrderConstraint,
-) -> dict[str, Any]:
-    """Convert Ax order parameter constraint to a dictionary."""
-    return {
-        "__type": parameter_constraint.__class__.__name__,
-        "lower_name": parameter_constraint.lower_parameter.name,
-        "upper_name": parameter_constraint.upper_parameter.name,
     }
 
 

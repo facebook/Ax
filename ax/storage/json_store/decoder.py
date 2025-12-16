@@ -31,11 +31,7 @@ from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSON_STORAGE_DOCS_SUFFIX, JSONDecodeError
 from ax.generation_strategy.generation_node_input_constructors import (
@@ -488,12 +484,13 @@ def parameter_constraints_from_json(
     parameter_constraints = []
     parameter_map = {p.name: p for p in parameters}
     for constraint in parameter_constraint_json:
+        # For backwards compatibility
         if constraint["__type"] == "OrderConstraint":
-            lower_parameter = parameter_map[constraint["lower_name"]]
-            upper_parameter = parameter_map[constraint["upper_name"]]
             parameter_constraints.append(
-                OrderConstraint(
-                    lower_parameter=lower_parameter, upper_parameter=upper_parameter
+                ParameterConstraint(
+                    inequality=(
+                        f"{constraint['lower_name']} <= {constraint['upper_name']}"
+                    )
                 )
             )
         elif constraint["__type"] == "SumConstraint":

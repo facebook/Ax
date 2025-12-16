@@ -50,11 +50,7 @@ from ax.core.parameter import (
     Parameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -500,7 +496,6 @@ class Decoder:
         parameters: list[Parameter],
     ) -> ParameterConstraint:
         """Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""
-        parameter_map = {p.name: p for p in parameters}
         if parameter_constraint_sqa.type == ParameterConstraintType.ORDER:
             lower_name = None
             upper_name = None
@@ -514,10 +509,9 @@ class Decoder:
                     "Cannot decode SQAParameterConstraint because `lower_name` or "
                     "`upper_name` was not found."
                 )
-            lower_parameter = parameter_map[lower_name]
-            upper_parameter = parameter_map[upper_name]
-            constraint = OrderConstraint(
-                lower_parameter=lower_parameter, upper_parameter=upper_parameter
+
+            constraint = ParameterConstraint(
+                inequality=f"{lower_name} <= {upper_name}",
             )
         elif parameter_constraint_sqa.type == ParameterConstraintType.SUM:
             # This operation is potentially very inefficient.
