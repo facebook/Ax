@@ -56,7 +56,7 @@ try:
                 lower_is_better: If True, lower curve values are considered better.
                 smoothing: If > 0, apply exponential weighted mean to the curve. This
                     is the same postprocessing as the "smoothing" slider in the
-                    Tensorboard UI.
+                    Tensorboard UI. Needs to be smaller than 1.0.
                 cumulative_best: If True, for each trial, apply cumulative best to
                     the curve (i.e., if lower is better, then we return a curve
                     representing the cumulative min of the raw curve).
@@ -68,6 +68,10 @@ try:
             """
             super().__init__(name=name, lower_is_better=lower_is_better)
 
+            if not (0 <= smoothing < 1):
+                raise ValueError(
+                    f"smoothing must be in the range [0, 1), got {smoothing}."
+                )
             self.smoothing = smoothing
             self.tag = tag
             self.cumulative_best = cumulative_best
