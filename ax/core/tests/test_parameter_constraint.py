@@ -6,12 +6,7 @@
 
 # pyre-strict
 
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.parameter_constraint import (
-    ComparisonOp,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -127,68 +122,3 @@ class ParameterConstraintTest(TestCase):
             inequality="2 * x - 3 * y <= 6.0",
         )
         self.assertTrue(constraint1 < constraint2)
-
-
-class SumConstraintTest(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.x = RangeParameter("x", ParameterType.INT, lower=-5, upper=5)
-        self.y = RangeParameter("y", ParameterType.INT, lower=-5, upper=5)
-        self.constraint1 = SumConstraint(
-            parameters=[self.x, self.y], is_upper_bound=True, bound=5
-        )
-        self.constraint2 = SumConstraint(
-            parameters=[self.x, self.y], is_upper_bound=False, bound=-5
-        )
-
-        self.constraint_repr1 = "SumConstraint(x + y <= 5.0)"
-        self.constraint_repr2 = "SumConstraint(x + y >= -5.0)"
-
-    def test_BadConstruct(self) -> None:
-        with self.assertRaises(ValueError):
-            SumConstraint(parameters=[self.x, self.x], is_upper_bound=False, bound=-5.0)
-        z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
-        with self.assertRaises(ValueError):
-            # pyre-fixme[16]: `SumConstraintTest` has no attribute `constraint`.
-            self.constraint = SumConstraint(
-                parameters=[self.x, z], is_upper_bound=False, bound=-5.0
-            )
-
-    def test_Properties(self) -> None:
-        self.assertEqual(self.constraint1.op, ComparisonOp.LEQ)
-        self.assertTrue(self.constraint1._is_upper_bound)
-
-        self.assertEqual(self.constraint2.op, ComparisonOp.GEQ)
-        self.assertFalse(self.constraint2._is_upper_bound)
-
-    def test_Repr(self) -> None:
-        self.assertEqual(str(self.constraint1), self.constraint_repr1)
-        self.assertEqual(str(self.constraint2), self.constraint_repr2)
-
-    def test_Validate(self) -> None:
-        self.assertTrue(self.constraint1.check({"x": 1, "y": 4}))
-        self.assertTrue(self.constraint1.check({"x": 4, "y": 1}))
-        self.assertFalse(self.constraint1.check({"x": 1, "y": 5}))
-
-        self.assertTrue(self.constraint2.check({"x": -4, "y": -1}))
-        self.assertTrue(self.constraint2.check({"x": -1, "y": -4}))
-        self.assertFalse(self.constraint2.check({"x": -5, "y": -1}))
-
-    def test_Clone(self) -> None:
-        constraint_clone = self.constraint1.clone()
-        self.assertEqual(self.constraint1.bound, constraint_clone.bound)
-
-        constraint_clone._bound = 7.0
-        self.assertNotEqual(self.constraint1.bound, constraint_clone.bound)
-
-        constraint_clone_2 = self.constraint2.clone()
-        self.assertEqual(self.constraint2.bound, constraint_clone_2.bound)
-
-    def test_CloneWithTransformedParameters(self) -> None:
-        constraint_clone = self.constraint1.clone_with_transformed_parameters(
-            transformed_parameters={p.name: p for p in self.constraint1.parameters}
-        )
-        self.assertEqual(self.constraint1.bound, constraint_clone.bound)
-
-        constraint_clone._bound = 7.0
-        self.assertNotEqual(self.constraint1.bound, constraint_clone.bound)

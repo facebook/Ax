@@ -54,7 +54,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -1978,16 +1978,16 @@ def get_parameter_constraint(
     return ParameterConstraint(inequality=f"{param_x} - {param_y} <= 1")
 
 
-def get_sum_constraint1() -> SumConstraint:
+def get_sum_constraint1() -> ParameterConstraint:
     w = get_range_parameter()
     x = get_range_parameter2()
-    return SumConstraint(parameters=[x, w], is_upper_bound=False, bound=10.0)
+    return ParameterConstraint(inequality=f"{x.name} + {w.name} >= 10")
 
 
-def get_sum_constraint2() -> SumConstraint:
+def get_sum_constraint2() -> ParameterConstraint:
     w = get_range_parameter()
     x = get_range_parameter2()
-    return SumConstraint(parameters=[x, w], is_upper_bound=True, bound=10.0)
+    return ParameterConstraint(inequality=f"{x.name} + {w.name} <= 10")
 
 
 ##############################

@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Sequence
 
 from ax.core.parameter import Parameter, RangeParameter
-from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.string_utils import unsanitize_name
@@ -112,92 +111,6 @@ class ParameterConstraint(SortableBase):
     @property
     def _unique_id(self) -> str:
         return str(self)
-
-
-class SumConstraint(ParameterConstraint):
-    """Constraint on the sum of parameters being greater or less than a bound."""
-
-    def __init__(
-        self, parameters: list[Parameter], is_upper_bound: bool, bound: float
-    ) -> None:
-        """Initialize SumConstraint
-
-        Args:
-            parameters: List of parameters whose sum to constrain on.
-            is_upper_bound: Whether the bound is an upper or lower bound on the sum.
-            bound: The bound on the sum.
-        """
-        validate_constraint_parameters(parameters)
-
-        self._parameters = parameters
-        self._is_upper_bound: bool = is_upper_bound
-        self._parameter_names: list[str] = [parameter.name for parameter in parameters]
-        self._bound: float = self._inequality_weight * bound
-        self._constraint_dict: dict[str, float] = {
-            name: self._inequality_weight for name in self._parameter_names
-        }
-
-    @property
-    def parameters(self) -> list[Parameter]:
-        """Parameters."""
-        return self._parameters
-
-    @property
-    def constraint_dict(self) -> dict[str, float]:
-        """Weights on parameters for linear constraint representation."""
-        return self._constraint_dict
-
-    @property
-    def op(self) -> ComparisonOp:
-        """Whether the sum is constrained by a <= or >= inequality."""
-        return ComparisonOp.LEQ if self._is_upper_bound else ComparisonOp.GEQ
-
-    @property
-    def is_upper_bound(self) -> bool:
-        """Whether the bound is an upper or lower bound on the sum."""
-        return self._is_upper_bound
-
-    def clone(self) -> SumConstraint:
-        """Clone.
-
-        To use the same constraint, we need to reconstruct the original bound.
-        We do this by re-applying the original bound weighting.
-        """
-        return SumConstraint(
-            parameters=[p.clone() for p in self._parameters],
-            is_upper_bound=self._is_upper_bound,
-            bound=self._inequality_weight * self._bound,
-        )
-
-    def clone_with_transformed_parameters(
-        self, transformed_parameters: dict[str, Parameter]
-    ) -> SumConstraint:
-        """Clone, but replace parameters with transformed versions."""
-        return SumConstraint(
-            parameters=[transformed_parameters[p.name] for p in self._parameters],
-            is_upper_bound=self._is_upper_bound,
-            bound=self._inequality_weight * self._bound,
-        )
-
-    @property
-    def _inequality_weight(self) -> float:
-        """Multiplier of all terms in the inequality.
-
-        If the constraint is an upper bound, it is v1 + v2 ... v_n <= b
-        If the constraint is an lower bound, it is -v1 + -v2 ... -v_n <= -b
-        This property returns 1 or -1 depending on the scenario
-        """
-        return 1.0 if self._is_upper_bound else -1.0
-
-    def __repr__(self) -> str:
-        symbol = ">=" if self.op == ComparisonOp.GEQ else "<="
-        return (
-            "SumConstraint("
-            + " + ".join(self._parameter_names)
-            + " {} {})".format(
-                symbol, self._bound if self.op == ComparisonOp.LEQ else -self._bound
-            )
-        )
 
 
 def validate_constraint_parameters(parameters: Sequence[Parameter]) -> None:

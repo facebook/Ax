@@ -50,7 +50,7 @@ from ax.core.parameter import (
     Parameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -79,7 +79,6 @@ from ax.storage.utils import (
     DomainType,
     EXPECT_RELATIVIZED_OUTCOMES,
     MetricIntent,
-    ParameterConstraintType,
     PREFERENCE_PROFILE_NAME,
 )
 from ax.utils.common.constants import Keys
@@ -496,57 +495,19 @@ class Decoder:
         parameters: list[Parameter],
     ) -> ParameterConstraint:
         """Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""
-        if parameter_constraint_sqa.type == ParameterConstraintType.ORDER:
-            lower_name = None
-            upper_name = None
-            for k, v in parameter_constraint_sqa.constraint_dict.items():
-                if v == 1:
-                    lower_name = k
-                elif v == -1:
-                    upper_name = k
-            if not lower_name or not upper_name:
-                raise SQADecodeError(
-                    "Cannot decode SQAParameterConstraint because `lower_name` or "
-                    "`upper_name` was not found."
-                )
+        if len(parameter_constraint_sqa.constraint_dict) == 0:
+            raise SQADecodeError(
+                "ParameterConstraint must have at least one parameter in its "
+                f"constraint_dict; found 0 on {parameter_constraint_sqa.id}."
+            )
 
-            constraint = ParameterConstraint(
-                inequality=f"{lower_name} <= {upper_name}",
-            )
-        elif parameter_constraint_sqa.type == ParameterConstraintType.SUM:
-            # This operation is potentially very inefficient.
-            # It is O(#constrained_parameters * #total_parameters)
-            parameter_names = list(parameter_constraint_sqa.constraint_dict.keys())
-            constraint_parameters = [
-                next(
-                    search_space_param
-                    for search_space_param in parameters
-                    if search_space_param.name == c_p_name
-                )
-                for c_p_name in parameter_names
-            ]
-            a_values = list(parameter_constraint_sqa.constraint_dict.values())
-            if len(a_values) == 0:
-                raise SQADecodeError(
-                    "Cannot decode SQAParameterConstraint because `constraint_dict` "
-                    "is empty."
-                )
-            a = a_values[0]
-            is_upper_bound = a == 1
-            bound = float(parameter_constraint_sqa.bound) * a
-            constraint = SumConstraint(
-                parameters=constraint_parameters,
-                is_upper_bound=is_upper_bound,
-                bound=bound,
-            )
-        else:
-            expr = " + ".join(
-                f"{coeff} * {param}"
-                for param, coeff in parameter_constraint_sqa.constraint_dict.items()
-            )
-            constraint = ParameterConstraint(
-                inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
-            )
+        expr = " + ".join(
+            f"{coeff} * {param}"
+            for param, coeff in parameter_constraint_sqa.constraint_dict.items()
+        )
+        constraint = ParameterConstraint(
+            inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
+        )
 
         constraint.db_id = parameter_constraint_sqa.id
         return constraint

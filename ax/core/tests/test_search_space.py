@@ -20,7 +20,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
@@ -150,9 +150,7 @@ class SearchSpaceTest(TestCase):
         self.assertEqual(str(self.ss1), self.ss1_repr)
 
     def test_Setter(self) -> None:
-        new_c = SumConstraint(
-            parameters=[self.a, self.b], is_upper_bound=True, bound=10
-        )
+        new_c = ParameterConstraint(inequality="a + b <= 10")
         self.ss2.add_parameter_constraints([new_c])
         self.assertEqual(len(self.ss2.parameter_constraints), 2)
 

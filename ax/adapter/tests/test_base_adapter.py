@@ -41,7 +41,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.parameter_constraint import SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.core.utils import get_target_trial_index
@@ -900,15 +900,7 @@ class BaseAdapterTest(TestCase):
         trial.mark_completed()
         # Make search space with a parameter constraint
         ss = experiment.search_space.clone()
-        ss.set_parameter_constraints(
-            [
-                SumConstraint(
-                    parameters=list(ss.parameters.values()),
-                    is_upper_bound=True,
-                    bound=30.0,
-                )
-            ]
-        )
+        ss.set_parameter_constraints([ParameterConstraint(inequality="x1 + x2 <= 30")])
 
         # Check that SQ and custom are OOD
         m = Adapter(
