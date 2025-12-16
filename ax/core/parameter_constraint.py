@@ -114,70 +114,6 @@ class ParameterConstraint(SortableBase):
         return str(self)
 
 
-class OrderConstraint(ParameterConstraint):
-    """Constraint object for specifying one parameter to be smaller than another."""
-
-    _bound: float
-
-    def __init__(self, lower_parameter: Parameter, upper_parameter: Parameter) -> None:
-        """Initialize OrderConstraint
-
-        Args:
-            lower_parameter: Parameter that should have the lower value.
-            upper_parameter: Parameter that should have the higher value.
-
-        Note:
-            The constraint p1 <= p2 can be expressed in matrix notation as
-            [1, -1] * [p1, p2]^T <= 0.
-        """
-        validate_constraint_parameters([lower_parameter, upper_parameter])
-
-        self._lower_parameter = lower_parameter
-        self._upper_parameter = upper_parameter
-        self._bound = 0.0
-
-    @property
-    def lower_parameter(self) -> Parameter:
-        """Parameter with lower value."""
-        return self._lower_parameter
-
-    @property
-    def upper_parameter(self) -> Parameter:
-        """Parameter with higher value."""
-        return self._upper_parameter
-
-    @property
-    def parameters(self) -> list[Parameter]:
-        """Parameters."""
-        return [self.lower_parameter, self.upper_parameter]
-
-    @property
-    def constraint_dict(self) -> dict[str, float]:
-        """Weights on parameters for linear constraint representation."""
-        return {self.lower_parameter.name: 1.0, self.upper_parameter.name: -1.0}
-
-    def clone(self) -> OrderConstraint:
-        """Clone."""
-        return OrderConstraint(
-            lower_parameter=self.lower_parameter.clone(),
-            upper_parameter=self._upper_parameter.clone(),
-        )
-
-    def clone_with_transformed_parameters(
-        self, transformed_parameters: dict[str, Parameter]
-    ) -> OrderConstraint:
-        """Clone, but replace parameters with transformed versions."""
-        return OrderConstraint(
-            lower_parameter=transformed_parameters[self.lower_parameter.name],
-            upper_parameter=transformed_parameters[self._upper_parameter.name],
-        )
-
-    def __repr__(self) -> str:
-        return "OrderConstraint({} <= {})".format(
-            self.lower_parameter.name, self.upper_parameter.name
-        )
-
-
 class SumConstraint(ParameterConstraint):
     """Constraint on the sum of parameters being greater or less than a bound."""
 
@@ -281,6 +217,7 @@ def validate_constraint_parameters(parameters: Sequence[Parameter]) -> None:
         if not isinstance(parameter, RangeParameter):
             raise ValueError(
                 "All parameters in a parameter constraint must be RangeParameters."
+                f"Found {parameter}"
             )
 
         # Log parameters require a non-linear transformation, and Ax

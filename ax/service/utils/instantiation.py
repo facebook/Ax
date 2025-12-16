@@ -38,7 +38,6 @@ from ax.core.parameter import (
     TParameterType,
 )
 from ax.core.parameter_constraint import (
-    OrderConstraint,
     ParameterConstraint,
     validate_constraint_parameters,
 )
@@ -1003,7 +1002,7 @@ class InstantiationBase:
 def _process_order_constraint(
     tokens: Sequence[str],
     parameters: Mapping[str, Parameter],
-) -> OrderConstraint:
+) -> ParameterConstraint:
     """Processes an order constraint, e.g. "x1 <= x2".
 
     Args:
@@ -1031,8 +1030,8 @@ def _process_order_constraint(
     else:
         lower_parameter = parameters[right]
         upper_parameter = parameters[left]
-    return OrderConstraint(
-        lower_parameter=lower_parameter, upper_parameter=upper_parameter
+    return ParameterConstraint(
+        inequality=f"{lower_parameter.name} <= {upper_parameter.name}",
     )
 
 

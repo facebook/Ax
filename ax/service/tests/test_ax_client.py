@@ -31,7 +31,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import OrderConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
@@ -1326,12 +1326,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(
             ax_client.experiment.search_space.parameter_constraints,
-            [
-                OrderConstraint(
-                    lower_parameter=param_x1,
-                    upper_parameter=param_x2,
-                )
-            ],
+            [ParameterConstraint(inequality="x1 <= x2")],
         )
 
     def test_create_moo_experiment(self) -> None:

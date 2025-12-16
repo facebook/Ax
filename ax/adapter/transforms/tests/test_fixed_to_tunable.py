@@ -18,7 +18,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import OrderConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
@@ -120,11 +120,7 @@ class FixedToTunableTransformTest(TestCase):
         ]
         search_space_with_constraints = SearchSpace(
             parameters=parameters,
-            parameter_constraints=[
-                OrderConstraint(
-                    lower_parameter=parameters[0], upper_parameter=parameters[1]
-                )
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="x <= y")],
         )
 
         # Joint space with range parameter for 'y'

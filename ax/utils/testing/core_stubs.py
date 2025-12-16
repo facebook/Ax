@@ -54,11 +54,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -1579,7 +1575,7 @@ def get_branin_search_space(
         )
 
     if with_parameter_constraint:
-        constraints = [ParameterConstraint(inequality="x1 + x2 <= 15")]
+        constraints = [ParameterConstraint(inequality="x1 <= 15")]
     else:
         constraints = None
 
@@ -1970,10 +1966,10 @@ def get_num_boost_rounds_parameter() -> RangeParameter:
 ##############################
 
 
-def get_order_constraint() -> OrderConstraint:
+def get_order_constraint() -> ParameterConstraint:
     w = get_range_parameter()
     x = get_range_parameter2()
-    return OrderConstraint(lower_parameter=x, upper_parameter=w)
+    return ParameterConstraint(inequality=f"{x.name} <= {w.name}")
 
 
 def get_parameter_constraint(
