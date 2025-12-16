@@ -997,6 +997,7 @@ def generator_spec_from_json(
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GeneratorSpec:
     """Load GeneratorSpec from JSON."""
+    generator_spec_json = generator_spec_json.copy()  # prevent in-place modification.
     kwargs = generator_spec_json.pop("model_kwargs", None)
     for k in _DEPRECATED_MODEL_KWARGS:
         # Remove deprecated model kwargs.
@@ -1004,17 +1005,21 @@ def generator_spec_from_json(
     if kwargs is not None:
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
     gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
+    cv_kwargs = generator_spec_json.pop("model_cv_kwargs", None)
     if "model_enum" in generator_spec_json:
         # Old arg name for backwards compatibility.
-        enum = generator_spec_json.pop("model_enum")
-    else:
-        enum = generator_spec_json.pop("generator_enum")
+        generator_spec_json["generator_enum"] = generator_spec_json.pop("model_enum")
     return GeneratorSpec(
-        generator_enum=object_from_json(
-            object_json=enum,
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
+        # Generator enum and all other non *_kwargs fields.
+        # *_kwargs are not bundled into here due to the need to decode callables.
+        **{
+            k: object_from_json(
+                object_json=v,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            for k, v in generator_spec_json.items()
+        },
         model_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
@@ -1035,6 +1040,17 @@ def generator_spec_from_json(
                 ),
             )
             if gen_kwargs
+            else {}
+        ),
+        model_cv_kwargs=(
+            _decode_callables_from_references(
+                object_from_json(
+                    object_json=cv_kwargs,
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=class_decoder_registry,
+                ),
+            )
+            if cv_kwargs
             else {}
         ),
     )
