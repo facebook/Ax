@@ -68,9 +68,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                     sort_values=False,
                 ),
             ],
-            parameter_constraints=[
-                ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="-0.5*x + a <= 0.5")],
         )
         self.t = self.t_class(search_space=self.search_space)
         input_params: TParameterization = {

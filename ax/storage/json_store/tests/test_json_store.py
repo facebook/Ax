@@ -45,6 +45,7 @@ from ax.core.optimization_config import (
     PreferenceOptimizationConfig,
 )
 from ax.core.parameter import ChoiceParameter, ParameterType
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning, UnsupportedError
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -1001,6 +1002,71 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(decoded, ObservationFeatures)
         self.assertEqual(decoded.parameters, {"x1": 0.0})
         self.assertEqual(decoded.trial_index, 0)
+
+    def test_parameter_constraint_backwards_compatibility(self) -> None:
+        # Experiment JSON which includes a legacy-encoded parameter constraint.
+        json = {
+            "__type": "Experiment",
+            "name": "booth_function",
+            "description": None,
+            "experiment_type": None,
+            "search_space": {
+                "__type": "SearchSpace",
+                "parameters": [
+                    {
+                        "__type": "RangeParameter",
+                        "name": "x1",
+                        "parameter_type": {"__type": "ParameterType", "name": "FLOAT"},
+                        "lower": -10.0,
+                        "upper": 10.0,
+                        "log_scale": False,
+                        "logit_scale": False,
+                        "digits": None,
+                        "is_fidelity": False,
+                        "target_value": None,
+                    },
+                    {
+                        "__type": "RangeParameter",
+                        "name": "x2",
+                        "parameter_type": {"__type": "ParameterType", "name": "FLOAT"},
+                        "lower": -10.0,
+                        "upper": 10.0,
+                        "log_scale": False,
+                        "logit_scale": False,
+                        "digits": None,
+                        "is_fidelity": False,
+                        "target_value": None,
+                    },
+                ],
+                "parameter_constraints": [
+                    {
+                        "__type": "ParameterConstraint",
+                        "constraint_dict": {"x1": -1.0},
+                        "bound": -10.0,
+                    }
+                ],
+            },
+            "optimization_config": None,
+            "tracking_metrics": [],
+            "runner": None,
+            "status_quo": None,
+            "time_created": {
+                "__type": "datetime",
+                "value": "2025-12-15 12:12:20.479774",
+            },
+            "trials": {},
+            "is_test": False,
+            "data_by_trial": {},
+            "properties": {"owners": [None]},
+            "_trial_type_to_runner": {None: None},
+            "default_data_type": {"__type": "DataType", "name": "MAP_DATA"},
+        }
+        decoded = object_from_json(object_json=json)
+
+        self.assertEqual(
+            decoded.search_space.parameter_constraints[0],
+            ParameterConstraint("x1 >= 10"),
+        )
 
     def test_objective_backwards_compatibility(self) -> None:
         # Test that we can load an objective that has conflicting

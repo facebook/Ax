@@ -258,10 +258,14 @@ def parameter_constraint_to_dict(
     parameter_constraint: ParameterConstraint,
 ) -> dict[str, Any]:
     """Convert Ax sum parameter constraint to a dictionary."""
+    expr = " + ".join(
+        f"{coeff} * {param}"
+        for param, coeff in parameter_constraint.constraint_dict.items()
+    )
+
     return {
         "__type": parameter_constraint.__class__.__name__,
-        "constraint_dict": parameter_constraint.constraint_dict,
-        "bound": parameter_constraint.bound,
+        "inequality": f"{expr} <= {parameter_constraint.bound}",
     }
 
 

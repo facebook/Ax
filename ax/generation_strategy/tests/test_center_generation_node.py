@@ -271,7 +271,7 @@ class TestCenterGenerationNode(TestCase):
                 ),
             ],
             parameter_constraints=[  # x1 <= 0
-                ParameterConstraint(constraint_dict={"x1": 1.0}, bound=0.0)
+                ParameterConstraint(inequality="x1 <= 0")
             ],
         )
         exp = Experiment(search_space=ss)
