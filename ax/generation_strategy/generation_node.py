@@ -1069,6 +1069,9 @@ class GenerationStep(GenerationNode, SortableBase):
         use_all_trials_in_exp: bool = False,
         use_update: bool = False,  # DEPRECATED.
         index: int = -1,  # Index of this step, set internally.
+        # Deprecated arguments for backwards compatibility.
+        model_kwargs: dict[str, Any] | None = None,
+        model_gen_kwargs: dict[str, Any] | None = None,
     ) -> None:
         r"""Initializes a single-model GenerationNode, a.k.a. a GenerationStep.
 
@@ -1112,10 +1115,13 @@ class GenerationStep(GenerationNode, SortableBase):
                 f"has been deprecated. Got {self.generator=}."
             )
         else:
+            # Pass deprecated arguments to GeneratorSpec which handles them.
             generator_spec = GeneratorSpec(
                 generator_enum=self.generator,
                 generator_kwargs=generator_kwargs,
                 generator_gen_kwargs=generator_gen_kwargs,
+                model_kwargs=model_kwargs,
+                model_gen_kwargs=model_gen_kwargs,
             )
         if not generator_name:
             generator_name = generator_spec.generator_key
