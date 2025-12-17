@@ -47,7 +47,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     # `GeneratorRegistryBase.__call__`.
     model_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `Adapter.gen`.
-    model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
+    generator_gen_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
     model_cv_kwargs: dict[str, Any] = field(default_factory=dict)
     # An optional override for the generator key. Each `GeneratorSpec` in a
@@ -72,7 +72,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
     def __post_init__(self) -> None:
         self.model_kwargs = self.model_kwargs or {}
-        self.model_gen_kwargs = self.model_gen_kwargs or {}
+        self.generator_gen_kwargs = self.generator_gen_kwargs or {}
         self.model_cv_kwargs = self.model_cv_kwargs or {}
 
     @property
@@ -86,14 +86,14 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         """
         Fixed generation features to pass into the Model's `.gen` function.
         """
-        return self.model_gen_kwargs.get("fixed_features", None)
+        return self.generator_gen_kwargs.get("fixed_features", None)
 
     @fixed_features.setter
     def fixed_features(self, value: ObservationFeatures | None) -> None:
         """
         Fixed generation features to pass into the Model's `.gen` function.
         """
-        self.model_gen_kwargs["fixed_features"] = value
+        self.generator_gen_kwargs["fixed_features"] = value
 
     @property
     def generator_key(self) -> str:
@@ -204,7 +204,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         """
         return self._diagnostics
 
-    def gen(self, **model_gen_kwargs: Any) -> GeneratorRun:
+    def gen(self, **generator_gen_kwargs: Any) -> GeneratorRun:
         """Generates candidates from the fitted model, using the model gen
         kwargs set on the model spec, alongside any passed as kwargs
         to this function (local kwargs take precedent)
@@ -222,13 +222,13 @@ class GeneratorSpec(SortableBase, SerializationMixin):
                 resuggesting points that are currently being evaluated.
         """
         fitted_adapter = self.fitted_adapter
-        model_gen_kwargs = consolidate_kwargs(
-            kwargs_iterable=[self.model_gen_kwargs, model_gen_kwargs],
+        generator_gen_kwargs = consolidate_kwargs(
+            kwargs_iterable=[self.generator_gen_kwargs, generator_gen_kwargs],
             keywords=get_function_argument_names(fitted_adapter.gen),
         )
         # copy to ensure there is no in-place modification
-        model_gen_kwargs = deepcopy(model_gen_kwargs)
-        generator_run = fitted_adapter.gen(**model_gen_kwargs)
+        generator_gen_kwargs = deepcopy(generator_gen_kwargs)
+        generator_run = fitted_adapter.gen(**generator_gen_kwargs)
 
         generator_run._gen_metadata = (
             {} if generator_run.gen_metadata is None else generator_run.gen_metadata
@@ -243,7 +243,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         return self.__class__(
             generator_enum=self.generator_enum,
             model_kwargs=deepcopy(self.model_kwargs),
-            model_gen_kwargs=deepcopy(self.model_gen_kwargs),
+            generator_gen_kwargs=deepcopy(self.generator_gen_kwargs),
             model_cv_kwargs=deepcopy(self.model_cv_kwargs),
             generator_key_override=self.generator_key_override,
         )
@@ -297,8 +297,8 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         model_kwargs = json.dumps(
             self.model_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
-        model_gen_kwargs = json.dumps(
-            self.model_gen_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
+        generator_gen_kwargs = json.dumps(
+            self.generator_gen_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
         model_cv_kwargs = json.dumps(
             self.model_cv_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
@@ -307,7 +307,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             "GeneratorSpec("
             f"\tgenerator_enum={self.generator_enum.value}, "
             f"\tmodel_kwargs={model_kwargs}, "
-            f"\tmodel_gen_kwargs={model_gen_kwargs}, "
+            f"\tgenerator_gen_kwargs={generator_gen_kwargs}, "
             f"\tmodel_cv_kwargs={model_cv_kwargs}, "
             f"\tgenerator_key_override={self.generator_key_override}"
             ")"

@@ -341,7 +341,7 @@ TEST_CASES = [
             GeneratorSpec,
             generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs={"some_kwarg": "some_value"},
-            model_gen_kwargs={"n": 5},
+            generator_gen_kwargs={"n": 5},
             model_cv_kwargs={"untransform": False},
             generator_key_override="custom_generator_key",
         ),
@@ -1124,7 +1124,7 @@ class JSONStoreTest(TestCase):
                 "fit_abandoned": True,
                 "fit_only_completed_map_metrics": True,
             },
-            "model_gen_kwargs": {},
+            "model_gen_kwargs": {"dummy": 5.0},
             "index": -1,
             "should_deduplicate": False,
         }
@@ -1132,6 +1132,7 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(generation_step, GenerationStep)
         self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
         self.assertEqual(generation_step.generator, Generators.BOTORCH_MODULAR)
+        self.assertEqual(generation_step.generator_gen_kwargs, {"dummy": 5.0})
 
     def test_generator_run_backwards_compatibility(self) -> None:
         # Test that we can load a generator run with deprecated kwargs.
@@ -1274,6 +1275,15 @@ class JSONStoreTest(TestCase):
         self.assertEqual(
             node.generator_specs[0].model_kwargs["transforms"],
             [OneHot, Log],
+        )
+        self.assertEqual(
+            node.generator_specs[0].generator_gen_kwargs,
+            {
+                "model_gen_options": {
+                    "optimizer_kwargs": {"num_restarts": 10},
+                    "acquisition_function_kwargs": {},
+                }
+            },
         )
 
     def test_SobolQMCNormalSampler(self) -> None:

@@ -42,7 +42,7 @@ def get_sobol_mbm_generation_strategy(
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_kwargs_override: dict[str, Any] | None = None,
-    model_gen_kwargs: dict[str, Any] | None = None,
+    generator_gen_kwargs: dict[str, Any] | None = None,
     batch_size: int = 1,
 ) -> GenerationStrategy:
     """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
@@ -56,7 +56,7 @@ def get_sobol_mbm_generation_strategy(
             `BatchTrial`s.
         model_kwargs_override: Passed to the MBM BoTorch `GenerationStep` inside
             `model_kwargs`.
-        model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
+        generator_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
 
     Example:
@@ -107,7 +107,7 @@ def get_sobol_mbm_generation_strategy(
                 generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs=model_kwargs,
-                model_gen_kwargs=model_gen_kwargs or {},
+                generator_gen_kwargs=generator_gen_kwargs or {},
             ),
         ],
     )
@@ -120,7 +120,7 @@ def get_sobol_botorch_modular_acquisition(
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_kwargs_override: dict[str, Any] | None = None,
-    model_gen_kwargs: dict[str, Any] | None = None,
+    generator_gen_kwargs: dict[str, Any] | None = None,
     batch_size: int = 1,
 ) -> BenchmarkMethod:
     """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
@@ -135,7 +135,7 @@ def get_sobol_botorch_modular_acquisition(
             `BatchTrial`s.
         model_kwargs_override: Passed to the MBM BoTorch `GenerationStep` inside
             `model_kwargs`.
-        model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
+        generator_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
         batch_size: Passed to the created ``BenchmarkMethod``.
 
@@ -154,7 +154,7 @@ def get_sobol_botorch_modular_acquisition(
         ...     model_cls=SingleTaskGP,
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
         ...     batch_size=5,
-        ...     model_gen_kwargs={
+        ...     generator_gen_kwargs={
         ...         "model_gen_options": {
         ...             "optimizer_kwargs": {"sequential": False}
         ...         }
@@ -168,7 +168,7 @@ def get_sobol_botorch_modular_acquisition(
         name=name,
         num_sobol_trials=num_sobol_trials,
         model_kwargs_override=model_kwargs_override,
-        model_gen_kwargs=model_gen_kwargs,
+        generator_gen_kwargs=generator_gen_kwargs,
         batch_size=batch_size,
     )
 

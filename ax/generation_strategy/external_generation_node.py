@@ -158,7 +158,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         data: Data | None = None,
         n: int | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        **model_gen_kwargs: Any,
+        **generator_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Generate new candidates for evaluation.
 
@@ -173,9 +173,9 @@ class ExternalGenerationNode(GenerationNode, ABC):
             pending_observations: A map from metric signature to pending
                 observations for that metric, used by some methods to avoid
                 re-suggesting candidates that are currently being evaluated.
-            model_gen_kwargs: Keyword arguments, passed through to
+            generator_gen_kwargs: Keyword arguments, passed through to
                 ``GeneratorSpec.gen``; these override any pre-specified in
-                ``GeneratorSpec.model_gen_kwargs``.
+                ``GeneratorSpec.generator_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
@@ -187,7 +187,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
                 data=data,
                 n=n,
                 pending_observations=pending_observations,
-                **model_gen_kwargs,
+                **generator_gen_kwargs,
             )
             # Unset self._generator_spec_to_gen_from before returning.
             self._generator_spec_to_gen_from = None

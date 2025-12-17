@@ -408,9 +408,9 @@ class GenerationNode(SerializationMixin, SortableBase):
             pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            model_gen_kwargs: Keyword arguments, passed through to
+            generator_gen_kwargs: Keyword arguments, passed through to
                 ``ModelSpec.gen``; these override any pre-specified in
-                ``ModelSpec.model_gen_kwargs``. Often will contain ``n``.
+                ``ModelSpec.generator_gen_kwargs``. Often will contain ``n``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates or ``None``
@@ -432,8 +432,8 @@ class GenerationNode(SerializationMixin, SortableBase):
 
         if not skip_fit:
             self._fit(experiment=experiment, data=data)
-        model_gen_kwargs = gs_gen_kwargs.copy()
-        model_gen_kwargs.update(input_constructor_values)
+        generator_gen_kwargs = gs_gen_kwargs.copy()
+        generator_gen_kwargs.update(input_constructor_values)
         try:
             # Generate from the main generator on this node. If deduplicating,
             # keep generating until each of `generator_run.arms` is not a
@@ -443,7 +443,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 experiment=experiment,
                 data=data,
                 pending_observations=pending_observations,
-                **model_gen_kwargs,
+                **generator_gen_kwargs,
             )
         except Exception as e:
             gr = self._try_gen_with_fallback(
@@ -451,7 +451,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 experiment=experiment,
                 data=data,
                 pending_observations=pending_observations,
-                **model_gen_kwargs,
+                **generator_gen_kwargs,
             )
 
         gr._generation_node_name = self.name
@@ -468,11 +468,11 @@ class GenerationNode(SerializationMixin, SortableBase):
         n: int | None,
         pending_observations: dict[str, list[ObservationFeatures]] | None,
         data: Data | None,
-        **model_gen_kwargs: Any,
+        **generator_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Picks a fitted model, from which to generate candidates (via
         ``self._pick_fitted_adapter_to_gen_from``) and generates candidates
-        from it. Uses the ``model_gen_kwargs`` set on the selected ``GeneratorSpec``
+        from it. Uses the ``generator_gen_kwargs`` set on the selected ``GeneratorSpec``
         alongside any kwargs passed in to this function (with local kwargs)
         taking precedent.
 
@@ -487,27 +487,27 @@ class GenerationNode(SerializationMixin, SortableBase):
             pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            model_gen_kwargs: Keyword arguments, passed through to
+            generator_gen_kwargs: Keyword arguments, passed through to
                 ``GeneratorSpec.gen``;these override any pre-specified in
-                ``GeneratorSpec.model_gen_kwargs``.
+                ``GeneratorSpec.generator_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
         """
         generator_spec = self.generator_spec_to_gen_from
-        if n is None and generator_spec.model_gen_kwargs:
+        if n is None and generator_spec.generator_gen_kwargs:
             # If `n` is not specified, ensure that the `None` value does not
-            # override the one set in `generator_spec.model_gen_kwargs`.
-            n = generator_spec.model_gen_kwargs.get("n", None)
+            # override the one set in `generator_spec.generator_gen_kwargs`.
+            n = generator_spec.generator_gen_kwargs.get("n", None)
         return generator_spec.gen(
             experiment=experiment,
             data=data,
             n=n,
             # For `pending_observations`, prefer the input to this function, as
             # `pending_observations` are dynamic throughout the experiment and thus
-            # unlikely to be specified in `generator_spec.model_gen_kwargs`.
+            # unlikely to be specified in `generator_spec.generator_gen_kwargs`.
             pending_observations=pending_observations,
-            **model_gen_kwargs,
+            **generator_gen_kwargs,
         )
 
     def _gen_maybe_deduplicate(
@@ -516,7 +516,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         n: int | None,
         pending_observations: dict[str, list[ObservationFeatures]] | None,
         data: Data | None,
-        **model_gen_kwargs: Any,
+        **generator_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Attempts to generate candidates from the main ``GeneratorSpec``
         on this ``GenerationNode``, with deduplication if
@@ -536,7 +536,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 data=data,
                 n=n,
                 pending_observations=pending_observations,
-                **model_gen_kwargs,
+                **generator_gen_kwargs,
             )
             if not self.should_deduplicate or not dedup_against_arms:
                 return gr  # Not deduplicating.
@@ -557,7 +557,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         n: int | None,
         data: Data | None,
         pending_observations: dict[str, list[ObservationFeatures]] | None,
-        **model_gen_kwargs: Any,
+        **generator_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Attempts to generate candidates from the fallback ``GeneratorSpec``
         on this ``GenerationNode``. Identifies the correct fallback based on the
@@ -591,7 +591,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             data=data,
             n=n,
             pending_observations=pending_observations,
-            **model_gen_kwargs,
+            **generator_gen_kwargs,
         )
         return gr
 
@@ -910,8 +910,8 @@ class GenerationNode(SerializationMixin, SortableBase):
             # kwargs define an n, then fallback to default values of n
             arms_from_node = gen_kwargs.get("n")
             if arms_from_node is None and self.generator_spec_to_gen_from is not None:
-                arms_from_node = self.generator_spec_to_gen_from.model_gen_kwargs.get(
-                    "n", None
+                arms_from_node = (
+                    self.generator_spec_to_gen_from.generator_gen_kwargs.get("n", None)
                 )
             if arms_from_node is None:
                 # TODO[@mgarrard, @drfreund]: We can remove this check if we
@@ -1025,9 +1025,9 @@ class GenerationStep(GenerationNode, SortableBase):
             snapshot and its last used generator has state saved on its generator runs,
             `model_kwargs` is updated with the state dict of the generator, retrieved
             from the last generator run of this generation strategy.
-        model_gen_kwargs: Each call to `generation_strategy.gen` performs a call
-            to the step's adapter's `gen` under the hood; `model_gen_kwargs` will be
-            passed to the adapter's `gen` like: `adapter.gen(**model_gen_kwargs)`.
+        generator_gen_kwargs: Each call to `generation_strategy.gen` performs a call
+            to the step's adapter's `gen` under the hood; `generator_gen_kwargs` will be
+            passed to the adapter's `gen` like: `adapter.gen(**generator_gen_kwargs)`.
         completion_criteria: List of TransitionCriterion. All `is_met` must evaluate
             True for the GenerationStrategy to move on to the next Step
         index: Index of this generation step, for use internally in `Generation
@@ -1059,7 +1059,7 @@ class GenerationStep(GenerationNode, SortableBase):
         generator: GeneratorRegistryBase,
         num_trials: int,
         model_kwargs: dict[str, Any] | None = None,
-        model_gen_kwargs: dict[str, Any] | None = None,
+        generator_gen_kwargs: dict[str, Any] | None = None,
         completion_criteria: Sequence[TransitionCriterion] | None = None,
         min_trials_observed: int = 0,
         max_parallelism: int | None = None,
@@ -1092,7 +1092,7 @@ class GenerationStep(GenerationNode, SortableBase):
         self.use_update = use_update
 
         model_kwargs = model_kwargs or {}
-        model_gen_kwargs = model_gen_kwargs or {}
+        generator_gen_kwargs = generator_gen_kwargs or {}
 
         if (
             self.enforce_num_trials
@@ -1115,7 +1115,7 @@ class GenerationStep(GenerationNode, SortableBase):
             generator_spec = GeneratorSpec(
                 generator_enum=self.generator,
                 model_kwargs=model_kwargs,
-                model_gen_kwargs=model_gen_kwargs,
+                generator_gen_kwargs=generator_gen_kwargs,
             )
         if not generator_name:
             generator_name = generator_spec.generator_key
@@ -1178,9 +1178,9 @@ class GenerationStep(GenerationNode, SortableBase):
         return self.generator_spec.model_kwargs
 
     @property
-    def model_gen_kwargs(self) -> dict[str, Any]:
+    def generator_gen_kwargs(self) -> dict[str, Any]:
         """Returns the model gen kwargs of the underlying ``GeneratorSpec``."""
-        return self.generator_spec.model_gen_kwargs
+        return self.generator_spec.generator_gen_kwargs
 
     @property
     def generator_spec(self) -> GeneratorSpec:

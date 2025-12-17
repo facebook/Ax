@@ -174,13 +174,13 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         new_features = ObservationFeatures(parameters={"a": 1.0})
         ms.fixed_features = new_features
         self.assertEqual(ms.fixed_features, new_features)
-        self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
+        self.assertEqual(ms.generator_gen_kwargs["fixed_features"], new_features)
 
     def test_spec_string_representation(self) -> None:
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs={"test_model_kwargs": 1},
-            model_gen_kwargs={"test_gen_kwargs": 1},
+            generator_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
         )
         ms.generator_key_override = "test_model_key_override"
@@ -197,7 +197,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs={"test_model_kwargs": 1},
-            model_gen_kwargs={"test_gen_kwargs": 1},
+            generator_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
         )
         ms.generator_key_override = "test_model_key_override"

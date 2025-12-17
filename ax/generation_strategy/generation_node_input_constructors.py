@@ -253,8 +253,8 @@ def _get_default_n(experiment: Experiment, next_node: GenerationNode) -> int:
         provided to the ``GenerationStrategy``'s gen call.
     """
     # If the generator spec contains `n` use that value first
-    if next_node.generator_spec_to_gen_from.model_gen_kwargs.get("n") is not None:
-        return next_node.generator_spec_to_gen_from.model_gen_kwargs["n"]
+    if next_node.generator_spec_to_gen_from.generator_gen_kwargs.get("n") is not None:
+        return next_node.generator_spec_to_gen_from.generator_gen_kwargs["n"]
 
     n_for_this_trial = None
     total_concurrent_arms = experiment._properties.get(

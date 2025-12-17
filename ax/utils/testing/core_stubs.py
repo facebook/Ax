@@ -2974,12 +2974,12 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
     sobol_generator_spec = GeneratorSpec(
         generator_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
-        model_gen_kwargs={},
+        generator_gen_kwargs={},
     )
     mbm_generator_spec = GeneratorSpec(
         generator_enum=Generators.BOTORCH_MODULAR,
         model_kwargs=step_model_kwargs,
-        model_gen_kwargs={},
+        generator_gen_kwargs={},
     )
     sobol_node = GenerationNode(
         name="sobol_node",
