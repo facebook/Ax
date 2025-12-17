@@ -22,7 +22,11 @@ from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.arm import Arm
-from ax.core.auxiliary import AuxiliaryExperiment
+from ax.core.auxiliary import (
+    AuxiliaryExperiment,
+    AuxiliaryExperimentPurpose,
+    TransferLearningMetadata,
+)
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -38,7 +42,12 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import ObjectNotFoundError, TrialMutationError, UnsupportedError
+from ax.exceptions.core import (
+    MisconfiguredExperiment,
+    ObjectNotFoundError,
+    TrialMutationError,
+    UnsupportedError,
+)
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -64,7 +73,10 @@ from ax.storage.sqa_store.load import (
     _get_experiment_immutable_opt_config_and_search_space,
     _get_experiment_sqa_immutable_opt_config_and_search_space,
     _get_generation_strategy_sqa_immutable_opt_config_and_search_space,
+    _query_historical_experiments_given_parameters,
+    identify_transferable_experiments,
     load_analysis_cards_by_experiment_name,
+    load_candidate_source_auxiliary_experiments,
     load_experiment,
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
@@ -144,6 +156,10 @@ logger: Logger = get_logger(__name__)
 
 GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_search_space
 T = TypeVar("T")
+
+
+class TestExperimentTypeEnum(Enum):
+    TEST = 0
 
 
 class SQAStoreTest(TestCase):
@@ -494,9 +510,6 @@ class SQAStoreTest(TestCase):
             save_experiment(self.experiment)
 
     def test_saving_an_experiment_with_type_works_with_an_enum(self) -> None:
-        class TestExperimentTypeEnum(Enum):
-            TEST = 0
-
         self.experiment.experiment_type = "TEST"
         save_experiment(
             self.experiment,
@@ -507,10 +520,7 @@ class SQAStoreTest(TestCase):
     def test_saving_an_experiment_with_type_errors_with_missing_enum_value(
         self,
     ) -> None:
-        class TestExperimentTypeEnum(Enum):
-            NOT_TEST = 0
-
-        self.experiment.experiment_type = "TEST"
+        self.experiment.experiment_type = "MISSING_TEST"
         with self.assertRaises(SQAEncodeError):
             save_experiment(
                 self.experiment,
@@ -2900,3 +2910,306 @@ class SQAStoreTest(TestCase):
         )
         # Full GS fails the equality check
         self.assertEqual(str(generation_strategy), str(loaded_generation_strategy))
+
+    def test_query_historical_experiments_given_parameters(self) -> None:
+        # This test validates the query behavior for historical experiments.
+        config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+
+        with self.subTest("returns_empty_when_no_matching_experiments"):
+            # Query with empty experiment_types list should return empty
+            result = _query_historical_experiments_given_parameters(
+                parameter_names=["w", "x"],
+                experiment_types=[],
+                config=config,
+            )
+            self.assertEqual(result, {})
+
+        with self.subTest("returns_empty_with_empty_parameter_names"):
+            # Query with empty parameter names should return empty dict
+            result = _query_historical_experiments_given_parameters(
+                parameter_names=[],
+                experiment_types=["TEST"],
+                config=config,
+            )
+            self.assertEqual(result, {})
+
+        # Integration test: save experiment with data, then query for it
+        with self.subTest("returns_experiments_with_matching_parameters"):
+            # Create and save an experiment with data (required by query)
+            experiment = get_experiment_with_batch_trial()
+            experiment.name = "exp_for_historical_query"
+            experiment.experiment_type = "TEST"
+            experiment.is_test = False  # Query filters out is_test=True
+            # Attach data to the experiment (required for the query join)
+            trial = experiment.trials[0]
+            experiment.attach_data(get_data(trial_index=trial.index))
+            save_experiment(experiment, config=config)
+
+            # Verify that the experiment was saved correctly by loading it
+            loaded_exp = load_experiment(experiment.name, config=config)
+            self.assertEqual(loaded_exp.experiment_type, "TEST")
+            self.assertFalse(loaded_exp.is_test)
+
+            # Execute: Query for experiments with matching parameters
+            # The experiment has parameters: w, x, y, z (from get_search_space)
+            result = _query_historical_experiments_given_parameters(
+                parameter_names=["w", "x"],
+                experiment_types=["TEST"],
+                config=config,
+            )
+
+            # Assert: Should find the experiment with the matching parameters
+            self.assertIn(experiment.name, result)
+            returned_ss = result[experiment.name]
+            self.assertIsNotNone(returned_ss)
+            # The returned search space should contain w and x
+            self.assertIn("w", none_throws(returned_ss).parameters)
+            self.assertIn("x", none_throws(returned_ss).parameters)
+
+    def test_identify_transferable_experiments(
+        self,
+    ) -> None:
+        with self.subTest("returns_empty_when_no_experiments"):
+            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+
+            # No experiments are saved, so should return empty
+            search_space = get_search_space()
+            result = identify_transferable_experiments(
+                search_space=search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.0,
+                max_num_exps=10,
+                config=config,
+            )
+            self.assertEqual(result, {})
+
+        with self.subTest("returns_transferable_experiments_with_overlap"):
+            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+
+            # Create and save a source experiment with data
+            # Use get_experiment_with_batch_trial which has search space with w, x, y, z
+            source_experiment = get_experiment_with_batch_trial()
+            source_experiment.name = "source_exp_for_transfer"
+            source_experiment.experiment_type = "TEST"
+            source_experiment.is_test = False
+            trial = source_experiment.trials[0]
+            source_experiment.attach_data(get_data(trial_index=trial.index))
+            save_experiment(source_experiment, config=config)
+
+            # Execute: Find transferable experiments for a target search space
+            # that only has RangeParameters w and x (overlapping with source)
+            # Note: We use only RangeParameters to avoid incompatibility issues
+            # with Choice/Fixed parameters that have different values
+            from ax.core.search_space import SearchSpace
+
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w
+                    get_range_parameter2(),  # x
+                ]
+            )
+            result = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.0,
+                max_num_exps=10,
+                config=config,
+            )
+
+            # Assert: Should find the source experiment
+            self.assertIn("source_exp_for_transfer", result)
+            metadata = result["source_exp_for_transfer"]
+            # Should have overlap_parameters populated
+            self.assertIsNotNone(metadata.overlap_parameters)
+            # Both range parameters should overlap (w, x)
+            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 2)
+
+        with self.subTest("filters_by_overlap_threshold"):
+            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+
+            # Create and save a source experiment with parameters w, x, y, z
+            source_experiment = get_experiment_with_batch_trial()
+            source_experiment.name = "exp_with_partial_overlap"
+            source_experiment.experiment_type = "TEST"
+            source_experiment.is_test = False
+            trial = source_experiment.trials[0]
+            source_experiment.attach_data(get_data(trial_index=trial.index))
+            save_experiment(source_experiment, config=config)
+
+            # Target has 6 range parameters: w, x overlap with source (33% overlap)
+            from ax.core.search_space import SearchSpace
+
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w - overlaps
+                    get_range_parameter2(),  # x - overlaps
+                    RangeParameter(
+                        name="extra1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0,
+                        upper=10,
+                    ),
+                    RangeParameter(
+                        name="extra2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0,
+                        upper=10,
+                    ),
+                    RangeParameter(
+                        name="extra3",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0,
+                        upper=10,
+                    ),
+                    RangeParameter(
+                        name="extra4",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0,
+                        upper=10,
+                    ),
+                ]
+            )
+
+            # Execute with threshold of 0.2 (20%) - should include experiment
+            # since overlap is ~33% which exceeds 20%
+            result_above = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.2,  # Threshold below the ~33% overlap
+                max_num_exps=10,
+                config=config,
+            )
+
+            # Assert: Should find experiment
+            self.assertIn("exp_with_partial_overlap", result_above)
+            # Verify overlap metadata is correct
+            metadata = result_above["exp_with_partial_overlap"]
+            self.assertIsNotNone(metadata.overlap_parameters)
+            # Should have 2 overlapping parameters (w and x)
+            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 2)
+
+            # Execute with threshold of 0.5 (50%) - should exclude experiment
+            # since overlap is only ~33%
+            result_below = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.5,  # Threshold above the ~33% overlap
+                max_num_exps=10,
+                config=config,
+            )
+
+            # Assert: Should NOT find experiment due to threshold
+            self.assertNotIn("exp_with_partial_overlap", result_below)
+
+        with self.subTest("respects_max_num_exps"):
+            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+
+            # Create multiple experiments with the same type and matching params
+            for i in range(3):
+                exp = get_experiment_with_batch_trial()
+                exp.name = f"max_exp_{i}"
+                exp.experiment_type = "TEST"
+                exp.is_test = False
+                trial = exp.trials[0]
+                exp.attach_data(get_data(trial_index=trial.index))
+                save_experiment(exp, config=config)
+
+            # Use a target search space with only RangeParameters
+            from ax.core.search_space import SearchSpace
+
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w
+                    get_range_parameter2(),  # x
+                ]
+            )
+
+            # Execute with max_num_exps=1
+            result = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.0,
+                max_num_exps=1,
+                config=config,
+            )
+
+            # Assert: Should only return 1 experiment
+            self.assertEqual(len(result), 1)
+
+    def test_load_candidate_source_auxiliary_experiments(self) -> None:
+        with self.subTest("raises_when_no_experiment_type"):
+            experiment = get_branin_experiment()
+            experiment._experiment_type = None
+
+            with self.assertRaisesRegex(
+                MisconfiguredExperiment,
+                "Cannot identify transferable experiments because the target "
+                "experiment does not have an experiment type",
+            ):
+                load_candidate_source_auxiliary_experiments(
+                    target_experiment=experiment,
+                    purpose=AuxiliaryExperimentPurpose.TRANSFERABLE_EXPERIMENT,
+                )
+
+        with self.subTest("returns_empty_for_unsupported_purpose"):
+            experiment = get_branin_experiment()
+            experiment._experiment_type = "TEST"
+
+            with self.assertRaisesRegex(
+                NotImplementedError,
+                "Loading candidate source auxiliary experiments for purpose "
+                f"{AuxiliaryExperimentPurpose.PE_EXPERIMENT} is not yet implemented.",
+            ):
+                result = load_candidate_source_auxiliary_experiments(
+                    target_experiment=experiment,
+                    purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+                )
+
+        with self.subTest("returns_candidate_experiments_for_transfer_learning"):
+            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+
+            # Create and save source experiments with data attached
+            # (required by the query which joins on SQAData)
+            for i in range(2):
+                source_exp = get_experiment_with_batch_trial()
+                source_exp.name = f"candidate_source_exp_{i}"
+                source_exp.experiment_type = "TEST"
+                source_exp.is_test = False
+                trial = source_exp.trials[0]
+                source_exp.attach_data(get_data(trial_index=trial.index))
+                save_experiment(source_exp, config=config)
+
+            # Create target experiment with same experiment type
+            # Use only RangeParameters to ensure overlap with source experiments
+            from ax.core.search_space import SearchSpace
+
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w
+                    get_range_parameter2(),  # x
+                ]
+            )
+            target_experiment = Experiment(
+                name="target_exp_for_candidates",
+                search_space=target_search_space,
+                experiment_type="TEST",
+            )
+
+            # Execute: Load candidate source auxiliary experiments
+            result = load_candidate_source_auxiliary_experiments(
+                target_experiment=target_experiment,
+                purpose=AuxiliaryExperimentPurpose.TRANSFERABLE_EXPERIMENT,
+                config=config,
+            )
+
+            # Assert: Should find the source experiments
+            self.assertIn("candidate_source_exp_0", result)
+            self.assertIn("candidate_source_exp_1", result)
+            # Verify the metadata contains overlap information
+            metadata_0 = result["candidate_source_exp_0"]
+            self.assertIsInstance(metadata_0, TransferLearningMetadata)
+            # Cast to TransferLearningMetadata to access overlap_parameters
+            tl_metadata_0 = cast(TransferLearningMetadata, metadata_0)
+            self.assertIsNotNone(tl_metadata_0.overlap_parameters)
+            # Should have 2 overlapping parameters (w and x)
+            self.assertEqual(len(none_throws(tl_metadata_0.overlap_parameters)), 2)

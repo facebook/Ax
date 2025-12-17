@@ -538,6 +538,101 @@ class SearchSpaceTest(TestCase):
         ):
             self.ss1._validate_derived_parameter(parameter=derived_param)
 
+    def test_get_overlapping_parameters(self) -> None:
+        with self.subTest("full_overlap"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            fixed_param_1 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1, fixed_param_1])
+
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            fixed_param_2 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2, fixed_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(sorted(result), ["x", "y"])
+
+        with self.subTest("partial_overlap"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            range_param_2 = RangeParameter(
+                name="y",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1, range_param_2])
+
+            range_param_3 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_3])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, ["x"])
+
+        with self.subTest("no_overlap_different_params"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1])
+
+            range_param_2 = RangeParameter(
+                name="y",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, [])
+
+        with self.subTest("no_overlap_incompatible_fixed_params"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_1 = SearchSpace(parameters=[fixed_param_1])
+
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="bar",
+            )
+            search_space_2 = SearchSpace(parameters=[fixed_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, [])
+
 
 class SearchSpaceDigestTest(TestCase):
     def setUp(self) -> None:

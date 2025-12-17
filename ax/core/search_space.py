@@ -459,6 +459,57 @@ class SearchSpace(Base):
 
         return True
 
+    def get_overlapping_parameters(
+        self, other: SearchSpace, raise_error: bool = False
+    ) -> list[str]:
+        """Get the list of compatible overlapping parameters between this search
+        space and another.
+
+        Two parameters are considered overlapping if they have the same name and
+        are compatible (same parameter type and domain type, and for fixed and
+        choice parameters, the same values).
+
+        Args:
+            other: Another SearchSpace object to compare against.
+            raise_error: Whether to raise an error if there are incompatible
+                non-range parameters with the same name.
+
+        Returns:
+            A list of parameter names that are present and compatible in both
+            search spaces. Returns an empty list if there are incompatible
+            fixed or choice parameters (since such search spaces cannot be
+            meaningfully compared).
+        """
+        common_param_names = set(self.parameters.keys()) & set(other.parameters.keys())
+
+        common_param_compatibility = {
+            param_name: self.parameters[param_name].is_compatible_with(
+                other.parameters[param_name]
+            )
+            for param_name in common_param_names
+        }
+
+        incompatible_params = {
+            param_name
+            for param_name in common_param_names
+            if not common_param_compatibility[param_name]
+            and not isinstance(other.parameters[param_name], RangeParameter)
+        }
+
+        if len(incompatible_params) > 0:
+            if raise_error:
+                raise UserInputError(
+                    "Search spaces are incompatible because the following "
+                    f"parameters have different values: {incompatible_params}."
+                )
+            return []
+
+        return [
+            param_name
+            for param_name in common_param_names
+            if common_param_compatibility[param_name]
+        ]
+
     def cast_arm(self, arm: Arm) -> Arm:
         """Cast parameterization of given arm to the types in this SearchSpace.
 
