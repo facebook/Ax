@@ -242,12 +242,12 @@ class TestGenerationStrategy(TestCase):
         self.sobol_generator_spec = GeneratorSpec(
             generator_enum=Generators.SOBOL,
             model_kwargs=self.step_model_kwargs,
-            model_gen_kwargs={},
+            generator_gen_kwargs={},
         )
         self.mbm_generator_spec = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=self.step_model_kwargs,
-            model_gen_kwargs={},
+            generator_gen_kwargs={},
         )
         self.sobol_node = GenerationNode(
             name="sobol_node",
@@ -462,7 +462,7 @@ class TestGenerationStrategy(TestCase):
                         GeneratorSpec(
                             generator_enum=Generators.SOBOL,
                             model_kwargs={},
-                            model_gen_kwargs={},
+                            generator_gen_kwargs={},
                         ),
                     ],
                 )

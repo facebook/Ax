@@ -59,7 +59,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.sobol_generator_spec = GeneratorSpec(
             generator_enum=Generators.SOBOL,
             model_kwargs={"init_position": 3},
-            model_gen_kwargs={"some_gen_kwarg": "some_value"},
+            generator_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.sobol_generation_node = GenerationNode(
             name="test", generator_specs=[self.sobol_generator_spec]

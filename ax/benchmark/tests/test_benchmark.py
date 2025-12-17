@@ -151,7 +151,7 @@ class TestBenchmark(TestCase):
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     batch_size=batch_size,
-                    model_gen_kwargs={
+                    generator_gen_kwargs={
                         "model_gen_options": {
                             "optimizer_kwargs": {"sequential": sequential}
                         }

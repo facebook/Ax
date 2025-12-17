@@ -430,8 +430,8 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
         "model_kwargs": _encode_callables_as_references(
             generation_step.model_kwargs or {}
         ),
-        "model_gen_kwargs": _encode_callables_as_references(
-            generation_step.model_gen_kwargs or {}
+        "generator_gen_kwargs": _encode_callables_as_references(
+            generation_step.generator_gen_kwargs or {}
         ),
         "index": generation_step.index,
         "should_deduplicate": generation_step.should_deduplicate,
@@ -496,7 +496,7 @@ def generator_spec_to_dict(generator_spec: GeneratorSpec) -> dict[str, Any]:
         "__type": generator_spec.__class__.__name__,
         "generator_enum": generator_spec.generator_enum,
         "model_kwargs": generator_spec.model_kwargs,
-        "model_gen_kwargs": generator_spec.model_gen_kwargs,
+        "generator_gen_kwargs": generator_spec.generator_gen_kwargs,
         "model_cv_kwargs": generator_spec.model_cv_kwargs,
         "generator_key_override": generator_spec.generator_key_override,
     }

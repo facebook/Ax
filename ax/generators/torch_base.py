@@ -57,7 +57,7 @@ class TorchOptConfig:
             models may support additional arguments that are not passed to the
             optimizer. While constructing a generation strategy, these options
             can be passed in as follows:
-            >>> model_gen_kwargs = {
+            >>> generator_gen_kwargs = {
             >>>     "model_gen_options": {
             >>>         "optimizer_kwargs": {
             >>>             "num_restarts": 20,
