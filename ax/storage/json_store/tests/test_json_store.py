@@ -342,7 +342,7 @@ TEST_CASES = [
             generator_enum=Generators.BOTORCH_MODULAR,
             generator_kwargs={"some_kwarg": "some_value"},
             generator_gen_kwargs={"n": 5},
-            model_cv_kwargs={"untransform": False},
+            cv_kwargs={"untransform": False},
             generator_key_override="custom_generator_key",
         ),
     ),
@@ -1235,6 +1235,9 @@ class JSONStoreTest(TestCase):
                             "acquisition_function_kwargs": {},
                         }
                     },
+                    "model_cv_kwargs": {
+                        "test_cv_kwarg": True,
+                    },
                 }
             ],
             "best_model_selector": None,
@@ -1285,6 +1288,7 @@ class JSONStoreTest(TestCase):
                 }
             },
         )
+        self.assertEqual(node.generator_specs[0].cv_kwargs, {"test_cv_kwarg": True})
 
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.

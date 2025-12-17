@@ -75,7 +75,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             diagnostic='Fisher exact test p',
             metric_aggregation=ReductionCriterion.MEAN,
             criterion=ReductionCriterion.MIN,
-            model_cv_kwargs={"untransform": False},
+            cv_kwargs={"untransform": False},
         )
         best_model = s.best_model(generator_specs=generator_specs)
 
@@ -86,7 +86,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             diagnostic for a single model to produce a single number.
         criterion: ``ReductionCriterion`` used to determine which of the
             (aggregated) diagnostics is the best.
-        model_cv_kwargs: Optional dictionary of kwargs to pass in while computing
+        cv_kwargs: Optional dictionary of kwargs to pass in while computing
             the cross validation diagnostics.
     """
 
@@ -95,7 +95,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         diagnostic: str,
         metric_aggregation: ReductionCriterion,
         criterion: ReductionCriterion,
-        model_cv_kwargs: dict[str, Any] | None = None,
+        cv_kwargs: dict[str, Any] | None = None,
     ) -> None:
         self.diagnostic = diagnostic
         if not isinstance(metric_aggregation, ReductionCriterion) or not isinstance(
@@ -111,7 +111,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             )
         self.metric_aggregation = metric_aggregation
         self.criterion = criterion
-        self.model_cv_kwargs = model_cv_kwargs
+        self.cv_kwargs = cv_kwargs
 
     def best_model(self, generator_specs: list[GeneratorSpec]) -> GeneratorSpec:
         """Return the best ``GeneratorSpec`` based on the specified diagnostic.
@@ -123,7 +123,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             The best ``GeneratorSpec`` based on the specified diagnostic.
         """
         for generator_spec in generator_specs:
-            generator_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)
+            generator_spec.cross_validate(cv_kwargs=self.cv_kwargs)
         aggregated_diagnostic_values = [
             self.metric_aggregation(
                 list(none_throws(generator_spec.diagnostics)[self.diagnostic].values())
