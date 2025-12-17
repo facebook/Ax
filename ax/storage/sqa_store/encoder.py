@@ -13,7 +13,6 @@ from typing import Any, cast
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
-
 from ax.core.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
@@ -900,7 +899,7 @@ class Encoder:
             ),
             model_state_after_gen=(
                 object_to_json(
-                    generator_run._model_state_after_gen,
+                    generator_run._generator_state_after_gen,
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )

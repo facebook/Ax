@@ -25,7 +25,7 @@ SQA_COL_TO_GR_ATTR = {
     "model_kwargs": "generator_kwargs",
     "bridge_kwargs": "adapter_kwargs",
     "gen_metadata": "gen_metadata",
-    "model_state_after_gen": "model_state_after_gen",
+    "model_state_after_gen": "generator_state_after_gen",
 }
 
 

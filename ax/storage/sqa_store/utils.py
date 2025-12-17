@@ -33,7 +33,7 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_memo_df",
     "_generator_kwargs",
     "_model_predictions",
-    "_model_state_after_gen",
+    "_generator_state_after_gen",
     "_model",
     "_seen_trial_indices_by_status",
     "_steps",

@@ -15,7 +15,7 @@ from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.factory import get_sobol
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
-    _extract_model_state_after_gen,
+    _extract_generator_state_after_gen,
     Cont_X_trans,
     GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
@@ -89,8 +89,8 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
 
     @mock_botorch_optimize
     @patch(
-        "ax.generation_strategy.generation_node._extract_model_state_after_gen",
-        wraps=_extract_model_state_after_gen,
+        "ax.generation_strategy.generation_node._extract_generator_state_after_gen",
+        wraps=_extract_generator_state_after_gen,
     )
     def test_with_model_selection(self, mock_model_state: Mock) -> None:
         """Test that a GS with a model selection node functions correctly."""
@@ -563,7 +563,7 @@ class TestGenerationStrategy(TestCase):
                         "fit_on_init": True,
                     },
                 )
-                ms = none_throws(g._model_state_after_gen).copy()
+                ms = none_throws(g._generator_state_after_gen).copy()
                 # Compare the model state to Sobol state.
                 sobol_generator = assert_is_instance(
                     none_throws(gs.adapter).generator, SobolGenerator
@@ -1498,7 +1498,7 @@ class TestGenerationStrategy(TestCase):
                         "fit_on_init": True,
                     },
                 )
-                ms = none_throws(g._model_state_after_gen).copy()
+                ms = none_throws(g._generator_state_after_gen).copy()
                 # Compare the model state to Sobol state.
                 sobol_model = assert_is_instance(
                     none_throws(self.sobol_MBM_GS_nodes.adapter).generator,

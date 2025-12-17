@@ -1103,7 +1103,7 @@ class JSONStoreTest(TestCase):
             "gen_metadata": {
                 "model_fit_quality": None,
             },
-            "model_state_after_gen": None,
+            "model_state_after_gen": {"dummy": 5.0},
             "generation_step_index": None,
             "candidate_metadata_by_arm_signature": None,
             "generation_node_name": None,
@@ -1125,6 +1125,7 @@ class JSONStoreTest(TestCase):
             },
         )
         self.assertEqual(generator_run._generator_key, "Sobol")
+        self.assertEqual(generator_run._generator_state_after_gen, {"dummy": 5.0})
 
     def test_generation_node_backwards_compatibility(self) -> None:
         # Checks that deprecated input constructors are discarded gracefully.

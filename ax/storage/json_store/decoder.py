@@ -364,6 +364,10 @@ def generator_run_from_json(
         object_json["generator_kwargs"] = object_json.pop("model_kwargs")
     if "bridge_kwargs" in object_json:
         object_json["adapter_kwargs"] = object_json.pop("bridge_kwargs")
+    if "model_state_after_gen" in object_json:
+        object_json["generator_state_after_gen"] = object_json.pop(
+            "model_state_after_gen"
+        )
 
     generator_run = GeneratorRun(
         **{

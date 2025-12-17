@@ -459,13 +459,13 @@ class Generators(GeneratorRegistryBase):
     BO_MIXED = "BO_MIXED"
 
 
-def _extract_model_state_after_gen(
+def _extract_generator_state_after_gen(
     generator_run: GeneratorRun, generator_class: type[Generator]
 ) -> dict[str, Any]:
     """Extracts serialized post-generation model state from a generator run and
     deserializes it.
     """
-    serialized_model_state = generator_run._model_state_after_gen or {}
+    serialized_model_state = generator_run._generator_state_after_gen or {}
     return generator_class.deserialize_state(serialized_model_state)
 
 

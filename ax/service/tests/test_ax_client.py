@@ -2170,7 +2170,7 @@ class TestAxClient(TestCase):
                     # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run`.
                     ax_client.experiment.trials[
                         idx
-                    ]._generator_run._model_state_after_gen["init_position"],
+                    ]._generator_run._generator_state_after_gen["init_position"],
                     idx + 1,
                 )
                 self.assertEqual(params, new_params)

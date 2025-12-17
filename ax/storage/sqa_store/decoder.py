@@ -832,7 +832,7 @@ class Decoder:
                     class_decoder_registry=self.config.json_class_decoder_registry,
                 )
             ),
-            model_state_after_gen=(
+            generator_state_after_gen=(
                 None
                 if reduced_state
                 else object_from_json(
