@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import logging
-
+import warnings
 from logging import Logger
 from typing import Any
 
@@ -48,6 +48,7 @@ try:
             smoothing: float = SMOOTHING_DEFAULT,
             cumulative_best: bool = False,
             percentile: float | None = None,
+            quantile: float | None = None,
         ) -> None:
             """
             Args:
@@ -60,10 +61,13 @@ try:
                 cumulative_best: If True, for each trial, apply cumulative best to
                     the curve (i.e., if lower is better, then we return a curve
                     representing the cumulative min of the raw curve).
-                percentile: If not None, return the (rolling) percentile value
-                    of the curve.
-                    e.g. if the original curve is [0, 6, 4, 2] and percentile=0.5, then
-                    the returned curve is [0, 3, 4, 3]. Rolling percentile is applied
+                percentile: DEPRECATED. Use `quantile` instead. If not None, return
+                    the (rolling) quantile value of the curve. Despite the name, this
+                    parameter expects a value in [0, 1] (like a quantile), not [0, 100].
+                quantile: If not None, return the (rolling) quantile value of the curve.
+                    Expects a value in [0, 1].
+                    e.g. if the original curve is [0, 6, 4, 2] and quantile=0.5, then
+                    the returned curve is [0, 3, 4, 3]. Rolling quantile is applied
                     after any potential smoothing or cumulative_best processing.
             """
             super().__init__(name=name, lower_is_better=lower_is_better)
@@ -72,10 +76,34 @@ try:
                 raise ValueError(
                     f"smoothing must be in the range [0, 1), got {smoothing}."
                 )
+
+            if percentile is not None and quantile is not None:
+                raise ValueError(
+                    "Cannot specify both `percentile` and `quantile`. "
+                    "Please use `quantile` only, as `percentile` is deprecated."
+                )
+
+            if percentile is not None:
+                warnings.warn(
+                    "The `percentile` argument is deprecated and will be removed in "
+                    "a future release. Please use `quantile` instead. Note that "
+                    "despite the name, `percentile` has always expected a value in "
+                    "[0, 1] (like a quantile), not [0, 100].",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                quantile = percentile
+
+            if quantile is not None and not (0 <= quantile <= 1):
+                raise ValueError(
+                    f"quantile must be in the range [0, 1], got {quantile}."
+                )
+
             self.smoothing = smoothing
             self.tag = tag
             self.cumulative_best = cumulative_best
-            self.percentile = percentile
+            self.percentile = quantile  # deprecated, left for backwards compatibility
+            self.quantile = quantile
 
         @classmethod
         def is_available_while_running(cls) -> bool:
@@ -271,9 +299,9 @@ try:
                 df["mean"] = df["mean"].ewm(alpha=1 - metric.smoothing).mean()
                 df["sem"] = df["sem"].ewm(alpha=1 - metric.smoothing).mean()
 
-            # Apply rolling percentile
-            if metric.percentile is not None:
-                df["mean"] = df["mean"].expanding().quantile(metric.percentile)
+            # Apply rolling quantile
+            if metric.quantile is not None:
+                df["mean"] = df["mean"].expanding().quantile(metric.quantile)
 
             # Apply per-metric post-processing
             # Apply cumulative "best" (min if lower_is_better)
