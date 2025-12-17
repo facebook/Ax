@@ -18,6 +18,7 @@ from ax.analysis.plotly.scatter import (
     SCATTER_CARDGROUP_TITLE,
     ScatterPlot,
 )
+from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
@@ -216,6 +217,19 @@ class ResultsAnalysis(Analysis):
             else None
         )
 
+        # Add utility progression if there are objectives
+        # Skip for experiments with ScalarizedOutcomeConstraint as feasibility
+        # evaluation for scalarized outcome constraints is not yet implemented
+        utility_progression_card = (
+            UtilityProgressionAnalysis().compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            if len(objective_names) > 0 and not has_scalarized_outcome_constraints
+            else None
+        )
+
         summary = Summary().compute_or_error_card(
             experiment=experiment,
             generation_strategy=generation_strategy,
@@ -228,6 +242,7 @@ class ResultsAnalysis(Analysis):
             children=[
                 child
                 for child in (
+                    utility_progression_card,
                     arm_effect_pair_group,
                     objective_scatter_group,
                     constraint_scatter_group,
