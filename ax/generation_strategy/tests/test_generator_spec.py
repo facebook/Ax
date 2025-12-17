@@ -209,3 +209,54 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertNotIn("test_gen_kwargs", repr_str)
         self.assertNotIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)
+
+    def test_backwards_compatibility_deprecated_kwargs(self) -> None:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ms = GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_kwargs={"seed": 123},
+                model_gen_kwargs={"n": 5},
+                model_cv_kwargs={"test": "value"},
+            )
+        # Should get three warnings
+        self.assertEqual(len(w), 3)
+        self.assertIn("model_kwargs", str(w[0].message))
+        self.assertIn("model_gen_kwargs", str(w[1].message))
+        self.assertIn("model_cv_kwargs", str(w[2].message))
+
+        # Verify all values were transferred correctly
+        self.assertEqual(ms.generator_kwargs, {"seed": 123})
+        self.assertEqual(ms.generator_gen_kwargs, {"n": 5})
+        self.assertEqual(ms.cv_kwargs, {"test": "value"})
+
+    def test_backwards_compatibility_conflicts(self) -> None:
+        """Test that using both old and new kwargs raises an error."""
+        with self.assertRaisesRegex(
+            UserInputError, "Cannot specify both `model_kwargs` and `generator_kwargs`"
+        ):
+            GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_kwargs={"seed": 123},
+                generator_kwargs={"seed": 456},
+            )
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Cannot specify both `model_gen_kwargs` and `generator_gen_kwargs`",
+        ):
+            GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_gen_kwargs={"n": 5},
+                generator_gen_kwargs={"n": 10},
+            )
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Cannot specify both `model_cv_kwargs` and `cv_kwargs`",
+        ):
+            GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_cv_kwargs={"test": "value"},
+                cv_kwargs={"test": "other"},
+            )

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import warnings
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from typing import Any
 
 from ax.adapter.base import Adapter
@@ -53,6 +53,15 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     # An optional override for the generator key. Each `GeneratorSpec` in a
     # `GenerationNode` must have a unique key to ensure identifiability.
     generator_key_override: str | None = None
+    # Deprecated: Use `generator_kwargs` instead.
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    model_kwargs: InitVar[dict[str, Any] | None] = None
+    # Deprecated: Use `generator_gen_kwargs` instead.
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    model_gen_kwargs: InitVar[dict[str, Any] | None] = None
+    # Deprecated: Use `cv_kwargs` instead.
+    # pyre-ignore [16]: Pyre doesn't understand InitVars.
+    model_cv_kwargs: InitVar[dict[str, Any] | None] = None
 
     # Fitted model, constructed using specified `generator_kwargs` and `Data`
     # on `GeneratorSpec.fit`
@@ -70,7 +79,57 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     # Stored to check if the model can be safely updated in fit.
     _last_fit_arg_ids: dict[str, int] | None = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(
+        self,
+        model_kwargs: dict[str, Any] | None,
+        model_gen_kwargs: dict[str, Any] | None,
+        model_cv_kwargs: dict[str, Any] | None,
+    ) -> None:
+        # Handle deprecated `model_kwargs` argument.
+        if model_kwargs is not None:
+            warnings.warn(
+                "`model_kwargs` argument and similarly named attributes are "
+                "deprecated and will be removed in Ax 1.4. "
+                "Use `generator_kwargs` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.generator_kwargs:
+                raise UserInputError(
+                    "Cannot specify both `model_kwargs` and `generator_kwargs`."
+                )
+            self.generator_kwargs = model_kwargs
+
+        # Handle deprecated `model_gen_kwargs` argument.
+        if model_gen_kwargs is not None:
+            warnings.warn(
+                "`model_gen_kwargs` argument and similarly named attributes are "
+                "deprecated and will be removed in Ax 1.4. "
+                "Use `generator_gen_kwargs` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.generator_gen_kwargs:
+                raise UserInputError(
+                    "Cannot specify both `model_gen_kwargs` and `generator_gen_kwargs`."
+                )
+            self.generator_gen_kwargs = model_gen_kwargs
+
+        # Handle deprecated `model_cv_kwargs` argument.
+        if model_cv_kwargs is not None:
+            warnings.warn(
+                "`model_cv_kwargs` argument and similarly named attributes are "
+                "deprecated and will be removed in Ax 1.4. "
+                "Use `cv_kwargs` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.cv_kwargs:
+                raise UserInputError(
+                    "Cannot specify both `model_cv_kwargs` and `cv_kwargs`."
+                )
+            self.cv_kwargs = model_cv_kwargs
+
         self.generator_kwargs = self.generator_kwargs or {}
         self.generator_gen_kwargs = self.generator_gen_kwargs or {}
         self.cv_kwargs = self.cv_kwargs or {}
