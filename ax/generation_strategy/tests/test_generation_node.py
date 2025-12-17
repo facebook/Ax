@@ -44,12 +44,12 @@ class TestGenerationNode(TestCase):
         super().setUp()
         self.sobol_generator_spec = GeneratorSpec(
             generator_enum=Generators.SOBOL,
-            model_kwargs={"init_position": 3},
+            generator_kwargs={"init_position": 3},
             generator_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.mbm_generator_spec = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={},
+            generator_kwargs={},
             generator_gen_kwargs={},
         )
         self.sobol_generation_node = GenerationNode(
@@ -185,7 +185,7 @@ class TestGenerationNode(TestCase):
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
-                    model_kwargs={},
+                    generator_kwargs={},
                     generator_gen_kwargs={
                         "n": 1,
                         "fixed_features": ObservationFeatures(
@@ -228,7 +228,7 @@ class TestGenerationNode(TestCase):
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
-                    model_kwargs={},
+                    generator_kwargs={},
                     generator_gen_kwargs={
                         "n": 1,
                         "fixed_features": ObservationFeatures(
@@ -263,7 +263,7 @@ class TestGenerationNode(TestCase):
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
-                    model_kwargs={},
+                    generator_kwargs={},
                     generator_gen_kwargs={
                         "n": 1,
                         "fixed_features": ObservationFeatures(
@@ -284,8 +284,8 @@ class TestGenerationNode(TestCase):
             node.generator_specs[0].generator_enum,
         )
         self.assertEqual(
-            node.generator_spec_to_gen_from.model_kwargs,
-            node.generator_specs[0].model_kwargs,
+            node.generator_spec_to_gen_from.generator_kwargs,
+            node.generator_specs[0].generator_kwargs,
         )
         self.assertEqual(node.generator_to_gen_from_name, "BoTorch")
         self.assertEqual(
@@ -337,7 +337,7 @@ class TestGenerationNode(TestCase):
             generator_specs=[
                 GeneratorSpec(
                     generator_enum=Generators.BOTORCH_MODULAR,
-                    model_kwargs={},
+                    generator_kwargs={},
                     generator_gen_kwargs={
                         "n": 2,
                         "fixed_features": ObservationFeatures(parameters={"x": 0}),
@@ -377,15 +377,15 @@ class TestGenerationNode(TestCase):
 class TestGenerationStep(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.model_kwargs = {"init_position": 5}
+        self.generator_kwargs = {"init_position": 5}
         self.sobol_generation_step = GenerationStep(
             generator=Generators.SOBOL,
             num_trials=5,
-            model_kwargs=self.model_kwargs,
+            generator_kwargs=self.generator_kwargs,
         )
         self.generator_spec = GeneratorSpec(
             generator_enum=self.sobol_generation_step.generator,
-            model_kwargs=self.model_kwargs,
+            generator_kwargs=self.generator_kwargs,
         )
 
     def test_init(self) -> None:
@@ -411,7 +411,7 @@ class TestGenerationStep(TestCase):
             generator=Generators.SOBOL,
             num_trials=5,
             min_trials_observed=3,
-            model_kwargs=self.model_kwargs,
+            generator_kwargs=self.generator_kwargs,
             enforce_num_trials=False,
             generator_name="Custom Sobol",
             use_all_trials_in_exp=True,
@@ -446,7 +446,7 @@ class TestGenerationStep(TestCase):
                 generator=Generators.SOBOL,
                 num_trials=5,
                 min_trials_observed=10,
-                model_kwargs=self.model_kwargs,
+                generator_kwargs=self.generator_kwargs,
             )
 
     def test_init_factory_function(self) -> None:
@@ -460,12 +460,12 @@ class TestGenerationStep(TestCase):
         step = self.sobol_generation_step
         self.assertEqual(step.generator_spec, self.generator_spec)
         self.assertEqual(step._unique_id, "-1")
-        # Make sure that model_kwargs and generator_gen_kwargs are synchronized
+        # Make sure that generator_kwargs and generator_gen_kwargs are synchronized
         # to the underlying model spec.
         spec = step.generator_spec
-        spec.model_kwargs.update({"new_kwarg": 1})
+        spec.generator_kwargs.update({"new_kwarg": 1})
         spec.generator_gen_kwargs.update({"new_gen_kwarg": 1})
-        self.assertEqual(step.model_kwargs, spec.model_kwargs)
+        self.assertEqual(step.generator_kwargs, spec.generator_kwargs)
         self.assertEqual(step.generator_gen_kwargs, spec.generator_gen_kwargs)
 
 

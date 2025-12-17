@@ -49,7 +49,7 @@ class TestTransitionCriterion(TestCase):
         super().setUp()
         self.sobol_generator_spec = GeneratorSpec(
             generator_enum=Generators.SOBOL,
-            model_kwargs={"init_position": 3},
+            generator_kwargs={"init_position": 3},
             generator_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.branin_experiment = get_branin_experiment()

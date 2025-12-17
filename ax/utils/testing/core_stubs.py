@@ -2951,7 +2951,7 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
     """
     # Set up the node-based generation strategy for testing.
     # TODO: @mgarrard make this more realistic of an actual online gs
-    step_model_kwargs = {"silently_filter_kwargs": True}
+    step_generator_kwargs = {"silently_filter_kwargs": True}
     sobol_criterion = [
         MinTrials(
             threshold=1,
@@ -2973,12 +2973,12 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
     ]
     sobol_generator_spec = GeneratorSpec(
         generator_enum=Generators.SOBOL,
-        model_kwargs=step_model_kwargs,
+        generator_kwargs=step_generator_kwargs,
         generator_gen_kwargs={},
     )
     mbm_generator_spec = GeneratorSpec(
         generator_enum=Generators.BOTORCH_MODULAR,
-        model_kwargs=step_model_kwargs,
+        generator_kwargs=step_generator_kwargs,
         generator_gen_kwargs={},
     )
     sobol_node = GenerationNode(

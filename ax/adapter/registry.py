@@ -378,8 +378,8 @@ class GeneratorRegistryBase(Enum):
             self.GENERATOR_KEY_TO_GENERATOR_SETUP.get(self.value)
         )
         return (
-            self._get_model_kwargs(info=model_setup_info),
-            self._get_bridge_kwargs(info=model_setup_info),
+            self._get_generator_kwargs(info=model_setup_info),
+            self._get_adapter_kwargs(info=model_setup_info),
         )
 
     def view_kwargs(self) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -400,7 +400,7 @@ class GeneratorRegistryBase(Enum):
         )
 
     @staticmethod
-    def _get_model_kwargs(
+    def _get_generator_kwargs(
         info: GeneratorSetup, kwargs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return consolidate_kwargs(
@@ -409,7 +409,7 @@ class GeneratorRegistryBase(Enum):
         )
 
     @staticmethod
-    def _get_bridge_kwargs(
+    def _get_adapter_kwargs(
         info: GeneratorSetup, kwargs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return consolidate_kwargs(
@@ -442,7 +442,7 @@ class Generators(GeneratorRegistryBase):
     with a `SobolGenerator(scramble=False)` underlying model.
 
     NOTE: If you deprecate a model, please add its replacement to
-    `ax.storage.json_store.decoder._DEPRECATED_MODEL_TO_REPLACEMENT` to ensure
+    `ax.storage.json_store.decoder._DEPRECATED_GENERATOR_TO_REPLACEMENT` to ensure
     backwards compatibility of the storage layer.
     """
 

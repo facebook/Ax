@@ -197,7 +197,7 @@ class TestGenerationStrategy(TestCase):
         # NOTE: Starting with Python3.8 this is not a problem as `autospec=True`
         # ensures that the mocks have correct signatures, but in earlier
         # versions kwarg validation on mocks does not really work.
-        self.step_model_kwargs = {"silently_filter_kwargs": True}
+        self.step_generator_kwargs = {"silently_filter_kwargs": True}
         self.hss_experiment = get_hierarchical_search_space_experiment()
         self.sobol_GS = GenerationStrategy(
             steps=[
@@ -241,12 +241,12 @@ class TestGenerationStrategy(TestCase):
         ]
         self.sobol_generator_spec = GeneratorSpec(
             generator_enum=Generators.SOBOL,
-            model_kwargs=self.step_model_kwargs,
+            generator_kwargs=self.step_generator_kwargs,
             generator_gen_kwargs={},
         )
         self.mbm_generator_spec = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs=self.step_model_kwargs,
+            generator_kwargs=self.step_generator_kwargs,
             generator_gen_kwargs={},
         )
         self.sobol_node = GenerationNode(
@@ -368,12 +368,12 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=num_sobol_trials,
-                    model_kwargs=self.step_model_kwargs,
+                    generator_kwargs=self.step_generator_kwargs,
                 ),
                 GenerationStep(
                     generator=Generators.BOTORCH_MODULAR,
                     num_trials=num_mbm_trials,
-                    model_kwargs=self.step_model_kwargs,
+                    generator_kwargs=self.step_generator_kwargs,
                     enforce_num_trials=True,
                 ),
             ],
@@ -461,7 +461,7 @@ class TestGenerationStrategy(TestCase):
                     generator_specs=[
                         GeneratorSpec(
                             generator_enum=Generators.SOBOL,
-                            model_kwargs={},
+                            generator_kwargs={},
                             generator_gen_kwargs={},
                         ),
                     ],
@@ -610,12 +610,12 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(
                     generator=Generators.FACTORIAL,
                     num_trials=1,
-                    model_kwargs=self.step_model_kwargs,
+                    generator_kwargs=self.step_generator_kwargs,
                 ),
                 GenerationStep(
                     generator=Generators.THOMPSON,
                     num_trials=-1,
-                    model_kwargs=self.step_model_kwargs,
+                    generator_kwargs=self.step_generator_kwargs,
                 ),
             ]
         )
@@ -649,7 +649,7 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=1,
-                    model_kwargs={"scramble": False},
+                    generator_kwargs={"scramble": False},
                 )
             ]
         )
@@ -720,7 +720,7 @@ class TestGenerationStrategy(TestCase):
                 GenerationStrategyRepeatedPoints: GeneratorSpec(
                     generator_enum=Generators.SOBOL,
                     generator_key_override="Fallback_Sobol",
-                    model_kwargs={"deduplicate": False},
+                    generator_kwargs={"deduplicate": False},
                 )
             },
         ]:
@@ -748,7 +748,7 @@ class TestGenerationStrategy(TestCase):
                         generator_specs=[
                             GeneratorSpec(
                                 generator_enum=Generators.SOBOL,
-                                model_kwargs={"deduplicate": False},
+                                generator_kwargs={"deduplicate": False},
                             )
                         ],
                         # Disable model-level deduplication.
@@ -1096,20 +1096,20 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=1,
-                    model_kwargs=self.step_model_kwargs,
+                    generator_kwargs=self.step_generator_kwargs,
                 ),
                 GenerationStep(
                     generator=Generators.BO_MIXED,
                     num_trials=1,
-                    model_kwargs=self.step_model_kwargs,
+                    generator_kwargs=self.step_generator_kwargs,
                 ),
                 GenerationStep(
                     generator=Generators.BOTORCH_MODULAR,
-                    model_kwargs={
+                    generator_kwargs={
                         # this will cause an error if the model
                         # doesn't get fixed features
                         "transforms": MBM_MTGP_trans,
-                        **self.step_model_kwargs,
+                        **self.step_generator_kwargs,
                     },
                     num_trials=1,
                 ),
@@ -1201,12 +1201,12 @@ class TestGenerationStrategy(TestCase):
                     GenerationStep(
                         generator=Generators.SOBOL,
                         num_trials=5,
-                        model_kwargs=self.step_model_kwargs,
+                        generator_kwargs=self.step_generator_kwargs,
                     ),
                     GenerationStep(
                         generator=Generators.BOTORCH_MODULAR,
                         num_trials=-1,
-                        model_kwargs=self.step_model_kwargs,
+                        generator_kwargs=self.step_generator_kwargs,
                     ),
                 ],
             )
@@ -1259,7 +1259,7 @@ class TestGenerationStrategy(TestCase):
                     GenerationStep(
                         generator=Generators.SOBOL,
                         num_trials=5,
-                        model_kwargs=self.step_model_kwargs,
+                        generator_kwargs=self.step_generator_kwargs,
                     ),
                     node_2,
                 ],

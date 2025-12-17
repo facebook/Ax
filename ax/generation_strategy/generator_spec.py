@@ -45,7 +45,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     generator_enum: GeneratorRegistryBase
     # Kwargs to pass into the `Adapter` + `Generator` constructors in
     # `GeneratorRegistryBase.__call__`.
-    model_kwargs: dict[str, Any] = field(default_factory=dict)
+    generator_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `Adapter.gen`.
     generator_gen_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
@@ -54,7 +54,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     # `GenerationNode` must have a unique key to ensure identifiability.
     generator_key_override: str | None = None
 
-    # Fitted model, constructed using specified `model_kwargs` and `Data`
+    # Fitted model, constructed using specified `generator_kwargs` and `Data`
     # on `GeneratorSpec.fit`
     _fitted_adapter: Adapter | None = None
 
@@ -71,7 +71,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     _last_fit_arg_ids: dict[str, int] | None = None
 
     def __post_init__(self) -> None:
-        self.model_kwargs = self.model_kwargs or {}
+        self.generator_kwargs = self.generator_kwargs or {}
         self.generator_gen_kwargs = self.generator_gen_kwargs or {}
         self.model_cv_kwargs = self.model_cv_kwargs or {}
 
@@ -107,20 +107,20 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         self,
         experiment: Experiment,
         data: Data | None = None,
-        **model_kwargs: Any,
+        **generator_kwargs: Any,
     ) -> None:
-        """Fits the specified model on the given experiment + data using the
-        model kwargs set on the model spec, alongside any passed down as
+        """Fits the specified generator on the given experiment + data using the
+        generator kwargs set on the generator spec, alongside any passed down as
         kwargs to this function (local kwargs take precedent)
         """
         # unset any cross validation cache
         self._cv_results, self._diagnostics = None, None
-        # NOTE: It's important to copy `self.model_kwargs` here to avoid actually
-        # adding contents of `model_kwargs` passed to this method, to
-        # `self.model_kwargs`.
-        combined_model_kwargs = {**self.model_kwargs, **model_kwargs}
+        # NOTE: It's important to copy `self.generator_kwargs` here to avoid actually
+        # adding contents of `generator_kwargs` passed to this method, to
+        # `self.generator_kwargs`.
+        combined_generator_kwargs = {**self.generator_kwargs, **generator_kwargs}
         if self._fitted_adapter is not None and self._safe_to_update(
-            experiment=experiment, combined_model_kwargs=combined_model_kwargs
+            experiment=experiment, combined_generator_kwargs=combined_generator_kwargs
         ):
             # Update the data on the adapter and call `_fit`.
             # This will skip model fitting if the data has not changed.
@@ -141,10 +141,11 @@ class GeneratorSpec(SortableBase, SerializationMixin):
                 experiment=experiment,
                 data=data,
                 generator_key_override=self.generator_key_override,
-                **combined_model_kwargs,
+                **combined_generator_kwargs,
             )
             self._last_fit_arg_ids = self._get_fit_arg_ids(
-                experiment=experiment, combined_model_kwargs=combined_model_kwargs
+                experiment=experiment,
+                combined_generator_kwargs=combined_generator_kwargs,
             )
 
     def cross_validate(
@@ -242,7 +243,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         """
         return self.__class__(
             generator_enum=self.generator_enum,
-            model_kwargs=deepcopy(self.model_kwargs),
+            generator_kwargs=deepcopy(self.generator_kwargs),
             generator_gen_kwargs=deepcopy(self.generator_gen_kwargs),
             model_cv_kwargs=deepcopy(self.model_cv_kwargs),
             generator_key_override=self.generator_key_override,
@@ -251,7 +252,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     def _safe_to_update(
         self,
         experiment: Experiment,
-        combined_model_kwargs: dict[str, Any],
+        combined_generator_kwargs: dict[str, Any],
     ) -> bool:
         """Checks if the object id of any of the non-data fit arguments has changed.
 
@@ -264,18 +265,18 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             # TODO[T167756515] Remove when TRBO revamp diff lands.
             return True
         return self._last_fit_arg_ids == self._get_fit_arg_ids(
-            experiment=experiment, combined_model_kwargs=combined_model_kwargs
+            experiment=experiment, combined_generator_kwargs=combined_generator_kwargs
         )
 
     def _get_fit_arg_ids(
         self,
         experiment: Experiment,
-        combined_model_kwargs: dict[str, Any],
+        combined_generator_kwargs: dict[str, Any],
     ) -> dict[str, int]:
         """Construct a dictionary mapping arg name to object id."""
         return {
             "experiment": id(experiment),
-            **{k: id(v) for k, v in combined_model_kwargs.items()},
+            **{k: id(v) for k, v in combined_generator_kwargs.items()},
         }
 
     def _assert_fitted(self) -> None:
@@ -294,8 +295,8 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         )
 
     def __repr__(self) -> str:
-        model_kwargs = json.dumps(
-            self.model_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
+        generator_kwargs = json.dumps(
+            self.generator_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
         generator_gen_kwargs = json.dumps(
             self.generator_gen_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
@@ -306,7 +307,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         return (
             "GeneratorSpec("
             f"\tgenerator_enum={self.generator_enum.value}, "
-            f"\tmodel_kwargs={model_kwargs}, "
+            f"\tgenerator_kwargs={generator_kwargs}, "
             f"\tgenerator_gen_kwargs={generator_gen_kwargs}, "
             f"\tmodel_cv_kwargs={model_cv_kwargs}, "
             f"\tgenerator_key_override={self.generator_key_override}"
