@@ -61,7 +61,7 @@ def _make_sobol_step(
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        model_kwargs={"deduplicate": True, "seed": seed},
+        generator_kwargs={"deduplicate": True, "seed": seed},
         should_deduplicate=should_deduplicate,
         use_all_trials_in_exp=True,
     )
@@ -73,7 +73,7 @@ def _make_botorch_step(
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
     generator: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
-    model_kwargs: dict[str, Any] | None = None,
+    generator_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     should_deduplicate: bool = False,
@@ -84,25 +84,25 @@ def _make_botorch_step(
     use_input_warping: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
-    model_kwargs = model_kwargs.copy() if model_kwargs is not None else {}
-    # NOTE: This is a private function that's only called by `model_kwargs`
-    # from `choose_generation_strategy_legacy`. Those `model_kwargs` do not include
+    generator_kwargs = generator_kwargs.copy() if generator_kwargs is not None else {}
+    # NOTE: This is a private function that's only called by `generator_kwargs`
+    # from `choose_generation_strategy_legacy`. Those `generator_kwargs` do not include
     # transform configs, so we don't need to worry about overriding them here.
     # Asserting that it's not included just to be extra safe.
-    assert "transform_configs" not in model_kwargs
-    model_kwargs["transform_configs"] = get_derelativize_config(
+    assert "transform_configs" not in generator_kwargs
+    generator_kwargs["transform_configs"] = get_derelativize_config(
         derelativize_with_raw_status_quo=derelativize_with_raw_status_quo
     )
     if winsorization_config is not None:
         # Make sure Winsorize is in the dict.
-        model_kwargs["transform_configs"].setdefault("Winsorize", {})
+        generator_kwargs["transform_configs"].setdefault("Winsorize", {})
         # Add manually specified winsorization config.
-        model_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
+        generator_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
             winsorization_config
         )
 
     if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
-        model_kwargs["surrogate_spec"] = SurrogateSpec(
+        generator_kwargs["surrogate_spec"] = SurrogateSpec(
             model_configs=[
                 ModelConfig(
                     botorch_model_class=SaasFullyBayesianSingleTaskGP,
@@ -127,7 +127,7 @@ def _make_botorch_step(
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        model_kwargs=model_kwargs,
+        generator_kwargs=generator_kwargs,
         should_deduplicate=should_deduplicate,
     )
 
@@ -384,7 +384,7 @@ def choose_generation_strategy_legacy(
             unique arms.
         use_saasbo: Whether to use SAAS prior for any GPEI generation steps.
         disable_progbar: Whether GP model should produce a progress bar. If not
-            ``None``, its value gets added to ``model_kwargs`` during
+            ``None``, its value gets added to ``generator_kwargs`` during
             ``generation_strategy`` construction. Defaults to ``True`` for SAASBO, else
             ``None``. Progress bars are currently only available for SAASBO, so if
             ``disable_probar is not None`` for a different model type, it will be
@@ -482,9 +482,9 @@ def choose_generation_strategy_legacy(
             )
             jit_compile = None
 
-        model_kwargs: dict[str, Any] = {"torch_device": torch_device}
+        generator_kwargs: dict[str, Any] = {"torch_device": torch_device}
         if suggested_model.generator_class is BoTorchGenerator:
-            model_kwargs["acquisition_options"] = {
+            generator_kwargs["acquisition_options"] = {
                 "prune_irrelevant_parameters": simplify_parameter_changes
             }
 
@@ -509,7 +509,7 @@ def choose_generation_strategy_legacy(
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 max_parallelism=bo_parallelism,
-                model_kwargs=model_kwargs,
+                generator_kwargs=generator_kwargs,
                 should_deduplicate=should_deduplicate,
                 disable_progbar=disable_progbar,
                 jit_compile=jit_compile,
@@ -519,7 +519,7 @@ def choose_generation_strategy_legacy(
         )
         # set name for GS
         bo_step = steps[-1]
-        surrogate_spec = bo_step.model_kwargs.get("surrogate_spec")
+        surrogate_spec = bo_step.generator_kwargs.get("surrogate_spec")
         name = None
         if (
             bo_step.generator is Generators.BOTORCH_MODULAR

@@ -1504,13 +1504,13 @@ class TestClient(TestCase):
         self.assertFalse(
             client._generation_strategy._nodes[2]
             .generator_specs[0]
-            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+            .generator_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
         )
         client.configure_generation_strategy(simplify_parameter_changes=True)
         self.assertTrue(
             client._generation_strategy._nodes[2]
             .generator_specs[0]
-            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+            .generator_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
         )
 
     def test_configure_experiment_with_derived_parameter(self) -> None:

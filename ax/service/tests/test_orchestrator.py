@@ -2177,7 +2177,7 @@ class TestAxOrchestrator(TestCase):
                 GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=1),
                 GenerationStep(
                     generator=Generators.BOTORCH_MODULAR,
-                    model_kwargs={
+                    generator_kwargs={
                         # this will cause an error if the model
                         # doesn't get fixed features
                         "transforms": MBM_MTGP_trans,

@@ -110,7 +110,7 @@ class ModelRegistryTest(TestCase):
             SaasFullyBayesianSingleTaskGP,
         )
 
-    def test_enum_model_kwargs(self) -> None:
+    def test_enum_generator_kwargs(self) -> None:
         """Tests that kwargs are passed correctly when instantiating through the
         Generators enum."""
         exp = get_branin_experiment()

@@ -352,7 +352,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 will use ``experiment.lookup_data()``, extracted in ``Adapter``).
             kwargs: Additional keyword arguments to pass to the model's
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
-                stored in ``GeneratorSpec.model_kwargs``.
+                stored in ``GeneratorSpec.generator_kwargs``.
         """
         self._generator_spec_to_gen_from = None
         for generator_spec in self.generator_specs:
@@ -1018,13 +1018,13 @@ class GenerationStep(GenerationNode, SortableBase):
             will continue generating trials from the current step, exceeding `num_
             trials` for it. Allows to avoid `DataRequiredError`, but delays
             proceeding to next generation step.
-        model_kwargs: Dictionary of kwargs to pass into the adapter and generator
+        generator_kwargs: Dictionary of kwargs to pass into the adapter and generator
             constructors on instantiation. E.g. if `generator` is `Generators.SOBOL`,
-            kwargs will be applied as `Generators.SOBOL(**model_kwargs)`.
+            kwargs will be applied as `Generators.SOBOL(**generator_kwargs)`.
             NOTE: If generation strategy is interrupted and resumed from a stored
             snapshot and its last used generator has state saved on its generator runs,
-            `model_kwargs` is updated with the state dict of the generator, retrieved
-            from the last generator run of this generation strategy.
+            `generator_kwargs` is updated with the state dict of the generator,
+            retrieved from the last generator run of this generation strategy.
         generator_gen_kwargs: Each call to `generation_strategy.gen` performs a call
             to the step's adapter's `gen` under the hood; `generator_gen_kwargs` will be
             passed to the adapter's `gen` like: `adapter.gen(**generator_gen_kwargs)`.
@@ -1058,7 +1058,7 @@ class GenerationStep(GenerationNode, SortableBase):
         self,
         generator: GeneratorRegistryBase,
         num_trials: int,
-        model_kwargs: dict[str, Any] | None = None,
+        generator_kwargs: dict[str, Any] | None = None,
         generator_gen_kwargs: dict[str, Any] | None = None,
         completion_criteria: Sequence[TransitionCriterion] | None = None,
         min_trials_observed: int = 0,
@@ -1091,7 +1091,7 @@ class GenerationStep(GenerationNode, SortableBase):
         self.enforce_num_trials = enforce_num_trials
         self.use_update = use_update
 
-        model_kwargs = model_kwargs or {}
+        generator_kwargs = generator_kwargs or {}
         generator_gen_kwargs = generator_gen_kwargs or {}
 
         if (
@@ -1114,7 +1114,7 @@ class GenerationStep(GenerationNode, SortableBase):
         else:
             generator_spec = GeneratorSpec(
                 generator_enum=self.generator,
-                model_kwargs=model_kwargs,
+                generator_kwargs=generator_kwargs,
                 generator_gen_kwargs=generator_gen_kwargs,
             )
         if not generator_name:
@@ -1173,9 +1173,9 @@ class GenerationStep(GenerationNode, SortableBase):
         )
 
     @property
-    def model_kwargs(self) -> dict[str, Any]:
-        """Returns the model kwargs of the underlying ``GeneratorSpec``."""
-        return self.generator_spec.model_kwargs
+    def generator_kwargs(self) -> dict[str, Any]:
+        """Returns the generator kwargs of the underlying ``GeneratorSpec``."""
+        return self.generator_spec.generator_kwargs
 
     @property
     def generator_gen_kwargs(self) -> dict[str, Any]:

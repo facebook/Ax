@@ -39,9 +39,9 @@ class TestMethods(TestCase):
         gs = method.generation_strategy
         sobol, kg = gs._steps
         self.assertEqual(kg.generator, Generators.BOTORCH_MODULAR)
-        model_kwargs = none_throws(kg.model_kwargs)
-        self.assertEqual(model_kwargs["botorch_acqf_class"], qKnowledgeGradient)
-        surrogate_spec = model_kwargs["surrogate_spec"]
+        generator_kwargs = none_throws(kg.generator_kwargs)
+        self.assertEqual(generator_kwargs["botorch_acqf_class"], qKnowledgeGradient)
+        surrogate_spec = generator_kwargs["surrogate_spec"]
         self.assertEqual(
             surrogate_spec.model_configs[0].botorch_model_class.__name__,
             "SingleTaskGP",

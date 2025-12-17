@@ -130,9 +130,9 @@ def get_generation_strategy(
     if with_generation_nodes:
         gs = sobol_gpei_generation_node_gs()
         if with_callable_model_kwarg:
-            gs._curr.generator_spec_to_gen_from.model_kwargs["model_constructor"] = (
-                get_sobol
-            )
+            gs._curr.generator_spec_to_gen_from.generator_kwargs[
+                "model_constructor"
+            ] = get_sobol
     else:
         gs = choose_generation_strategy_legacy(
             search_space=get_search_space(), should_deduplicate=True
@@ -140,7 +140,7 @@ def get_generation_strategy(
         if with_callable_model_kwarg:
             # Testing hack to test serialization of callable kwargs
             # in generation steps.
-            gs._steps[0].model_kwargs["model_constructor"] = get_sobol
+            gs._steps[0].generator_kwargs["model_constructor"] = get_sobol
     if with_experiment:
         gs._experiment = get_experiment()
 
@@ -241,16 +241,16 @@ def sobol_gpei_generation_node_gs(
     ]
     auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
     is_SOO_mbm_criterion = [IsSingleObjective(transition_to="MBM_node")]
-    step_model_kwargs = {"silently_filter_kwargs": True}
+    step_generator_kwargs = {"silently_filter_kwargs": True}
     sobol_generator_spec = GeneratorSpec(
         generator_enum=Generators.SOBOL,
-        model_kwargs=step_model_kwargs,
+        generator_kwargs=step_generator_kwargs,
         generator_gen_kwargs={},
     )
     mbm_generator_specs = [
         GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs=step_model_kwargs,
+            generator_kwargs=step_generator_kwargs,
             generator_gen_kwargs={},
         )
     ]
@@ -502,7 +502,7 @@ def get_surrogate_generation_step() -> GenerationStep:
         generator=Generators.BOTORCH_MODULAR,
         num_trials=-1,
         max_parallelism=1,
-        model_kwargs={
+        generator_kwargs={
             "surrogate": Surrogate(
                 surrogate_spec=SurrogateSpec(
                     model_configs=[

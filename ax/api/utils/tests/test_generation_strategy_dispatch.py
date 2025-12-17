@@ -60,7 +60,7 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(len(sobol_node.generator_specs), 1)
                 sobol_spec = sobol_node.generator_specs[0]
                 self.assertEqual(sobol_spec.generator_enum, Generators.SOBOL)
-                self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
+                self.assertEqual(sobol_spec.generator_kwargs, {"seed": None})
                 self.assertEqual(sobol_node._transition_criteria, [])
                 # Make sure it generates.
                 run_trials_with_gs(
@@ -91,7 +91,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(sobol_node.generator_specs), 1)
         sobol_spec = sobol_node.generator_specs[0]
         self.assertEqual(sobol_spec.generator_enum, Generators.SOBOL)
-        self.assertEqual(sobol_spec.model_kwargs, {"seed": 0})
+        self.assertEqual(sobol_spec.generator_kwargs, {"seed": 0})
         expected_tc = [
             MinTrials(
                 threshold=2,
@@ -119,7 +119,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(model_configs=[ModelConfig(name="MBM defaults")])
         self.assertEqual(
-            mbm_spec.model_kwargs,
+            mbm_spec.generator_kwargs,
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
@@ -187,7 +187,7 @@ class TestDispatchUtils(TestCase):
             ]
         )
         self.assertEqual(
-            mbm_spec.model_kwargs,
+            mbm_spec.generator_kwargs,
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
@@ -249,6 +249,6 @@ class TestDispatchUtils(TestCase):
             mbm_node = gs._nodes[2]
             mbm_spec = mbm_node.generator_specs[0]
             self.assertEqual(
-                mbm_spec.model_kwargs["acquisition_options"],
+                mbm_spec.generator_kwargs["acquisition_options"],
                 {"prune_irrelevant_parameters": simplify},
             )

@@ -57,7 +57,7 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.storage.json_store.decoder import _DEPRECATED_MODEL_KWARGS, object_from_json
+from ax.storage.json_store.decoder import _DEPRECATED_GENERATOR_KWARGS, object_from_json
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -812,13 +812,13 @@ class Decoder:
             generator_run._generator_kwargs = {
                 k: v
                 for k, v in generator_run._generator_kwargs.items()
-                if k not in _DEPRECATED_MODEL_KWARGS
+                if k not in _DEPRECATED_GENERATOR_KWARGS
             }
         if generator_run._adapter_kwargs is not None:
             generator_run._adapter_kwargs = {
                 k: v
                 for k, v in generator_run._adapter_kwargs.items()
-                if k not in _DEPRECATED_MODEL_KWARGS
+                if k not in _DEPRECATED_GENERATOR_KWARGS
             }
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(

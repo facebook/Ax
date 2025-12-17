@@ -217,7 +217,7 @@ def get_client_with_simple_discrete_moo_problem(
             GenerationStep(
                 generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
-                model_kwargs={
+                generator_kwargs={
                     # To avoid search space exhausted errors.
                     "transforms": Cont_X_trans,
                 },
@@ -2884,7 +2884,7 @@ class TestAxClient(TestCase):
                 torch_device=device,
             )
         ax_client = get_branin_optimization(torch_device=device)
-        gpei_step_kwargs = ax_client.generation_strategy._steps[1].model_kwargs
+        gpei_step_kwargs = ax_client.generation_strategy._steps[1].generator_kwargs
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
     def test_repr_function(

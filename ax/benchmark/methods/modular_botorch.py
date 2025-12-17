@@ -41,7 +41,7 @@ def get_sobol_mbm_generation_strategy(
     acquisition_cls: type[AcquisitionFunction] | None = None,
     name: str | None = None,
     num_sobol_trials: int = 5,
-    model_kwargs_override: dict[str, Any] | None = None,
+    generator_kwargs_override: dict[str, Any] | None = None,
     generator_gen_kwargs: dict[str, Any] | None = None,
     batch_size: int = 1,
 ) -> GenerationStrategy:
@@ -54,8 +54,8 @@ def get_sobol_mbm_generation_strategy(
         name: Name that will be attached to the `GenerationStrategy`.
         num_sobol_trials: Number of Sobol trials; can refer to the number of
             `BatchTrial`s.
-        model_kwargs_override: Passed to the MBM BoTorch `GenerationStep` inside
-            `model_kwargs`.
+        generator_kwargs_override: Passed to the MBM BoTorch `GenerationStep` inside
+            `generator_kwargs`.
         generator_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
 
@@ -69,21 +69,21 @@ def get_sobol_mbm_generation_strategy(
         ...     acquisition_cls=qLogNoisyExpectedImprovement,
         ... )
     """
-    model_kwargs: dict[str, Any] = {
+    generator_kwargs: dict[str, Any] = {
         "surrogate_spec": SurrogateSpec(
             model_configs=[ModelConfig(botorch_model_class=model_cls)]
         ),
     }
     if acquisition_cls is not None:
-        model_kwargs["botorch_acqf_class"] = acquisition_cls
+        generator_kwargs["botorch_acqf_class"] = acquisition_cls
         acqf_name = acqf_name_abbreviations.get(
             acquisition_cls.__name__, acquisition_cls.__name__
         )
     else:
         acqf_name = ""
 
-    if model_kwargs_override is not None:
-        model_kwargs.update(model_kwargs_override)
+    if generator_kwargs_override is not None:
+        generator_kwargs.update(generator_kwargs_override)
 
     model_name = model_names_abbrevations.get(model_cls.__name__, model_cls.__name__)
     # Historically all benchmarks were sequential, so sequential benchmarks
@@ -106,7 +106,7 @@ def get_sobol_mbm_generation_strategy(
             GenerationStep(
                 generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
-                model_kwargs=model_kwargs,
+                generator_kwargs=generator_kwargs,
                 generator_gen_kwargs=generator_gen_kwargs or {},
             ),
         ],
@@ -119,7 +119,7 @@ def get_sobol_botorch_modular_acquisition(
     acquisition_cls: type[AcquisitionFunction] | None = None,
     name: str | None = None,
     num_sobol_trials: int = 5,
-    model_kwargs_override: dict[str, Any] | None = None,
+    generator_kwargs_override: dict[str, Any] | None = None,
     generator_gen_kwargs: dict[str, Any] | None = None,
     batch_size: int = 1,
 ) -> BenchmarkMethod:
@@ -133,8 +133,8 @@ def get_sobol_botorch_modular_acquisition(
         num_sobol_trials: Number of Sobol trials; if the orchestrator_options
             specify to use `BatchTrial`s, then this refers to the number of
             `BatchTrial`s.
-        model_kwargs_override: Passed to the MBM BoTorch `GenerationStep` inside
-            `model_kwargs`.
+        generator_kwargs_override: Passed to the MBM BoTorch `GenerationStep` inside
+            `generator_kwargs`.
         generator_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
         batch_size: Passed to the created ``BenchmarkMethod``.
@@ -167,7 +167,7 @@ def get_sobol_botorch_modular_acquisition(
         acquisition_cls=acquisition_cls,
         name=name,
         num_sobol_trials=num_sobol_trials,
-        model_kwargs_override=model_kwargs_override,
+        generator_kwargs_override=generator_kwargs_override,
         generator_gen_kwargs=generator_gen_kwargs,
         batch_size=batch_size,
     )

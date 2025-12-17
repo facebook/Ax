@@ -84,7 +84,7 @@ def _get_sobol_node(
         generator_specs=[
             GeneratorSpec(
                 generator_enum=Generators.SOBOL,
-                model_kwargs={"seed": initialization_random_seed},
+                generator_kwargs={"seed": initialization_random_seed},
             )
         ],
         transition_criteria=transition_criteria,
@@ -129,7 +129,7 @@ def _get_mbm_node(
         generator_specs=[
             GeneratorSpec(
                 generator_enum=Generators.BOTORCH_MODULAR,
-                model_kwargs={
+                generator_kwargs={
                     "surrogate_spec": SurrogateSpec(model_configs=model_configs),
                     "torch_device": device,
                     "transform_configs": get_derelativize_config(
@@ -171,7 +171,7 @@ def choose_generation_strategy(
                 generator_specs=[
                     GeneratorSpec(
                         generator_enum=Generators.SOBOL,
-                        model_kwargs={"seed": struct.initialization_random_seed},
+                        generator_kwargs={"seed": struct.initialization_random_seed},
                     )
                 ],
             )
