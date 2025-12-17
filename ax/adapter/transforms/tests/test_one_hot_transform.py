@@ -15,6 +15,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
@@ -271,3 +272,26 @@ class OneHotTransformTest(TestCase):
         assert_frame_equal(
             transformed_data.arm_data[transformed_columns], expected_columns
         )
+
+    def test_with_hierarchical_search_space(self) -> None:
+        ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
+                    is_ordered=False,
+                    dependents={"a": ["y"]},
+                ),
+                ChoiceParameter(
+                    name="y",
+                    parameter_type=ParameterType.STRING,
+                    values=["d", "e", "f"],
+                    is_ordered=False,
+                ),
+            ]
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError, "would encode .* which is a hierarchical"
+        ):
+            OneHot(search_space=ss)

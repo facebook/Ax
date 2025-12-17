@@ -716,10 +716,7 @@ class InstantiationBase:
             parameter_constraints if parameter_constraints is not None else []
         )
         typed_parameters = [cls.parameter_from_json(p) for p in parameters]
-        is_hss = any(p.is_hierarchical for p in typed_parameters)
-
         parameter_map = {p.name: p for p in typed_parameters}
-
         typed_parameter_constraints = [
             cls.constraint_from_str(c, parameter_map) for c in parameter_constraints
         ]
@@ -754,7 +751,7 @@ class InstantiationBase:
         )
 
         logger.debug(f"Created search space: {ss}.")
-        if is_hss:
+        if ss.is_hierarchical:
             logger.debug(
                 "Hieararchical structure of the search space: \n"
                 f"{ss.hierarchical_structure_str(parameter_names_only=True)}"

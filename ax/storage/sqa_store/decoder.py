@@ -534,14 +534,9 @@ class Decoder:
         if len(parameters) == 0:
             return None
 
-        if any(p.is_hierarchical for p in parameters):
-            return SearchSpace(
-                parameters=parameters, parameter_constraints=parameter_constraints
-            )
-        else:
-            return SearchSpace(
-                parameters=parameters, parameter_constraints=parameter_constraints
-            )
+        return SearchSpace(
+            parameters=parameters, parameter_constraints=parameter_constraints
+        )
 
     def metric_from_sqa(
         self, metric_sqa: SQAMetric

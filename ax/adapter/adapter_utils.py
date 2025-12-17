@@ -128,7 +128,7 @@ def extract_search_space_digest(
     task_features: list[int] = []
     fidelity_features: list[int] = []
     target_values: dict[int, int | float] = {}
-    hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
+    hierarchical_dependencies: dict[int, dict[int | float, list[int]]] | None = None
 
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
@@ -169,16 +169,8 @@ def extract_search_space_digest(
 
         for p_name, p in search_space.parameters.items():
             if p.is_hierarchical:
-                for parent_value in p.dependents.keys():
-                    if not isinstance(parent_value, int):
-                        raise ValueError(
-                            f"{parent_value=} must be an integer. Received"
-                            f"{type(parent_value)} instead."
-                        )
-
-                # pyre-ignore [6]: We already checked that `parent_value` is int.
                 hierarchical_dependencies[param_names.index(p_name)] = {
-                    parent_value: [
+                    assert_is_instance_of_tuple(parent_value, (int, float)): [
                         param_names.index(activated_param)
                         for activated_param in activated_params
                     ]

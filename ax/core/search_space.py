@@ -958,9 +958,8 @@ class SearchSpaceDigest:
     task_features: list[int] = field(default_factory=list)
     fidelity_features: list[int] = field(default_factory=list)
     target_values: dict[int, int | float] = field(default_factory=dict)
-    # NOTE: We restrict that hierarchical parameters have to be either categorical or
-    # discrete.
-    hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
+    # NOTE: Hierarchical parameters must be discrete.
+    hierarchical_dependencies: dict[int, dict[int | float, list[int]]] | None = None
 
 
 def _disjoint_union(set1: set[str], set2: set[str]) -> set[str]:

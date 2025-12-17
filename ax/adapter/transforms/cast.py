@@ -75,10 +75,10 @@ class Cast(Transform):
         # dummy values.
         #
         # 3. To exploit the hierarchical structure, one need set `flatten_hss=False`.
-        # The search space will be kept as `HierarchicalSearchSpace`. The observations
-        # features are still flattened so that the resulting tensors received by BoTorch
-        # have the same dimensionality. If the underlying BoTorch model is designed to
-        # exploit the hierarchical structure, it infers which parameter is active based
+        # The search space will be kept as is. The observation features are still
+        # flattened so that the resulting tensors received by BoTorch have the same
+        # dimensionality. If the underlying BoTorch model is designed to exploit the
+        # hierarchical structure, it infers which parameter is active based
         # on `search_space_digest.hierarchical_dependencies`.
         self.flatten_hss: bool = assert_is_instance(
             self.config.pop("flatten_hss", none_throws(search_space).is_hierarchical),
@@ -98,9 +98,10 @@ class Cast(Transform):
             )
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        """Flattens the hierarchical search space and returns the flat
-        ``SearchSpace`` if this transform is configured to flatten hierarchical
-        search spaces. Does nothing if the search space is not hierarchical.
+        """If the transform is configured to flatten the search space
+        (``self.flatten_hss``), flattens the hierarchical search space by removing
+        all dependent  information, and returns the flat ``SearchSpace``.
+        Does nothing if the search space is not hierarchical.
 
         NOTE: All calls to `Cast.transform_...` transform Ax objects defined in
         terms of hierarchical search space, to their definitions in terms of
@@ -249,7 +250,7 @@ class Cast(Transform):
         data type corresponding to the ``ParameterType``. If any rows
         include None / NaN values for the parameterization, they are dropped.
 
-        For `HierarchicalSearchSpace`, the parameterizations are flattened
+        For hierarchical search spaces, the parameterizations are flattened
         before applying the rest of the transform.
         """
         arm_data = experiment_data.arm_data

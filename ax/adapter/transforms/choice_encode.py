@@ -12,12 +12,15 @@ from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.utils import construct_new_search_space
+from ax.adapter.transforms.utils import (
+    construct_new_search_space,
+    HSS_ERROR_MSG_TEMPLATE,
+)
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance
 
@@ -186,7 +189,14 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
         """Check if a parameter should be encoded.
         Encodes ordered choice parameters that are not task parameters.
         """
-        return isinstance(p, ChoiceParameter) and p.is_ordered and not p.is_task
+        should_encode = (
+            isinstance(p, ChoiceParameter) and p.is_ordered and not p.is_task
+        )
+        if should_encode and p.is_hierarchical:
+            raise UnsupportedError(
+                HSS_ERROR_MSG_TEMPLATE.format(name=self.__class__.__name__, p=p)
+            )
+        return should_encode
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
