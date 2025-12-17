@@ -82,12 +82,12 @@ class TestBestModelSelector(TestCase):
             s.best_model(generator_specs=self.generator_specs), self.generator_specs[2]
         )
 
-    def test_SingleDiagnosticBestModelSelector_model_cv_kwargs(self) -> None:
+    def test_SingleDiagnosticBestModelSelector_cv_kwargs(self) -> None:
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
             criterion=ReductionCriterion.MAX,
             metric_aggregation=ReductionCriterion.MEAN,
-            model_cv_kwargs={"test": "a"},
+            cv_kwargs={"test": "a"},
         )
         for ms in self.generator_specs:
             ms._fitted_adapter = Mock()

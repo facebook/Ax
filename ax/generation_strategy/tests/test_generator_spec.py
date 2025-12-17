@@ -88,7 +88,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         fake_mb._process_and_transform_data = MagicMock(return_value=(None, None))
         mock_enum.return_value = fake_mb
         ms = GeneratorSpec(
-            generator_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+            generator_enum=mock_enum, cv_kwargs={"test_key": "test-value"}
         )
         ms.fit(
             experiment=self.experiment,
@@ -134,7 +134,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             # Cache is not empty, but CV will be called since there are new kwargs.
             assert ms._cv_results is not None
 
-            cv_results, cv_diagnostics = ms.cross_validate(model_cv_kwargs={"test": 1})
+            cv_results, cv_diagnostics = ms.cross_validate(cv_kwargs={"test": 1})
 
             self.assertIsNotNone(cv_results)
             self.assertIsNotNone(cv_diagnostics)
@@ -151,7 +151,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         mock_enum = Mock()
         mock_enum.return_value = "fake-adapter"
         ms = GeneratorSpec(
-            generator_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+            generator_enum=mock_enum, cv_kwargs={"test_key": "test-value"}
         )
         ms.fit(
             experiment=self.experiment,
@@ -181,7 +181,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             generator_enum=Generators.BOTORCH_MODULAR,
             generator_kwargs={"test_generator_kwargs": 1},
             generator_gen_kwargs={"test_gen_kwargs": 1},
-            model_cv_kwargs={"test_cv_kwargs": 1},
+            cv_kwargs={"test_cv_kwargs": 1},
         )
         ms.generator_key_override = "test_model_key_override"
 
@@ -198,7 +198,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             generator_enum=Generators.BOTORCH_MODULAR,
             generator_kwargs={"test_generator_kwargs": 1},
             generator_gen_kwargs={"test_gen_kwargs": 1},
-            model_cv_kwargs={"test_cv_kwargs": 1},
+            cv_kwargs={"test_cv_kwargs": 1},
         )
         ms.generator_key_override = "test_model_key_override"
 
