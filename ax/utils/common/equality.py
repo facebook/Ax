@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-
 from datetime import datetime
 from typing import Any
 
@@ -229,6 +228,10 @@ def object_attribute_dicts_find_unequal_fields(
                     and hasattr(other_val, "model")
                     and isinstance(one_val.model, type(other_val.model))
                 )
+        # Do not check the inequality_str for ParameterConstraints, checking the bound
+        # and coefficients dict is sufficient.
+        elif field == "_inequality_str":
+            equal = True
         else:
             equal = is_ax_equal(one_val, other_val)
 

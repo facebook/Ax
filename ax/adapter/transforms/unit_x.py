@@ -98,8 +98,14 @@ class UnitX(Transform):
                     bound -= w * l
                 else:
                     constraint_dict[p_name] = w
+
+            expr = " + ".join(
+                f"{coeff} * {param}" for param, coeff in constraint_dict.items()
+            )
             new_constraints.append(
-                ParameterConstraint(constraint_dict=constraint_dict, bound=bound)
+                ParameterConstraint(
+                    inequality=f"{expr} <= {bound}",
+                )
             )
         search_space.set_parameter_constraints(new_constraints)
         return search_space

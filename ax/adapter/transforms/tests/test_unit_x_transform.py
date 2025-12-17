@@ -46,8 +46,8 @@ class UnitXTransformTest(TestCase):
                 ),
             ],
             parameter_constraints=[
-                ParameterConstraint(constraint_dict={"x": -0.5, "y": 1}, bound=0.5),
-                ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5),
+                ParameterConstraint(inequality="-0.5*x + y <= 0.5"),
+                ParameterConstraint(inequality="-0.5*x + a <= 0.5"),
             ],
         )
         self.t = UnitX(search_space=self.search_space)
@@ -157,8 +157,8 @@ class UnitXTransformTest(TestCase):
                 ),
             ],
             parameter_constraints=[
-                ParameterConstraint(constraint_dict={"x": -0.5, "y": 1}, bound=0.5),
-                ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5),
+                ParameterConstraint(inequality="-0.5*x + y <= 0.5"),
+                ParameterConstraint(inequality="-0.5*x + a <= 0.5"),
             ],
         )
         self.t.transform_search_space(new_ss)

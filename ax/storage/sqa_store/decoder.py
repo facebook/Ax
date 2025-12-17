@@ -546,9 +546,12 @@ class Decoder:
                 bound=bound,
             )
         else:
+            expr = " + ".join(
+                f"{coeff} * {param}"
+                for param, coeff in parameter_constraint_sqa.constraint_dict.items()
+            )
             constraint = ParameterConstraint(
-                constraint_dict=dict(parameter_constraint_sqa.constraint_dict),
-                bound=float(parameter_constraint_sqa.bound),
+                inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
             )
 
         constraint.db_id = parameter_constraint_sqa.id

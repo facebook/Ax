@@ -278,7 +278,7 @@ class TestFromConfig(TestCase):
                     ],
                     parameter_constraints=[
                         ParameterConstraint(
-                            constraint_dict={"int_param": 1, "float_param": -1}, bound=0
+                            inequality="int_param <= float_param",
                         )
                     ],
                 ),
@@ -340,7 +340,7 @@ class TestFromConfig(TestCase):
                     ],
                     parameter_constraints=[
                         ParameterConstraint(
-                            constraint_dict={"int_param": 1, "float_param": -1}, bound=0
+                            inequality="int_param <= float_param",
                         )
                     ],
                 ),
