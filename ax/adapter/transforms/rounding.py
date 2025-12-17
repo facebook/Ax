@@ -12,7 +12,6 @@ from copy import copy
 
 import numpy as np
 import numpy.typing as npt
-from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 
@@ -56,13 +55,8 @@ def strict_onehot_round(x: npt.NDArray) -> npt.NDArray:
 def contains_constrained_integer(
     search_space: SearchSpace, transform_parameters: set[str]
 ) -> bool:
-    """Check if any integer parameters are present in parameter_constraints.
-
-    Order constraints are ignored since strict rounding preserves ordering.
-    """
+    """Check if any integer parameters are present in parameter_constraints."""
     for constraint in search_space.parameter_constraints:
-        if isinstance(constraint, OrderConstraint):
-            continue
         constraint_params = set(constraint.constraint_dict.keys())
         if constraint_params.intersection(transform_parameters):
             return True

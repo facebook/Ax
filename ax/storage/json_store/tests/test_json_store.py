@@ -1055,7 +1055,12 @@ class JSONStoreTest(TestCase):
                         "__type": "ParameterConstraint",
                         "constraint_dict": {"x1": -1.0},
                         "bound": -10.0,
-                    }
+                    },
+                    {
+                        "__type": "OrderConstraint",
+                        "lower_name": "x1",
+                        "upper_name": "x2",
+                    },
                 ],
             },
             "optimization_config": None,
@@ -1078,6 +1083,10 @@ class JSONStoreTest(TestCase):
         self.assertEqual(
             decoded.search_space.parameter_constraints[0],
             ParameterConstraint("x1 >= 10"),
+        )
+        self.assertEqual(
+            decoded.search_space.parameter_constraints[1],
+            ParameterConstraint("x1 <= x2"),
         )
 
     def test_objective_backwards_compatibility(self) -> None:

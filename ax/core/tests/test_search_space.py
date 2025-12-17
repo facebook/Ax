@@ -20,11 +20,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
@@ -89,9 +85,7 @@ class SearchSpaceTest(TestCase):
         self.ss1 = SearchSpace(parameters=self.parameters)
         self.ss2 = SearchSpace(
             parameters=self.parameters,
-            parameter_constraints=[
-                OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="a <= b")],
         )
         self.ss1_repr = (
             "SearchSpace("
@@ -119,16 +113,14 @@ class SearchSpaceTest(TestCase):
             "values=[0.0, 0.1, 0.2, 0.5], is_ordered=True, sort_values=True), "
             "RangeParameter(name='f', parameter_type=INT, range=[2, 10], "
             "log_scale=True), DerivedParameter(name='h', parameter_type=FLOAT, "
-            "value=2.0 * a + 1.0)], parameter_constraints=[OrderConstraint(a "
-            "<= b)])"
+            "value=2.0 * a + 1.0)], parameter_constraints=[ParameterConstraint(1.0*a "
+            "+ -1.0*b <= 0.0)])"
         )
 
     def test_Eq(self) -> None:
         ss2 = SearchSpace(
             parameters=self.parameters,
-            parameter_constraints=[
-                OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="a <= b")],
         )
         self.assertEqual(self.ss2, ss2)
         self.assertNotEqual(self.ss1, self.ss2)
@@ -187,9 +179,7 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.g)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= g")],
             )
 
         # Vanilla Constraint on non-existent parameter
@@ -203,38 +193,21 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.d)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= d")],
             )
 
         # Constraint on choice parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.e)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= e")],
             )
 
         # Constraint on logscale parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.f)
-                ],
-            )
-
-        # Constraint on mismatched parameter
-        with self.assertRaises(ValueError):
-            wrong_a = self.a.clone()
-            wrong_a.update_range(upper=10)
-            SearchSpace(
-                parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=wrong_a, upper_parameter=self.b)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= f")],
             )
 
         # Invalid DerivedParameter
@@ -375,9 +348,7 @@ class SearchSpaceTest(TestCase):
         c = ChoiceParameter("c", ParameterType.INT, [2, 3])
         ss = SearchSpace(
             parameters=[a, b, c],
-            parameter_constraints=[
-                OrderConstraint(lower_parameter=a, upper_parameter=b)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="a <= b")],
         )
         ss_copy = ss.clone()
         self.assertEqual(len(ss_copy.parameters), len(ss_copy.parameters))

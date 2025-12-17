@@ -27,9 +27,9 @@ from ax.core.parameter import (
     TParamValue,
 )
 from ax.core.parameter_constraint import (
-    OrderConstraint,
     ParameterConstraint,
     SumConstraint,
+    validate_constraint_parameters,
 )
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
@@ -194,16 +194,15 @@ class SearchSpace(Base):
         # the matching name among the search space's parameters, so we
         # are not keeping two copies of the same parameter.
         for constraint in parameter_constraints:
-            if isinstance(constraint, OrderConstraint):
-                constraint._lower_parameter = self.parameters[
-                    constraint._lower_parameter.name
-                ]
-                constraint._upper_parameter = self.parameters[
-                    constraint._upper_parameter.name
-                ]
-            elif isinstance(constraint, SumConstraint):
+            if isinstance(constraint, SumConstraint):
                 for idx, parameter in enumerate(constraint.parameters):
                     constraint.parameters[idx] = self.parameters[parameter.name]
+
+            validate_constraint_parameters(
+                parameters=[
+                    self._parameters[name] for name in constraint.constraint_dict.keys()
+                ]
+            )
 
         self._parameter_constraints: list[ParameterConstraint] = parameter_constraints
 
@@ -534,9 +533,7 @@ class SearchSpace(Base):
         self, parameter_constraints: list[ParameterConstraint]
     ) -> None:
         for constraint in parameter_constraints:
-            if isinstance(constraint, OrderConstraint) or isinstance(
-                constraint, SumConstraint
-            ):
+            if isinstance(constraint, SumConstraint):
                 for parameter in constraint.parameters:
                     if parameter.name not in self._parameters.keys():
                         raise ValueError(

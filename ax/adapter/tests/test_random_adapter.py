@@ -18,11 +18,7 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.base import RandomGenerator
@@ -43,7 +39,7 @@ class RandomAdapterTest(TestCase):
         z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
         self.parameters = [x, y, z]
         parameter_constraints: list[ParameterConstraint] = [
-            OrderConstraint(x, y),
+            ParameterConstraint(inequality="x <= y"),
             SumConstraint([x, z], False, 3.5),
         ]
         self.search_space = SearchSpace(self.parameters, parameter_constraints)

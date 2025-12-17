@@ -6,15 +6,9 @@
 
 # pyre-strict
 
-from ax.core.parameter import (
-    ChoiceParameter,
-    FixedParameter,
-    ParameterType,
-    RangeParameter,
-)
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import (
     ComparisonOp,
-    OrderConstraint,
     ParameterConstraint,
     SumConstraint,
 )
@@ -133,62 +127,6 @@ class ParameterConstraintTest(TestCase):
             inequality="2 * x - 3 * y <= 6.0",
         )
         self.assertTrue(constraint1 < constraint2)
-
-
-class OrderConstraintTest(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.x = RangeParameter("x", ParameterType.INT, lower=0, upper=1)
-        self.y = RangeParameter("y", ParameterType.INT, lower=0, upper=1)
-        self.constraint = OrderConstraint(
-            lower_parameter=self.x, upper_parameter=self.y
-        )
-        self.constraint_repr = "OrderConstraint(x <= y)"
-
-    def test_Properties(self) -> None:
-        self.assertEqual(self.constraint.lower_parameter.name, "x")
-        self.assertEqual(self.constraint.upper_parameter.name, "y")
-
-    def test_Repr(self) -> None:
-        self.assertEqual(str(self.constraint), self.constraint_repr)
-
-    def test_Validate(self) -> None:
-        self.assertTrue(self.constraint.check({"x": 0, "y": 1}))
-        self.assertTrue(self.constraint.check({"x": 1, "y": 1}))
-        self.assertFalse(self.constraint.check({"x": 1, "y": 0}))
-
-    def test_Clone(self) -> None:
-        constraint_clone = self.constraint.clone()
-        self.assertEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-        constraint_clone._lower_parameter = self.y
-        self.assertNotEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-    def test_CloneWithTransformedParameters(self) -> None:
-        constraint_clone = self.constraint.clone_with_transformed_parameters(
-            transformed_parameters={p.name: p for p in self.constraint.parameters}
-        )
-        self.assertEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-        constraint_clone._lower_parameter = self.y
-        self.assertNotEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-    def test_InvalidSetup(self) -> None:
-        z = FixedParameter("z", ParameterType.INT, 0)
-        with self.assertRaises(ValueError):
-            self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
-
-        z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
-        with self.assertRaises(ValueError):
-            self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
 
 
 class SumConstraintTest(TestCase):
