@@ -647,10 +647,15 @@ def experiment_from_json(
 ) -> Experiment:
     """Load Ax Experiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
-    _trial_type_to_runner = object_from_json(
-        object_json.pop("_trial_type_to_runner"),
-        decoder_registry=decoder_registry,
-        class_decoder_registry=class_decoder_registry,
+    _trial_type_to_runner_json = object_json.pop("_trial_type_to_runner", None)
+    _trial_type_to_runner = (
+        object_from_json(
+            _trial_type_to_runner_json,
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        if _trial_type_to_runner_json is not None
+        else None
     )
 
     experiment = Experiment(
@@ -664,7 +669,8 @@ def experiment_from_json(
         }
     )
     experiment._arms_by_name = {}
-    experiment._trial_type_to_runner = _trial_type_to_runner
+    if _trial_type_to_runner is not None:
+        experiment._trial_type_to_runner = _trial_type_to_runner
 
     _load_experiment_info(
         exp=experiment,
