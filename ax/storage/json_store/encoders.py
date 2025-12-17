@@ -34,7 +34,7 @@ from ax.core.parameter import (
     FixedParameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -222,20 +222,6 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> dict[str, Any]:
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
-    }
-
-
-def sum_parameter_constraint_to_dict(
-    parameter_constraint: SumConstraint,
-) -> dict[str, Any]:
-    """Convert Ax sum parameter constraint to a dictionary."""
-    return {
-        "__type": parameter_constraint.__class__.__name__,
-        "parameter_names": parameter_constraint._parameter_names,
-        "is_upper_bound": parameter_constraint._is_upper_bound,
-        # SumParameterConstraint constructor takes in absolute value of
-        # the bound and transforms it based on the is_upper_bound value
-        "bound": abs(parameter_constraint._bound),
     }
 
 

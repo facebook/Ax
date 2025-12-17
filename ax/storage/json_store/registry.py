@@ -48,7 +48,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -152,7 +152,6 @@ from ax.storage.json_store.encoders import (
     runner_to_dict,
     scalarized_objective_to_dict,
     search_space_to_dict,
-    sum_parameter_constraint_to_dict,
     surrogate_to_dict,
     threshold_early_stopping_strategy_to_dict,
     transform_type_to_dict,
@@ -259,7 +258,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     SingleDiagnosticBestModelSelector: best_model_selector_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
     SobolQMCNormalSampler: botorch_component_to_dict,
-    SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
     SyntheticRunner: runner_to_dict,
     ThresholdEarlyStoppingStrategy: threshold_early_stopping_strategy_to_dict,
@@ -396,7 +394,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,
     "SklearnModelType": SklearnModelType,
-    "SumConstraint": SumConstraint,
+    "SumConstraint": ParameterConstraint,  # DEPRECATED; backward compatibility
     "Surrogate": Surrogate,
     "SurrogateMetric": BenchmarkMetric,  # DEPRECATED; backward compatibility
     "SobolQMCNormalSampler": SobolQMCNormalSampler,

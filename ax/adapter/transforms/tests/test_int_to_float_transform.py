@@ -15,7 +15,7 @@ from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.int_to_float import IntToFloat
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
@@ -239,11 +239,7 @@ class IntToFloatTransformTest(TestCase):
         ]
         constrained_int_search_space = SearchSpace(
             parameters=parameters,
-            parameter_constraints=[
-                # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-                #  `List[RangeParameter]`.
-                SumConstraint(parameters=parameters, is_upper_bound=True, bound=5)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="x + y <= 5")],
         )
         t = IntToFloat(search_space=constrained_int_search_space)
         self.assertEqual(t.rounding, "randomized")
@@ -288,11 +284,7 @@ class IntToFloatTransformTest(TestCase):
         ]
         constrained_int_search_space = SearchSpace(
             parameters=parameters,
-            parameter_constraints=[
-                # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-                #  `List[RangeParameter]`.
-                SumConstraint(parameters=parameters, is_upper_bound=True, bound=3)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="x + y <= 3")],
         )
         t = IntToFloat(search_space=constrained_int_search_space)
         self.assertEqual(t.rounding, "randomized")

@@ -31,7 +31,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -61,6 +61,5 @@ __all__ = [
     "Runner",
     "SearchSpace",
     "SimpleExperiment",
-    "SumConstraint",
     "Trial",
 ]

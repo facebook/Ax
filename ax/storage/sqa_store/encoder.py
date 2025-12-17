@@ -46,7 +46,7 @@ from ax.core.parameter import (
     Parameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import ParameterConstraint, SumConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -349,22 +349,14 @@ class Encoder:
         param_constraint_cls: SQAParameterConstraint = self.config.class_to_sqa_class[
             ParameterConstraint
         ]
-        if isinstance(parameter_constraint, SumConstraint):
-            # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
-            return param_constraint_cls(
-                id=parameter_constraint.db_id,
-                type=ParameterConstraintType.SUM,
-                constraint_dict=parameter_constraint.constraint_dict,
-                bound=parameter_constraint.bound,
-            )
-        else:
-            # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
-            return param_constraint_cls(
-                id=parameter_constraint.db_id,
-                type=ParameterConstraintType.LINEAR,
-                constraint_dict=parameter_constraint.constraint_dict,
-                bound=parameter_constraint.bound,
-            )
+
+        # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
+        return param_constraint_cls(
+            id=parameter_constraint.db_id,
+            type=ParameterConstraintType.LINEAR,
+            constraint_dict=parameter_constraint.constraint_dict,
+            bound=parameter_constraint.bound,
+        )
 
     def search_space_to_sqa(
         self, search_space: SearchSpace | None

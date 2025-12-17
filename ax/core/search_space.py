@@ -28,7 +28,6 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import (
     ParameterConstraint,
-    SumConstraint,
     validate_constraint_parameters,
 )
 from ax.core.types import TParameterization
@@ -190,21 +189,14 @@ class SearchSpace(Base):
         # Validate that all parameters in constraints are in search
         # space already.
         self._validate_parameter_constraints(parameter_constraints)
-        # Set the parameter on the constraint to be the parameter by
-        # the matching name among the search space's parameters, so we
-        # are not keeping two copies of the same parameter.
-        for constraint in parameter_constraints:
-            if isinstance(constraint, SumConstraint):
-                for idx, parameter in enumerate(constraint.parameters):
-                    constraint.parameters[idx] = self.parameters[parameter.name]
+        self._parameter_constraints: list[ParameterConstraint] = parameter_constraints
 
+        for constraint in self.parameter_constraints:
             validate_constraint_parameters(
                 parameters=[
                     self._parameters[name] for name in constraint.constraint_dict.keys()
                 ]
             )
-
-        self._parameter_constraints: list[ParameterConstraint] = parameter_constraints
 
     def add_parameters(
         self,
@@ -533,29 +525,17 @@ class SearchSpace(Base):
         self, parameter_constraints: list[ParameterConstraint]
     ) -> None:
         for constraint in parameter_constraints:
-            if isinstance(constraint, SumConstraint):
-                for parameter in constraint.parameters:
-                    if parameter.name not in self._parameters.keys():
-                        raise ValueError(
-                            f"`{parameter.name}` does not exist in search space."
-                        )
-                    if parameter != self._parameters[parameter.name]:
-                        raise ValueError(
-                            f"Parameter constraint's definition of '{parameter.name}' "
-                            "does not match the SearchSpace's definition"
-                        )
-            else:
-                for parameter_name in constraint.constraint_dict.keys():
-                    p = self._parameters.get(parameter_name)
-                    if p is None:
-                        raise ValueError(
-                            f"`{parameter_name}` does not exist in search space."
-                        )
-                    elif isinstance(p, DerivedParameter):
-                        raise ValueError(
-                            "Parameter constraints cannot be used with derived "
-                            "parameters."
-                        )
+            for parameter_name in constraint.constraint_dict.keys():
+                p = self._parameters.get(parameter_name)
+                if p is None:
+                    raise ValueError(
+                        f"`{parameter_name}` does not exist in search space."
+                    )
+                elif isinstance(p, DerivedParameter):
+                    raise ValueError(
+                        "Parameter constraints cannot be used with derived "
+                        "parameters."
+                    )
 
     def _validate_hierarchical_structure(self) -> None:
         """Validate the structure of this hierarchical search space, ensuring that all
