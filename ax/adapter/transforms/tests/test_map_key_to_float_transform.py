@@ -68,7 +68,7 @@ class ClientTest(TestCase):
         )
         generator_spec = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={
+            generator_kwargs={
                 "surrogate_spec": surrogate_spec,
                 "botorch_acqf_class": qLogExpectedImprovement,
                 "transforms": MBM_X_trans + Y_trans,

@@ -179,7 +179,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
     def test_spec_string_representation(self) -> None:
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={"test_model_kwargs": 1},
+            generator_kwargs={"test_generator_kwargs": 1},
             generator_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
         )
@@ -188,7 +188,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         repr_str = repr(ms)
 
         self.assertNotIn("\n", repr_str)
-        self.assertIn("test_model_kwargs", repr_str)
+        self.assertIn("test_generator_kwargs", repr_str)
         self.assertIn("test_gen_kwargs", repr_str)
         self.assertIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)
@@ -196,7 +196,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
     def test_brief_rep(self) -> None:
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={"test_model_kwargs": 1},
+            generator_kwargs={"test_generator_kwargs": 1},
             generator_gen_kwargs={"test_gen_kwargs": 1},
             model_cv_kwargs={"test_cv_kwargs": 1},
         )
@@ -205,7 +205,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         repr_str = ms._brief_repr()
 
         self.assertNotIn("\n", repr_str)
-        self.assertNotIn("test_model_kwargs", repr_str)
+        self.assertNotIn("test_generator_kwargs", repr_str)
         self.assertNotIn("test_gen_kwargs", repr_str)
         self.assertNotIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)

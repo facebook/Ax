@@ -427,8 +427,8 @@ def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
         "max_parallelism": generation_step.max_parallelism,
         "use_update": generation_step.use_update,
         "enforce_num_trials": generation_step.enforce_num_trials,
-        "model_kwargs": _encode_callables_as_references(
-            generation_step.model_kwargs or {}
+        "generator_kwargs": _encode_callables_as_references(
+            generation_step.generator_kwargs or {}
         ),
         "generator_gen_kwargs": _encode_callables_as_references(
             generation_step.generator_gen_kwargs or {}
@@ -495,7 +495,7 @@ def generator_spec_to_dict(generator_spec: GeneratorSpec) -> dict[str, Any]:
     return {
         "__type": generator_spec.__class__.__name__,
         "generator_enum": generator_spec.generator_enum,
-        "model_kwargs": generator_spec.model_kwargs,
+        "generator_kwargs": generator_spec.generator_kwargs,
         "generator_gen_kwargs": generator_spec.generator_gen_kwargs,
         "model_cv_kwargs": generator_spec.model_cv_kwargs,
         "generator_key_override": generator_spec.generator_key_override,

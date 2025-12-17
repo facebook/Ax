@@ -75,9 +75,9 @@ from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
-# Deprecated model registry entries and their replacements.
+# Deprecated generators registry entries and their replacements.
 # Used below in `_update_deprecated_model_registry`.
-_DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
+_DEPRECATED_GENERATOR_TO_REPLACEMENT: dict[str, str] = {
     "GPEI": "BOTORCH_MODULAR",
     "MOO": "BOTORCH_MODULAR",
     "FULLYBAYESIAN": "SAASBO",
@@ -90,8 +90,8 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
     "LEGACY_BOTORCH": "BOTORCH_MODULAR",
 }
 
-# Deprecated model kwargs, to be removed from GStep / GNodes.
-_DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
+# Deprecated generator kwargs, to be removed from GStep / GNodes.
+_DEPRECATED_GENERATOR_KWARGS: tuple[str, ...] = (
     "fit_on_update",
     "fit_out_of_design",
     "fit_abandoned",
@@ -391,13 +391,13 @@ def generator_run_from_json(
         generator_run._generator_kwargs = {
             k: v
             for k, v in generator_run._generator_kwargs.items()
-            if k not in _DEPRECATED_MODEL_KWARGS
+            if k not in _DEPRECATED_GENERATOR_KWARGS
         }
     if generator_run._adapter_kwargs is not None:
         generator_run._adapter_kwargs = {
             k: v
             for k, v in generator_run._adapter_kwargs.items()
-            if k not in _DEPRECATED_MODEL_KWARGS
+            if k not in _DEPRECATED_GENERATOR_KWARGS
         }
     generator_run._time_created = object_from_json(
         time_created_json,
@@ -946,11 +946,14 @@ def generation_step_from_json(
     generation_step_json = _convert_generation_step_keys_for_backwards_compatibility(
         generation_step_json
     )
-    kwargs = generation_step_json.pop("model_kwargs", None)
-    for k in _DEPRECATED_MODEL_KWARGS:
-        # Remove deprecated kwargs.
-        kwargs.pop(k, None)
+    if "model_kwargs" in generation_step_json:
+        kwargs = generation_step_json.pop("model_kwargs", None)
+    else:
+        kwargs = generation_step_json.pop("generator_kwargs", None)
     if kwargs is not None:
+        for k in _DEPRECATED_GENERATOR_KWARGS:
+            # Remove deprecated kwargs.
+            kwargs.pop(k, None)
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
     if "model_gen_kwargs" in generation_step_json:
         gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
@@ -983,7 +986,7 @@ def generation_step_from_json(
         ),
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
-        model_kwargs=(
+        generator_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
                     kwargs,
@@ -1020,8 +1023,11 @@ def generator_spec_from_json(
 ) -> GeneratorSpec:
     """Load GeneratorSpec from JSON."""
     generator_spec_json = generator_spec_json.copy()  # prevent in-place modification.
-    kwargs = generator_spec_json.pop("model_kwargs", None)
-    for k in _DEPRECATED_MODEL_KWARGS:
+    if "model_kwargs" in generator_spec_json:
+        kwargs = generator_spec_json.pop("model_kwargs", None)
+    else:
+        kwargs = generator_spec_json.pop("generator_kwargs", None)
+    for k in _DEPRECATED_GENERATOR_KWARGS:
         # Remove deprecated model kwargs.
         kwargs.pop(k, None)
     if kwargs is not None:
@@ -1045,7 +1051,7 @@ def generator_spec_from_json(
             )
             for k, v in generator_spec_json.items()
         },
-        model_kwargs=(
+        generator_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
                     object_json=kwargs,
@@ -1324,7 +1330,7 @@ def _update_deprecated_model_registry(name: str) -> str:
     """Update the enum name for deprecated model registry entries to point to
     a replacement model. This will log an exception to alert the user to the change.
 
-    The replacement models are listed in `_DEPRECATED_MODEL_TO_REPLACEMENT` above.
+    The replacement models are listed in `_DEPRECATED_GENERATOR_TO_REPLACEMENT` above.
     If a deprecated model does not list a replacement, nothing will be done and it
     will error out while looking it up in the corresponding enum.
 
@@ -1334,8 +1340,8 @@ def _update_deprecated_model_registry(name: str) -> str:
     Returns:
         Either the given name or the name of a replacement ``Generators`` enum.
     """
-    if name in _DEPRECATED_MODEL_TO_REPLACEMENT:
-        new_name = _DEPRECATED_MODEL_TO_REPLACEMENT[name]
+    if name in _DEPRECATED_GENERATOR_TO_REPLACEMENT:
+        new_name = _DEPRECATED_GENERATOR_TO_REPLACEMENT[name]
         logger.exception(
             f"{name} model is deprecated and replaced by Generators.{new_name}. "
             f"Please use {new_name} in the future. Note that this warning only "

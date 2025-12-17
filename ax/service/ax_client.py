@@ -146,7 +146,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             used for generating new points for trials. Works only for torch-based
             models, such as MBM. Ignored if a `generation_strategy` is passed in
             manually. To specify the device for a custom `generation_strategy`,
-            pass in `torch_device` as part of `model_kwargs`. See
+            pass in `torch_device` as part of `generator_kwargs`. See
             https://ax.dev/tutorials/generation_strategy.html for a tutorial on
             generation strategies.
 
@@ -192,7 +192,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             warnings.warn(
                 "Both a `generation_strategy` and a `torch_device` were specified. "
                 "`torch_device` will be ignored. Instead, specify `torch_device` "
-                "by passing it in `model_kwargs` while creating the "
+                "by passing it in `generator_kwargs` while creating the "
                 "`generation_strategy`.",
                 RuntimeWarning,
                 stacklevel=2,

@@ -564,7 +564,7 @@ class TestUtils(TestCase):
         )
         gen_spec = self.client._generation_strategy._curr.generator_specs[0]
         adapter = gen_spec.generator_enum(
-            experiment=self.client._experiment, **gen_spec.model_kwargs
+            experiment=self.client._experiment, **gen_spec.generator_kwargs
         )
         df = prepare_arm_data(
             experiment=self.client._experiment,

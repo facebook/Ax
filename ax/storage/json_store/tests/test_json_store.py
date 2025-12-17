@@ -57,7 +57,7 @@ from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
-    _DEPRECATED_MODEL_TO_REPLACEMENT,
+    _DEPRECATED_GENERATOR_TO_REPLACEMENT,
     data_from_json,
     generation_node_from_json,
     generation_strategy_from_json,
@@ -340,7 +340,7 @@ TEST_CASES = [
         partial(
             GeneratorSpec,
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={"some_kwarg": "some_value"},
+            generator_kwargs={"some_kwarg": "some_value"},
             generator_gen_kwargs={"n": 5},
             model_cv_kwargs={"untransform": False},
             generator_key_override="custom_generator_key",
@@ -1130,7 +1130,7 @@ class JSONStoreTest(TestCase):
         }
         generation_step = object_from_json(json)
         self.assertIsInstance(generation_step, GenerationStep)
-        self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
+        self.assertEqual(generation_step.generator_kwargs, {"other_kwarg": 5})
         self.assertEqual(generation_step.generator, Generators.BOTORCH_MODULAR)
         self.assertEqual(generation_step.generator_gen_kwargs, {"dummy": 5.0})
 
@@ -1273,7 +1273,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(len(node.input_constructors), 2)
         # Check that transforms got correctly deserialized.
         self.assertEqual(
-            node.generator_specs[0].model_kwargs["transforms"],
+            node.generator_specs[0].generator_kwargs["transforms"],
             [OneHot, Log],
         )
         self.assertEqual(
@@ -1865,7 +1865,7 @@ class JSONStoreTest(TestCase):
     def test_model_registry_backwards_compatibility(self) -> None:
         # Check that deprecated model registry entries can be loaded.
         # Check for models with listed replacements.
-        for name, replacement in _DEPRECATED_MODEL_TO_REPLACEMENT.items():
+        for name, replacement in _DEPRECATED_GENERATOR_TO_REPLACEMENT.items():
             with self.assertLogs(logger="ax", level="ERROR"):
                 from_json = object_from_json({"__type": "Generators", "name": name})
             self.assertEqual(from_json, Generators[replacement])
