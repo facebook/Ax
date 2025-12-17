@@ -10,12 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
-from ax.adapter.transforms.utils import construct_new_search_space
-from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
-from ax.core.search_space import SearchSpace
-from ax.generators.types import TConfig
+from ax.core.parameter import ChoiceParameter, Parameter
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -34,27 +30,6 @@ class TaskChoiceToIntTaskChoice(ChoiceToNumericChoice):
     Transform is done in-place.
     """
 
-    def __init__(
-        self,
-        search_space: SearchSpace,
-        experiment_data: ExperimentData | None = None,
-        adapter: adapter_module.base.Adapter | None = None,
-        config: TConfig | None = None,
-    ) -> None:
-        super().__init__(
-            search_space=search_space,
-            experiment_data=experiment_data,
-            adapter=adapter,
-            config=config,
-        )
-        self.target_values: dict[str, int | None] = {
-            p.name: self.encoded_parameters[p.name][p.target_value]
-            if p.target_value is not None
-            else None
-            for p in search_space.parameters.values()
-            if self._should_encode(p=p)
-        }
-
     def _should_encode(self, p: Parameter) -> bool:
         """Check if a parameter should be encoded.
         Encodes task choice parameters.
@@ -68,34 +43,3 @@ class TaskChoiceToIntTaskChoice(ChoiceToNumericChoice):
                 )
             return True
         return False
-
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: dict[str, Parameter] = {}
-        for p_name, p in search_space.parameters.items():
-            if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
-                if p.is_fidelity:
-                    raise ValueError(
-                        f"Cannot choice-encode fidelity parameter {p_name}."
-                    )
-                # Choice(|K|) => Choice(0, K-1, is_task=True)
-                transformed_parameters[p_name] = ChoiceParameter(
-                    name=p_name,
-                    parameter_type=ParameterType.INT,
-                    values=list(range(len(p.values))),
-                    is_ordered=p.is_ordered,
-                    is_task=True,
-                    sort_values=True,
-                    target_value=self.target_values[p_name],
-                )
-            else:
-                transformed_parameters[p.name] = p
-        return construct_new_search_space(
-            search_space=search_space,
-            parameters=list(transformed_parameters.values()),
-            parameter_constraints=[
-                pc.clone_with_transformed_parameters(
-                    transformed_parameters=transformed_parameters
-                )
-                for pc in search_space.parameter_constraints
-            ],
-        )
