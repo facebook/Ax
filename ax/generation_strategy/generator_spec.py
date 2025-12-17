@@ -49,7 +49,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     # Kwargs to pass to `Adapter.gen`.
     generator_gen_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
-    model_cv_kwargs: dict[str, Any] = field(default_factory=dict)
+    cv_kwargs: dict[str, Any] = field(default_factory=dict)
     # An optional override for the generator key. Each `GeneratorSpec` in a
     # `GenerationNode` must have a unique key to ensure identifiability.
     generator_key_override: str | None = None
@@ -73,7 +73,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     def __post_init__(self) -> None:
         self.generator_kwargs = self.generator_kwargs or {}
         self.generator_gen_kwargs = self.generator_gen_kwargs or {}
-        self.model_cv_kwargs = self.model_cv_kwargs or {}
+        self.cv_kwargs = self.cv_kwargs or {}
 
     @property
     def fitted_adapter(self) -> Adapter:
@@ -150,7 +150,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
 
     def cross_validate(
         self,
-        model_cv_kwargs: dict[str, Any] | None = None,
+        cv_kwargs: dict[str, Any] | None = None,
     ) -> tuple[list[CVResult] | None, CVDiagnostics | None]:
         """
         Call cross_validate, compute_diagnostics and cache the results.
@@ -160,15 +160,15 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         the same kwargs, this will return the cached results.
 
         Args:
-            model_cv_kwargs: Optional kwargs to pass into `cross_validate` call.
-                These are combined with `self.model_cv_kwargs`, with the
-                `model_cv_kwargs` taking precedence over `self.model_cv_kwargs`.
+            cv_kwargs: Optional kwargs to pass into `cross_validate` call.
+                These are combined with `self.cv_kwargs`, with the
+                `cv_kwargs` taking precedence over `self.cv_kwargs`.
 
         Returns:
             A tuple of CV results (observed vs predicted values) and the
             corresponding diagnostics.
         """
-        cv_kwargs = {**self.model_cv_kwargs, **(model_cv_kwargs or {})}
+        cv_kwargs = {**self.cv_kwargs, **(cv_kwargs or {})}
         if (
             self._cv_results is not None
             and self._diagnostics is not None
@@ -245,7 +245,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
             generator_enum=self.generator_enum,
             generator_kwargs=deepcopy(self.generator_kwargs),
             generator_gen_kwargs=deepcopy(self.generator_gen_kwargs),
-            model_cv_kwargs=deepcopy(self.model_cv_kwargs),
+            cv_kwargs=deepcopy(self.cv_kwargs),
             generator_key_override=self.generator_key_override,
         )
 
@@ -301,15 +301,15 @@ class GeneratorSpec(SortableBase, SerializationMixin):
         generator_gen_kwargs = json.dumps(
             self.generator_gen_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
-        model_cv_kwargs = json.dumps(
-            self.model_cv_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
+        cv_kwargs = json.dumps(
+            self.cv_kwargs, sort_keys=True, cls=GeneratorSpecJSONEncoder
         )
         return (
             "GeneratorSpec("
             f"\tgenerator_enum={self.generator_enum.value}, "
             f"\tgenerator_kwargs={generator_kwargs}, "
             f"\tgenerator_gen_kwargs={generator_gen_kwargs}, "
-            f"\tmodel_cv_kwargs={model_cv_kwargs}, "
+            f"\tcv_kwargs={cv_kwargs}, "
             f"\tgenerator_key_override={self.generator_key_override}"
             ")"
         )

@@ -497,7 +497,7 @@ def generator_spec_to_dict(generator_spec: GeneratorSpec) -> dict[str, Any]:
         "generator_enum": generator_spec.generator_enum,
         "generator_kwargs": generator_spec.generator_kwargs,
         "generator_gen_kwargs": generator_spec.generator_gen_kwargs,
-        "model_cv_kwargs": generator_spec.model_cv_kwargs,
+        "cv_kwargs": generator_spec.cv_kwargs,
         "generator_key_override": generator_spec.generator_key_override,
     }
 

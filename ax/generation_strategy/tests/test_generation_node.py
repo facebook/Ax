@@ -293,8 +293,8 @@ class TestGenerationNode(TestCase):
             node.generator_specs[0].generator_gen_kwargs,
         )
         self.assertEqual(
-            node.generator_spec_to_gen_from.model_cv_kwargs,
-            node.generator_specs[0].model_cv_kwargs,
+            node.generator_spec_to_gen_from.cv_kwargs,
+            node.generator_specs[0].cv_kwargs,
         )
         self.assertEqual(
             node.generator_spec_to_gen_from.fixed_features,

@@ -1036,7 +1036,10 @@ def generator_spec_from_json(
         gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
     else:
         gen_kwargs = generator_spec_json.pop("generator_gen_kwargs", None)
-    cv_kwargs = generator_spec_json.pop("model_cv_kwargs", None)
+    if "model_cv_kwargs" in generator_spec_json:
+        cv_kwargs = generator_spec_json.pop("model_cv_kwargs", None)
+    else:
+        cv_kwargs = generator_spec_json.pop("cv_kwargs", None)
     if "model_enum" in generator_spec_json:
         # Old arg name for backwards compatibility.
         generator_spec_json["generator_enum"] = generator_spec_json.pop("model_enum")
@@ -1073,7 +1076,7 @@ def generator_spec_from_json(
             if gen_kwargs
             else {}
         ),
-        model_cv_kwargs=(
+        cv_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
                     object_json=cv_kwargs,
