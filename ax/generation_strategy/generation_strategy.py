@@ -261,7 +261,7 @@ class GenerationStrategy(Base):
     ) -> GeneratorRun:
         """Produce the next points in the experiment. Additional kwargs passed to
         this method are propagated directly to the underlying node's `gen`, along
-        with the `model_gen_kwargs` set on the current generation node.
+        with the `generator_gen_kwargs` set on the current generation node.
 
         NOTE: Each generator run returned from this function must become a single
         trial on the experiment to comply with assumptions made in generation

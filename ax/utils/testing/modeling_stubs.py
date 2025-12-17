@@ -245,13 +245,13 @@ def sobol_gpei_generation_node_gs(
     sobol_generator_spec = GeneratorSpec(
         generator_enum=Generators.SOBOL,
         model_kwargs=step_model_kwargs,
-        model_gen_kwargs={},
+        generator_gen_kwargs={},
     )
     mbm_generator_specs = [
         GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
             model_kwargs=step_model_kwargs,
-            model_gen_kwargs={},
+            generator_gen_kwargs={},
         )
     ]
     sobol_node = GenerationNode(
@@ -491,7 +491,7 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:
                 "class": "<class 'botorch.acquisition.acquisition.AcquisitionFunction'>",  # noqa
             },
         },
-        "model_gen_kwargs": {},
+        "generator_gen_kwargs": {},
         "index": -1,
         "should_deduplicate": False,
     }

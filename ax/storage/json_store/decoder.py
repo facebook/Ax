@@ -952,7 +952,10 @@ def generation_step_from_json(
         kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
-    gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
+    if "model_gen_kwargs" in generation_step_json:
+        gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
+    else:
+        gen_kwargs = generation_step_json.pop("generator_gen_kwargs", None)
     completion_criteria = (
         object_from_json(
             generation_step_json.pop("completion_criteria"),
@@ -991,7 +994,7 @@ def generation_step_from_json(
             if kwargs
             else {}
         ),
-        model_gen_kwargs=(
+        generator_gen_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
                     gen_kwargs,
@@ -1023,7 +1026,10 @@ def generator_spec_from_json(
         kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
-    gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
+    if "model_gen_kwargs" in generator_spec_json:
+        gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
+    else:
+        gen_kwargs = generator_spec_json.pop("generator_gen_kwargs", None)
     cv_kwargs = generator_spec_json.pop("model_cv_kwargs", None)
     if "model_enum" in generator_spec_json:
         # Old arg name for backwards compatibility.
@@ -1050,7 +1056,7 @@ def generator_spec_from_json(
             if kwargs
             else {}
         ),
-        model_gen_kwargs=(
+        generator_gen_kwargs=(
             _decode_callables_from_references(
                 object_from_json(
                     object_json=gen_kwargs,

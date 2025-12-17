@@ -298,7 +298,7 @@ class EBAshr(ThompsonSampler):
         )
         if not isinstance(regression_prob_threshold, float):
             raise TypeError(
-                "`regression_prob_threshold` is required among `model_gen_kwargs` \
+                "`regression_prob_threshold` is required among `generator_gen_kwargs` \
                 and must be set to a float."
             )
 
