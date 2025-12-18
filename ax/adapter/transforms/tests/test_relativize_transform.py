@@ -21,12 +21,16 @@ from ax.adapter.transforms.relativize import (
     Relativize,
     relativize,
     RelativizeWithConstantControl,
+    SelectiveRelativizeWithConstantControl,
 )
+
 from ax.core import BatchTrial
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import observations_from_data, recombine_observations
+from ax.core.optimization_config import PreferenceOptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
@@ -588,3 +592,74 @@ class RelativizeDataOptConfigTest(TestCase):
                     adapter=None,
                     fixed_features=Mock(),
                 )
+
+    def test_selective_relativize_with_constant_control(self) -> None:
+        """Test SelectiveRelativizeWithConstantControl behavior based on config type."""
+        # Setup: experiment with status quo and data (required for transform)
+        exp = get_branin_experiment(with_batch=True, with_status_quo=True)
+        for t in exp.trials.values():
+            t.mark_running(no_runner_required=True)
+            exp.attach_data(
+                get_branin_data_batch(batch=assert_is_instance(t, BatchTrial))
+            )
+            t.mark_completed()
+
+        # Case 1: Regular OptimizationConfig -> no-op
+        adapter = Adapter(experiment=exp, generator=Generator())
+        transform = SelectiveRelativizeWithConstantControl(adapter=adapter)
+        self.assertFalse(transform._should_relativize)
+
+        # Verify observations pass through unchanged (same object returned)
+        obs = [
+            Observation(
+                data=ObservationData(
+                    metric_signatures=["branin"],
+                    means=np.array([3.0]),
+                    covariance=np.array([[0.2]]),
+                ),
+                features=ObservationFeatures(parameters={"x": 1.0}, trial_index=0),
+                arm_name="0_0",
+            )
+        ]
+        self.assertIs(transform.transform_observations(obs), obs)
+
+        # Helper to create PreferenceOptimizationConfig
+        def make_pref_config(expect_relativized: bool) -> PreferenceOptimizationConfig:
+            return PreferenceOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(
+                            metric=BraninMetric("branin", ["x1", "x2"]), minimize=False
+                        ),
+                    ]
+                ),
+                preference_profile_name="test",
+                expect_relativized_outcomes=expect_relativized,
+            )
+
+        # Case 2: PreferenceOptimizationConfig with expect_relativized=False -> no-op
+        exp._optimization_config = make_pref_config(expect_relativized=False)
+        adapter = Adapter(experiment=exp, generator=Generator())
+        transform = SelectiveRelativizeWithConstantControl(adapter=adapter)
+        self.assertFalse(transform._should_relativize)
+        self.assertTrue(transform.control_as_constant)
+
+        # Case 3: PreferenceOptimizationConfig with expect_relativized=True -> active
+        exp._optimization_config = make_pref_config(expect_relativized=True)
+        adapter = Adapter(experiment=exp, generator=Generator())
+        transform = SelectiveRelativizeWithConstantControl(adapter=adapter)
+        self.assertTrue(transform._should_relativize)
+        self.assertTrue(transform.control_as_constant)
+
+        # Verify transform/untransform roundtrip
+        observations = observations_from_data(experiment=exp, data=exp.fetch_data())
+        test_obs = [o for o in observations if o.arm_name != "status_quo"]
+        original_means = [o.data.means.copy() for o in test_obs]
+
+        transformed = transform.transform_observations(test_obs)
+        for orig, trans in zip(original_means, transformed):
+            self.assertFalse(np.allclose(orig, trans.data.means))
+
+        untransformed = transform.untransform_observations(transformed)
+        for orig, untrans in zip(original_means, untransformed):
+            np.testing.assert_array_almost_equal(orig, untrans.data.means)

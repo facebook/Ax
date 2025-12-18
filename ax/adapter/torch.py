@@ -47,7 +47,10 @@ from ax.adapter.transforms.derelativize import Derelativize
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
 from ax.adapter.transforms.log import Log
-from ax.adapter.transforms.relativize import RelativizeWithConstantControl
+from ax.adapter.transforms.relativize import (
+    RelativizeWithConstantControl,
+    SelectiveRelativizeWithConstantControl,
+)
 from ax.adapter.transforms.remove_fixed import RemoveFixed
 from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
@@ -117,7 +120,8 @@ BOPE_ALLOWED_TRANSFORMS: set[type[Transform]] = {
     TransformToNewSQ,  # Doesn't distort outcome scales
     # not allowing Relativize here as it doesn't guarantee
     # the untransformed SEM is always valid
-    RelativizeWithConstantControl,  # Outcome transfom used by BOPE
+    RelativizeWithConstantControl,  # Outcome transfom for BOPE
+    SelectiveRelativizeWithConstantControl,  # Conditional transform for BOPE
 }
 
 
