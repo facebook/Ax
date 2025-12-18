@@ -208,6 +208,12 @@ class LogTransformTest(TestCase):
                     log_scale=True,
                     is_fidelity=True,
                     target_value=32,
+                    dependents={4: ["t"]},
+                ),
+                ChoiceParameter(
+                    "t",
+                    parameter_type=ParameterType.INT,
+                    values=[1, 2, 3],
                 ),
             ]
         )
@@ -262,6 +268,10 @@ class LogTransformTest(TestCase):
         self.assertFalse(param_w.log_scale)
         self.assertTrue(param_w.is_fidelity)
         self.assertEqual(param_w.target_value, math.log10(32))
+        self.assertEqual(param_w.dependents, {math.log10(4): ["t"]})
+
+        # Verify that `t` is not transformed.
+        self.assertEqual(ss2.parameters["t"], search_space.parameters["t"])
 
     @mock_botorch_optimize
     def test_log_scale_choice_with_adapter(self) -> None:

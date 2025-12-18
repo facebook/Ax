@@ -94,6 +94,7 @@ class Log(Transform):
                 ) or isinstance(p, ChoiceParameter):
                     # Handle both int RangeParameter and ChoiceParameter
                     # by converting to log-transformed ChoiceParameter
+                    dependents: dict[TParamValue, list[str]] | None = None
                     if isinstance(p, RangeParameter):
                         lower = assert_is_instance(p.lower, int)
                         upper = assert_is_instance(p.upper, int)
@@ -104,6 +105,7 @@ class Log(Transform):
                         values = p.values
                         is_ordered = p.is_ordered
                         sort_values = p.sort_values
+                        dependents = p._dependents
 
                     # Apply log10 transformation
                     transformed_values = [
@@ -115,6 +117,11 @@ class Log(Transform):
                         target_value = math.log10(
                             assert_is_instance_of_tuple(target_value, (float, int))
                         )
+                    if dependents is not None:
+                        dependents = {
+                            math.log10(assert_is_instance_of_tuple(k, (float, int))): v
+                            for k, v in dependents.items()
+                        }
 
                     # Create new ChoiceParameter with transformed values.
                     choice_param = ChoiceParameter(
@@ -126,6 +133,7 @@ class Log(Transform):
                         target_value=target_value,
                         sort_values=sort_values,
                         log_scale=False,
+                        dependents=dependents,
                         bypass_cardinality_check=True,
                     )
 
