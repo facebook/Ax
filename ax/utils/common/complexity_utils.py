@@ -58,6 +58,38 @@ tool on top of this function, ensure that `uses_standard_api` is set to `True` i
 
 
 @dataclass(frozen=True)
+class TierMessages:
+    """Container for tier-specific messages used when formatting tier results.
+
+    By default, `format_tier_message` uses generic messages suitable for
+    open-source users. If you're building a tool on top of this function and
+    want to provide more specific guidance (e.g., with links to docs,
+    SLAs, or support channels), you can create a custom `TierMessages` instance
+    with your own messages.
+
+    Attributes:
+        standard: Message string shown for experiments in the "Standard" tier.
+        advanced: Message string shown for experiments in the "Advanced" tier.
+        unsupported: Message string shown for experiments in the "Unsupported" tier.
+        unknown: Message string shown when tier cannot be determined.
+        not_standard_api: Message string shown when `uses_standard_api` is False.
+        additional_info[Optional]: Additional information to append at the end of
+            the formatted message. This can include URLs to tier definitions,
+            contact information, or any other relevant details.
+    """
+
+    standard: str = STANDARD_TIER_MESSAGE
+    advanced: str = ADVANCED_TIER_MESSAGE
+    unsupported: str = UNSUPPORTED_TIER_MESSAGE
+    unknown: str = UNKNOWN_TIER_MESSAGE
+    not_standard_api: str = NOT_STANDARD_API_MESSAGE
+    additional_info: str | None = None
+
+
+DEFAULT_TIER_MESSAGES = TierMessages()
+
+
+@dataclass(frozen=True)
 class OptimizationSummary:
     """Summary of an experiment's configuration for tier classification.
 
@@ -320,6 +352,7 @@ def _check_if_is_in_standard_other_settings(
     optimization_summary: OptimizationSummary,
     why_not_is_in_standard: list[str],
     why_not_supported: list[str],
+    not_standard_api_message: str = DEFAULT_TIER_MESSAGES.not_standard_api,
 ) -> tuple[bool, bool]:
     """Check if other experiment settings are within supported tiers.
 
@@ -340,7 +373,7 @@ def _check_if_is_in_standard_other_settings(
     max_trials = optimization_summary.max_trials
     if not optimization_summary.uses_standard_api:
         is_in_standard, is_supported = False, False
-        why_not_supported.append(NOT_STANDARD_API_MESSAGE)
+        why_not_supported.append(not_standard_api_message)
     elif max_trials is None:
         raise UserInputError("`max_trials` should not be None!")
     elif max_trials is not None and max_trials > 200:
@@ -405,6 +438,7 @@ def _check_if_is_in_standard_other_settings(
 
 def check_if_in_standard(
     optimization_summary: OptimizationSummary,
+    tier_messages: TierMessages = DEFAULT_TIER_MESSAGES,
 ) -> tuple[str, list[str] | None, list[str] | None]:
     """Determine the support tier of an experiment based on its configuration.
 
@@ -427,6 +461,13 @@ def check_if_in_standard(
               uses_standard_api, tolerated_trial_failure_rate, max_pending_trials,
               min_failed_trials_for_failure_rate_check, non_default_advanced_options,
               uses_merge_multiple_curves
+        tier_messages: A ``TierMessages`` instance containing tier-specific
+            messages. By default, this uses `DEFAULT_TIER_MESSAGES` which contains
+            generic messages suitable for most users. If you're building a tool
+            on top of this function,
+            you can pass a custom `TierMessages` instance
+            to provide tool-specific descriptions, support SLAs, links to docs,
+            or contact information. See `TierMessages` for details.
 
     Returns:
         A tuple containing:
@@ -464,6 +505,7 @@ def check_if_in_standard(
         optimization_summary=optimization_summary,
         why_not_is_in_standard=why_not_is_in_standard,
         why_not_supported=why_not_supported,
+        not_standard_api_message=tier_messages.not_standard_api,
     )
     is_in_standard &= other_settings_summary[0]
     is_supported &= other_settings_summary[1]
@@ -480,6 +522,7 @@ def format_tier_message(
     tier: str,
     why_not_is_in_standard: Iterable[str] | None,
     why_not_supported: Iterable[str] | None,
+    tier_messages: TierMessages = DEFAULT_TIER_MESSAGES,
 ) -> str:
     """
     Format the result from `check_if_in_standard` to a markdown-formatted
@@ -493,18 +536,24 @@ def format_tier_message(
         tier: The tier name ("Standard", "Advanced", or "Unsupported").
         why_not_is_in_standard: Reasons for not being in the Standard tier.
         why_not_supported: Reasons for not being in the Advanced tier.
+        tier_messages: A ``TierMessages`` instance containing tier-specific
+            messages. By default, this uses `DEFAULT_TIER_MESSAGES` which contains
+            generic messages suitable for most users. If you're building a tool
+            on top of this function, you can pass a custom `TierMessages` instance
+            to provide tool-specific descriptions, support SLAs, links to docs,
+            or contact information. See `TierMessages` for details.
 
     Returns:
         A formatted string explaining the tier and the reasons.
     """
 
     if tier == "Standard":
-        msg = STANDARD_TIER_MESSAGE
+        msg = tier_messages.standard
     else:
         if tier == "Advanced":
-            msg = ADVANCED_TIER_MESSAGE
+            msg = tier_messages.advanced
         elif tier == "Unsupported":
-            msg = UNSUPPORTED_TIER_MESSAGE
+            msg = tier_messages.unsupported
         else:
             raise ValueError(f'Got unexpected tier "{tier}".')
 
@@ -523,4 +572,6 @@ def format_tier_message(
                 f"\n{why_msg}\n"
             )
             msg += why_msg
+    if tier_messages.additional_info:
+        msg += tier_messages.additional_info
     return msg
