@@ -7,6 +7,7 @@
 # pyre-strict
 
 
+from collections.abc import Mapping
 from contextlib import nullcontext
 from dataclasses import replace
 from itertools import product
@@ -30,6 +31,8 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_soo_surrogate_test_function,
 )
 from ax.core.arm import Arm
+
+from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
@@ -491,3 +494,51 @@ class TestBenchmarkRunner(TestCase):
             ValueError, "Noise std must have keys equal to outcome names"
         ):
             runner.get_noise_stds()
+
+    def test_add_custom_noise(self) -> None:
+        """Test that custom noise function is used when provided."""
+
+        # Create a custom noise function that adds fixed noise
+        def custom_noise_fn(
+            df: DataFrame,
+            trial: BaseTrial | None,
+            noise_stds: Mapping[str, float] | None,
+            arm_weights: Mapping[str, float] | None,
+        ) -> DataFrame:
+            df["mean"] = df["Y_true"] + 0.5  # Fixed offset
+            df["sem"] = 0.1  # Fixed SEM
+            return df
+
+        test_function = IdentityTestFunction(
+            outcome_names=["foo"], add_custom_noise=custom_noise_fn
+        )
+        runner = BenchmarkRunner(
+            test_function=test_function,
+            noise_std=0.0,  # Must be 0 when custom noise is used
+        )
+
+        params = {"x0": 1.0}
+        arm = Arm(name="0_0", parameters=params)
+        trial = Mock(spec=Trial)
+        trial.arms = [arm]
+        trial.arm = arm
+        trial.index = 0
+
+        res = runner.run(trial=trial)["benchmark_metadata"].dfs
+        df = res["foo"]
+
+        # Verify custom noise was applied (mean = Y_true + 0.5)
+        expected_y_true = 1.0  # IdentityTestFunction returns sum of params
+        self.assertEqual(df["mean"].item(), expected_y_true + 0.5)
+        self.assertEqual(df["sem"].item(), 0.1)
+
+        with self.subTest("custom_noise_and_noise_std_conflict"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "Cannot specify both `add_custom_noise` on the test function and "
+                "a `noise_std`",
+            ):
+                BenchmarkRunner(
+                    test_function=test_function,
+                    noise_std=1.0,
+                )
