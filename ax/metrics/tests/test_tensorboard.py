@@ -601,7 +601,7 @@ class TensorboardMetricTest(TestCase):
             self.assertTrue(np.isfinite(df["mean"].iloc[i]))
 
     def test_quantile_percentile_validation_and_deprecation(
-        self,
+        self: TestCase,
         metric_class: type[TensorboardMetric] = TensorboardMetric,
         base_kwargs: dict[str, Any] | None = None,
     ) -> None:
@@ -653,7 +653,7 @@ class TensorboardMetricTest(TestCase):
             metric_class(**base_kwargs, quantile=0.5, percentile=0.5)
 
     def test_quantile_applied_to_curve(
-        self,
+        self: TestCase,
         fetch_data_with_metric: Callable[[TensorboardMetric], pd.DataFrame]
         | None = None,
         metric_class: type[TensorboardMetric] = TensorboardMetric,
