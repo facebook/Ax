@@ -7,15 +7,27 @@
 # pyre-strict
 
 from math import ceil
-from typing import Any, cast
+from typing import Any, cast, Mapping
+
+import pandas as pd
 
 from ax.core.analysis_card import AnalysisCard, AnalysisCardBase
-from ax.core.auxiliary import AuxiliaryExperiment
+from ax.core.auxiliary import (
+    AuxiliaryExperiment,
+    AuxiliaryExperimentMetadata,
+    AuxiliaryExperimentPurpose,
+    TransferLearningMetadata,
+)
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.exceptions.core import ExperimentNotFoundError, ObjectNotFoundError
+from ax.exceptions.core import (
+    ExperimentNotFoundError,
+    MisconfiguredExperiment,
+    ObjectNotFoundError,
+)
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
@@ -26,10 +38,12 @@ from ax.storage.sqa_store.reduced_state import (
 from ax.storage.sqa_store.sqa_classes import (
     SQAAnalysisCard,
     SQAAuxiliaryExperiment,
+    SQAData,
     SQAExperiment,
     SQAGenerationStrategy,
     SQAGeneratorRun,
     SQAMetric,
+    SQAParameter,
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
@@ -687,3 +701,168 @@ def load_analysis_cards_by_experiment_name(
         decoder.analysis_card_from_sqa(analysis_card_sqa=analysis_card_sqa)
         for analysis_card_sqa in analysis_cards_sqa
     ]
+
+
+def _query_historical_experiments_given_parameters(
+    parameter_names: list[str],
+    experiment_types: list[str],
+    config: SQAConfig | None = None,
+) -> dict[str, SearchSpace | None]:
+    r"""
+    Find historical experiments of given types tuning any of the given
+        parameter names.
+
+    Args:
+        parameter_names: List of parameter names.
+        experiment_types: List of experiment types.
+
+    Returns: Dictionary mapping experiment names to their filtered SearchSpace objects
+        containing only the parameters that are also present in the target experiment.
+    """
+    from ax.storage.sqa_store.encoder import Encoder
+
+    config = SQAConfig() if config is None else config
+    decoder = Decoder(config=config)
+    encoder = Encoder(config=config)
+
+    with session_scope() as session:
+        # Query both parameters and experiment names
+        parameters_query = (
+            session.query(SQAParameter, SQAExperiment.name)
+            .filter(SQAParameter.name.in_(parameter_names))
+            .join(SQAExperiment, SQAParameter.experiment_id == SQAExperiment.id)
+            .filter(
+                SQAExperiment.experiment_type.in_(
+                    [
+                        encoder.get_enum_value(t, config.experiment_type_enum)
+                        for t in experiment_types
+                    ]
+                )
+            )
+            .filter(SQAExperiment.is_test == False)  # noqa E712 `is` won't work for SQA
+            .filter(SQAExperiment.id is not None)
+            # Experiments with some data
+            .join(SQAData, SQAParameter.experiment_id == SQAData.experiment_id)
+        )
+
+        query_results = parameters_query.all()
+
+        # Group parameters by experiment name
+        experiments_params: dict[str, list[SQAParameter]] = {}
+        for sqa_param, exp_name in query_results:
+            if exp_name not in experiments_params:
+                experiments_params[exp_name] = []
+
+            experiments_params[exp_name].append(sqa_param)
+
+        return {
+            exp_name: decoder.search_space_from_sqa(
+                parameters_sqa=parameters_sqa,
+                # Parameter constraints don't matter for search space compatibility
+                parameter_constraints_sqa=[],
+            )
+            for exp_name, parameters_sqa in experiments_params.items()
+        }
+
+
+def identify_transferable_experiments(
+    search_space: SearchSpace,
+    experiment_types: list[str],
+    overlap_threshold: float = 0.0,
+    max_num_exps: int = 10,
+    config: SQAConfig | None = None,
+) -> Mapping[str, TransferLearningMetadata]:
+    r"""
+    Find all transferable historical experiments of given types having at least the
+    given proportion of overlapping parameters with the provided search space.
+
+    Args:
+        search_space: Search space to compare with historical experiments.
+        experiment_types: List of experiment types to search for.
+        overlap_threshold: Proportion of parameters that must be overlapping.
+        max_num_exps: Max number of transferable experiments to return
+            with highest prop overlap.
+        config: SQAConfig to use for the query. Defaults to None (use default config).
+
+    Returns: A dictionary mapping experiment names to overlapping parameter names
+    """
+
+    experiments_search_spaces = _query_historical_experiments_given_parameters(
+        parameter_names=list(search_space.parameters.keys()),
+        experiment_types=experiment_types,
+        config=config,
+    )
+    if len(experiments_search_spaces) == 0:
+        return {}
+
+    # Calculate overlap for each experiment
+    results = []
+    for exp_name, exp_search_space in experiments_search_spaces.items():
+        if not exp_search_space:
+            continue
+        overlap_params = exp_search_space.get_overlapping_parameters(search_space)
+        prop_overlap = len(overlap_params) / len(search_space.parameters)
+        if prop_overlap >= overlap_threshold:
+            results.append(
+                {
+                    "experiment_name": exp_name,
+                    "overlap_params": overlap_params,
+                    "prop_overlap": prop_overlap,
+                }
+            )
+
+    # Convert to DataFrame for sorting and filtering
+    df = pd.DataFrame(results)
+    if df.empty:
+        return {}
+    df = df.sort_values(by="prop_overlap", ascending=False)
+
+    if max_num_exps is not None:
+        df = df.head(max_num_exps)
+
+    # Convert to dictionary mapping experiment_name to TransferLearningMetadata
+    return {
+        row["experiment_name"]: TransferLearningMetadata(
+            overlap_parameters=row["overlap_params"]
+        )
+        for _, row in df.iterrows()
+    }
+
+
+def load_candidate_source_auxiliary_experiments(
+    target_experiment: Experiment,
+    purpose: AuxiliaryExperimentPurpose,
+    config: SQAConfig | None = None,
+) -> Mapping[str, AuxiliaryExperimentMetadata]:
+    """Load candidate source auxiliary experiments for a target experiment.
+
+    Args:
+        target_experiment: The target experiment to find auxiliary experiments for.
+        purpose: The purpose of the auxiliary experiments.
+
+    Returns:
+        A mapping of experiment names to their auxiliary experiment metadata.
+    """
+    match purpose:
+        case AuxiliaryExperimentPurpose.TRANSFERABLE_EXPERIMENT:
+            experiment_type = target_experiment.experiment_type
+            if experiment_type is None:
+                raise MisconfiguredExperiment(
+                    "Cannot identify transferable experiments because the target "
+                    "experiment does not have an experiment type."
+                )
+            transferable_experiments = identify_transferable_experiments(
+                search_space=target_experiment.search_space,
+                experiment_types=[experiment_type],
+                config=config,
+            )
+            return {
+                experiment: metadata
+                for experiment, metadata in transferable_experiments.items()
+                if experiment != target_experiment.name
+            }
+        case _:
+            raise NotImplementedError(
+                "Loading candidate source auxiliary experiments for purpose "
+                f"{purpose} is not yet implemented."
+            )

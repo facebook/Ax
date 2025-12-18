@@ -21,7 +21,12 @@ from typing import Any, cast, Union
 import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.auxiliary import (
+    AuxiliaryExperiment,
+    AuxiliaryExperimentPurpose,
+    AuxiliaryExperimentValidation,
+    TransferLearningMetadata,
+)
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_dfs_favoring_recent, Data
@@ -2202,6 +2207,45 @@ class Experiment(Base):
                     f"found for purpose {purpose}."
                 )
         return found_aux_exp
+
+    def validate_auxiliary_experiment(
+        self,
+        source_experiment: Experiment,
+        purpose: AuxiliaryExperimentPurpose,
+    ) -> AuxiliaryExperimentValidation:
+        """Validate a source auxiliary experiment against the current experiment as a
+           target experiment based on a given purpose.
+
+        Args:
+            source_experiment: The source experiment to validate.
+            purpose: The purpose of the auxiliary experiment.
+
+        Returns:
+            An AuxiliaryExperimentValidation object containing the validation result.
+        """
+
+        match purpose:
+            case AuxiliaryExperimentPurpose.TRANSFERABLE_EXPERIMENT:
+                overlapping_parameters = (
+                    source_experiment.search_space.get_overlapping_parameters(
+                        self.search_space
+                    )
+                )
+                is_valid = len(overlapping_parameters) > 0
+                invalid_reason = None if is_valid else "No overlapping parameters."
+                return AuxiliaryExperimentValidation(
+                    is_valid=is_valid,
+                    invalid_reason=invalid_reason,
+                    metadata=TransferLearningMetadata(
+                        overlap_parameters=overlapping_parameters,
+                    ),
+                )
+            case _:
+                return AuxiliaryExperimentValidation(
+                    is_valid=False,
+                    invalid_reason="Validation not supported for auxiliary "
+                    f"experiment purpose: {purpose}",
+                )
 
     @property
     def auxiliary_experiments_by_purpose_for_storage(
