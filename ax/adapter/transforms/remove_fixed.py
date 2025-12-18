@@ -158,7 +158,6 @@ class RemoveFixed(Transform):
 
         return construct_new_search_space(
             search_space=search_space,
-            # pyre-ignore Incompatible parameter type [6]
             parameters=tunable_parameters,
             parameter_constraints=[
                 pc.clone() for pc in search_space.parameter_constraints

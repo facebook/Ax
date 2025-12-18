@@ -103,7 +103,7 @@ MODEL_SELECTION_METRIC_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
 
 def _extract_model_kwargs(
     search_space_digest: SearchSpaceDigest, botorch_model_class: type[Model]
-) -> dict[str, list[int] | dict[int, dict[int, list[int]]] | int]:
+) -> dict[str, list[int] | dict[int, dict[int | float, list[int]]] | int]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
     method of a BoTorch `Model` class.
@@ -137,7 +137,7 @@ def _extract_model_kwargs(
         # signature before erroring out.
         raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
-    kwargs: dict[str, list[int] | dict[int, dict[int, list[int]]] | int] = {}
+    kwargs: dict[str, list[int] | dict[int, dict[int | float, list[int]]] | int] = {}
     if len(search_space_digest.categorical_features) > 0:
         kwargs["categorical_features"] = search_space_digest.categorical_features
     if len(fidelity_features) > 0:

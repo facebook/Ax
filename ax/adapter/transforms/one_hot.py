@@ -16,11 +16,15 @@ import pandas as pd
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.rounding import randomized_onehot_round, strict_onehot_round
-from ax.adapter.transforms.utils import construct_new_search_space
+from ax.adapter.transforms.utils import (
+    construct_new_search_space,
+    HSS_ERROR_MSG_TEMPLATE,
+)
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization, TParamValue
+from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
 from pyre_extensions import assert_is_instance
 
@@ -111,6 +115,10 @@ class OneHot(Transform):
         self.encoded_values: dict[str, list[TParamValue]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and not p.is_ordered and not p.is_task:
+                if p.is_hierarchical:
+                    raise UnsupportedError(
+                        HSS_ERROR_MSG_TEMPLATE.format(name=self.__class__.__name__, p=p)
+                    )
                 values = deepcopy(p.values)
                 self.encoded_values[p.name] = values
                 self.encoder[p.name] = OneHotEncoder(values)

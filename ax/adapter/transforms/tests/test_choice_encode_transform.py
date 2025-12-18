@@ -24,6 +24,7 @@ from ax.core.parameter import (
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
@@ -195,6 +196,9 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         )
 
     def test_hss_dependents_are_preserved(self) -> None:
+        """For ChoiceToNumericChoice, checks that the dependents are preserved.
+        For OrderedChoiceToIntegerRange, checks that an informative error is raised.
+        """
         # x0
         # ├── x1
         # └── x2
@@ -230,6 +234,14 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                 ),
             ]
         )
+        if self.t_class is OrderedChoiceToIntegerRange:
+            with self.assertRaisesRegex(
+                UnsupportedError, "would encode .* which is a hierarchical"
+            ):
+                self.t_class(search_space=hss)
+            return
+
+        # Check for correct transform behavior with ChoiceToNumericChoice.
         hss = self.t_class(search_space=hss).transform_search_space(hss)
 
         # x0 should be untouched because it's a fixed parameter.
@@ -407,9 +419,3 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTes
         t_ss = self.t.transform_search_space(ss)
         self.assertEqual(t_ss.parameters["b"].lower, 1)
         self.assertEqual(t_ss.parameters["b"].upper, 2)
-
-    def test_hss_dependents_are_preserved(self) -> None:
-        """
-        Skip the HSS test. `OrderedChoiceToIntegerRange` cannot support hierarchical
-        search spaces, because range parameters cannot have dependents.
-        """

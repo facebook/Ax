@@ -22,12 +22,20 @@ from numpy import typing as npt
 from pyre_extensions import none_throws
 from scipy.stats import norm
 
-T_MATCH_CI_WIDTH = Callable[[npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]]
-
-
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
+
+
+T_MATCH_CI_WIDTH = Callable[[npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]]
+
+HSS_ERROR_MSG_TEMPLATE = (
+    "{name} would encode {p}, which is a hierarchical parameter. This is problematic "
+    "as this would lead to losing information about the structure of the search space. "
+    "If you do not want to leverage the hierarchical structure, use `Cast` transform "
+    "with `flatten_hss=True` (default). Alternatively, you can use a different set of "
+    "transforms to retain the hierarchical structure."
+)
 
 
 def match_ci_width(

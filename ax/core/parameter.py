@@ -1091,7 +1091,7 @@ class FixedParameter(Parameter):
             self.cast(default_value) if default_value is not None else None
         )
         # NOTE: We don't need to check that dependent parameters actually exist as
-        # that is done in `HierarchicalSearchSpace` constructor.
+        # that is done in `SearchSpace` constructor.
         if dependents:
             if len(dependents) > 1 or next(iter(dependents.keys())) != self.value:
                 raise UserInputError(

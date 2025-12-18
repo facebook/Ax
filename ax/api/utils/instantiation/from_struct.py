@@ -38,14 +38,7 @@ def experiment_from_struct(struct: ExperimentStruct) -> Experiment:
             ]
         )
 
-    if any(p.is_hierarchical for p in parameters):
-        search_space = SearchSpace(
-            parameters=parameters, parameter_constraints=constraints
-        )
-    else:
-        search_space = SearchSpace(
-            parameters=parameters, parameter_constraints=constraints
-        )
+    search_space = SearchSpace(parameters=parameters, parameter_constraints=constraints)
 
     return Experiment(
         search_space=search_space,
