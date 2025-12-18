@@ -109,8 +109,14 @@ class TestResultsAnalysis(TestCase):
         self.assertEqual(card_group.title, "Results Analysis")
         self.assertGreater(len(card_group.children), 0)
 
-        # Assert: Should have arm effects pair
+        # Assert: Should have utility progression
         child_names = [child.name for child in card_group.children]
+        self.assertTrue(
+            any("UtilityProgression" in name for name in child_names),
+            "Should have utility progression in children",
+        )
+
+        # Assert: Should have arm effects pair
         self.assertTrue(
             any("ArmEffects" in name for name in child_names),
             "Should have arm effects in children",
@@ -158,8 +164,14 @@ class TestResultsAnalysis(TestCase):
             generation_strategy=generation_strategy,
         )
 
-        # Assert: Should have objective scatter plots for multiple objectives
+        # Assert: Should have utility progression
         child_names = [child.name for child in card_group.children]
+        self.assertTrue(
+            any("UtilityProgression" in name for name in child_names),
+            "Should have utility progression in children",
+        )
+
+        # Assert: Should have objective scatter plots for multiple objectives
         self.assertTrue(
             any("Objective Scatter" in name for name in child_names),
             "Should have objective scatter plots for multiple objectives",
@@ -204,8 +216,14 @@ class TestResultsAnalysis(TestCase):
             generation_strategy=generation_strategy,
         )
 
-        # Assert: Should have constraint scatter plots
+        # Assert: Should have utility progression
         child_names = [child.name for child in card_group.children]
+        self.assertTrue(
+            any("UtilityProgression" in name for name in child_names),
+            "Should have utility progression in children",
+        )
+
+        # Assert: Should have constraint scatter plots
         self.assertTrue(
             any("Constraint Scatter" in name for name in child_names),
             "Should have constraint scatter plots when constraints are present",
