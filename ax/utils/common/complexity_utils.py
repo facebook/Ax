@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from typing import Any
 
 from ax.adapter.adapter_utils import can_map_to_binary, is_unordered_choice
@@ -12,6 +13,30 @@ from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
 from ax.exceptions.core import OptimizationNotConfiguredError
 from ax.service.orchestrator import OrchestratorOptions
+
+WHEELHOUSE_TIER_MESSAGE = """This experiment is in tier 'Wheelhouse'.
+
+Experiments belonging to this tier should not run into any problems! If an issue \
+does occur, please post to our github issues page.
+"""
+
+ADVANCED_TIER_MESSAGE = """This experiment is in tier 'Advanced'.
+
+This experiment should technically run, but uses advanced features that may not \
+be well-tested and/or may not be compatible with other advanced features. We \
+encourage users to raise issues encountered in advanced workflows just like \
+wheelhouse workflows but it is also possible that reducing the complexity of \
+your setup can solve your issue.
+"""
+
+UNSUPPORTED_TIER_MESSAGE = """This experiment is in tier 'Unsupported'.
+
+You are pushing Ax beyond its limits. Please post to our github issues page for help \
+in improving/simplifying your configuration to conform to a more \
+well-supported usage tier if possible.
+"""
+
+WIKI_TIER_MESSAGE = "https://ax.dev/docs/why-ax"
 
 
 def summarize_ax_optimization_complexity(
@@ -87,3 +112,46 @@ def summarize_ax_optimization_complexity(
             options.min_failed_trials_for_failure_rate_check
         ),
     }
+
+
+def format_tier_message(
+    tier: str,
+    why_not_is_in_wheelhouse: Iterable[str] | None,
+    why_not_supported: Iterable[str] | None,
+) -> str:
+    """
+    Format the result from `check_if_in_wheelhouse` to a markdown-formatted string
+    explaining the tier.
+    """
+
+    if tier == "Wheelhouse":
+        msg = WHEELHOUSE_TIER_MESSAGE
+    else:
+        if tier == "Advanced":
+            msg = ADVANCED_TIER_MESSAGE
+        elif tier == "Unsupported":
+            msg = UNSUPPORTED_TIER_MESSAGE
+        else:
+            raise ValueError(f'Got unexpected tier "{tier}".')
+
+        # Provide user-feedback
+        if why_not_is_in_wheelhouse:
+            why_msg = "\n".join("\t- " + s for s in why_not_is_in_wheelhouse)
+            why_msg = (
+                "\n\nWhy this experiment is not in the 'Wheelhouse' tier: "
+                f"\n{why_msg}\n"
+            )
+            msg += why_msg
+        if why_not_supported:
+            why_msg = "\n".join("\t- " + s for s in why_not_supported)
+            why_msg = (
+                "\n\nWhy this experiment is not in the 'Advanced' tier: "
+                f"\n{why_msg}\n"
+            )
+            msg += why_msg
+
+    msg += (
+        "\n\nFor more information about the definition of each tier and what "
+        f"level of support you can expect: {WIKI_TIER_MESSAGE}"
+    )
+    return msg
