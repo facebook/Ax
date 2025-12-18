@@ -7,8 +7,10 @@
 # pyre-strict
 
 import math
-from collections.abc import Sequence
+import warnings
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 from unittest import mock
 
 import numpy as np
@@ -597,3 +599,130 @@ class TensorboardMetricTest(TestCase):
             # Check that smoothing effect is present
             # (values should be between neighboring original values due to EMA)
             self.assertTrue(np.isfinite(df["mean"].iloc[i]))
+
+    def test_quantile_percentile_validation_and_deprecation(
+        self,
+        metric_class: type[TensorboardMetric] = TensorboardMetric,
+        base_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """Test validation and deprecation for quantile/percentile parameters.
+
+        This method is designed to be reusable by subclasses and external tests
+        by overriding the default arguments.
+
+        Args:
+            metric_class: The metric class to test. Defaults to TensorboardMetric.
+            base_kwargs: Base keyword arguments to pass to the metric constructor.
+                Defaults to {"name": "loss", "tag": "loss"}.
+        """
+        if base_kwargs is None:
+            base_kwargs = {"name": "loss", "tag": "loss"}
+
+        # Test 1: quantile must be in range [0, 1]
+        valid_values = [0.0, 0.5, 1.0]
+        for val in valid_values:
+            with self.subTest(f"valid quantile={val}"):
+                metric_class(**base_kwargs, quantile=val)
+
+        invalid_values = [-0.1, 1.5]
+        for val in invalid_values:
+            with self.subTest(f"invalid quantile={val}"):
+                with self.assertRaisesRegex(
+                    ValueError, r"quantile must be in the range \[0, 1\]"
+                ):
+                    metric_class(**base_kwargs, quantile=val)
+
+        # Test 2: percentile is deprecated alias for quantile
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            metric = metric_class(**base_kwargs, percentile=0.5)
+            self.assertEqual(len(w), 1)
+            self.assertIn("percentile", str(w[0].message))
+            self.assertIn("deprecated", str(w[0].message).lower())
+            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+            # Check that quantile attribute has the correct value
+            self.assertEqual(metric.quantile, 0.5)
+            # Check that percentile property returns same value
+            self.assertEqual(metric.percentile, 0.5)
+
+        # Test 3: Cannot specify both quantile and percentile
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Cannot specify both",
+        ):
+            metric_class(**base_kwargs, quantile=0.5, percentile=0.5)
+
+    def test_quantile_applied_to_curve(
+        self,
+        fetch_data_with_metric: Callable[[TensorboardMetric], pd.DataFrame]
+        | None = None,
+        metric_class: type[TensorboardMetric] = TensorboardMetric,
+        base_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """Test that quantile is actually applied to the curve data.
+
+        This method is designed to be reusable by subclasses and external tests
+        by overriding the default arguments.
+
+        Args:
+            fetch_data_with_metric: A callable that takes a metric and returns
+                the fetched DataFrame. If None, uses default TensorboardMetric
+                behavior with a fake multiplexer.
+            metric_class: The metric class to test. Defaults to TensorboardMetric.
+            base_kwargs: Base keyword arguments to pass to the metric constructor.
+                Defaults to {"name": "loss", "tag": "loss"}.
+        """
+        if base_kwargs is None:
+            base_kwargs = {"name": "loss", "tag": "loss"}
+
+        # If no fetch function is provided, use default behavior
+        if fetch_data_with_metric is None:
+            fake_data = [8.0, 9.0, 2.0, 1.0]
+            fake_multiplexer: event_multiplexer.EventMultiplexer = (
+                _get_fake_multiplexer(fake_data=fake_data)
+            )
+
+            def fetch_data_with_metric(metric: TensorboardMetric) -> pd.DataFrame:
+                trial = get_trial()
+                with mock.patch.object(
+                    TensorboardMetric,
+                    "_get_event_multiplexer_for_trial",
+                    return_value=fake_multiplexer,
+                ):
+                    result = metric.fetch_trial_data(trial=trial)
+                return assert_is_instance(result.unwrap(), MapData).map_df
+
+        # Track calls to Expanding.quantile to verify it's called with the
+        # correct value
+        call_tracker: list[float] = []
+        original_quantile: Callable[..., Any] = (
+            pd.core.window.expanding.Expanding.quantile
+        )
+
+        def tracked_quantile(
+            self: pd.core.window.expanding.Expanding,
+            q: float,
+            *args: Any,
+            **kwargs: Any,
+        ) -> Any:
+            call_tracker.append(q)
+            return original_quantile(self, q, *args, **kwargs)
+
+        # Test: When quantile is set, Expanding.quantile should be called with
+        # the correct value
+        test_quantile = 0.75
+        metric = metric_class(**base_kwargs, quantile=test_quantile)
+
+        with mock.patch.object(
+            pd.core.window.expanding.Expanding,
+            "quantile",
+            tracked_quantile,
+        ):
+            fetch_data_with_metric(metric)
+
+        self.assertIn(
+            test_quantile,
+            call_tracker,
+            f"Expanding.quantile was not called with {test_quantile}. "
+            f"Calls: {call_tracker}",
+        )
