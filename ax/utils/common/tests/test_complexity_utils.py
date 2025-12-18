@@ -10,13 +10,11 @@ from ax.core.metric import Metric
 from ax.exceptions.core import OptimizationNotConfiguredError, UserInputError
 from ax.service.orchestrator import OrchestratorOptions
 from ax.utils.common.complexity_utils import (
-    ADVANCED_TIER_MESSAGE,
     check_if_in_standard,
+    DEFAULT_TIER_MESSAGES,
     format_tier_message,
     OptimizationSummary,
-    STANDARD_TIER_MESSAGE,
     summarize_ax_optimization_complexity,
-    UNSUPPORTED_TIER_MESSAGE,
 )
 
 from ax.utils.common.testutils import TestCase
@@ -187,14 +185,14 @@ class TestFormatTierMessage(TestCase):
                 "Standard",
                 None,
                 None,
-                STANDARD_TIER_MESSAGE,
+                DEFAULT_TIER_MESSAGES.standard,
                 ["tier 'Standard'"],
             ),
             (
                 "Advanced",
                 ["51 tunable parameters", "Early stopping is enabled"],
                 None,
-                ADVANCED_TIER_MESSAGE,
+                DEFAULT_TIER_MESSAGES.advanced,
                 [
                     "tier 'Advanced'",
                     "Why this experiment is not in the 'Standard (Wheelhouse)' tier:",
@@ -206,7 +204,7 @@ class TestFormatTierMessage(TestCase):
                 "Unsupported",
                 ["51 tunable parameters"],
                 ["201 tunable parameters"],
-                UNSUPPORTED_TIER_MESSAGE,
+                DEFAULT_TIER_MESSAGES.unsupported,
                 [
                     "tier 'Unsupported'",
                     "Why this experiment is not in the 'Standard (Wheelhouse)' tier:",
