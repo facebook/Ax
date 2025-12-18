@@ -183,6 +183,18 @@ class BenchmarkRunner(Runner):
     simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)
 
     def __post_init__(self) -> None:
+        # Check for conflicting noise configuration
+        has_custom_noise = self.test_function.add_custom_noise is not None
+
+        # This works for both lists and dicts, and the user specifies anything
+        # other than 0.0 as noise_std alongside a custom noise, we error out.
+        if has_custom_noise and (self.noise_std != 0.0):
+            raise ValueError(
+                "Cannot specify both `add_custom_noise` on the test function and "
+                "a `noise_std`. Either use `add_custom_noise` for custom "
+                "noise behavior or `noise_std` for default noise behavior."
+            )
+
         use_simulated_backend = (
             (self.max_concurrency > 1)
             or (self.step_runtime_function is not None)
@@ -281,10 +293,15 @@ class BenchmarkRunner(Runner):
             if isinstance(trial, BatchTrial)
             else None
         )
-
-        df = _add_noise(
-            df=df, noise_stds=self.get_noise_stds(), arm_weights=arm_weights
-        )
+        # Check for custom noise function, otherwise use default noise behavior
+        if self.test_function.add_custom_noise is not None:
+            df = self.test_function.add_custom_noise(
+                df, trial, self.get_noise_stds(), arm_weights
+            )
+        else:
+            df = _add_noise(
+                df=df, noise_stds=self.get_noise_stds(), arm_weights=arm_weights
+            )
         df["trial_index"] = trial.index
         df.drop(columns=["Y_true"], inplace=True)
         df["metric_signature"] = df["metric_name"]
