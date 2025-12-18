@@ -35,6 +35,7 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
                     values=["online", "offline"],
                     is_task=True,
                     target_value="online",
+                    dependents={"online": ["b"]},
                 ),
             ]
         )
@@ -75,6 +76,7 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
         # pyre-fixme[16]: `Parameter` has no attribute `values`.
         self.assertEqual(ss2.parameters["c"].values, [0, 1])
         self.assertEqual(ss2.parameters["c"].target_value, 0)
+        self.assertEqual(ss2.parameters["c"].dependents, {0: ["b"]})
 
         # Test error if there are fidelities
         ss3 = SearchSpace(
