@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 MANUAL_GENERATION_METHOD_STR = "Manual"
 UNKNOWN_GENERATION_METHOD_STR = "Unknown"
 STATUS_QUO_GENERATION_METHOD_STR = "Status Quo"
+MAX_ABANDONED_REASON_LENGTH = 1000
 
 
 def immutable_once_run(func: Callable) -> Callable:
@@ -646,7 +647,7 @@ class BaseTrial(ABC, SortableBase):
         is specified to adapter via ``DataLoaderConfig``.
 
         Args:
-            abandoned_reason: The reason the trial was abandoned.
+            reason: The reason the trial was abandoned.
             unsafe: Ignore sanity checks on state transitions.
 
         Returns:
@@ -655,6 +656,8 @@ class BaseTrial(ABC, SortableBase):
         if not unsafe and none_throws(self._status).is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
 
+        if reason is not None and len(reason) > MAX_ABANDONED_REASON_LENGTH:
+            reason = reason[:MAX_ABANDONED_REASON_LENGTH] + "..."
         self._abandoned_reason = reason
         self._status = TrialStatus.ABANDONED
         self._time_completed = datetime.now()

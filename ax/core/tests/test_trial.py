@@ -16,6 +16,7 @@ import pandas as pd
 from ax.core.base_trial import (
     BaseTrial,
     MANUAL_GENERATION_METHOD_STR,
+    MAX_ABANDONED_REASON_LENGTH,
     TrialStatus,
     UNKNOWN_GENERATION_METHOD_STR,
 )
@@ -160,11 +161,25 @@ class TrialTest(TestCase):
             )
 
     def test_abandonment(self) -> None:
-        self.assertFalse(self.trial.status.is_abandoned)
-        self.trial.mark_abandoned(reason="testing")
-        self.assertTrue(self.trial.status.is_abandoned)
-        self.assertFalse(self.trial.status.is_failed)
-        self.assertTrue(self.trial.did_not_complete)
+        # Reason longer than max length should be truncated with "..."
+        long_reason = "x" * (MAX_ABANDONED_REASON_LENGTH + 100)
+        reason_truncation_dict = {
+            # Short reason is not truncated
+            "testing": "testing",
+            # Long reason is truncated with ellipsis
+            long_reason: long_reason[:MAX_ABANDONED_REASON_LENGTH] + "...",
+            # None is unchanged
+            None: None,
+        }
+        for reason, stored_reason in reason_truncation_dict.items():
+            trial = self.experiment.new_trial()
+            trial.add_arm(self.arm)
+            self.assertFalse(trial.status.is_abandoned)
+            trial.mark_abandoned(reason=reason)
+            self.assertTrue(trial.status.is_abandoned)
+            self.assertFalse(trial.status.is_failed)
+            self.assertTrue(trial.did_not_complete)
+            self.assertEqual(trial.abandoned_reason, stored_reason)
 
     def test_failed(self) -> None:
         fail_reason = "testing"
