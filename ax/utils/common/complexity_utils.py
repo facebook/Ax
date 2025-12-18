@@ -15,10 +15,12 @@ from ax.core.objective import MultiObjective
 from ax.exceptions.core import OptimizationNotConfiguredError, UserInputError
 from ax.service.orchestrator import OrchestratorOptions
 
-WHEELHOUSE_TIER_MESSAGE = """This experiment is in tier 'Wheelhouse'.
+STANDARD_TIER_MESSAGE = """This experiment is in tier 'Standard'.
 
-Experiments belonging to this tier should not run into any problems! If an issue \
-does occur, please post to our github issues page.
+Experiments in the 'Standard (Wheelhouse)' tier use standard features that are \
+thoroughly tested and should work reliably. If you encounter any issues, \
+they are typically easy to diagnose and resolve. Otherwise, please post \
+to our github issues page for help.
 """
 
 ADVANCED_TIER_MESSAGE = """This experiment is in tier 'Advanced'.
@@ -26,23 +28,25 @@ ADVANCED_TIER_MESSAGE = """This experiment is in tier 'Advanced'.
 This experiment should technically run, but uses advanced features that may not \
 be well-tested and/or may not be compatible with other advanced features. We \
 encourage users to raise issues encountered in advanced workflows just like \
-wheelhouse workflows but it is also possible that reducing the complexity of \
+standard workflows but it is also possible that reducing the complexity of \
 your setup can solve your issue.
 """
 
 UNSUPPORTED_TIER_MESSAGE = """This experiment is in tier 'Unsupported'.
 
 You are pushing Ax beyond its limits. Please post to our github issues page for help \
-in improving/simplifying your configuration to conform to a more \
-well-supported usage tier if possible.
+with improving/simplifying your configuration to conform to a more \
+well-supported usage tier if possible. We strongly recommend simplifying your \
+configuration to fall within a supported tier.
 """
-
-WIKI_TIER_MESSAGE = "https://ax.dev/docs/why-ax"
 
 UNKNOWN_TIER_MESSAGE = """Failed to determine the tier of this experiment.
 
 Please post on our github issues page or reach out to the Ax user group \
 to determine the support tier of your workflow.
+This may indicate an issue with your experiment configuration or an internal \
+error during tier classification. Please review your configuration for any \
+unusual settings, or consult our github issues page documentation for guidance.
 """
 
 NOT_STANDARD_API_MESSAGE = """The experiment summary indicates that this workflow \
@@ -67,11 +71,11 @@ class OptimizationSummary:
         num_outcome_constraints: Number of outcome constraints.
         uses_early_stopping: Whether early stopping is enabled.
         uses_global_stopping: Whether global stopping is enabled.
-        all_inputs_are_configs: Whether all inputs are high-level configs
+        uses_standard_api: Whether all inputs are high-level configs
             (as opposed to low-level Ax abstractions).
 
     Optional Keys:
-        max_trials: Maximum number of trials (required if all_inputs_are_configs
+        max_trials: Maximum number of trials (required if uses_standard_api
             is True).
         tolerated_trial_failure_rate: Maximum tolerated trial failure rate
             (should be <= 0.9).
@@ -93,7 +97,7 @@ class OptimizationSummary:
     num_outcome_constraints: int
     uses_early_stopping: bool
     uses_global_stopping: bool
-    all_inputs_are_configs: bool
+    uses_standard_api: bool
     # Optional keys
     max_trials: int | None = None
     tolerated_trial_failure_rate: float | None = None
@@ -156,6 +160,11 @@ def summarize_ax_optimization_complexity(
             uses_merge_multiple_curves = True
             break
 
+    # Support both new key and old key for backward compatibility
+    uses_standard_api = tier_metadata.get("uses_standard_api")
+    if uses_standard_api is None:
+        uses_standard_api = tier_metadata.get("all_inputs_are_configs", False)
+
     return OptimizationSummary(
         max_trials=max_trials,
         num_params=num_params,
@@ -168,7 +177,7 @@ def summarize_ax_optimization_complexity(
         uses_early_stopping=uses_early_stopping,
         uses_global_stopping=uses_global_stopping,
         uses_merge_multiple_curves=uses_merge_multiple_curves,
-        all_inputs_are_configs=tier_metadata.get("all_inputs_are_configs", False),
+        uses_standard_api=uses_standard_api,
         tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
         max_pending_trials=options.max_pending_trials,
         min_failed_trials_for_failure_rate_check=(
@@ -177,9 +186,9 @@ def summarize_ax_optimization_complexity(
     )
 
 
-def _check_if_is_in_wheelhouse_search_space(
+def _check_if_is_in_standard_search_space(
     optimization_summary: OptimizationSummary,
-    why_not_is_in_wheelhouse: list[str],
+    why_not_is_in_standard: list[str],
     why_not_supported: list[str],
 ) -> tuple[bool, bool]:
     """Check if the search space configuration is within supported tiers.
@@ -190,20 +199,20 @@ def _check_if_is_in_wheelhouse_search_space(
     Args:
         optimization_summary: Summary of the experiment. See ``OptimizationSummary``
             for the required and optional keys.
-        why_not_is_in_wheelhouse: A list to append reasons for not being in
-            the wheelhouse tier.
+        why_not_is_in_standard: A list to append reasons for not being in
+            the standard tier.
         why_not_supported: A list to append reasons for not being supported.
 
     Returns:
-        A tuple with information about whether the experiment is in the wheelhouse.
+        A tuple with information about whether the experiment is in the standard.
     """
-    is_in_wheelhouse, is_supported = True, True
+    is_in_standard, is_supported = True, True
 
     num_params = optimization_summary.num_params
     if num_params > 50:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += [
-            f"{num_params} tunable parameter(s) (max in-wheelhouse is 50)"
+        is_in_standard = False
+        why_not_is_in_standard += [
+            f"{num_params} tunable parameter(s) (max in-standard is 50)"
         ]
         if num_params > 200:
             is_supported = False
@@ -213,9 +222,9 @@ def _check_if_is_in_wheelhouse_search_space(
 
     num_binary = optimization_summary.num_binary
     if num_binary > 50:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += [
-            f"{num_binary} binary tunable parameter(s) (max in-wheelhouse is 50)"
+        is_in_standard = False
+        why_not_is_in_standard += [
+            f"{num_binary} binary tunable parameter(s) (max in-standard is 50)"
         ]
         if num_binary > 100:
             is_supported = False
@@ -227,10 +236,10 @@ def _check_if_is_in_wheelhouse_search_space(
     num_categorical_6_inf = optimization_summary.num_categorical_6_inf
     num_categorical_3_inf = num_categorical_3_5 + num_categorical_6_inf
     if num_categorical_3_inf > 0:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += [
+        is_in_standard = False
+        why_not_is_in_standard += [
             f"{num_categorical_3_inf} unordered choice parameter(s) with more "
-            "than 3 options (max in-wheelhouse is 0)"
+            "than 3 options (max in-standard is 0)"
         ]
         if num_categorical_3_5 > 5:
             why_not_supported += [
@@ -247,10 +256,10 @@ def _check_if_is_in_wheelhouse_search_space(
 
     num_parameter_constraints = optimization_summary.num_parameter_constraints
     if num_parameter_constraints > 2:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += [
+        is_in_standard = False
+        why_not_is_in_standard += [
             f"{num_parameter_constraints} parameter constraints "
-            "(max in-wheelhouse is 2)"
+            "(max in-standard is 2)"
         ]
         if num_parameter_constraints > 5:
             is_supported = False
@@ -258,12 +267,12 @@ def _check_if_is_in_wheelhouse_search_space(
                 f"{num_parameter_constraints} parameter "
                 "constraints (max supported is 5)"
             ]
-    return is_in_wheelhouse, is_supported
+    return is_in_standard, is_supported
 
 
-def _check_if_is_in_wheelhouse_optimization_config(
+def _check_if_is_in_standard_optimization_config(
     optimization_summary: OptimizationSummary,
-    why_not_is_in_wheelhouse: list[str],
+    why_not_is_in_standard: list[str],
     why_not_supported: list[str],
 ) -> tuple[bool, bool]:
     """Check if the optimization configuration is within supported tiers.
@@ -274,20 +283,20 @@ def _check_if_is_in_wheelhouse_optimization_config(
     Args:
         optimization_summary: Summary of the experiment. See ``OptimizationSummary``
             for the required and optional keys.
-        why_not_is_in_wheelhouse: A list to append reasons for not being in
-            the wheelhouse tier.
+        why_not_is_in_standard: A list to append reasons for not being in
+            the standard tier.
         why_not_supported: A list to append reasons for not being supported.
 
     Returns:
-        A tuple with information about whether the experiment is in the wheelhouse.
+        A tuple with information about whether the experiment is in the standard.
     """
-    is_in_wheelhouse, is_supported = True, True
+    is_in_standard, is_supported = True, True
 
     num_objectives = optimization_summary.num_objectives
     if num_objectives > 2:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += [
-            f"{num_objectives} objectives (max in-wheelhouse is 2)"
+        is_in_standard = False
+        why_not_is_in_standard += [
+            f"{num_objectives} objectives (max in-standard is 2)"
         ]
         if num_objectives > 4:
             is_supported = False
@@ -295,21 +304,21 @@ def _check_if_is_in_wheelhouse_optimization_config(
 
     num_outcome_constraints = optimization_summary.num_outcome_constraints
     if num_outcome_constraints > 2:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += [
-            f"{num_outcome_constraints} outcome constraints (max in-wheelhouse is 2)"
+        is_in_standard = False
+        why_not_is_in_standard += [
+            f"{num_outcome_constraints} outcome constraints (max in-standard is 2)"
         ]
         if num_outcome_constraints > 5:
             is_supported = False
             why_not_supported += [
                 f"{num_outcome_constraints} outcome constraints (max supported is 5)"
             ]
-    return is_in_wheelhouse, is_supported
+    return is_in_standard, is_supported
 
 
-def _check_if_is_in_wheelhouse_other_settings(
+def _check_if_is_in_standard_other_settings(
     optimization_summary: OptimizationSummary,
-    why_not_is_in_wheelhouse: list[str],
+    why_not_is_in_standard: list[str],
     why_not_supported: list[str],
 ) -> tuple[bool, bool]:
     """Check if other experiment settings are within supported tiers.
@@ -320,24 +329,24 @@ def _check_if_is_in_wheelhouse_other_settings(
     Args:
         optimization_summary: Summary of the experiment. See ``OptimizationSummary``
             for the required and optional keys.
-        why_not_is_in_wheelhouse: A list to append reasons for not being in
-            the wheelhouse tier.
+        why_not_is_in_standard: A list to append reasons for not being in
+            the standard tier.
         why_not_supported: A list to append reasons for not being supported.
 
     Returns:
-        A tuple with information about whether the experiment is in the wheelhouse.
+        A tuple with information about whether the experiment is in the standard.
     """
-    is_in_wheelhouse, is_supported = True, True
+    is_in_standard, is_supported = True, True
     max_trials = optimization_summary.max_trials
-    if not optimization_summary.all_inputs_are_configs:
-        is_in_wheelhouse, is_supported = False, False
+    if not optimization_summary.uses_standard_api:
+        is_in_standard, is_supported = False, False
         why_not_supported.append(NOT_STANDARD_API_MESSAGE)
     elif max_trials is None:
         raise UserInputError("`max_trials` should not be None!")
     elif max_trials is not None and max_trials > 200:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += [
-            f"{max_trials} total trials (max in-wheelhouse is 200)"
+        is_in_standard = False
+        why_not_is_in_standard += [
+            f"{max_trials} total trials (max in-standard is 200)"
         ]
         if max_trials > 500:
             is_supported = False
@@ -345,18 +354,18 @@ def _check_if_is_in_wheelhouse_other_settings(
 
     uses_early_stopping = optimization_summary.uses_early_stopping
     if uses_early_stopping:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += ["Early stopping is enabled"]
+        is_in_standard = False
+        why_not_is_in_standard += ["Early stopping is enabled"]
 
     uses_global_stopping = optimization_summary.uses_global_stopping
     if uses_global_stopping:
-        is_in_wheelhouse = False
-        why_not_is_in_wheelhouse += ["Global stopping is enabled"]
+        is_in_standard = False
+        why_not_is_in_standard += ["Global stopping is enabled"]
 
     # checking failure rate checking options
     tolerated_trial_failure_rate = optimization_summary.tolerated_trial_failure_rate
     if tolerated_trial_failure_rate is not None and tolerated_trial_failure_rate > 0.9:
-        is_in_wheelhouse, is_supported = False, False
+        is_in_standard, is_supported = False, False
         why_not_supported.append(f"{tolerated_trial_failure_rate=} is larger than 0.9.")
 
     max_pending_trials = optimization_summary.max_pending_trials
@@ -368,7 +377,7 @@ def _check_if_is_in_wheelhouse_other_settings(
         and min_failed_trials_for_failure_rate_check is not None
         and max(2 * max_pending_trials, 5) < min_failed_trials_for_failure_rate_check
     ):
-        is_in_wheelhouse, is_supported = False, False
+        is_in_standard, is_supported = False, False
         why_not_supported.append(
             f"{min_failed_trials_for_failure_rate_check=} exceeds "
             f"{max(2 * max_pending_trials, 5)=}. Please reduce "
@@ -377,31 +386,31 @@ def _check_if_is_in_wheelhouse_other_settings(
         )
     non_default_advanced_options = optimization_summary.non_default_advanced_options
     if non_default_advanced_options:
-        is_in_wheelhouse, is_supported = False, False
+        is_in_standard, is_supported = False, False
         why_not_supported.append(
             "Non-default advanced_options are set on GenerationStrategyConfig."
         )
 
     uses_merge_multiple_curves = optimization_summary.uses_merge_multiple_curves
     if uses_merge_multiple_curves:
-        is_in_wheelhouse, is_supported = False, False
+        is_in_standard, is_supported = False, False
         why_not_supported.append(
             "Metrics with merge_multiple_curves=True are not supported. "
             "This feature is experimental and caution is advised not to merge "
             "unrelated curves."
         )
 
-    return is_in_wheelhouse, is_supported
+    return is_in_standard, is_supported
 
 
-def check_if_in_wheelhouse(
+def check_if_in_standard(
     optimization_summary: OptimizationSummary,
 ) -> tuple[str, list[str] | None, list[str] | None]:
     """Determine the support tier of an experiment based on its configuration.
 
     Evaluates the experiment summary and classifies it into one of three tiers:
 
-    - **Wheelhouse**: Well-supported configurations that should work without issues.
+    - **Standard**: Well-supported configurations that should work without issues.
     - **Advanced**: Technically supported but uses advanced features that may not
       be well-tested or compatible with other advanced features.
     - **Unsupported**: Configurations that push beyond supported limits.
@@ -415,65 +424,65 @@ def check_if_in_wheelhouse(
               num_categorical_6_inf, num_parameter_constraints
             - Optimization config: num_objectives, num_outcome_constraints
             - Other settings: max_trials, uses_early_stopping, uses_global_stopping,
-              all_inputs_are_configs, tolerated_trial_failure_rate, max_pending_trials,
+              uses_standard_api, tolerated_trial_failure_rate, max_pending_trials,
               min_failed_trials_for_failure_rate_check, non_default_advanced_options,
               uses_merge_multiple_curves
 
     Returns:
         A tuple containing:
 
-        - The tier name: "Wheelhouse", "Advanced", or "Unsupported"
-        - A list of reasons for not being in the "Wheelhouse" tier (None if
-          in Wheelhouse)
+        - The tier name: "Standard", "Advanced", or "Unsupported"
+        - A list of reasons for not being in the "Standard" tier (None if
+          in Standard)
         - A list of reasons for not being supported (None if
-          in Wheelhouse or Advanced)
+          in Standard or Advanced)
     """
 
-    is_in_wheelhouse, why_not_is_in_wheelhouse = True, []
+    is_in_standard, why_not_is_in_standard = True, []
     is_supported, why_not_supported = True, []
 
     # Check search space
-    search_space_summary = _check_if_is_in_wheelhouse_search_space(
+    search_space_summary = _check_if_is_in_standard_search_space(
         optimization_summary=optimization_summary,
-        why_not_is_in_wheelhouse=why_not_is_in_wheelhouse,
+        why_not_is_in_standard=why_not_is_in_standard,
         why_not_supported=why_not_supported,
     )
-    is_in_wheelhouse &= search_space_summary[0]
+    is_in_standard &= search_space_summary[0]
     is_supported &= search_space_summary[1]
 
     # Check optimization config
-    opt_config_summary = _check_if_is_in_wheelhouse_optimization_config(
+    opt_config_summary = _check_if_is_in_standard_optimization_config(
         optimization_summary=optimization_summary,
-        why_not_is_in_wheelhouse=why_not_is_in_wheelhouse,
+        why_not_is_in_standard=why_not_is_in_standard,
         why_not_supported=why_not_supported,
     )
-    is_in_wheelhouse &= opt_config_summary[0]
+    is_in_standard &= opt_config_summary[0]
     is_supported &= opt_config_summary[1]
 
     # Check other options
-    other_settings_summary = _check_if_is_in_wheelhouse_other_settings(
+    other_settings_summary = _check_if_is_in_standard_other_settings(
         optimization_summary=optimization_summary,
-        why_not_is_in_wheelhouse=why_not_is_in_wheelhouse,
+        why_not_is_in_standard=why_not_is_in_standard,
         why_not_supported=why_not_supported,
     )
-    is_in_wheelhouse &= other_settings_summary[0]
+    is_in_standard &= other_settings_summary[0]
     is_supported &= other_settings_summary[1]
 
     # Return tier and messages
-    if is_in_wheelhouse:
-        return "Wheelhouse", None, None
+    if is_in_standard:
+        return "Standard", None, None
     if is_supported:
-        return "Advanced", why_not_is_in_wheelhouse, None
-    return "Unsupported", why_not_is_in_wheelhouse, why_not_supported
+        return "Advanced", why_not_is_in_standard, None
+    return "Unsupported", why_not_is_in_standard, why_not_supported
 
 
 def format_tier_message(
     tier: str,
-    why_not_is_in_wheelhouse: Iterable[str] | None,
+    why_not_is_in_standard: Iterable[str] | None,
     why_not_supported: Iterable[str] | None,
 ) -> str:
     """
-    Format the result from `check_if_in_wheelhouse` to a markdown-formatted
+    Format the result from `check_if_in_standard` to a markdown-formatted
     string explaining the tier.
 
     Takes the tier classification and the reasons for not being in a higher tier,
@@ -481,16 +490,16 @@ def format_tier_message(
     displayed to users.
 
     Args:
-        tier: The tier name ("Wheelhouse", "Advanced", or "Unsupported").
-        why_not_is_in_wheelhouse: Reasons for not being in the Wheelhouse tier.
+        tier: The tier name ("Standard", "Advanced", or "Unsupported").
+        why_not_is_in_standard: Reasons for not being in the Standard tier.
         why_not_supported: Reasons for not being in the Advanced tier.
 
     Returns:
         A formatted string explaining the tier and the reasons.
     """
 
-    if tier == "Wheelhouse":
-        msg = WHEELHOUSE_TIER_MESSAGE
+    if tier == "Standard":
+        msg = STANDARD_TIER_MESSAGE
     else:
         if tier == "Advanced":
             msg = ADVANCED_TIER_MESSAGE
@@ -500,10 +509,10 @@ def format_tier_message(
             raise ValueError(f'Got unexpected tier "{tier}".')
 
         # Provide user-feedback
-        if why_not_is_in_wheelhouse:
-            why_msg = "\n".join("\t- " + s for s in why_not_is_in_wheelhouse)
+        if why_not_is_in_standard:
+            why_msg = "\n".join("\t- " + s for s in why_not_is_in_standard)
             why_msg = (
-                "\n\nWhy this experiment is not in the 'Wheelhouse' tier: "
+                "\n\nWhy this experiment is not in the 'Standard (Wheelhouse)' tier: "
                 f"\n{why_msg}\n"
             )
             msg += why_msg
@@ -514,9 +523,4 @@ def format_tier_message(
                 f"\n{why_msg}\n"
             )
             msg += why_msg
-
-    msg += (
-        "\n\nFor more information about the definition of each tier and what "
-        f"level of support you can expect: {WIKI_TIER_MESSAGE}"
-    )
     return msg
