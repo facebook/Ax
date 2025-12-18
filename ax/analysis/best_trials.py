@@ -15,16 +15,12 @@ from ax.analysis.summary import Summary
 from ax.analysis.utils import validate_experiment
 from ax.core.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import DataRequiredError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.utils.best_point import (
-    get_best_by_raw_objective_with_trial_index,
-    get_best_parameters_from_model_predictions_with_trial_index,
-    get_pareto_optimal_parameters,
-)
+from ax.service.utils.best_point_utils import get_best_trial_indices
 from pyre_extensions import none_throws, override
+
 
 # Subtitle constants for reuse
 _MODEL_PREDICTIONS_DESCRIPTION = (
@@ -149,11 +145,12 @@ class BestTrials(Analysis):
             if trial.status in self.trial_statuses
         ]
 
-        trial_indices = self._get_best_trial_indices(
+        trial_indices = get_best_trial_indices(
             experiment=exp,
-            generation_strategy=generation_strategy,
             optimization_config=optimization_config,
+            generation_strategy=generation_strategy,
             trial_indices=eligible_trial_indices,
+            use_model_predictions=self.use_model_predictions,
         )
 
         if not trial_indices:
@@ -207,58 +204,3 @@ class BestTrials(Analysis):
             subtitle=subtitle,
             df=summary_card.df,
         )
-
-    def _get_best_trial_indices(
-        self,
-        experiment: Experiment,
-        generation_strategy: GenerationStrategy | None,
-        optimization_config: OptimizationConfig,
-        trial_indices: list[int],
-    ) -> list[int]:
-        """Get the trial indices of the best trial(s) based on optimization type.
-
-        Note: All best point methods used here only consider in-sample points
-        (arms that have already been run on the experiment). They do not return
-        parameters that have not been tried yet.
-
-        Args:
-            experiment: The experiment to get best trials from.
-            generation_strategy: The generation strategy, required for MOO or
-                model predictions.
-            optimization_config: The optimization config for the experiment.
-            trial_indices: The trial indices to consider when finding best trials.
-                This should be pre-filtered by trial status.
-
-        Returns:
-            A list of trial indices representing the best trial(s). For SOO, this
-            contains at most one index. For MOO, this contains all Pareto optimal
-            trial indices.
-        """
-        if optimization_config.is_moo_problem:
-            # For MOO, get the Pareto optimal parameters.
-            pareto_optimal = get_pareto_optimal_parameters(
-                experiment=experiment,
-                generation_strategy=none_throws(generation_strategy),
-                optimization_config=optimization_config,
-                trial_indices=trial_indices,
-                use_model_predictions=self.use_model_predictions,
-            )
-            return list(pareto_optimal.keys())
-        else:
-            # For SOO, get the best trial
-            if self.use_model_predictions:
-                best_trial_result = (
-                    get_best_parameters_from_model_predictions_with_trial_index(
-                        experiment=experiment,
-                        adapter=none_throws(generation_strategy).adapter,
-                        optimization_config=optimization_config,
-                        trial_indices=trial_indices,
-                    )
-                )
-            else:
-                best_trial_result = get_best_by_raw_objective_with_trial_index(
-                    experiment=experiment,
-                    optimization_config=optimization_config,
-                    trial_indices=trial_indices,
-                )
-            return [best_trial_result[0]] if best_trial_result is not None else []
