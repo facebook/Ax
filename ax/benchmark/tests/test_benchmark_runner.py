@@ -367,6 +367,7 @@ class TestBenchmarkRunner(TestCase):
                     "metric_signature",
                     "mean",
                     "sem",
+                    "Y_true",
                     "trial_index",
                     "step",
                     "virtual runtime",

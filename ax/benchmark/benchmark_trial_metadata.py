@@ -20,12 +20,14 @@ class BenchmarkTrialMetadata:
 
     Args:
         df: A dict mapping each metric name to a Pandas DataFrame with columns
-            ["metric_name", "arm_name", "mean", "sem", and "step"]. The "sem" is
-            always present in this df even if noise levels are unobserved;
-            ``BenchmarkMetric`` and ``BenchmarkMapMetric`` hide that data if it
-            should not be observed, and ``BenchmarkMapMetric``s drop data from
-            time periods that that are not observed based on the (simulated)
-            trial progression.
+            ["metric_name", "arm_name", "mean", "sem", "Y_true", and "step"]. The
+            "sem" is always present in this df even if noise levels are
+            unobserved; ``BenchmarkMetric`` and ``BenchmarkMapMetric`` hide that
+            data if it should not be observed, and ``BenchmarkMapMetric``s drop
+            data from time periods that that are not observed based on the
+            (simulated) trial progression. The "Y_true" column contains the
+            ground-truth (noiseless) values, which are used for computing the
+            optimization trace.
         backend_simulator: Optionally, the backend simulator that is tracking
             the trial's status.
     """

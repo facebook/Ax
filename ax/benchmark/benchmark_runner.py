@@ -303,7 +303,6 @@ class BenchmarkRunner(Runner):
                 df=df, noise_stds=self.get_noise_stds(), arm_weights=arm_weights
             )
         df["trial_index"] = trial.index
-        df.drop(columns=["Y_true"], inplace=True)
         df["metric_signature"] = df["metric_name"]
 
         if self.simulated_backend_runner is not None:
