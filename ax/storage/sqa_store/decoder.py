@@ -7,7 +7,7 @@
 # pyre-strict
 
 import json
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from enum import Enum
 from io import StringIO
 from logging import Logger
@@ -76,6 +76,7 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import are_relationships_loaded
 from ax.storage.utils import (
+    combine_datas_on_data_by_trial,
     DomainType,
     EXPECT_RELATIVIZED_OUTCOMES,
     MetricIntent,
@@ -373,10 +374,7 @@ class Decoder:
             data_by_trial[trial_index][timestamp] = self.data_from_sqa(
                 data_sqa=data_sqa, data_constructor=default_data_constructor
             )
-        data_by_trial = {
-            trial_index: OrderedDict(sorted(data_by_timestamp.items()))
-            for trial_index, data_by_timestamp in data_by_trial.items()
-        }
+        data_by_trial = combine_datas_on_data_by_trial(data_by_trial=data_by_trial)
 
         trial_type_to_runner = {
             sqa_runner.trial_type: self.runner_from_sqa(sqa_runner)
@@ -1041,8 +1039,7 @@ class Decoder:
         data_sqa: SQAData,
         data_constructor: type[Data] = Data,
     ) -> Data:
-        """Convert SQLAlchemy Data to AE Data."""
-        # TODO: extract data type from SQAData after DataRegistry added.
+        """Convert SQLAlchemy Data to Ax Data."""
         kwargs = data_constructor.deserialize_init_args(
             args=dict(
                 json.loads(data_sqa.structure_metadata_json)
