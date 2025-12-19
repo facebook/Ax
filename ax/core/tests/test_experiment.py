@@ -542,7 +542,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(batch_data.df), n)
 
         exp_data = exp.fetch_data()
-        res = exp.fetch_data_results(metrics=[exp.metrics["b"]])
+        res = exp.fetch_trials_data_results(metrics=[exp.metrics["b"]])
         res_one_metric = {k: v["b"] for k, v in res.items()}
         exp_data2 = Metric._unwrap_experiment_data(results=res_one_metric)
         self.assertEqual(len(exp_data2.df), 4 * n)
