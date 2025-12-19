@@ -722,42 +722,9 @@ class Experiment(Base):
             self.metrics[metric.name] = new_metric
         return
 
-    def fetch_data_results(
-        self,
-        metrics: list[Metric] | None = None,
-        **kwargs: Any,
-    ) -> dict[int, dict[str, MetricFetchResult]]:
-        """Fetches data for all trials on this experiment and for either the
-        specified metrics or all metrics currently on the experiment, if `metrics`
-        argument is not specified.
-
-        If a metric fetch fails, the Exception will be captured in the
-        MetricFetchResult along with a message.
-
-        NOTE: For metrics that are not available while trial is running, the data
-        may be retrieved from cache on the experiment. Data is cached on the experiment
-        via calls to `experiment.attach_data` and whether a given metric class is
-        available while trial is running is determined by the boolean returned from its
-        `is_available_while_running` class method.
-
-        Args:
-            metrics: If provided, fetch data for these metrics instead of the ones
-                defined on the experiment.
-            kwargs: keyword args to pass to underlying metrics' fetch data functions.
-
-        Returns:
-            A nested Dictionary from trial_index => metric_name => result
-        """
-
-        return self._lookup_or_fetch_trials_results(
-            trials=list(self.trials.values()),
-            metrics=metrics,
-            **kwargs,
-        )
-
     def fetch_trials_data_results(
         self,
-        trial_indices: Iterable[int],
+        trial_indices: Iterable[int] | None = None,
         metrics: list[Metric] | None = None,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
@@ -781,10 +748,13 @@ class Experiment(Base):
         Returns:
             A nested Dictionary from trial_index => metric_name => result
         """
+        trials = (
+            list(self.trials.values())
+            if trial_indices is None
+            else self.get_trials_by_indices(trial_indices=trial_indices)
+        )
         return self._lookup_or_fetch_trials_results(
-            trials=self.get_trials_by_indices(trial_indices=trial_indices),
-            metrics=metrics,
-            **kwargs,
+            trials=trials, metrics=metrics, **kwargs
         )
 
     def fetch_data(
