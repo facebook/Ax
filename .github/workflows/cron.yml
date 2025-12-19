@@ -78,7 +78,7 @@ jobs:
       run: |
         python -m build --sdist --wheel
     - name: Deploy to Test PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # release/v1.13
       with:
         repository-url: https://test.pypi.org/legacy/
         skip-existing: true
