@@ -997,20 +997,9 @@ class TestAxOrchestrator(TestCase):
             "attach_data",
             Mock(wraps=orchestrator.experiment.attach_data),
         ) as mock_experiment_attach_data:
-            # Artificial timestamp logic so we can later check that it's the
-            # last-timestamp data that was preserved after multiple `attach_
-            # data` calls.
-            with patch(
-                f"{Experiment.__module__}.current_timestamp_in_millis",
-                side_effect=lambda: len(
-                    orchestrator.experiment.trials_by_status[TrialStatus.COMPLETED]
-                )
-                * 1000
-                + mock_experiment_attach_data.call_count,
-            ):
-                orchestrator.run_all_trials()
+            orchestrator.run_all_trials()
         # Check that experiment and GS were saved and test reloading with reduced state.
-        exp, loaded_gs = orchestrator._load_experiment_and_generation_strategy(
+        exp, _ = orchestrator._load_experiment_and_generation_strategy(
             self.branin_timestamp_map_metric_experiment.name, reduced_state=True
         )
         exp = none_throws(exp)
@@ -1026,15 +1015,9 @@ class TestAxOrchestrator(TestCase):
         # than there are trials because we have a `MapMetric` (many more since we are
         # waiting 3 seconds for each trial).
         self.assertGreater(mock_experiment_attach_data.call_count, NUM_TRIALS)
-
-        # Check that it's the last-attached data that was kept, using
-        # expected value based on logic in mocked "current_timestamp_in_millis"
-        num_attach_calls = mock_experiment_attach_data.call_count
-        expected_ts_last_trial = len(exp.trials) * 1000 + num_attach_calls
-        self.assertEqual(
-            next(iter(exp._data_by_trial[len(exp.trials) - 1])),
-            expected_ts_last_trial,
-        )
+        df = self.branin_timestamp_map_metric_experiment.lookup_data().full_df
+        # At least one step present from each `attach`
+        self.assertGreaterEqual(len(df), mock_experiment_attach_data.call_count)
 
     def test_sqa_storage_with_experiment_name(self) -> None:
         init_test_engine_and_session_factory(force_init=True)

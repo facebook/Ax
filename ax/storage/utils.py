@@ -91,15 +91,11 @@ def combine_datas_on_data_by_trial(
     for trial_index, trial_data in data_by_trial.items():
         if len(trial_data) == 0:
             continue
-        sorted_timestamps = sorted(trial_data.keys())
-        timestamp = sorted_timestamps.pop()
-        df = trial_data[timestamp].full_df
-        while len(sorted_timestamps) > 0:
-            old_ts = sorted_timestamps.pop()
-            old_df = trial_data[old_ts].full_df
+        sorted_datas = [data for _, data in sorted(trial_data.items())]
+        df = sorted_datas.pop().full_df
+        while len(sorted_datas) > 0:
+            old_df = sorted_datas.pop().full_df
             df = combine_dfs_favoring_recent(last_df=old_df, new_df=df)
         data_cls = MapData if MAP_KEY in df.columns else Data
-        combined_data_by_trial[trial_index] = OrderedDict(
-            [(timestamp, data_cls(df=df))]
-        )
+        combined_data_by_trial[trial_index] = OrderedDict([(0, data_cls(df=df))])
     return combined_data_by_trial
