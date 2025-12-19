@@ -806,7 +806,7 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
             "Cumulative epochs not supported for problems with outcome constraints."
         )
 
-    objective_name = optimization_config.objective.metric.name
+    objective_name: str = optimization_config.objective.metric.name
     data = assert_is_instance(experiment.lookup_data(), MapData)
     map_df = data.map_df
 
@@ -815,39 +815,40 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
     # to know which actually ran
     def _get_df(trial: Trial) -> pd.DataFrame:
         """
-        Get the (virtual) time each epoch finished at.
+        Get the (virtual) time each epoch finished at, along with the ground
+        truth values (Y_true).
         """
         metadata = trial.run_metadata["benchmark_metadata"]
         backend_simulator = none_throws(metadata.backend_simulator)
-        # Data for the first metric, which is the only metric
-        df = next(iter(metadata.dfs.values()))
+        # Get the DataFrame for the objective metric
+        df = metadata.dfs[objective_name].copy()
         start_time = backend_simulator.get_sim_trial_by_index(
             trial.index
         ).sim_start_time
         df["time"] = df["virtual runtime"] + start_time
         return df
 
-    with_timestamps = pd.concat(
+    with_timestamps_and_y_true = pd.concat(
         (
             _get_df(trial=assert_is_instance(trial, Trial))
             for trial in experiment.trials.values()
         ),
         axis=0,
         ignore_index=True,
-    )[["trial_index", MAP_KEY, "time"]]
+    )[["trial_index", MAP_KEY, "time", "Y_true"]]
 
     df = (
         map_df.loc[
             map_df["metric_name"] == objective_name,
-            ["trial_index", "arm_name", "mean", MAP_KEY],
+            ["trial_index", "arm_name", MAP_KEY],
         ]
-        .merge(with_timestamps, how="left")
+        .merge(with_timestamps_and_y_true, how="left")
         .sort_values("time", ignore_index=True)
     )
     return (
-        df["mean"].cummin()
+        df["Y_true"].cummin()
         if optimization_config.objective.minimize
-        else df["mean"].cummax()
+        else df["Y_true"].cummax()
     ).to_numpy()
 
 

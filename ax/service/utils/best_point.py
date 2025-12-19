@@ -844,9 +844,12 @@ def _prepare_data_for_trace(
 
     # Transform to a DataFrame with columns ["trial_index", "arm_name"] +
     # relevant metric names, and values being means.
+    # Use Y_true (ground truth) if available (benchmarking context),
+    # otherwise fall back to mean (production context)
+    value_col = "Y_true" if "Y_true" in df.columns else "mean"
     df_wide = (
         df[df["metric_name"].isin(metrics)]
-        .set_index(["trial_index", "arm_name", "metric_name"])["mean"]
+        .set_index(["trial_index", "arm_name", "metric_name"])[value_col]
         .unstack(level="metric_name")
     )
     missing_metrics = [
