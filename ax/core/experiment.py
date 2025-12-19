@@ -1821,7 +1821,6 @@ class Experiment(Base):
         is_test: bool | None = None,
         properties_to_keep: list[str] | None = None,
         trial_indices: list[int] | None = None,
-        data: Data | None = None,
         clear_trial_type: bool = False,
     ) -> Experiment:
         r"""
@@ -1849,9 +1848,6 @@ class Experiment(Base):
                 experiment. Defaults to ["owners"].
             trial_indices: If specified, only clones the specified trials. If None,
                 clones all trials.
-            data: If specified, attach this data to the cloned experiment. If None,
-                clones the latest data attached to the original experiment if
-                the experiment has any data.
             clear_trial_type: If True, all cloned trials on the cloned experiment have
                 `trial_type` set to `None`.
         """
@@ -1945,12 +1941,9 @@ class Experiment(Base):
                 trial_data = trial_data_dict[timestamp].clone()
                 trial_data.df["trial_index"] = new_index
                 data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
-        if data is not None:
-            # If user passed in data, use it.
-            cloned_experiment.attach_data(data.clone())
-        else:
-            # Otherwise, attach the data extracted from the original experiment.
-            cloned_experiment._data_by_trial = data_by_trial
+
+        # Attach the data extracted from the original experiment.
+        cloned_experiment._data_by_trial = data_by_trial
 
         return cloned_experiment
 
