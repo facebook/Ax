@@ -923,6 +923,11 @@ class Experiment(Base):
             )
         cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.full_df.groupby("trial_index"):
+            if trial_index not in self.trials:
+                raise ValueError(
+                    f"Cannot attach data for trial {trial_index} because it has"
+                    " not been attached to the experiment."
+                )
             if not isinstance(data, MapData):
                 trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
             current_trial_data = (
