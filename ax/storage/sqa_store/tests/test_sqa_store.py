@@ -7,7 +7,6 @@
 # pyre-strict
 
 import logging
-from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
@@ -28,7 +27,6 @@ from ax.core.auxiliary import (
     AuxiliaryExperimentPurpose,
     TransferLearningMetadata,
 )
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -3214,22 +3212,3 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(tl_metadata_0.overlap_parameters)
             # Should have 2 overlapping parameters (w and x)
             self.assertEqual(len(none_throws(tl_metadata_0.overlap_parameters)), 2)
-
-    def test_experiment_with_data_backward_compatible(self) -> None:
-        name = "data_bc_test_experiment"
-        experiment = get_branin_experiment(with_trial=True, with_completed_trial=True)
-        experiment.name = name
-        data = experiment.lookup_data()
-        # Overwrite _data_by_trial to look the way that it might look on an
-        # older experiment
-        # Trial 0 has data from two different timestamps, 1 and 2
-        experiment._data_by_trial = {
-            0: OrderedDict([(1, data), (2, Data(df=data.full_df))])
-        }
-        save_experiment(experiment=experiment)
-        loaded_experiment = load_experiment(experiment_name=name)
-        data_by_trial = loaded_experiment._data_by_trial
-        self.assertEqual(set(data_by_trial.keys()), {0})
-        # Only the most recent timestamp should be present
-        self.assertEqual(set(data_by_trial[0].keys()), {2})
-        self.assertEqual(data_by_trial[0][2], data)

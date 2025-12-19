@@ -1891,7 +1891,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(opt_config, decoded_opt_config)
 
     def test_data_by_trial_backward_compatible(self) -> None:
-        ts0, ts1, ts2 = 2, 3, 4
+        ts0, ts1 = 2, 3
         data_as_dict = {
             "trial_index": 0,
             "arm_name": "0_0",
@@ -1964,8 +1964,8 @@ class JSONStoreTest(TestCase):
             decoded = data_from_json(data_by_trial_json=data_by_trial_json)
 
             self.assertEqual(set(decoded.keys()), {0})
-            self.assertEqual(set(decoded[0].keys()), {ts2})
-            df = decoded[0][ts2].full_df
+            self.assertEqual(set(decoded[0].keys()), {0})
+            df = decoded[0][0].full_df
             # b is present even though it wasn't in the most recent fetch
             self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
             # We have the old mean of b and the new mean of a
@@ -2005,7 +2005,7 @@ class JSONStoreTest(TestCase):
         An integration test showing that an experiment that has been serialized
         with a `_data_by_trial` attribute deserializes correctly.
         """
-        ts0, ts1, ts2 = 2, 3, 4
+        ts0, ts1 = 2, 3
         data_as_dict = {
             "trial_index": 0,
             "arm_name": "0_0",
@@ -2173,8 +2173,8 @@ class JSONStoreTest(TestCase):
         }
         decoded = object_from_json(object_json=experiment_json)
         self.assertEqual(set(decoded._data_by_trial.keys()), {0})
-        self.assertEqual(set(decoded._data_by_trial[0].keys()), {ts2})
-        df = decoded._data_by_trial[0][ts2].full_df
+        self.assertEqual(set(decoded._data_by_trial[0].keys()), {0})
+        df = decoded._data_by_trial[0][0].full_df
         # b is present even though it wasn't in the most recent fetch
         self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
         # We have the old mean of b and the new mean of a

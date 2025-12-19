@@ -60,7 +60,6 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.timeutils import current_timestamp_in_millis
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: logging.Logger = get_logger(__name__)
@@ -873,7 +872,7 @@ class Experiment(Base):
 
         return {}
 
-    def attach_data(self, data: Data, **kwargs: Any) -> int:
+    def attach_data(self, data: Data, **kwargs: Any) -> None:
         """
         Attach data to the experiment's `_data_by_trial` attribute.
 
@@ -886,9 +885,6 @@ class Experiment(Base):
         Args:
             data: Data to attach.
             kwargs: Deprecated arguments.
-
-        Returns:
-            Timestamp of storage in millis.
         """
         deprecated_arguments = ["combine_with_last_data", "overwrite_existing_data"]
         for arg in deprecated_arguments:
@@ -921,7 +917,6 @@ class Experiment(Base):
                 "fetch_data`, add them via `experiment.add_tracking_metric` or update "
                 "the experiment's optimization config."
             )
-        cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.full_df.groupby("trial_index"):
             if trial_index not in self.trials:
                 raise ValueError(
@@ -952,22 +947,19 @@ class Experiment(Base):
                     "Each dict within `_data_by_trial` should have at most one "
                     "element."
                 )
-            current_trial_data[cur_time_millis] = data_type(df=combined_df)
+            current_trial_data = OrderedDict({0: data_type(df=combined_df)})
             self._data_by_trial[trial_index] = current_trial_data
-
-        return cur_time_millis
 
     def attach_fetch_results(
         self,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
-    ) -> int | None:
+    ) -> None:
         """
         UNSAFE: Prefer to use attach_data directly instead.
 
         Attach fetched data results to the Experiment so they will not have to be
         fetched again. Additionally caches any metric fetching errors that occurred
-        to the experiment. Returns the timestamp from attachment, which is used
-        as a dict key for _data_by_trial.
+        to the experiment.
 
         NOTE: Any Errs in the results passed in will silently be dropped! This will
         cause the Experiment to fail to find them in the _data_by_trial cache and
@@ -1009,12 +1001,12 @@ class Experiment(Base):
             data=[ok.ok for ok in oks]
         )
 
-        return self.attach_data(data=data)
+        self.attach_data(data=data)
 
     def lookup_data_for_trial(self, trial_index: int) -> Data:
         """Look up stored data for a specific trial.
 
-        Returns latest data object for this trial. Returns empty data if no data
+        Returns data for this trial. Returns empty data if no data
         is present. This method will not fetch data from metrics - to do that,
         use `fetch_data()` instead.
 
@@ -1032,6 +1024,13 @@ class Experiment(Base):
         if len(trial_data_dict) == 0:
             return self.default_data_constructor()
 
+        if set(trial_data_dict.keys()) != {0}:
+            raise AxError(
+                "The only timestamp present for each trial in _data_by_trial "
+                "should be zero."
+            )
+        return trial_data_dict[0]
+
         storage_time = max(trial_data_dict.keys())
         return trial_data_dict[storage_time]
 
@@ -1042,9 +1041,9 @@ class Experiment(Base):
         """
         Combine stored ``Data``s for trials ``trial_indices`` into one ``Data``.
 
-        For each trial, returns latest data object present for this trial.
-        Returns empty data if no data is present. In particular, this method
-        will not fetch data from metrics - to do that, use `fetch_data()` instead.
+        For each trial, returns data present for this trial.  Returns
+        empty data if no data is present. This method will not fetch data from
+        metrics - to do that, use `fetch_data()` instead.
 
         Args:
             trial_indices: Indices of trials for which to fetch data. If omitted,
@@ -1915,7 +1914,7 @@ class Experiment(Base):
                 # Clone the data to avoid overwriting the original in the DB.
                 trial_data = trial_data_dict[timestamp].clone()
                 trial_data.df["trial_index"] = new_index
-                data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
+                data_by_trial[new_index] = OrderedDict([(0, trial_data)])
 
         # Attach the data extracted from the original experiment.
         cloned_experiment._data_by_trial = data_by_trial

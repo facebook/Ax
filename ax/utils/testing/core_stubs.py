@@ -765,7 +765,7 @@ def get_status_quo_branin(
     if with_derived_parameter:
         params["derived"] = 0.0
     if status_quo_unknown_parameters:
-        params = {k: None for k in params}
+        params = dict.fromkeys(params)
 
     return Arm(name="status_quo", parameters=params)
 
