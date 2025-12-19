@@ -21,7 +21,6 @@ MAX_WAIT_SECONDS: int = 600
 T = TypeVar("T")
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
 def retry_on_exception(
     exception_types: tuple[type[Exception], ...] | None = None,
     no_retry_on_exception_types: tuple[type[Exception], ...] | None = None,
@@ -29,7 +28,6 @@ def retry_on_exception(
     retries: int = 3,
     suppress_all_errors: bool = False,
     logger: Logger | None = None,
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     default_return_on_suppression: Any | None = None,
     wrap_error_message_in: str | None = None,
     initial_wait_seconds: int | None = None,

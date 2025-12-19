@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from copy import deepcopy
+from functools import cached_property
 from io import StringIO
 from logging import Logger
 from typing import Any, TypeVar
@@ -332,6 +333,11 @@ class Data(Base, SerializationMixin):
             control_as_constant=control_as_constant,
         )
         return self.__class__(df=df_rel)
+
+    @cached_property
+    def trial_indices(self) -> set[int]:
+        """Return the set of trial indices in the data."""
+        return set(self.df["trial_index"].unique())
 
 
 def combine_dfs_favoring_recent(
