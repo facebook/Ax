@@ -230,6 +230,12 @@ class TestDataBase(TestCase):
             self.data_with_df, type(self.data_with_df)(df=self.data_with_df.full_df)
         )
 
+    def test_trial_indices(self) -> None:
+        self.assertEqual(
+            self.data_with_df.trial_indices,
+            set(self.data_with_df.full_df["trial_index"].unique()),
+        )
+
 
 class DataTest(TestCase):
     """Tests that are specific to Data and not shared with MapData."""

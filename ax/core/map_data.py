@@ -11,6 +11,7 @@ import warnings
 
 from bisect import bisect_right
 from collections.abc import Iterable
+from functools import cached_property
 from logging import Logger
 from math import nan
 from typing import Any
@@ -333,6 +334,13 @@ class MapData(Data):
                 supported for MapData.
         """
         raise NotImplementedError("relativize is currently not supported for MapData.")
+
+    @cached_property
+    def trial_indices(self) -> set[int]:
+        """Return the set of trial indices in the data."""
+        if self._memo_df is not None:
+            return set(self._memo_df["trial_index"].unique())
+        return set(self.full_df["trial_index"].unique())
 
 
 def _ceil_divide(
