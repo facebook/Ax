@@ -19,7 +19,6 @@ from pyre_extensions import none_throws
 from torch import Tensor
 
 
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def generic_equals(first: Any, second: Any) -> bool:
     if isinstance(first, Tensor):
         return isinstance(second, Tensor) and torch.equal(first, second)
