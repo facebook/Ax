@@ -1169,7 +1169,7 @@ def _format_comparison_string(
     )
 
 
-def _construct_comparison_message(
+def construct_comparison_message(
     objective_name: str,
     objective_minimize: bool,
     baseline_arm_name: str,
@@ -1178,6 +1178,23 @@ def _construct_comparison_message(
     comparison_value: float,
     digits: int | None = None,
 ) -> str | None:
+    """Construct a message comparing a comparison arm to a baseline arm.
+
+    Args:
+        objective_name: Name of the objective metric being compared.
+        objective_minimize: Whether the objective is being minimized.
+        baseline_arm_name: Name of the baseline arm.
+        baseline_value: Value of the objective metric for the baseline arm.
+        comparison_arm_name: Name of the arm being compared to baseline.
+        comparison_value: Value of the objective metric for the comparison arm.
+        digits: Number of decimal places to display. Defaults to 2 if not
+            provided.
+
+    Returns:
+        A formatted message string describing the percent improvement if the
+        comparison arm beats the baseline, or None if no improvement was found
+        or the baseline value is zero.
+    """
     if baseline_value == 0:
         logger.debug(
             "compare_to_baseline: baseline has value of 0"
@@ -1338,6 +1355,15 @@ def maybe_extract_baseline_comparison_values(
         for objective in multi_objective.objectives:
             name = objective.metric.name
             minimize = objective.minimize
+
+            # Check if metric column exists in both comparison and baseline dataframes
+            if (
+                name not in comparison_arm_df.columns
+                or name not in baseline_rows.columns
+            ):
+                logger.debug(f"compare_to_baseline: metric '{name}' not found in data.")
+                return None
+
             opt_index = (
                 comparison_arm_df[name].idxmin()
                 if minimize
@@ -1358,6 +1384,17 @@ def maybe_extract_baseline_comparison_values(
         return result_list if result_list else None
 
     objective_name = optimization_config.objective.metric.name
+
+    # Check if metric column exists in both comparison and baseline dataframes
+    if (
+        objective_name not in comparison_arm_df.columns
+        or objective_name not in baseline_rows.columns
+    ):
+        logger.debug(
+            f"compare_to_baseline: metric '{objective_name}' not found in data."
+        )
+        return None
+
     baseline_value = baseline_rows.iloc[0][objective_name]
     comparison_row = comparison_arm_df.iloc[0]
 
@@ -1387,7 +1424,7 @@ def compare_to_baseline_impl(
         )
 
     for _, result_tuple in enumerate(comparison_list):
-        comparison_message = _construct_comparison_message(*result_tuple)
+        comparison_message = construct_comparison_message(*result_tuple)
         if comparison_message:
             result_message = (
                 result_message
