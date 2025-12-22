@@ -468,6 +468,14 @@ class TestResultsAnalysis(TestCase):
             self.assertIsNotNone(card_group)
             self.assertGreater(len(card_group.children), 0)
 
+            # Assert: UtilityProgressionAnalysis should NOT be computed
+            child_names = [child.name for child in card_group.flatten()]
+            self.assertFalse(
+                any("UtilityProgression" in name for name in child_names),
+                "UtilityProgressionAnalysis should not be computed for online "
+                "experiments",
+            )
+
     @mock_botorch_optimize
     def test_offline_experiments(self) -> None:
         # Test ResultsAnalysis can be computed for a variety of experiments which

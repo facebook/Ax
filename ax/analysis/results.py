@@ -220,13 +220,16 @@ class ResultsAnalysis(Analysis):
         # Add utility progression if there are objectives
         # Skip for experiments with ScalarizedOutcomeConstraint as feasibility
         # evaluation for scalarized outcome constraints is not yet implemented
+        # Skip for online experiments (those with BatchTrials)
         utility_progression_card = (
             UtilityProgressionAnalysis().compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
                 adapter=adapter,
             )
-            if len(objective_names) > 0 and not has_scalarized_outcome_constraints
+            if len(objective_names) > 0
+            and not has_scalarized_outcome_constraints
+            and not has_batch_trials
             else None
         )
 
@@ -242,12 +245,12 @@ class ResultsAnalysis(Analysis):
             children=[
                 child
                 for child in (
-                    utility_progression_card,
                     arm_effect_pair_group,
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,
                     best_trials_card,
+                    utility_progression_card,
                     summary,
                 )
                 if child is not None
