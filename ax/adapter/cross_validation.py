@@ -17,8 +17,9 @@ from warnings import warn
 import numpy as np
 import numpy.typing as npt
 from ax.adapter.adapter_utils import array_to_observation_data
-from ax.adapter.base import Adapter, unwrap_observation_data
+from ax.adapter.base import Adapter
 from ax.adapter.data_utils import ExperimentData
+from ax.adapter.observation_utils import unwrap_observation_data
 from ax.adapter.torch import TorchAdapter
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig

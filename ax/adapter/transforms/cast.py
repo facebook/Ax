@@ -15,6 +15,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.observation_utils import separate_observations
 from ax.core.parameter import (
+    DerivedParameter,
     get_dummy_value_for_parameter,
     PARAMETER_PYTHON_TYPE_MAP,
     ParameterType,
@@ -96,6 +97,11 @@ class Cast(Transform):
             raise UserInputError(
                 f"Unexpected config parameters for `Cast` transform: {self.config}."
             )
+        self.derived_parameters: dict[str, DerivedParameter] = {
+            name: p.clone()
+            for name, p in self.search_space.nontunable_parameters.items()
+            if isinstance(p, DerivedParameter)
+        }
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """If the transform is configured to flatten the search space
@@ -231,14 +237,24 @@ class Cast(Transform):
         """
         new_obsf = []
         for obsf in observation_features:
+            has_none = False
             for p_name, p_value in obsf.parameters.items():
                 if p_value is None:
+                    has_none = True
                     # Skip obsf if there are `None`s.
-                    # The else block below will not be executed.
                     break
-                if p_name in self.search_space.parameters:
+                if p_name in self.derived_parameters:
+                    continue
+                elif p_name in self.search_space.parameters:
                     obsf.parameters[p_name] = self.search_space[p_name].cast(p_value)
-            else:
+
+            if not has_none:
+                # Re-compute derived parameter values, since casting
+                # may change the consitutent parameter values (e.g.
+                # via rounding)
+                for p_name, p in self.derived_parameters.items():
+                    if p_name in obsf.parameters:
+                        obsf.parameters[p_name] = p.compute(parameters=obsf.parameters)
                 # No `None`s in the parameterization.
                 new_obsf.append(obsf)
         return new_obsf

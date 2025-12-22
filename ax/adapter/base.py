@@ -21,6 +21,7 @@ from ax.adapter.data_utils import (
     ExperimentData,
     extract_experiment_data,
 )
+from ax.adapter.observation_utils import unwrap_observation_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.cast import Cast
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
@@ -34,7 +35,7 @@ from ax.core.observation_utils import recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
+from ax.core.types import TCandidateMetadata, TModelPredict
 from ax.core.utils import get_target_trial_index, has_map_metrics
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
@@ -1137,28 +1138,6 @@ class Adapter:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(generator={self.generator})"
-
-
-def unwrap_observation_data(observation_data: list[ObservationData]) -> TModelPredict:
-    """Converts observation data to the format for model prediction outputs.
-    That format assumes each observation data has the same set of metrics.
-    """
-    metrics = set(observation_data[0].metric_signatures)
-    f: TModelMean = {metric: [] for metric in metrics}
-    cov: TModelCov = {m1: {m2: [] for m2 in metrics} for m1 in metrics}
-    for od in observation_data:
-        if set(od.metric_signatures) != metrics:
-            raise ValueError(
-                "Each ObservationData should use same set of metrics. "
-                "Expected {exp}, got {got}.".format(
-                    exp=metrics, got=set(od.metric_signatures)
-                )
-            )
-        for i, m1 in enumerate(od.metric_signatures):
-            f[m1].append(od.means[i])
-            for j, m2 in enumerate(od.metric_signatures):
-                cov[m1][m2].append(od.covariance[i, j])
-    return f, cov
 
 
 def gen_arms(

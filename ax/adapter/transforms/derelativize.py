@@ -12,7 +12,7 @@ from logging import Logger
 from typing import TYPE_CHECKING
 
 import numpy as np
-from ax.adapter.base import unwrap_observation_data
+from ax.adapter.observation_utils import unwrap_observation_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.ivw import ivw_metric_merge
 from ax.core.observation import ObservationFeatures
