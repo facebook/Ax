@@ -19,8 +19,8 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
+from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
-
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 
@@ -35,4 +35,5 @@ __all__ = [
     "SearchSpaceAnalysis",
     "RegressionAnalysis",
     "ComplexityRatingAnalysis",
+    "PredictableMetricsAnalysis",
 ]
