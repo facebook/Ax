@@ -8,6 +8,7 @@
 
 import warnings
 from copy import deepcopy
+from random import random
 from typing import Any
 from unittest import mock
 from unittest.mock import Mock
@@ -22,7 +23,6 @@ from ax.adapter.base import (
     gen_arms,
     GenResults,
     logger,
-    unwrap_observation_data,
 )
 from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.factory import get_sobol
@@ -40,7 +40,7 @@ from ax.core.objective import Objective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import DerivedParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
@@ -49,6 +49,8 @@ from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
 from ax.generators.base import Generator
 from ax.metrics.branin import BraninMetric
+from ax.metrics.noisy_function import GenericNoisyFunctionMetric
+from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
@@ -68,9 +70,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.modeling_stubs import (
     get_experiment_for_value,
-    get_observation1,
     get_observation1trans,
-    get_observation2,
 )
 from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.utils.assorted import validate_input_scaling
@@ -92,7 +92,8 @@ class BaseAdapterTest(TestCase):
         # Check that the properties are set correctly.
         self.assertEqual(adapter._data_loader_config, DataLoaderConfig())
         self.assertEqual(
-            adapter._raw_transforms, [FillMissingParameters, Cast] + MBM_X_trans_base
+            adapter._raw_transforms,
+            [FillMissingParameters, Cast] + MBM_X_trans_base,
         )
         self.assertEqual(adapter._transform_configs, {})
         self.assertEqual(
@@ -706,22 +707,6 @@ class BaseAdapterTest(TestCase):
         with self.assertRaises(NotImplementedError):
             adapter.transform_observations([])
 
-    def test_UnwrapObservationData(self) -> None:
-        observation_data = [get_observation1().data, get_observation2().data]
-        f, cov = unwrap_observation_data(observation_data)
-        self.assertEqual(f["a"], [2.0, 2.0])
-        self.assertEqual(f["b"], [4.0, 1.0])
-        self.assertEqual(cov["a"]["a"], [1.0, 2.0])
-        self.assertEqual(cov["b"]["b"], [4.0, 5.0])
-        self.assertEqual(cov["a"]["b"], [2.0, 3.0])
-        self.assertEqual(cov["b"]["a"], [3.0, 4.0])
-        # Check that errors if metric mismatch
-        od3 = ObservationData(
-            metric_signatures=["a"], means=np.array([2.0]), covariance=np.array([[4.0]])
-        )
-        with self.assertRaises(ValueError):
-            unwrap_observation_data(observation_data + [od3])
-
     def test_gen_arms(self) -> None:
         p1: TParameterization = {"x": 0, "y": 1}
         p2: TParameterization = {"x": 4, "y": 8}
@@ -865,7 +850,8 @@ class BaseAdapterTest(TestCase):
                 transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
             )
         self.assertEqual(
-            [t.__name__ for t in m._raw_transforms], ["FillMissingParameters", "Cast"]
+            [t.__name__ for t in m._raw_transforms],
+            ["FillMissingParameters", "Cast"],
         )
         # All arms are in design now
         self.assertEqual(sum(m.training_in_design), 12)
@@ -1220,3 +1206,89 @@ class BaseAdapterTest(TestCase):
 
         expected_in_design = [True, True, False, False]
         self.assertEqual(adapter_exclude_ood.training_in_design, expected_in_design)
+
+    @mock.patch("ax.adapter.base.Adapter._fit", autospec=True)
+    def test_untransform_observation_features_derived_parameter_with_digits(
+        self, _: Mock
+    ) -> None:
+        """Test untransforming ObservationFeatures with default transforms where
+        the search space has a DerivedParameter that depends on a RangeParameter
+        that uses digits.
+
+        This test validates that the untransformed ObservationFeatures are in the
+        search space. The test would fail if the DerivedParameter value were not
+        re-computed in Cast after rounding the RangeParameter value.
+        """
+        # Create a search space with:
+        # - A RangeParameter "x" with digits=2 (values are rounded to 2 decimals)
+        # - A DerivedParameter "y" that depends on "x" (y = 2*x + 1)
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=10.0,
+                    digits=2,
+                ),
+                DerivedParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="2.0 * x + 1.0",
+                ),
+            ]
+        )
+        experiment = Experiment(
+            name="test_derived_digits",
+            search_space=search_space,
+            is_test=True,
+            optimization_config=OptimizationConfig(
+                objective=Objective(
+                    metric=GenericNoisyFunctionMetric(
+                        name="random", f=lambda _: random()
+                    ),
+                    minimize=True,
+                )
+            ),
+            runner=SyntheticRunner(),
+        )
+        trial = experiment.new_trial()
+        trial.add_arm(Arm(name="0_0", parameters={"x": 3.0, "y": 7.0}))
+        trial.run()
+        trial.mark_completed()
+
+        adapter = Adapter(
+            experiment=experiment,
+            data=experiment.fetch_data(),
+            generator=Generator(),
+            transforms=MBM_X_trans,
+        )
+
+        # Create observation features in the transformed space (without derived
+        # parameter, since RemoveFixed removes it during transform).
+        transformed_obs_features = [ObservationFeatures(parameters={"x": 3.145})]
+
+        # x should be rounded via Cast before the derived value is computed,
+        # which also happens in Cast.
+        untransformed_obs_features = transformed_obs_features
+        for t in reversed(list(adapter.transforms.values())):
+            untransformed_obs_features = t.untransform_observation_features(
+                untransformed_obs_features
+            )
+
+        # Verify the untransformed observation features
+        self.assertEqual(len(untransformed_obs_features), 1)
+        params = untransformed_obs_features[0].parameters
+        self.assertIn("x", params)
+        self.assertIn("y", params)
+        self.assertEqual(params["x"], 3.15)  # x is rounded
+        # y is computed based on the rounded x value
+        self.assertEqual(params["y"], 7.3)
+
+        # Verify that the untransformed observation features are in the search space.
+        # This is the key assertion: if the DerivedParameter value were not
+        # re-computed in Cast after rounding the RangeParameter value, then
+        # the value would be invalid.
+        self.assertTrue(
+            search_space.check_membership(parameterization=params, raise_error=True)
+        )

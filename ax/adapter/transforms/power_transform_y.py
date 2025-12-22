@@ -108,12 +108,14 @@ class PowerTransformY(Transform):
             for i, m in enumerate(obsd.metric_signatures):
                 if m in self.metric_signatures:
                     transform = self.power_transforms[m].transform
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width(
+                    mean, cov = match_ci_width(
                         mean=obsd.means[i],
                         sem=None,
                         variance=obsd.covariance[i, i],
                         transform=lambda y, t=transform: t(np.array(y, ndmin=2)),
                     )
+                    obsd.means[i] = mean.item()
+                    obsd.covariance[i, i] = cov.item()
         return observation_data
 
     def _untransform_observation_data(
@@ -130,7 +132,7 @@ class PowerTransformY(Transform):
                         raise ValueError(
                             "Can't untransform mean outside the bounds without clipping"
                         )
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width(
+                    mean, cov = match_ci_width(
                         mean=obsd.means[i],
                         sem=None,
                         variance=obsd.covariance[i, i],
@@ -138,6 +140,8 @@ class PowerTransformY(Transform):
                         lower_bound=l + 1e-3,
                         upper_bound=u - 1e-3,
                     )
+                    obsd.means[i] = mean.item()
+                    obsd.covariance[i, i] = cov.item()
         return observation_data
 
     def transform_optimization_config(

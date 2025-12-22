@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from math import isnan
 
 import numpy as np
 from ax.adapter.base import DataLoaderConfig
@@ -107,7 +106,7 @@ class PowerTransformYTest(TestCase):
         # Make sure we got the boundary right
         left = pt.inverse_transform(np.array(bounds[1] - 0.01, ndmin=2))
         right = pt.inverse_transform(np.array(bounds[1] + 0.01, ndmin=2))
-        self.assertTrue(isnan(right) and not isnan(left))
+        self.assertTrue(np.isnan(right) and not np.isnan(left))
         # 0 <= lambda <= 2: im(f) = R
         pt.lambdas_.fill(1.0)
         bounds = _compute_inverse_bounds({"m2": pt})["m2"]
@@ -119,7 +118,7 @@ class PowerTransformYTest(TestCase):
         # Make sure we got the boundary right
         left = pt.inverse_transform(np.array(bounds[0] - 0.01, ndmin=2))
         right = pt.inverse_transform(np.array(bounds[0] + 0.01, ndmin=2))
-        self.assertTrue(not isnan(right) and isnan(left))
+        self.assertTrue(not np.isnan(right) and np.isnan(left))
 
     def test_transform_and_untransform_one_metric(self) -> None:
         pt = PowerTransformY(
