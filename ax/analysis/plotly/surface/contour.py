@@ -59,7 +59,8 @@ class ContourPlot(Analysis):
     The DataFrame computed will contain the following columns:
         - PARAMETER_NAME: The value of the x parameter specified
         - PARAMETER_NAME: The value of the y parameter specified
-        - METRIC_NAME: The predected mean of the metric specified
+        - METRIC_NAME_mean: The predicted mean of the metric specified
+        - METRIC_NAME_sem: The predicted standard error of the metric specified
         - sampled: Whether the parameter values were sampled in at least one trial
     """
 
@@ -70,6 +71,7 @@ class ContourPlot(Analysis):
         metric_name: str | None = None,
         display_sampled: bool = True,
         relativize: bool = False,
+        display: str = "mean",
     ) -> None:
         """
         Args:
@@ -79,12 +81,16 @@ class ContourPlot(Analysis):
             display_sampled: If True, plot "x"s at x coordinates which have been
                 sampled in at least one trial.
             relativize: If True, relativize the metric values to the status quo.
+            display: What to display in the contour plot. Options are:
+                - "mean": Display the predicted mean (default)
+                - "sem": Display the predicted standard error of the mean
         """
         self.x_parameter_name = x_parameter_name
         self.y_parameter_name = y_parameter_name
         self.metric_name = metric_name
         self._display_sampled = display_sampled
         self.relativize = relativize
+        self.display = display
 
     @override
     def validate_applicable_state(
@@ -130,6 +136,10 @@ class ContourPlot(Analysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")
+        if self.display not in ("mean", "sem"):
+            raise UserInputError(
+                f"display must be 'mean' or 'sem', got '{self.display}'"
+            )
         for name in (self.x_parameter_name, self.y_parameter_name):
             if isinstance(experiment.search_space.parameters[name], DerivedParameter):
                 raise UserInputError(
@@ -166,12 +176,14 @@ class ContourPlot(Analysis):
             ),
             display_sampled=self._display_sampled,
             is_relative=self.relativize,
+            display=self.display,
         )
 
+        display_label = "Mean" if self.display == "mean" else "Standard Error"
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{metric_name} vs. "
+                f"{metric_name} ({display_label}) vs. "
                 f"{self.x_parameter_name}, {self.y_parameter_name}"
             ),
             subtitle=(
@@ -336,11 +348,15 @@ def _prepare_plot(
     log_y: bool,
     display_sampled: bool,
     is_relative: bool,
+    display: str = "mean",
 ) -> go.Figure:
+    # Choose which column to display based on display parameter
+    value_column = f"{metric_name}_mean" if display == "mean" else f"{metric_name}_sem"
+
     z_grid = df.pivot_table(
         index=y_parameter_name,
         columns=x_parameter_name,
-        values=f"{metric_name}_mean",
+        values=value_column,
         # aggfunc is required to gracefully handle duplicate values
         aggfunc="mean",
     )

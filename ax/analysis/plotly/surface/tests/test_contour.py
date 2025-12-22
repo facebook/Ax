@@ -60,7 +60,7 @@ class TestContourPlot(TestCase):
             "values, providing insights into the gradient and potential optima "
             "within the parameter space."
         )
-        self.expected_title = "bar vs. x, y"
+        self.expected_title = "bar (Mean) vs. x, y"
         self.expected_name = "ContourPlot"
         self.expected_cols = {
             "x",
@@ -180,3 +180,37 @@ class TestContourPlot(TestCase):
             trial_index,
             card.df["trial_index"].values,
         )
+
+    def test_display_sem(self) -> None:
+        """Test that display='sem' shows standard error contour."""
+        analysis = ContourPlot(
+            x_parameter_name="x",
+            y_parameter_name="y",
+            metric_name="bar",
+            display="sem",
+        )
+        card = analysis.compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+
+        # Title should indicate Standard Error
+        self.assertEqual(card.title, "bar (Standard Error) vs. x, y")
+        self.assertEqual(card.name, "ContourPlot")
+        # DataFrame should still have both mean and sem columns
+        self.assertIn("bar_mean", card.df.columns)
+        self.assertIn("bar_sem", card.df.columns)
+
+    def test_invalid_display_value(self) -> None:
+        """Test that invalid display value raises UserInputError at compute time."""
+        analysis = ContourPlot(
+            x_parameter_name="x",
+            y_parameter_name="y",
+            metric_name="bar",
+            display="invalid",
+        )
+        with self.assertRaisesRegex(UserInputError, "display must be 'mean' or 'sem'"):
+            analysis.compute(
+                experiment=self.client.experiment,
+                generation_strategy=self.client.generation_strategy,
+            )
