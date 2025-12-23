@@ -480,7 +480,7 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(obs.metadata, {"dummy": 1.0})
 
     def test_constant_progression(self) -> None:
-        data_df = self.experiment.lookup_data().true_df
+        data_df = self.experiment.lookup_data().full_df
         for constant in (23, np.nan):
             with self.subTest(msg=f"{constant=}"):
                 experiment_data = extract_experiment_data(

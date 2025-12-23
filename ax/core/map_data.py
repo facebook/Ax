@@ -105,18 +105,6 @@ class MapData(Data):
         )
         self._memo_df = None
 
-    # true_df is being deprecated after the release of Ax 1.1.2, so it will
-    # surface in Ax 1.1.3 or 1.2.0, so it can be removed in the minor release
-    # after that.
-    @property
-    def true_df(self) -> pd.DataFrame:
-        warnings.warn(
-            "MapData.true_df is deprecated. Use MapData.full_df instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.map_df
-
     def required_columns(self) -> set[str]:
         return super().required_columns().union({MAP_KEY})
 
