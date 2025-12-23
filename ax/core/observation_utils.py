@@ -283,7 +283,7 @@ def observations_from_data(
                 include_first_last=True,
             )
         is_map_data = True
-        df = data.map_df
+        df = data.full_df
     else:
         is_map_data = False
         df = data.df

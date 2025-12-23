@@ -29,22 +29,13 @@ logger: Logger = get_logger(__name__)
 class MapData(Data):
     """Class storing mapping-like results for an experiment.
 
-    Data is stored in a dataframe, and auxiliary information is stored in
-    DataFrame with column names given by the keys in the passed ``MapKeyInfo``
-    objects.
+    Data is stored at the trial_index-arm_name-metric_name-step level in a
+    dataframe ``full_df``. A smaller DataFrame ``df`` may be constructed at the
+    trial_index-arm_name-metric_name level, using only the most recent step for
+    each trial/arm/metric.
 
-    Mapping-like results occur whenever a metric is reported as a collection
-    of results, each element corresponding to a tuple of values.
-
-    The simplest case is a sequence. For instance a time series is
-    a mapping from the 1-tuple `(timestamp)` to (mean, sem) results.
-
-    Another example: MultiFidelity results. This is a mapping from
-    `(fidelity_feature_1, ..., fidelity_feature_n)` to (mean, sem) results.
-
-    The dataframe is retrieved via the `map_df` property. The data can be stored
-    to an external store for future use by attaching it to an experiment using
-    `experiment.attach_data()` (this requires a description to be set.)
+    The data can be stored to an external store for future use by attaching it
+    to an experiment using `experiment.attach_data()`.
 
 
     Attributes:
@@ -66,8 +57,6 @@ class MapData(Data):
             expensive, it is recommended to reference ``full_df`` for operations
             that do not require scanning the full data, such as accessing the
             columns of the DataFrame.
-        map_df: Equivalent to ``full_df``. ``map_df`` exists only on
-            ``MapData``, whereas ``full_df`` exists for any ``Data`` subclass.
     """
 
     DEDUPLICATE_BY_COLUMNS = [
@@ -108,10 +97,6 @@ class MapData(Data):
     def required_columns(self) -> set[str]:
         return super().required_columns().union({MAP_KEY})
 
-    @property
-    def map_df(self) -> pd.DataFrame:
-        return self.full_df
-
     @classmethod
     def from_multiple_data(cls, data: Iterable[Data]) -> MapData:
         """
@@ -119,7 +104,7 @@ class MapData(Data):
 
         If no "step" column is present, it will be filled in with NaNs.
         """
-        map_dfs = [
+        full_dfs = [
             datum.full_df
             if isinstance(datum, MapData)
             else datum.df.assign(**{MAP_KEY: nan})
@@ -127,10 +112,10 @@ class MapData(Data):
             if not datum.full_df.empty
         ]
 
-        if len(map_dfs) == 0:
+        if len(full_dfs) == 0:
             return MapData()
 
-        return MapData(df=pd.concat(map_dfs))
+        return MapData(df=pd.concat(full_dfs))
 
     @property
     def df(self) -> pd.DataFrame:
@@ -141,22 +126,22 @@ class MapData(Data):
         if self._memo_df is not None:
             return self._memo_df
 
-        if self.map_df.empty:
-            return self.map_df
+        if self.full_df.empty:
+            return self.full_df
 
         idxs = (
-            self.map_df.fillna({MAP_KEY: np.inf})
+            self.full_df.fillna({MAP_KEY: np.inf})
             .groupby(self.DEDUPLICATE_BY_COLUMNS)[MAP_KEY]
             .idxmax()
             # In the case where all MAP_KEY values are NaN for a group we return an
             # arbitrary row from that group.
             .fillna(
-                self.map_df.groupby(self.DEDUPLICATE_BY_COLUMNS).apply(
+                self.full_df.groupby(self.DEDUPLICATE_BY_COLUMNS).apply(
                     lambda group: group.index[0]
                 )
             )
         )
-        self._memo_df = self.map_df.loc[idxs]
+        self._memo_df = self.full_df.loc[idxs]
 
         return self._memo_df
 
@@ -238,7 +223,7 @@ class MapData(Data):
 
         return MapData(
             df=(
-                self.map_df.sort_values(MAP_KEY)
+                self.full_df.sort_values(MAP_KEY)
                 .groupby(self.DEDUPLICATE_BY_COLUMNS)
                 .tail(rows_per_group)
                 .sort_values(self.DEDUPLICATE_BY_COLUMNS)
@@ -293,11 +278,11 @@ class MapData(Data):
             )
             return self
         subsampled_metric_dfs = []
-        for metric_name in self.map_df["metric_name"].unique():
-            metric_map_df = _filter_df(self.map_df, metric_names=[metric_name])
+        for metric_name in self.full_df["metric_name"].unique():
+            metric_full_df = _filter_df(self.full_df, metric_names=[metric_name])
             subsampled_metric_dfs.append(
                 _subsample_one_metric(
-                    metric_map_df,
+                    metric_full_df,
                     keep_every=keep_every,
                     limit_rows_per_group=limit_rows_per_group,
                     limit_rows_per_metric=limit_rows_per_metric,
@@ -338,7 +323,7 @@ def _ceil_divide(
 
 
 def _subsample_rate(
-    map_df: pd.DataFrame,
+    full_df: pd.DataFrame,
     keep_every: int | None = None,
     limit_rows_per_group: int | None = None,
     limit_rows_per_metric: int | None = None,
@@ -346,8 +331,8 @@ def _subsample_rate(
     if keep_every is not None:
         return keep_every
 
-    grouped_map_df = map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)
-    group_sizes = grouped_map_df.size()
+    grouped_full_df = full_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)
+    group_sizes = grouped_full_df.size()
     max_rows = group_sizes.max()
 
     if limit_rows_per_group is not None:
@@ -374,7 +359,7 @@ def _subsample_rate(
 
 
 def _subsample_one_metric(
-    map_df: pd.DataFrame,
+    full_df: pd.DataFrame,
     keep_every: int | None = None,
     limit_rows_per_group: int | None = None,
     limit_rows_per_metric: int | None = None,
@@ -382,25 +367,23 @@ def _subsample_one_metric(
 ) -> pd.DataFrame:
     """Helper function to subsample a dataframe that holds a single metric."""
 
-    grouped_map_df = map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)
+    grouped_full_df = full_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)
 
     derived_keep_every = _subsample_rate(
-        map_df, keep_every, limit_rows_per_group, limit_rows_per_metric
+        full_df, keep_every, limit_rows_per_group, limit_rows_per_metric
     )
 
     if derived_keep_every <= 1:
-        filtered_map_df = map_df
-    else:
-        filtered_dfs = []
-        for _, df_g in grouped_map_df:
-            df_g = df_g.sort_values(MAP_KEY)
-            if include_first_last:
-                rows_per_group = _ceil_divide(len(df_g), derived_keep_every)
-                linspace_idcs = np.linspace(0, len(df_g) - 1, rows_per_group)
-                idcs = np.round(linspace_idcs).astype(int)
-                filtered_df = df_g.iloc[idcs]
-            else:
-                filtered_df = df_g.iloc[:: int(derived_keep_every)]
-            filtered_dfs.append(filtered_df)
-        filtered_map_df: pd.DataFrame = pd.concat(filtered_dfs)
-    return filtered_map_df
+        return full_df
+    filtered_dfs = []
+    for _, df_g in grouped_full_df:
+        df_g = df_g.sort_values(MAP_KEY)
+        if include_first_last:
+            rows_per_group = _ceil_divide(len(df_g), derived_keep_every)
+            linspace_idcs = np.linspace(0, len(df_g) - 1, rows_per_group)
+            idcs = np.round(linspace_idcs).astype(int)
+            filtered_df = df_g.iloc[idcs]
+        else:
+            filtered_df = df_g.iloc[:: int(derived_keep_every)]
+        filtered_dfs.append(filtered_df)
+    return pd.concat(filtered_dfs)

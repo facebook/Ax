@@ -22,10 +22,9 @@ from ax.adapter.registry import Generators, MBM_MTGP_trans
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
@@ -1312,12 +1311,8 @@ class TestAxOrchestrator(TestCase):
         # For MultiTypeExperiment there are two metrics
         # for trial type "type1"
         expected_num_rows = 7
-        self.assertEqual(
-            len(assert_is_instance(looked_up_data, MapData).map_df), expected_num_rows
-        )
-        self.assertEqual(
-            len(assert_is_instance(fetched_data, MapData).map_df), expected_num_rows
-        )
+        self.assertEqual(len(looked_up_data.full_df), expected_num_rows)
+        self.assertEqual(len(fetched_data.full_df), expected_num_rows)
         ess = orchestrator.options.early_stopping_strategy
         self.assertIsNotNone(ess)
         self.assertAlmostEqual(

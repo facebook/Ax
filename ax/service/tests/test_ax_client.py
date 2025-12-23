@@ -1609,10 +1609,9 @@ class TestAxClient(TestCase):
                 )
             if t == 2:
                 ax_client.complete_trial(0, raw_data=raw_data)
-            # pyre-fixme[16]: `Data` has no attribute `map_df`.
-            fetch_data = ax_client.experiment.fetch_data().map_df
+            fetch_data = ax_client.experiment.fetch_data().full_df
             self.assertEqual(len(fetch_data), 0 if t < 2 else 3)
-            lookup_data = ax_client.experiment.lookup_data().map_df
+            lookup_data = ax_client.experiment.lookup_data().full_df
             self.assertEqual(len(lookup_data), t + 1)
 
         no_intermediate_data_ax_client = AxClient()

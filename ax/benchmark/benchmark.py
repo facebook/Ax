@@ -39,8 +39,8 @@ from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.arm import Arm
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -807,10 +807,10 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
         )
 
     objective_name = optimization_config.objective.metric.name
-    data = assert_is_instance(experiment.lookup_data(), MapData)
-    map_df = data.map_df
+    data = experiment.lookup_data()
+    full_df = data.full_df
 
-    # Has timestamps; needs to be merged with map_df because it contains
+    # Has timestamps; needs to be merged with full_df because it contains
     # data on epochs that didn't actually run due to early stopping, and we need
     # to know which actually ran
     def _get_df(trial: Trial) -> pd.DataFrame:
@@ -837,8 +837,8 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
     )[["trial_index", MAP_KEY, "time"]]
 
     df = (
-        map_df.loc[
-            map_df["metric_name"] == objective_name,
+        full_df.loc[
+            full_df["metric_name"] == objective_name,
             ["trial_index", "arm_name", "mean", MAP_KEY],
         ]
         .merge(with_timestamps, how="left")
