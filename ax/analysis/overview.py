@@ -16,6 +16,7 @@ from ax.analysis.healthcheck.can_generate_candidates import (
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
+from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
 from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
@@ -27,6 +28,8 @@ from ax.analysis.trials import AllTrialsAnalysis
 from ax.analysis.utils import validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -77,6 +80,7 @@ class OverviewAnalysis(Analysis):
                 * CrossValidationPlots
             * Health Checks
                 * MetricFetchingErrorsAnalysis
+                * EarlyStoppingAnalysis
                 * CanGenerateCandidatesAnalysis
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
@@ -153,8 +157,16 @@ class OverviewAnalysis(Analysis):
             trial_statuses=[TrialStatus.CANDIDATE]
         )
 
+        # Check if the experiment has MapData and MapMetrics (required for
+        # early stopping)
+        has_map_data = isinstance(experiment.lookup_data(), MapData)
+        has_map_metrics = any(
+            isinstance(m, MapMetric) for m in experiment.metrics.values()
+        )
+
         health_check_analyses = [
             MetricFetchingErrorsAnalysis(),
+            EarlyStoppingAnalysis() if has_map_data and has_map_metrics else None,
             CanGenerateCandidatesAnalysis(
                 can_generate_candidates=self.can_generate,
                 reason=self.can_generate_reason,
