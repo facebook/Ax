@@ -317,11 +317,6 @@ class MapDataTest(TestCase):
         data = MapData(df=df)
         self.assertEqual(data.map_df[MAP_KEY].dtype, float)
 
-    def test_true_df_deprecation(self) -> None:
-        with self.assertWarnsRegex(DeprecationWarning, "true_df"):
-            true_df = self.mmd.true_df
-        self.assertIs(true_df, self.mmd.map_df)
-
     def test_trial_indices(self) -> None:
         # Test that `trial_indices` is the same before and after setting `df`
         self.assertIsNone(self.mmd._memo_df)
