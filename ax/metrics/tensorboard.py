@@ -102,7 +102,7 @@ try:
             self.smoothing = smoothing
             self.tag = tag
             self.cumulative_best = cumulative_best
-            self.percentile = quantile  # deprecated, left for backwards compatibility
+            self.percentile: None = None  # deprecated, left for backwards compatibility
             self.quantile = quantile
 
         @classmethod
