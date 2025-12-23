@@ -33,10 +33,12 @@ from ax.service.utils.report_utils import (
     _get_objective_trace_plot,
     _get_objective_v_param_plots,
     _objective_vs_true_objective_scatter,
+    construct_comparison_message,
     exp_to_df,
     Experiment,
     FEASIBLE_COL_NAME,
     get_standard_plots,
+    maybe_extract_baseline_comparison_values,
     plot_feature_importance_by_feature_plotly,
     warn_if_unpredictable_metrics,
 )
@@ -667,3 +669,54 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(_find_sigfigs(50.0, 50.0001), 4)
         self.assertEqual(_find_sigfigs(0.04390, 0.03947), 3)
         self.assertEqual(_find_sigfigs(49.1, 50.00001, 2), 2)
+
+    def test_construct_comparison_message_zero_baseline(self) -> None:
+        """Test construct_comparison_message returns None when baseline is 0."""
+        result = construct_comparison_message(
+            objective_name="metric",
+            objective_minimize=True,
+            baseline_arm_name="baseline",
+            baseline_value=0.0,
+            comparison_arm_name="comparison",
+            comparison_value=10.0,
+        )
+        self.assertIsNone(result)
+
+    def test_maybe_extract_baseline_comparison_values_metric_missing_soo(
+        self,
+    ) -> None:
+        """Test returns None when metric column missing for single-objective."""
+        exp = get_branin_experiment(with_batch=True)
+        exp.trials[0].run()
+        exp.fetch_data()
+        arm_names = list(exp.arms_by_name.keys())
+
+        # Use a different metric name in optimization config that doesn't exist in data
+        exp._optimization_config.objective._metric = Metric(name="nonexistent_metric")
+
+        result = maybe_extract_baseline_comparison_values(
+            experiment=exp,
+            optimization_config=exp.optimization_config,
+            comparison_arm_names=[arm_names[1]],
+            baseline_arm_name=arm_names[0],
+        )
+        self.assertIsNone(result)
+
+    def test_maybe_extract_baseline_comparison_values_metric_missing_moo(self) -> None:
+        """Test returns None when metric column missing for multi-objective."""
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.trials[0].run()
+        exp.fetch_data()
+        arm_names = list(exp.arms_by_name.keys())
+
+        # Replace one objective metric with a nonexistent one
+        moo = none_throws(exp.optimization_config).objective
+        moo.objectives[0]._metric = Metric(name="nonexistent_metric")
+
+        result = maybe_extract_baseline_comparison_values(
+            experiment=exp,
+            optimization_config=exp.optimization_config,
+            comparison_arm_names=[arm_names[1]],
+            baseline_arm_name=arm_names[0],
+        )
+        self.assertIsNone(result)
