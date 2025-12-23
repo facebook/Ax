@@ -18,6 +18,13 @@ import pandas as pd
 from ax.core.map_data import MapData
 from ax.core.metric import MetricFetchE
 from ax.metrics.tensorboard import _grid_interpolate, logger, TensorboardMetric
+from ax.storage.json_store.decoder import object_from_json
+from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.registry import (
+    CORE_CLASS_DECODER_REGISTRY,
+    CORE_CLASS_ENCODER_REGISTRY,
+)
+from ax.storage.metric_registry import register_metrics
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
@@ -642,8 +649,8 @@ class TensorboardMetricTest(TestCase):
             self.assertTrue(issubclass(w[0].category, DeprecationWarning))
             # Check that quantile attribute has the correct value
             self.assertEqual(metric.quantile, 0.5)
-            # Check that percentile property returns same value
-            self.assertEqual(metric.percentile, 0.5)
+            # Check that percentile attribute is None (deprecated)
+            self.assertIsNone(metric.percentile)
 
         # Test 3: Cannot specify both quantile and percentile
         with self.assertRaisesRegex(
@@ -726,3 +733,68 @@ class TensorboardMetricTest(TestCase):
             f"Expanding.quantile was not called with {test_quantile}. "
             f"Calls: {call_tracker}",
         )
+
+    def test_storage_roundtrip(self) -> None:
+        """Test that TensorboardMetric can be serialized and deserialized, i.e.,
+        1. A TensorboardMetric can be encoded to JSON and decoded back.
+        2. The resulting metric is equivalent to the original.
+        3. Metrics created with the deprecated `percentile` parameter can still
+           be serialized and deserialized without throwing validation errors.
+        """
+        _, encoder_registry, decoder_registry = register_metrics(
+            metric_clss={TensorboardMetric: None},
+        )
+
+        test_cases = [
+            # Metric with all options (with quantile)
+            TensorboardMetric(
+                name="test",
+                tag="test",
+                lower_is_better=False,
+                smoothing=0.5,
+                cumulative_best=True,
+                quantile=0.25,
+            ),
+            # Metric with all options (with percentile)
+            TensorboardMetric(
+                name="test",
+                tag="test",
+                lower_is_better=False,
+                smoothing=0.5,
+                cumulative_best=True,
+                percentile=0.25,
+            ),
+        ]
+
+        for original_metric in test_cases:
+            with self.subTest(
+                metric=original_metric.name, quantile=original_metric.quantile
+            ):
+                # Encode metric to JSON
+                json_obj = object_to_json(
+                    original_metric,
+                    encoder_registry=encoder_registry,
+                    class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+                )
+
+                # Decode metric from JSON
+                decoded_metric = object_from_json(
+                    json_obj,
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+
+                # Verify the decoded metric equals the original
+                self.assertIsInstance(decoded_metric, TensorboardMetric)
+                self.assertEqual(decoded_metric.name, original_metric.name)
+                self.assertEqual(decoded_metric.tag, original_metric.tag)
+                self.assertEqual(
+                    decoded_metric.lower_is_better, original_metric.lower_is_better
+                )
+                self.assertEqual(decoded_metric.smoothing, original_metric.smoothing)
+                self.assertEqual(
+                    decoded_metric.cumulative_best, original_metric.cumulative_best
+                )
+                self.assertEqual(decoded_metric.quantile, original_metric.quantile)
+                # Verify percentile is None (deprecated)
+                self.assertIsNone(decoded_metric.percentile)
