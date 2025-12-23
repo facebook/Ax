@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import warnings
 from collections.abc import Iterable
 
 # Manual import to avoid strange error, see Diff for details.
@@ -282,6 +283,12 @@ def optimize(
     generation_strategy: GenerationStrategy | None = None,
 ) -> tuple[TParameterization, TModelPredictArm | None, Experiment, Adapter | None]:
     """Construct and run a full optimization loop."""
+    warnings.warn(
+        "optimize is deprecated and will be removed in Ax 1.3. Please use "
+        "Client from ax.api.client instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     loop = OptimizationLoop.with_evaluation_function(
         parameters=parameters,
         objective_name=objective_name,
