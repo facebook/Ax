@@ -389,18 +389,18 @@ class BestPointMixin(ABC):
         map_data = experiment.lookup_data()
         if not isinstance(map_data, MapData):
             raise ValueError("`get_trace_by_progression` requires MapData.")
-        map_df = map_data.map_df
+        full_df = map_data.full_df
 
-        map_df = map_df[map_df["metric_name"] == objective]
-        map_df = map_df.sort_values(by=["trial_index", MAP_KEY])
+        full_df = full_df[full_df["metric_name"] == objective]
+        full_df = full_df.sort_values(by=["trial_index", MAP_KEY])
         df = (
-            map_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
+            full_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
             if final_progression_only
-            else map_df
+            else full_df
         )
 
         # compute cumulative steps
-        prev_steps_df = map_df.drop_duplicates(
+        prev_steps_df = full_df.drop_duplicates(
             MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
         )[["trial_index", MAP_KEY]].copy()
 

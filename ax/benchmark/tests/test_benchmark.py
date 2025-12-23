@@ -70,7 +70,6 @@ from ax.benchmark.testing.benchmark_stubs import (
 )
 
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
@@ -469,9 +468,9 @@ class TestBenchmark(TestCase):
                     msg=case_name,
                 )
                 if map_data:
-                    data = assert_is_instance(experiment.lookup_data(), MapData)
+                    data = experiment.lookup_data()
                     self.assertEqual(len(data.df), 4, msg=case_name)
-                    self.assertEqual(len(data.map_df), 4, msg=case_name)
+                    self.assertEqual(len(data.full_df), 4, msg=case_name)
 
                 # Check trial start and end times
                 start_of_time = datetime.fromtimestamp(0)
@@ -574,14 +573,14 @@ class TestBenchmark(TestCase):
         experiment = self.run_optimization_with_orchestrator(
             problem=problem, method=method, seed=0
         )
-        data = assert_is_instance(experiment.lookup_data(), MapData)
+        data = experiment.lookup_data()
         expected_n_steps = {
             0: progression_length_if_not_stopped,
             # stopping after step=2, so 3 steps (0, 1, 2) have passed
             **{i: min_progression + 1 for i in range(1, 4)},
         }
 
-        grouped = data.map_df.groupby("trial_index")
+        grouped = data.full_df.groupby("trial_index")
         self.assertEqual(
             dict(grouped["step"].count()),
             expected_n_steps,
@@ -648,8 +647,8 @@ class TestBenchmark(TestCase):
                 for trial_index, sim_trial in trials.items()
             }
             self.assertEqual(start_times, expected_start_times)
-            map_df = assert_is_instance(experiment.lookup_data(), MapData).map_df
-            max_run = map_df.groupby("trial_index")["step"].max().to_dict()
+            full_df = experiment.lookup_data().full_df
+            max_run = full_df.groupby("trial_index")["step"].max().to_dict()
             self.assertEqual(max_run, {0: 4, 1: 2, 2: 2, 3: 2})
 
     def test_replication_variable_runtime(self) -> None:
@@ -1235,10 +1234,8 @@ class TestBenchmark(TestCase):
             optimal_value=problem.optimal_value,
             baseline_value=problem.baseline_value,
         )
-        map_df = assert_is_instance(
-            none_throws(result.experiment).lookup_data(), MapData
-        ).map_df
-        self.assertEqual(len(map_df), len(transformed.optimization_trace))
+        full_df = none_throws(result.experiment).lookup_data().full_df
+        self.assertEqual(len(full_df), len(transformed.optimization_trace))
         self.assertEqual(
             list(transformed.optimization_trace),
             [0.0, 0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0],

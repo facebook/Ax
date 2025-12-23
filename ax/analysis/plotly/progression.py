@@ -23,7 +23,7 @@ from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 
 from plotly import graph_objects as go
-from pyre_extensions import assert_is_instance, none_throws, override
+from pyre_extensions import none_throws, override
 
 
 @final
@@ -88,14 +88,14 @@ class ProgressionPlot(Analysis):
         adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
         experiment = none_throws(experiment)
-        data = assert_is_instance(experiment.lookup_data(), MapData)
+        data = experiment.lookup_data()
 
         metric_name = self._metric_name or select_metric(experiment=experiment)
 
         # Collect the data necessary to plot each progression curve.
-        map_df = data.map_df
-        df = map_df.loc[
-            map_df["metric_name"] == metric_name,
+        full_df = data.full_df
+        df = full_df.loc[
+            full_df["metric_name"] == metric_name,
             ["trial_index", "arm_name", "mean", MAP_KEY],
         ].rename(columns={MAP_KEY: "progression", "mean": metric_name})
 
@@ -205,8 +205,8 @@ def _calculate_wallclock_timeseries(
         for idx, trial in experiment.trials.items()
     }
 
-    data = assert_is_instance(experiment.lookup_data(), MapData)
-    df = data.map_df[data.map_df["metric_name"] == metric_name]
+    data = experiment.lookup_data()
+    df = data.full_df[data.full_df["metric_name"] == metric_name]
 
     return {
         trial_index: dict(

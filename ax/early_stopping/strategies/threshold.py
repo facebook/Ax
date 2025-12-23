@@ -119,7 +119,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             # don't stop any trials if we don't get data back
             return {}
 
-        df = data.map_df
+        df = data.full_df
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do
         # early stopping at all and return {}

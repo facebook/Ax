@@ -26,7 +26,6 @@ from ax.api.types import TParameterization
 from ax.core.analysis_card import AnalysisCard
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
@@ -477,10 +476,7 @@ class TestClient(TestCase):
             TrialStatus.RUNNING,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 0},
@@ -503,10 +499,7 @@ class TestClient(TestCase):
             TrialStatus.RUNNING,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 0, 1: 0},
@@ -542,10 +535,7 @@ class TestClient(TestCase):
             TrialStatus.RUNNING,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 0, 1: 0, 2: 0},
@@ -585,10 +575,7 @@ class TestClient(TestCase):
             TrialStatus.COMPLETED,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 0, 1: 0},
@@ -615,10 +602,7 @@ class TestClient(TestCase):
         )
 
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 1, 1: 1},
@@ -642,10 +626,7 @@ class TestClient(TestCase):
             TrialStatus.FAILED,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 2},
@@ -771,10 +752,7 @@ class TestClient(TestCase):
             TrialStatus.EARLY_STOPPED,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 0},
@@ -834,10 +812,7 @@ class TestClient(TestCase):
         )
 
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(),
-                MapData,
-            ).map_df.equals(
+            client._experiment.lookup_data().full_df.equals(
                 pd.DataFrame(
                     {
                         "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},

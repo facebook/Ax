@@ -28,7 +28,7 @@ from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -248,24 +248,24 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
             return None
 
-        map_df = assert_is_instance(data, MapData).map_df
-        map_df = map_df[map_df["metric_signature"].isin(metric_signatures)]
+        full_df = data.full_df
+        full_df = full_df[full_df["metric_signature"].isin(metric_signatures)]
 
         # Drop rows with NaN values in MAP_KEY column to prevent issues in
         # align_partial_results which uses MAP_KEY as the pivot index
-        nan_mask = map_df[MAP_KEY].isna()
+        nan_mask = full_df[MAP_KEY].isna()
         if nan_mask.any():
             num_nan_rows = nan_mask.sum()
-            nan_trial_indices = map_df.loc[nan_mask, "trial_index"].unique().tolist()
+            nan_trial_indices = full_df.loc[nan_mask, "trial_index"].unique().tolist()
             logger.warning(
                 f"Dropped {num_nan_rows} row(s) with NaN values in the progression "
                 f"column ('{MAP_KEY}') for trial(s) {nan_trial_indices}."
             )
-            map_df = map_df[~nan_mask]
+            full_df = full_df[~nan_mask]
 
         if self.normalize_progressions:
-            map_df = _maybe_normalize_map_key(df=map_df)
-        return MapData(df=map_df)
+            full_df = _maybe_normalize_map_key(df=full_df)
+        return MapData(df=full_df)
 
     @staticmethod
     def _log_and_return_no_data(
@@ -570,7 +570,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         try:
             multilevel_wide_df = align_partial_results(
-                df=(long_df := data.map_df),
+                df=(long_df := data.full_df),
                 metrics=metric_signatures,
             )
         except Exception as e:
@@ -660,9 +660,9 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             experiment=experiment, metric_signatures=metric_signatures
         )
         if map_data is not None and self.min_progression_modeling is not None:
-            map_df = map_data.map_df
-            map_df = map_df[map_df[MAP_KEY] >= self.min_progression_modeling]
-            map_data = MapData(df=map_df)
+            full_df = map_data.full_df
+            full_df = full_df[full_df[MAP_KEY] >= self.min_progression_modeling]
+            map_data = MapData(df=full_df)
         return map_data
 
     def get_training_data(

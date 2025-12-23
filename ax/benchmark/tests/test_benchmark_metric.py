@@ -275,7 +275,7 @@ class TestBenchmarkMetric(TestCase):
                 has_simulator=has_simulator,
             )
             data = metric.fetch_trial_data(trial=trial).value
-            df_or_map_df = data.map_df if isinstance(metric, MapMetric) else data.df
+            df_or_map_df = data.full_df if isinstance(metric, MapMetric) else data.df
             returns_full_data = (not has_simulator) and isinstance(metric, MapMetric)
             self.assertEqual(
                 len(df_or_map_df), len(trial.arms) * (3 if returns_full_data else 1)
@@ -317,9 +317,9 @@ class TestBenchmarkMetric(TestCase):
             self.assertEqual(backend_simulator.time, 2)
             data = metric.fetch_trial_data(trial=trial).value
             if isinstance(metric, MapMetric):
-                map_df = data.map_df
-                self.assertEqual(len(map_df), 2 * len(trial.arms))
-                self.assertEqual(set(map_df["step"].tolist()), {0, 1})
+                full_df = data.full_df
+                self.assertEqual(len(full_df), 2 * len(trial.arms))
+                self.assertEqual(set(full_df["step"].tolist()), {0, 1})
             df = data.df
             self.assertEqual(len(df), len(trial.arms))
             expected_df = _get_one_step_df(

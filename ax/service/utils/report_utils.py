@@ -532,8 +532,8 @@ def _get_curve_plot_dropdown(
             if limit_points_per_plot is None
             else data.subsample(limit_rows_per_metric=limit_points_per_plot)
         )
-        map_df = subsampled_data.map_df
-        metric_df = map_df[map_df["metric_name"] == m.name]
+        full_df = subsampled_data.full_df
+        metric_df = full_df[full_df["metric_name"] == m.name]
         xs, ys, legend_labels, plot_stopping_markers = [], [], [], []
         is_early_stopping_metric = m.name in early_stopping_metrics
         for trial_idx, df_g in metric_df.groupby("trial_index"):

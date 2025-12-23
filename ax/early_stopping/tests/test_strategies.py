@@ -38,7 +38,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_multi_objective,
     get_test_map_data_experiment,
 )
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 
 class FakeStrategy(BaseEarlyStoppingStrategy):
@@ -119,9 +119,9 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
 
             # Get the original map data to verify our test assumptions
-            original_data = assert_is_instance(experiment.lookup_data(), MapData)
-            original_df = original_data.map_df[
-                original_data.map_df["metric_signature"] == metric_signature
+            original_data = experiment.lookup_data()
+            original_df = original_data.full_df[
+                original_data.full_df["metric_signature"] == metric_signature
             ]
             original_progressions = original_df[MAP_KEY].astype(float)
 
@@ -135,8 +135,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             normalized_data = es_strategy_normalized._lookup_and_validate_data(
                 experiment, metric_signatures=[metric_signature]
             )
-            normalized_data = assert_is_instance(normalized_data, MapData)
-            normalized_progressions = normalized_data.map_df[MAP_KEY].astype(float)
+            normalized_data = none_throws(normalized_data)
+            normalized_progressions = normalized_data.full_df[MAP_KEY].astype(float)
 
             # Verify normalized progressions are in [0, 1] range
             self.assertAlmostEqual(normalized_progressions.min(), 0.0)
@@ -157,9 +157,9 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             metric_signature, _ = FakeStrategy()._default_objective_and_direction(
                 experiment=experiment
             )
-            original_data = assert_is_instance(experiment.lookup_data(), MapData)
-            original_df = original_data.map_df[
-                original_data.map_df["metric_signature"] == metric_signature
+            original_data = experiment.lookup_data()
+            original_df = original_data.full_df[
+                original_data.full_df["metric_signature"] == metric_signature
             ]
             original_max = original_df[MAP_KEY].astype(float).max()
 
@@ -167,8 +167,9 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             unnormalized_data = es_strategy_unnormalized._lookup_and_validate_data(
                 experiment, metric_signatures=[metric_signature]
             )
-            unnormalized_data = assert_is_instance(unnormalized_data, MapData)
-            unnormalized_progressions = unnormalized_data.map_df[MAP_KEY].astype(float)
+            unnormalized_progressions = (
+                none_throws(unnormalized_data).full_df[MAP_KEY].astype(float)
+            )
 
             # Verify progressions are NOT normalized (should match original range)
             self.assertAlmostEqual(unnormalized_progressions.min(), 0.0)
@@ -184,8 +185,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
 
             # Modify the data to have non-zero minimum progressions
-            data = assert_is_instance(experiment.lookup_data(), MapData)
-            modified_df = data.map_df.copy()
+            data = experiment.lookup_data()
+            modified_df = data.full_df.copy()
 
             # Shift progressions by 10: [0, 1, 2] -> [10, 11, 12]
             modified_df[MAP_KEY] = modified_df[MAP_KEY].astype(float) + 10.0
@@ -203,8 +204,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             normalized_data = es_strategy._lookup_and_validate_data(
                 experiment, metric_signatures=[metric_signature]
             )
-            normalized_data = assert_is_instance(normalized_data, MapData)
-            normalized_progressions = normalized_data.map_df[MAP_KEY].astype(float)
+            normalized_data = none_throws(normalized_data)
+            normalized_progressions = normalized_data.full_df[MAP_KEY].astype(float)
 
             # Verify min-max normalization produces [0, 1] range
             self.assertAlmostEqual(normalized_progressions.min(), 0.0)
@@ -226,8 +227,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         )
 
         # Get the data and introduce NaN values in MAP_KEY column
-        data = assert_is_instance(experiment.lookup_data(), MapData)
-        modified_df = data.map_df.copy()
+        data = experiment.lookup_data()
+        modified_df = data.full_df.copy()
 
         # Set some MAP_KEY values to NaN for specific trials
         # This simulates corrupted or missing progression data
@@ -261,10 +262,9 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         # Verify result is not None and NaN rows are dropped
         self.assertIsNotNone(result)
-        result = assert_is_instance(result, MapData)
 
         # Verify no NaN values remain in MAP_KEY column
-        self.assertFalse(result.map_df[MAP_KEY].isna().any())
+        self.assertFalse(result.full_df[MAP_KEY].isna().any())
 
     def test_all_objectives_and_directions_raises_error_when_lower_is_better_is_none(
         self,
@@ -380,21 +380,22 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             experiment=experiment
         )
 
-        map_data = es_strategy._lookup_and_validate_data(
-            experiment,
-            metric_signatures=[metric_signature],
+        map_data = none_throws(
+            es_strategy._lookup_and_validate_data(
+                experiment,
+                metric_signatures=[metric_signature],
+            )
         )
-        map_data = assert_is_instance(map_data, MapData)
         self.assertTrue(
             es_strategy.is_eligible(
                 trial_index=0,
                 experiment=experiment,
-                df=map_data.map_df,
+                df=map_data.full_df,
             )[0]
         )
 
         # try to get data from different metric name
-        fake_df = deepcopy(map_data.map_df)
+        fake_df = deepcopy(map_data.full_df)
         trial_index = 0
         fake_df = fake_df.drop(fake_df.index[fake_df["trial_index"] == trial_index])
         fake_es, fake_reason = es_strategy.is_eligible(
@@ -418,7 +419,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             es_strategy.is_eligible(
                 trial_index=0,
                 experiment=experiment,
-                df=map_data.map_df,
+                df=map_data.full_df,
             )[0]
         )
 
@@ -427,7 +428,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             es_strategy.is_eligible(
                 trial_index=0,
                 experiment=experiment,
-                df=map_data.map_df,
+                df=map_data.full_df,
             )[0]
         )
 
@@ -439,7 +440,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             es_strategy.is_eligible_any(
                 trial_indices={0},
                 experiment=experiment,
-                df=map_data.map_df,
+                df=map_data.full_df,
             )
 
     def test_progression_interval(self) -> None:
@@ -460,14 +461,14 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             experiment,
             metric_signatures=[metric_signature],
         )
-        map_df = assert_is_instance(map_data, MapData).map_df
+        full_df = none_throws(map_data).full_df
 
         # Trial 0 has progressions at 0, 1, 2, 3, 4
         # Simulate orchestrator checks at different progressions
 
         # Check 1: Trial at progression 1 (between boundaries 0 and 2)
         # First check, so should be eligible
-        df_at_1 = map_df[map_df[MAP_KEY] <= 1]
+        df_at_1 = full_df[full_df[MAP_KEY] <= 1]
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
@@ -478,7 +479,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         # Check 2: Trial at progression 2 (at boundary 2)
         # Has crossed boundary from 1 to 2, should be eligible
-        df_at_2 = map_df[map_df[MAP_KEY] <= 2]
+        df_at_2 = full_df[full_df[MAP_KEY] <= 2]
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
@@ -489,7 +490,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         # Check 3: Trial at progression 3 (between boundaries 2 and 4)
         # Has NOT crossed boundary from 2 to 3, should NOT be eligible
-        df_at_3 = map_df[map_df[MAP_KEY] <= 3]
+        df_at_3 = full_df[full_df[MAP_KEY] <= 3]
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
@@ -511,7 +512,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
-            df=map_df,
+            df=full_df,
         )
         self.assertTrue(is_eligible)
         self.assertIsNone(reason)
@@ -531,14 +532,14 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             experiment,
             metric_signatures=[metric_signature],
         )
-        map_df = assert_is_instance(map_data, MapData).map_df
+        full_df = none_throws(map_data).full_df
 
         # Trial 0 has progressions at 0, 1, 2, 3, 4
         # With min_progression=1.0, boundaries are at 1, 3, 5, 7...
 
         # Check 1: Trial at progression 0 (below min_progression)
         # Should NOT be eligible due to min_progression requirement
-        df_at_0 = map_df[map_df[MAP_KEY] <= 0]
+        df_at_0 = full_df[full_df[MAP_KEY] <= 0]
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
@@ -550,7 +551,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         # Check 2: Trial at progression 2 (between boundaries 1 and 3)
         # First check at valid progression, should be eligible
-        df_at_2 = map_df[map_df[MAP_KEY] <= 2]
+        df_at_2 = full_df[full_df[MAP_KEY] <= 2]
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
@@ -577,7 +578,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
         # Check 4: Trial at progression 3 (at boundary 3)
         # Has crossed boundary from 2 to 3, should be eligible
-        df_at_3 = map_df[map_df[MAP_KEY] <= 3]
+        df_at_3 = full_df[full_df[MAP_KEY] <= 3]
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
@@ -591,7 +592,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         is_eligible, reason = es_strategy.is_eligible(
             trial_index=0,
             experiment=experiment,
-            df=map_df,
+            df=full_df,
         )
         self.assertFalse(is_eligible)
         self.assertIsNotNone(reason)
@@ -850,8 +851,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             # remove the optimization config to force that only the tracking metric can
             # be used for early stopping
             exp._optimization_config = None
-            data = assert_is_instance(exp.fetch_data(), MapData)
-            self.assertTrue((data.map_df["metric_name"] == "tracking_branin_map").all())
+            data = exp.fetch_data()
+            self.assertTrue(
+                (data.full_df["metric_name"] == "tracking_branin_map").all()
+            )
         else:
             metric_signatures = None
 
@@ -1060,14 +1063,14 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 experiment, metric_signatures=["branin_map"]
             )
         )
-        aligned_df = align_partial_results(df=data.map_df, metrics=["branin_map"])
+        aligned_df = align_partial_results(df=data.full_df, metrics=["branin_map"])
         aligned_means = aligned_df["mean"]["branin_map"]
 
         should_stop, reason = early_stopping_strategy._should_stop_trial_early(
             trial_index=2,  # Best trial
             experiment=experiment,
             wide_df=aligned_means,
-            long_df=data.map_df,
+            long_df=data.full_df,
             minimize=True,
         )
         self.assertFalse(should_stop)
@@ -1113,7 +1116,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         data = none_throws(
             early_stopping_strategy._lookup_and_validate_data(exp, ["branin_map"])
         )
-        aligned_df = align_partial_results(df=data.map_df, metrics=["branin_map"])
+        aligned_df = align_partial_results(df=data.full_df, metrics=["branin_map"])
         aligned_means = aligned_df["mean"]["branin_map"]
 
         # Test trial 1 which is in top 3 but below percentile threshold
@@ -1121,7 +1124,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             trial_index=1,  # Trial 1 is in top 3 but below percentile
             experiment=exp,
             wide_df=aligned_means,
-            long_df=data.map_df,
+            long_df=data.full_df,
             minimize=True,
         )
 
@@ -1144,20 +1147,20 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         """
         # Create experiment with 5 trials
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
-        data = assert_is_instance(exp.fetch_data(), MapData)
+        data = exp.fetch_data()
 
         # Manually set objective values to create ties
         # At progression=2, set trials 0, 1, 2 to have the same best value (30.0)
         # and trials 3, 4 to have worse values
-        progression_2_mask = (data.map_df["metric_name"] == "branin_map") & (
-            data.map_df[MAP_KEY] == 2
+        progression_2_mask = (data.full_df["metric_name"] == "branin_map") & (
+            data.full_df[MAP_KEY] == 2
         )
 
         # Set values: trials 0, 1, 2 all have value 30.0 (tied for best)
         # trials 3, 4 have worse values 90.0, 95.0
         for trial_idx, value in [(0, 30.0), (1, 30.0), (2, 30.0), (3, 90.0), (4, 95.0)]:
-            trial_mask = progression_2_mask & (data.map_df["trial_index"] == trial_idx)
-            data.map_df.loc[trial_mask, "mean"] = value
+            trial_mask = progression_2_mask & (data.full_df["trial_index"] == trial_idx)
+            data.full_df.loc[trial_mask, "mean"] = value
 
         exp.attach_data(data=data)
 
@@ -1175,7 +1178,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             early_stopping_strategy._lookup_and_validate_data(exp, ["branin_map"])
         )
         aligned_df = align_partial_results(
-            df=data_lookup.map_df, metrics=["branin_map"]
+            df=data_lookup.full_df, metrics=["branin_map"]
         )
         aligned_means = aligned_df["mean"]["branin_map"]
 
@@ -1186,7 +1189,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 trial_index=trial_idx,
                 experiment=exp,
                 wide_df=aligned_means,
-                long_df=data_lookup.map_df,
+                long_df=data_lookup.full_df,
                 minimize=True,
             )
 
@@ -1304,14 +1307,14 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 num_fetches=3,
                 num_complete=5,
             )
-            data = assert_is_instance(exp.fetch_data(), MapData)
+            data = exp.fetch_data()
 
             # Manually modify trial 0's performance to be:
             # - Bad at step 0 (100.0)
             # - Good at step 1 (20.0) <- breaks consistency
             # - Bad at step 2 (100.0)
             # This creates inconsistent underperformance
-            modified_df = data.map_df.copy()
+            modified_df = data.full_df.copy()
             branin_mask = modified_df["metric_name"] == "branin_map"
             trial_0_mask = branin_mask & (modified_df["trial_index"] == 0)
             modified_df.loc[trial_0_mask, "mean"] = [100.0, 20.0, 100.0]
@@ -1353,12 +1356,12 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 num_fetches=5,  # More steps to show volatility
                 num_complete=5,
             )
-            data = assert_is_instance(exp.fetch_data(), MapData)
+            data = exp.fetch_data()
 
             # Create a volatile trial that alternates between good and bad
             # Trial 0: [10, 90, 10, 90, 10] - volatile but has good steps
             # Other trials: consistent medium values around 50
-            modified_df = data.map_df.copy()
+            modified_df = data.full_df.copy()
             metric_mask = modified_df["metric_name"] == "branin_map"
             trial_0_mask = metric_mask & (modified_df["trial_index"] == 0)
 
@@ -1421,7 +1424,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             )
 
             # Modify the data to simulate insufficient trials at progression 2
-            modified_df = data_lookup.map_df.copy()
+            modified_df = data_lookup.full_df.copy()
             selector = ~(
                 (modified_df["metric_name"] == "branin_map")
                 & (modified_df[MAP_KEY] == 2)
@@ -1507,7 +1510,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         data = none_throws(
             early_stopping_strategy._lookup_and_validate_data(exp, ["branin_map"])
         )
-        aligned_df = align_partial_results(df=data.map_df, metrics=["branin_map"])
+        aligned_df = align_partial_results(df=data.full_df, metrics=["branin_map"])
         aligned_means = aligned_df["mean"]["branin_map"]
 
         # Test trial that should be stopped
@@ -1515,7 +1518,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             trial_index=0,
             experiment=exp,
             wide_df=aligned_means,
-            long_df=data.map_df,
+            long_df=data.full_df,
             minimize=True,
         )
 
@@ -1537,10 +1540,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = assert_is_instance(exp.fetch_data(), MapData)
+        data = exp.fetch_data()
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.map_df.loc[data.map_df["metric_name"] == "branin_map", MAP_KEY] = (
+        data.full_df.loc[data.full_df["metric_name"] == "branin_map", MAP_KEY] = (
             unaligned_timestamps
         )
         exp.attach_data(data=data)
@@ -1579,29 +1582,28 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = assert_is_instance(exp.fetch_data(), MapData)
-        data.map_df.sort_values(by=["metric_name", "arm_name"], inplace=True)
-        data.map_df.reset_index(drop=True, inplace=True)
+        data = exp.fetch_data()
+        data.full_df.sort_values(by=["metric_name", "arm_name"], inplace=True)
+        data.full_df.reset_index(drop=True, inplace=True)
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.map_df.loc[data.map_df["metric_name"] == "branin_map", MAP_KEY] = (
+        data.full_df.loc[data.full_df["metric_name"] == "branin_map", MAP_KEY] = (
             unaligned_timestamps
         )
         # manually remove timestamps 1 and 2 for arm 3
         trial_3_data = next(iter(exp._data_by_trial[3].values()))
         trial_3_data.full_df = trial_3_data.full_df.loc[lambda x: x["step"] < 1]
 
-        df = data.map_df
-        df.drop(
+        df = data.full_df.copy()
+        new_df = df.drop(
             df.index[
                 (df["metric_name"] == "branin_map")
                 & (df["trial_index"] == 3)
                 & (df[MAP_KEY].isin([1.0, 2.0]))
             ],
-            inplace=True,
-        )  # TODO this wont work once we make map_df immutable (which we should)
+        )
         # Create a new experiment without those
-        exp.attach_data(data=data)
+        exp.attach_data(data=MapData(df=new_df))
 
         """
         Dataframe after interpolation:
@@ -1638,8 +1640,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = assert_is_instance(exp.fetch_data(), MapData)
-        df_with_single_arm_name = data.map_df.copy()
+        data = exp.fetch_data()
+        df_with_single_arm_name = data.full_df.copy()
         df_with_single_arm_name["arm_name"] = "0_0"
         with self.assertRaisesRegex(
             UnsupportedError,
@@ -1647,7 +1649,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         ):
             align_partial_results(df=df_with_single_arm_name, metrics=["branin_map"])
 
-        df_with_single_trial_index = data.map_df.copy()
+        df_with_single_trial_index = data.full_df.copy()
         df_with_single_trial_index["trial_index"] = 0
         with self.assertRaisesRegex(
             UnsupportedError,
@@ -1841,7 +1843,7 @@ def _evaluate_early_stopping_with_df(
     data = none_throws(
         early_stopping_strategy._lookup_and_validate_data(experiment, [metric_name])
     )
-    aligned_df = align_partial_results(df=data.map_df, metrics=[metric_name])
+    aligned_df = align_partial_results(df=data.full_df, metrics=[metric_name])
     metric_to_aligned_means = aligned_df["mean"]
     aligned_means = metric_to_aligned_means[metric_name]
     decisions = {
@@ -1849,7 +1851,7 @@ def _evaluate_early_stopping_with_df(
             trial_index=trial_index,
             experiment=experiment,
             wide_df=aligned_means,
-            long_df=data.map_df,
+            long_df=data.full_df,
             minimize=cast(
                 OptimizationConfig, experiment.optimization_config
             ).objective.minimize,

@@ -85,10 +85,7 @@ class MapDataReplayMetricTest(TestCase):
         historical_experiment = get_test_map_data_experiment(
             num_trials=2, num_fetches=2, num_complete=2
         )
-        map_data: MapData = assert_is_instance(
-            historical_experiment.lookup_data(), MapData
-        )
-        full_df = map_data.full_df
+        full_df = historical_experiment.lookup_data().full_df
         # The original data has 6 rows: 4 for branin_map and 2 for branin.
         # After assinging steps, we have following steps for branin_map:
         # Trial 0: steps [0.25, 0.95]

@@ -12,11 +12,10 @@ from typing import Any
 import numpy.typing as npt
 import pandas as pd
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MAP_KEY
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
-from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -189,11 +188,11 @@ def estimate_early_stopping_savings(experiment: Experiment) -> float:
         the experiment would have used 11% more resources without early stopping.
     """
 
-    map_data = assert_is_instance(experiment.lookup_data(), MapData)
-    if map_data.df.empty:
+    map_data = experiment.lookup_data()
+    if map_data.full_df.empty:
         return 0
     # Get max progression (resources used) for each trial
-    resources_used = map_data.map_df.groupby("trial_index")[MAP_KEY].max()
+    resources_used = map_data.full_df.groupby("trial_index")[MAP_KEY].max()
 
     trials_by_status = experiment.trial_indices_by_status
     stopped_trials = trials_by_status[TrialStatus.EARLY_STOPPED]

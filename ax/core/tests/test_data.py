@@ -14,7 +14,6 @@ from ax.core.data import combine_dfs_favoring_recent, Data
 from ax.core.map_data import MAP_KEY, MapData
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from pyre_extensions import assert_is_instance
 
 REPR_500: str = (
     "Data(df=\n"
@@ -139,7 +138,6 @@ class TestDataBase(TestCase):
             self.data_without_df = MapData()
 
     def test_init(self) -> None:
-        # For Data, this is Data(). For MapData, this is MapData(map_keys=[]).
         self.assertEqual(self.data_without_df, self.data_without_df)
         self.assertEqual(self.data_with_df, self.data_with_df)
 
@@ -164,10 +162,8 @@ class TestDataBase(TestCase):
         self.assertIsNot(data.df, data_clone.df)
         self.assertIsNone(data_clone._db_id)
         if self.cls is MapData:
-            data = assert_is_instance(data, MapData)
-            data_clone = assert_is_instance(data_clone, MapData)
-            self.assertIsNot(data.map_df, data_clone.map_df)
-            self.assertTrue(data.map_df.equals(data_clone.map_df))
+            self.assertIsNot(data.full_df, data_clone.full_df)
+            self.assertTrue(data.full_df.equals(data_clone.full_df))
 
     def test_BadData(self) -> None:
         df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
@@ -186,7 +182,7 @@ class TestDataBase(TestCase):
         self.assertTrue(self.cls.from_multiple_data([]).df.empty)
 
         if isinstance(data, MapData):
-            self.assertTrue(data.map_df.empty)
+            self.assertTrue(data.full_df.empty)
             expected_columns = Data.REQUIRED_COLUMNS.union({MAP_KEY})
         else:
             expected_columns = Data.REQUIRED_COLUMNS

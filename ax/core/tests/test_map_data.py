@@ -99,24 +99,24 @@ class MapDataTest(TestCase):
     def test_init(self) -> None:
         # Initialize empty
         empty = MapData()
-        self.assertTrue(empty.map_df.empty)
+        self.assertTrue(empty.full_df.empty)
 
         # Check that the required columns include the map keys.
         self.assertEqual(
             empty.REQUIRED_COLUMNS.union([MAP_KEY]), empty.required_columns()
         )
-        self.assertEqual(set(empty.map_df.columns), empty.required_columns())
+        self.assertEqual(set(empty.full_df.columns), empty.required_columns())
 
     def test_combine(self) -> None:
         with self.subTest("From no MapDatas"):
             data = MapData.from_multiple_data([])
             self.assertIsInstance(data, MapData)
-            self.assertEqual(data.map_df.size, 0)
+            self.assertEqual(data.full_df.size, 0)
 
         with self.subTest("From two MapDatas"):
             mmd_double = MapData.from_multiple_data([self.mmd, self.mmd])
             self.assertIsInstance(mmd_double, MapData)
-            self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
+            self.assertEqual(mmd_double.full_df.size, 2 * self.mmd.full_df.size)
 
         with self.subTest("From Datas"):
             data = Data(df=self.mmd.df)
@@ -132,7 +132,7 @@ class MapDataTest(TestCase):
 
         self.assertEqual(
             fresh.df.columns.size,
-            fresh.map_df.columns.size,
+            fresh.full_df.columns.size,
         )
 
         # Assert df is cached after first call
@@ -140,7 +140,7 @@ class MapDataTest(TestCase):
 
         self.assertTrue(
             fresh.df.equals(
-                fresh.map_df.sort_values(MAP_KEY).drop_duplicates(
+                fresh.full_df.sort_values(MAP_KEY).drop_duplicates(
                     MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
                 )
             )
@@ -172,7 +172,7 @@ class MapDataTest(TestCase):
         )
         large_map_data = MapData(df=large_map_df)
 
-        shuffled_large_map_df = large_map_data.map_df.groupby(
+        shuffled_large_map_df = large_map_data.full_df.groupby(
             MapData.DEDUPLICATE_BY_COLUMNS
         ).sample(frac=1, random_state=seed)
         shuffled_large_map_data = MapData(df=shuffled_large_map_df)
@@ -182,18 +182,18 @@ class MapDataTest(TestCase):
 
             if rows_per_group == 1:
                 self.assertTrue(
-                    large_map_data_latest.map_df.groupby("metric_name")[MAP_KEY]
+                    large_map_data_latest.full_df.groupby("metric_name")[MAP_KEY]
                     .transform(lambda col: set(col) == set(max_epochs))
                     .all()
                 )
 
             # when rows_per_group is larger than the number of rows
             # actually observed in a group
-            actual_rows_per_group = large_map_data_latest.map_df.groupby(
+            actual_rows_per_group = large_map_data_latest.full_df.groupby(
                 MapData.DEDUPLICATE_BY_COLUMNS
             ).size()
             expected_rows_per_group = np.minimum(
-                large_map_data_latest.map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)[
+                large_map_data_latest.full_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)[
                     MAP_KEY
                 ]
                 .max()
@@ -207,8 +207,8 @@ class MapDataTest(TestCase):
                 rows_per_group=rows_per_group
             )
             self.assertTrue(
-                shuffled_large_map_data_latest.map_df.equals(
-                    large_map_data_latest.map_df
+                shuffled_large_map_data_latest.full_df.equals(
+                    large_map_data_latest.full_df
                 )
             )
 
@@ -257,65 +257,65 @@ class MapDataTest(TestCase):
 
         # test keep_every
         subsample = large_map_data.subsample(keep_every=10)
-        self.assertEqual(len(subsample.map_df), 52)
+        self.assertEqual(len(subsample.full_df), 52)
         subsample = large_map_data.subsample(keep_every=25)
-        self.assertEqual(len(subsample.map_df), 20)
+        self.assertEqual(len(subsample.full_df), 20)
         subsample = large_map_data.subsample(limit_rows_per_group=7)
-        self.assertEqual(len(subsample.map_df), 36)
+        self.assertEqual(len(subsample.full_df), 36)
 
         # test limit_rows_per_group
         subsample = large_map_data.subsample(limit_rows_per_group=1)
-        self.assertEqual(len(subsample.map_df), 8)
+        self.assertEqual(len(subsample.full_df), 8)
         subsample = large_map_data.subsample(limit_rows_per_group=7)
-        self.assertEqual(len(subsample.map_df), 36)
+        self.assertEqual(len(subsample.full_df), 36)
         subsample = large_map_data.subsample(limit_rows_per_group=10)
-        self.assertEqual(len(subsample.map_df), 52)
+        self.assertEqual(len(subsample.full_df), 52)
         subsample = large_map_data.subsample(limit_rows_per_group=1000)
-        self.assertEqual(len(subsample.map_df), 500)
+        self.assertEqual(len(subsample.full_df), 500)
 
         # test limit_rows_per_metric
         subsample = large_map_data.subsample(limit_rows_per_metric=50)
-        self.assertEqual(len(subsample.map_df), 100)
+        self.assertEqual(len(subsample.full_df), 100)
         subsample = large_map_data.subsample(limit_rows_per_metric=65)
-        self.assertEqual(len(subsample.map_df), 128)
+        self.assertEqual(len(subsample.full_df), 128)
         subsample = large_map_data.subsample(limit_rows_per_metric=1000)
-        self.assertEqual(len(subsample.map_df), 500)
+        self.assertEqual(len(subsample.full_df), 500)
 
         # test include_first_last
         subsample = large_map_data.subsample(
             limit_rows_per_metric=20, include_first_last=True
         )
-        self.assertEqual(len(subsample.map_df), 40)
+        self.assertEqual(len(subsample.full_df), 40)
         # check that we 1 and 100 are included
-        self.assertEqual(subsample.map_df[MAP_KEY].min(), 1)
-        self.assertEqual(subsample.map_df[MAP_KEY].max(), 100)
+        self.assertEqual(subsample.full_df[MAP_KEY].min(), 1)
+        self.assertEqual(subsample.full_df[MAP_KEY].max(), 100)
         subsample = large_map_data.subsample(
             limit_rows_per_metric=20, include_first_last=False
         )
-        self.assertEqual(len(subsample.map_df), 40)
-        self.assertEqual(subsample.map_df[MAP_KEY].min(), 1)
-        self.assertEqual(subsample.map_df[MAP_KEY].max(), 92)
+        self.assertEqual(len(subsample.full_df), 40)
+        self.assertEqual(subsample.full_df[MAP_KEY].min(), 1)
+        self.assertEqual(subsample.full_df[MAP_KEY].max(), 92)
 
         # test limit_rows_per_metric when some metrics are sparsely
         # reported (we shouldn't subsample those)
         subsample = large_map_data_sparse_metric.subsample(
             limit_rows_per_metric=100, include_first_last=False
         )
-        map_df = large_map_data_sparse_metric.map_df
-        subsample_map_df = subsample.map_df
+        full_df = large_map_data_sparse_metric.full_df
+        subsample_map_df = subsample.full_df
         self.assertEqual(
             len(subsample_map_df[subsample_map_df["metric_name"] == "a"]), 85
         )
         self.assertEqual(
             len(subsample_map_df[subsample_map_df["metric_name"] == "b"]),
-            len(map_df[map_df["metric_name"] == "b"]),
+            len(full_df[full_df["metric_name"] == "b"]),
         )
 
     def test_dtype_conversion(self) -> None:
         df = self.df
         df[MAP_KEY] = df[MAP_KEY].astype(int)
         data = MapData(df=df)
-        self.assertEqual(data.map_df[MAP_KEY].dtype, float)
+        self.assertEqual(data.full_df[MAP_KEY].dtype, float)
 
     def test_trial_indices(self) -> None:
         # Test that `trial_indices` is the same before and after setting `df`

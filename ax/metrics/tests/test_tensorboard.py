@@ -15,7 +15,6 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-from ax.core.map_data import MapData
 from ax.core.metric import MetricFetchE
 from ax.metrics.tensorboard import _grid_interpolate, logger, TensorboardMetric
 from ax.storage.json_store.decoder import object_from_json
@@ -102,7 +101,7 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
         expected_df = pd.DataFrame(
             [
@@ -138,12 +137,12 @@ class TensorboardMetricTest(TestCase):
         )
 
         assert_is_instance(result, Ok)
-        map_data = assert_is_instance(result.unwrap(), MapData)
+        map_data = result.unwrap()
         nan_array = np.array(nan_data)
         nan_array = nan_array[np.isfinite(nan_array)]
         self.assertTrue(
             np.array_equal(
-                map_data.map_df["mean"].to_numpy(), nan_array, equal_nan=False
+                map_data.full_df["mean"].to_numpy(), nan_array, equal_nan=False
             )
         )
 
@@ -166,10 +165,10 @@ class TensorboardMetricTest(TestCase):
             )
 
         assert_is_instance(result, Ok)
-        map_data = assert_is_instance(result.unwrap(), MapData)
+        map_data = result.unwrap()
         inf_array = np.array(inf_data)
         inf_array = inf_array[np.isfinite(inf_array)]
-        self.assertTrue(np.array_equal(map_data.map_df["mean"].to_numpy(), inf_array))
+        self.assertTrue(np.array_equal(map_data.full_df["mean"].to_numpy(), inf_array))
 
         # testing all non-finite data
         for non_finite_val in [np.nan, np.inf]:
@@ -207,7 +206,7 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
         expected_df = pd.DataFrame(
             [
@@ -260,7 +259,7 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
         expected_df = pd.DataFrame(
             [
@@ -324,7 +323,7 @@ class TensorboardMetricTest(TestCase):
             ):
                 result = metric.fetch_trial_data(trial=trial)
 
-            df = assert_is_instance(result.unwrap(), MapData).map_df
+            df = result.unwrap().full_df
 
             # Assert: Verify that smoothing was applied first, then cumulative best
             # Step 1: Apply smoothing to get smoothed values
@@ -375,7 +374,7 @@ class TensorboardMetricTest(TestCase):
                 name="loss", tag="loss", lower_is_better=True, percentile=percentile
             )
             result = metric.fetch_trial_data(trial=trial)
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
         expected_df = pd.DataFrame(
             [
                 {
@@ -517,9 +516,7 @@ class TensorboardMetricTest(TestCase):
             def PluginRunToTagToContent(self, plugin: str) -> dict[str, dict[str, str]]:
                 return {".": {"loss": ""}}
 
-            def Tensors(
-                self, run: str, tag: str
-            ) -> list[_TensorEvent]:  # pyre-ignore[11]
+            def Tensors(self, run: str, tag: str) -> list[_TensorEvent]:
                 # Unevenly spaced steps: 0, 1, 5, 10
                 return [
                     _TensorEvent(step=0, tensor_proto=_TensorProto(double_val=[8.0])),
@@ -541,7 +538,7 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
         # Should have 4 points
         self.assertEqual(len(df), 4)
@@ -565,9 +562,7 @@ class TensorboardMetricTest(TestCase):
             def PluginRunToTagToContent(self, plugin: str) -> dict[str, dict[str, str]]:
                 return {".": {"loss": ""}}
 
-            def Tensors(
-                self, run: str, tag: str
-            ) -> list[_TensorEvent]:  # pyre-ignore[11]
+            def Tensors(self, run: str, tag: str) -> list[_TensorEvent]:
                 # Return data with varying values
                 return [
                     _TensorEvent(
@@ -589,7 +584,7 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
         # Verify smoothing was applied by checking that values are
         # different from original
@@ -697,7 +692,7 @@ class TensorboardMetricTest(TestCase):
                     return_value=fake_multiplexer,
                 ):
                     result = metric.fetch_trial_data(trial=trial)
-                return assert_is_instance(result.unwrap(), MapData).map_df
+                return result.unwrap().full_df
 
         # Track calls to Expanding.quantile to verify it's called with the
         # correct value
