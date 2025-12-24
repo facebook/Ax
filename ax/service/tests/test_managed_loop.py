@@ -252,17 +252,20 @@ class TestManagedLoop(TestCase):
 
     def test_optimize(self) -> None:
         """Tests optimization as a single call."""
-        best, vals, exp, model = optimize(
-            parameters=[
-                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
-            ],
-            # Booth function.
-            evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
-            + (2 * p["x1"] + p["x2"] - 5) ** 2,
-            minimize=True,
-            total_trials=5,
-        )
+        with self.assertWarnsRegex(
+            DeprecationWarning, expected_regex="optimize is deprecated"
+        ):
+            best, vals, exp, model = optimize(
+                parameters=[
+                    {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                    {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+                ],
+                # Booth function.
+                evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
+                + (2 * p["x1"] + p["x2"] - 5) ** 2,
+                minimize=True,
+                total_trials=5,
+            )
         self.assertIn("x1", best)
         self.assertIn("x2", best)
         assert vals is not None
