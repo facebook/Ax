@@ -11,6 +11,7 @@ import numpy as np
 import plotly.express as px
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
     PlotlyAnalysisCard,
@@ -139,7 +140,14 @@ class ProgressionPlot(Analysis):
         else:
             x_axis_name = "progression"
 
-        fig = px.line(df, x=x_axis_name, y=metric_name, color="arm_name")
+        fig = px.line(
+            df,
+            x=x_axis_name,
+            y=metric_name,
+            color="arm_name",
+            markers=True,
+            color_discrete_sequence=BOTORCH_COLOR_SCALE,
+        )
 
         # Add a marker for each terminal point on early stopped trials.
         if len(terminal_points) > 0:
