@@ -10,6 +10,7 @@ from typing import final
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
 from ax.analysis.diagnostics import DiagnosticAnalysis
+from ax.analysis.healthcheck.baseline_improvement import BaselineImprovementAnalysis
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
@@ -27,6 +28,7 @@ from ax.analysis.results import ResultsAnalysis
 from ax.analysis.trials import AllTrialsAnalysis
 from ax.analysis.utils import validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -164,6 +166,11 @@ class OverviewAnalysis(Analysis):
             isinstance(m, MapMetric) for m in experiment.metrics.values()
         )
 
+        # Check if the experiment has BatchTrials
+        has_batch_trials = any(
+            isinstance(trial, BatchTrial) for trial in experiment.trials.values()
+        )
+
         health_check_analyses = [
             MetricFetchingErrorsAnalysis(),
             EarlyStoppingAnalysis() if has_map_data and has_map_metrics else None,
@@ -178,6 +185,7 @@ class OverviewAnalysis(Analysis):
             else None,
             ConstraintsFeasibilityAnalysis(),
             PredictableMetricsAnalysis(),
+            BaselineImprovementAnalysis() if not has_batch_trials else None,
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials

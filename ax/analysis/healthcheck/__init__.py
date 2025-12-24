@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from ax.analysis.healthcheck.baseline_improvement import BaselineImprovementAnalysis
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
@@ -38,4 +39,5 @@ __all__ = [
     "RegressionAnalysis",
     "ComplexityRatingAnalysis",
     "PredictableMetricsAnalysis",
+    "BaselineImprovementAnalysis",
 ]
