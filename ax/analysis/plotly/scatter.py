@@ -571,7 +571,11 @@ def _prepare_figure(
                 pareto_x.append(sorted_df[f"{x_metric_name}_mean"].iloc[i])
                 pareto_y.append(sorted_df[f"{y_metric_name}_mean"].iloc[i])
 
-        pareto_trace = go.Scatter(x=pareto_x, y=pareto_y, **BEST_LINE_SETTINGS)
+        pareto_trace = go.Scatter(
+            x=pareto_x,
+            y=pareto_y,
+            **{**BEST_LINE_SETTINGS, "showlegend": True, "name": "Pareto Frontier"},
+        )
 
         figure.add_trace(pareto_trace)
 
