@@ -18,7 +18,10 @@ from ax.analysis.healthcheck.complexity_rating import ComplexityRatingAnalysis
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
-from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
+from ax.analysis.healthcheck.early_stopping_healthcheck import (
+    AutoEarlyStoppingConfig,
+    EarlyStoppingAnalysis,
+)
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
 from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
@@ -27,7 +30,7 @@ from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCan
 from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.analysis.trials import AllTrialsAnalysis
-from ax.analysis.utils import validate_experiment
+from ax.analysis.utils import filter_none, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -110,6 +113,7 @@ class OverviewAnalysis(Analysis):
         max_pending_trials: int | None = None,
         min_failed_trials_for_failure_rate_check: int | None = None,
         tier_metadata: dict[str, Any] | None = None,
+        auto_early_stopping_config: AutoEarlyStoppingConfig | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -125,6 +129,7 @@ class OverviewAnalysis(Analysis):
             min_failed_trials_for_failure_rate_check
         )
         self.tier_metadata = tier_metadata
+        self.auto_early_stopping_config = auto_early_stopping_config
 
     @override
     def validate_applicable_state(
@@ -191,7 +196,17 @@ class OverviewAnalysis(Analysis):
 
         health_check_analyses = [
             MetricFetchingErrorsAnalysis(),
-            EarlyStoppingAnalysis() if has_map_data and has_map_metrics else None,
+            (
+                EarlyStoppingAnalysis(
+                    **filter_none(
+                        early_stopping_strategy=self.early_stopping_strategy,
+                        auto_early_stopping_config=self.auto_early_stopping_config,
+                        max_pending_trials=self.max_pending_trials,
+                    )
+                )
+                if has_map_data and has_map_metrics
+                else None
+            ),
             CanGenerateCandidatesAnalysis(
                 can_generate_candidates=self.can_generate,
                 reason=self.can_generate_reason,
