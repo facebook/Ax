@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from hashlib import md5
 
 from ax.core.data import combine_dfs_favoring_recent, Data, MAP_KEY
-from ax.core.evaluations_to_data import DataType  # noqa F401
 from ax.core.map_data import MapData
 
 

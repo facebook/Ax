@@ -24,6 +24,7 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
+from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -254,7 +255,9 @@ class Encoder:
             data=experiment_data,
             properties=properties,
             default_trial_type=experiment.default_trial_type,
-            default_data_type=experiment.default_data_type,
+            # In for backward compatibility. Experiment._default_data_type no
+            # longer exists.
+            default_data_type=DataType.DATA,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
             auxiliary_experiments=auxiliary_experiments,
         )

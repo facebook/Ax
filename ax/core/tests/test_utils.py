@@ -14,7 +14,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -234,7 +234,6 @@ class UtilsTest(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -273,7 +272,6 @@ class UtilsTest(TestCase):
                         "m2": "m2",
                         "tracking": "tracking",
                     },
-                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -304,7 +302,6 @@ class UtilsTest(TestCase):
                         "m2": "m2",
                         "tracking": "tracking",
                     },
-                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -397,7 +394,6 @@ class UtilsTest(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -417,7 +413,6 @@ class UtilsTest(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             with patch.object(
@@ -427,7 +422,6 @@ class UtilsTest(TestCase):
                     {other_trial.arm.name: {"m2": (1, 0), "tracking": (1, 0)}},
                     trial_index=other_trial.index,
                     metric_name_to_signature={"m2": "m2", "tracking": "tracking"},
-                    data_type=DataType.DATA,
                 ),
             ):
                 pending = get_pending_observation_features(self.experiment)
@@ -502,7 +496,6 @@ class UtilsTest(TestCase):
                 {self.hss_trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.hss_trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -534,7 +527,6 @@ class UtilsTest(TestCase):
                     },
                     trial_index=hss_batch_trial.index,
                     metric_name_to_signature={"m1": "m1", "m2": "m2"},
-                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -567,7 +559,6 @@ class UtilsTest(TestCase):
                     },
                     trial_index=hss_batch_trial.index,
                     metric_name_to_signature={"m1": "m1", "m2": "m2"},
-                    data_type=DataType.DATA,
                 ),
             ),
         ):

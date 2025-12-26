@@ -22,7 +22,7 @@ from ax.adapter.prediction_utils import predict_by_features
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.evaluations_to_data import raw_evaluations_to_data
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -723,13 +723,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
-        if not self.experiment.default_data_type == DataType.MAP_DATA:
-            raise ValueError(
-                "`update_running_trial_with_intermediate_data` requires that "
-                "this client's `experiment` be constructed with "
-                "`support_intermediate_data=True` and have `default_data_type` of "
-                "`DataType.MAP_DATA`."
-            )
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index, raw_data=raw_data
         )
@@ -1263,8 +1256,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             0.11 estimated savings indicates we would expect the experiment to have used
             11% more resources without early stopping present)
         """
-        if self.experiment.default_data_constructor is not MapData:
-            return 0
+        if not isinstance(self.experiment.lookup_data(), MapData):
+            return 0.0
         return estimate_early_stopping_savings(experiment=self.experiment)
 
     # ------------------ JSON serialization & storage methods. -----------------
@@ -1660,7 +1653,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         data = raw_evaluations_to_data(
             raw_data={"data": raw_data},
             trial_index=trial_index,
-            data_type=self.experiment.default_data_type,
             metric_name_to_signature=metric_name_to_signature,
         )
         required_metrics = set(opt_config.metrics.keys())

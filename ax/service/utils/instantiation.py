@@ -16,7 +16,7 @@ from typing import Any, Union
 
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
@@ -892,10 +892,6 @@ class InstantiationBase:
             ]
         )
 
-        default_data_type = (
-            DataType.MAP_DATA if support_intermediate_data else DataType.DATA
-        )
-
         properties: dict[str, Any] = {}
 
         if immutable_search_space_and_opt_config:
@@ -920,7 +916,6 @@ class InstantiationBase:
                 is_test=is_test,
                 experiment_type=experiment_type,
                 properties=properties,
-                default_data_type=default_data_type,
             )
 
         return Experiment(
@@ -931,7 +926,6 @@ class InstantiationBase:
             status_quo=status_quo_arm,
             experiment_type=experiment_type,
             tracking_metrics=tracking_metrics,
-            default_data_type=default_data_type,
             properties=properties,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
             is_test=is_test,

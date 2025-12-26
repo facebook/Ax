@@ -11,23 +11,17 @@ from enum import Enum
 
 import pandas as pd
 from ax.core.data import Data, MAP_KEY
-from ax.core.map_data import MapData
+from ax.core.map_data import data_from_df_infer_type
 from ax.core.types import FloatLike, SingleMetricData, TEvaluationOutcome
 from ax.exceptions.core import UserInputError
 
 
 # -------------------- Data formatting utils. ---------------------
-
-
 class DataType(Enum):
+    """Deprecated. Used only for storage backwards compatibility."""
+
     DATA = 1
     MAP_DATA = 3
-
-
-DATA_TYPE_LOOKUP: dict[DataType, type[Data]] = {
-    DataType.DATA: Data,
-    DataType.MAP_DATA: MapData,
-}
 
 
 def _validate_and_extract_single_metric_data(
@@ -55,7 +49,6 @@ def raw_evaluations_to_data(
     raw_data: Mapping[str, TEvaluationOutcome],
     metric_name_to_signature: Mapping[str, str],
     trial_index: int,
-    data_type: DataType,
 ) -> Data:
     """Transforms evaluations into Ax Data.
 
@@ -79,11 +72,6 @@ def raw_evaluations_to_data(
     for arm_name, evaluation in raw_data.items():
         # TTrialEvaluation case ({metric_name -> (mean, SEM) or metric_name -> mean})
         if isinstance(evaluation, dict):
-            if data_type is DataType.MAP_DATA:
-                raise UserInputError(
-                    "The format of the `raw_data` is not compatible with `MapData`. "
-                    f"Received: {raw_data=}"
-                )
             for metric_name, outcome in evaluation.items():
                 mean, sem = _validate_and_extract_single_metric_data(dat=outcome)
                 records.append(
@@ -96,11 +84,6 @@ def raw_evaluations_to_data(
                 )
         elif isinstance(evaluation, list):
             # TMapTrialEvaluation case [(step, TTrialEvaluation)]
-            if data_type is DataType.DATA:
-                raise UserInputError(
-                    "The format of the `raw_data` is not compatible with `Data`. "
-                    f"Received: {raw_data=}"
-                )
             for step, step_eval in evaluation:
                 if not isinstance(step, FloatLike):
                     raise UserInputError(
@@ -120,11 +103,6 @@ def raw_evaluations_to_data(
                     )
         # SingleMetricData case: (mean, SEM) or mean
         else:
-            if data_type is DataType.MAP_DATA:
-                raise UserInputError(
-                    "The format of the `raw_data` is not compatible with `MapData`. "
-                    f"Received: {raw_data=}"
-                )
             if len(metric_name_to_signature) != 1:
                 raise UserInputError(
                     "Metric name must be provided in `raw_data` if there are "
@@ -156,6 +134,4 @@ def raw_evaluations_to_data(
     df["metric_signature"] = df["metric_name"].map(metric_name_to_signature)
     df["trial_index"] = trial_index
 
-    if data_type == DataType.MAP_DATA:
-        return MapData(df=df)
-    return Data(df=df)
+    return data_from_df_infer_type(df=df)

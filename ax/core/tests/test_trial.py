@@ -22,6 +22,7 @@ from ax.core.base_trial import (
 )
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
+from ax.core.map_data import MapData
 from ax.core.runner import Runner
 from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
 from ax.metrics.branin import BraninMetric
@@ -394,12 +395,9 @@ class TrialTest(TestCase):
         self.assertEqual(1.0, data[(arm_name, "m1")]["mean"])
         self.assertEqual(2.0, data[(arm_name, "m2")]["mean"])
 
-        # Try to attach MapData.
-        with self.assertRaisesRegex(
-            UserInputError,
-            "The format of the `raw_data` is not compatible with `Data`. ",
-        ):
+        with self.subTest("Attach map data"):
             self.trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
+            self.assertIsInstance(self.trial.lookup_data(), MapData)
 
         # Try to attach Data to a MapData experiment.
         map_experiment = get_test_map_data_experiment(
@@ -424,11 +422,10 @@ class TrialTest(TestCase):
         ):
             map_trial.update_trial_data(raw_data=[(0, {"m2": 1.0})])
 
-        with self.assertRaisesRegex(
-            UserInputError,
-            "The format of the `raw_data` is not compatible with `MapData`. ",
-        ):
+        with self.subTest("Add Data to MapData trial"):
             map_trial.update_trial_data(raw_data={"m1": 1.0})
+            self.assertIsInstance(map_trial.lookup_data(), MapData)
+            self.assertEqual(map_trial.lookup_data().df["step"].isnull().sum(), 1)
 
         # Error if the MapData inputs are not formatted correctly.
         with self.assertRaisesRegex(

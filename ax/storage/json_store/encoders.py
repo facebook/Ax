@@ -93,7 +93,6 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "is_test": experiment.is_test,
         "data_by_trial": experiment._data_by_trial,
         "properties": experiment._properties,
-        "default_data_type": experiment._default_data_type,
         "_trial_type_to_runner": experiment._trial_type_to_runner,
     }
 
