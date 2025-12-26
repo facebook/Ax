@@ -120,7 +120,7 @@ class ResultsAnalysis(Analysis):
         )
 
         # If there are multiple objectives, compute scatter plots of each combination
-        # of two objectives.
+        # of two objectives. For MOO experiments, show the Pareto frontier line.
         objective_scatter_group = (
             AnalysisCardGroup(
                 name="Objective Scatter Plots",
@@ -131,6 +131,7 @@ class ResultsAnalysis(Analysis):
                         x_metric_name=x,
                         y_metric_name=y,
                         relativize=relativize,
+                        show_pareto_frontier=True,
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,
