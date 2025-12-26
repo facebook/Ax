@@ -7,7 +7,6 @@
 
 from ax.api.utils.instantiation.from_config import parameter_from_config
 from ax.api.utils.structs import ExperimentStruct
-from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.parameter_constraint import (
     ParameterConstraint,
@@ -46,5 +45,4 @@ def experiment_from_struct(struct: ExperimentStruct) -> Experiment:
         description=struct.description,
         experiment_type=struct.experiment_type,
         properties={"owners": [struct.owner]},
-        default_data_type=DataType.MAP_DATA,
     )

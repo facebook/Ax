@@ -213,8 +213,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             0.11 estimated savings indicates we would expect the experiment to have used
             11% more resources without early stopping present)
         """
-        if experiment.default_data_constructor is not MapData:
-            return 0
+        if not isinstance(experiment.lookup_data(), MapData):
+            return 0.0
 
         return estimate_early_stopping_savings(experiment=experiment)
 

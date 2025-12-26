@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pandas as pd
 from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective, Objective
@@ -181,7 +182,7 @@ class TestEarlyStoppingAnalysis(TestCase):
 
         with self.subTest("no_data"):
             experiment = self._fresh_experiment()
-            experiment._data_by_trial = {}
+            experiment.data = Data()
             error = healthcheck.validate_applicable_state(
                 experiment=experiment, generation_strategy=None, adapter=None
             )

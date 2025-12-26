@@ -12,7 +12,7 @@ import inspect
 
 import logging
 import warnings
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import partial, reduce
@@ -30,10 +30,8 @@ from ax.core.auxiliary import (
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_dfs_favoring_recent, Data
-from ax.core.evaluations_to_data import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
+from ax.core.map_data import combine_datas_infer_type, data_from_df_infer_type, MapData
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
@@ -101,7 +99,7 @@ class Experiment(Base):
         is_test: bool = False,
         experiment_type: str | None = None,
         properties: dict[str, Any] | None = None,
-        default_data_type: DataType | None = None,
+        default_data_type: Any = None,
         auxiliary_experiments_by_purpose: None
         | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
         default_trial_type: str | None = None,
@@ -124,10 +122,17 @@ class Experiment(Base):
                 only store primitives that pertain to Ax experiment state. Any trial
                 deployment-related information and modeling-layer configuration
                 should be stored elsewhere, e.g. in ``run_metadata`` of the trials.
-            default_data_type: Enum representing the data type this experiment uses.
+            default_data_type: Deprecated and ignored.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
                 for different purposes (e.g., transfer learning).
         """
+        if default_data_type is not None:
+            warnings.warn(
+                "default_data_type is deprecated and will be removed in a future "
+                "release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         # appease pyre
         # pyre-fixme[13]: Attribute `_search_space` is never initialized.
         self._search_space: SearchSpace
@@ -138,14 +143,14 @@ class Experiment(Base):
         self._runner = runner
         self.is_test: bool = is_test
 
-        self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
+        # By convention, empty data is always MapData.
+        self.data: Data = MapData()
         self._experiment_type: str | None = experiment_type
         self._optimization_config: OptimizationConfig | None = None
         self._tracking_metrics: dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
-        self._default_data_type: DataType = default_data_type or DataType.DATA
 
         # Initialize trial type to runner mapping
         self._default_trial_type = default_trial_type
@@ -503,9 +508,6 @@ class Experiment(Base):
             for metric_name in metrics_to_track:
                 self.add_tracking_metric(prev_optimization_config.metrics[metric_name])
 
-        if any(metric.has_map_data for metric in optimization_config.metrics.values()):
-            self._default_data_type = DataType.MAP_DATA
-
     @property
     def is_moo_problem(self) -> bool:
         """Whether the experiment's optimization config contains multiple objectives."""
@@ -573,9 +575,6 @@ class Experiment(Base):
                 "OptimizationConfig. Set a new OptimizationConfig without this metric "
                 "before adding it to tracking metrics."
             )
-
-        if metric.has_map_data:
-            self._default_data_type = DataType.MAP_DATA
 
         self._tracking_metrics[metric.name] = metric
         return self
@@ -791,11 +790,7 @@ class Experiment(Base):
             **kwargs,
         )
 
-        base_metric_cls = (
-            MapMetric if self.default_data_constructor == MapData else Metric
-        )
-
-        return base_metric_cls._unwrap_experiment_data_multi(
+        return Metric._unwrap_experiment_data_multi(
             results=results,
         )
 
@@ -874,11 +869,9 @@ class Experiment(Base):
 
     def attach_data(self, data: Data, **kwargs: Any) -> None:
         """
-        Attach data to the experiment's `_data_by_trial` attribute.
+        Update the experiment's `data` attribute.
 
-        Store data in `experiment._data_by_trial`, to be looked up via
-        ``experiment.lookup_data_for_trial`` or ``experiment.lookup_data()``.
-        When a new observation is attached to a trial that already has an
+        When a new observation is attached and ``self.data`` already has an
         observation for that arm name, metric, and (if present) step, the new
         observation replaces the old one.
 
@@ -902,7 +895,6 @@ class Experiment(Base):
             raise ValueError(
                 f"Unexpected arguments {unexpected_args} passed to `attach_data`."
             )
-        data_type = type(data)
         if data.full_df.empty:
             raise ValueError("Data to attach is empty.")
         metrics_not_on_exp = set(data.full_df["metric_name"].values) - set(
@@ -917,38 +909,25 @@ class Experiment(Base):
                 "fetch_data`, add them via `experiment.add_tracking_metric` or update "
                 "the experiment's optimization config."
             )
-        for trial_index, trial_df in data.full_df.groupby("trial_index"):
-            if trial_index not in self.trials:
-                raise ValueError(
-                    f"Cannot attach data for trial {trial_index} because it has"
-                    " not been attached to the experiment."
-                )
-            if not isinstance(data, MapData):
-                trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
-            current_trial_data = (
-                self._data_by_trial[trial_index]
-                if trial_index in self._data_by_trial
-                else OrderedDict()
+        unattached_trial_indices = data.trial_indices - set(self.trials.keys())
+        if unattached_trial_indices:
+            raise ValueError(
+                f"Cannot attach data for trials {unattached_trial_indices} "
+                "because they have not been attached to the experiment."
             )
-            if len(current_trial_data) == 1:
-                _, last_data = current_trial_data.popitem()
-                combined_df = combine_dfs_favoring_recent(
-                    last_df=last_data.full_df, new_df=trial_df
-                )
-                data_type = (
-                    MapData
-                    if isinstance(last_data, MapData) or isinstance(data, MapData)
-                    else Data
-                )
-            elif len(current_trial_data) == 0:
-                combined_df = trial_df
-            else:
-                raise ValueError(
-                    "Each dict within `_data_by_trial` should have at most one "
-                    "element."
-                )
-            current_trial_data = OrderedDict({0: data_type(df=combined_df)})
-            self._data_by_trial[trial_index] = current_trial_data
+
+        new_df = combine_dfs_favoring_recent(
+            last_df=self.data.full_df, new_df=data.full_df
+        )
+
+        if not isinstance(data, MapData):
+            new_df = sort_by_trial_index_and_arm_name(df=new_df)
+        data_type = (
+            MapData
+            if isinstance(self.data, MapData) or isinstance(data, MapData)
+            else Data
+        )
+        self.data = data_type(df=new_df)
 
     def attach_fetch_results(
         self,
@@ -962,7 +941,7 @@ class Experiment(Base):
         to the experiment.
 
         NOTE: Any Errs in the results passed in will silently be dropped! This will
-        cause the Experiment to fail to find them in the _data_by_trial cache and
+        cause the Experiment to fail to find them in ``self.data`` and
         attempt to refetch at fetch time. If this is not your intended behavior you
         MUST resolve your results first and use attach_data directly instead.
         """
@@ -997,10 +976,9 @@ class Experiment(Base):
         if len(oks) < 1:
             return None
 
-        data = self.default_data_constructor.from_multiple_data(
-            data=[ok.ok for ok in oks]
+        data = combine_datas_infer_type(
+            data_list=[ok.ok for ok in oks],
         )
-
         self.attach_data(data=data)
 
     def lookup_data_for_trial(self, trial_index: int) -> Data:
@@ -1016,33 +994,20 @@ class Experiment(Base):
         Returns:
             The requested data object.
         """
-        try:
-            trial_data_dict = self._data_by_trial[trial_index]
-        except KeyError:
-            return self.default_data_constructor()
-
-        if len(trial_data_dict) == 0:
-            return self.default_data_constructor()
-
-        if set(trial_data_dict.keys()) != {0}:
-            raise AxError(
-                "The only timestamp present for each trial in _data_by_trial "
-                "should be zero."
-            )
-        return trial_data_dict[0]
-
-        storage_time = max(trial_data_dict.keys())
-        return trial_data_dict[storage_time]
+        if trial_index not in self.data.trial_indices:
+            return Data()
+        elif {trial_index} == self.data.trial_indices:
+            return self.data
+        return self.data.filter(trial_indices=[trial_index])
 
     def lookup_data(
         self,
         trial_indices: Iterable[int] | None = None,
     ) -> Data:
         """
-        Combine stored ``Data``s for trials ``trial_indices`` into one ``Data``.
+        Return ``Data`` for trials ``trial_indices``.
 
         For each trial, returns data present for this trial.  Returns
-        empty data if no data is present. This method will not fetch data from
         metrics - to do that, use `fetch_data()` instead.
 
         Args:
@@ -1052,21 +1017,15 @@ class Experiment(Base):
         Returns:
             Data for trials ``trial_indices`` on the experiment.
         """
-        trial_indices = (
-            list(self.trials.keys()) if trial_indices is None else list(trial_indices)
-        )
+        # Note: see lookup_data_for_trial for why the old logic can't be
+        # perfectly reproduced
+        if trial_indices is None:
+            return self.data
+        trial_indices = list(trial_indices)
         if len(trial_indices) == 0:
-            return self.default_data_constructor()
+            return Data()
 
-        data_by_trial = []
-        has_map_data = False
-        for trial_index in trial_indices:
-            trial_data = self.lookup_data_for_trial(trial_index=trial_index)
-            data_by_trial.append(trial_data)
-            has_map_data = has_map_data or isinstance(trial_data, MapData)
-
-        data_type = MapData if has_map_data else Data
-        return data_type.from_multiple_data(data_by_trial)
+        return self.data.filter(trial_indices=trial_indices)
 
     @property
     def num_trials(self) -> int:
@@ -1174,14 +1133,6 @@ class Experiment(Base):
                 )
 
         return trials_with_data
-
-    @property
-    def default_data_type(self) -> DataType:
-        return self._default_data_type
-
-    @property
-    def default_data_constructor(self) -> type[Data]:
-        return DATA_TYPE_LOOKUP[self.default_data_type]
 
     def new_trial(
         self,
@@ -1495,7 +1446,7 @@ class Experiment(Base):
                     inplace=True,
                 )
                 # Attach updated data to new trial on experiment.
-                old_data = old_experiment.default_data_constructor(df=new_df)
+                old_data = data_from_df_infer_type(df=new_df)
                 self.attach_data(data=old_data)
             if trial.status == TrialStatus.ABANDONED:
                 new_trial.mark_abandoned(reason=trial.abandoned_reason)
@@ -1880,7 +1831,6 @@ class Experiment(Base):
             is_test=is_test,
             experiment_type=self.experiment_type,
             properties=properties,
-            default_data_type=self._default_data_type,
         )
 
         # Clone only the specified trials.
@@ -1897,8 +1847,11 @@ class Experiment(Base):
                 stacklevel=2,
             )
 
-        data_by_trial = {}
-        for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
+        old_index_to_new_index = {}
+        intersection_indices = trial_indices_to_keep.intersection(
+            original_trial_indices
+        )
+        for trial_index in intersection_indices:
             trial = self.trials[trial_index]
             if not isinstance(trial, (Trial, BatchTrial)):
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
@@ -1906,19 +1859,14 @@ class Experiment(Base):
                 cloned_experiment, clear_trial_type=clear_trial_type
             )
             new_index = new_trial.index
-            if (
-                trial_index in self._data_by_trial
-                and len(trial_data_dict := self._data_by_trial[trial_index]) > 0
-            ):
-                timestamp = max(trial_data_dict.keys())
-                # Clone the data to avoid overwriting the original in the DB.
-                trial_data = trial_data_dict[timestamp].clone()
-                trial_data.df["trial_index"] = new_index
-                data_by_trial[new_index] = OrderedDict([(0, trial_data)])
+            old_index_to_new_index[trial_index] = new_index
 
-        # Attach the data extracted from the original experiment.
-        cloned_experiment._data_by_trial = data_by_trial
-
+        # TODO: handle and test None case
+        new_df = self.data.full_df.loc[
+            lambda x: x["trial_index"].isin(intersection_indices)
+        ]
+        new_df.loc[:, "trial_index"] = new_df["trial_index"].map(old_index_to_new_index)
+        cloned_experiment.data = self.data.__class__(df=new_df)
         return cloned_experiment
 
     @property

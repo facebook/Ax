@@ -543,11 +543,11 @@ class MapKeyToFloatTransformTest(TestCase):
 
     def test_transform_experiment_data(self) -> None:
         # First, set up a case with no NaNs.
-        data = self.experiment.lookup_data()
-        data.full_df["step"] = data.full_df["step"].fillna(0)
+        df = self.experiment.lookup_data().full_df.copy()
+        df["step"] = df["step"].fillna(0)
         experiment_data = extract_experiment_data(
             experiment=self.experiment,
-            data=data,
+            data=MapData(df=df),
             data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),
         )
         transformed_data = self.t.transform_experiment_data(
@@ -560,7 +560,7 @@ class MapKeyToFloatTransformTest(TestCase):
         assert_frame_equal(
             experiment_data.observation_data, transformed_data.observation_data
         )
-        # Test with NaNs.
+
         experiment_data = extract_experiment_data(
             experiment=self.experiment,
             data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=False),

@@ -20,6 +20,7 @@ import torch
 from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -1621,20 +1622,19 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
             support_intermediate_data=False,
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         parameterization, trial_index = no_intermediate_data_ax_client.get_next_trial()
-        # Error because the experiment isn't configured to use MapData
-        with self.assertRaisesRegex(
-            ValueError, "requires that this client's `experiment` be constructed with"
-        ):
+        x, y = parameterization.get("x"), parameterization.get("y")
+        t = 2
+        value = assert_is_instance(branin(x, y) + t, float)
+        with self.subTest("Attach MapData"):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
-                raw_data=[
-                    # pyre-fixme[61]: `t` is undefined, or not always defined.
-                    (p_t, {"branin": (branin(x, y) + t, 0.0)})
-                    # pyre-fixme[61]: `t` is undefined, or not always defined.
-                    for p_t in range(t + 1)
-                ],
+                raw_data=[(p_t, {"branin": (value, 0.0)}) for p_t in range(t + 1)],
+            )
+            self.assertIsInstance(
+                no_intermediate_data_ax_client.experiment.lookup_data(), MapData
             )
 
     # pyre-fixme[56]: Pyre was not able to infer the type of argument `f"{ax.service....

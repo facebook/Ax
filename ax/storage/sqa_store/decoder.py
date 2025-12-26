@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import json
 from collections import defaultdict
 from enum import Enum
 from io import StringIO
@@ -30,6 +29,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import data_from_df_infer_type
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -77,6 +77,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import are_relationships_loaded
 from ax.storage.utils import (
     combine_datas_on_data_by_trial,
+    data_by_trial_to_data,
     DomainType,
     EXPECT_RELATIVIZED_OUTCOMES,
     MetricIntent,
@@ -231,8 +232,6 @@ class Decoder:
                 "only supported for MultiTypeExperiment."
             )
 
-        default_data_type = experiment_sqa.default_data_type
-
         auxiliary_experiments_by_purpose = (
             (
                 self._auxiliary_experiments_by_purpose_from_experiment_sqa(
@@ -254,7 +253,6 @@ class Decoder:
             status_quo=status_quo,
             is_test=experiment_sqa.is_test,
             properties=properties,
-            default_data_type=default_data_type,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
         )
 
@@ -302,11 +300,8 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
-            trial_type_to_runner.update(
-                {t_type: None for t_type in trial_types_with_metrics}
-            )
+            trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
-        default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
@@ -316,7 +311,6 @@ class Decoder:
             optimization_config=opt_config,
             status_quo=status_quo,
             properties=properties,
-            default_data_type=default_data_type,
         )
         # pyre-ignore Imcompatible attribute type [8]: attribute _trial_type_to_runner
         # has type Dict[str, Optional[Runner]] but is used as type
@@ -370,10 +364,10 @@ class Decoder:
             trial_index = data_sqa.trial_index
             timestamp = data_sqa.time_created
             # TODO: Use metrics-like Data type field in Data instead.
-            default_data_constructor = experiment.default_data_constructor
             data_by_trial[trial_index][timestamp] = self.data_from_sqa(
-                data_sqa=data_sqa, data_constructor=default_data_constructor
+                data_sqa=data_sqa
             )
+        # TODO: simplify this logic
         data_by_trial = combine_datas_on_data_by_trial(data_by_trial=data_by_trial)
 
         trial_type_to_runner = {
@@ -397,7 +391,7 @@ class Decoder:
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
-        experiment._data_by_trial = dict(data_by_trial)
+        experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
         # `_trial_type_to_runner` is set in _init_mt_experiment_from_sqa
         if subclass != "MultiTypeExperiment":
             experiment._trial_type_to_runner = cast(
@@ -1034,29 +1028,16 @@ class Decoder:
         trial.db_id = trial_sqa.id
         return trial
 
-    def data_from_sqa(
-        self,
-        data_sqa: SQAData,
-        data_constructor: type[Data] = Data,
-    ) -> Data:
+    def data_from_sqa(self, data_sqa: SQAData) -> Data:
         """Convert SQLAlchemy Data to Ax Data."""
-        kwargs = data_constructor.deserialize_init_args(
-            args=dict(
-                json.loads(data_sqa.structure_metadata_json)
-                if data_sqa.structure_metadata_json
-                else {}
-            )
-        )
-
         # Override df from deserialize_init_args with `data_json`.
         # NOTE: Need dtype=False, otherwise infers arm_names like
         # "4_1" should be int 41.
-        kwargs["df"] = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
-        if "metric_signature" not in kwargs["df"].columns:
-            kwargs["df"]["metric_signature"] = kwargs["df"]["metric_name"]
+        df = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
+        if "metric_signature" not in df.columns:
+            df["metric_signature"] = df["metric_name"]
 
-        dat = data_constructor(**kwargs)
-
+        dat = data_from_df_infer_type(df=df)
         dat.db_id = data_sqa.id
         return dat
 
