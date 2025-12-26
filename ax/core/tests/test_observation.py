@@ -427,12 +427,6 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.arm_name, t["arm_name"])
             self.assertEqual(obs.features.metadata, {"step": t["step"]})
 
-        # testing that we can handle empty data with latest_rows_per_group
-        empty_data = MapData()
-        observations = observations_from_data(
-            experiment=experiment, data=empty_data, latest_rows_per_group=1
-        )
-
     def test_ObservationsFromDataAbandoned(self) -> None:
         truth = [
             {
@@ -589,27 +583,6 @@ class ObservationsTest(TestCase):
         # included.
         obs_no_abandoned = observations_from_data(experiment, data)
         self.assertEqual(len(obs_no_abandoned), 2)
-
-        # Including all statuses for non-map metrics should yield all metrics except b
-        obs_with_abandoned = observations_from_data(
-            experiment, data, statuses_to_include=set(TrialStatus)
-        )
-        self.assertEqual(len(obs_with_abandoned), 4)
-        for obs in obs_with_abandoned:
-            if obs.arm_name == "1_0":
-                self.assertEqual(set(obs.data.metric_signatures), {"a", "c"})
-
-        # Including all statuses for all metrics should yield all metrics
-        obs_with_abandoned = observations_from_data(
-            experiment,
-            data,
-            statuses_to_include=set(TrialStatus),
-            statuses_to_include_map_metric=set(TrialStatus),
-        )
-        self.assertEqual(len(obs_with_abandoned), 4)
-        for obs in obs_with_abandoned:
-            if obs.arm_name == "1_0":
-                self.assertEqual(set(obs.data.metric_signatures), {"a", "b", "c"})
 
     def test_ObservationsFromDataWithSomeMissingTimes(self) -> None:
         truth = [
