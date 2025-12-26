@@ -17,7 +17,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
-from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import sort_by_trial_index_and_arm_name
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -136,6 +136,14 @@ class ExperimentTest(TestCase):
         self.assertIsNotNone(self.experiment.time_created)
         self.assertEqual(self.experiment.experiment_type, None)
         self.assertEqual(self.experiment.num_abandoned_arms, 0)
+
+        with self.assertWarnsRegex(
+            DeprecationWarning, "default_data_type is deprecated"
+        ):
+            Experiment(
+                search_space=self.experiment.search_space,
+                default_data_type="foo",
+            )
 
     def test_ExperimentName(self) -> None:
         self.assertTrue(self.experiment.has_name)
@@ -693,7 +701,7 @@ class ExperimentTest(TestCase):
         # Verify that `metrics` kwarg to `experiment.fetch_data` is respected
         # when pulling looked-up data.
         self.assertEqual(
-            exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), Data()
+            exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), MapData()
         )
 
         with self.subTest("Invalid legacy data format"):
@@ -963,8 +971,6 @@ class ExperimentTest(TestCase):
         )
         exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 0.0}])
         exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 0.0}])
-        # Set the default data type to the unexpected type
-        exp._default_data_type = DataType.MAP_DATA
         # Add a trial
         attached_df = pd.DataFrame(
             {
@@ -990,7 +996,7 @@ class ExperimentTest(TestCase):
 
         with self.subTest("Empty trial indices"):
             looked_up = exp.lookup_data(trial_indices=[])
-            self.assertIsInstance(looked_up, MapData)
+            self.assertIsInstance(looked_up, Data)
             self.assertTrue(looked_up.full_df.empty)
 
     def test_attach_and_sort_data(self) -> None:
@@ -1927,7 +1933,6 @@ class ExperimentWithMapDataTest(TestCase):
             metric_name_to_signature={
                 "no_fetch_impl_metric": "no_fetch_impl_metric_signature",
             },
-            data_type=DataType.MAP_DATA,
         )
         self.experiment.attach_data(first_epoch)
 
@@ -1941,7 +1946,6 @@ class ExperimentWithMapDataTest(TestCase):
             metric_name_to_signature={
                 "no_fetch_impl_metric": "no_fetch_impl_metric_signature",
             },
-            data_type=DataType.MAP_DATA,
         )
         self.experiment.attach_data(remaining_epochs)
         self.experiment.trials[0].mark_completed()

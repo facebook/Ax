@@ -151,7 +151,7 @@ class MapDataReplayMetric(MapMetric):
             # Use pre-grouped data for O(1) lookup instead of filtering full DataFrame
             trial_group = self._trial_groups.get(trial_idx)
             if trial_group is None:
-                return Ok(value=MapData.from_multiple_data(data=[]))
+                return Ok(value=MapData())
 
             # Filter only the trial's subset (much smaller than full DataFrame)
             trial_data = trial_group[trial_group[MAP_KEY] <= trial_scaled_step]

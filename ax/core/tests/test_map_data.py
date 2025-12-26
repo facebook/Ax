@@ -9,7 +9,7 @@
 import numpy as np
 import pandas as pd
 from ax.core.data import Data
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import combine_datas_infer_type, MAP_KEY, MapData
 from ax.core.tests.test_data import TestDataBase
 from ax.utils.common.testutils import TestCase
 
@@ -109,20 +109,20 @@ class MapDataTest(TestCase):
 
     def test_combine(self) -> None:
         with self.subTest("From no MapDatas"):
-            data = MapData.from_multiple_data([])
+            data = combine_datas_infer_type([])
             self.assertIsInstance(data, MapData)
             self.assertEqual(data.full_df.size, 0)
 
         with self.subTest("From two MapDatas"):
-            mmd_double = MapData.from_multiple_data([self.mmd, self.mmd])
+            mmd_double = combine_datas_infer_type([self.mmd, self.mmd])
             self.assertIsInstance(mmd_double, MapData)
             self.assertEqual(mmd_double.full_df.size, 2 * self.mmd.full_df.size)
 
         with self.subTest("From Datas"):
             data = Data(df=self.mmd.df)
-            map_data = MapData.from_multiple_data([data])
+            map_data = combine_datas_infer_type([data])
             self.assertIsInstance(map_data, MapData)
-            data = Data.from_multiple_data([data])
+            data = combine_datas_infer_type([data])
             self.assertEqual(len(data.full_df), len(map_data.full_df))
 
     def test_upcast(self) -> None:

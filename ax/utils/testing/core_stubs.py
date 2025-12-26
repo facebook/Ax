@@ -29,10 +29,10 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
-from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
+from ax.core.map_data import combine_datas_infer_type, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -173,7 +173,6 @@ def get_experiment_with_map_data_type() -> Experiment:
         description="test description",
         tracking_metrics=[MapMetric(name="tracking")],
         is_test=True,
-        default_data_type=DataType.MAP_DATA,
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
     return experiment
@@ -277,14 +276,16 @@ def get_experiment_with_custom_runner_and_metric(
         )
         trial = experiment.new_trial(generator_run=sobol_run)
         trial.mark_running()
-        data = Data.from_multiple_data(
-            get_data(
-                metric_name=metric_name,
-                trial_index=trial.index,
-                num_non_sq_arms=len(trial.arms),
-                include_sq=False,
-            )
-            for metric_name in experiment.metrics
+        data = combine_datas_infer_type(
+            data_list=[
+                get_data(
+                    metric_name=metric_name,
+                    trial_index=trial.index,
+                    num_non_sq_arms=len(trial.arms),
+                    include_sq=False,
+                )
+                for metric_name in experiment.metrics
+            ]
         )
         experiment.attach_data(data)
         trial.mark_completed()
@@ -536,7 +537,6 @@ def get_branin_experiment_with_timestamp_map_metric(
         optimization_config=optimization_config,
         tracking_metrics=cast(list[Metric], tracking_metrics),
         runner=SyntheticRunner(),
-        default_data_type=DataType.MAP_DATA,
     )
     exp._properties = {"owners": [DEFAULT_USER]}
 
@@ -2499,7 +2499,6 @@ def get_map_data(trial_index: int = 0) -> MapData:
                 "ax_test_metric": "ax_test_metric",
                 "epoch": "epoch",
             },
-            data_type=DataType.MAP_DATA,
         ),
         MapData,
     )

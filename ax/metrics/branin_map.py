@@ -99,7 +99,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             ):
                 self._trial_index_to_timestamp[trial.index] += 1
 
-            datas = []
+            dfs = []
             for timestamp in range(self._trial_index_to_timestamp[trial.index]):
                 res = [
                     self.f(
@@ -128,9 +128,9 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                     }
                 )
 
-                datas.append(MapData(df=df))
+                dfs.append(df)
 
-            return Ok(value=MapData.from_multiple_data(data=datas))
+            return Ok(value=MapData(df=pd.concat(dfs, axis=0)))
 
         except Exception as e:
             return Err(
