@@ -8,7 +8,6 @@
 
 from ax.core.metric import Metric
 from ax.exceptions.core import OptimizationNotConfiguredError, UserInputError
-from ax.service.orchestrator import OrchestratorOptions
 from ax.utils.common.complexity_utils import (
     check_if_in_standard,
     DEFAULT_TIER_MESSAGES,
@@ -30,7 +29,6 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_experiment()
-        self.options = OrchestratorOptions()
         self.tier_metadata: dict[str, object] = {}
 
     def test_basic_experiment_summary(self) -> None:
@@ -39,7 +37,6 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
         # WHEN we summarize the experiment
         summary = summarize_ax_optimization_complexity(
             experiment=self.experiment,
-            options=self.options,
             tier_metadata=self.tier_metadata,
         )
 
@@ -58,7 +55,6 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
         # WHEN we summarize the experiment
         summary = summarize_ax_optimization_complexity(
             experiment=experiment,
-            options=self.options,
             tier_metadata=self.tier_metadata,
         )
 
@@ -76,7 +72,6 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
         ):
             summarize_ax_optimization_complexity(
                 experiment=self.experiment,
-                options=self.options,
                 tier_metadata=self.tier_metadata,
             )
 
@@ -107,33 +102,12 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
                 # WHEN we summarize the experiment
                 summary = summarize_ax_optimization_complexity(
                     experiment=self.experiment,
-                    options=self.options,
                     tier_metadata=tier_metadata,
                 )
 
                 # THEN the summary should reflect tier metadata values
                 self.assertEqual(summary.max_trials, expected_max_trials)
                 self.assertEqual(summary.uses_standard_api, expected_all_configs)
-
-    def test_orchestrator_options_extraction(self) -> None:
-        # GIVEN custom orchestrator options
-        options = OrchestratorOptions(
-            tolerated_trial_failure_rate=0.25,
-            max_pending_trials=5,
-            min_failed_trials_for_failure_rate_check=10,
-        )
-
-        # WHEN we summarize the experiment
-        summary = summarize_ax_optimization_complexity(
-            experiment=self.experiment,
-            options=options,
-            tier_metadata=self.tier_metadata,
-        )
-
-        # THEN the summary should reflect orchestrator options
-        self.assertEqual(summary.tolerated_trial_failure_rate, 0.25)
-        self.assertEqual(summary.max_pending_trials, 5)
-        self.assertEqual(summary.min_failed_trials_for_failure_rate_check, 10)
 
     def test_parameter_constraints_counted(self) -> None:
         # GIVEN an experiment with parameter constraints
@@ -142,7 +116,6 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
         # WHEN we summarize the experiment
         summary = summarize_ax_optimization_complexity(
             experiment=experiment,
-            options=self.options,
             tier_metadata=self.tier_metadata,
         )
 
@@ -159,7 +132,6 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
         # WHEN we summarize the experiment
         summary = summarize_ax_optimization_complexity(
             experiment=self.experiment,
-            options=self.options,
             tier_metadata=self.tier_metadata,
         )
 

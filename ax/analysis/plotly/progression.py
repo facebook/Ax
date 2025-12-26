@@ -26,6 +26,15 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
 from pyre_extensions import none_throws, override
 
+PROGRESSION_CARDGROUP_TITLE = "Learning Curves: Metric progression over trials"
+PROGRESSION_CARDGROUP_SUBTITLE = (
+    "These plots show curve metrics (learning curves) that track the evolution of "
+    "each metric over the course of the experiment. The plots display how metrics "
+    "change during trial execution, both by progression (e.g., epochs or steps) "
+    "and by wallclock time. This is useful for monitoring optimization progress and "
+    "informing early stopping decisions."
+)
+
 
 @final
 class ProgressionPlot(Analysis):
