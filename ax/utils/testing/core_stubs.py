@@ -32,7 +32,7 @@ from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
+from ax.core.map_data import combine_datas_infer_type, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -276,14 +276,16 @@ def get_experiment_with_custom_runner_and_metric(
         )
         trial = experiment.new_trial(generator_run=sobol_run)
         trial.mark_running()
-        data = Data.from_multiple_data(
-            get_data(
-                metric_name=metric_name,
-                trial_index=trial.index,
-                num_non_sq_arms=len(trial.arms),
-                include_sq=False,
-            )
-            for metric_name in experiment.metrics
+        data = combine_datas_infer_type(
+            data_list=[
+                get_data(
+                    metric_name=metric_name,
+                    trial_index=trial.index,
+                    num_non_sq_arms=len(trial.arms),
+                    include_sq=False,
+                )
+                for metric_name in experiment.metrics
+            ]
         )
         experiment.attach_data(data)
         trial.mark_completed()

@@ -11,7 +11,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 from ax.core.data import combine_dfs_favoring_recent, Data
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import combine_datas_infer_type, MAP_KEY, MapData
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -179,7 +179,7 @@ class TestDataBase(TestCase):
         data = self.data_without_df
         df = data.df
         self.assertTrue(df.empty)
-        self.assertTrue(self.cls.from_multiple_data([]).df.empty)
+        self.assertTrue(combine_datas_infer_type(data_list=[]).df.empty)
 
         if isinstance(data, MapData):
             self.assertTrue(data.full_df.empty)
@@ -188,10 +188,6 @@ class TestDataBase(TestCase):
             expected_columns = Data.REQUIRED_COLUMNS
         self.assertEqual(expected_columns, data.required_columns())
         self.assertEqual(set(df.columns), expected_columns)
-
-    def test_from_multiple_with_generator(self) -> None:
-        data = self.cls.from_multiple_data(self.data_with_df for _ in range(2))
-        self.assertEqual(len(data.full_df), 2 * len(self.data_with_df.full_df))
 
     def test_extra_columns(self) -> None:
         value = 3
@@ -256,47 +252,14 @@ class DataTest(TestCase):
         data = CustomData(df=self.df)
         self.assertNotEqual(data, Data(self.df))
 
-    def test_from_multiple(self) -> None:
+    def test_combine_datas(self) -> None:
         with self.subTest("Combinining non-empty Data"):
-            data = Data.from_multiple_data([Data(df=self.df), Data(df=self.df)])
+            data = combine_datas_infer_type([Data(df=self.df), Data(df=self.df)])
             self.assertEqual(len(data.df), 2 * len(self.df))
 
         with self.subTest("Combining empty Data makes empty Data"):
-            data = Data.from_multiple_data([Data(), Data()])
+            data = combine_datas_infer_type([Data(), Data()])
             self.assertEqual(data, Data())
-
-        with self.subTest("Can't use different types"):
-
-            class CustomData(Data):
-                pass
-
-            with self.assertRaisesRegex(
-                TypeError, "All data objects must be instances of"
-            ):
-                Data.from_multiple_data([CustomData(), CustomData()])
-
-            with self.assertRaisesRegex(
-                TypeError, "All data objects must be instances of"
-            ):
-                CustomData.from_multiple_data([Data(), CustomData()])
-
-    def test_FromMultipleDataMismatchedTypes(self) -> None:
-        # create two custom data types
-        class CustomDataA(Data):
-            pass
-
-        class CustomDataB(Data):
-            pass
-
-        # Test using `Data.from_multiple_data` to combine non-Data types
-        with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
-            Data.from_multiple_data([CustomDataA(), CustomDataB()])
-
-        # Test data of multiple non-empty types raises a value error
-        data_elt_A = CustomDataA(df=self.df)
-        data_elt_B = CustomDataB(df=self.df)
-        with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
-            Data.from_multiple_data([data_elt_A, data_elt_B])
 
     def test_filter(self) -> None:
         data = Data(df=self.df)

@@ -11,6 +11,7 @@ from copy import deepcopy
 import plotly.graph_objects as go
 from ax.adapter.registry import Generators
 from ax.core.data import Data
+from ax.core.map_data import combine_datas_infer_type
 from ax.plot.base import AxPlotConfig
 from ax.plot.scatter import interact_fitted, interact_fitted_plotly
 from ax.utils.common.testutils import TestCase
@@ -33,7 +34,7 @@ class FittedScatterTest(TestCase):
         model = Generators.BOTORCH_MODULAR(
             # Adapter kwargs
             experiment=exp,
-            data=Data.from_multiple_data([data, Data(df)]),
+            data=combine_datas_infer_type([data, Data(df)]),
         )
         # Assert that each type of plot can be constructed successfully
         scalarized_metric_config = [

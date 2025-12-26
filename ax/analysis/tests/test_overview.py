@@ -23,6 +23,7 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import combine_datas_infer_type
 from ax.core.metric import Metric
 from ax.core.optimization_config import Objective, OptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
@@ -353,7 +354,7 @@ class TestOverview(TestCase):
                     include_sq=True,
                 )
             )
-        data = Data.from_multiple_data(data)
+        data = combine_datas_infer_type(data)
         experiment.attach_data(data)
         trial.mark_completed()
 

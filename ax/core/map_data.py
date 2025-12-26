@@ -10,7 +10,7 @@ from __future__ import annotations
 import warnings
 
 from bisect import bisect_right
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from functools import cached_property
 from logging import Logger
 from math import nan
@@ -96,26 +96,6 @@ class MapData(Data):
 
     def required_columns(self) -> set[str]:
         return super().required_columns().union({MAP_KEY})
-
-    @classmethod
-    def from_multiple_data(cls, data: Iterable[Data]) -> MapData:
-        """
-        Downcast instances of Data into instances of MapData.
-
-        If no "step" column is present, it will be filled in with NaNs.
-        """
-        full_dfs = [
-            datum.full_df
-            if isinstance(datum, MapData)
-            else datum.df.assign(**{MAP_KEY: nan})
-            for datum in data
-            if not datum.full_df.empty
-        ]
-
-        if len(full_dfs) == 0:
-            return MapData()
-
-        return MapData(df=pd.concat(full_dfs))
 
     @property
     def df(self) -> pd.DataFrame:

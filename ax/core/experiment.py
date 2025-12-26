@@ -1048,18 +1048,11 @@ class Experiment(Base):
         trial_indices = (
             list(self.trials.keys()) if trial_indices is None else list(trial_indices)
         )
-        if len(trial_indices) == 0:
-            return Data()
-
-        data_by_trial = []
-        has_map_data = False
-        for trial_index in trial_indices:
-            trial_data = self.lookup_data_for_trial(trial_index=trial_index)
-            data_by_trial.append(trial_data)
-            has_map_data = has_map_data or isinstance(trial_data, MapData)
-
-        data_type = MapData if has_map_data else Data
-        return data_type.from_multiple_data(data_by_trial)
+        data_by_trial = [
+            self.lookup_data_for_trial(trial_index=trial_index)
+            for trial_index in trial_indices
+        ]
+        return combine_datas_infer_type(data_list=data_by_trial)
 
     @property
     def num_trials(self) -> int:

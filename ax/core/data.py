@@ -216,30 +216,6 @@ class Data(Base, SerializationMixin):
     def df(self) -> pd.DataFrame:
         return self.full_df
 
-    @classmethod
-    def from_multiple_data(cls: type[TData], data: Iterable[TData]) -> TData:
-        """Combines multiple objects into one (with the concatenated
-        underlying dataframe).
-
-        Args:
-            data: Iterable of Ax objects of this class to combine.
-        """
-        dfs = []
-
-        for datum in data:
-            if type(datum) is not cls:
-                raise TypeError(
-                    f"All data objects must be instances of {cls}. Got "
-                    f"{cls} and {type(datum)}."
-                )
-            if not datum.full_df.empty:
-                dfs.append(datum.df)
-
-        if len(dfs) == 0:
-            return cls()
-
-        return cls(df=pd.concat(dfs, axis=0, sort=True))
-
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
         df_markdown = self.df.to_markdown()

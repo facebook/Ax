@@ -15,6 +15,7 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import combine_datas_infer_type
 from ax.core.metric import Metric
 from ax.core.optimization_config import Objective, OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType
@@ -258,7 +259,7 @@ class TestResultsAnalysis(TestCase):
                     include_sq=True,
                 )
             )
-        experiment.attach_data(Data.from_multiple_data(data))
+        experiment.attach_data(combine_datas_infer_type(data))
         trial.mark_completed()
 
         # Create generation strategy
