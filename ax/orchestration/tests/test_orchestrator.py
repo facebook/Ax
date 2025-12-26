@@ -51,7 +51,7 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
-from ax.service.orchestrator import (
+from ax.orchestration.orchestrator import (
     FailureRateExceededError,
     get_fitted_adapter,
     MessageOutput,
@@ -60,7 +60,8 @@ from ax.service.orchestrator import (
     OrchestratorInternalError,
     StatusQuoInfeasibleError,
 )
-from ax.service.tests.orchestrator_test_utils import (
+from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
+from ax.orchestration.tests.orchestrator_test_utils import (
     BrokenRunnerRuntimeError,
     BrokenRunnerValueError,
     DUMMY_EXCEPTION,
@@ -77,7 +78,6 @@ from ax.service.tests.orchestrator_test_utils import (
     TEST_MEAN,
     TestOrchestrator,
 )
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
@@ -670,7 +670,7 @@ class TestAxOrchestrator(TestCase):
         trial2.add_arm(Arm(parameters={"x1": 6, "x2": 3}))
 
         # check that first candidate trial is run when called with max_trials = 1
-        with self.assertLogs(logger="ax.service.orchestrator") as lg:
+        with self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
             orchestrator.run_n_trials(max_trials=1)
             self.assertIn(
                 "Found 1 non-terminal trials on branin_test_experiment: [1]",
@@ -1661,7 +1661,7 @@ class TestAxOrchestrator(TestCase):
                 {TrialStatus.RUNNING: {0}},
                 {TrialStatus.COMPLETED: {0}},
             ],
-        ), self.assertLogs(logger="ax.service.orchestrator", level="INFO") as lg:
+        ), self.assertLogs(logger="ax.orchestration.orchestrator", level="INFO") as lg:
             orchestrator = Orchestrator(
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
@@ -1684,7 +1684,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
             orchestrator = Orchestrator(
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
@@ -1721,7 +1721,7 @@ class TestAxOrchestrator(TestCase):
         ), patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)
@@ -1767,7 +1767,7 @@ class TestAxOrchestrator(TestCase):
         ), patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
             orchestrator.run_n_trials(max_trials=1)
         self.assertTrue(
             any(
@@ -1812,7 +1812,7 @@ class TestAxOrchestrator(TestCase):
         ), patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)

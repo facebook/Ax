@@ -16,7 +16,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.service.orchestrator import Orchestrator, OrchestratorOptions
+from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
