@@ -1423,8 +1423,10 @@ class ExperimentTest(TestCase):
         experiment._data_by_trial
         cloned_experiment = experiment.clone_with(trial_indices=[1])
         self.assertEqual(len(cloned_experiment.trials), 1)
-        cloned_df = cloned_experiment.lookup_data_for_trial(0).df
-        self.assertEqual(cloned_df["trial_index"].iloc[0], 0)
+        # Trial index is preserved when cloning to a different experiment.
+        self.assertIn(1, cloned_experiment.trials)
+        cloned_df = cloned_experiment.lookup_data_for_trial(1).df
+        self.assertEqual(cloned_df["trial_index"].iloc[0], 1)
 
         # Clone with MapData.
         experiment = get_test_map_data_experiment(
@@ -2506,3 +2508,38 @@ class ExperimentWithMapDataTest(TestCase):
             )
             self.assertEqual(len(trials), 1)
             self.assertEqual(trials[0].index, 0)
+
+    def test_clone_with_preserves_trial_indices(self) -> None:
+        """Test that clone_with preserves original trial indices when cloning
+        to a different experiment."""
+        experiment = get_branin_experiment(
+            with_batch=True,
+            with_completed_trial=True,
+            num_batch_trial=10,
+            with_completed_batch=True,
+        )
+
+        # Clone a sparse subset of trials (indices 2, 5, 8)
+        subset_indices = [2, 5, 8]
+        cloned_experiment = experiment.clone_with(trial_indices=subset_indices)
+
+        # Verify trial indices are preserved exactly
+        self.assertEqual(set(cloned_experiment.trials.keys()), set(subset_indices))
+
+        # Verify each trial's index property matches
+        for trial_index in subset_indices:
+            self.assertEqual(cloned_experiment.trials[trial_index].index, trial_index)
+            # Verify status is preserved
+            original_trial = experiment.trials[trial_index]
+            cloned_trial = cloned_experiment.trials[trial_index]
+            self.assertEqual(cloned_trial.status, original_trial.status)
+
+        # Verify data trial indices are also preserved
+        for trial_index in subset_indices:
+            if trial_index in cloned_experiment._data_by_trial:
+                trial_data = cloned_experiment.lookup_data_for_trial(trial_index)
+                if not trial_data.df.empty:
+                    self.assertTrue(
+                        all(trial_data.df["trial_index"] == trial_index),
+                        f"Data trial_index mismatch for trial {trial_index}",
+                    )
