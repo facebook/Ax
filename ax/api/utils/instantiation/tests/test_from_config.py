@@ -15,7 +15,6 @@ from ax.api.utils.instantiation.from_config import (
 )
 from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.structs import ExperimentStruct
-from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.parameter import (
     ChoiceParameter,
@@ -286,7 +285,6 @@ class TestFromConfig(TestCase):
                 description="test description",
                 experiment_type="TEST",
                 properties={"owners": ["miles"]},
-                default_data_type=DataType.MAP_DATA,
             ),
         )
 
@@ -347,7 +345,6 @@ class TestFromConfig(TestCase):
                 name="test_experiment",
                 description="test description",
                 properties={"owners": ["miles"]},
-                default_data_type=DataType.MAP_DATA,
             ),
         )
 

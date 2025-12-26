@@ -84,11 +84,10 @@ class TestDataUtils(TestCase):
             experiment_data = extract_experiment_data(
                 experiment=empty_exp, data_loader_config=DataLoaderConfig()
             )
+            # no "step" column because empty data is always Data, not MapData
             expected_ind_names = ["trial_index", "arm_name"]
             self.assertEqual(len(experiment_data.arm_data), 0)
             self.assertEqual(experiment_data.arm_data.index.names, expected_ind_names)
-            if is_map:
-                expected_ind_names.append("step")
             self.assertEqual(len(experiment_data.observation_data), 0)
             self.assertEqual(
                 experiment_data.observation_data.index.names, expected_ind_names

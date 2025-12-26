@@ -30,10 +30,8 @@ from ax.core.auxiliary import (
 from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_dfs_favoring_recent, Data
-from ax.core.evaluations_to_data import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
+from ax.core.map_data import combine_datas_infer_type, data_from_df_infer_type, MapData
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
@@ -101,7 +99,7 @@ class Experiment(Base):
         is_test: bool = False,
         experiment_type: str | None = None,
         properties: dict[str, Any] | None = None,
-        default_data_type: DataType | None = None,
+        default_data_type: Any = None,
         auxiliary_experiments_by_purpose: None
         | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
         default_trial_type: str | None = None,
@@ -124,7 +122,7 @@ class Experiment(Base):
                 only store primitives that pertain to Ax experiment state. Any trial
                 deployment-related information and modeling-layer configuration
                 should be stored elsewhere, e.g. in ``run_metadata`` of the trials.
-            default_data_type: Enum representing the data type this experiment uses.
+            default_data_type: Deprecated and ignored.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
                 for different purposes (e.g., transfer learning).
         """
@@ -145,7 +143,6 @@ class Experiment(Base):
         self._time_created: datetime = datetime.now()
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
-        self._default_data_type: DataType = default_data_type or DataType.DATA
 
         # Initialize trial type to runner mapping
         self._default_trial_type = default_trial_type
@@ -503,9 +500,6 @@ class Experiment(Base):
             for metric_name in metrics_to_track:
                 self.add_tracking_metric(prev_optimization_config.metrics[metric_name])
 
-        if any(metric.has_map_data for metric in optimization_config.metrics.values()):
-            self._default_data_type = DataType.MAP_DATA
-
     @property
     def is_moo_problem(self) -> bool:
         """Whether the experiment's optimization config contains multiple objectives."""
@@ -573,9 +567,6 @@ class Experiment(Base):
                 "OptimizationConfig. Set a new OptimizationConfig without this metric "
                 "before adding it to tracking metrics."
             )
-
-        if metric.has_map_data:
-            self._default_data_type = DataType.MAP_DATA
 
         self._tracking_metrics[metric.name] = metric
         return self
@@ -791,11 +782,7 @@ class Experiment(Base):
             **kwargs,
         )
 
-        base_metric_cls = (
-            MapMetric if self.default_data_constructor == MapData else Metric
-        )
-
-        return base_metric_cls._unwrap_experiment_data_multi(
+        return Metric._unwrap_experiment_data_multi(
             results=results,
         )
 
@@ -997,10 +984,9 @@ class Experiment(Base):
         if len(oks) < 1:
             return None
 
-        data = self.default_data_constructor.from_multiple_data(
-            data=[ok.ok for ok in oks]
+        data = combine_datas_infer_type(
+            data_list=[ok.ok for ok in oks],
         )
-
         self.attach_data(data=data)
 
     def lookup_data_for_trial(self, trial_index: int) -> Data:
@@ -1019,10 +1005,10 @@ class Experiment(Base):
         try:
             trial_data_dict = self._data_by_trial[trial_index]
         except KeyError:
-            return self.default_data_constructor()
+            return Data()
 
         if len(trial_data_dict) == 0:
-            return self.default_data_constructor()
+            return Data()
 
         if set(trial_data_dict.keys()) != {0}:
             raise AxError(
@@ -1056,7 +1042,7 @@ class Experiment(Base):
             list(self.trials.keys()) if trial_indices is None else list(trial_indices)
         )
         if len(trial_indices) == 0:
-            return self.default_data_constructor()
+            return Data()
 
         data_by_trial = []
         has_map_data = False
@@ -1174,14 +1160,6 @@ class Experiment(Base):
                 )
 
         return trials_with_data
-
-    @property
-    def default_data_type(self) -> DataType:
-        return self._default_data_type
-
-    @property
-    def default_data_constructor(self) -> type[Data]:
-        return DATA_TYPE_LOOKUP[self.default_data_type]
 
     def new_trial(
         self,
@@ -1495,7 +1473,7 @@ class Experiment(Base):
                     inplace=True,
                 )
                 # Attach updated data to new trial on experiment.
-                old_data = old_experiment.default_data_constructor(df=new_df)
+                old_data = data_from_df_infer_type(df=new_df)
                 self.attach_data(data=old_data)
             if trial.status == TrialStatus.ABANDONED:
                 new_trial.mark_abandoned(reason=trial.abandoned_reason)
@@ -1880,7 +1858,6 @@ class Experiment(Base):
             is_test=is_test,
             experiment_type=self.experiment_type,
             properties=properties,
-            default_data_type=self._default_data_type,
         )
 
         # Clone only the specified trials.

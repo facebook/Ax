@@ -21,7 +21,6 @@ from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial_status import TrialStatus
@@ -447,11 +446,7 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             Data for this trial.
         """
-        base_metric_cls = (
-            MapMetric if self.experiment.default_data_constructor == MapData else Metric
-        )
-
-        data = base_metric_cls._unwrap_trial_data_multi(
+        data = Metric._unwrap_trial_data_multi(
             results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
         if not isinstance(data, MapData):
@@ -857,7 +852,6 @@ class BaseTrial(ABC, SortableBase):
                 raw_data=raw_data,
                 metric_name_to_signature=metric_name_to_signature,
                 trial_index=self.index,
-                data_type=self.experiment.default_data_type,
             )
         except UserInputError as e:
             if "not found in metric_name_to_signature." in str(e):

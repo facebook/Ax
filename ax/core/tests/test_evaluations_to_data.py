@@ -7,7 +7,7 @@
 # pyre-strict
 
 import numpy as np
-from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -25,7 +25,6 @@ class TestRawEvaluationsToData(TestCase):
                     raw_data={"0_0": eval},
                     metric_name_to_signature={"a": signature},
                     trial_index=0,
-                    data_type=DataType.DATA,
                 )
                 df = data.df
                 self.assertEqual(df["mean"].iloc[0], 3.7)
@@ -45,25 +44,12 @@ class TestRawEvaluationsToData(TestCase):
                     raw_data={"0_0": 3.7},
                     metric_name_to_signature=self.metric_name_to_signature,
                     trial_index=0,
-                    data_type=DataType.DATA,
-                )
-
-        with self.subTest("Invalid DataType"):
-            with self.assertRaisesRegex(
-                UserInputError, "not compatible with `MapData`"
-            ):
-                raw_evaluations_to_data(
-                    raw_data={"0_0": 5.0},
-                    metric_name_to_signature=self.metric_name_to_signature,
-                    trial_index=0,
-                    data_type=DataType.MAP_DATA,
                 )
         with self.subTest("missing signature"):
             data = raw_evaluations_to_data(
                 raw_data={"0_0": {"b": 5.0}},
                 metric_name_to_signature=self.metric_name_to_signature,
                 trial_index=0,
-                data_type=DataType.DATA,
             )
 
     def test_single_arm_multiple_metrics(self) -> None:
@@ -71,7 +57,6 @@ class TestRawEvaluationsToData(TestCase):
             raw_data={"arm_0": {"a": 5.0, "b": (2.0, 0.1)}},
             metric_name_to_signature=self.metric_name_to_signature,
             trial_index=1,
-            data_type=DataType.DATA,
         )
         df = data.df
         self.assertEqual(df["metric_name"].tolist(), ["a", "b"])
@@ -90,7 +75,6 @@ class TestRawEvaluationsToData(TestCase):
             },
             metric_name_to_signature=self.metric_name_to_signature,
             trial_index=2,
-            data_type=DataType.DATA,
         )
         df = data.df
         self.assertSetEqual(set(df["arm_name"]), {"arm_0", "arm_1"})
@@ -102,21 +86,11 @@ class TestRawEvaluationsToData(TestCase):
             raw_data=raw_data,
             metric_name_to_signature=self.metric_name_to_signature,
             trial_index=3,
-            data_type=DataType.MAP_DATA,
         )
         df = data.full_df
         self.assertEqual(len(df), 2)
         self.assertEqual(df["mean"].tolist(), [1.0, 2.0])
         self.assertEqual(df["sem"].tolist(), [0.1, 0.2])
-
-        with self.subTest("Invalid data type"):
-            with self.assertRaisesRegex(UserInputError, "not compatible with `Data`"):
-                raw_evaluations_to_data(
-                    raw_data=raw_data,
-                    metric_name_to_signature=self.metric_name_to_signature,
-                    trial_index=3,
-                    data_type=DataType.DATA,
-                )
 
     def test_numpy_types(self) -> None:
         arm_name = "0_0"
@@ -133,13 +107,11 @@ class TestRawEvaluationsToData(TestCase):
                 "Map": [(0, {"m": number}), (1, {"m": number})],
             }
             for format_name, evaluation in formats.items():
-                data_type = DataType.MAP_DATA if format_name == "Map" else DataType.DATA
                 with self.subTest(f"{np_dtype}, {format_name}"):
                     data = raw_evaluations_to_data(
                         raw_data={arm_name: evaluation},
                         metric_name_to_signature={"m": "m"},
                         trial_index=0,
-                        data_type=data_type,
                     )
                     self.assertEqual(data.df.dtypes["mean"], float)
                     self.assertEqual(data.df["mean"].iloc[0].item(), float(number))
