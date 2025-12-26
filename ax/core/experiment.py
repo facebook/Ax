@@ -1061,6 +1061,11 @@ class Experiment(Base):
         data_type = MapData if has_map_data else Data
         return data_type.from_multiple_data(data_by_trial)
 
+    # Temporary. This will become an attribute in the next diff.
+    @property
+    def data(self) -> Data:
+        return self.lookup_data()
+
     @property
     def num_trials(self) -> int:
         """How many trials are associated with this experiment."""
