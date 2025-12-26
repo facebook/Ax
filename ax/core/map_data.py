@@ -10,7 +10,7 @@ from __future__ import annotations
 import warnings
 
 from bisect import bisect_right
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from functools import cached_property
 from logging import Logger
 from math import nan
@@ -314,6 +314,35 @@ class MapData(Data):
         if self._memo_df is not None:
             return set(self._memo_df["trial_index"].unique())
         return set(self.full_df["trial_index"].unique())
+
+
+def combine_datas_infer_type(data_list: Sequence[Data]) -> Data:
+    """
+    Combine muiltiple datas into one.
+
+    If any of the datas is MapData, return MapData. Otherwise, return Data.
+    Empty data is a MapData.
+    """
+    non_empty_datas = [d for d in data_list if not d.full_df.empty]
+    if len(non_empty_datas) == 0:
+        return MapData()
+
+    has_map_data = any(isinstance(d, MapData) for d in non_empty_datas)
+    df = pd.concat([d.full_df for d in non_empty_datas], axis=0, sort=has_map_data)
+    if has_map_data:
+        return MapData(df=df)
+    return Data(df=df)
+
+
+def data_from_df_infer_type(df: pd.DataFrame) -> Data:
+    """
+    Create a Data object from a DataFrame.
+
+    If the DataFrame has a MAP_KEY column, return MapData. Otherwise, return Data.
+    """
+    if MAP_KEY in df.columns:
+        return MapData(df=df)
+    return Data(df=df)
 
 
 def _ceil_divide(

@@ -29,7 +29,7 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
-from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
@@ -173,7 +173,6 @@ def get_experiment_with_map_data_type() -> Experiment:
         description="test description",
         tracking_metrics=[MapMetric(name="tracking")],
         is_test=True,
-        default_data_type=DataType.MAP_DATA,
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
     return experiment
@@ -536,7 +535,6 @@ def get_branin_experiment_with_timestamp_map_metric(
         optimization_config=optimization_config,
         tracking_metrics=cast(list[Metric], tracking_metrics),
         runner=SyntheticRunner(),
-        default_data_type=DataType.MAP_DATA,
     )
     exp._properties = {"owners": [DEFAULT_USER]}
 
@@ -2499,7 +2497,6 @@ def get_map_data(trial_index: int = 0) -> MapData:
                 "ax_test_metric": "ax_test_metric",
                 "epoch": "epoch",
             },
-            data_type=DataType.MAP_DATA,
         ),
         MapData,
     )

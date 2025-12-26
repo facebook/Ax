@@ -220,7 +220,6 @@ class OptimizationLoop:
                 for arm, weight in self._get_weights_by_arm(trial)
             },
             trial_index=self.current_trial,
-            data_type=self.experiment.default_data_type,
             metric_name_to_signature=metric_name_to_signature,
         )
 

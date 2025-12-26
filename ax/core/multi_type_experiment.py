@@ -12,7 +12,9 @@ from typing import Any
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
-from ax.core.experiment import DataType, Experiment
+from ax.core.evaluations_to_data import DataType
+from ax.core.experiment import Experiment
+from ax.core.map_data import combine_datas_infer_type
 from ax.core.metric import Metric, MetricFetchResult
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
@@ -68,7 +70,7 @@ class MultiTypeExperiment(Experiment):
             is_test: Convenience metadata tracker for the user to mark test experiments.
             experiment_type: The class of experiments this one belongs to.
             properties: Dictionary of this experiment's properties.
-            default_data_type: Enum representing the data type this experiment uses.
+            default_data_type: Deprecated and ignored.
         """
 
         # Specifies which trial type each metric belongs to
@@ -90,7 +92,6 @@ class MultiTypeExperiment(Experiment):
             is_test=is_test,
             experiment_type=experiment_type,
             properties=properties,
-            default_data_type=default_data_type,
             tracking_metrics=tracking_metrics,
             runner=default_runner,
             default_trial_type=default_trial_type,
@@ -252,7 +253,7 @@ class MultiTypeExperiment(Experiment):
         # TODO: make this more efficient for fetching
         # data for multiple trials of the same type
         # by overriding Experiment._lookup_or_fetch_trials_results
-        return self.default_data_constructor.from_multiple_data(
+        return combine_datas_infer_type(
             [
                 (
                     trial.fetch_data(**kwargs, metrics=metrics)
