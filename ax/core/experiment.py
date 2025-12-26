@@ -126,6 +126,13 @@ class Experiment(Base):
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
                 for different purposes (e.g., transfer learning).
         """
+        if default_data_type is not None:
+            warnings.warn(
+                "default_data_type is deprecated and will be removed in a future "
+                "release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         # appease pyre
         # pyre-fixme[13]: Attribute `_search_space` is never initialized.
         self._search_space: SearchSpace

@@ -12,7 +12,6 @@ from typing import Any
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
-from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.map_data import combine_datas_infer_type
 from ax.core.metric import Metric, MetricFetchResult
@@ -52,7 +51,7 @@ class MultiTypeExperiment(Experiment):
         is_test: bool = False,
         experiment_type: str | None = None,
         properties: dict[str, Any] | None = None,
-        default_data_type: DataType | None = None,
+        default_data_type: Any = None,
     ) -> None:
         """Inits Experiment.
 
@@ -95,6 +94,7 @@ class MultiTypeExperiment(Experiment):
             tracking_metrics=tracking_metrics,
             runner=default_runner,
             default_trial_type=default_trial_type,
+            default_data_type=default_data_type,
         )
 
     def add_trial_type(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
