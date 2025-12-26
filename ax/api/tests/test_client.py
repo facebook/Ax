@@ -24,7 +24,6 @@ from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
 from ax.core.analysis_card import AnalysisCard
-from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -117,7 +116,6 @@ class TestClient(TestCase):
                 name="test_experiment",
                 description="test description",
                 properties={"owners": ["miles"]},
-                default_data_type=DataType.MAP_DATA,
             ),
         )
 

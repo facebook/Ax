@@ -20,7 +20,7 @@ from logging import Logger
 from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data
-from ax.core.map_data import MapData
+from ax.core.map_data import combine_datas_infer_type, MapData
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
@@ -531,11 +531,7 @@ class Metric(SortableBase, SerializationMixin):
             )
 
         data = [ok.ok for ok in oks]
-        return (
-            cls.data_constructor.from_multiple_data(data=data)
-            if len(data) > 0
-            else cls.data_constructor()
-        )
+        return combine_datas_infer_type(data_list=data)
 
     @classmethod
     def _unwrap_trial_data_multi(
@@ -544,10 +540,6 @@ class Metric(SortableBase, SerializationMixin):
         # TODO[mpolson64] Add critical_metric_names to other unwrap methods
         critical_metric_signatures: list[str] | None = None,
     ) -> Data:
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some MetricFetchResults contain Data not of type
-        # `cls.data_constructor`
-
         oks: list[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
@@ -596,21 +588,13 @@ class Metric(SortableBase, SerializationMixin):
 
         data = [ok.ok for ok in oks]
 
-        return (
-            cls.data_constructor.from_multiple_data(data=data)
-            if len(data) > 0
-            else cls.data_constructor()
-        )
+        return combine_datas_infer_type(data_list=data)
 
     @classmethod
     def _unwrap_experiment_data_multi(
         cls,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
     ) -> Data:
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some MetricFetchResults contain Data not of type
-        # `cls.data_constructor`
-
         flattened = [
             result for sublist in results.values() for result in sublist.values()
         ]
@@ -636,11 +620,7 @@ class Metric(SortableBase, SerializationMixin):
             )
 
         data = [ok.ok for ok in oks]
-        return (
-            cls.data_constructor.from_multiple_data(data=data)
-            if len(data) > 0
-            else cls.data_constructor()
-        )
+        return combine_datas_infer_type(data_list=data)
 
     @classmethod
     def _wrap_experiment_data(cls, data: Data) -> dict[int, MetricFetchResult]:

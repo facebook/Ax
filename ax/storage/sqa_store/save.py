@@ -320,10 +320,7 @@ def save_or_update_data_for_trials(
         encode_func=encoder.data_to_sqa,
         decode_func=decoder.data_from_sqa,
         encode_args_list=data_encode_args,
-        decode_args_list=[
-            {"data_constructor": experiment.default_data_constructor}
-            for _ in range(len(datas))
-        ],
+        decode_args_list=[],
         modify_sqa=add_experiment_id,
         batch_size=batch_size,
     )
