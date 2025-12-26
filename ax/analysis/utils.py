@@ -6,7 +6,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -1071,3 +1071,19 @@ def validate_outcome_constraints(
         )
 
     return None
+
+
+def filter_none(**kwargs: Any) -> dict[str, Any]:
+    """Return a dict with only non-None values.
+
+    Useful for conditionally passing optional keyword arguments to functions
+    that have defaults. Only non-None values are included in the returned dict,
+    allowing the called function to use its own defaults for omitted parameters.
+
+    Args:
+        **kwargs: Keyword arguments to filter.
+
+    Returns:
+        A dict containing only the key-value pairs where value is not None.
+    """
+    return {k: v for k, v in kwargs.items() if v is not None}

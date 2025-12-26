@@ -15,9 +15,11 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
+from ax.analysis.utils import filter_none
 from ax.core.experiment import Experiment
+from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import OrchestratorOptions
+from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.utils.common.complexity_utils import (
     check_if_in_standard,
     DEFAULT_TIER_MESSAGES,
@@ -61,16 +63,17 @@ class ComplexityRatingAnalysis(Analysis):
 
     def __init__(
         self,
-        options: OrchestratorOptions | None = None,
         tier_metadata: dict[str, Any] | None = None,
         tier_messages: TierMessages = DEFAULT_TIER_MESSAGES,
+        early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+        global_stopping_strategy: BaseGlobalStoppingStrategy | None = None,
+        tolerated_trial_failure_rate: float | None = None,
+        max_pending_trials: int | None = None,
+        min_failed_trials_for_failure_rate_check: int | None = None,
     ) -> None:
         """Initialize the ComplexityRatingAnalysis.
 
         Args:
-            options: The orchestrator options used for the optimization.
-                Required to evaluate early stopping, global stopping, and
-                failure rate settings.
             tier_metadata: Additional tier-related metadata from the orchestrator.
                 Supported keys:
                 - 'user_supplied_max_trials': Maximum number of trials.
@@ -82,12 +85,27 @@ class ComplexityRatingAnalysis(Analysis):
                 generic messages suitable for most users. Pass a custom TierMessages
                 instance to provide tool-specific descriptions, support SLAs,
                 links to docs, or contact information.
+            early_stopping_strategy: The early stopping strategy, if any. Used to
+                determine if early stopping is enabled. Defaults to None.
+            global_stopping_strategy: The global stopping strategy, if any. Used to
+                determine if global stopping is enabled. Defaults to None.
+            tolerated_trial_failure_rate: Fraction of trials allowed to fail without
+                the whole optimization ending. Default value used is 0.5.
+            max_pending_trials: Maximum number of pending trials. Default used is 10.
+            min_failed_trials_for_failure_rate_check: Minimum failed trials before
+                failure rate is checked. Default value used is 5.
         """
-        self.options = options
         self.tier_metadata: dict[str, Any] = (
             tier_metadata if tier_metadata is not None else {}
         )
         self.tier_messages = tier_messages
+        self.early_stopping_strategy = early_stopping_strategy
+        self.global_stopping_strategy = global_stopping_strategy
+        self.tolerated_trial_failure_rate = tolerated_trial_failure_rate
+        self.max_pending_trials = max_pending_trials
+        self.min_failed_trials_for_failure_rate_check = (
+            min_failed_trials_for_failure_rate_check
+        )
 
     @override
     def validate_applicable_state(
@@ -98,11 +116,6 @@ class ComplexityRatingAnalysis(Analysis):
     ) -> str | None:
         if experiment is None:
             return "Experiment is required for ComplexityRatingAnalysis."
-        if self.options is None:
-            return (
-                "OrchestratorOptions is required for ComplexityRatingAnalysis. "
-                "Please pass options to the constructor."
-            )
         return None
 
     @override
@@ -120,8 +133,7 @@ class ComplexityRatingAnalysis(Analysis):
 
         Note:
             This method assumes ``validate_applicable_state`` has been called
-            and returned None, ensuring ``experiment`` and ``self.options``
-            are not None.
+            and returned None, ensuring ``experiment`` is not None.
 
         Args:
             experiment: The Ax Experiment to analyze. Must not be None.
@@ -135,16 +147,17 @@ class ComplexityRatingAnalysis(Analysis):
             with key experiment metrics.
         """
         experiment = none_throws(experiment)
-        options = none_throws(self.options)
         optimization_summary = summarize_ax_optimization_complexity(
             experiment=experiment,
             tier_metadata=self.tier_metadata,
-            early_stopping_strategy=options.early_stopping_strategy,
-            global_stopping_strategy=options.global_stopping_strategy,
-            tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
-            max_pending_trials=options.max_pending_trials,
-            min_failed_trials_for_failure_rate_check=(
-                options.min_failed_trials_for_failure_rate_check
+            early_stopping_strategy=self.early_stopping_strategy,
+            global_stopping_strategy=self.global_stopping_strategy,
+            **filter_none(
+                tolerated_trial_failure_rate=self.tolerated_trial_failure_rate,
+                max_pending_trials=self.max_pending_trials,
+                min_failed_trials_for_failure_rate_check=(
+                    self.min_failed_trials_for_failure_rate_check
+                ),
             ),
         )
 
