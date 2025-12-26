@@ -27,6 +27,7 @@ from ax.metrics.map_replay import MapDataReplayMetric
 from ax.runners.map_replay import MapDataReplayRunner
 from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.utils.common.logger import get_logger
+from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -46,15 +47,17 @@ def replay_experiment(
     savings for a given `early_stopping_strategy`.
     """
     historical_map_data = historical_experiment.lookup_data()
-    if not isinstance(historical_map_data, MapData):
-        logger.warning("Replaying an experiment requires MapData.")
+    if not historical_map_data.has_step_column:
+        logger.warning(
+            "Replaying an experiment requires the data to have a 'step' column."
+        )
         return None
     historical_map_data = historical_map_data.subsample(
         limit_rows_per_group=num_samples_per_curve, include_first_last=True
     )
     replay_metric = MapDataReplayMetric(
         name=f"replay_{historical_experiment.name}",
-        map_data=historical_map_data,
+        map_data=assert_is_instance(historical_map_data, MapData),
         metric_name=metric.name,
         lower_is_better=metric.lower_is_better,
     )

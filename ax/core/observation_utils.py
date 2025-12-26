@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MAP_KEY
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
@@ -209,7 +209,7 @@ def get_feature_cols(data: Data) -> list[str]:
         A list of column names to be used to group observations.
     """
     feature_cols = OBS_COLS.intersection(data.full_df.columns)
-    if isinstance(data, MapData):
+    if data.has_step_column:
         feature_cols.add(MAP_KEY)
 
     for column in TIME_COLS:
@@ -248,7 +248,7 @@ def observations_from_data(
         experiment=experiment,
         df=data.full_df,
         cols=get_feature_cols(data=data),
-        is_map_data=isinstance(data, MapData),
+        is_map_data=data.has_step_column,
         statuses_to_include=NON_ABANDONED_STATUSES,
         statuses_to_include_map_metric=NON_ABANDONED_STATUSES,
     )
