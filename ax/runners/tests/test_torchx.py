@@ -23,12 +23,12 @@ from ax.core import (
 
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.metrics.torchx import TorchXMetric
-from ax.runners.torchx import TorchXRunner
-from ax.service.orchestrator import (
+from ax.orchestration.orchestrator import (
     FailureRateExceededError,
     Orchestrator,
     OrchestratorOptions,
 )
+from ax.runners.torchx import TorchXRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from torchx.components import utils

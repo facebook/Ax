@@ -71,7 +71,7 @@ from pandas.core.frame import DataFrame
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
-    from ax.service.orchestrator import Orchestrator
+    from ax.orchestration.orchestrator import Orchestrator
 
 
 logger: Logger = get_logger(__name__)

@@ -32,20 +32,6 @@ Interactive Loop
     :undoc-members:
     :show-inheritance:
 
-
-Orchestrator
-~~~~~~~~~
-
-.. automodule:: ax.service.orchestrator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: ax.service.utils.orchestrator_options
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Utils
 -----
 
@@ -92,15 +78,6 @@ Reporting
 ~~~~~~~~~
 
 .. automodule:: ax.service.utils.report_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-WithDBSettingsBase
-~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.service.utils.with_db_settings_base
     :members:
     :undoc-members:
     :show-inheritance:

@@ -17,7 +17,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 )
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import OrchestratorOptions
+from ax.orchestration.orchestrator import OrchestratorOptions
 from ax.utils.common.complexity_utils import (
     check_if_in_standard,
     DEFAULT_TIER_MESSAGES,

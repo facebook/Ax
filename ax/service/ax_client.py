@@ -61,7 +61,6 @@ from ax.service.utils.instantiation import (
     InstantiationBase,
     ObjectiveProperties,
 )
-from ax.service.utils.with_db_settings_base import TDBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -74,6 +73,7 @@ from ax.storage.json_store.registry import (
     CORE_ENCODER_REGISTRY,
     TDecoderRegistry,
 )
+from ax.storage.sqa_store.with_db_settings_base import TDBSettings
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger

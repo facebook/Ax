@@ -52,7 +52,7 @@ from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import Orchestrator
+from ax.orchestration.orchestrator import Orchestrator
 from ax.service.utils.best_point import (
     _prepare_data_for_trace,
     derelativize_opt_config,
