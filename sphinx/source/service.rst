@@ -32,20 +32,6 @@ Interactive Loop
     :undoc-members:
     :show-inheritance:
 
-
-Orchestrator
-~~~~~~~~~
-
-.. automodule:: ax.service.orchestrator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: ax.service.utils.orchestrator_options
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Utils
 -----
 

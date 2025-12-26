@@ -22,7 +22,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.service.orchestrator import (
+from ax.orchestration.orchestrator import (
     get_fitted_adapter,
     Orchestrator,
     OrchestratorOptions,

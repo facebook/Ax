@@ -24,8 +24,8 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.metrics.map_replay import MapDataReplayMetric
+from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
 from ax.runners.map_replay import MapDataReplayRunner
-from ax.service.orchestrator import Orchestrator, OrchestratorOptions
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)

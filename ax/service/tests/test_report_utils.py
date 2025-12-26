@@ -23,7 +23,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import Orchestrator
+from ax.orchestration.orchestrator import Orchestrator
 from ax.service.utils.orchestrator_options import OrchestratorOptions
 from ax.service.utils.report_utils import (
     _find_sigfigs,
