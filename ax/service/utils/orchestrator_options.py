@@ -13,6 +13,11 @@ from typing import Any
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 
+# Default values for OrchestratorOptions fields
+DEFAULT_MAX_PENDING_TRIALS: int = 10
+DEFAULT_TOLERATED_TRIAL_FAILURE_RATE: float = 0.5
+DEFAULT_MIN_FAILED_TRIALS_FOR_FAILURE_RATE_CHECK: int = 5
+
 
 class TrialType(Enum):
     TRIAL = 0
@@ -125,12 +130,14 @@ class OrchestratorOptions:
             Default to False.
     """
 
-    max_pending_trials: int = 10
+    max_pending_trials: int = DEFAULT_MAX_PENDING_TRIALS
     trial_type: TrialType = TrialType.TRIAL
     batch_size: int | None = None
     total_trials: int | None = None
-    tolerated_trial_failure_rate: float = 0.5
-    min_failed_trials_for_failure_rate_check: int = 5
+    tolerated_trial_failure_rate: float = DEFAULT_TOLERATED_TRIAL_FAILURE_RATE
+    min_failed_trials_for_failure_rate_check: int = (
+        DEFAULT_MIN_FAILED_TRIALS_FOR_FAILURE_RATE_CHECK
+    )
     log_filepath: str | None = None
     logging_level: int = INFO
     ttl_seconds_for_trials: int | None = None

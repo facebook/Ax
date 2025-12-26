@@ -12,8 +12,14 @@ from typing import Any
 from ax.adapter.adapter_utils import can_map_to_binary, is_unordered_choice
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
+from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import OptimizationNotConfiguredError, UserInputError
-from ax.service.orchestrator import OrchestratorOptions
+from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+from ax.service.utils.orchestrator_options import (
+    DEFAULT_MAX_PENDING_TRIALS,
+    DEFAULT_MIN_FAILED_TRIALS_FOR_FAILURE_RATE_CHECK,
+    DEFAULT_TOLERATED_TRIAL_FAILURE_RATE,
+)
 
 STANDARD_TIER_MESSAGE = """This experiment is in tier 'Standard'.
 
@@ -141,8 +147,14 @@ class OptimizationSummary:
 
 def summarize_ax_optimization_complexity(
     experiment: Experiment,
-    options: OrchestratorOptions,
     tier_metadata: dict[str, Any],
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+    global_stopping_strategy: BaseGlobalStoppingStrategy | None = None,
+    tolerated_trial_failure_rate: float = DEFAULT_TOLERATED_TRIAL_FAILURE_RATE,
+    max_pending_trials: int = DEFAULT_MAX_PENDING_TRIALS,
+    min_failed_trials_for_failure_rate_check: int = (
+        DEFAULT_MIN_FAILED_TRIALS_FOR_FAILURE_RATE_CHECK
+    ),
 ) -> OptimizationSummary:
     """Summarize the experiment's optimization complexity.
 
@@ -151,11 +163,25 @@ def summarize_ax_optimization_complexity(
 
     Args:
         experiment: The Ax Experiment.
-        options: The orchestrator options.
-        tier_metadata: tier-related meta-data from the orchestrator.
+        tier_metadata: Tier-related metadata from the orchestrator. Supported keys:
+            - 'user_supplied_max_trials': Maximum number of trials.
+            - 'uses_standard_api': Whether standard api is used, ensuring the full
+                experiment configuration is known upfront.
+            - 'all_inputs_are_configs': Whether high-level configs are used (as
+                opposed to low-level Ax abstractions), ensuring the full
+                experiment configuration is known upfront.
+        early_stopping_strategy: The early stopping strategy, if any. Used to
+            determine if early stopping is enabled. Defaults to None.
+        global_stopping_strategy: The global stopping strategy, if any. Used to
+            determine if global stopping is enabled. Defaults to None.
+        tolerated_trial_failure_rate: Fraction of trials allowed to fail without
+            the whole optimization ending. Defaults to 0.5.
+        max_pending_trials: Maximum number of pending trials. Defaults to 10.
+        min_failed_trials_for_failure_rate_check: Minimum failed trials before
+            failure rate is checked. Defaults to 5.
 
     Returns:
-        A dictionary summarizing the experiment.
+        An OptimizationSummary containing experiment complexity metrics.
     """
     search_space = experiment.search_space
     optimization_config = experiment.optimization_config
@@ -179,8 +205,8 @@ def summarize_ax_optimization_complexity(
         else 1
     )
     num_outcome_constraints = len(optimization_config.outcome_constraints)
-    uses_early_stopping = options.early_stopping_strategy is not None
-    uses_global_stopping = options.global_stopping_strategy is not None
+    uses_early_stopping = early_stopping_strategy is not None
+    uses_global_stopping = global_stopping_strategy is not None
 
     # Check if any metrics use merge_multiple_curves
     uses_merge_multiple_curves = False
@@ -210,10 +236,10 @@ def summarize_ax_optimization_complexity(
         uses_global_stopping=uses_global_stopping,
         uses_merge_multiple_curves=uses_merge_multiple_curves,
         uses_standard_api=uses_standard_api,
-        tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
-        max_pending_trials=options.max_pending_trials,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
+        max_pending_trials=max_pending_trials,
         min_failed_trials_for_failure_rate_check=(
-            options.min_failed_trials_for_failure_rate_check
+            min_failed_trials_for_failure_rate_check
         ),
     )
 
