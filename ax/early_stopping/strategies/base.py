@@ -213,7 +213,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             0.11 estimated savings indicates we would expect the experiment to have used
             11% more resources without early stopping present)
         """
-        if not isinstance(experiment.lookup_data(), MapData):
+        if not experiment.lookup_data().has_step_column:
             return 0.0
 
         return estimate_early_stopping_savings(experiment=experiment)
@@ -240,11 +240,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 )
                 return None
 
-        if not isinstance(data, MapData):
+        if not data.has_step_column:
             logger.info(
-                f"{self.__class__.__name__} expects MapData, but the "
-                f"data attached to experiment is of type {type(data)}. "
-                "Not stopping any trials."
+                f"{self.__class__.__name__} expects the data attached to the "
+                "to have a column 'step', but it does not. Not stopping any "
+                "trials."
             )
             return None
 

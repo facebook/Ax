@@ -14,7 +14,6 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.utils import validate_experiment
 from ax.core.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -87,7 +86,7 @@ class Summary(Analysis):
         should_relativize = (
             len(experiment.metrics) > 0
             and experiment.status_quo is not None
-            and not isinstance(data, MapData)
+            and not data.has_step_column
         )
 
         return self._create_analysis_card(
