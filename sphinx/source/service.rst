@@ -83,15 +83,6 @@ Reporting
     :show-inheritance:
 
 
-WithDBSettingsBase
-~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.service.utils.with_db_settings_base
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 EarlyStopping
 ~~~~~~~~~~~~~
 

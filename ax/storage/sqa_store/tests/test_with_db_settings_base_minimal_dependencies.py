@@ -13,4 +13,6 @@ from ax.utils.common.testutils import TestCase
 class TestWithDbSetingsBaseMinimalDependencies(TestCase):
     @patch.dict("sys.modules", {"sqlalchemy": None})
     def test_with_db_settings_base_no_sql_alchemy(self) -> None:
-        from ax.service.utils.with_db_settings_base import WithDBSettingsBase  # noqa
+        from ax.storage.sqa_store.with_db_settings_base import (  # noqa
+            WithDBSettingsBase,
+        )
