@@ -137,6 +137,14 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.experiment_type, None)
         self.assertEqual(self.experiment.num_abandoned_arms, 0)
 
+        with self.assertWarnsRegex(
+            DeprecationWarning, "default_data_type is deprecated"
+        ):
+            Experiment(
+                search_space=self.experiment.search_space,
+                default_data_type="foo",
+            )
+
     def test_ExperimentName(self) -> None:
         self.assertTrue(self.experiment.has_name)
         self.experiment.name = None
