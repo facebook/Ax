@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import final
+from typing import Any, final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
@@ -14,6 +14,7 @@ from ax.analysis.healthcheck.baseline_improvement import BaselineImprovementAnal
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
+from ax.analysis.healthcheck.complexity_rating import ComplexityRatingAnalysis
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
@@ -33,8 +34,10 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.trial_status import TrialStatus
+from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from pyre_extensions import override
 
 
@@ -87,6 +90,7 @@ class OverviewAnalysis(Analysis):
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
+                * ComplexityRatingAnalysis
             * Trial-Level Analyses
                 * Trial 0
                     * ArmEffectsPlot
@@ -100,6 +104,12 @@ class OverviewAnalysis(Analysis):
         can_generate_days_till_fail: int | None = None,
         should_generate: bool | None = None,
         should_generate_reason: str | None = None,
+        early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+        global_stopping_strategy: BaseGlobalStoppingStrategy | None = None,
+        tolerated_trial_failure_rate: float | None = None,
+        max_pending_trials: int | None = None,
+        min_failed_trials_for_failure_rate_check: int | None = None,
+        tier_metadata: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -107,6 +117,14 @@ class OverviewAnalysis(Analysis):
         self.can_generate_days_till_fail = can_generate_days_till_fail
         self.should_generate = should_generate
         self.should_generate_reason = should_generate_reason
+        self.early_stopping_strategy = early_stopping_strategy
+        self.global_stopping_strategy = global_stopping_strategy
+        self.tolerated_trial_failure_rate = tolerated_trial_failure_rate
+        self.max_pending_trials = max_pending_trials
+        self.min_failed_trials_for_failure_rate_check = (
+            min_failed_trials_for_failure_rate_check
+        )
+        self.tier_metadata = tier_metadata
 
     @override
     def validate_applicable_state(
@@ -183,6 +201,16 @@ class OverviewAnalysis(Analysis):
             and self.can_generate_reason is not None
             and self.can_generate_days_till_fail is not None
             else None,
+            ComplexityRatingAnalysis(
+                tier_metadata=self.tier_metadata,
+                early_stopping_strategy=self.early_stopping_strategy,
+                global_stopping_strategy=self.global_stopping_strategy,
+                tolerated_trial_failure_rate=self.tolerated_trial_failure_rate,
+                max_pending_trials=self.max_pending_trials,
+                min_failed_trials_for_failure_rate_check=(
+                    self.min_failed_trials_for_failure_rate_check
+                ),
+            ),
             ConstraintsFeasibilityAnalysis(),
             PredictableMetricsAnalysis(),
             BaselineImprovementAnalysis() if not has_batch_trials else None,
