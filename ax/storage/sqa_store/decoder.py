@@ -77,6 +77,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import are_relationships_loaded
 from ax.storage.utils import (
     combine_datas_on_data_by_trial,
+    data_by_trial_to_data,
     DomainType,
     EXPECT_RELATIVIZED_OUTCOMES,
     MetricIntent,
@@ -366,6 +367,7 @@ class Decoder:
             data_by_trial[trial_index][timestamp] = self.data_from_sqa(
                 data_sqa=data_sqa
             )
+        # TODO: simplify this logic
         data_by_trial = combine_datas_on_data_by_trial(data_by_trial=data_by_trial)
 
         trial_type_to_runner = {
@@ -389,7 +391,7 @@ class Decoder:
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
-        experiment._data_by_trial = dict(data_by_trial)
+        experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
         # `_trial_type_to_runner` is set in _init_mt_experiment_from_sqa
         if subclass != "MultiTypeExperiment":
             experiment._trial_type_to_runner = cast(

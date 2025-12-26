@@ -10,9 +10,13 @@ import enum
 from collections import OrderedDict
 from collections.abc import Mapping
 from hashlib import md5
+from typing import TypeVar
 
 from ax.core.data import combine_dfs_favoring_recent, Data, MAP_KEY
-from ax.core.map_data import MapData
+
+from ax.core.map_data import combine_datas_infer_type, MapData
+
+TData = TypeVar(name="TData", bound=Data)
 
 
 class DomainType(enum.Enum):
@@ -72,6 +76,22 @@ def stable_hash(s: str) -> int:
     return int(md5(s.encode("utf-8")).hexdigest(), 16)
 
 
+def data_to_data_by_trial(data: TData) -> dict[int, OrderedDict[int, TData]]:
+    """
+    Convert data to legacy {trial_index: {timestamp: Data}} format.
+
+    There is no longer timestamp info, so timestamps are set to 0.
+    """
+    data_cls = type(data)
+    if len(data.full_df) == 0:
+        return {}
+    return {
+        trial_index: OrderedDict([(0, data_cls(df=df))])
+        for trial_index, df in data.full_df.groupby("trial_index")
+    }
+
+
+# TODO: reevaluate use of this function after cleaning up sqa_store
 def combine_datas_on_data_by_trial(
     data_by_trial: Mapping[int, dict[int, Data]],
 ) -> dict[int, OrderedDict[int, Data]]:
@@ -98,3 +118,14 @@ def combine_datas_on_data_by_trial(
         data_cls = MapData if MAP_KEY in df.columns else Data
         combined_data_by_trial[trial_index] = OrderedDict([(0, data_cls(df=df))])
     return combined_data_by_trial
+
+
+def data_by_trial_to_data(data_by_trial: Mapping[int, dict[int, Data]]) -> Data:
+    """
+    Convert data from legacy {trial_index: {timestamp: Data}} format to Data.
+    """
+    combined_datas_by_trial = combine_datas_on_data_by_trial(
+        data_by_trial=data_by_trial
+    )
+    datas = [d[0] for d in combined_datas_by_trial.values()]
+    return combine_datas_infer_type(data_list=datas)

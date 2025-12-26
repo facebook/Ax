@@ -1049,10 +1049,15 @@ class Encoder:
         ):
             return []
 
+        data = experiment.data
+        data_cls = type(data)
         return [
-            self.data_to_sqa(data=data, trial_index=trial_index, timestamp=timestamp)
-            for trial_index, data_by_timestamp in experiment._data_by_trial.items()
-            for timestamp, data in data_by_timestamp.items()
+            self.data_to_sqa(
+                data=data_cls(df=df),
+                trial_index=trial_index,
+                timestamp=0,
+            )
+            for trial_index, df in data.full_df.groupby("trial_index")
         ]
 
     def data_to_sqa(
