@@ -138,8 +138,14 @@ class ComplexityRatingAnalysis(Analysis):
         options = none_throws(self.options)
         optimization_summary = summarize_ax_optimization_complexity(
             experiment=experiment,
-            options=options,
             tier_metadata=self.tier_metadata,
+            early_stopping_strategy=options.early_stopping_strategy,
+            global_stopping_strategy=options.global_stopping_strategy,
+            tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
+            max_pending_trials=options.max_pending_trials,
+            min_failed_trials_for_failure_rate_check=(
+                options.min_failed_trials_for_failure_rate_check
+            ),
         )
 
         # Determine tier
