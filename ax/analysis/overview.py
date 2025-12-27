@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import final
+from typing import Any, final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
@@ -14,6 +14,7 @@ from ax.analysis.healthcheck.baseline_improvement import BaselineImprovementAnal
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
+from ax.analysis.healthcheck.complexity_rating import ComplexityRatingAnalysis
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
@@ -35,6 +36,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.service.orchestrator import OrchestratorOptions
 from pyre_extensions import override
 
 
@@ -87,6 +89,7 @@ class OverviewAnalysis(Analysis):
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
+                * ComplexityRatingAnalysis
             * Trial-Level Analyses
                 * Trial 0
                     * ArmEffectsPlot
@@ -100,6 +103,8 @@ class OverviewAnalysis(Analysis):
         can_generate_days_till_fail: int | None = None,
         should_generate: bool | None = None,
         should_generate_reason: str | None = None,
+        options: OrchestratorOptions | None = None,
+        tier_metadata: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -107,6 +112,8 @@ class OverviewAnalysis(Analysis):
         self.can_generate_days_till_fail = can_generate_days_till_fail
         self.should_generate = should_generate
         self.should_generate_reason = should_generate_reason
+        self.options = options
+        self.tier_metadata = tier_metadata
 
     @override
     def validate_applicable_state(
@@ -182,6 +189,12 @@ class OverviewAnalysis(Analysis):
             if self.can_generate is not None
             and self.can_generate_reason is not None
             and self.can_generate_days_till_fail is not None
+            else None,
+            ComplexityRatingAnalysis(
+                options=self.options,
+                tier_metadata=self.tier_metadata,
+            )
+            if self.options is not None
             else None,
             ConstraintsFeasibilityAnalysis(),
             PredictableMetricsAnalysis(),
