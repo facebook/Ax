@@ -909,7 +909,7 @@ class TestBenchmark(TestCase):
         # Each replication will have a different number of trials
 
         start = monotonic()
-        with self.assertLogs("ax.service.orchestrator", level="ERROR") as cm:
+        with self.assertLogs("ax.orchestration.orchestrator", level="ERROR") as cm:
             result = benchmark_one_method_problem(
                 problem=problem,
                 method=method,
