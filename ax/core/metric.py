@@ -20,7 +20,7 @@ from logging import Logger
 from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data
-from ax.core.map_data import combine_datas_infer_type, MapData
+from ax.core.map_data import combine_datas_infer_type
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
@@ -91,12 +91,12 @@ class Metric(SortableBase, SerializationMixin):
         properties: Properties specific to a particular metric.
     """
 
-    data_constructor: type[Data] = Data
     # The set of exception types stored in a ``MetchFetchE.exception`` that are
     # recoverable ``orchestrator._fetch_and_process_trials_data_results()``.
     # Exception may be a subclass of any of these types.  If you want your metric
     # to never fail the trial, set this to ``{Exception}`` in your metric subclass.
     recoverable_exceptions: set[type[Exception]] = set()
+    has_map_data: bool = False
 
     def __init__(
         self,
@@ -415,10 +415,6 @@ class Metric(SortableBase, SerializationMixin):
         return results, contains_new_data
 
     @property
-    def has_map_data(self) -> bool:
-        return issubclass(self.data_constructor, MapData)
-
-    @property
     def _unique_id(self) -> str:
         return str(self)
 
@@ -504,10 +500,6 @@ class Metric(SortableBase, SerializationMixin):
 
     @classmethod
     def _unwrap_experiment_data(cls, results: Mapping[int, MetricFetchResult]) -> Data:
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some MetricFetchResults contain Data not of type
-        # `cls.data_constructor`
-
         oks: list[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
