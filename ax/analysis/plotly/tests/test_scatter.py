@@ -142,6 +142,26 @@ class TestScatterPlot(TestCase):
         self.assertTrue(card.df["foo_sem"].isna().all())
         self.assertTrue(card.df["bar_sem"].isna().all())
 
+    def test_show_pareto_frontier(self) -> None:
+        analysis = ScatterPlot(
+            x_metric_name="foo",
+            y_metric_name="bar",
+            show_pareto_frontier=True,
+            use_model_predictions=False,
+        )
+        card = analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+        fig_data = json.loads(none_throws(card.blob))
+        pareto_traces = [
+            trace
+            for trace in fig_data.get("data", [])
+            if trace.get("name") == "Pareto Frontier"
+        ]
+        self.assertEqual(len(pareto_traces), 1)
+        self.assertTrue(pareto_traces[0].get("showlegend"))
+
     def test_compute_with_modeled(self) -> None:
         default_analysis = ScatterPlot(
             x_metric_name="foo", y_metric_name="bar", use_model_predictions=True
