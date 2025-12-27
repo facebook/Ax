@@ -75,11 +75,18 @@ class OverviewAnalysis(Analysis):
                 * Modeled ScatterPlots for objectives versus objectives and objectives
                     versus constraints
                 * ParallelCoordinatesPlot for objectives
+                * BanditRollout
+                * UtilityProgressionAnalysis
+                * ProgressionPlots
+                * BestTrials
                 * Summary
             * Insights
                 * Sensitivity Plots
                 * Slice Plots
                 * Contour Plots
+                * OutcomeConstraintsAnalysis
+                * MarginalEffectsPlot
+                * TopSurfacesAnalysis
             * Diagnostic
                 * CrossValidationPlots
             * Health Checks
@@ -90,6 +97,8 @@ class OverviewAnalysis(Analysis):
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
                 * ComplexityRatingAnalysis
+                * PredictableMetricsAnalysis
+                * BaselineImprovementAnalysis
             * Trial-Level Analyses
                 * Trial 0
                     * ArmEffectsPlot
