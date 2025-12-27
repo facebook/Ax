@@ -27,18 +27,6 @@ from ax.utils.common.complexity_utils import (
 )
 from pyre_extensions import none_throws, override
 
-# TODO: Enable ComplexityRatingAnalysis in OverviewAnalysis. Currently, this
-# analysis depends on OrchestratorOptions to evaluate early stopping, global
-# stopping, and other orchestrator-level settings. To enable it in
-# OverviewAnalysis, we need to either:
-# 1. Extract the relevant settings from OrchestratorOptions into a smaller,
-#     analysis-specific data structure that can be passed independently, OR
-# 2. Modify summarize_ax_optimization_complexity to make the options parameter
-#     optional and handle missing orchestrator settings gracefully (e.g., skip
-#     those checks or use defaults).
-# For now, this analysis can be used directly other
-# orchestrator-aware callers that have access to OrchestratorOptions.
-
 
 @final
 class ComplexityRatingAnalysis(Analysis):
@@ -98,11 +86,6 @@ class ComplexityRatingAnalysis(Analysis):
     ) -> str | None:
         if experiment is None:
             return "Experiment is required for ComplexityRatingAnalysis."
-        if self.options is None:
-            return (
-                "OrchestratorOptions is required for ComplexityRatingAnalysis. "
-                "Please pass options to the constructor."
-            )
         return None
 
     @override
@@ -135,7 +118,7 @@ class ComplexityRatingAnalysis(Analysis):
             with key experiment metrics.
         """
         experiment = none_throws(experiment)
-        options = none_throws(self.options)
+        options = self.options if self.options is not None else OrchestratorOptions()
         optimization_summary = summarize_ax_optimization_complexity(
             experiment=experiment,
             options=options,

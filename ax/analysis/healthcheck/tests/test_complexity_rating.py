@@ -43,14 +43,6 @@ class TestComplexityRatingAnalysis(TestCase):
         self.assertIsNotNone(result)
         self.assertIn("Experiment is required", result)
 
-    def test_validate_applicable_state_requires_options(self) -> None:
-        healthcheck = ComplexityRatingAnalysis(
-            options=None, tier_metadata=self.tier_metadata
-        )
-        result = healthcheck.validate_applicable_state(experiment=self.experiment)
-        self.assertIsNotNone(result)
-        self.assertIn("OrchestratorOptions is required", result)
-
     def test_validate_applicable_state_passes_with_valid_inputs(self) -> None:
         healthcheck = ComplexityRatingAnalysis(
             options=self.options, tier_metadata=self.tier_metadata
@@ -330,3 +322,10 @@ class TestComplexityRatingAnalysis(TestCase):
 
         tier_row = df[df["Metric"] == "Optimization Complexity Rating"]
         self.assertEqual(tier_row.iloc[0]["Value"], "Standard")
+
+    def test_compute_with_options_none(self) -> None:
+        """Test that compute() works when options is None."""
+        card = ComplexityRatingAnalysis(options=None).compute(
+            experiment=self.experiment
+        )
+        self.assertIsNotNone(card)
