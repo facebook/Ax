@@ -283,9 +283,9 @@ class ResultsAnalysis(Analysis):
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,
-                    best_trials_card,
                     utility_progression_card,
                     progression_group,
+                    best_trials_card,
                     summary,
                 )
                 if child is not None
