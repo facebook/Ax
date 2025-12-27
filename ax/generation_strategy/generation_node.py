@@ -13,17 +13,12 @@ from collections.abc import Sequence
 from logging import Logger
 from typing import Any, cast, TYPE_CHECKING, Union
 
-# TODO[@mgarrard, @drfreund]: Remove this when we streamline `apply_input_
-# constructors`, such that they no longer need to access individual
-# input constructor purposes.
-import ax.generation_strategy as gs_module  # @manual
-
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import AxError, UserInputError
+from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.exceptions.model import ModelError
 from ax.generation_strategy.best_model_selector import BestModelSelector
@@ -34,6 +29,9 @@ if TYPE_CHECKING:
         NodeInputConstructors,
     )
     from ax.generation_strategy.generation_strategy import GenerationStrategy
+
+    TInputConstructorsByPurpose = dict[InputConstructorPurpose, NodeInputConstructors]
+
 
 from ax.adapter.base import Adapter
 from ax.adapter.registry import (
@@ -54,7 +52,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
 from pyre_extensions import none_throws
-
 
 logger: Logger = get_logger(__name__)
 
@@ -132,10 +129,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     _generator_spec_to_gen_from: GeneratorSpec | None = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Sequence[TransitionCriterion]
-    _input_constructors: dict[
-        InputConstructorPurpose,
-        NodeInputConstructors,
-    ]
+    _input_constructors: TInputConstructorsByPurpose
     _previous_node_name: str | None = None
     _trial_type: str | None = None
     _should_skip: bool = False
@@ -152,13 +146,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
-        input_constructors: None
-        | (
-            dict[
-                InputConstructorPurpose,
-                NodeInputConstructors,
-            ]
-        ) = None,
+        input_constructors: TInputConstructorsByPurpose | None = None,
         previous_node_name: str | None = None,
         trial_type: str | None = None,
         should_skip: bool = False,
@@ -251,12 +239,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         return [] if self._transition_criteria is None else self._transition_criteria
 
     @property
-    def input_constructors(
-        self,
-    ) -> dict[
-        InputConstructorPurpose,
-        NodeInputConstructors,
-    ]:
+    def input_constructors(self) -> TInputConstructorsByPurpose:
         """Returns the input constructors that will be used to determine any dynamic
         inputs to this ``GenerationNode``.
         """
@@ -275,9 +258,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         # TODO: @mgarrard make this logic more robust and general
         # We won't mark a node completed if it has an AutoTransitionAfterGen criterion
         # as this is typically used in cyclic generation strategies
-        return self.should_transition_to_next_node(raise_data_required_error=False)[
-            0
-        ] and not any(
+        transition, _ = self.should_transition_to_next_node(
+            raise_data_required_error=False
+        )
+        return transition and not any(
             isinstance(tc, AutoTransitionAfterGen) for tc in self.transition_criteria
         )
 
@@ -387,6 +371,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         pending_observations: dict[str, list[ObservationFeatures]] | None,
         skip_fit: bool = False,
         data: Data | None = None,
+        n: int | None = None,
+        arms_per_node: dict[str, int] | None = None,
         **gs_gen_kwargs: Any,
     ) -> GeneratorRun | None:
         """This method generates candidates using `self._gen` and handles deduplication
@@ -402,15 +388,22 @@ class GenerationNode(SerializationMixin, SortableBase):
 
         Args:
             experiment: The experiment to generate candidates for.
-            data: Optional override for the experiment data used to generate candidates;
-                if not specified, will use ``experiment.lookup_data()`` (extracted in
-                ``Adapter``).
             pending_observations: A map from metric signature to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            generator_gen_kwargs: Keyword arguments, passed through to
-                ``ModelSpec.gen``; these override any pre-specified in
-                ``ModelSpec.generator_gen_kwargs``. Often will contain ``n``.
+            skip_fit: If this node was recently fit, we skip re-fitting to save time.
+                Usually this decision is made within `GenerationStrategy.gen` and should
+                typically not be specified outside that context.
+            data: Optional override for the experiment data used to generate candidates;
+                if not specified, will use ``experiment.lookup_data()`` (extracted in
+                ``Adapter``).
+            arms_per_node: A manual override for users interacting with a gen. strategy
+                via a Python API; a mapping from node name to the specific number of
+                arms it should produce. Passed down here by `GenerationStrategy.gen`.
+            gs_gen_kwargs: Keyword arguments, passed to ``GenerationStrategy.gen``.
+                These might be modified by this node's input constructors, before
+                being passed down to ``ModelSpec.gen``, where these will override any
+                inputs, pre-specified in ``ModelSpec.generator_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates or ``None``
@@ -419,10 +412,18 @@ class GenerationNode(SerializationMixin, SortableBase):
             that it should generate 0 candidate arms given the current experiment
             state and user inputs).
         """
-        # TODO: Consider returning "should skip" from apply input constructors
-        input_constructor_values = self.apply_input_constructors(
-            experiment=experiment,
-            gen_kwargs=gs_gen_kwargs,
+        # Step 1: Compute all inputs: take the inputs passed to `GenerationStrategy.gen`
+        # and overlay outputs of the input constructors on top of them
+        # (since sometimes an input constructor takes an input to `GS.gen`
+        # function and modifies it before the result is ready to be passed to the
+        # underlying generator of a specific `GenerationNode`).
+        generator_gen_kwargs = {"n": n, **gs_gen_kwargs}
+        # TODO: Consider returning `should_skip` from `apply_input_constructors`.
+        generator_gen_kwargs.update(
+            self.apply_input_constructors(
+                experiment=experiment,
+                gen_kwargs=generator_gen_kwargs,
+            )
         )
         # If during input constructor application we determined that we should skip
         # this node, return early.
@@ -430,10 +431,28 @@ class GenerationNode(SerializationMixin, SortableBase):
             logger.debug(f"Skipping generation for node {self.name}.")
             return None
 
+        if arms_per_node:
+            if self.name not in arms_per_node:
+                raise UnsupportedError(
+                    "If manually specifying arms per node, all nodes must be specified."
+                )
+            generator_gen_kwargs["n"] = arms_per_node[self.name]
+
+        # TODO[drfreund]: Move this to `Adapter` or another more suitable place.
+        # Keeping here for now to limit the scope of the current changeset.
+        generator_gen_kwargs["fixed_features"] = (
+            experiment.search_space.get_disabled_parameter_fixed_features(
+                fixed_features_to_overlay_on=generator_gen_kwargs.get(
+                    "fixed_features", None
+                )
+            )
+        )
+
+        # Step 2: Fit this node's underlying adapter and generator.
         if not skip_fit:
             self._fit(experiment=experiment, data=data)
-        generator_gen_kwargs = gs_gen_kwargs.copy()
-        generator_gen_kwargs.update(input_constructor_values)
+
+        # Step 3: Generate from the underlying adapter and generator, with fallback.
         try:
             # Generate from the main generator on this node. If deduplicating,
             # keep generating until each of `generator_run.arms` is not a
@@ -455,7 +474,8 @@ class GenerationNode(SerializationMixin, SortableBase):
             )
 
         gr._generation_node_name = self.name
-        # TODO: @mgarrard determine a more refined way to indicate trial type
+        # TODO: When we start using `trial_type` more commonly, give it a dedicated
+        # field on the `GeneratorRun` (or start creating trials from GS directly).
         if self._trial_type is not None:
             gen_metadata = gr.gen_metadata if gr.gen_metadata is not None else {}
             gen_metadata["trial_type"] = self._trial_type
@@ -502,7 +522,12 @@ class GenerationNode(SerializationMixin, SortableBase):
         return generator_spec.gen(
             experiment=experiment,
             data=data,
-            n=n,
+            # `n` cannot be `None` after this point. If it is, the adapter will not
+            # know how many arms to generate. This is the lowest common ancestor
+            # of all `gen`-s in GS and GN, so we apply the default here.
+            # TODO[drfreund, mgarrard]: Ensure n is non-Null earlier, by grabbing it
+            # from experiment design higher up in the stack.
+            n=n or 1,
             # For `pending_observations`, prefer the input to this function, as
             # `pending_observations` are dynamic throughout the experiment and thus
             # unlikely to be specified in `generator_spec.generator_gen_kwargs`.
@@ -513,7 +538,6 @@ class GenerationNode(SerializationMixin, SortableBase):
     def _gen_maybe_deduplicate(
         self,
         experiment: Experiment,
-        n: int | None,
         pending_observations: dict[str, list[ObservationFeatures]] | None,
         data: Data | None,
         **generator_gen_kwargs: Any,
@@ -534,7 +558,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             gr = self._gen(
                 experiment=experiment,
                 data=data,
-                n=n,
                 pending_observations=pending_observations,
                 **generator_gen_kwargs,
             )
@@ -554,7 +577,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         self,
         exception: Exception,
         experiment: Experiment,
-        n: int | None,
         data: Data | None,
         pending_observations: dict[str, list[ObservationFeatures]] | None,
         **generator_gen_kwargs: Any,
@@ -589,7 +611,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         gr = self._gen(
             experiment=experiment,
             data=data,
-            n=n,
             pending_observations=pending_observations,
             **generator_gen_kwargs,
         )
@@ -865,127 +886,14 @@ class GenerationNode(SerializationMixin, SortableBase):
         # or allow `Any` for the value type, but until we have more different types
         # of input constructors, this provides a bit of additional type checking.
         return {
-            "n": self._determine_arms_from_node(
-                experiment=experiment,
-                gen_kwargs=gen_kwargs,
-            ),
-            "fixed_features": self._determine_fixed_features_from_node(
-                experiment=experiment,
-                gen_kwargs=gen_kwargs,
-            ),
-        }
-
-    def _determine_arms_from_node(
-        self,
-        experiment: Experiment,
-        gen_kwargs: dict[str, Any],
-    ) -> int:
-        """Calculates the number of arms to generate from the node that will be used
-        during generation.
-
-        Args:
-            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
-                gen call, including arms_per_node: an optional map from node name to
-                the number of arms to generate from that node. If not provided, will
-                default to the number of arms specified in the node's
-                ``InputConstructors`` or n if no``InputConstructors`` are defined on
-                the node.
-
-        Returns:
-            The number of arms to generate from the node that will be used during this
-            generation via ``_gen_multiple``.
-        """
-        arms_per_node = gen_kwargs.get("arms_per_node")
-        purpose_N = (
-            gs_module.generation_node_input_constructors.InputConstructorPurpose.N
-        )
-        if arms_per_node is not None:
-            # arms_per_node provides a way to manually override input
-            # constructors. This should be used with caution, and only
-            # if you really know what you're doing. :)
-            arms_from_node = arms_per_node[self.name]
-        elif purpose_N not in self.input_constructors:
-            # if the node does not have an input constructor for N, we first
-            # use the n passed to method if it exists, then check if the model gen
-            # kwargs define an n, then fallback to default values of n
-            arms_from_node = gen_kwargs.get("n")
-            if arms_from_node is None and self.generator_spec_to_gen_from is not None:
-                arms_from_node = (
-                    self.generator_spec_to_gen_from.generator_gen_kwargs.get("n", None)
-                )
-            if arms_from_node is None:
-                # TODO[@mgarrard, @drfreund]: We can remove this check if we
-                # decide that generation nodes can only be used within a
-                # generation strategy; then we will need to refactor some tests.
-                if self._generation_strategy is not None:
-                    arms_from_node = self._generation_strategy.DEFAULT_N
-                else:
-                    arms_from_node = 1
-        else:
-            arms_from_node = self.input_constructors[purpose_N](
+            purpose.value: self.input_constructors[purpose](
                 previous_node=self.previous_node,
                 next_node=self,
                 gs_gen_call_kwargs=gen_kwargs,
                 experiment=experiment,
             )
-
-        return arms_from_node
-
-    def _determine_fixed_features_from_node(
-        self,
-        experiment: Experiment,
-        gen_kwargs: dict[str, Any],
-    ) -> ObservationFeatures | None:
-        """Uses the ``InputConstructors`` on the node to determine the fixed features
-        to pass into the model. If fixed_features are provided, they will take
-        precedence over the fixed_features from the node.
-
-        Args:
-            node_to_gen_from: The node from which to generate from
-            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
-                gen call, including the fixed features passed to the ``gen`` method if
-                any.
-
-        Returns:
-            An object of ObservationFeatures that represents the fixed features to
-            pass into the model.
-        """
-        node_fixed_features = None
-        # passed_fixed_features represents the fixed features that were passed by the
-        # user to the gen method as overrides.
-        passed_fixed_features = gen_kwargs.get("fixed_features")
-        if passed_fixed_features is not None:
-            node_fixed_features = passed_fixed_features
-        else:
-            input_constructors_module = gs_module.generation_node_input_constructors
-            purpose_fixed_features = (
-                input_constructors_module.InputConstructorPurpose.FIXED_FEATURES
-            )
-            if purpose_fixed_features in self.input_constructors:
-                node_fixed_features = self.input_constructors[purpose_fixed_features](
-                    previous_node=self.previous_node,
-                    next_node=self,
-                    gs_gen_call_kwargs=gen_kwargs,
-                    experiment=experiment,
-                )
-        # also pass default parameter values as fixed features for disabled parameters
-        disabled_parameters_parameterization = {
-            name: parameter.default_value
-            for name, parameter in experiment.search_space.parameters.items()
-            if parameter.is_disabled
+            for purpose in self.input_constructors
         }
-        if len(disabled_parameters_parameterization) == 0:
-            return node_fixed_features
-
-        if node_fixed_features is None:
-            return ObservationFeatures(parameters=disabled_parameters_parameterization)
-
-        return node_fixed_features.clone(
-            replace_parameters={
-                **disabled_parameters_parameterization,
-                **node_fixed_features.parameters,
-            }
-        )
 
 
 class GenerationStep(GenerationNode, SortableBase):
@@ -1202,18 +1110,20 @@ class GenerationStep(GenerationNode, SortableBase):
         self,
         *,
         experiment: Experiment,
-        n: int | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None,
         skip_fit: bool = False,
         data: Data | None = None,
+        n: int | None = None,
+        arms_per_node: dict[str, int] | None = None,
         **gs_gen_kwargs: Any,
     ) -> GeneratorRun | None:
         gr = super().gen(
             experiment=experiment,
-            n=n,
             pending_observations=pending_observations,
-            data=data,
             skip_fit=skip_fit,
+            data=data,
+            n=n,
+            arms_per_node=arms_per_node,
             **gs_gen_kwargs,
         )
         if gr is None:

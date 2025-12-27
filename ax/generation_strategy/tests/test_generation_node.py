@@ -351,27 +351,53 @@ class TestGenerationNode(TestCase):
         )
 
     def test_disabled_parameters(self) -> None:
-        input_constructors = self.sobol_generation_node.apply_input_constructors(
-            experiment=self.branin_experiment, gen_kwargs={}
-        )
-        self.assertIsNone(input_constructors["fixed_features"])
-        # Disable parameter
+        """Test that disabled parameters are correctly passed as fixed_features
+        to _gen.
+        """
+        # First, test with no disabled parameters - fixed_features should be None
+        with patch.object(GenerationNode, "_gen", autospec=True) as mock_gen:
+            mock_gen.return_value = MagicMock()
+            mock_gen.return_value._generation_node_name = None
+            mock_gs = MagicMock()
+            mock_gs.experiment = self.branin_experiment
+            self.sobol_generation_node._generation_strategy = mock_gs
+            self.sobol_generation_node.gen(
+                experiment=self.branin_experiment,
+                pending_observations={},
+            )
+            # With no disabled parameters, fixed_features should not be in kwargs
+            # or should be None
+            call_kwargs = mock_gen.call_args.kwargs
+            self.assertIsNone(call_kwargs.get("fixed_features"))
+
+        # Disable parameter and test again
         self.branin_experiment.disable_parameters_in_search_space({"x1": 1.2345})
-        input_constructors = self.sobol_generation_node.apply_input_constructors(
-            experiment=self.branin_experiment, gen_kwargs={}
-        )
-        expected_fixed_features = ObservationFeatures(parameters={"x1": 1.2345})
-        self.assertEqual(input_constructors["fixed_features"], expected_fixed_features)
-        # Test fixed features override
-        input_constructors = self.sobol_generation_node.apply_input_constructors(
-            experiment=self.branin_experiment,
-            gen_kwargs={
-                "fixed_features": ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0})
-            },
-        )
-        # The passed fixed feature overrides the disabled parameter default value
-        expected_fixed_features = ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0})
-        self.assertEqual(input_constructors["fixed_features"], expected_fixed_features)
+        with patch.object(GenerationNode, "_gen", autospec=True) as mock_gen:
+            mock_gen.return_value = MagicMock()
+            mock_gen.return_value._generation_node_name = None
+            self.sobol_generation_node.gen(
+                experiment=self.branin_experiment,
+                pending_observations={},
+            )
+            call_kwargs = mock_gen.call_args.kwargs
+            expected_fixed_features = ObservationFeatures(parameters={"x1": 1.2345})
+            self.assertEqual(call_kwargs.get("fixed_features"), expected_fixed_features)
+
+        # Test fixed features override - passed fixed_features should take precedence
+        with patch.object(GenerationNode, "_gen", autospec=True) as mock_gen:
+            mock_gen.return_value = MagicMock()
+            mock_gen.return_value._generation_node_name = None
+            self.sobol_generation_node.gen(
+                experiment=self.branin_experiment,
+                pending_observations={},
+                fixed_features=ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0}),
+            )
+            call_kwargs = mock_gen.call_args.kwargs
+            # The passed fixed feature overrides the disabled parameter default value
+            expected_fixed_features = ObservationFeatures(
+                parameters={"x1": 0.0, "x2": 0.0}
+            )
+            self.assertEqual(call_kwargs.get("fixed_features"), expected_fixed_features)
 
 
 class TestGenerationStep(TestCase):

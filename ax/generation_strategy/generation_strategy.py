@@ -84,8 +84,6 @@ class GenerationStrategy(Base):
             strategy's name will be names of its nodes' generators joined with '+'.
     """
 
-    DEFAULT_N: int = 1
-
     _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
     # All generator runs created through this generation strategy, in chronological
@@ -360,6 +358,8 @@ class GenerationStrategy(Base):
         """
         self.experiment = experiment
         grs_for_multiple_trials = []
+        # TODO: Extract `n` from `ExperimentDesign` -- ensure that `n` is always present
+        # as a result and fall back to `1` if it's not there in `ExperimentDesign`.
         pending_observations = (
             extract_pending_observations(experiment=experiment) or {}
             if pending_observations is None
@@ -652,6 +652,9 @@ class GenerationStrategy(Base):
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         data: Data | None = None,
         fixed_features: ObservationFeatures | None = None,
+        # TODO: Consider naming `arms_per_node` smtg like `arms_per_node_override`,
+        # to convey its manually-specified nature (if it's not specified, GS selects
+        # what to do on its own).
         arms_per_node: dict[str, int] | None = None,
         first_generation_in_multi: bool = True,
     ) -> list[GeneratorRun]:
@@ -707,9 +710,7 @@ class GenerationStrategy(Base):
         self._validate_arms_per_node(arms_per_node=arms_per_node)
         pack_gs_gen_kwargs = {
             "grs_this_gen": grs_this_gen,
-            "n": n,
             "fixed_features": fixed_features,
-            "arms_per_node": arms_per_node,
         }
 
         while continue_gen_for_trial:
@@ -731,6 +732,8 @@ class GenerationStrategy(Base):
                     data=data,
                     pending_observations=pending_observations,
                     skip_fit=not (first_generation_in_multi or transitioned),
+                    n=n,
+                    arms_per_node=arms_per_node,
                     **pack_gs_gen_kwargs,
                 )
             except DataRequiredError as err:
