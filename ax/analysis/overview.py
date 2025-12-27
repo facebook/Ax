@@ -182,7 +182,15 @@ class OverviewAnalysis(Analysis):
 
         health_check_analyses = [
             MetricFetchingErrorsAnalysis(),
-            EarlyStoppingAnalysis() if has_map_data and has_map_metrics else None,
+            (
+                EarlyStoppingAnalysis(
+                    early_stopping_strategy=(
+                        self.options.early_stopping_strategy if self.options else None
+                    ),
+                )
+                if has_map_data and has_map_metrics
+                else None
+            ),
             CanGenerateCandidatesAnalysis(
                 can_generate_candidates=self.can_generate,
                 reason=self.can_generate_reason,
