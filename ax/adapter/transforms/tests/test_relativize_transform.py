@@ -165,10 +165,7 @@ class RelativizeDataTest(TestCase):
                 none_throws(adapter.status_quo_data_by_trial)[0].means[0],
             )
             # test transform edge cases
-            observations = observations_from_data(
-                experiment=exp,
-                data=data,
-            )
+            observations = observations_from_data(experiment=exp, data=data)
             tf = relativize_cls(search_space=None, adapter=adapter)
             # making observation coming from trial_index not in adapter
             observations[0].features.trial_index = 999
@@ -340,10 +337,7 @@ class RelativizeDataTest(TestCase):
         experiment = get_branin_with_multi_task()
         data = experiment.fetch_data()
 
-        observations = observations_from_data(
-            experiment=experiment,
-            data=data,
-        )
+        observations = observations_from_data(experiment=experiment, data=data)
         relative_observations = observations_from_data(
             experiment=experiment,
             data=data.relativize(

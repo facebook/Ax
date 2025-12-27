@@ -125,10 +125,7 @@ def compute_regression_probabilities_single_trial(
         objective_weights=np.zeros(len(metric_names)), outcome_constraints=(A, b)
     )
 
-    observations = observations_from_data(
-        experiment=experiment,
-        data=target_data,
-    )
+    observations = observations_from_data(experiment=experiment, data=target_data)
 
     arm_names = [obs.arm_name for obs in observations]
 
