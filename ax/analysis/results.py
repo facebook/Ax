@@ -13,6 +13,11 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.best_trials import BestTrials
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
+from ax.analysis.plotly.progression import (
+    PROGRESSION_CARDGROUP_SUBTITLE,
+    PROGRESSION_CARDGROUP_TITLE,
+    ProgressionPlot,
+)
 from ax.analysis.plotly.scatter import (
     SCATTER_CARDGROUP_SUBTITLE,
     SCATTER_CARDGROUP_TITLE,
@@ -25,6 +30,8 @@ from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import is_bandit_experiment
@@ -240,6 +247,32 @@ class ResultsAnalysis(Analysis):
             adapter=adapter,
         )
 
+        # Compute progression plots for MapMetrics (learning curves)
+        progression_group = None
+        data = experiment.lookup_data()
+        has_map_data = isinstance(data, MapData)
+        metrics = experiment.metrics.values()
+        map_metrics = [m for m in metrics if isinstance(m, MapMetric)]
+        if has_map_data and len(map_metrics) > 0:
+            progression_cards = [
+                ProgressionPlot(
+                    metric_name=m.name, by_wallclock_time=by_wallclock_time
+                ).compute_or_error_card(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                    adapter=adapter,
+                )
+                for m in map_metrics
+                for by_wallclock_time in (False, True)
+            ]
+            if progression_cards:
+                progression_group = AnalysisCardGroup(
+                    name="ProgressionAnalysis",
+                    title=PROGRESSION_CARDGROUP_TITLE,
+                    subtitle=PROGRESSION_CARDGROUP_SUBTITLE,
+                    children=progression_cards,
+                )
+
         return self._create_analysis_card_group(
             title=RESULTS_CARDGROUP_TITLE,
             subtitle=RESULTS_CARDGROUP_SUBTITLE,
@@ -252,6 +285,7 @@ class ResultsAnalysis(Analysis):
                     bandit_rollout_card,
                     best_trials_card,
                     utility_progression_card,
+                    progression_group,
                     summary,
                 )
                 if child is not None
