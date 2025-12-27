@@ -71,10 +71,13 @@ class CenterGenerationNode(ExternalGenerationNode):
 
     def gen(
         self,
+        *,
         experiment: Experiment,
-        data: Data | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
         skip_fit: bool = False,
+        data: Data | None = None,
+        n: int | None = None,
+        arms_per_node: dict[str, int] | None = None,
         **gs_gen_kwargs: Any,
     ) -> GeneratorRun | None:
         """Generate candidates or skip if search space is exhausted.
@@ -102,9 +105,10 @@ class CenterGenerationNode(ExternalGenerationNode):
         # Otherwise, proceed with normal generation
         return super().gen(
             experiment=experiment,
-            data=data,
             pending_observations=pending_observations,
             skip_fit=skip_fit,
+            data=data,
+            arms_per_node=arms_per_node,
             **gs_gen_kwargs,
         )
 

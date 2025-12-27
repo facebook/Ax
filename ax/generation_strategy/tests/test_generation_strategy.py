@@ -33,6 +33,7 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
 )
 from ax.exceptions.core import (
+    AxError,
     DataRequiredError,
     SearchSpaceExhausted,
     UnsupportedError,
@@ -693,6 +694,60 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(sobol_generation_strategy._experiment)
         sobol_generation_strategy.gen_single_trial(exp)
         self.assertIsNotNone(sobol_generation_strategy._experiment)
+
+    def test_gen_single_trial_extracts_pending_observations(self) -> None:
+        """Test that gen_single_trial extracts pending_observations from the
+        experiment when none are passed in."""
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
+        )
+        # Create a trial and mark it as running so it becomes a pending observation.
+        trial = exp.new_trial(generator_run=gs.gen_single_trial(exp))
+        trial.mark_running(no_runner_required=True)
+
+        # Now call gen_single_trial without passing pending_observations.
+        # It should extract them from the experiment (the running trial's arms).
+        with mock_patch_method_original(
+            mock_path=f"{GeneratorSpec.__module__}.GeneratorSpec.gen",
+            original_method=GeneratorSpec.gen,
+        ) as gen_spec_gen_mock:
+            gs.gen_single_trial(exp)
+            # Check that pending_observations was passed to the underlying gen call.
+            pending_obs = gen_spec_gen_mock.call_args.kwargs.get("pending_observations")
+            self.assertIsNotNone(pending_obs)
+            # The pending observations should contain the arm from the running trial.
+            expected_obs_feat = ObservationFeatures.from_arm(
+                arm=none_throws(trial.arm), trial_index=trial.index
+            )
+            for metric_name in exp.metrics:
+                self.assertIn(metric_name, pending_obs)
+                self.assertIn(expected_obs_feat, pending_obs[metric_name])
+
+    def test_gen_single_trial_raises_error_for_multiple_trials(self) -> None:
+        """Test that gen_single_trial raises AxError if gen returns multiple trials."""
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
+        )
+        gr = gs.gen_single_trial(exp)
+        # Mock gen to return multiple trials
+        with patch.object(gs, "gen", return_value=[[gr], [gr]]):
+            with self.assertRaisesRegex(AxError, "single `Trial`"):
+                gs.gen_single_trial(exp)
+
+    def test_gen_single_trial_raises_error_for_multiple_generator_runs(self) -> None:
+        """Test that gen_single_trial raises AxError if gen returns multiple
+        GeneratorRuns for a single trial."""
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
+        )
+        gr = gs.gen_single_trial(exp)
+        # Mock gen to return a single trial with multiple GeneratorRuns
+        with patch.object(gs, "gen", return_value=[[gr, gr]]):
+            with self.assertRaisesRegex(AxError, "only one `GeneratorRun`"):
+                gs.gen_single_trial(exp)
 
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()

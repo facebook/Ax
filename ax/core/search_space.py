@@ -879,6 +879,43 @@ class SearchSpace(Base):
                 )
         return obs_feats
 
+    def get_disabled_parameter_fixed_features(
+        self,
+        fixed_features_to_overlay_on: core.observation.ObservationFeatures
+        | None = None,
+    ) -> core.observation.ObservationFeatures | None:
+        """Get the fixed features that should be used to disable parameters in the
+        search space. This is used to ensure that parameters that are not part of the
+        search space are not used in the model.
+
+        Args:
+            fixed_features_to_overlay_on: Fixed features to overlay the disabled
+                parameter fixed features on top of. This is useful when we want to
+                disable some parameters but still have some fixed features that are
+                not part of the search space.
+
+        Returns:
+            ``ObservationFeatures`` with disabled parameters set to their default
+            values, or ``None`` if there are no disabled parameters and no
+            ``fixed_features_to_overlay_on`` was provided.
+        """
+        disabled_parameters_parameterization = {
+            n: p.default_value for n, p in self.parameters.items() if p.is_disabled
+        }
+        if not fixed_features_to_overlay_on:
+            if not disabled_parameters_parameterization:
+                return None
+            return core.observation.ObservationFeatures(
+                parameters=disabled_parameters_parameterization
+            )
+
+        return fixed_features_to_overlay_on.clone(
+            replace_parameters={
+                **disabled_parameters_parameterization,
+                **fixed_features_to_overlay_on.parameters,
+            }
+        )
+
     def _cast_parameterization(
         self,
         parameters: Mapping[str, TParamValue],
