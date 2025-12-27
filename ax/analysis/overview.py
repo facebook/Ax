@@ -105,6 +105,7 @@ class OverviewAnalysis(Analysis):
         should_generate_reason: str | None = None,
         options: OrchestratorOptions | None = None,
         tier_metadata: dict[str, Any] | None = None,
+        model_fit_threshold: float | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -114,6 +115,7 @@ class OverviewAnalysis(Analysis):
         self.should_generate_reason = should_generate_reason
         self.options = options
         self.tier_metadata = tier_metadata
+        self.model_fit_threshold = model_fit_threshold
 
     @override
     def validate_applicable_state(
@@ -197,7 +199,11 @@ class OverviewAnalysis(Analysis):
             if self.options is not None
             else None,
             ConstraintsFeasibilityAnalysis(),
-            PredictableMetricsAnalysis(),
+            PredictableMetricsAnalysis()
+            if self.model_fit_threshold is None
+            else PredictableMetricsAnalysis(
+                model_fit_threshold=self.model_fit_threshold
+            ),
             BaselineImprovementAnalysis() if not has_batch_trials else None,
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
