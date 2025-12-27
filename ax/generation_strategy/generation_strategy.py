@@ -21,7 +21,12 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import extend_pending_observations, extract_pending_observations
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.core import (
+    AxError,
+    DataRequiredError,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
@@ -78,8 +83,6 @@ class GenerationStrategy(Base):
         name: An optional name for this generation strategy. If not specified,
             strategy's name will be names of its nodes' generators joined with '+'.
     """
-
-    DEFAULT_N: int = 1
 
     _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
@@ -286,23 +289,24 @@ class GenerationStrategy(Base):
                 observations for that metric, used by some nodes to avoid
                 resuggesting points that are currently being evaluated.
         """
-        self.experiment = experiment
-
-        gr = self._gen_with_multiple_nodes(
+        grs_for_trials = self.gen(
             experiment=experiment,
             data=data,
-            n=n,
             pending_observations=pending_observations,
+            n=n,
             fixed_features=fixed_features,
+            num_trials=1,
         )
-        if len(gr) > 1:
-            raise UnsupportedError(
-                "By calling into GenerationStrategy.gen(), you are should be "
-                "expecting a single `Trial` with only one `GeneratorRun`. However, "
-                "the underlying GenerationStrategy produced multiple `GeneratorRuns` "
-                f"and returned the following list of `GeneratorRun`-s: {gr}"
+        # `gen` returns list[list[GeneratorRun]], so grs_for_trials[0] is the
+        # list of GeneratorRuns for the first (and only) trial.
+        if len(grs_for_trials) != 1 or len(grs := grs_for_trials[0]) != 1:
+            raise AxError(  # Unexpected state of the GS; raise informatively.
+                "By calling into GenerationStrategy.gen_single_trial(), you are should"
+                " be expecting a single `Trial` with only one `GeneratorRun`. However,"
+                "the underlying GenerationStrategy returned the following list "
+                f" of `GeneratorRun`-s: {grs_for_trials}."
             )
-        return gr[0]
+        return grs[0]
 
     def gen(
         self,
@@ -354,24 +358,21 @@ class GenerationStrategy(Base):
         """
         self.experiment = experiment
         grs_for_multiple_trials = []
+        # TODO: Extract `n` from `ExperimentDesign` -- ensure that `n` is always present
+        # as a result and fall back to `1` if it's not there in `ExperimentDesign`.
         pending_observations = (
             extract_pending_observations(experiment=experiment) or {}
             if pending_observations is None
             else deepcopy(pending_observations)
         )
-        # TODO[@drfreund, @mgarrard]: Can we avoid having to check all TCs here?
-        # To do so, we would need: 1) another way to understand that there are
-        # no trial-counting TCs with a trial limit, 2) a way to, during `_gen_from
-        # multiple_nodes`, stop once we've generated (limit - pre-existing trials)
-        # new trials (just checking TCs won't work because it will look at the number
-        # of trials on the experiment but not at the would-be trials already produced
-        # in the loop).
-        new_trials_limit = self._curr.new_trial_limit(raise_generation_errors=False)
-        if new_trials_limit == -1:  # There is no additional limit on new trials.
-            num_trials = max(num_trials, 1)
-        else:
-            num_trials = max(min(num_trials, new_trials_limit), 1)
-        for _i in range(num_trials):
+        # Only check trial limit when requesting multiple trials; when num_trials <= 1,
+        # the result is always 1 regardless of the limit.
+        if num_trials > 1:
+            new_trials_limit = self._curr.new_trial_limit(raise_generation_errors=False)
+            if new_trials_limit != -1:  # There is an additional limit on new trials.
+                num_trials = min(num_trials, new_trials_limit)
+        num_trials = max(num_trials, 1)  # Ensure at least 1 trial
+        for _ in range(num_trials):
             grs_for_multiple_trials.append(
                 self._gen_with_multiple_nodes(
                     experiment=experiment,
@@ -651,6 +652,9 @@ class GenerationStrategy(Base):
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         data: Data | None = None,
         fixed_features: ObservationFeatures | None = None,
+        # TODO: Consider naming `arms_per_node` smtg like `arms_per_node_override`,
+        # to convey its manually-specified nature (if it's not specified, GS selects
+        # what to do on its own).
         arms_per_node: dict[str, int] | None = None,
         first_generation_in_multi: bool = True,
     ) -> list[GeneratorRun]:
@@ -706,9 +710,7 @@ class GenerationStrategy(Base):
         self._validate_arms_per_node(arms_per_node=arms_per_node)
         pack_gs_gen_kwargs = {
             "grs_this_gen": grs_this_gen,
-            "n": n,
             "fixed_features": fixed_features,
-            "arms_per_node": arms_per_node,
         }
 
         while continue_gen_for_trial:
@@ -730,6 +732,8 @@ class GenerationStrategy(Base):
                     data=data,
                     pending_observations=pending_observations,
                     skip_fit=not (first_generation_in_multi or transitioned),
+                    n=n,
+                    arms_per_node=arms_per_node,
                     **pack_gs_gen_kwargs,
                 )
             except DataRequiredError as err:
