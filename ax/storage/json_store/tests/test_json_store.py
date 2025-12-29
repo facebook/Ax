@@ -10,7 +10,6 @@ import dataclasses
 import json
 import os
 import tempfile
-import warnings
 from collections import OrderedDict
 from functools import partial
 from math import nan
@@ -35,7 +34,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
@@ -701,23 +700,16 @@ class JSONStoreTest(TestCase):
                 ],
                 "__type": "MapData",
             }
-            with warnings.catch_warnings(record=True) as warning_list:
-                map_data = object_from_json(
-                    data_with_two_map_keys_json,
-                    decoder_registry=CORE_DECODER_REGISTRY,
-                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-                )
-            self.assertIn(
-                "Received multiple map keys. All except ", str(warning_list[0].message)
+            map_data = object_from_json(
+                data_with_two_map_keys_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            self.assertIn("will be renamed to step", str(warning_list[1].message))
-
-            # The "timestamp" map key will be silently dropped, and "epoch" will
-            # be renamed to MAP_KEY
-            self.assertIn(MAP_KEY, map_data.full_df.columns)
-            # Either 'epoch' or 'timestamps' could have been kept
-            progression = map_data.full_df[MAP_KEY].tolist()
-            self.assertTrue(progression == [0.0, 1.0] or progression == [3.0, 4.0])
+            self.assertEqual(len(map_data.full_df), 2)
+            # Even though the "epoch" and "timestamps" columns have not been
+            # renamed to "step", they are present
+            self.assertEqual(map_data.full_df["epoch"].tolist(), [0.0, 1.0])
+            self.assertEqual(map_data.full_df["timestamps"].tolist(), [3.0, 4.0])
 
         with self.subTest("Single map key"):
             data_json = {
@@ -732,19 +724,13 @@ class JSONStoreTest(TestCase):
                 "map_key_infos": [{"key": "epoch", "default_value": nan}],
                 "__type": "MapData",
             }
-            with warnings.catch_warnings(record=True) as warning_list:
-                map_data = object_from_json(
-                    data_json,
-                    decoder_registry=CORE_DECODER_REGISTRY,
-                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-                )
-            self.assertIn(
-                f"epoch will be renamed to {MAP_KEY}", str(warning_list[0].message)
+            map_data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            self.assertIn(MAP_KEY, map_data.full_df.columns)
-            self.assertEqual(map_data.full_df[MAP_KEY].tolist(), [0.0, 1.0])
-            # No warning about multiple map keys
-            self.assertFalse(any("Received multiple" in str(w) for w in warning_list))
+            self.assertIn("epoch", map_data.full_df.columns)
+            self.assertEqual(map_data.full_df["epoch"].tolist(), [0.0, 1.0])
 
         with self.subTest("No map key"):
             data_json = {
@@ -764,7 +750,7 @@ class JSONStoreTest(TestCase):
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
             self.assertIsInstance(map_data, MapData)
-            self.assertEqual(len(map_data.df), 0)
+            self.assertEqual(len(map_data.full_df), 0)
 
     def test_decode_data_backward_compatible(self) -> None:
         empty_df_json = {

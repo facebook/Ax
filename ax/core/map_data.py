@@ -7,21 +7,17 @@
 
 from __future__ import annotations
 
-import warnings
-
 from bisect import bisect_right
 from collections.abc import Iterable, Sequence
 from functools import cached_property
 from logging import Logger
 from math import nan
-from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.data import _filter_df, Data, MAP_KEY
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 
 logger: Logger = get_logger(__name__)
 
@@ -144,62 +140,6 @@ class MapData(Data):
         self._memo_df = self.full_df.loc[idxs]
 
         return self._memo_df
-
-    @classmethod
-    def deserialize_init_args(
-        cls,
-        args: dict[str, Any],
-        decoder_registry: TDecoderRegistry | None = None,
-        class_decoder_registry: TClassDecoderRegistry | None = None,
-    ) -> dict[str, Any]:
-        """Given a dictionary, extract the properties needed to initialize the metric.
-        Used for storage.
-
-        Most logic here is for backwards compatibility with older MapData that
-        may have been stored with multiple map keys and/or a map key with a
-        different name.
-        """
-        # map_key_infos used to be a supported argument; it allowed the column
-        # called MAP_KEY to have a different name.
-        if "map_key_infos" in args:
-            map_keys = {d["key"] for d in args["map_key_infos"]}
-        else:
-            map_keys = set()
-
-        deserialized = super().deserialize_init_args(args=args)
-
-        bad_keys = map_keys - {MAP_KEY}
-        if len(bad_keys) > 0:
-            df = deserialized["df"]
-            if MAP_KEY in map_keys:
-                warnings.warn(
-                    f"Received multiple map keys. All except {MAP_KEY}"
-                    " will be ignored.",
-                    stacklevel=2,
-                )
-                if df is not None:
-                    df.drop(columns=bad_keys, inplace=True)
-
-            else:
-                key_to_rename = bad_keys.pop()
-                if len(bad_keys) > 0:
-                    warnings.warn(
-                        "Received multiple map keys. All except for "
-                        f"{key_to_rename} will be ignored.",
-                        stacklevel=2,
-                    )
-                    if df is not None:
-                        df.drop(columns=bad_keys, inplace=True)
-
-                warnings.warn(
-                    f"{key_to_rename} will be renamed to {MAP_KEY} on "
-                    "df, since passing custom map keys is no longer supported.",
-                    stacklevel=2,
-                )
-                if df is not None:
-                    df.rename(columns={key_to_rename: MAP_KEY}, inplace=True)
-
-        return deserialized
 
     def latest(self, rows_per_group: int = 1) -> MapData:
         """Return a new MapData with the most recently observed `rows_per_group`
