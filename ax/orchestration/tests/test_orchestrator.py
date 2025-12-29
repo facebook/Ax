@@ -132,7 +132,7 @@ class TestAxOrchestrator(TestCase):
             dict[str, list[ObservationFeatures]] | None,
         ],
     ] = (
-        f"{Orchestrator.__module__}."
+        f"{get_pending_observation_features_based_on_trial_status.__module__}."
         + "get_pending_observation_features_based_on_trial_status",
         get_pending_observation_features_based_on_trial_status,
     )
@@ -422,17 +422,7 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        with patch(
-            # Record calls to function, but still execute it.
-            self.PENDING_FEATURES_EXTRACTOR[0],
-            side_effect=self.PENDING_FEATURES_EXTRACTOR[1],
-        ) as mock_get_pending:
-            orchestrator.run_all_trials()
-            # Check that we got pending feat. at least 8 times (1 for each new trial and
-            # maybe more for cases where we tried to generate trials but ran into limit
-            # on parallel., as polling trial statuses is randomized in Orchestrator),
-            # so some trials might not yet have come back.
-            self.assertGreaterEqual(len(mock_get_pending.call_args_list), 8)
+        orchestrator.run_all_trials()
         self.assertTrue(  # Make sure all trials got to complete.
             all(
                 t.completed_successfully

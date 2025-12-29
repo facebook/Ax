@@ -15,7 +15,6 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.observation import ObservationFeatures
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
@@ -82,30 +81,12 @@ class TestExternalGenerationNode(TestCase):
         self.assertEqual(node.update_count, 3)
         self.assertEqual(node.last_pending, [])
 
-        # Test pending point handling.
-        pending_observations = {
-            "some_metric": [ObservationFeatures(parameters={"x1": 0.123, "x2": 0.456})]
-        }
-        gr = gs.gen_single_trial(
-            n=1,
-            experiment=experiment,
-            data=experiment.lookup_data(),
-            pending_observations=pending_observations,
-        )
-        trial = experiment.new_trial(generator_run=gr)
-        trial.mark_running(no_runner_required=True)
-        experiment.attach_data(get_branin_data(trials=[trial]))
-        trial.mark_completed()
-        self.assertEqual(node.gen_count, 4)
-        self.assertEqual(node.update_count, 4)
-        self.assertEqual(node.last_pending, [{"x1": 0.123, "x2": 0.456}])
-
         # Batch generation.
         gr = gs.gen_single_trial(
             n=5, experiment=experiment, data=experiment.lookup_data()
         )
-        self.assertEqual(node.gen_count, 9)
-        self.assertEqual(node.update_count, 5)
+        self.assertEqual(node.gen_count, 8)
+        self.assertEqual(node.update_count, 4)
         self.assertEqual(len(gr.arms), 5)
         self.assertGreater(none_throws(gr.fit_time), 0.0)
         self.assertGreater(none_throws(gr.gen_time), 0.0)

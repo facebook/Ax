@@ -1616,9 +1616,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             return none_throws(self.generation_strategy).gen_single_trial(
                 experiment=self.experiment,
                 n=n,
-                pending_observations=self._get_pending_observation_features(
-                    experiment=self.experiment
-                ),
                 fixed_features=fixed_feats,
             )
 

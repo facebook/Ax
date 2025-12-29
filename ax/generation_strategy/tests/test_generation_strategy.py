@@ -1022,7 +1022,6 @@ class TestGenerationStrategy(TestCase):
             grs_for_trials = sobol_MBM_gs.gen(
                 experiment=exp,
                 num_trials=3,
-                pending_observations=get_pending(experiment=exp),
             )
             self.assertEqual(len(grs_for_trials), 2)
             for grs_for_trial in grs_for_trials:
@@ -1472,7 +1471,6 @@ class TestGenerationStrategy(TestCase):
             grs = gs.gen(
                 experiment=exp,
                 arms_per_node=arms_per_node,
-                pending_observations=original_pending,
             )[0]
             self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
             pending_in_each_gen = enumerate(
@@ -2072,7 +2070,6 @@ class TestGenerationStrategy(TestCase):
             for _ in range(num_trials_to_gen):
                 gr = gs.gen_single_trial(
                     experiment=exp,
-                    pending_observations=get_pending(experiment=exp),
                 )
                 trials.append(exp.new_trial(gr).mark_running(no_runner_required=True))
 

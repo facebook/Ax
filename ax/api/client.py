@@ -38,7 +38,6 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus  # Used as a return type
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
@@ -386,11 +385,6 @@ class Client(WithDBSettingsBase):
         with with_rng_seed(seed=self._random_seed):
             grs_for_trials = self._generation_strategy_or_choose().gen(
                 experiment=self._experiment,
-                pending_observations=(
-                    get_pending_observation_features_based_on_trial_status(
-                        experiment=self._experiment
-                    )
-                ),
                 n=1,
                 fixed_features=(
                     # pyre-fixme[6]: Type narrowing broken because core Ax

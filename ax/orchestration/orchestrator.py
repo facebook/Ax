@@ -32,7 +32,6 @@ from ax.core.multi_type_experiment import (
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.exceptions.core import (
     AxError,
     DataRequiredError,
@@ -1779,14 +1778,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             return grs
         else:
             assert self.options.trial_type == TrialType.TRIAL  # Sanity check.
-            pending = get_pending_observation_features_based_on_trial_status(
-                experiment=self.experiment
-            )
             grs = self.generation_strategy.gen(
                 experiment=self.experiment,
                 num_trials=num_trials,
                 n=1,
-                pending_observations=pending,
                 fixed_features=get_fixed_features_from_experiment(
                     experiment=self.experiment
                 ),
