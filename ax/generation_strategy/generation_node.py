@@ -177,21 +177,14 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.generator_specs = generator_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
-        self._transition_criteria = (
-            transition_criteria if transition_criteria is not None else []
-        )
-        self._input_constructors = (
-            input_constructors if input_constructors is not None else {}
-        )
+        self._transition_criteria = transition_criteria or []
+        self._input_constructors = input_constructors or {}
         self._previous_node_name = previous_node_name
         self._trial_type = trial_type
         self._should_skip = should_skip
         self.fallback_specs = (
             fallback_specs if fallback_specs is not None else DEFAULT_FALLBACK
         )
-
-    def __eq__(self, other: SortableBase) -> bool:
-        return SortableBase.__eq__(self, other)
 
     @property
     def name(self) -> str:
