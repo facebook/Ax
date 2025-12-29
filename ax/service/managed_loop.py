@@ -29,7 +29,6 @@ from ax.core.types import (
     TModelPredictArm,
     TParameterization,
 )
-from ax.core.utils import get_pending_observation_features
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
@@ -167,9 +166,6 @@ class OptimizationLoop:
             return self.experiment.new_trial(
                 generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment,
-                    pending_observations=get_pending_observation_features(
-                        experiment=self.experiment
-                    ),
                 )
             )
         elif self.arms_per_trial > 1:

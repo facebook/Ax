@@ -258,7 +258,6 @@ class GenerationStrategy(Base):
         self,
         experiment: Experiment,
         data: Data | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         n: int = 1,
         fixed_features: ObservationFeatures | None = None,
     ) -> GeneratorRun:
@@ -292,7 +291,6 @@ class GenerationStrategy(Base):
         grs_for_trials = self.gen(
             experiment=experiment,
             data=data,
-            pending_observations=pending_observations,
             n=n,
             fixed_features=fixed_features,
             num_trials=1,
@@ -312,7 +310,6 @@ class GenerationStrategy(Base):
         self,
         experiment: Experiment,
         data: Data | None = None,
-        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         n: int | None = None,
         fixed_features: ObservationFeatures | None = None,
         num_trials: int = 1,
@@ -360,11 +357,7 @@ class GenerationStrategy(Base):
         grs_for_multiple_trials = []
         # TODO: Extract `n` from `ExperimentDesign` -- ensure that `n` is always present
         # as a result and fall back to `1` if it's not there in `ExperimentDesign`.
-        pending_observations = (
-            extract_pending_observations(experiment=experiment) or {}
-            if pending_observations is None
-            else deepcopy(pending_observations)
-        )
+        pending_observations = extract_pending_observations(experiment=experiment) or {}
         # Only check trial limit when requesting multiple trials; when num_trials <= 1,
         # the result is always 1 regardless of the limit.
         if num_trials > 1:
