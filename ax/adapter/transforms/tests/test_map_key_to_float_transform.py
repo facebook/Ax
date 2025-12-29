@@ -270,7 +270,6 @@ class MapKeyToFloatTransformTest(TestCase):
         self.observations = observations_from_data(
             experiment=self.experiment,
             data=self.experiment.fetch_data(),
-            latest_rows_per_group=None,
         )
         self.experiment_data = extract_experiment_data(
             experiment=self.experiment,
