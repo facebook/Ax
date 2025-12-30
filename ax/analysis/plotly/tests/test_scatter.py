@@ -14,7 +14,7 @@ from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -75,12 +75,10 @@ class TestScatterPlot(TestCase):
         # When neither trial_statuses nor trial_index is provided,
         # should use default statuses (excluding ABANDONED, STALE, and FAILED)
         analysis = ScatterPlot(x_metric_name="foo", y_metric_name="bar")
-        expected_statuses = {*TrialStatus} - {
-            TrialStatus.ABANDONED,
-            TrialStatus.STALE,
-            TrialStatus.FAILED,
-        }
-        self.assertEqual(set(none_throws(analysis.trial_statuses)), expected_statuses)
+        self.assertEqual(
+            set(none_throws(analysis.trial_statuses)),
+            DEFAULT_ANALYSIS_STATUSES,
+        )
 
         # When trial_statuses is explicitly provided, it should be used
         explicit_statuses = [TrialStatus.COMPLETED, TrialStatus.RUNNING]

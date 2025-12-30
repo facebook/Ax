@@ -11,7 +11,7 @@ from ax.analysis.plotly.utils import (
     get_trial_statuses_with_fallback,
     trial_index_to_color,
 )
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import none_throws
 
@@ -38,12 +38,7 @@ class TestUtils(TestCase):
             get_trial_statuses_with_fallback(trial_statuses=None, trial_index=None)
         )
 
-        expected_statuses = {*TrialStatus} - {
-            TrialStatus.ABANDONED,
-            TrialStatus.STALE,
-            TrialStatus.FAILED,
-        }
-        self.assertEqual(set(result), expected_statuses)
+        self.assertEqual(set(result), DEFAULT_ANALYSIS_STATUSES)
         self.assertNotIn(TrialStatus.ABANDONED, result)
         self.assertNotIn(TrialStatus.STALE, result)
         self.assertNotIn(TrialStatus.FAILED, result)
