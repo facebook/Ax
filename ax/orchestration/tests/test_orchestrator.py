@@ -78,7 +78,6 @@ from ax.orchestration.tests.orchestrator_test_utils import (
     TEST_MEAN,
     TestOrchestrator,
 )
-from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY
@@ -89,6 +88,7 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
+from ax.storage.sqa_store.with_db_settings_base import WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import AX_ROOT_LOGGER_NAME
 from ax.utils.common.testutils import TestCase
