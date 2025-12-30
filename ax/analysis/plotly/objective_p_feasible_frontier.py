@@ -82,7 +82,7 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             label: A label to use in the plot in place of the metric name.
             trial_index: If present, only use arms from the trial with the given index.
             trial_statuses: If present, only use arms from trials with the given
-                statuses. By default, exclude STALE and ABANDONED trials.
+                statuses. By default, exclude STALE, ABANDONED, and FAILED trials.
             num_points_to_generate: The number of points to generate on the frontier.
                 Ideally this should be sufficiently large to provide a frontier with
                 reasonably good coverage.

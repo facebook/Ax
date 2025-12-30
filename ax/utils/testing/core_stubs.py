@@ -1817,6 +1817,16 @@ class TestTrial(BaseTrial):
         return self
 
 
+def get_non_failed_arm_names(experiment: Experiment) -> set[str]:
+    """Get the names of all arms from non-failed trials."""
+    return {
+        arm.name
+        for trial in experiment.trials.values()
+        if trial.status != TrialStatus.FAILED
+        for arm in trial.arms
+    }
+
+
 ##############################
 # Parameters
 ##############################
