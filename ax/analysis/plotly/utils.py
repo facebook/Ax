@@ -13,7 +13,7 @@ import pandas as pd
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE, LIGHT_AX_BLUE
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UnsupportedError
 from plotly import express as px
 
@@ -232,6 +232,4 @@ def get_trial_statuses_with_fallback(
         return None
     elif trial_statuses is not None:
         return [*trial_statuses]
-    return [
-        *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE, TrialStatus.FAILED}
-    ]
+    return [*DEFAULT_ANALYSIS_STATUSES]
