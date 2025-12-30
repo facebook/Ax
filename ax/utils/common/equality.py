@@ -149,7 +149,6 @@ def object_attribute_dicts_equal(
     return not bool(unequal_type or unequal_value)
 
 
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def object_attribute_dicts_find_unequal_fields(
     one_dict: dict[str, Any],
     other_dict: dict[str, Any],
