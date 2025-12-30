@@ -33,33 +33,7 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
-OH_PARAM_INFIX = "_OH_PARAM"
-
-
-class OneHotEncoder:
-    """OneHot encodes a list of labels."""
-
-    def __init__(self, values: list[TParamValue]) -> None:
-        assert len(values) >= 2
-        self.values: list[TParamValue] = values
-        self.encoded_len: int = 1 if len(values) == 2 else len(values)
-
-    def transform(self, label: TParamValue) -> list[int]:
-        """One hot encode a given label."""
-        effective_index = self.values.index(label)
-        if self.encoded_len == 1:
-            return [effective_index]
-        else:
-            encoding = [0 for _ in range(self.encoded_len)]
-            encoding[effective_index] = 1
-            return encoding
-
-    def inverse_transform(self, encoded_label: list[int]) -> TParamValue:
-        """Inverse transorm a one hot encoded label."""
-        if self.encoded_len == 1:
-            return self.values[encoded_label[0]]
-        else:
-            return self.values[encoded_label.index(1)]
+OH_PARAM_INFIX = "_OH_PARAM_"
 
 
 class OneHot(Transform):
@@ -110,7 +84,6 @@ class OneHot(Transform):
         self.rounding = "strict"
         if self.config is not None:
             self.rounding = self.config.get("rounding", "strict")
-        self.encoder: dict[str, OneHotEncoder] = {}
         self.encoded_parameters: dict[str, list[str]] = {}
         self.encoded_values: dict[str, list[TParamValue]] = {}
         for p in search_space.parameters.values():
@@ -121,23 +94,19 @@ class OneHot(Transform):
                     )
                 values = deepcopy(p.values)
                 self.encoded_values[p.name] = values
-                self.encoder[p.name] = OneHotEncoder(values)
-                encoded_len = self.encoder[p.name].encoded_len
-                if encoded_len == 1:
-                    # Two levels handled in one parameter
-                    self.encoded_parameters[p.name] = [p.name + OH_PARAM_INFIX]
-                else:
-                    self.encoded_parameters[p.name] = [
-                        f"{p.name}{OH_PARAM_INFIX}_{i}" for i in range(encoded_len)
-                    ]
+                self.encoded_parameters[p.name] = [
+                    f"{p.name}{OH_PARAM_INFIX}{i}" for i in range(len(values))
+                ]
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name, encoder in self.encoder.items():
+            for p_name, values in self.encoded_values.items():
                 if p_name in obsf.parameters:
-                    vals = encoder.transform(label=obsf.parameters.pop(p_name))
+                    label = obsf.parameters.pop(p_name)
+                    idx = values.index(label)
+                    vals = [1 if i == idx else 0 for i in range(len(values))]
                     updated_parameters: TParameterization = {
                         self.encoded_parameters[p_name][i]: v
                         for i, v in enumerate(vals)
@@ -195,7 +164,7 @@ class OneHot(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in self.encoder.keys():
+            for p_name, values in self.encoded_values.items():
                 has_params = [
                     p in obsf.parameters for p in self.encoded_parameters[p_name]
                 ]
@@ -213,9 +182,8 @@ class OneHot(Transform):
                     x = strict_onehot_round(x)
                 else:
                     x = randomized_onehot_round(x)
-                val = self.encoder[p_name].inverse_transform(
-                    encoded_label=x.astype(int).tolist()
-                )
+                encoded_label = x.astype(int).tolist()
+                val = values[encoded_label.index(1)]
                 obsf.parameters[p_name] = val
         return observation_features
 
@@ -228,24 +196,20 @@ class OneHot(Transform):
             arm_data[p_name] = arm_data[p_name].map(
                 {v: i for i, v in enumerate(values)}
             )
-
-            if len(values) == 2:
-                # Handle the special case. Only need to rename the column.
-                arm_data = arm_data.rename(columns={p_name: p_name + OH_PARAM_INFIX})
-            else:
-                # Use get_dummies to one-hot encode the column.
-                arm_data = pd.get_dummies(
-                    arm_data,
-                    columns=[p_name],
-                    prefix=p_name + OH_PARAM_INFIX,
-                    # Could be int, but using float to match the parameter type.
-                    dtype=float,
-                )
-                # Make sure all expected columns are present, even if there is no
-                # corresponding value in the data.
-                for i in range(len(values)):
-                    if f"{p_name}{OH_PARAM_INFIX}_{i}" not in arm_data:
-                        arm_data[f"{p_name}{OH_PARAM_INFIX}_{i}"] = 0.0
+            # Use get_dummies to one-hot encode the column.
+            arm_data = pd.get_dummies(
+                arm_data,
+                columns=[p_name],
+                # Remove trailing underscore. Pandas will add it back.
+                prefix=p_name + OH_PARAM_INFIX[:-1],
+                # Could be int, but using float to match the parameter type.
+                dtype=float,
+            )
+            # Make sure all expected columns are present, even if there is no
+            # corresponding value in the data.
+            for i in range(len(values)):
+                if f"{p_name}{OH_PARAM_INFIX}{i}" not in arm_data:
+                    arm_data[f"{p_name}{OH_PARAM_INFIX}{i}"] = 0.0
 
         return ExperimentData(
             arm_data=arm_data, observation_data=experiment_data.observation_data
