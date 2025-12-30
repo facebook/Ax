@@ -50,9 +50,13 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
 
     def test_trial_statuses_behavior(self) -> None:
         # When neither trial_statuses nor trial_index is provided,
-        # should use default statuses (excluding ABANDONED and STALE)
+        # should use default statuses (excluding ABANDONED, STALE, and FAILED)
         analysis = ObjectivePFeasibleFrontierPlot()
-        expected_statuses = {*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+        expected_statuses = {*TrialStatus} - {
+            TrialStatus.ABANDONED,
+            TrialStatus.STALE,
+            TrialStatus.FAILED,
+        }
         self.assertEqual(set(none_throws(analysis.trial_statuses)), expected_statuses)
 
         # When trial_statuses is explicitly provided, it should be used

@@ -33,15 +33,20 @@ class TestUtils(TestCase):
 
     def test_get_trial_statuses_with_fallback_default(self) -> None:
         # When neither trial_statuses nor trial_index is provided,
-        # should return all statuses except ABANDONED and STALE
+        # should return all statuses except ABANDONED, STALE, and FAILED
         result = none_throws(
             get_trial_statuses_with_fallback(trial_statuses=None, trial_index=None)
         )
 
-        expected_statuses = {*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+        expected_statuses = {*TrialStatus} - {
+            TrialStatus.ABANDONED,
+            TrialStatus.STALE,
+            TrialStatus.FAILED,
+        }
         self.assertEqual(set(result), expected_statuses)
         self.assertNotIn(TrialStatus.ABANDONED, result)
         self.assertNotIn(TrialStatus.STALE, result)
+        self.assertNotIn(TrialStatus.FAILED, result)
 
     def test_get_trial_statuses_with_fallback_explicit_takes_precedence(self) -> None:
         # When both trial_statuses and trial_index are provided,

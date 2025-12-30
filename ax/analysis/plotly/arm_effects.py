@@ -91,7 +91,7 @@ class ArmEffectsPlot(Analysis):
                 against the status quo arm from the same trial.
             trial_index: If present, only use arms from the trial with the given index.
             trial_statuses: If present, only use arms from trials with the given
-                statuses. By default, exclude STALE and ABANDONED trials.
+                statuses. By default, exclude STALE, ABANDONED, and FAILED trials.
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
