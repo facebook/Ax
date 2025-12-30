@@ -174,7 +174,7 @@ def _build_comparison_str(
     """
 
     def _unequal_str(first: Any, second: Any) -> str:
-        return f"{first} (type {type(first)}) != {second} (type {type(second)})."
+        return f"\n{first} (type {type(first)}) \n!=\n{second} (type {type(second)})."
 
     if first == second:
         return ""
@@ -189,12 +189,20 @@ def _build_comparison_str(
 
     msg = ""
     indent = " " * level * 4
-    unequal_types, unequal_val = object_attribute_dicts_find_unequal_fields(
-        one_dict=first.__dict__ if isinstance(first, Base) else first,
-        other_dict=second.__dict__ if isinstance(second, Base) else second,
-        fast_return=False,
-        skip_db_id_check=skip_db_id_check,
-    )
+    unequal_types, unequal_val = {}, {}
+    if type(first) is not type(second):
+        unequal_types["__type__"] = (first, second)
+    else:
+        unequal_types_recursive, unequal_val_recursive = (
+            object_attribute_dicts_find_unequal_fields(
+                one_dict=first.__dict__ if isinstance(first, Base) else first,
+                other_dict=second.__dict__ if isinstance(second, Base) else second,
+                fast_return=False,
+                skip_db_id_check=skip_db_id_check,
+            )
+        )
+        unequal_types.update(unequal_types_recursive)
+        unequal_val.update(unequal_val_recursive)
     unequal_types_suffixed = {
         f"{k} (field had values of unequal type)": v for k, v in unequal_types.items()
     }
@@ -223,7 +231,11 @@ def _build_comparison_str(
                 "unreachable."
             )
         msg += f"\n{indent}{bul} {field}: {_unequal_str(first=first, second=second)}\n"
-        if isinstance(first, (dict, Base)) and isinstance(second, (dict, Base)):
+        if "(field had values of unequal type)" in field:
+            return msg
+        if type(first) is not type(second) or (
+            isinstance(first, (dict, Base)) and isinstance(second, (dict, Base))
+        ):
             msg += _build_comparison_str(
                 first=first,
                 second=second,
