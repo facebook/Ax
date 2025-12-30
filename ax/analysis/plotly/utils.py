@@ -224,7 +224,7 @@ def get_trial_statuses_with_fallback(
 ) -> list[TrialStatus] | None:
     """Get the default trial statuses to plot.
 
-    By default, include all trials except those that are abandoned or stale.
+    By default, include all trials except those that are abandoned, stale, or failed.
     If trial_index is provided, then we only filter based on trial_index,
     and therefore this function returns None.
     """
@@ -232,4 +232,6 @@ def get_trial_statuses_with_fallback(
         return None
     elif trial_statuses is not None:
         return [*trial_statuses]
-    return [*{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}]
+    return [
+        *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE, TrialStatus.FAILED}
+    ]

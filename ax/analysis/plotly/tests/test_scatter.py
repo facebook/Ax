@@ -17,7 +17,11 @@ from ax.core.arm import Arm
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from ax.utils.testing.core_stubs import (
+    get_non_failed_arm_names,
+    get_offline_experiments,
+    get_online_experiments,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 from pyre_extensions import assert_is_instance, none_throws
@@ -69,9 +73,13 @@ class TestScatterPlot(TestCase):
 
     def test_trial_statuses_behavior(self) -> None:
         # When neither trial_statuses nor trial_index is provided,
-        # should use default statuses (excluding ABANDONED and STALE)
+        # should use default statuses (excluding ABANDONED, STALE, and FAILED)
         analysis = ScatterPlot(x_metric_name="foo", y_metric_name="bar")
-        expected_statuses = {*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
+        expected_statuses = {*TrialStatus} - {
+            TrialStatus.ABANDONED,
+            TrialStatus.STALE,
+            TrialStatus.FAILED,
+        }
         self.assertEqual(set(none_throws(analysis.trial_statuses)), expected_statuses)
 
         # When trial_statuses is explicitly provided, it should be used
@@ -133,9 +141,11 @@ class TestScatterPlot(TestCase):
         )
         self.assertIsNotNone(card.blob)
 
-        # Check that we have one row per arm and that each arm appears only once
-        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-        for arm_name in self.client._experiment.arms_by_name:
+        # Check that we have one row per arm from non-failed trials and that each
+        # arm appears only once
+        non_failed_arms = get_non_failed_arm_names(self.client._experiment)
+        self.assertEqual(len(card.df), len(non_failed_arms))
+        for arm_name in non_failed_arms:
             self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are NaN
@@ -191,9 +201,11 @@ class TestScatterPlot(TestCase):
 
         self.assertIsNotNone(card.blob)
 
-        # Check that we have one row per arm and that each arm appears only once
-        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-        for arm_name in self.client._experiment.arms_by_name:
+        # Check that we have one row per arm from non-failed trials and that each
+        # arm appears only once
+        non_failed_arms = get_non_failed_arm_names(self.client._experiment)
+        self.assertEqual(len(card.df), len(non_failed_arms))
+        for arm_name in non_failed_arms:
             self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are not NaN
