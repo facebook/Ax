@@ -40,10 +40,10 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.service.utils.with_db_settings_base import (
+from ax.storage.sqa_store.db import init_test_engine_and_session_factory
+from ax.storage.sqa_store.with_db_settings_base import (
     _save_generation_strategy_to_db_if_possible,
 )
-from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -392,7 +392,7 @@ class TestClient(TestCase):
 
         # Test respects fixed features
         with mock.patch(
-            "ax.service.utils.with_db_settings_base"
+            "ax.storage.sqa_store.with_db_settings_base"
             "._save_generation_strategy_to_db_if_possible"
         ) as mock_save:
             trials = client.get_next_trials(max_trials=1, fixed_parameters={"x1": 0.5})
@@ -430,7 +430,7 @@ class TestClient(TestCase):
         )
         # Generate one more trial, so that GS transitions to BO.
         with mock.patch(
-            "ax.service.utils.with_db_settings_base"
+            "ax.storage.sqa_store.with_db_settings_base"
             "._save_generation_strategy_to_db_if_possible",
             wraps=_save_generation_strategy_to_db_if_possible,
         ) as mock_save:

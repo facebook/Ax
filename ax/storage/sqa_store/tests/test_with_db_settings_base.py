@@ -13,10 +13,6 @@ from unittest.mock import patch
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.utils.with_db_settings_base import (
-    try_load_generation_strategy,
-    WithDBSettingsBase,
-)
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.load import (
     _load_experiment,
@@ -29,6 +25,10 @@ from ax.storage.sqa_store.save import (
     _save_or_update_trials,
 )
 from ax.storage.sqa_store.structs import DBSettings
+from ax.storage.sqa_store.with_db_settings_base import (
+    try_load_generation_strategy,
+    WithDBSettingsBase,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import DEFAULT_USER, get_experiment, get_generator_run
 from ax.utils.testing.modeling_stubs import get_generation_strategy
@@ -362,7 +362,7 @@ class TestWithDBSettingsBase(TestCase):
         )
         # test logging with no experiment/gs saved
         with self.assertLogs(
-            logger="ax.service.utils.with_db_settings_base", level=logging.DEBUG
+            logger="ax.storage.sqa_store.with_db_settings_base", level=logging.DEBUG
         ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,
@@ -384,7 +384,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertTrue(exp_saved)
         self.assertTrue(gs_saved)
         with self.assertLogs(
-            logger="ax.service.utils.with_db_settings_base", level=logging.DEBUG
+            logger="ax.storage.sqa_store.with_db_settings_base", level=logging.DEBUG
         ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,

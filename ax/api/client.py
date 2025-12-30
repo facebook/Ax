@@ -46,7 +46,6 @@ from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -58,6 +57,7 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
 )
+from ax.storage.sqa_store.with_db_settings_base import WithDBSettingsBase
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
 

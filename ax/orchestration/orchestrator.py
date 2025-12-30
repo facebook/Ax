@@ -48,7 +48,7 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.best_point import derelativize_opt_config, is_row_feasible
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
+from ax.storage.sqa_store.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import (
