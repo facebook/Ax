@@ -73,6 +73,13 @@ from torch import Tensor
 
 def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
     """Convert Ax experiment to a dictionary."""
+    # Serialize ExperimentDesign into properties
+    properties = {
+        **experiment._properties,
+        "design": {
+            "concurrency_limit": experiment.design.concurrency_limit,
+        },
+    }
     return {
         "__type": experiment.__class__.__name__,
         "name": experiment._name,
@@ -87,7 +94,7 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "trials": experiment.trials,
         "is_test": experiment.is_test,
         "data_by_trial": experiment._data_by_trial,
-        "properties": experiment._properties,
+        "properties": properties,
         "_trial_type_to_runner": experiment._trial_type_to_runner,
     }
 

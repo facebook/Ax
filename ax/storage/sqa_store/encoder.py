@@ -227,6 +227,10 @@ class Encoder:
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
         properties = experiment._properties.copy()
+        # Serialize ExperimentDesign into properties
+        properties["design"] = {
+            "concurrency_limit": experiment.design.concurrency_limit,
+        }
         if (
             oc := experiment.optimization_config
         ) is not None and oc.pruning_target_parameterization is not None:

@@ -339,6 +339,35 @@ class SQAStoreTest(TestCase):
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
 
+    def test_experiment_design_sqa_roundtrip(self) -> None:
+        """Test that ExperimentDesign is preserved through SQA serialization."""
+        # Create experiment and set concurrency_limit
+        experiment = get_experiment_with_batch_trial()
+        experiment.design.concurrency_limit = 42
+
+        # Save and load experiment through SQA
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Verify ExperimentDesign is preserved
+        self.assertEqual(loaded_experiment, experiment)
+        self.assertEqual(loaded_experiment.design.concurrency_limit, 42)
+
+    def test_experiment_design_none_concurrency_sqa_roundtrip(self) -> None:
+        """Test that ExperimentDesign with None concurrency_limit is preserved."""
+        # Create experiment with default (None) concurrency_limit
+        experiment = get_experiment_with_batch_trial()
+        experiment.name = "experiment_design_none_concurrency_test"
+        self.assertIsNone(experiment.design.concurrency_limit)
+
+        # Save and load experiment through SQA
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+
+        # Verify ExperimentDesign with None is preserved
+        self.assertEqual(loaded_experiment, experiment)
+        self.assertIsNone(loaded_experiment.design.concurrency_limit)
+
     def test_saving_and_loading_experiment_with_aux_exp(self) -> None:
         aux_experiment = Experiment(
             name="test_aux_exp_in_SQAStoreTest",
