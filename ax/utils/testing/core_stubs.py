@@ -1743,7 +1743,6 @@ def get_batch_trial(
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
     experiment.runner = SyntheticRunner()
     batch.should_add_status_quo_arm = True
-    batch._generation_step_index = 0
     return batch
 
 
@@ -1753,7 +1752,6 @@ def get_trial() -> Trial:
     arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
     experiment.runner = SyntheticRunner()
-    trial._generation_step_index = 0
     trial.update_run_metadata({"workflow_run_id": [12345]})
     return trial
 
@@ -2380,7 +2378,6 @@ def get_generator_run() -> GeneratorRun:
         generator_key="Sobol",
         generator_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
         adapter_kwargs={"transforms": Cont_X_trans},
-        generation_step_index=0,
         candidate_metadata_by_arm_signature={
             a.signature: {"md_key": f"md_val_{a.signature}"} for a in arms
         },

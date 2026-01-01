@@ -23,8 +23,6 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 
 
-# TODO[drfreund]: Introduce a `GenerationNodeInterface` to
-# make inheritance/overriding of `GenNode` methods cleaner.
 class ExternalGenerationNode(GenerationNode, ABC):
     """A generation node intended to be used with non-Ax methods for
     candidate generation.
