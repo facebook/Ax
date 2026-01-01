@@ -37,9 +37,9 @@ class TestMethods(TestCase):
         )
         self.assertEqual(method.name, expected_name)
         gs = method.generation_strategy
-        sobol, kg = gs._steps
-        self.assertEqual(kg.generator, Generators.BOTORCH_MODULAR)
-        generator_kwargs = none_throws(kg.generator_kwargs)
+        sobol, kg = gs._nodes
+        self.assertEqual(kg.generator_spec.generator_enum, Generators.BOTORCH_MODULAR)
+        generator_kwargs = none_throws(kg.generator_spec.generator_kwargs)
         self.assertEqual(generator_kwargs["botorch_acqf_class"], qKnowledgeGradient)
         surrogate_spec = generator_kwargs["surrogate_spec"]
         self.assertEqual(
@@ -64,11 +64,11 @@ class TestMethods(TestCase):
             num_sobol_trials=2,
             name="test",
         )
-        n_sobol_trials = method.generation_strategy._steps[0].num_trials
-        self.assertEqual(n_sobol_trials, 2)
+        n_sobol_trials_tc = method.generation_strategy._nodes[0].num_trials
+        self.assertEqual(n_sobol_trials_tc, 2)
         self.assertEqual(method.name, "test")
         # Only run one non-Sobol trial
-        n_total_trials = n_sobol_trials + 1
+        n_total_trials = n_sobol_trials_tc + 1
         problem = get_benchmark_problem(
             problem_key="ackley4", num_trials=n_total_trials
         )
@@ -104,5 +104,5 @@ class TestMethods(TestCase):
         method = get_sobol_benchmark_method()
         self.assertEqual(method.name, "Sobol")
         gs = method.generation_strategy
-        self.assertEqual(len(gs._steps), 1)
-        self.assertEqual(gs._steps[0].generator, Generators.SOBOL)
+        self.assertEqual(len(gs._nodes), 1)
+        self.assertEqual(gs._nodes[0].generator_spec.generator_enum, Generators.SOBOL)

@@ -56,6 +56,10 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism,
+    MinTrials,
+)
 from ax.metrics.branin import branin, BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
@@ -478,7 +482,10 @@ class TestAxClient(TestCase):
         """
         ax_client = get_branin_optimization()
         self.assertEqual(
-            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
+            [
+                s.generator_spec.generator_enum
+                for s in none_throws(ax_client.generation_strategy)._nodes
+            ],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -576,7 +583,7 @@ class TestAxClient(TestCase):
     def test_sobol_generation_strategy_completion(self) -> None:
         ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
-                [GenerationStep(Generators.SOBOL, num_trials=3)]
+                steps=[GenerationStep(Generators.SOBOL, num_trials=3)]
             )
         )
         # All Sobol trials should be able to be generated at once and optimization
@@ -596,7 +603,7 @@ class TestAxClient(TestCase):
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
         generation_strategy = GenerationStrategy(
-            [GenerationStep(Generators.SOBOL, num_trials=3)]
+            steps=[GenerationStep(Generators.SOBOL, num_trials=-1)]
         )
         ax_client = AxClient(
             db_settings=db_settings, generation_strategy=generation_strategy
@@ -672,7 +679,10 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
+            [
+                s.generator_spec.generator_enum
+                for s in none_throws(ax_client.generation_strategy)._nodes
+            ],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -1581,10 +1591,25 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        self.assertFalse(
-            ax_client.generation_strategy._steps[0].enforce_num_trials, False
-        )
-        self.assertFalse(ax_client.generation_strategy._steps[1].max_parallelism, None)
+        # Check that enforce_num_trials is False by checking the MinTrials criterion
+        # has block_gen_if_met=False
+        node0_min_trials = [
+            tc
+            for tc in ax_client.generation_strategy._nodes[0].transition_criteria
+            if isinstance(tc, MinTrials)
+        ]
+        self.assertTrue(len(node0_min_trials) > 0)
+        self.assertFalse(node0_min_trials[0].block_gen_if_met)
+
+        # Check that max_parallelism is None by verifying no MaxGenerationParallelism
+        # criterion exists on node 1
+        node1_max_parallelism = [
+            tc
+            for tc in ax_client.generation_strategy._nodes[1].transition_criteria
+            if isinstance(tc, MaxGenerationParallelism)
+        ]
+        self.assertEqual(len(node1_max_parallelism), 0)
+
         for _ in range(10):
             ax_client.get_next_trial()
 
@@ -2878,12 +2903,14 @@ class TestAxClient(TestCase):
         with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
             AxClient(
                 generation_strategy=GenerationStrategy(
-                    [GenerationStep(Generators.SOBOL, num_trials=3)]
+                    steps=[GenerationStep(Generators.SOBOL, num_trials=3)]
                 ),
                 torch_device=device,
             )
         ax_client = get_branin_optimization(torch_device=device)
-        gpei_step_kwargs = ax_client.generation_strategy._steps[1].generator_kwargs
+        gpei_step_kwargs = (
+            ax_client.generation_strategy._nodes[1].generator_specs[0].generator_kwargs
+        )
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
     def test_repr_function(

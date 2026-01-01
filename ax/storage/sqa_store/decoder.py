@@ -786,7 +786,6 @@ class Decoder:
                     class_decoder_registry=self.config.json_class_decoder_registry,
                 )
             ),
-            generation_step_index=generator_run_sqa.generation_step_index,
             candidate_metadata_by_arm_signature=object_from_json(
                 generator_run_sqa.candidate_metadata_by_arm_signature,
                 decoder_registry=self.config.json_decoder_registry,
@@ -822,38 +821,31 @@ class Decoder:
         reduced_state: bool = False,
     ) -> GenerationStrategy:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
-        steps = object_from_json(
-            gs_sqa.steps,
-            decoder_registry=self.config.json_decoder_registry,
-            class_decoder_registry=self.config.json_class_decoder_registry,
-        )
-        nodes = object_from_json(
-            gs_sqa.nodes,
-            decoder_registry=self.config.json_decoder_registry,
-            class_decoder_registry=self.config.json_class_decoder_registry,
-        )
-
-        # GenerationStrategies can ony be initialized with either steps or nodes.
-        # Determine which to use to initialize this GenerationStrategy.
-        if len(steps) > 0:
-            gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
-            if gs_sqa.curr_index is None:
-                raise SQADecodeError(
-                    "Current index must be specified for "
-                    "step-based Generation Strategies."
-                )
-            gs._curr = gs._steps[gs_sqa.curr_index]
+        if len(gs_sqa.generator_runs) and experiment is None:
+            raise SQADecodeError(
+                "Cannot decode a generation strategy with a non-zero number of "
+                "generator runs without an experiment."
+            )
+        if gs_sqa.nodes is None:  # Backward compat. for pre-nodes strategies.
+            nodes = object_from_json(
+                gs_sqa.steps,
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
+            )
         else:
-            gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
-            curr_node_name = gs_sqa.curr_node_name
-            for node in gs._nodes:
-                if node.name == curr_node_name:
-                    gs._curr = node
-                    break
+            nodes = object_from_json(
+                gs_sqa.nodes,
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
+            )
+        gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
+        curr_node_name = gs_sqa.curr_node_name
+        for node in gs._nodes:
+            if node.name == curr_node_name:
+                gs._curr = node
+                break
         immutable_ss_and_oc = (
-            experiment.immutable_search_space_and_opt_config
-            if experiment is not None
-            else False
+            experiment.immutable_search_space_and_opt_config if experiment else False
         )
 
         gs._generator_runs = [
@@ -900,16 +892,7 @@ class Decoder:
                     )
                 )
         gs._experiment = experiment
-
-        if len(gs._generator_runs) > 0:
-            # Generation strategy had an initialized model.
-            if experiment is None:
-                raise SQADecodeError(
-                    "Cannot decode a generation strategy with a non-zero number of "
-                    "generator runs without an experiment."
-                )
         gs.db_id = gs_sqa.id
-
         return gs
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
@@ -1023,7 +1006,6 @@ class Decoder:
             else None
         )
         trial._num_arms_created = trial_sqa.num_arms_created
-        trial._generation_step_index = trial_sqa.generation_step_index
         trial._properties = dict(trial_sqa.properties or {})
         trial.db_id = trial_sqa.id
         return trial

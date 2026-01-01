@@ -97,7 +97,6 @@ class GeneratorRun(SortableBase):
         adapter_kwargs: dict[str, Any] | None = None,
         gen_metadata: TGenMetadata | None = None,
         generator_state_after_gen: dict[str, Any] | None = None,
-        generation_step_index: int | None = None,
         candidate_metadata_by_arm_signature: None
         | (dict[str, TCandidateMetadata]) = None,
         generation_node_name: str | None = None,
@@ -135,12 +134,6 @@ class GeneratorRun(SortableBase):
                 model when reinstantiating it to continue generation from it,
                 rather than to reproduce the conditions, in which this generator
                 run was created.
-            generation_step_index: Deprecated in favor of generation_node_name.
-                Optional index of the generation step that produced this generator run.
-                Applicable only if the generator run was created via a generation
-                strategy (in which case this index should reflect the index of
-                generation step in a generation strategy) or a standalone generation
-                step (in which case this index should be ``-1``).
             candidate_metadata_by_arm_signature: Optional dictionary of arm signatures
                 to model-produced candidate metadata that corresponds to that arm in
                 this generator run.
@@ -197,16 +190,6 @@ class GeneratorRun(SortableBase):
                     "candidate metadata, but not among the arms on this GeneratorRun."
                 )
         self._candidate_metadata_by_arm_signature = candidate_metadata_by_arm_signature
-
-        # Validate that generation step index is either not set (not from generation
-        # strategy or ste), is non-negative (from generation step) or is -1 (from a
-        # standalone generation step that was not a part of a generation strategy).
-        assert (
-            generation_step_index is None  # Not generation strategy/step
-            or generation_step_index == -1  # Standalone generation step
-            or generation_step_index >= 0  # Generation strategy
-        )
-        self._generation_step_index = generation_step_index
         self._generation_node_name = generation_node_name
 
     @property
@@ -342,7 +325,6 @@ class GeneratorRun(SortableBase):
             adapter_kwargs=self._adapter_kwargs,
             gen_metadata=self._gen_metadata,
             generator_state_after_gen=self._generator_state_after_gen,
-            generation_step_index=self._generation_step_index,
             candidate_metadata_by_arm_signature=cand_metadata,
             generation_node_name=self._generation_node_name,
         )

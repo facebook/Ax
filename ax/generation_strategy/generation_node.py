@@ -18,7 +18,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import AxError, UnsupportedError, UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.exceptions.model import ModelError
 from ax.generation_strategy.best_model_selector import BestModelSelector
@@ -53,6 +53,8 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
 from pyre_extensions import none_throws
 
+
+GEN_STEP_NAME = "GenerationStep_{step_index}_{generator_name}"
 logger: Logger = get_logger(__name__)
 
 MISSING_MODEL_SELECTOR_MESSAGE = (
@@ -139,13 +141,17 @@ class GenerationNode(SerializationMixin, SortableBase):
     # attribute is set in generation strategies class
     _generation_strategy: None | GenerationStrategy = None
 
+    # Step-specific attribute for backwards compatibility with GenerationStep.
+    # This is set by GenerationStep.__new__ and used for naming in GenerationStrategy.
+    _step_index: int | None = None
+
     def __init__(
         self,
         name: str,
         generator_specs: list[GeneratorSpec],
+        transition_criteria: Sequence[TransitionCriterion] | None = None,
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
-        transition_criteria: Sequence[TransitionCriterion] | None = None,
         input_constructors: TInputConstructorsByPurpose | None = None,
         previous_node_name: str | None = None,
         trial_type: str | None = None,
@@ -251,10 +257,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         # TODO: @mgarrard make this logic more robust and general
         # We won't mark a node completed if it has an AutoTransitionAfterGen criterion
         # as this is typically used in cyclic generation strategies
-        transition, _ = self.should_transition_to_next_node(
+        should_transition, _ = self.should_transition_to_next_node(
             raise_data_required_error=False
         )
-        return transition and not any(
+        return should_transition and not any(
             isinstance(tc, AutoTransitionAfterGen) for tc in self.transition_criteria
         )
 
@@ -262,15 +268,69 @@ class GenerationNode(SerializationMixin, SortableBase):
     def previous_node(self) -> GenerationNode | None:
         """Returns the previous ``GenerationNode``, if any."""
         return (
-            self.generation_strategy.nodes_dict[self._previous_node_name]
+            self.generation_strategy.nodes_by_name[self._previous_node_name]
             if self._previous_node_name is not None
             else None
+        )
+
+    @property
+    def generator_spec(self) -> GeneratorSpec:
+        """Returns the sole GeneratorSpec for single-generator nodes.
+
+        Raises:
+            UnsupportedError: If this node has more or fewer than one GeneratorSpec.
+        """
+        if len(self.generator_specs) != 1:
+            raise UnsupportedError(
+                f"`generator_spec` property is only valid for GenerationNodes with "
+                f"exactly one GeneratorSpec. This node has {len(self.generator_specs)}."
+            )
+        return self.generator_specs[0]
+
+    @property
+    def from_step(self) -> bool:
+        """Returns True if this node was created via GenerationStep factory.
+        Note that after reloading the node from storage, this
+        will not be preserved; it is primarily useful to assign
+        unique node names to nodes, created through GenerationStep-s.
+        """
+        return self._step_index is not None
+
+    @property
+    def generator_name(self) -> str:
+        """Generator name for step-created nodes, derived from generator_spec."""
+        if self.from_step:
+            return self.generator_spec.generator_key
+        return self._name
+
+    @property
+    def num_trials(self) -> int:
+        """Returns the number of trials this node should generate.
+
+        Extracts the threshold from the first `MinTrials` transition criterion
+        that has `block_transition_if_unmet=True`. This represents the minimum
+        number of trials that must be generated before transitioning.
+
+        Returns:
+            The number of trials (threshold value).
+
+        Raises:
+            UserInputError: If no `MinTrials` transition criterion with
+                `block_transition_if_unmet=True` is found.
+        """
+        for tc in self.transition_criteria:
+            if isinstance(tc, MinTrials) and tc.block_transition_if_unmet:
+                return tc.threshold
+        raise UserInputError(
+            "`num_trials` property is only supported when a `MinTrials` "
+            "transition criterion with `block_transition_if_unmet=True` is present."
         )
 
     @property
     def _unique_id(self) -> str:
         """Returns a unique (w.r.t. parent class: ``GenerationStrategy``) id
         for this GenerationNode. Used for SQL storage.
+        For step-created nodes, this returns the step index (as a string).
         """
         return self.name
 
@@ -293,6 +353,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         will abridge some aspects of ``TransitionCriterion`` and
         ``GeneratorSpec`` attributes).
         """
+        # For step-created nodes, show "GenerationStep" for backwards compatibility
         str_rep = f"{self.__class__.__name__}"
         str_rep += f"(name='{self.name}'"
         str_rep += ", generator_specs="
@@ -478,9 +539,9 @@ class GenerationNode(SerializationMixin, SortableBase):
     def _gen(
         self,
         experiment: Experiment,
-        n: int | None,
         pending_observations: dict[str, list[ObservationFeatures]] | None,
         data: Data | None,
+        n: int | None,
         **generator_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Picks a fitted model, from which to generate candidates (via
@@ -518,9 +579,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             # `n` cannot be `None` after this point. If it is, the adapter will not
             # know how many arms to generate. This is the lowest common ancestor
             # of all `gen`-s in GS and GN, so we apply the default here.
-            # TODO[drfreund, mgarrard]: Ensure n is non-Null earlier, by grabbing it
-            # from experiment design higher up in the stack.
-            n=n or 1,
+            n=n if n is not None else 1,
             # For `pending_observations`, prefer the input to this function, as
             # `pending_observations` are dynamic throughout the experiment and thus
             # unlikely to be specified in `generator_spec.generator_gen_kwargs`.
@@ -889,10 +948,14 @@ class GenerationNode(SerializationMixin, SortableBase):
         }
 
 
-class GenerationStep(GenerationNode, SortableBase):
+class GenerationStep:
     """One step in the generation strategy, corresponds to a single generator.
     Describes the generator, how many trials will be generated with this generator, what
     minimum number of observations is required to proceed to the next generator, etc.
+
+    NOTE: ``GenerationStep`` is a factory class that returns a ``GenerationNode``
+    instance. Calling ``GenerationStep(...)`` will return a ``GenerationNode``,
+    not a ``GenerationStep`` instance.
 
     Args:
         generator: A member of `Generators` enum returning an instance of
@@ -955,8 +1018,8 @@ class GenerationStep(GenerationNode, SortableBase):
     focus on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         generator: GeneratorRegistryBase,
         num_trials: int,
         generator_kwargs: dict[str, Any] | None = None,
@@ -973,60 +1036,63 @@ class GenerationStep(GenerationNode, SortableBase):
         # Deprecated arguments for backwards compatibility.
         model_kwargs: dict[str, Any] | None = None,
         model_gen_kwargs: dict[str, Any] | None = None,
-    ) -> None:
-        r"""Initializes a single-model GenerationNode, a.k.a. a GenerationStep.
+    ) -> GenerationNode:
+        r"""Creates a ``GenerationNode`` configured as a single-model generation step.
 
         See the class docstring for argument descriptions.
+
+        Returns:
+            A ``GenerationNode`` instance configured with the provided step parameters.
         """
         if use_update:
             raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
-        # These are here for backwards compatibility. Prior to implementation of
-        # the __init__ method, these were the fields of the dataclass. GenerationStep
-        # storage utilizes these attributes, so we need to store them. Once we start
-        # using GenerationNode storage, we can clean up these attributes.
-        self.index = index
-        self.generator = generator
-        self.num_trials = num_trials
-        self.completion_criteria: Sequence[TransitionCriterion] = (
-            completion_criteria or []
-        )
-        self.min_trials_observed = min_trials_observed
-        self.max_parallelism = max_parallelism
-        self.enforce_num_trials = enforce_num_trials
-        self.use_update = use_update
+
+        if num_trials < 1 and num_trials != -1:
+            raise UserInputError(
+                "`num_trials` must be positive or -1 (indicating unlimited) "
+                "for all generation steps."
+            )
+        if max_parallelism is not None and max_parallelism < 1:
+            raise UserInputError(
+                "Maximum parallelism should be None (if no limit) or "
+                f"a positive number. Got: {max_parallelism} for "
+                f"step {generator_name}."
+            )
 
         generator_kwargs = generator_kwargs or {}
         generator_gen_kwargs = generator_gen_kwargs or {}
+        completion_criteria = completion_criteria or []
 
         if (
-            self.enforce_num_trials
-            and (self.num_trials >= 0)
-            and (self.min_trials_observed > self.num_trials)
+            enforce_num_trials
+            and (num_trials >= 0)
+            and (min_trials_observed > num_trials)
         ):
             raise UserInputError(
                 "`GenerationStep` received `min_trials_observed > num_trials` "
-                f"(`min_trials_observed = {self.min_trials_observed}`, `num_trials = "
-                f"{self.num_trials}`), making completion of this step impossible. "
+                f"(`min_trials_observed = {min_trials_observed}`, `num_trials = "
+                f"{num_trials}`), making completion of this step impossible. "
                 "Please alter inputs so that `min_trials_observed <= num_trials`."
             )
-        if not isinstance(self.generator, GeneratorRegistryBase):
+        if not isinstance(generator, GeneratorRegistryBase):
             raise UserInputError(
                 "`generator` in generation step must be a `GeneratorRegistryBase` "
                 "enum subclass entry. Support for alternative callables "
-                f"has been deprecated. Got {self.generator=}."
+                f"has been deprecated. Got {generator=}."
             )
-        else:
-            # Pass deprecated arguments to GeneratorSpec which handles them.
-            generator_spec = GeneratorSpec(
-                generator_enum=self.generator,
-                generator_kwargs=generator_kwargs,
-                generator_gen_kwargs=generator_gen_kwargs,
-                model_kwargs=model_kwargs,
-                model_gen_kwargs=model_gen_kwargs,
-            )
-        if not generator_name:
-            generator_name = generator_spec.generator_key
-        self.generator_name: str = generator_name
+
+        # Pass deprecated arguments to GeneratorSpec which handles them.
+        # Pass custom generator_name as generator_key_override so that the
+        # generator_name property on GenerationNode can derive it from the spec.
+        generator_spec = GeneratorSpec(
+            generator_enum=generator,
+            generator_kwargs=generator_kwargs,
+            generator_gen_kwargs=generator_gen_kwargs,
+            generator_key_override=generator_name,
+            model_kwargs=model_kwargs,
+            model_gen_kwargs=model_gen_kwargs,
+        )
+        resolved_generator_name: str = generator_spec.generator_key
 
         # Create transition criteria for this step. If num_trials is provided to
         # this `GenerationStep`, then we create a `MinTrials` criterion which ensures
@@ -1034,32 +1100,33 @@ class GenerationStep(GenerationNode, SortableBase):
         # enforce the min_trials_observed requirement. The `transition_to` argument
         # is set in `GenerationStrategy` constructor, because only then is the order
         # of the generation steps actually known.
-        transition_criteria = []
-        if self.num_trials != -1:
+        transition_criteria: list[TransitionCriterion] = []
+        if num_trials != -1:
             transition_criteria.append(
                 MinTrials(
-                    threshold=self.num_trials,
+                    threshold=num_trials,
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-                    block_gen_if_met=self.enforce_num_trials,
+                    block_gen_if_met=enforce_num_trials,
                     block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
+                    transition_to=None,  # Re-set in GS constructor.
                 )
             )
 
-        if self.min_trials_observed > 0:
+        if min_trials_observed > 0:
             transition_criteria.append(
                 MinTrials(
                     only_in_statuses=[
                         TrialStatus.COMPLETED,
                         TrialStatus.EARLY_STOPPED,
                     ],
-                    threshold=self.min_trials_observed,
+                    threshold=min_trials_observed,
                     block_gen_if_met=False,
                     block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
+                    transition_to=None,  # Re-set in GS constructor.
                 )
             )
-        max_parallelism = self.max_parallelism
         if max_parallelism is not None:
             transition_criteria.append(
                 MaxGenerationParallelism(
@@ -1067,63 +1134,26 @@ class GenerationStep(GenerationNode, SortableBase):
                     only_in_statuses=[TrialStatus.RUNNING],
                     block_gen_if_met=True,
                     block_transition_if_unmet=False,
-                    transition_to=None,
+                    transition_to=None,  # Re-set in GS constructor.
                 )
             )
 
-        transition_criteria += self.completion_criteria
-        super().__init__(
-            name=f"GenerationStep_{str(self.index)}",
+        transition_criteria += list(completion_criteria)
+
+        # Create and return a GenerationNode instance
+        node = GenerationNode(
+            # NOTE: This name is a placeholder that will be overwritten in
+            # `_validate_and_set_step_sequence`. The `transition_to` values in
+            # transition criteria will also be updated there.
+            name=GEN_STEP_NAME.format(
+                step_index=index, generator_name=resolved_generator_name
+            ),
             generator_specs=[generator_spec],
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
         )
 
-    @property
-    def generator_kwargs(self) -> dict[str, Any]:
-        """Returns the generator kwargs of the underlying ``GeneratorSpec``."""
-        return self.generator_spec.generator_kwargs
+        # Store step index on the node for naming in GenerationStrategy.
+        node._step_index = index
 
-    @property
-    def generator_gen_kwargs(self) -> dict[str, Any]:
-        """Returns the model gen kwargs of the underlying ``GeneratorSpec``."""
-        return self.generator_spec.generator_gen_kwargs
-
-    @property
-    def generator_spec(self) -> GeneratorSpec:
-        """Returns the first generator_spec from the generator_specs attribute."""
-        return self.generator_specs[0]
-
-    @property
-    def _unique_id(self) -> str:
-        """Returns the unique ID of this generation step, which is the index."""
-        return str(self.index)
-
-    def gen(
-        self,
-        *,
-        experiment: Experiment,
-        pending_observations: dict[str, list[ObservationFeatures]] | None,
-        skip_fit: bool = False,
-        data: Data | None = None,
-        n: int | None = None,
-        arms_per_node: dict[str, int] | None = None,
-        **gs_gen_kwargs: Any,
-    ) -> GeneratorRun | None:
-        gr = super().gen(
-            experiment=experiment,
-            pending_observations=pending_observations,
-            skip_fit=skip_fit,
-            data=data,
-            n=n,
-            arms_per_node=arms_per_node,
-            **gs_gen_kwargs,
-        )
-        if gr is None:
-            raise AxError(
-                "This `GenerationStep`'s underlying `GenerationNode` returned "
-                "`None` from `gen`. This is an unexpected state for a "
-                "`GenerationStep`-based generation strategy."
-            )
-        gr._generation_step_index = self.index
-        return gr
+        return node

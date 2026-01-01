@@ -47,6 +47,7 @@ from ax.exceptions.core import (
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.plot.base import AxPlotConfig
@@ -855,10 +856,21 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             Mapping of form {num_trials -> max_parallelism_setting}.
         """
         parallelism_settings = []
-        for step in self.generation_strategy._steps:
-            parallelism_settings.append(
-                (step.num_trials, step.max_parallelism or step.num_trials)
-            )
+        for node in self.generation_strategy._nodes:
+            # Extract max_parallelism from MaxGenerationParallelism criterion
+            max_parallelism = None
+            for tc in node.transition_criteria:
+                if isinstance(tc, MaxGenerationParallelism):
+                    max_parallelism = tc.threshold
+                    break
+            # Try to get num_trials from the node. If there's no MinTrials
+            # criterion (unlimited trials), num_trials will raise UserInputError.
+            # In that case, use -1 to represent unlimited trials.
+            try:
+                num_trials = node.num_trials
+            except UserInputError:
+                num_trials = -1
+            parallelism_settings.append((num_trials, max_parallelism or num_trials))
         return parallelism_settings
 
     def get_optimization_trace(

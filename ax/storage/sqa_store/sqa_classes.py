@@ -212,7 +212,6 @@ class SQAGeneratorRun(Base):
     generation_strategy_id: Column[int | None] = Column(
         Integer, ForeignKey("generation_strategy.id")
     )
-    generation_step_index: Column[int | None] = Column(Integer)
     candidate_metadata_by_arm_signature: Column[dict[str, Any] | None] = Column(
         JSONEncodedTextDict
     )
@@ -316,7 +315,6 @@ class SQATrial(Base):
     time_staged: Column[datetime | None] = Column(IntTimestamp)
     time_run_started: Column[datetime | None] = Column(IntTimestamp)
     trial_type: Column[str | None] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    generation_step_index: Column[int | None] = Column(Integer)
     properties: Column[dict[str, Any] | None] = Column(JSONEncodedTextDict, default={})
 
     # relationships
