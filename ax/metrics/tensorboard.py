@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import Data, MAP_KEY
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.trial import Trial
@@ -205,11 +205,7 @@ try:
                     ] = metric.name
 
                     # Accumulate successfully extracted timeseries
-                    res[metric.signature] = Ok(
-                        MapData(
-                            df=df,
-                        )
-                    )
+                    res[metric.signature] = Ok(Data(df=df))
 
                 except Exception as e:
                     res[metric.signature] = Err(

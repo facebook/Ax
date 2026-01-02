@@ -39,7 +39,7 @@ def replay_experiment(
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     logging_level: int = logging.ERROR,
 ) -> Experiment | None:
-    """A utility function for replaying a historical experiment's MapData
+    """A utility function for replaying a historical experiment's data
     by initializing a Orchestrator that quickly steps through the existing data.
     The main purpose of this function is to compute an hypothetical capacity
     savings for a given `early_stopping_strategy`.

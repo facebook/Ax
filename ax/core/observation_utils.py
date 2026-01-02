@@ -201,9 +201,9 @@ def get_feature_cols(data: Data) -> list[str]:
     """Get the columns used to identify and group observations from a Data object.
 
     Args:
-        data: the Data object from which to extract the feature columns.
-            If the Data object is an instance of MapData, the map_keys will be
-            included in the feature columns.
+        data: the Data object from which to extract the feature columns. If Data
+            has a "step" (MAP_KEY) column, it will be included in the feature
+            columns.
 
     Returns:
         A list of column names to be used to group observations.
@@ -229,9 +229,9 @@ def get_feature_cols(data: Data) -> list[str]:
 def observations_from_data(
     experiment: experiment.Experiment, data: Data
 ) -> list[Observation]:
-    """Convert Data (or MapData) to observations.
+    """Convert Data to observations.
 
-    Converts a Data (or MapData) object to a list of Observation objects.
+    Converts a Data object to a list of Observation objects.
     Pulls arm parameters from from experiment. Overrides fidelity parameters
     in the arm with those found in the Data object.
 
@@ -239,7 +239,7 @@ def observations_from_data(
 
     Args:
         experiment: Experiment with arm parameters.
-        data: Data (or MapData) of observations.
+        data: Data.
 
     Returns:
         List of Observation objects.

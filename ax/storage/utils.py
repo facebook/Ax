@@ -11,8 +11,7 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from hashlib import md5
 
-from ax.core.data import combine_dfs_favoring_recent, Data, MAP_KEY
-from ax.core.map_data import MapData
+from ax.core.data import combine_dfs_favoring_recent, Data
 
 
 class DomainType(enum.Enum):
@@ -95,6 +94,5 @@ def combine_datas_on_data_by_trial(
         while len(sorted_datas) > 0:
             old_df = sorted_datas.pop().full_df
             df = combine_dfs_favoring_recent(last_df=old_df, new_df=df)
-        data_cls = MapData if MAP_KEY in df.columns else Data
-        combined_data_by_trial[trial_index] = OrderedDict([(0, data_cls(df=df))])
+        combined_data_by_trial[trial_index] = OrderedDict([(0, Data(df=df))])
     return combined_data_by_trial

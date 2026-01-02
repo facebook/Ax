@@ -19,8 +19,8 @@ import numpy as np
 import torch
 from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
+from ax.core.data import Data, MAP_KEY
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -1628,14 +1628,15 @@ class TestAxClient(TestCase):
         x, y = parameterization.get("x"), parameterization.get("y")
         t = 2
         value = assert_is_instance(branin(x, y) + t, float)
-        with self.subTest("Attach MapData"):
+        with self.subTest("Attach Data with progression"):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
                 raw_data=[(p_t, {"branin": (value, 0.0)}) for p_t in range(t + 1)],
             )
-            self.assertIsInstance(
-                no_intermediate_data_ax_client.experiment.lookup_data(), MapData
-            )
+            data = no_intermediate_data_ax_client.experiment.lookup_data()
+            self.assertIsInstance(data, Data)
+            self.assertTrue(data.has_step_column)
+            self.assertIn(t, data.df[MAP_KEY])
 
     # pyre-fixme[56]: Pyre was not able to infer the type of argument `f"{ax.service....
     @patch(

@@ -15,9 +15,9 @@ from typing import cast
 import pandas as pd
 from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import MAP_KEY
+
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import (
@@ -221,7 +221,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
-    ) -> MapData | None:
+    ) -> Data | None:
         """Looks up and validates the `Data` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
@@ -266,7 +266,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         if self.normalize_progressions:
             full_df = _maybe_normalize_map_key(df=full_df)
-        return MapData(df=full_df)
+        return Data(df=full_df)
 
     @staticmethod
     def _log_and_return_no_data(
@@ -653,7 +653,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
-    ) -> MapData | None:
+    ) -> Data | None:
         """Looks up and validates the `Data` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
@@ -664,13 +664,13 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if map_data is not None and self.min_progression_modeling is not None:
             full_df = map_data.full_df
             full_df = full_df[full_df[MAP_KEY] >= self.min_progression_modeling]
-            map_data = MapData(df=full_df)
+            map_data = Data(df=full_df)
         return map_data
 
     def get_training_data(
         self,
         experiment: Experiment,
-        map_data: MapData,
+        map_data: Data,
         max_training_size: int | None = None,
         outcomes: Sequence[str] | None = None,
         parameters: list[str] | None = None,

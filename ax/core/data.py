@@ -222,9 +222,9 @@ class Data(Base, SerializationMixin):
         """Given a dictionary, extract the properties needed to initialize the data.
         Used for storage.
 
-        Note: Older Data saved with the `MapData` class may have been stored with
-        progressions represented by a column or columns other than "step" and
-        had `MapKeyInfo`s to indicate which columns corresponded to
+        Note: Older Data saved with the former `MapData` class may have been
+        stored with progressions represented by a column or columns other than
+        "step" and had `MapKeyInfo`s to indicate which columns corresponded to
         progressions. This is no longer supported, and such columns will not be
         recognized as progressions if provided.
         """

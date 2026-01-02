@@ -26,7 +26,6 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
@@ -276,8 +275,8 @@ def object_from_json(
                 **vars(registry_kwargs),
             )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
-            # Special handling for Data and MapData backward compatibility
-            if _class in (Data, MapData):
+            # Special handling for Data backward compatibility
+            if _class is Data:
                 data_json_str = object_json.get("df", {}).get("value", "")
                 data_json = json.loads(data_json_str)
                 if data_json and "metric_signature" not in data_json:

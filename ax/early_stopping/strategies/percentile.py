@@ -249,7 +249,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             experiment: Experiment that contains the trials and other contextual data.
             wide_df: Dataframe of partial results after applying interpolation,
                 filtered to objective metric (wide format, non-hierarchical).
-            long_df: The original MapData dataframe (long format, before interpolation).
+            long_df: The original data (long format, before interpolation).
             minimize: Whether objective value is being minimized.
 
         Returns:

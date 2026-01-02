@@ -34,7 +34,6 @@ from ax.benchmark.testing.benchmark_stubs import (
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
@@ -710,6 +709,7 @@ class JSONStoreTest(TestCase):
             # renamed to "step", they are present
             self.assertEqual(map_data.full_df["epoch"].tolist(), [0.0, 1.0])
             self.assertEqual(map_data.full_df["timestamps"].tolist(), [3.0, 4.0])
+            self.assertIsInstance(map_data, Data)
 
         with self.subTest("Single map key"):
             data_json = {
@@ -749,7 +749,7 @@ class JSONStoreTest(TestCase):
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            self.assertIsInstance(map_data, MapData)
+            self.assertIsInstance(map_data, Data)
             self.assertEqual(len(map_data.full_df), 0)
 
     def test_decode_data_backward_compatible(self) -> None:

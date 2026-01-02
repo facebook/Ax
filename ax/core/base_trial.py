@@ -433,9 +433,6 @@ class BaseTrial(ABC, SortableBase):
     def fetch_data(self, metrics: list[Metric] | None = None, **kwargs: Any) -> Data:
         """Fetch data for this trial for all metrics on experiment.
 
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some if Experiment.default_data_type is misconfigured!
-
         Args:
             trial_index: The index of the trial to fetch data for.
             metrics: If provided, fetch data for these metrics instead of the ones

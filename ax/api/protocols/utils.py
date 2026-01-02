@@ -16,7 +16,8 @@ import pandas as pd
 from ax.api.types import TParameterization
 
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import Data
+from ax.core.map_data import MAP_KEY
 from ax.core.map_metric import MapMetric
 from ax.core.metric import MetricFetchE, MetricFetchResult
 from ax.core.runner import Runner
@@ -75,7 +76,7 @@ class _APIMetric(MapMetric, ABC):
                 "sem": sem,
                 "metric_signature": self.signature,
             }
-            return Ok(value=MapData(df=pd.DataFrame.from_records([record])))
+            return Ok(value=Data(df=pd.DataFrame.from_records([record])))
         except Exception as e:
             return Err(
                 value=MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)

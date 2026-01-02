@@ -6,8 +6,8 @@
 
 # pyre-strict
 from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial_status import TrialStatus
@@ -18,7 +18,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_test_map_data_experiment,
 )
-from pyre_extensions import assert_is_instance
 
 
 class MapReplayRunnerTest(TestCase):
@@ -26,9 +25,7 @@ class MapReplayRunnerTest(TestCase):
         historical_experiment = get_test_map_data_experiment(
             num_trials=2, num_fetches=2, num_complete=2
         )
-        historical_data: MapData = assert_is_instance(
-            historical_experiment.lookup_data(), MapData
-        )
+        historical_data: Data = historical_experiment.lookup_data()
         metric = MapDataReplayMetric(
             name="test_metric",
             map_data=historical_data,

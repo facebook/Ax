@@ -15,9 +15,9 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MAP_KEY, MapData
-from ax.core.map_metric import MapMetric, MapMetricFetchResult
-from ax.core.metric import MetricFetchE
+from ax.core.data import Data, MAP_KEY
+from ax.core.map_metric import MapMetric
+from ax.core.metric import MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
 
 
@@ -70,7 +70,7 @@ class NoisyFunctionMapMetric(MapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapMetricFetchResult:
+    ) -> MetricFetchResult:
         try:
             res = [
                 self.f(np.fromiter(arm.parameters.values(), dtype=float))
@@ -93,7 +93,7 @@ class NoisyFunctionMapMetric(MapMetric):
                     MAP_KEY: [item[MAP_KEY] for item in res],
                 }
             )
-            return Ok(value=MapData(df=df))
+            return Ok(value=Data(df=df))
 
         except Exception as e:
             return Err(

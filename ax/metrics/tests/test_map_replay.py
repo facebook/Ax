@@ -28,7 +28,7 @@ class MapDataReplayMetricTest(TestCase):
         historical_experiment = get_test_map_data_experiment(
             num_trials=2, num_fetches=2, num_complete=2
         )
-        historical_data = historical_experiment.lookup_data()
+        historical_data: Data = historical_experiment.lookup_data()
         replay_metric = MapDataReplayMetric(
             name="test_metric",
             map_data=historical_data,
