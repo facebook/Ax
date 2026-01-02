@@ -341,11 +341,12 @@ class TestBenchmark(TestCase):
         expected_start_times = {
             "All complete at different times": [0, 0, 1, 3],
             "Trials complete immediately": [0, 0, 1, 1],
-            # Without MapData, completing after 0 seconds (second case) has the
-            # same effect as completing after 1 second (third case), because a
-            # new trial can't start until the next time increment.
-            # With MapData, trials complete at the same times as without
-            # MapData, but an extra step accrues in the third case.
+            # Without Data with `has_step_column=True`, completing after 0
+            # seconds (second case) has the same effect as completing after 1
+            # second (third case), because a new trial can't start until the
+            # next time increment.
+            # With Data with `has_step_column=True`, trials complete at the same
+            # times as without, but an extra step accrues in the third case.
             "Trials complete at same time": [0, 0, 1, 1],
             "Complete out of order": [0, 0, 1, 2],
         }
@@ -1104,7 +1105,7 @@ class TestBenchmark(TestCase):
             )
             self.assertEqual(result, 0)
 
-        with self.subTest("SOO, MapData"):
+        with self.subTest("SOO, Data with has_step_column=True"):
             map_test_function = IdentityTestFunction(n_steps=2)
             map_opt_config = get_soo_opt_config(
                 outcome_names=test_function.outcome_names, use_map_metric=True

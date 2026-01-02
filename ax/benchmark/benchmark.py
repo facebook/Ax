@@ -793,7 +793,7 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
     Args:
         experiment: An experiment produced by `benchmark_replication`; it must
             have `BenchmarkTrialMetadata` (as produced by `BenchmarkRunner`) for
-            each trial, and its data must be `MapData`.
+            each trial, and its data must have a "step" column.
     """
     optimization_config = none_throws(experiment.optimization_config)
 

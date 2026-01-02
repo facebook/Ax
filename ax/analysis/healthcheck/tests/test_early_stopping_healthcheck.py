@@ -11,8 +11,8 @@ from unittest.mock import patch
 import pandas as pd
 from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
+from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -47,8 +47,8 @@ class TestEarlyStoppingAnalysis(TestCase):
         self,
         trial_steps: list[tuple[int, int]],
         metric_name: str = "ax_test_metric",
-    ) -> MapData:
-        """Create MapData with specified trial progressions.
+    ) -> Data:
+        """Create Data with specified trial progressions.
 
         Args:
             trial_steps: List of (trial_index, step) tuples.
@@ -67,7 +67,7 @@ class TestEarlyStoppingAnalysis(TestCase):
                     "metric_signature": metric_name,
                 }
             )
-        return MapData(df=pd.DataFrame(rows))
+        return Data(df=pd.DataFrame(rows))
 
     def _mark_trial_completed(
         self, experiment: Experiment | None = None, trial_index: int = 0

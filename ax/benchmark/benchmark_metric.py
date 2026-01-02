@@ -14,12 +14,12 @@ whether they are available while running or not.
 There are four Metric classes:
 - `BenchmarkMetric`: A non-Map metric
     is not available while running.
-- `BenchmarkMapMetric`: For when outputs should be `MapData` (not `Data`) and
+- `BenchmarkMapMetric`: For when outputs should be Data with `has_step_column=True` and
     data is available while running.
 - `BenchmarkTimeVaryingMetric`: For when outputs should be `Data` and the metric
   is available while running.
 - `BenchmarkMapUnavailableWhileRunningMetric`: For when outputs should be
-  `MapData` and the metric is not available while running.
+  Data with `has_step_column=True` and the metric is not available while running.
 
 Any of these can be used with or without a simulator. However,
 `BenchmarkMetric.fetch_trial_data` cannot take in data with multiple time steps,
@@ -65,13 +65,14 @@ enumerates use cases.
      - Yes
      - No
      - No
-     - MapData that returns immediately; could be used for getting baseline
+     - Data with `has_step_column=True` that returns immediately; could be used
+       for getting baseline
    * - 6
      - BenchmarkMapUnavailableWhileRunningMetric
      - Yes
      - No
      - Yes
-     - Asynchronicity with MapData read only at end
+     - Asynchronicity with Data with `has_step_column=True` read only at end
    * - 7
      - BenchmarkMapMetric
      - Yes
@@ -94,7 +95,6 @@ from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
@@ -203,7 +203,7 @@ class BenchmarkMetricBase(Metric):
     @abstractmethod
     def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
         """
-        Convert a DataFrame of observable data to Data or MapData, as
+        Convert a DataFrame of observable data to Data, as
         appropriate for the class.
         """
         ...
@@ -259,9 +259,9 @@ class BenchmarkMapMetric(MapMetric, BenchmarkMetricBase):
         return True
 
     def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
-        return Ok(value=MapData(df=df))
+        return Ok(value=Data(df=df))
 
 
 class BenchmarkMapUnavailableWhileRunningMetric(MapMetric, BenchmarkMetricBase):
     def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
-        return Ok(value=MapData(df=df))
+        return Ok(value=Data(df=df))

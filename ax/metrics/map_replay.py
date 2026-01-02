@@ -13,9 +13,8 @@ from typing import Any
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data, MAP_KEY
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric, MapMetricFetchResult
-from ax.core.metric import MetricFetchE
+from ax.core.map_metric import MapMetric
+from ax.core.metric import MetricFetchE, MetricFetchResult
 from ax.core.trial import Trial
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok
@@ -131,7 +130,7 @@ class MapDataReplayMetric(MapMetric):
         )
         return current_step < trial_max_step
 
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MapMetricFetchResult:
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         try:
             if not isinstance(trial, Trial):
                 raise RuntimeError(
@@ -152,13 +151,13 @@ class MapDataReplayMetric(MapMetric):
             # Use pre-grouped data for O(1) lookup instead of filtering full DataFrame
             trial_group = self._trial_groups.get(trial_idx)
             if trial_group is None:
-                return Ok(value=MapData.from_multiple_data(data=[]))
+                return Ok(value=Data.from_multiple_data(data=[]))
 
             # Filter only the trial's subset (much smaller than full DataFrame)
             trial_data = trial_group[trial_group[MAP_KEY] <= trial_scaled_step]
 
             if trial_data.empty:
-                return Ok(value=MapData())
+                return Ok(value=Data())
 
             # Create the result DataFrame in one operation
             result_df = pd.DataFrame(
@@ -173,7 +172,7 @@ class MapDataReplayMetric(MapMetric):
                 }
             )
 
-            return Ok(value=MapData(df=result_df))
+            return Ok(value=Data(df=result_df))
 
         except Exception as e:
             return Err(

@@ -13,8 +13,7 @@ from unittest import mock
 import numpy as np
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
-from ax.core.data import Data
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import Data, MAP_KEY
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UnsupportedError
@@ -84,7 +83,7 @@ class TestDataUtils(TestCase):
             experiment_data = extract_experiment_data(
                 experiment=empty_exp, data_loader_config=DataLoaderConfig()
             )
-            # no "step" column because empty data is always Data, not MapData
+            # no "step" column because data is empty
             expected_ind_names = ["trial_index", "arm_name"]
             self.assertEqual(len(experiment_data.arm_data), 0)
             self.assertEqual(experiment_data.arm_data.index.names, expected_ind_names)
@@ -392,7 +391,7 @@ class TestDataUtils(TestCase):
                         1.0,
                     ],
                 )
-            custom_data = MapData(df=data_df)
+            custom_data = Data(df=data_df)
             experiment_data = extract_experiment_data(
                 experiment=exp,
                 data_loader_config=DataLoaderConfig(

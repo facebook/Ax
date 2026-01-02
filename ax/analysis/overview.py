@@ -176,8 +176,8 @@ class OverviewAnalysis(Analysis):
             trial_statuses=[TrialStatus.CANDIDATE]
         )
 
-        # Check if the experiment has MapData and MapMetrics (required for
-        # early stopping)
+        # Check if the experiment has data with a "step" column and MapMetrics
+        # (required for early stopping)
         has_map_data = experiment.lookup_data().has_step_column
         has_map_metrics = any(
             isinstance(m, MapMetric) for m in experiment.metrics.values()

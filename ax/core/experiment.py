@@ -31,7 +31,7 @@ from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_dfs_favoring_recent, Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import combine_datas_infer_type, data_from_df_infer_type, MapData
+from ax.core.map_data import combine_datas_infer_type, data_from_df_infer_type
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
@@ -770,9 +770,6 @@ class Experiment(Base):
         available while trial is running is determined by the boolean returned from its
         `is_available_while_running` class method.
 
-        NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        lose rows) if Experiment.default_data_type is misconfigured!
-
         Args:
             metrics: If provided, fetch data for these metrics; otherwise, fetch
                 data for all metrics defined on the experiment.
@@ -896,7 +893,6 @@ class Experiment(Base):
             raise ValueError(
                 f"Unexpected arguments {unexpected_args} passed to `attach_data`."
             )
-        data_type = type(data)
         if data.full_df.empty:
             raise ValueError("Data to attach is empty.")
         metrics_not_on_exp = set(data.full_df["metric_name"].values) - set(
@@ -929,11 +925,6 @@ class Experiment(Base):
                 combined_df = combine_dfs_favoring_recent(
                     last_df=last_data.full_df, new_df=trial_df
                 )
-                data_type = (
-                    MapData
-                    if isinstance(last_data, MapData) or isinstance(data, MapData)
-                    else Data
-                )
             elif len(current_trial_data) == 0:
                 combined_df = trial_df
             else:
@@ -941,7 +932,7 @@ class Experiment(Base):
                     "Each dict within `_data_by_trial` should have at most one "
                     "element."
                 )
-            current_trial_data = OrderedDict({0: data_type(df=combined_df)})
+            current_trial_data = OrderedDict({0: Data(df=combined_df)})
             self._data_by_trial[trial_index] = current_trial_data
 
     def attach_fetch_results(
@@ -1052,14 +1043,11 @@ class Experiment(Base):
             return Data()
 
         data_by_trial = []
-        has_map_data = False
         for trial_index in trial_indices:
             trial_data = self.lookup_data_for_trial(trial_index=trial_index)
             data_by_trial.append(trial_data)
-            has_map_data = has_map_data or isinstance(trial_data, MapData)
 
-        data_type = MapData if has_map_data else Data
-        return data_type.from_multiple_data(data_by_trial)
+        return Data.from_multiple_data(data_by_trial)
 
     @property
     def num_trials(self) -> int:

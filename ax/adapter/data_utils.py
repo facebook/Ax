@@ -45,8 +45,8 @@ class DataLoaderConfig:
         fit_only_completed_map_metrics: Whether to fit a model to map metrics only when
             the trial is completed. This is useful for applications like modeling
             partially completed learning curves in AutoML.
-        latest_rows_per_group: If specified and data is an instance of MapData, uses
-            MapData.latest() with `latest_rows_per_group` to retrieve the most recent
+        latest_rows_per_group: If specified and data has `has_step_column=True`, uses
+            Data.latest() with `latest_rows_per_group` to retrieve the most recent
             rows for each group. Useful in cases where learning curves are frequently
             updated, preventing an excessive number of Observation objects.
         limit_rows_per_metric: Subsample the map data so that the total number of
@@ -152,8 +152,8 @@ class ExperimentData:
         0           0_0       0.1  1.0 NaN NaN
         1           1_0       0.2  2.0 NaN NaN
 
-    Example with map data:
-        >>> experiment = Experiment(...)  # An experiment with MapData.
+    Example with Data that has a "step" column:
+        >>> experiment = Experiment(...)
         >>> experiment_data = extract_experiment_data(
         ...     experiment=experiment,
         ...     data_loader_config=DataLoaderConfig(
@@ -169,7 +169,7 @@ class ExperimentData:
         >>> print(experiment_data.observation_data)
                                             mean               sem
         metric_signature                        branin branin_map branin branin_map
-        trial_index arm_name timestamp
+        trial_index arm_name step
         0           0_0      0.0        55.602113  55.602113    0.0        0.0
                              1.0              NaN  55.602113    NaN        0.0
                              2.0              NaN  55.602113    NaN        0.0

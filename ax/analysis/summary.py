@@ -80,8 +80,9 @@ class Summary(Analysis):
 
         # Determine if we should relativize based on:
         # (1) experiment has metrics and (2) experiment has status quo
-        # (3) experiment data is not MapData (MapData doesn't support relativization
-        # due to time-series step alignment complexities.)
+        # (3) experiment data does not have has_step_column=True (data with a
+        # progression doesn't support relativization due to time-series step
+        # alignment complexities.)
         data = experiment.lookup_data(trial_indices=self.trial_indices)
         should_relativize = (
             len(experiment.metrics) > 0
