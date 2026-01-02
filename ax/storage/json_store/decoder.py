@@ -207,6 +207,8 @@ def object_from_json(
             return generator_run_from_json(
                 object_json=object_json, **vars(registry_kwargs)
             )
+        # Backward compatibility. `GenerationStep`-s are now just encoded as
+        # `GenerationNode`-s, but we still need to support loading old GSteps.
         elif _class == GenerationStep:
             return generation_step_from_json(
                 generation_step_json=object_json, **vars(registry_kwargs)
@@ -348,6 +350,7 @@ def generator_run_from_json(
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
     object_json.pop("index", None)  # Deprecated.
+    object_json.pop("generation_step_index", None)  # Deprecated.
     # Remove `objective_thresholds` to avoid issues with registries, since
     # `ObjectiveThreshold` depend on `Metric` objects.
     object_json.pop("objective_thresholds", None)
@@ -777,6 +780,12 @@ def generation_node_from_json(
         name = generation_node_json.pop("node_name")
     else:
         name = generation_node_json.pop("name")
+
+    # Pop step_index if present (for backward compatibility), but don't use it.
+    # _step_index is non-persistent state that will be set by GenerationStrategy
+    # if needed during _validate_and_set_step_sequence.
+    generation_node_json.pop("step_index", None)
+
     return GenerationNode(
         name=name,
         generator_specs=object_from_json(
@@ -790,14 +799,10 @@ def generation_node_from_json(
             class_decoder_registry=class_decoder_registry,
         ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
-        transition_criteria=(
-            object_from_json(
-                object_json=generation_node_json.pop("transition_criteria"),
-                decoder_registry=decoder_registry,
-                class_decoder_registry=class_decoder_registry,
-            )
-            if "transition_criteria" in generation_node_json.keys()
-            else None
+        transition_criteria=object_from_json(
+            object_json=generation_node_json.pop("transition_criteria"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
         ),
         input_constructors=decoded_input_constructors,
         previous_node_name=(
@@ -1113,7 +1118,7 @@ def generation_strategy_from_json(
     )
     if len(steps) > 0:
         gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
-        gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
+        gs._curr = gs._nodes[generation_strategy_json.pop("curr_index")]
     else:
         gs = GenerationStrategy(nodes=nodes, name=generation_strategy_json.pop("name"))
         curr_node_name = generation_strategy_json.pop("curr_node_name")

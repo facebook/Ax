@@ -14,6 +14,7 @@ import logging
 import warnings
 from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from functools import partial, reduce
 from typing import Any, cast, Union
@@ -83,6 +84,29 @@ METRIC_DF_COLNAMES: Mapping[Hashable, str] = {
 }
 
 
+@dataclass
+class ExperimentDesign:
+    """Struct that holds "experiment design" configuration: these are
+    experiment-level settings that pertain to "how the experiment will be
+    run or conducted", but are agnostic to the specific evaluation
+    backend, to which the trials will be deployed.
+
+    NOTE: In the future, we might treat concurrency limit as expressed
+    in terms of "full arm equivalents" as opposed to just "number of arms",
+    to cover for the multi-fidelity cases.
+
+    Args:
+        concurrency_limit: Maximum number of arms to run within one or
+            multiple trials, in parallel. In experiments that consist of
+            `Trial`-s, this is equivalent to the total number of trials
+            that should run in parallel. In experiments with `BatchTrial`-s,
+            this total number of arms can be spread across one or
+            multiple `BatchTrial`-s.
+    """
+
+    concurrency_limit: int | None = None
+
+
 class Experiment(Base):
     """Base class for defining an experiment."""
 
@@ -149,6 +173,12 @@ class Experiment(Base):
         self._time_created: datetime = datetime.now()
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
+        self._design: ExperimentDesign = ExperimentDesign()
+        # Restore ExperimentDesign from properties if present (for deserialization).
+        # TODO[drfreund, mpolson64]: Replace with proper storage as part of the
+        # refactor.
+        if (design_dict := self._properties.pop("design", None)) is not None:
+            self._design.concurrency_limit = design_dict.get("concurrency_limit")
 
         # Initialize trial type to runner mapping
         self._default_trial_type = default_trial_type
@@ -231,6 +261,11 @@ class Experiment(Base):
     def experiment_type(self, experiment_type: str | None) -> None:
         """Set the type of the experiment."""
         self._experiment_type = experiment_type
+
+    @property
+    def design(self) -> ExperimentDesign:
+        """The experiment design configuration."""
+        return self._design
 
     @property
     def search_space(self) -> SearchSpace:

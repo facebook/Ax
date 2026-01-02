@@ -49,6 +49,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
+from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.orchestration.orchestrator import (
@@ -147,10 +148,20 @@ class TestAxOrchestrator(TestCase):
         extract_pending_observations,
     )
     ALWAYS_USE_DB = False
+    # After D80128678, choose_generation_strategy_legacy returns node-based GS.
     EXPECTED_orchestrator_REPR: str = (
         "Orchestrator(experiment=Experiment(branin_test_experiment), "
-        "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
-        "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
+        "generation_strategy=GenerationStrategy("
+        "name='GenerationStep_0_Sobol+GenerationStep_1_BoTorch', "
+        "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
+        "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
+        "generator_key_override=None)], "
+        "transition_criteria=[MinTrials(transition_to='GenerationStep_1_BoTorch'), "
+        "MinTrials(transition_to='GenerationStep_1_BoTorch')]), "
+        "GenerationNode(name='GenerationStep_1_BoTorch', "
+        "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
+        "generator_key_override=None)], "
+        "transition_criteria=[MaxGenerationParallelism(transition_to='None')])]), "
         "options=OrchestratorOptions(max_pending_trials=10, "
         "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
         "total_trials=0, tolerated_trial_failure_rate=0.2, "
@@ -1150,9 +1161,15 @@ class TestAxOrchestrator(TestCase):
             expected_num_polls = 2
             self.assertEqual(len(res_list), expected_num_polls + 1)
             # Both trials in first batch of parallelism will be early stopped
+            # Extract max_parallelism from transition criteria
+            node0_max_parallelism = None
+            for tc in self.two_sobol_steps_GS._nodes[0].transition_criteria:
+                if isinstance(tc, MaxGenerationParallelism):
+                    node0_max_parallelism = tc.threshold
+                    break
             self.assertEqual(
                 len(res_list[0]["trials_early_stopped_so_far"]),
-                self.two_sobol_steps_GS._steps[0].max_parallelism,
+                node0_max_parallelism,
             )
             # Third trial in second batch of parallelism will be early stopped
             self.assertEqual(len(res_list[1]["trials_early_stopped_so_far"]), 3)
@@ -2633,8 +2650,8 @@ class TestAxOrchestrator(TestCase):
             {
                 "Generation strategy": MessageOutput(
                     text=(
-                        "This optimization run uses a 'Sobol+BoTorch' generation "
-                        "strategy."
+                        "This optimization run uses a 'GenerationStep_0_Sobol+"
+                        "GenerationStep_1_BoTorch' generation strategy."
                     ),
                     priority=10,
                 )
@@ -2698,10 +2715,20 @@ class TestAxOrchestrator(TestCase):
 
 
 class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
+    # After D80128678, choose_generation_strategy_legacy returns node-based GS.
     EXPECTED_orchestrator_REPR: str = (
         "Orchestrator(experiment=MultiTypeExperiment(branin_test_experiment), "
-        "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
-        "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
+        "generation_strategy=GenerationStrategy("
+        "name='GenerationStep_0_Sobol+GenerationStep_1_BoTorch', "
+        "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
+        "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
+        "generator_key_override=None)], "
+        "transition_criteria=[MinTrials(transition_to='GenerationStep_1_BoTorch'), "
+        "MinTrials(transition_to='GenerationStep_1_BoTorch')]), "
+        "GenerationNode(name='GenerationStep_1_BoTorch', "
+        "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
+        "generator_key_override=None)], "
+        "transition_criteria=[MaxGenerationParallelism(transition_to='None')])]), "
         "options=OrchestratorOptions(max_pending_trials=10, "
         "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
         "total_trials=0, tolerated_trial_failure_rate=0.2, "

@@ -298,10 +298,6 @@ class BatchTrial(BaseTrial):
         self._add_generator_run(generator_run=generator_run)
 
         self._generator_runs.append(generator_run)
-        if generator_run._generation_step_index is not None:
-            self._set_generation_step_index(
-                generation_step_index=generator_run._generation_step_index
-            )
         self._refresh_arms_by_name()
         return self
 

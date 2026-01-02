@@ -227,6 +227,10 @@ class Encoder:
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
         properties = experiment._properties.copy()
+        # Serialize ExperimentDesign into properties
+        properties["design"] = {
+            "concurrency_limit": experiment.design.concurrency_limit,
+        }
         if (
             oc := experiment.optimization_config
         ) is not None and oc.pruning_target_parameterization is not None:
@@ -889,7 +893,6 @@ class Encoder:
                 if not reduced_state
                 else None
             ),
-            generation_step_index=generator_run._generation_step_index,
             candidate_metadata_by_arm_signature=object_to_json(
                 generator_run._candidate_metadata_by_arm_signature,
                 encoder_registry=self.config.json_encoder_registry,
@@ -914,7 +917,6 @@ class Encoder:
             cast(type[Base], GenerationStrategy)
         ]
         generator_runs_sqa = []
-        node_based_strategy = generation_strategy.is_node_based
         for idx, gr in enumerate(generation_strategy._generator_runs):
             # Never reduce the state of the last generator run because that
             # generator run is needed to recreate the model when reloading the
@@ -928,20 +930,8 @@ class Encoder:
         gs_sqa = gs_class(
             id=generation_strategy.db_id,
             name=generation_strategy.name,
-            steps=(
-                object_to_json(
-                    generation_strategy._steps,
-                    encoder_registry=self.config.json_encoder_registry,
-                    class_encoder_registry=self.config.json_class_encoder_registry,
-                )
-                if not node_based_strategy
-                else []
-            ),
-            curr_index=(
-                generation_strategy.current_step_index
-                if not node_based_strategy
-                else -1
-            ),
+            steps=[],
+            curr_index=-1,
             generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
             nodes=(
@@ -950,8 +940,6 @@ class Encoder:
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
-                if node_based_strategy
-                else []
             ),
             curr_node_name=generation_strategy.current_node_name,
         )
@@ -1034,7 +1022,6 @@ class Encoder:
             abandoned_arms=abandoned_arms,
             generator_runs=generator_runs,
             runner=runner,
-            generation_step_index=trial._generation_step_index,
             properties=trial._properties,
         )
         return trial_sqa

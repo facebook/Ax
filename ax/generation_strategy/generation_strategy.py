@@ -8,18 +8,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import warnings
 from copy import deepcopy
-from functools import wraps
 from logging import Logger
-from typing import Any, cast, TypeVar
+from typing import Any, TypeVar
 
 from ax.adapter.base import Adapter
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.core.trial_status import TrialStatus
 from ax.core.utils import extend_pending_observations, extract_pending_observations
 from ax.exceptions.core import (
     AxError,
@@ -31,11 +29,14 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
 )
-from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
-from ax.generation_strategy.transition_criterion import TrialBasedCriterion
+
+from ax.generation_strategy.generation_node import (  # noqa: F401
+    GEN_STEP_NAME,
+    GenerationNode,
+    GenerationStep,  # Re-exported for backward compatibility.
+)
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -44,31 +45,17 @@ logger: Logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-def step_based_gs_only(f: Callable[..., T]) -> Callable[..., T]:
-    """
-    For use as a decorator on functions only implemented for ``GenerationStep``-based
-    ``GenerationStrategies``. Mainly useful for older ``GenerationStrategies``.
-    """
-
-    @wraps(f)
-    def impl(self: GenerationStrategy, *args: list[Any], **kwargs: dict[str, Any]) -> T:
-        if self.is_node_based:
-            raise UnsupportedError(
-                f"{f.__name__} is not supported for GenerationNode based"
-                " GenerationStrategies."
-            )
-        return f(self, *args, **kwargs)
-
-    return impl
-
-
 class GenerationStrategy(Base):
-    """GenerationStrategy describes which node should be used to generate new
-    points for which trials, enabling and automating use of different nodes
-    throughout the optimization process. For instance, it allows to use one
-    node for the initialization trials, and another one for all subsequent
-    trials. In the general case, this allows to automate use of an arbitrary
-    number of nodes to generate an arbitrary numbers of trials.
+    """``GenerationStrategy`` describes which ``GenerationNode`` should be used to
+    generate new points for the next trials (as well as which node should be used for
+    predictions from the surrogate model etc.), enabling and automating use of
+    different nodes throughout the optimization process. An in-depth tutorial on
+    the Ax ``GenerationStrategy``: https://ax.dev/docs/generation_strategy.
+
+    For instance, it allows to use one node for the initialization trials, and
+    another one for all subsequent trials. In the general case, this allows to
+    automate use of an arbitrary number of nodes to generate an arbitrary
+    numbers of trials.
 
     Args:
         nodes: A list of `GenerationNode`. Each `GenerationNode` in the list
@@ -79,7 +66,6 @@ class GenerationStrategy(Base):
             are more flexible than `GenerationSteps` and new `GenerationStrategies`
             should use nodes. Notably, either, but not both, of `nodes` and `steps`
             must be provided.
-        steps: A list of `GenerationStep` describing steps of this strategy.
         name: An optional name for this generation strategy. If not specified,
             strategy's name will be names of its nodes' generators joined with '+'.
     """
@@ -96,52 +82,36 @@ class GenerationStrategy(Base):
 
     def __init__(
         self,
-        steps: list[GenerationStep] | None = None,
-        name: str | None = None,
+        *,
         nodes: list[GenerationNode] | None = None,
+        name: str | None = None,
+        **kwargs: Any,
     ) -> None:
-        # Validate that one and only one of steps or nodes is provided
-        if not ((steps is None) ^ (nodes is None)):
-            raise GenerationStrategyMisconfiguredException(
-                error_info="GenerationStrategy must contain either steps or nodes."
-            )
-
-        self._nodes = none_throws(
-            nodes if steps is None else cast(list[GenerationNode], steps)
-        )
-
-        # Validate correctness of steps list or nodes graph
-        if isinstance(steps, list) and all(
-            isinstance(s, GenerationStep) for s in steps
-        ):
-            self._validate_and_set_step_sequence(steps=self._nodes)
-        elif isinstance(nodes, list) and self.is_node_based:
-            self._validate_and_set_node_graph(nodes=nodes)
-        else:
-            # TODO[mgarrard]: Allow mix of nodes and steps
-            raise GenerationStrategyMisconfiguredException(
-                "`GenerationStrategy` inputs are:\n"
-                "`steps` (list of `GenerationStep`) or\n"
-                "`nodes` (list of `GenerationNode`)."
-                f"Encountered: {steps=}, {nodes=}"
-            )
         self._generator_runs = []
+        if not (bool(steps := kwargs.get("steps")) ^ bool(nodes)):  # Steps XOR nodes
+            raise GenerationStrategyMisconfiguredException(
+                "GenerationStrategy must contain either steps or nodes. "
+                f"Got: nodes={nodes}, steps={steps}."
+            )
+
+        if steps:
+            warnings.warn(
+                DeprecationWarning(
+                    "Specifying `steps` input is no longer supported. Please use "
+                    "`nodes`. `steps` argument will be removed in early 2026."
+                ),
+                stacklevel=2,
+            )
+            nodes = steps
+
+        self._validate_and_set_node_graph(nodes=nodes)
+
         # Set name to an explicit value ahead of time to avoid
         # adding properties during equality checks
         self._name = name or self._make_default_name()
 
     @property
-    def is_node_based(self) -> bool:
-        """Whether this strategy consists of GenerationNodes only.
-        This is useful for determining initialization properties and
-        other logic.
-        """
-        return not any(isinstance(n, GenerationStep) for n in self._nodes) and all(
-            isinstance(n, GenerationNode) for n in self._nodes
-        )
-
-    @property
-    def nodes_dict(self) -> dict[str, GenerationNode]:
+    def nodes_by_name(self) -> dict[str, GenerationNode]:
         """Returns a dictionary mapping node names to nodes."""
         return {node.name: node for node in self._nodes}
 
@@ -164,43 +134,14 @@ class GenerationStrategy(Base):
         return self._name
 
     @property
-    def current_step(self) -> GenerationStep:
-        """Current generation step."""
-        if not isinstance(self._curr, GenerationStep):
-            raise TypeError(
-                "The current object is not a GenerationStep, you may be looking "
-                "for the current_node property."
-            )
-        return self._curr
-
-    @property
     def current_node(self) -> GenerationNode:
         """Current generation node."""
-        if not isinstance(self._curr, GenerationNode):
-            raise TypeError(
-                "The current object is not a GenerationNode, you may be looking for the"
-                " current_step property."
-            )
         return self._curr
 
     @property
     def current_node_name(self) -> str:
         """Current generation node name."""
         return self._curr.name
-
-    @property
-    @step_based_gs_only
-    def current_step_index(self) -> int:
-        """Returns the index of the current generation step. This attribute
-        is replaced by node_name in newer GenerationStrategies but surfaced here
-        for backward compatibility.
-        """
-        node_names_for_all_steps = [step._name for step in self._nodes]
-        assert (
-            self._curr.name in node_names_for_all_steps
-        ), "The current step is not found in the list of steps"
-
-        return node_names_for_all_steps.index(self._curr.name)
 
     @property
     def adapter(self) -> Adapter | None:
@@ -228,7 +169,7 @@ class GenerationStrategy(Base):
         if self._experiment is None or experiment._name == self.experiment._name:
             self._experiment = experiment
         else:
-            raise ValueError(
+            raise UnsupportedError(
                 "This generation strategy has been used for experiment "
                 f"{self.experiment._name} so far; cannot reset experiment"
                 f" to {experiment._name}. If this is a new optimization, "
@@ -247,12 +188,6 @@ class GenerationStrategy(Base):
     def optimization_complete(self) -> bool:
         """Checks whether all nodes are completed in the generation strategy."""
         return all(node.is_completed for node in self._nodes)
-
-    @property
-    @step_based_gs_only
-    def _steps(self) -> list[GenerationStep]:
-        """List of generation steps."""
-        return self._nodes  # pyre-ignore[7]
 
     def gen_single_trial(
         self,
@@ -409,12 +344,8 @@ class GenerationStrategy(Base):
             # Unset the generation strategy back-pointer, so the nodes are not
             # associated with any generation strategy.
             n._generation_strategy = None
-        if self.is_node_based:
-            return GenerationStrategy(name=self.name, nodes=cloned_nodes)
 
-        return GenerationStrategy(
-            name=self.name, steps=assert_is_instance_list(cloned_nodes, GenerationStep)
-        )
+        return GenerationStrategy(name=self.name, nodes=cloned_nodes)
 
     def _unset_non_persistent_state_fields(self) -> None:
         """Utility for testing convenience: unset fields of generation strategy
@@ -424,13 +355,17 @@ class GenerationStrategy(Base):
         of the fields should be identical.
         """
         for n in self._nodes:
+            n._previous_node_name = None
+            # Only used for naming step-based `GenerationNode`s during generation
+            # strategy creation; by the time we could get to this method, the
+            # naming will have already occurred and there is no reason to keep
+            # the step index around anymore.
+            n._step_index = None
             if len(n.generator_specs) > 1:
                 n._generator_spec_to_gen_from = None
-            if not self.is_node_based:
-                n._previous_node_name = None
 
-    @step_based_gs_only
-    def _validate_and_set_step_sequence(self, steps: list[GenerationStep]) -> None:
+    # TODO: Deprecate `steps` argument fully in Q1'26.
+    def _validate_and_set_step_sequence(self, steps: list[GenerationNode]) -> None:
         """Initialize and validate the steps provided to this GenerationStrategy.
 
         Some GenerationStrategies are composed of GenerationStep objects, but we also
@@ -444,41 +379,33 @@ class GenerationStrategy(Base):
         underlying GenerationNode objects.
         """
         for idx, step in enumerate(steps):
-            if step.num_trials == -1 and len(step.completion_criteria) < 1:
-                if idx < len(self._steps) - 1:
-                    raise UserInputError(
-                        "Only last step in generation strategy can have "
-                        "`num_trials` set to -1 to indicate that the generator in "
-                        "the step should be used to generate new trials "
-                        "indefinitely unless completion criteria present."
-                    )
-            elif step.num_trials < 1 and step.num_trials != -1:
-                raise UserInputError(
-                    "`num_trials` must be positive or -1 (indicating unlimited) "
-                    "for all generation steps."
-                )
-            if step.max_parallelism is not None and step.max_parallelism < 1:
-                raise UserInputError(
-                    "Maximum parallelism should be None (if no limit) or "
-                    f"a positive number. Got: {step.max_parallelism} for "
-                    f"step {step.generator_name}."
-                )
-
-            step._name = f"GenerationStep_{str(idx)}"
-            step.index = idx
-
-            # Set transition_to field for all but the last step, which remains
-            # null.
-            if idx < len(self._steps):
-                for transition_criteria in step.transition_criteria:
-                    if (
-                        transition_criteria.criterion_class
-                        != "MaxGenerationParallelism"
-                    ):
-                        transition_criteria._transition_to = (
-                            f"GenerationStep_{str(idx + 1)}"
-                        )
+            step._name = GEN_STEP_NAME.format(
+                step_index=idx, generator_name=step.generator_name
+            )
+            step._step_index = idx
             step._generation_strategy = self
+
+            # Set transition_to field for all but the last step, which transitions
+            # to itself.
+            # transition_to = step.name
+            try:
+                next_step = steps[idx + 1]
+                transition_to = GEN_STEP_NAME.format(
+                    step_index=idx + 1,
+                    generator_name=next_step.generator_name,
+                )
+                # for transition_criteria in step.transition_criteria:
+                #     if (
+                #         transition_criteria.criterion_class
+                #         != "MaxGenerationParallelism"
+                #     ):
+                #         transition_criteria._transition_to = transition_to
+            except IndexError:  # Last step, steps[idx+1] was not possible
+                transition_to = step.name
+            for tc in step.transition_criteria:
+                if tc.criterion_class != "MaxGenerationParallelism":
+                    tc._transition_to = transition_to
+                    print(f"Set {transition_to} on TC {tc}")
         self._curr = steps[0]
 
     def _validate_and_set_node_graph(self, nodes: list[GenerationNode]) -> None:
@@ -491,33 +418,38 @@ class GenerationStrategy(Base):
                 another node in the same GenerationStrategy.
             4. Warns if no nodes contain a transition criterion
         """
-        node_names = []
-        for node in self._nodes:
-            # validate that all node names are unique
+        self._nodes = nodes
+        if any(n.from_step for n in nodes):
+            if not all(n.from_step for n in nodes):
+                raise GenerationStrategyMisconfiguredException(
+                    "`GenerationStrategy` must either be entirely comprised "
+                    "of `GenerationStep`-s or not have any."
+                )
+            self._validate_and_set_step_sequence(steps=nodes)
+
+        # Validate node names are unique and set back-pointer to this GS
+        node_names = set()
+        for node in nodes:
             if node.name in node_names:
                 raise GenerationStrategyMisconfiguredException(
                     error_info="All node names in a GenerationStrategy "
-                    + "must be unique."
+                    "must be unique."
                 )
-
-            node_names.append(node.name)
+            node_names.add(node.name)
             node._generation_strategy = self
 
-        # Validate that the next_node is in the ``GenerationStrategy`` and that all
-        # TCs in one "transition edge" (so all TCs from one node to another) have the
-        # same `continue_trial_generation` setting. Since multiple TCs together
-        # constitute one "transition edge", not having all TCs on such an "edge"
-        # indicate the same resulting state (continuing generation for same trial
-        # vs. stopping it after generating from current node) would indicate a
-        # malformed generation node DAG definition and therefore a
-        # malformed ``GenerationStrategy``.
-        contains_a_transition_to_argument = False
-        for node in self._nodes:
+        # Validate transition edges:
+        # - All `transition_to` targets must exist in this GS
+        # - All TCs on one edge must have the same `continue_trial_generation` setting
+        #  All but `MaxGenerationParallelism` TCs must have a `transition_to` set
+        for node in nodes:
             for next_node, tcs in node.transition_edges.items():
-                contains_a_transition_to_argument = True
                 if next_node is None:
-                    # TODO: @mgarrard remove MaxGenerationParallelism check when
+                    # TODO[drfreund]: Handle the case of the last generation step not
+                    # having any transition criteria.
+                    # TODO[mgarrard]: Remove MaxGenerationParallelism check when
                     # we update TransitionCriterion always define `transition_to`
+                    # NOTE: This is done in D86066476
                     for tc in tcs:
                         if "MaxGenerationParallelism" not in tc.criterion_class:
                             raise GenerationStrategyMisconfiguredException(
@@ -526,16 +458,13 @@ class GenerationStrategy(Base):
                                 f" but {tc.criterion_class} does not define "
                                 f"`transition_to` on {node.name}."
                             )
-                if next_node is not None and next_node not in node_names:
+                elif next_node not in node_names:
                     raise GenerationStrategyMisconfiguredException(
                         error_info=f"`transition_to` argument "
                         f"{next_node} does not correspond to any node in"
                         " this GenerationStrategy."
                     )
-                if (
-                    next_node is not None
-                    and len({tc.continue_trial_generation for tc in tcs}) > 1
-                ):
+                elif len({tc.continue_trial_generation for tc in tcs}) > 1:
                     raise GenerationStrategyMisconfiguredException(
                         error_info=f"All transition criteria on an edge "
                         f"from node {node.name} to node {next_node} "
@@ -543,46 +472,7 @@ class GenerationStrategy(Base):
                         "setting."
                     )
 
-        # validate that at least one node has transition_to field
-        if len(self._nodes) > 1 and not contains_a_transition_to_argument:
-            logger.warning(
-                "None of the nodes in this GenerationStrategy "
-                "contain a `transition_to` argument in their transition_criteria. "
-                "Therefore, the GenerationStrategy will not be able to "
-                "move from one node to another. Please add a "
-                "`transition_to` argument."
-            )
         self._curr = nodes[0]
-
-    @step_based_gs_only
-    def _step_repr(self, step_str_rep: str) -> str:
-        """Return the string representation of the steps in a GenerationStrategy
-        composed of GenerationSteps.
-        """
-        step_str_rep += "steps=["
-        remaining_trials = "subsequent" if len(self._nodes) > 1 else "all"
-        for step in self._nodes:
-            num_trials = remaining_trials
-            for criterion in step.transition_criteria:
-                # backwards compatibility of num_trials with MinTrials criterion
-                if (
-                    criterion.criterion_class == "MinTrials"
-                    and isinstance(criterion, TrialBasedCriterion)
-                    and criterion.not_in_statuses
-                    == [TrialStatus.FAILED, TrialStatus.ABANDONED]
-                ):
-                    num_trials = criterion.threshold
-
-            generator_spec = step._generator_spec_to_gen_from
-            if generator_spec is not None:
-                generator_name = generator_spec.generator_key
-            else:
-                generator_name = "model with unknown name"
-
-            step_str_rep += f"{generator_name} for {num_trials} trials, "
-        step_str_rep = step_str_rep[:-2]
-        step_str_rep += "])"
-        return step_str_rep
 
     def _validate_arms_per_node(self, arms_per_node: dict[str, int] | None) -> None:
         """Validate that the arms_per_node argument is valid if it is provided.
@@ -591,16 +481,15 @@ class GenerationStrategy(Base):
             arms_per_node: A map from node name to the number of arms to
                 generate from that node.
         """
-        if arms_per_node is not None and not set(self.nodes_dict).issubset(
+        if arms_per_node is not None and not set(self.nodes_by_name).issubset(
             arms_per_node
         ):
             raise UserInputError(
-                f"""
-                Each node defined in the GenerationStrategy must have an associated
-                number of arms to generate from that node defined in `arms_per_node`.
-                {arms_per_node} does not include all of {self.nodes_dict.keys()}. It
-                may be helpful to double check the spelling.
-                """
+                "Each node defined in the `GenerationStrategy` must have an "
+                "associated number of arms to generate from that node defined "
+                f"in `arms_per_node`. {arms_per_node} does not include all of "
+                f"{self.nodes_by_name.keys()}. "
+                "It may help to double-check the spelling."
             )
 
     def _make_default_name(self) -> str:
@@ -616,23 +505,11 @@ class GenerationStrategy(Base):
                 "Cannot make a default name for a generation strategy with no nodes "
                 "set yet."
             )
-        # TODO: Simplify this after updating GStep names to represent
-        # underlying generators.
-        if self.is_node_based:
-            node_names = (node.name for node in self._nodes)
-        else:
-            node_names = (
-                node.generator_spec_to_gen_from.generator_key for node in self._nodes
-            )
-            # Trim the "get_" beginning of the factory function if it's there.
-            node_names = (n[4:] if n[:4] == "get_" else n for n in node_names)
-        return "+".join(node_names)
+        return "+".join(node.name for node in self._nodes)
 
     def __repr__(self) -> str:
         """String representation of this generation strategy."""
         gs_str = f"GenerationStrategy(name='{self.name}', "
-        if not self.is_node_based:
-            return self._step_repr(gs_str)
         gs_str += f"nodes={str(self._nodes)})"
         return gs_str
 
@@ -712,7 +589,7 @@ class GenerationStrategy(Base):
                     raise_data_required_error=False
                 )
             )
-            node_to_gen_from = self.nodes_dict[node_to_gen_from_name]
+            node_to_gen_from = self.nodes_by_name[node_to_gen_from_name]
             if should_transition:
                 node_to_gen_from._previous_node_name = node_to_gen_from_name
                 # reset should skip as conditions may have changed, do not reset

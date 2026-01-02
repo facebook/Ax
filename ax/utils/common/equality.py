@@ -33,7 +33,6 @@ def equality_typechecker(eq_func: Callable) -> Callable:
     return _type_safe_equals
 
 
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def same_elements(list1: list[Any], list2: list[Any]) -> bool:
     """Compare equality of two lists of core Ax objects.
 

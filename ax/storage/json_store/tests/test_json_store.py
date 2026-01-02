@@ -284,8 +284,6 @@ TEST_CASES = [
         partial(
             get_generation_strategy,
             with_experiment=True,
-            with_generation_nodes=True,
-            with_callable_model_kwarg=False,
         ),
     ),
     (
@@ -496,20 +494,14 @@ class JSONStoreTest(TestCase):
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-
-            if class_ == "SimpleExperiment":
-                # Evaluation functions will be different, so need to do
-                # this so equality test passes
-                with self.assertRaises(RuntimeError):
-                    converted_object.evaluation_function(parameterization={})
-
-                original_object.evaluation_function = None
-                converted_object.evaluation_function = None
             if class_ == "BenchmarkMethod":
-                # Some fields of the reloaded GS are not expected to be set (both will
-                # be set during next model fitting call), so we unset them on the
-                # original GS as well.
+                # Some `GenerationStrategy` fields are not persisted in storage;
+                # it's ok for them to not be there in the reloaded object.
                 original_object.generation_strategy._unset_non_persistent_state_fields()
+            if class_ == "GenerationStep":
+                # _step_index is non-persistent state, unset on original to match
+                # the decoded object which will have _step_index=None.
+                original_object._step_index = None
             if isinstance(original_object, torch.nn.Module):
                 self.assertIsInstance(
                     converted_object,
@@ -518,26 +510,15 @@ class JSONStoreTest(TestCase):
                 )
                 original_object = original_object.state_dict()
                 converted_object = converted_object.state_dict()
-            if isinstance(original_object, GenerationStrategy):
-                original_object._unset_non_persistent_state_fields()
-                # for the test, completion criterion are set post init
-                # and therefore do not become transition criterion, unset
-                # for this specific test only
-                if "with_completion_criteria" in fake_func.keywords:
-                    for step in original_object._steps:
-                        step._transition_criteria = []
-                    for step in converted_object._steps:
-                        step._transition_criteria = []
-                    # also unset the `transition_to` field for the same reason
-                    for criterion in converted_object._steps[0].completion_criteria:
-                        if criterion.criterion_class == "MinimumPreferenceOccurances":
-                            criterion._transition_to = None
 
             try:
                 self.assertEqual(
                     original_object,
                     converted_object,
-                    msg=f"Error encoding/decoding {class_}.",
+                    msg=(
+                        f"Error encoding/decoding {class_}. Original object: "
+                        f"{original_object}, decoded object: {converted_object}"
+                    ),
                 )
             except RuntimeError as e:
                 if "Tensor with more than one value" in str(e):
@@ -629,17 +610,17 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertGreater(len(new_generation_strategy._steps), 0)
-        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+        self.assertGreater(len(new_generation_strategy._nodes), 0)
+        self.assertIsInstance(
+            new_generation_strategy._nodes[0].generator_spec.generator_enum, Generators
+        )
         # Model has not yet been initialized on this GS since it hasn't generated
         # anything yet.
         self.assertIsNone(new_generation_strategy.adapter)
 
         # Check that we can encode and decode the generation strategy after
-        # it has generated some generator runs. Since we now need to `gen`,
-        # we remove the fake callable kwarg we added, since model does not
-        # expect it.
-        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
+        # it has generated some generator runs.
+        generation_strategy = get_generation_strategy()
         gr = generation_strategy.gen_single_trial(experiment)
         gs_json = object_to_json(
             generation_strategy,
@@ -656,7 +637,9 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+        self.assertIsInstance(
+            new_generation_strategy._nodes[0].generator_spec.generator_enum, Generators
+        )
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
@@ -679,7 +662,9 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+        self.assertIsInstance(
+            new_generation_strategy._nodes[0].generator_spec.generator_enum, Generators
+        )
 
     def test_decode_map_data_backward_compatible(self) -> None:
         with self.subTest("Multiple map keys"):
@@ -954,27 +939,6 @@ class JSONStoreTest(TestCase):
         ):
             class_from_json({"index": 0, "class": "unknown_path"})
 
-    def test_unregistered_model_not_supported_in_nodes(self) -> None:
-        """Support for callables within model kwargs on GeneratorSpecs stored on
-        GenerationNodes is currently not supported. This is supported for
-        GenerationSteps due to legacy compatibility.
-        """
-        with self.assertRaisesRegex(
-            JSONEncodeError,
-            "is not registered with a corresponding encoder",
-        ):
-            gs = get_generation_strategy(
-                with_experiment=True,
-                with_generation_nodes=True,
-                with_callable_model_kwarg=True,
-                with_completion_criteria=0,
-            )
-            object_to_json(
-                gs,
-                encoder_registry=CORE_ENCODER_REGISTRY,
-                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
-            )
-
     def test_BadStateDict(self) -> None:
         interval = get_interval()
         expected_json = botorch_component_to_dict(interval)
@@ -1114,11 +1078,13 @@ class JSONStoreTest(TestCase):
             "index": -1,
             "should_deduplicate": False,
         }
-        generation_step = object_from_json(json)
-        self.assertIsInstance(generation_step, GenerationStep)
-        self.assertEqual(generation_step.generator_kwargs, {"other_kwarg": 5})
-        self.assertEqual(generation_step.generator, Generators.BOTORCH_MODULAR)
-        self.assertEqual(generation_step.generator_gen_kwargs, {"dummy": 5.0})
+        gnode = object_from_json(json)
+        self.assertIsInstance(gnode, GenerationNode)
+        self.assertEqual(gnode.generator_spec.generator_kwargs, {"other_kwarg": 5})
+        self.assertEqual(
+            gnode.generator_spec.generator_enum, Generators.BOTORCH_MODULAR
+        )
+        self.assertEqual(gnode.generator_spec.generator_gen_kwargs, {"dummy": 5.0})
 
     def test_generator_run_backwards_compatibility(self) -> None:
         # Test that we can load a generator run with deprecated kwargs.
@@ -1166,7 +1132,6 @@ class JSONStoreTest(TestCase):
                 "model_fit_quality": None,
             },
             "model_state_after_gen": {"dummy": 5.0},
-            "generation_step_index": None,
             "candidate_metadata_by_arm_signature": None,
             "generation_node_name": None,
         }
@@ -1358,6 +1323,8 @@ class JSONStoreTest(TestCase):
         new_object = get_surrogate_generation_step()
         # Converted object is a generation step without a strategy associated with it;
         # unset the generation strategy of the new object too, to match.
+        # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+        #  Step.__new__` actually returns a `GenerationNode`.
         new_object._generation_strategy = None
         self.assertEqual(converted_object, new_object)
 
@@ -1688,6 +1655,60 @@ class JSONStoreTest(TestCase):
                 loaded_experiment.optimization_config
             ).pruning_target_parameterization,
         )
+
+    def test_experiment_design_json_roundtrip(self) -> None:
+        """Test that ExperimentDesign is preserved through JSON serialization."""
+        # Setup: create experiment and set concurrency_limit
+        experiment = get_branin_experiment()
+        experiment.design.concurrency_limit = 42
+
+        # Execute: save and load experiment through JSON
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(
+                experiment,
+                f.name,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
+            loaded_experiment = load_experiment(
+                f.name,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Cleanup
+        os.remove(f.name)
+
+        # Assert: confirm ExperimentDesign is preserved
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertEqual(loaded_experiment.design.concurrency_limit, 42)
+
+    def test_experiment_design_none_concurrency_json_roundtrip(self) -> None:
+        """Test that ExperimentDesign with None concurrency_limit is preserved."""
+        # Setup: create experiment with default (None) concurrency_limit
+        experiment = get_branin_experiment()
+        self.assertIsNone(experiment.design.concurrency_limit)
+
+        # Execute: save and load experiment through JSON
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(
+                experiment,
+                f.name,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
+            loaded_experiment = load_experiment(
+                f.name,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Cleanup
+        os.remove(f.name)
+
+        # Assert: confirm ExperimentDesign is preserved with None
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNone(loaded_experiment.design.concurrency_limit)
 
     def test_multi_objective_from_json_warning(self) -> None:
         objectives = [get_objective()]
