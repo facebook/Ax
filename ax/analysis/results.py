@@ -30,7 +30,6 @@ from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
@@ -250,10 +249,9 @@ class ResultsAnalysis(Analysis):
         # Compute progression plots for MapMetrics (learning curves)
         progression_group = None
         data = experiment.lookup_data()
-        has_map_data = isinstance(data, MapData)
         metrics = experiment.metrics.values()
         map_metrics = [m for m in metrics if isinstance(m, MapMetric)]
-        if has_map_data and len(map_metrics) > 0:
+        if data.has_step_column and len(map_metrics) > 0:
             progression_cards = [
                 ProgressionPlot(
                     metric_name=m.name, by_wallclock_time=by_wallclock_time
