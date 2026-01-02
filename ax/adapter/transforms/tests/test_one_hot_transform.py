@@ -59,9 +59,9 @@ class OneHotTransformTest(TestCase):
             parameters={
                 "x": 2.2,
                 "a": 2,
-                "b" + OH_PARAM_INFIX + "_0": 0,
-                "b" + OH_PARAM_INFIX + "_1": 1,
-                "b" + OH_PARAM_INFIX + "_2": 0,
+                "b" + OH_PARAM_INFIX + "0": 0,
+                "b" + OH_PARAM_INFIX + "1": 1,
+                "b" + OH_PARAM_INFIX + "2": 0,
                 "c": False,
                 "d": 10.0,
             }
@@ -89,9 +89,9 @@ class OneHotTransformTest(TestCase):
             ObservationFeatures(
                 parameters={
                     "x": 2.2,
-                    "b" + OH_PARAM_INFIX + "_0": 0,
-                    "b" + OH_PARAM_INFIX + "_1": 1,
-                    "b" + OH_PARAM_INFIX + "_2": 0,
+                    "b" + OH_PARAM_INFIX + "0": 0,
+                    "b" + OH_PARAM_INFIX + "1": 1,
+                    "b" + OH_PARAM_INFIX + "2": 0,
                 }
             ),
         )
@@ -114,11 +114,11 @@ class OneHotTransformTest(TestCase):
         self.assertEqual(ss2.parameters["x"].parameter_type, ParameterType.FLOAT)
         self.assertEqual(ss2.parameters["a"].parameter_type, ParameterType.INT)
         self.assertEqual(
-            ss2.parameters["b" + OH_PARAM_INFIX + "_0"].parameter_type,
+            ss2.parameters["b" + OH_PARAM_INFIX + "0"].parameter_type,
             ParameterType.FLOAT,
         )
         self.assertEqual(
-            ss2.parameters["b" + OH_PARAM_INFIX + "_1"].parameter_type,
+            ss2.parameters["b" + OH_PARAM_INFIX + "1"].parameter_type,
             ParameterType.FLOAT,
         )
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.BOOL)
@@ -126,9 +126,9 @@ class OneHotTransformTest(TestCase):
 
         # Parameter range fixed to [0,1].
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.
-        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "_0"].lower, 0.0)
+        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "0"].lower, 0.0)
         # pyre-fixme[16]: `Parameter` has no attribute `upper`.
-        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "_1"].upper, 1.0)
+        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "1"].upper, 1.0)
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.BOOL)
 
         # Ensure we error if we try to transform a fidelity parameter
@@ -178,8 +178,8 @@ class OneHotTransformTest(TestCase):
         tf_ss = self.t.transform_search_space(small_ss)
         expected_params = {
             "x",
-            "b" + OH_PARAM_INFIX + "_0",
-            "b" + OH_PARAM_INFIX + "_2",
+            "b" + OH_PARAM_INFIX + "0",
+            "b" + OH_PARAM_INFIX + "2",
         }
         self.assertEqual(set(tf_ss.parameters.keys()), expected_params)
 
@@ -188,15 +188,15 @@ class OneHotTransformTest(TestCase):
             ObservationFeatures(
                 parameters={
                     "x": 0.5,
-                    "b" + OH_PARAM_INFIX + "_0": 0.0,
-                    "b" + OH_PARAM_INFIX + "_2": 0.5,
+                    "b" + OH_PARAM_INFIX + "0": 0.0,
+                    "b" + OH_PARAM_INFIX + "2": 0.5,
                 }
             ),
             ObservationFeatures(
                 parameters={
                     "x": 0.5,
-                    "b" + OH_PARAM_INFIX + "_0": 0.3,
-                    "b" + OH_PARAM_INFIX + "_2": 0.1,
+                    "b" + OH_PARAM_INFIX + "0": 0.3,
+                    "b" + OH_PARAM_INFIX + "2": 0.1,
                 }
             ),
         ]
@@ -212,8 +212,8 @@ class OneHotTransformTest(TestCase):
             ObservationFeatures(
                 parameters={
                     "x": 0.5,
-                    "b" + OH_PARAM_INFIX + "_0": 0.0,
-                    "b" + OH_PARAM_INFIX + "_2": 0.0,
+                    "b" + OH_PARAM_INFIX + "0": 0.0,
+                    "b" + OH_PARAM_INFIX + "2": 0.0,
                 }
             )
             for i in range(10)
@@ -241,9 +241,9 @@ class OneHotTransformTest(TestCase):
         # Check that only "b" has been transformed and column names are as expected.
         base_columns = ["x", "a", "c", "d", "metadata"]
         transformed_columns = [
-            "b" + OH_PARAM_INFIX + "_0",
-            "b" + OH_PARAM_INFIX + "_1",
-            "b" + OH_PARAM_INFIX + "_2",
+            "b" + OH_PARAM_INFIX + "0",
+            "b" + OH_PARAM_INFIX + "1",
+            "b" + OH_PARAM_INFIX + "2",
         ]
         self.assertEqual(
             set(transformed_data.arm_data),
