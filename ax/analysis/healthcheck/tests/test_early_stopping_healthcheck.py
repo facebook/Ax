@@ -181,7 +181,7 @@ class TestEarlyStoppingAnalysis(TestCase):
 
         with self.subTest("no_data"):
             experiment = self._fresh_experiment()
-            experiment._data_by_trial = {}
+            experiment.data = Data()
             error = healthcheck.validate_applicable_state(
                 experiment=experiment, generation_strategy=None, adapter=None
             )

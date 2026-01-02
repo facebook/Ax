@@ -60,7 +60,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
-from ax.storage.utils import combine_datas_on_data_by_trial
+from ax.storage.utils import data_by_trial_to_data
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     SerializationMixin,
@@ -564,17 +564,21 @@ def data_from_json(
     data_by_trial_json: Mapping[str, Any] | Mapping[int, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> dict[int, "OrderedDict[int, Data]"]:
+) -> Data:
     """
     Load Ax Data from JSON.
 
-    Old `_data_by_trial` is in the format `{trial_index: {timestamp: Data}}`.
-    Current data is in the format `{trial_index: {0: Data}}`. This function
-    deserializes `_data_by_trial` and then converts it from the current format
-    to the new format. Within each trial_index, it combines each fetch with the
-    previous one, deduplicating in favor of the new data when there are multiple
-    observations with the same "trial_index", "metric_name", and "arm_name",
-    and, when present, "step."
+    Experiments used to have `_data_by_trial` is in the format
+    `{trial_index: {timestamp: Data}}`; they now have a single `Data`. Data is
+    still serialized via the old format (we intend to overhaul storage shortly).
+    This function
+    - combines multiple Datas for the same trial index into one, if there are
+        multiple, keeping only the trial_index-arm_name-metric_name[-step]
+        observation if it appears with multiple timestamps.
+    - concatenates the data for each trial into one
+
+    Produce `None` if `_data_by_trial` is empty. We do this rather than creating
+    an empty data since we don't know the type of the data in that case.
     """
     data_by_trial = object_from_json(
         data_by_trial_json,
@@ -587,7 +591,7 @@ def data_from_json(
         int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
         for k, v in data_by_trial.items()
     }
-    return combine_datas_on_data_by_trial(data_by_trial=deserialized)
+    return data_by_trial_to_data(data_by_trial=deserialized)
 
 
 def multi_type_experiment_from_json(
@@ -713,8 +717,8 @@ def _load_experiment_info(
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    exp._data_by_trial = data_from_json(
-        exp_info.get("data_by_trial_json"),
+    exp.data = data_from_json(
+        exp_info.get("data_by_trial_json", {}),
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
