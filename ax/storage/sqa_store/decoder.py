@@ -29,7 +29,6 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import data_from_df_infer_type
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -1037,7 +1036,7 @@ class Decoder:
         if "metric_signature" not in df.columns:
             df["metric_signature"] = df["metric_name"]
 
-        dat = data_from_df_infer_type(df=df)
+        dat = Data(df=df)
         dat.db_id = data_sqa.id
         return dat
 

@@ -13,7 +13,6 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import combine_datas_infer_type
 from ax.core.metric import Metric, MetricFetchResult
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
@@ -253,7 +252,7 @@ class MultiTypeExperiment(Experiment):
         # TODO: make this more efficient for fetching
         # data for multiple trials of the same type
         # by overriding Experiment._lookup_or_fetch_trials_results
-        return combine_datas_infer_type(
+        return Data.from_multiple_data(
             [
                 (
                     trial.fetch_data(**kwargs, metrics=metrics)
