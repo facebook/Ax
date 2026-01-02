@@ -19,7 +19,7 @@ from ax.analysis.plotly.plotly_analysis import (
 from ax.analysis.plotly.utils import select_metric
 from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MAP_KEY
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 
@@ -87,8 +87,8 @@ class ProgressionPlot(Analysis):
             return experiment_invalid_reason
 
         data = none_throws(experiment).lookup_data()
-        if not isinstance(data, MapData):
-            return "Requires MapData."
+        if not data.has_step_column:
+            return "Requires data to have a column 'step.'"
 
     @override
     def compute(

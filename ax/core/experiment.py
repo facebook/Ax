@@ -917,7 +917,7 @@ class Experiment(Base):
                     f"Cannot attach data for trial {trial_index} because it has"
                     " not been attached to the experiment."
                 )
-            if not isinstance(data, MapData):
+            if not data.has_step_column:
                 trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
             current_trial_data = (
                 self._data_by_trial[trial_index]

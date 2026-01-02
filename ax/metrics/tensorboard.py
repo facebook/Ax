@@ -259,7 +259,9 @@ try:
             records: list[dict[str, Any]],
             arm_name: str,
         ) -> pd.DataFrame:
-            """Process records to a MapData dataframe."""
+            """
+            Process records to a Data-style dataframe (with "step"/MAP_KEY column).
+            """
             df = (
                 pd.DataFrame(records)
                 # If a metric has multiple records for the same arm, metric, and

@@ -27,10 +27,9 @@ from ax.adapter.cross_validation import (
 )
 from ax.adapter.random import RandomAdapter
 from ax.adapter.torch import TorchAdapter
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -455,7 +454,7 @@ def get_standard_plots(
                     _get_curve_plot_dropdown(
                         experiment=experiment,
                         map_metrics=map_metrics,
-                        data=data,  # pyre-ignore
+                        data=data,
                         early_stopping_strategy=early_stopping_strategy,
                         by_walltime=by_walltime,
                         limit_points_per_plot=limit_points_per_plot,
@@ -492,7 +491,7 @@ def _transform_progression_to_walltime(
 def _get_curve_plot_dropdown(
     experiment: Experiment,
     map_metrics: Iterable[MapMetric],
-    data: MapData,
+    data: Data,
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     by_walltime: bool = False,
     limit_points_per_plot: int | None = None,
@@ -503,13 +502,14 @@ def _get_curve_plot_dropdown(
         experiment: The experiment to generate plots for.
         map_metrics: The list of metrics to generate plots for. Each metric
             will be one entry in the dropdown.
-        data: The map data used to generate the plots.
+        data: The data used to generate the plots. It must have a "step"
+            (MAP_KEY) column.
         early_stopping_strategy: An instance of ``BaseEarlyStoppingStrategy``. This
             is used to check which metrics are being used for early stopping.
         by_walltime: If true, the x-axis will be walltime. If false, the x-axis is
             the progression of the trials (trials are 'stacked').
         limit_points_per_plot: Limit the total number of data points used per plot
-            (i.e., per metric). This is passed down to `MapData.subsample(...)` to
+            (i.e., per metric). This is passed down to `Data.subsample(...)` to
             subsample the data. Useful for keeping the plots of manageable size.
     """
     early_stopping_metrics = get_early_stopping_metrics(

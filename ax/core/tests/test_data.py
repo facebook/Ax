@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-from ax.core.data import combine_dfs_favoring_recent, Data
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import _filter_df, _subsample_rate, combine_dfs_favoring_recent, Data
+from ax.core.map_data import MAP_KEY
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -116,26 +116,26 @@ def get_test_dataframe() -> pd.DataFrame:
 
 class TestDataBase(TestCase):
     """
-    Covers both Data and MapData tests.
-
-    MapData tests are in test_map_data.py.
+    Covers data with and without a "step" column.
+    Tests specific to data with a "step" column are in test_map_data.py.
     """
 
-    cls: type[Data] = Data
+    has_step_column: bool = False
 
     def setUp(self) -> None:
         super().setUp()
+        self.data_without_df = Data()
         df = get_test_dataframe()
-        if self.cls is Data:
+        if not self.has_step_column:
             self.df = df
             self.data_with_df = Data(df=self.df)
-            self.data_without_df = Data()
         else:
             df_1 = df.copy().assign(**{MAP_KEY: 0})
             df_2 = df.copy().assign(**{MAP_KEY: 1})
             self.df = pd.concat((df_1, df_2))
-            self.data_with_df = MapData(df=self.df)
-            self.data_without_df = MapData()
+            self.data_with_df = Data(df=self.df)
+
+        self.metric_name_to_signature = {"a": "a_signature", "b": "b_signature"}
 
     def test_init(self) -> None:
         self.assertEqual(self.data_without_df, self.data_without_df)
@@ -151,6 +151,8 @@ class TestDataBase(TestCase):
             0.5,
         )
 
+        self.assertEqual(self.data_with_df.has_step_column, self.has_step_column)
+
     def test_clone(self) -> None:
         data = self.data_with_df
         data._db_id = 1234
@@ -161,42 +163,42 @@ class TestDataBase(TestCase):
         self.assertIsNot(data, data_clone)
         self.assertIsNot(data.df, data_clone.df)
         self.assertIsNone(data_clone._db_id)
-        if self.cls is MapData:
+        if self.has_step_column:
             self.assertIsNot(data.full_df, data_clone.full_df)
             self.assertTrue(data.full_df.equals(data_clone.full_df))
 
     def test_BadData(self) -> None:
-        df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
+        data = {"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}
+        if self.has_step_column:
+            data[MAP_KEY] = "0"
+        df = pd.DataFrame([data])
         with self.assertRaisesRegex(
             ValueError, "Dataframe must contain required columns"
         ):
-            if self.cls is Data:
-                Data(df=df)
-            else:
-                MapData(df=df)
+            Data(df=df)
 
     def test_EmptyData(self) -> None:
         data = self.data_without_df
         df = data.df
         self.assertTrue(df.empty)
-        self.assertTrue(self.cls.from_multiple_data([]).df.empty)
+        self.assertTrue(Data.from_multiple_data([]).df.empty)
 
-        if isinstance(data, MapData):
+        if data.has_step_column:
             self.assertTrue(data.full_df.empty)
             expected_columns = Data.REQUIRED_COLUMNS.union({MAP_KEY})
         else:
             expected_columns = Data.REQUIRED_COLUMNS
-        self.assertEqual(expected_columns, data.required_columns())
         self.assertEqual(set(df.columns), expected_columns)
 
     def test_from_multiple_with_generator(self) -> None:
-        data = self.cls.from_multiple_data(self.data_with_df for _ in range(2))
+        data = Data.from_multiple_data(self.data_with_df for _ in range(2))
         self.assertEqual(len(data.full_df), 2 * len(self.data_with_df.full_df))
+        self.assertEqual(data.has_step_column, self.has_step_column)
 
     def test_extra_columns(self) -> None:
         value = 3
         extra_col_df = self.df.assign(foo=value)
-        data = self.cls(df=extra_col_df)
+        data = Data(df=extra_col_df)
         self.assertIn("foo", data.full_df.columns)
         self.assertIn("foo", data.df.columns)
         self.assertTrue((data.full_df["foo"] == value).all())
@@ -234,12 +236,19 @@ class TestDataBase(TestCase):
 
 
 class DataTest(TestCase):
-    """Tests that are specific to Data and not shared with MapData."""
+    """Tests that are specific to Data without a "step" column."""
 
     def setUp(self) -> None:
         super().setUp()
         self.df = get_test_dataframe()
         self.metric_name_to_signature = {"a": "a_signature", "b": "b_signature"}
+
+    def test_init(self) -> None:
+        # Initialize empty
+        empty = Data()
+        self.assertTrue(empty.full_df.empty)
+        self.assertEqual(set(empty.full_df.columns), empty.REQUIRED_COLUMNS)
+        self.assertFalse(empty.has_step_column)
 
     def test_repr(self) -> None:
         self.assertEqual(
@@ -265,20 +274,15 @@ class DataTest(TestCase):
             data = Data.from_multiple_data([Data(), Data()])
             self.assertEqual(data, Data())
 
-        with self.subTest("Can't use different types"):
+        with self.subTest("Different types"):
 
             class CustomData(Data):
                 pass
 
-            with self.assertRaisesRegex(
-                TypeError, "All data objects must be instances of"
-            ):
-                Data.from_multiple_data([CustomData(), CustomData()])
-
-            with self.assertRaisesRegex(
-                TypeError, "All data objects must be instances of"
-            ):
-                CustomData.from_multiple_data([Data(), CustomData()])
+            data = Data.from_multiple_data([CustomData(), CustomData()])
+            self.assertEqual(data, Data())
+            data = CustomData.from_multiple_data([Data(), CustomData()])
+            self.assertEqual(data, CustomData())
 
     def test_FromMultipleDataMismatchedTypes(self) -> None:
         # create two custom data types
@@ -289,14 +293,14 @@ class DataTest(TestCase):
             pass
 
         # Test using `Data.from_multiple_data` to combine non-Data types
-        with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
-            Data.from_multiple_data([CustomDataA(), CustomDataB()])
+        data = Data.from_multiple_data([CustomDataA(), CustomDataB()])
+        self.assertEqual(data, Data())
 
-        # Test data of multiple non-empty types raises a value error
+        # multiple non-empty types
         data_elt_A = CustomDataA(df=self.df)
         data_elt_B = CustomDataB(df=self.df)
-        with self.assertRaisesRegex(TypeError, "All data objects must be instances of"):
-            Data.from_multiple_data([data_elt_A, data_elt_B])
+        data = Data.from_multiple_data([data_elt_A, data_elt_B])
+        self.assertEqual(len(data.full_df), 2 * len(self.df))
 
     def test_filter(self) -> None:
         data = Data(df=self.df)
@@ -331,6 +335,15 @@ class DataTest(TestCase):
         self.assertEqual(len(filtered.df), 3)
         self.assertEqual(set(filtered.df["metric_name"]), {"a"})
 
+        with self.subTest("Metric names and metric signatures both specified"):
+            with self.assertRaisesRegex(UserInputError, "Cannot filter by both"):
+                _filter_df(
+                    df=self.df, metric_names=["a"], metric_signatures=["a_signature"]
+                )
+
+        with self.subTest("No filtering"):
+            self.assertIs(self.df, _filter_df(df=self.df))
+
     def test_safecast_df(self) -> None:
         # Create a df with unexpected index ([1])
         df = pd.DataFrame.from_records(
@@ -351,6 +364,10 @@ class DataTest(TestCase):
         safecast_df = Data._safecast_df(df=df)
         self.assertEqual(safecast_df.index.get_level_values(0).to_list(), [0])
         self.assertEqual(df["trial_index"].dtype, int)
+
+    def test_subsample_rate(self) -> None:
+        with self.assertRaisesRegex(ValueError, "at least one of"):
+            _subsample_rate(full_df=self.df)
 
 
 class TestCombineDFs(TestCase):
@@ -503,9 +520,7 @@ class RelativizeDataTest(TestCase):
         )
 
     def test_relativize_data(self) -> None:
-        data = Data(
-            df=self.df,
-        )
+        data = Data(df=self.df)
         expected_relativized_data = Data(df=self.expected_relativized_df)
 
         expected_relativized_data_with_sq = Data(
@@ -519,6 +534,13 @@ class RelativizeDataTest(TestCase):
         self.assertEqual(
             expected_relativized_data_with_sq, actual_relativized_data_with_sq
         )
+
+        with self.subTest("step column not supported"):
+            data = Data(df=self.df.assign(step=0))
+            with self.assertRaisesRegex(
+                NotImplementedError, "Relativization is not supported"
+            ):
+                data.relativize()
 
     def test_relativize_data_no_sem(self) -> None:
         df = self.df.copy()

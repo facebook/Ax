@@ -31,7 +31,6 @@ from ax.analysis.utils import validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
@@ -179,7 +178,7 @@ class OverviewAnalysis(Analysis):
 
         # Check if the experiment has MapData and MapMetrics (required for
         # early stopping)
-        has_map_data = isinstance(experiment.lookup_data(), MapData)
+        has_map_data = experiment.lookup_data().has_step_column
         has_map_metrics = any(
             isinstance(m, MapMetric) for m in experiment.metrics.values()
         )

@@ -12,7 +12,8 @@ from typing import Any
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import Data, MAP_KEY
+from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric, MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.core.trial import Trial
@@ -29,7 +30,7 @@ class MapDataReplayMetric(MapMetric):
     def __init__(
         self,
         name: str,
-        map_data: MapData,
+        map_data: Data,
         metric_name: str,
         max_steps_validation: int | None = 200,
         lower_is_better: bool | None = None,
@@ -47,7 +48,7 @@ class MapDataReplayMetric(MapMetric):
             lower_is_better: If True, lower metric values are considered
                 desirable.
         """
-        self.map_data = map_data
+        self.map_data: Data = map_data
         self.max_steps_validation = max_steps_validation
         self.metric_name: str = metric_name
         # Store pre-processed DataFrame sorted by trial_index and step
@@ -180,7 +181,7 @@ class MapDataReplayMetric(MapMetric):
             )
 
 
-def _prepare_replay_dataframe(map_data: MapData, metric_name: str) -> pd.DataFrame:
+def _prepare_replay_dataframe(map_data: Data, metric_name: str) -> pd.DataFrame:
     """Prepare a pre-sorted DataFrame for efficient replay lookups.
 
     Filters the data to the specified metric and sorts by trial_index and step.

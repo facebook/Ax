@@ -15,8 +15,9 @@ from typing import cast
 import pandas as pd
 from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import (
@@ -213,7 +214,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             0.11 estimated savings indicates we would expect the experiment to have used
             11% more resources without early stopping present)
         """
-        if not isinstance(experiment.lookup_data(), MapData):
+        if not experiment.lookup_data().has_step_column:
             return 0.0
 
         return estimate_early_stopping_savings(experiment=experiment)
@@ -221,7 +222,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
-        """Looks up and validates the `MapData` used for early stopping that
+        """Looks up and validates the `Data` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
@@ -240,11 +241,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 )
                 return None
 
-        if not isinstance(data, MapData):
+        if not data.has_step_column:
             logger.info(
-                f"{self.__class__.__name__} expects MapData, but the "
-                f"data attached to experiment is of type {type(data)}. "
-                "Not stopping any trials."
+                f"{self.__class__.__name__} expects the data attached to the "
+                f"to have a column '{MAP_KEY}' (representing progression), but "
+                "it does not. Not stopping any trials."
             )
             return None
 
@@ -557,7 +558,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         Returns:
             A tuple of (long_df, multilevel_wide_df) where:
-            - long_df: The raw MapData dataframe (long format) before interpolation
+            - long_df: The raw Data-style dataframe (long format) before
+                interpolation
             - multilevel_wide_df: Hierarchical wide dataframe (indexed by progression)
               with first level ["mean", "sem"] and second level metric signatures
             Returns None if data cannot be retrieved or aligned.
@@ -585,7 +587,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     """A base class for model based early stopping strategies. Includes
-    a helper function for processing MapData into arrays."""
+    a helper function for processing Data into arrays."""
 
     def __init__(
         self,
@@ -652,7 +654,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
     ) -> MapData | None:
-        """Looks up and validates the `MapData` used for early stopping that
+        """Looks up and validates the `Data` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """

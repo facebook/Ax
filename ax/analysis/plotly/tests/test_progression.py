@@ -11,7 +11,10 @@ from ax.analysis.plotly.progression import (
     ProgressionPlot,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_test_map_data_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_test_map_data_experiment,
+)
 from pyre_extensions import none_throws
 
 
@@ -23,6 +26,14 @@ class TestProgression(TestCase):
                 ProgressionPlot(metric_name="branin_map").validate_applicable_state()
             ),
         )
+
+        with self.subTest("No 'step' data"):
+            experiment = get_branin_experiment(
+                with_trial=True, with_completed_trial=True
+            )
+            plot = ProgressionPlot(metric_name="branin")
+            state = plot.validate_applicable_state(experiment=experiment)
+            self.assertEqual(state, "Requires data to have a column 'step.'")
 
     def test_compute(self) -> None:
         analysis = ProgressionPlot(metric_name="branin_map")

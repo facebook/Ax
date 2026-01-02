@@ -22,9 +22,8 @@ from dataclasses import dataclass, InitVar
 from typing import Any
 
 import numpy as np
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
@@ -403,7 +402,7 @@ def _extract_observation_data(
         retrived with ``("metadata", "start_time")``.
     """
     data = data if data is not None else experiment.lookup_data()
-    if isinstance(data, MapData):
+    if data.has_step_column:
         if data_loader_config.latest_rows_per_group is not None:
             data = data.latest(
                 rows_per_group=data_loader_config.latest_rows_per_group,
@@ -455,7 +454,7 @@ def _extract_observation_data(
 
     # Identify potential metadata columns.
     index_cols = ["trial_index", "arm_name"]
-    if isinstance(data, MapData):
+    if data.has_step_column:
         index_cols.append(MAP_KEY)
 
     standard_columns = set(index_cols).union(
