@@ -15,8 +15,7 @@ import ax.core.experiment as experiment
 import numpy as np
 import pandas as pd
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.map_data import MAP_KEY
+from ax.core.data import Data, MAP_KEY
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus

@@ -16,7 +16,7 @@ from logging import Logger
 from typing import Any, cast, Mapping
 
 import torch
-from ax.core.map_data import MAP_KEY
+from ax.core.data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchOptConfig

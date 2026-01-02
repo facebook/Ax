@@ -14,7 +14,7 @@ from unittest.mock import Mock
 
 import numpy as np
 import torch
-from ax.core.map_data import MAP_KEY
+from ax.core.data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel

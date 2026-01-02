@@ -11,8 +11,8 @@ from typing import Any
 
 import numpy.typing as npt
 import pandas as pd
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger

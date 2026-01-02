@@ -12,9 +12,8 @@ from collections.abc import Iterable
 import numpy as np
 from ax.adapter.adapter_utils import observed_hypervolume, predicted_hypervolume
 from ax.adapter.torch import TorchAdapter
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY
 from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,

@@ -18,8 +18,8 @@ from ax.analysis.plotly.plotly_analysis import (
 )
 from ax.analysis.plotly.utils import select_metric
 from ax.analysis.utils import validate_experiment
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 
