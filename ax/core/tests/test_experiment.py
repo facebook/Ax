@@ -617,10 +617,13 @@ class ExperimentTest(TestCase):
         exp.attach_data(batch_data)
         exp.attach_data(exp_data)
 
-        full_dict = exp._data_by_trial
-        self.assertEqual(len(full_dict), 2)  # data for 2 trials
-        # All data is associated with the later ts
-        self.assertEqual(set(full_dict[0].keys()), {0})
+        # data for 2 trials
+        self.assertEqual(len(exp.lookup_data().trial_indices), 2)
+        # The data from `exp_data` completely replaces the data from
+        # `batch_data` because both are for metric "b", and `batch_data` covers a
+        # subset of the arms and trials. There is an additional observation from
+        # "not_yet_on_experiment".
+        self.assertEqual(len(exp.lookup_data().df), len(exp_data.df) + 1)
 
         # Test retrieving original batch 0 data
         trial_0_df = exp.lookup_data_for_trial(0).df
@@ -630,15 +633,16 @@ class ExperimentTest(TestCase):
         )
 
         # Test retrieving full exp data
-        t2_df = exp.lookup_data().df
-        self.assertEqual((t2_df["metric_name"] == "b").sum(), 4 * n)
-        self.assertEqual((t2_df["metric_name"] == "not_yet_on_experiment").sum(), 1)
+        df = exp.lookup_data().df
+        self.assertEqual((df["metric_name"] == "b").sum(), 4 * n)
+        self.assertEqual((df["metric_name"] == "not_yet_on_experiment").sum(), 1)
 
-        self.assertEqual(len(full_dict[0]), 1)
-        # Make sure that _data_by_trial[0] gives the same data as
-        # `lookup_data_for_trial(0)`
-        trial_0_df_2 = next(iter(full_dict[0].values())).df
-        self.assertEqual(len(trial_0_df_2), len(trial_0_df))
+        # Make sure that lookup_data() + filtering on trial index = 0 gives the
+        # same result as `lookup_data_for_trial(0)`
+        self.assertEqual(
+            (df["trial_index"] == 0).sum(),
+            len(exp.lookup_data_for_trial(trial_index=0).df),
+        )
         new_data = Data(
             df=pd.DataFrame.from_records(
                 [
@@ -663,8 +667,6 @@ class ExperimentTest(TestCase):
             )
         )
         exp.attach_data(new_data)
-        # still 6 data objs, since we combined last one
-        self.assertEqual(set(exp._data_by_trial[0].keys()), {0})
         self.assertIn("z", exp.lookup_data().df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned
@@ -883,7 +885,7 @@ class ExperimentTest(TestCase):
 
         # (1) use a fresh experiment with no data on it and with three metrics
         exp.attach_data(data1)
-        self.assertEqual(set(exp._data_by_trial[trial_index].keys()), {0})
+        self.assertIn(trial_index, exp.data.trial_indices)
 
         new_b_value = 3.0
         # b is updated, c is new
@@ -899,11 +901,10 @@ class ExperimentTest(TestCase):
         )
         data2 = Data(df=df2)
         exp.attach_data(data2, combine_with_last_data=True)
-        # Still just one item in it, but with a new ts
-        self.assertEqual(set(exp._data_by_trial[trial_index].keys()), {0})
+        self.assertIn(trial_index, exp.data.trial_indices)
         # (5) assert that `exp._data_by_trial[0]`'s one value is a Data with
         #     metrics a, b, and c, containing the more recent value for metric b.
-        attached_df = exp._data_by_trial[trial_index][0].full_df
+        attached_df = exp.data.filter(trial_indices=[trial_index]).full_df
         # All three metrics are present on the new data
         self.assertEqual(set(attached_df["metric_name"]), {"a", "b", "c"})
         # Check that metric b has the updated value (3.0)
@@ -1067,9 +1068,10 @@ class ExperimentTest(TestCase):
         )
 
         exp.attach_data(Data(df=unsorted_df))
+        exp_df = exp.lookup_data().df
         for trial_index in [0, 1]:
             assert_frame_equal(
-                list(exp._data_by_trial[trial_index].values())[0].df,
+                exp_df.loc[exp_df["trial_index"] == trial_index].reset_index(drop=True),
                 sorted_dfs[trial_index],
             )
 
@@ -1207,7 +1209,7 @@ class ExperimentTest(TestCase):
         # Since metric is available while trial is running, we should be
         # refetching the data and no data should be attached to experiment.
         mock_bulk_fetch_experiment_data.assert_called_once()
-        self.assertEqual(len(exp._data_by_trial), 2)
+        self.assertEqual(len(exp.data.trial_indices), 2)
 
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
@@ -1233,7 +1235,7 @@ class ExperimentTest(TestCase):
             # Data should no longer be empty since there are completed trials.
             self.assertFalse(dat.df.empty)
             # Data for two trials should get attached.
-            self.assertEqual(len(exp._data_by_trial), 2)
+            self.assertEqual(len(exp.data.trial_indices), 2)
 
             # 3. Previously fetched => look up in cache case.
             mock_bulk_fetch_experiment_data.reset_mock()
@@ -1241,7 +1243,7 @@ class ExperimentTest(TestCase):
             exp.fetch_data()
             mock_bulk_fetch_experiment_data.assert_not_called()
             # No new data should be attached to the experiment
-            self.assertEqual(len(exp._data_by_trial), 2)
+            self.assertEqual(len(exp.data.trial_indices), 2)
 
     def test_warm_start_from_old_experiment(self) -> None:
         # create old_experiment
@@ -1392,7 +1394,7 @@ class ExperimentTest(TestCase):
         cloned_experiment = experiment.clone_with(
             search_space=larger_search_space,
         )
-        self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
+        self.assertEqual(cloned_experiment.data, experiment.data)
         self.assertEqual(len(cloned_experiment.trials), 4)
         for trial_index in cloned_experiment.trials.keys():
             cloned_trial = cloned_experiment.trials[trial_index]
@@ -1426,7 +1428,6 @@ class ExperimentTest(TestCase):
 
         # Clone specific trials.
         # With existing data.
-        experiment._data_by_trial
         cloned_experiment = experiment.clone_with(trial_indices=[1])
         self.assertEqual(len(cloned_experiment.trials), 1)
         cloned_df = cloned_experiment.lookup_data_for_trial(0).df
@@ -1440,16 +1441,9 @@ class ExperimentTest(TestCase):
             search_space=larger_search_space,
         )
         new_data = cloned_experiment.lookup_data()
-        self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
+        self.assertEqual(cloned_experiment.data, experiment.data)
         self.assertIsInstance(new_data, Data)
         self.assertTrue(new_data.has_step_column)
-        expected_data_by_trial = {}
-        for trial_index in experiment.trials:
-            if original_trial_data := experiment._data_by_trial.get(trial_index, None):
-                expected_data_by_trial[trial_index] = OrderedDict(
-                    list(original_trial_data.items())[-1:]
-                )
-        self.assertEqual(cloned_experiment._data_by_trial, expected_data_by_trial)
 
         experiment = get_experiment()
         cloned_experiment = experiment.clone_with()

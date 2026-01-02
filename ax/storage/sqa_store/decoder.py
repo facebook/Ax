@@ -298,9 +298,7 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
-            trial_type_to_runner.update(
-                {t_type: None for t_type in trial_types_with_metrics}
-            )
+            trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
