@@ -1590,9 +1590,11 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         data.full_df.loc[data.full_df["metric_name"] == "branin_map", MAP_KEY] = (
             unaligned_timestamps
         )
-        # manually remove timestamps 1 and 2 for arm 3
-        trial_3_data = next(iter(exp._data_by_trial[3].values()))
-        trial_3_data.full_df = trial_3_data.full_df.loc[lambda x: x["step"] < 1]
+        # manually remove data from timestamps 1 and 2 for arm 3
+        filtered_df = exp.data.full_df.loc[
+            lambda x: ~((x["trial_index"] == 3) & (x["step"] >= 1))
+        ]
+        exp.data = Data(df=filtered_df)
 
         df = data.full_df.copy()
         new_df = df.drop(

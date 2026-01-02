@@ -971,14 +971,15 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
         self.assertIsNotNone(self.branin_timestamp_map_metric_experiment)
         NUM_TRIALS = 5
+        options = OrchestratorOptions(
+            total_trials=NUM_TRIALS,
+            init_seconds_between_polls=0,  # No wait between polls so test is fast.
+            **self.orchestrator_options_kwargs,
+        )
         orchestrator = Orchestrator(
             experiment=self.branin_timestamp_map_metric_experiment,
             generation_strategy=gs,
-            options=OrchestratorOptions(
-                total_trials=NUM_TRIALS,
-                init_seconds_between_polls=0,  # No wait between polls so test is fast.
-                **self.orchestrator_options_kwargs,
-            ),
+            options=options,
             db_settings=self.db_settings,
         )
         with patch.object(
@@ -993,12 +994,6 @@ class TestAxOrchestrator(TestCase):
         )
         exp = none_throws(exp)
         self.assertEqual(len(exp.trials), NUM_TRIALS)
-
-        # There should only be one data object for each trial, since by default the
-        # `Orchestrator` should override previous data objects when it gets new ones in
-        # a subsequent `fetch` call.
-        for _, datas in exp._data_by_trial.items():
-            self.assertEqual(len(datas), 1)
 
         # We also should have attempted the fetch more times
         # than there are trials because we have a `MapMetric` (many more since we are
@@ -1283,8 +1278,6 @@ class TestAxOrchestrator(TestCase):
                 mock_stop_trial_run.call_count,
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
-
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
 
         looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
