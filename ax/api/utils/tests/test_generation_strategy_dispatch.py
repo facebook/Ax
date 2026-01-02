@@ -16,6 +16,7 @@ from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.exceptions.core import UserInputError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.dispatch_utils import get_derelativize_config
 from ax.generation_strategy.transition_criterion import MinTrials
@@ -27,7 +28,9 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.utils import run_trials_with_gs
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -252,3 +255,118 @@ class TestDispatchUtils(TestCase):
                 mbm_spec.generator_kwargs["acquisition_options"],
                 {"prune_irrelevant_parameters": simplify},
             )
+
+    def test_choose_gs_custom_with_model_config(self) -> None:
+        """Test that custom method works with a provided ModelConfig."""
+        custom_model_config = ModelConfig(
+            botorch_model_class=EnsembleMapSaasSingleTaskGP,
+            name="MAPSAAS",
+        )
+        struct = GenerationStrategyDispatchStruct(
+            method="custom",
+            initialization_budget=3,
+            initialize_with_center=False,
+            torch_device="cpu",
+        )
+        gs = choose_generation_strategy(struct=struct, model_config=custom_model_config)
+        self.assertEqual(len(gs._nodes), 2)
+        self.assertEqual(gs.name, "Sobol+MBM:MAPSAAS")
+
+        # Check the MBM node uses the custom model config.
+        mbm_node = gs._nodes[1]
+        self.assertEqual(len(mbm_node.generator_specs), 1)
+        mbm_spec = mbm_node.generator_specs[0]
+        self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
+        expected_ss = SurrogateSpec(model_configs=[custom_model_config])
+        self.assertEqual(
+            mbm_spec.generator_kwargs["surrogate_spec"],
+            expected_ss,
+        )
+        self.assertEqual(
+            mbm_spec.generator_kwargs["torch_device"],
+            torch.device("cpu"),
+        )
+
+    def test_choose_gs_custom_without_name(self) -> None:
+        """Test that custom method works with unnamed ModelConfig."""
+        custom_model_config = ModelConfig(
+            botorch_model_class=SaasFullyBayesianSingleTaskGP,
+            # No name provided.
+        )
+        struct = GenerationStrategyDispatchStruct(
+            method="custom",
+            initialization_budget=3,
+            initialize_with_center=False,
+        )
+        gs = choose_generation_strategy(struct=struct, model_config=custom_model_config)
+        # Should use "custom_config" as the default name.
+        self.assertEqual(gs.name, "Sobol+MBM:custom_config")
+
+    def test_choose_gs_custom_model_config_validation(self) -> None:
+        """Test validation of model_config and custom method pairing."""
+        # Test that custom method raises an error when model_config is not provided.
+        struct = GenerationStrategyDispatchStruct(method="custom")
+        with self.assertRaisesRegex(
+            UserInputError,
+            "model_config must be provided when method='custom'.",
+        ):
+            choose_generation_strategy(struct=struct)
+
+        # Test that providing model_config without custom method raises an error.
+        custom_model_config = ModelConfig(name="SomeConfig")
+        struct = GenerationStrategyDispatchStruct(method="fast")
+        with self.assertRaisesRegex(
+            UserInputError,
+            "model_config should only be provided when method='custom'. "
+            "Got method='fast'.",
+        ):
+            choose_generation_strategy(struct=struct, model_config=custom_model_config)
+
+    def test_choose_gs_with_custom_botorch_acqf_class(self) -> None:
+        """Test that custom botorch_acqf_class is properly passed to generator kwargs
+        and appended to the node name. Tests both fast and custom methods.
+        """
+        for method, model_config, expected_name in [
+            ("fast", None, "Sobol+MBM:fast+qLogNoisyExpectedImprovement"),
+            (
+                "custom",
+                ModelConfig(
+                    botorch_model_class=EnsembleMapSaasSingleTaskGP,
+                    name="MAPSAAS",
+                ),
+                "Sobol+MBM:MAPSAAS+qLogNoisyExpectedImprovement",
+            ),
+        ]:
+            with self.subTest(method=method):
+                struct = GenerationStrategyDispatchStruct(
+                    method=method,  # pyre-ignore [6]
+                    initialization_budget=3,
+                    initialize_with_center=False,
+                )
+                gs = choose_generation_strategy(
+                    struct=struct,
+                    model_config=model_config,
+                    botorch_acqf_class=qLogNoisyExpectedImprovement,
+                )
+                # Check that the name includes the acquisition function class name.
+                self.assertEqual(gs.name, expected_name)
+
+                # Check that MBM node generator kwargs include the botorch_acqf_class.
+                mbm_node = gs._nodes[1]
+                self.assertEqual(len(mbm_node.generator_specs), 1)
+                mbm_spec = mbm_node.generator_specs[0]
+                self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
+                self.assertEqual(
+                    mbm_spec.generator_kwargs["botorch_acqf_class"],
+                    qLogNoisyExpectedImprovement,
+                )
+                # Check surrogate spec uses expected model config.
+                expected_model_config = (
+                    model_config
+                    if model_config is not None
+                    else ModelConfig(name="MBM defaults")
+                )
+                expected_ss = SurrogateSpec(model_configs=[expected_model_config])
+                self.assertEqual(
+                    mbm_spec.generator_kwargs["surrogate_spec"], expected_ss
+                )

@@ -53,6 +53,11 @@ class GenerationStrategyDispatchStruct:
                 - ``"random_search"``, primarily intended for pure exploration
                     experiments, this method utilizes quasi-random Sobol sequences
                     for candidate generation.
+                - ``"custom"``, allows using a custom ``ModelConfig`` for the
+                    Bayesian optimization phase. When using this method, the
+                    ``model_config`` argument must be provided to
+                    ``choose_generation_strategy``. This is an advanced option
+                    and should not be considered a part of the public API.
         initialization_budget: The number of trials to use for initialization.
             If ``None``, a default budget of 5 trials is used.
         initialization_random_seed: The random seed to use with the Sobol generator
@@ -87,7 +92,7 @@ class GenerationStrategyDispatchStruct:
             irrelevant parameters.
     """
 
-    method: Literal["quality", "fast", "random_search"] = "fast"
+    method: Literal["quality", "fast", "random_search", "custom"] = "fast"
     # Initialization options
     initialization_budget: int | None = None
     initialization_random_seed: int | None = None
