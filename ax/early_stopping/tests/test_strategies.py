@@ -11,9 +11,8 @@ from typing import cast
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.core import OptimizationConfig
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus

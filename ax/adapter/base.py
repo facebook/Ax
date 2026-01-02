@@ -26,10 +26,9 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.cast import Cast
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.core.arm import Arm
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
-from ax.core.map_data import MAP_KEY
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import recombine_observations
 from ax.core.optimization_config import OptimizationConfig

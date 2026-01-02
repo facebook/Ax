@@ -633,7 +633,7 @@ class Experiment(Base):
         return {metric.signature: metric for metric in self.metrics.values()}
 
     def _metrics_by_class(
-        self, metrics: list[Metric] | None = None
+        self, metrics: Sequence[Metric] | None = None
     ) -> dict[type[Metric], list[Metric]]:
         metrics_by_class: dict[type[Metric], list[Metric]] = defaultdict(list)
         for metric in metrics or list(self.metrics.values()):

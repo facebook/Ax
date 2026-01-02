@@ -10,8 +10,8 @@ from collections.abc import Iterable
 from logging import Logger
 
 import pandas as pd
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode

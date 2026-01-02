@@ -15,7 +15,7 @@ from typing import Any, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.metadata_to_parameter import MetadataToParameterMixin
-from ax.core.map_data import MAP_KEY
+from ax.core.data import MAP_KEY
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
