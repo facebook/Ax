@@ -5,13 +5,12 @@
 
 # pyre-strict
 
-
 import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.tests.test_data import TestDataBase
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import AxError, UnsupportedError
 from ax.utils.common.testutils import TestCase
 
 
@@ -90,7 +89,7 @@ class MapDataTest(TestCase):
                 },
             ]
         )
-        self.mmd = MapData(df=self.df)
+        self.mmd = Data(df=self.df)
 
     def test_df(self) -> None:
         df = self.mmd.df
@@ -114,25 +113,25 @@ class MapDataTest(TestCase):
 
     def test_combine(self) -> None:
         with self.subTest("From no MapDatas"):
-            data = MapData.from_multiple_data([])
-            self.assertIsInstance(data, MapData)
+            data = Data.from_multiple_data([])
+            self.assertIsInstance(data, Data)
             self.assertEqual(data.full_df.size, 0)
 
         with self.subTest("From two MapDatas"):
-            mmd_double = MapData.from_multiple_data([self.mmd, self.mmd])
-            self.assertIsInstance(mmd_double, MapData)
+            mmd_double = Data.from_multiple_data([self.mmd, self.mmd])
+            self.assertIsInstance(mmd_double, Data)
             self.assertEqual(mmd_double.full_df.size, 2 * self.mmd.full_df.size)
 
         with self.subTest("From Datas"):
             data = Data(df=self.mmd.df)
-            map_data = MapData.from_multiple_data([data])
-            self.assertIsInstance(map_data, MapData)
+            map_data = Data.from_multiple_data([data])
+            self.assertIsInstance(map_data, Data)
             data = Data.from_multiple_data([data])
             self.assertEqual(len(data.full_df), len(map_data.full_df))
 
     def test_caching(self) -> None:
         with self.subTest("With step column"):
-            fresh = MapData(df=self.df)
+            fresh = Data(df=self.df)
             # Assert df is not cached before first call
             self.assertIsNone(fresh._memo_df)
 
@@ -147,13 +146,13 @@ class MapDataTest(TestCase):
             self.assertTrue(
                 fresh.df.equals(
                     fresh.full_df.sort_values(MAP_KEY).drop_duplicates(
-                        MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
+                        Data.DEDUPLICATE_BY_COLUMNS, keep="last"
                     )
                 )
             )
 
         with self.subTest("No step column"):
-            data = MapData(df=self.df.drop(columns=["step"]))
+            data = Data(df=self.df.drop(columns=["step"]))
             # Assert df is not cached before first call
             self.assertIsNone(data._memo_df)
 
@@ -186,12 +185,12 @@ class MapDataTest(TestCase):
                 for epoch in range(max_epoch)
             ]
         )
-        large_map_data = MapData(df=large_map_df)
+        large_map_data = Data(df=large_map_df)
 
         shuffled_large_map_df = large_map_data.full_df.groupby(
-            MapData.DEDUPLICATE_BY_COLUMNS
+            Data.DEDUPLICATE_BY_COLUMNS
         ).sample(frac=1, random_state=seed)
-        shuffled_large_map_data = MapData(df=shuffled_large_map_df)
+        shuffled_large_map_data = Data(df=shuffled_large_map_df)
 
         for rows_per_group in [1, 40]:
             large_map_data_latest = large_map_data.latest(rows_per_group=rows_per_group)
@@ -206,10 +205,10 @@ class MapDataTest(TestCase):
             # when rows_per_group is larger than the number of rows
             # actually observed in a group
             actual_rows_per_group = large_map_data_latest.full_df.groupby(
-                MapData.DEDUPLICATE_BY_COLUMNS
+                Data.DEDUPLICATE_BY_COLUMNS
             ).size()
             expected_rows_per_group = np.minimum(
-                large_map_data_latest.full_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS)[
+                large_map_data_latest.full_df.groupby(Data.DEDUPLICATE_BY_COLUMNS)[
                     MAP_KEY
                 ]
                 .max()
@@ -260,7 +259,7 @@ class MapDataTest(TestCase):
                 for epoch in range(max_epoch)
             ]
         )
-        large_map_data = MapData(df=large_map_df)
+        large_map_data = Data(df=large_map_df)
         large_map_df_sparse_metric = pd.DataFrame(
             [
                 {
@@ -279,7 +278,7 @@ class MapDataTest(TestCase):
                 for epoch in range(max_epoch if metric_name == "a" else max_epoch // 5)
             ]
         )
-        large_map_data_sparse_metric = MapData(df=large_map_df_sparse_metric)
+        large_map_data_sparse_metric = Data(df=large_map_df_sparse_metric)
 
         # test keep_every
         subsample = large_map_data.subsample(keep_every=10)
@@ -345,7 +344,7 @@ class MapDataTest(TestCase):
     def test_dtype_conversion(self) -> None:
         df = self.df
         df[MAP_KEY] = df[MAP_KEY].astype(int)
-        data = MapData(df=df)
+        data = Data(df=df)
         self.assertEqual(data.full_df[MAP_KEY].dtype, float)
 
     def test_trial_indices(self) -> None:
@@ -355,3 +354,9 @@ class MapDataTest(TestCase):
         self.mmd.df
         self.assertIsNotNone(self.mmd._memo_df)
         self.assertEqual(trial_indices, self.mmd.trial_indices)
+
+
+class TestMapDataGone(TestCase):
+    def test_map_data_is_gone(self) -> None:
+        with self.assertRaisesRegex(AxError, "MapData no longer exists"):
+            MapData(df="foo", bar="baz")

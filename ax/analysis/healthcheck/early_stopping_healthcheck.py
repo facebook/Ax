@@ -421,10 +421,9 @@ class EarlyStoppingAnalysis(Analysis):
             # No significant savings detected
             return self._create_card(
                 subtitle=(
-                    "Early stopping is not enabled. "
-                    "While this experiment has MapData-compatible metrics, "
-                    "we did not detect significant potential savings at this "
-                    "time.\n\n"
+                    "Early stopping is not enabled. While this experiment has "
+                    "data with a progression ('step' column) we did not detect "
+                    "significant potential savings at this time.\n\n"
                     "This could be because:\n"
                     "- The experiment hasn't run enough trials yet\n"
                     "- Trials have similar performance curves\n"

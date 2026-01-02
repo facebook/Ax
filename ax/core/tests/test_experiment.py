@@ -19,7 +19,6 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import sort_by_trial_index_and_arm_name
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -699,10 +698,9 @@ class ExperimentTest(TestCase):
         self.assertEqual(metrics_in_data, {"b", "not_yet_on_experiment"})
 
         # Verify that `metrics` kwarg to `experiment.fetch_data` is respected
+        fetched_data = exp.fetch_data(metrics=[Metric(name="not_on_experiment")])
         # when pulling looked-up data.
-        self.assertEqual(
-            exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), MapData()
-        )
+        self.assertEqual(fetched_data, Data())
 
         with self.subTest("Invalid legacy data format"):
             exp._data_by_trial[0][1] = exp._data_by_trial[0][0]
@@ -912,12 +910,14 @@ class ExperimentTest(TestCase):
         b_value = attached_df.loc[attached_df["metric_name"] == "b", "mean"].item()
         self.assertEqual(b_value, new_b_value)
 
-        # Attach some MapData when we didn't previously have MapData. This is an
-        # important case as Metrics transition to MapMetrics
-        map_data = MapData(df=df2.assign(step=0))
+        # Attach some Data with has_step_column=True when we didn't previously
+        # have such data. This is an important case as Metrics transition to
+        # MapMetrics
+        map_data = Data(df=df2.assign(step=0))
         exp.attach_data(data=map_data)
         data = exp.lookup_data(trial_indices=[0])
-        self.assertIsInstance(data, MapData)
+        self.assertIsInstance(data, Data)
+        self.assertTrue(data.has_step_column)
         # Metric "a" only from first fetch, metrics "b" and "c" with step NaN
         # from second fetch, metrics "b" and "c" with step 0.0 from third fetch
         self.assertEqual(len(data.full_df), 5)
@@ -953,7 +953,7 @@ class ExperimentTest(TestCase):
             with self.assertRaisesRegex(ValueError, "should have at most one element"):
                 exp.attach_data(Data(df=df))
 
-        with self.subTest("Mix of Data and MapData gives NaNs"):
+        with self.subTest("Mix of Data with and without step columns gives NaNs"):
             exp = get_branin_experiment_with_timestamp_map_metric(
                 with_trials_and_data=True,
             )
@@ -1432,7 +1432,7 @@ class ExperimentTest(TestCase):
         cloned_df = cloned_experiment.lookup_data_for_trial(0).df
         self.assertEqual(cloned_df["trial_index"].iloc[0], 0)
 
-        # Clone with MapData.
+        # Clone with data with "step" column
         experiment = get_test_map_data_experiment(
             num_trials=5, num_fetches=3, num_complete=4
         )
@@ -1441,7 +1441,8 @@ class ExperimentTest(TestCase):
         )
         new_data = cloned_experiment.lookup_data()
         self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
-        self.assertIsInstance(new_data, MapData)
+        self.assertIsInstance(new_data, Data)
+        self.assertTrue(new_data.has_step_column)
         expected_data_by_trial = {}
         for trial_index in experiment.trials:
             if original_trial_data := experiment._data_by_trial.get(trial_index, None):
@@ -1951,7 +1952,8 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment.trials[0].mark_completed()
 
         actual_data = self.experiment.lookup_data()
-        self.assertIsInstance(actual_data, MapData)
+        self.assertIsInstance(actual_data, Data)
+        self.assertTrue(actual_data.has_step_column)
         # The resulting data should contain both the progressions that were
         # attached first (step=1, 2) and the progressions that were attached
         # later (step=2, 3, 4).
@@ -1973,10 +1975,10 @@ class ExperimentWithMapDataTest(TestCase):
             exp = self._setup_branin_experiment(n=5)
             [exp.trials[i].mark_completed() for i in range(len(exp.trials))]
 
-            # Fill cache with MapData
+            # Fill cache with data with "step" column (map data)
             map_data = exp.fetch_data(metrics=[exp.metrics["branin_map"]])
 
-            # Fetch other metrics and merge Data into the cached MapData
+            # Fetch other metrics and merge data without "step" column
             full_data = exp.fetch_data()
 
             self.assertEqual(len(full_data.full_df), len(map_data.full_df) + 20)

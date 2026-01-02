@@ -11,8 +11,9 @@ from typing import cast
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.core import OptimizationConfig
+from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.map_data import MAP_KEY
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
@@ -198,7 +199,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             self.assertEqual(updated_progressions.max(), 12.0)
 
             # Attach modified data and apply normalization
-            experiment.attach_data(data=MapData(df=modified_df))
+            experiment.attach_data(data=Data(df=modified_df))
 
             es_strategy = FakeStrategy(normalize_progressions=True)
             normalized_data = es_strategy._lookup_and_validate_data(
@@ -241,7 +242,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         modified_df.loc[first_trial_0_idx, MAP_KEY] = float("nan")
 
         # Attach modified data with NaN values
-        modified_data = MapData(df=modified_df)
+        modified_data = Data(df=modified_df)
         experiment.attach_data(data=modified_data)
 
         # Verify warning is logged when NaN values are dropped
@@ -748,7 +749,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         idcs = set(exp.trials.keys())
         exp.attach_data(data=exp.fetch_data())
 
-        # Non-MapData attached
+        # data without "step" attached
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
@@ -1325,8 +1326,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             )
             modified_df.loc[other_trials_mask, "mean"] = 50.0
 
-            # Create new MapData with modified dataframe
-            data = MapData(df=modified_df)
+            # Create new Data with modified dataframe
+            data = Data(df=modified_df)
             exp.attach_data(data=data)
 
             """
@@ -1372,8 +1373,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             trial_mask = metric_mask & (modified_df["trial_index"].isin([1, 2, 3, 4]))
             modified_df.loc[trial_mask, "mean"] = 50.0
 
-            # Create new MapData with modified dataframe
-            data = MapData(df=modified_df)
+            # Create new Data with modified dataframe
+            data = Data(df=modified_df)
             exp.attach_data(data=data)
 
             """
@@ -1603,7 +1604,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             ],
         )
         # Create a new experiment without those
-        exp.attach_data(data=MapData(df=new_df))
+        exp.attach_data(data=Data(df=new_df))
 
         """
         Dataframe after interpolation:
@@ -1839,7 +1840,7 @@ def _evaluate_early_stopping_with_df(
     metric_name: str,
 ) -> dict[int, str | None]:
     """Helper function for testing PercentileEarlyStoppingStrategy
-    on an arbitrary (MapData) df."""
+    on an arbitrary (Data) df."""
     data = none_throws(
         early_stopping_strategy._lookup_and_validate_data(experiment, [metric_name])
     )

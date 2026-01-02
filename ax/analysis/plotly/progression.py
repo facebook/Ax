@@ -75,7 +75,8 @@ class ProgressionPlot(Analysis):
         adapter: Adapter | None = None,
     ) -> str | None:
         """
-        ProgressionPlot requires an Experiment with MapData.
+        ProgressionPlot requires an Experiment with data that has a "step"
+        column.
         """
         if (
             experiment_invalid_reason := validate_experiment(

@@ -21,7 +21,7 @@ from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.api.utils.generation_strategy_dispatch import _get_sobol_node
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import Data, MAP_KEY
 from ax.core.observation import ObservationFeatures
 from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
@@ -485,7 +485,7 @@ class MapKeyToFloatTransformTest(TestCase):
                 experiment_data = extract_experiment_data(
                     experiment=self.experiment,
                     data_loader_config=DataLoaderConfig(),
-                    data=MapData(df=data_df.assign(step=constant)),
+                    data=Data(df=data_df.assign(step=constant)),
                 )
                 observations = experiment_data.convert_to_list_of_observations()
                 t = MapKeyToFloat(experiment_data=experiment_data, adapter=self.adapter)

@@ -37,10 +37,11 @@ def _dict_of_arrays_to_df(
     Return a DataFrame with columns
     ["metric_name", "arm_name", "Y_true", "step", and "virtual runtime"].
 
-    When the trial produces MapData, the "step" column is 0, 1, 2, ...., and
-    "virtual runtime" contains cumulative time for each element of the
-    progression. When the trial does not produce MapData, the "step" column is
-    just 0, and "virtual runtime" is the total runtime of the trial.
+    When the trial produces Data with a "step" column, the returned DataFrame
+    has a "step" column that is is 0, 1, 2, ...., and "virtual runtime" contains
+    cumulative time for each element of the progression. When the trial produces
+    Data without a "step" column, the returned DataFrame has a "step" column
+    that contains just 0, "virtual runtime" is the total runtime of the trial.
 
     Args:
         Y_true_by_arm: A mapping from arm name to a 2D arrays each with shape

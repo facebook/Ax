@@ -32,7 +32,6 @@ from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -920,9 +919,9 @@ def get_hierarchical_search_space_experiment(
 
     Args:
         num_observations: The number of trials in the experiment.
-        use_map_data: Whether to use `MapData` or `Data` when constructing the
-            experiment. This flag is for testing the transform `MapKeyToFloat`, which
-            is applied to the search space only if the experiment has map data.
+        use_map_data: Whether data has a column "step." This flag is for testing
+            the transform `MapKeyToFloat`, which is applied to the search space
+            only if the experiment's data has a "step" column.
 
     Returns:
         An experiment with a hierarchical search space and some optional observations.
@@ -964,9 +963,7 @@ def get_hierarchical_search_space_experiment(
                 for j, o in enumerate(outcomes)
             ]
         )
-        data = MapData(df=df) if use_map_data else Data(df=df)
-
-        experiment.attach_data(data)
+        experiment.attach_data(data=Data(df=df))
         trial.mark_completed()
 
     return experiment
@@ -2478,7 +2475,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
     )
 
 
-def get_map_data(trial_index: int = 0) -> MapData:
+def get_map_data(trial_index: int = 0) -> Data:
     evaluations = {
         "status_quo": [
             (1, {"ax_test_metric": (1.0, 0.5)}),
@@ -2499,16 +2496,13 @@ def get_map_data(trial_index: int = 0) -> MapData:
             (4, {"ax_test_metric": (1.0, 0.5)}),
         ],
     }
-    return assert_is_instance(
-        raw_evaluations_to_data(
-            raw_data=evaluations,
-            trial_index=trial_index,
-            metric_name_to_signature={
-                "ax_test_metric": "ax_test_metric",
-                "epoch": "epoch",
-            },
-        ),
-        MapData,
+    return raw_evaluations_to_data(
+        raw_data=evaluations,
+        trial_index=trial_index,
+        metric_name_to_signature={
+            "ax_test_metric": "ax_test_metric",
+            "epoch": "epoch",
+        },
     )
 
 

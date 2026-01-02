@@ -7,12 +7,12 @@
 
 import numpy as np
 import pandas as pd
-
 from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.base_trial import TrialStatus
-from ax.core.map_data import MapData
+
+from ax.core.data import Data
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -299,16 +299,14 @@ class TestSummary(TestCase):
             self.assertAlmostEqual(actual, expected, places=1)
 
     def test_mapdata_not_relativized(self) -> None:
-        """Test that Summary does not attempt relativization when data is MapData,
-        even when status quo is present."""
-        # Create an experiment with MapData
+        """Test that Summary does not attempt relativization when data has
+        has_step_column=True, even when status quo is present."""
+        # Create an experiment with data that has has_step_column=True
         experiment = get_branin_experiment_with_status_quo_trials(num_sobol_trials=2)
 
-        # Replace the experiment's data with MapData
-        map_data = MapData(
-            df=experiment.lookup_data().df.assign(step=1.0)  # Add step column
-        )
-        # Store the MapData in the experiment
+        # Add step column to the experiment's data
+        map_data = Data(df=experiment.lookup_data().df.assign(step=1.0))
+        # Store the data in the experiment
         for trial in experiment.trials.values():
             trial_data = map_data.filter(trial_indices=[trial.index])
             experiment.attach_data(trial_data)

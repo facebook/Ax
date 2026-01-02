@@ -33,8 +33,8 @@ from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
+from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -582,7 +582,7 @@ class BaseAdapterTest(TestCase):
 
     def test_set_status_quo_with_multiple_observations(self) -> None:
         # Test for the case where the status quo arm has multiple observations
-        # for the target trial. This happens with MapData.
+        # for the target trial. This happens with data that has a "step" column.
 
         # Prevent data from being filtered down.
         data_loader_config = DataLoaderConfig(
@@ -1008,7 +1008,7 @@ class BaseAdapterTest(TestCase):
         Adapter(
             experiment=experiment,
             generator=Generator(),
-            data=MapData(),
+            data=Data(),
             data_loader_config=data_loader_config,
         )
         kwargs = mock_extract_experiment_data.call_args.kwargs
@@ -1042,8 +1042,8 @@ class BaseAdapterTest(TestCase):
         lookup_patch.assert_called_once()
         lookup_patch.reset_mock()
         # Not called if data is provided.
-        adapter = Adapter(experiment=exp, generator=Generator(), data=MapData())
-        adapter._process_and_transform_data(experiment=exp, data=MapData())
+        adapter = Adapter(experiment=exp, generator=Generator(), data=Data())
+        adapter._process_and_transform_data(experiment=exp, data=Data())
         lookup_patch.assert_not_called()
 
     def test_predict(self) -> None:

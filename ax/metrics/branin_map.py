@@ -17,9 +17,8 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MAP_KEY, MapData
-from ax.core.map_metric import MapMetricFetchResult
-from ax.core.metric import MetricFetchE
+from ax.core.data import Data, MAP_KEY
+from ax.core.metric import MetricFetchE, MetricFetchResult
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.result import Err, Ok
 from ax.utils.measurement.synthetic_functions import branin
@@ -91,7 +90,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapMetricFetchResult:
+    ) -> MetricFetchResult:
         try:
             if (
                 self._trial_index_to_timestamp[trial.index] == 0
@@ -128,9 +127,9 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                     }
                 )
 
-                datas.append(MapData(df=df))
+                datas.append(Data(df=df))
 
-            return Ok(value=MapData.from_multiple_data(data=datas))
+            return Ok(value=Data.from_multiple_data(data=datas))
 
         except Exception as e:
             return Err(

@@ -15,7 +15,6 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -410,7 +409,7 @@ class ObservationsTest(TestCase):
                 "metric_signature",
             ]
         ]
-        data = MapData(df=df)
+        data = Data(df=df)
         observations = observations_from_data(experiment=experiment, data=data)
         self.assertEqual(len(observations), 3)
 

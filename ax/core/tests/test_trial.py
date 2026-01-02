@@ -22,7 +22,6 @@ from ax.core.base_trial import (
 )
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
-from ax.core.map_data import MapData
 from ax.core.runner import Runner
 from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
 from ax.metrics.branin import BraninMetric
@@ -397,9 +396,12 @@ class TrialTest(TestCase):
 
         with self.subTest("Attach map data"):
             self.trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
-            self.assertIsInstance(self.trial.lookup_data(), MapData)
+            data = self.trial.lookup_data()
+            self.assertIsInstance(data, Data)
+            self.assertTrue(data.has_step_column)
 
-        # Try to attach Data to a MapData experiment.
+        # Try to data with has_step_column=False to an experiment with metrics
+        # that produce data with a "step" column
         map_experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=2, num_complete=1
         )
@@ -422,12 +424,14 @@ class TrialTest(TestCase):
         ):
             map_trial.update_trial_data(raw_data=[(0, {"m2": 1.0})])
 
-        with self.subTest("Add Data to MapData trial"):
+        with self.subTest("Add data without 'step' to trial with step data"):
             map_trial.update_trial_data(raw_data={"m1": 1.0})
-            self.assertIsInstance(map_trial.lookup_data(), MapData)
+            data = map_trial.lookup_data()
+            self.assertIsInstance(data, Data)
+            self.assertTrue(data.has_step_column)
             self.assertEqual(map_trial.lookup_data().df["step"].isnull().sum(), 1)
 
-        # Error if the MapData inputs are not formatted correctly.
+        # Error if the inputs are not formatted correctly.
         with self.assertRaisesRegex(
             UserInputError,
             "Raw data does not conform to the expected structure.",

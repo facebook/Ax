@@ -496,7 +496,8 @@ class CastTransformTest(TestCase):
         assert_frame_equal(transformed.observation_data, expected_obs_data)
 
     def test_transform_experiment_data_cast_map_data(self) -> None:
-        # Check that indexing for removal of NaNs works correctly with MapData.
+        # Check that indexing for removal of NaNs works correctly with data that
+        # has a "step" column.
         experiment = get_branin_experiment_with_timestamp_map_metric(
             with_trials_and_data=True
         )

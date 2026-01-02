@@ -502,7 +502,8 @@ class TestResultsAnalysis(TestCase):
 
     @mock_botorch_optimize
     def test_compute_with_map_data_includes_progression_plots(self) -> None:
-        # Setup: Create experiment with MapData and MapMetrics
+        # Setup: Create experiment with data that has a "step" column and
+        # MapMetrics
         experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=2, num_complete=2
         )

@@ -52,7 +52,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            normalize_progressions: Normalizes the progression column of the MapData df
+            normalize_progressions: Normalizes the progression column of the Data df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
                 for inferring the max progression and allows `min_progression` to be
