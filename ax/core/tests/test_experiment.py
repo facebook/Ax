@@ -610,7 +610,7 @@ class ExperimentTest(TestCase):
         )
 
         # Verify data lookup includes trials attached from `fetch_data`.
-        self.assertEqual(len(exp.lookup_data_for_trial(1).df), 30)
+        self.assertEqual(len(exp.lookup_data(trial_indices={1}).df), 30)
 
         # Test local storage
         exp.attach_data(batch_data)
@@ -625,7 +625,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(exp.lookup_data().df), len(exp_data.df) + 1)
 
         # Test retrieving original batch 0 data
-        trial_0_df = exp.lookup_data_for_trial(0).df
+        trial_0_df = exp.lookup_data(trial_indices={0}).df
         self.assertEqual((trial_0_df["metric_name"] == "b").sum(), n)
         self.assertEqual(
             (trial_0_df["metric_name"] == "not_yet_on_experiment").sum(), 1
@@ -640,7 +640,7 @@ class ExperimentTest(TestCase):
         # same result as `lookup_data_for_trial(0)`
         self.assertEqual(
             (df["trial_index"] == 0).sum(),
-            len(exp.lookup_data_for_trial(trial_index=0).df),
+            len(exp.lookup_data(trial_indices={0}).df),
         )
         new_data = Data(
             df=pd.DataFrame.from_records(
@@ -1374,7 +1374,8 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(cloned_experiment.trials[0].arms), 16)
 
         self.assertEqual(
-            cloned_experiment.lookup_data_for_trial(1).df["trial_index"].iloc[0], 1
+            cloned_experiment.lookup_data(trial_indices={1}).df["trial_index"].iloc[0],
+            1,
         )
 
         # Save the cloned experiment to db and make sure the original
@@ -1387,7 +1388,7 @@ class ExperimentTest(TestCase):
         # With existing data.
         cloned_experiment = experiment.clone_with(trial_indices=[1])
         self.assertEqual(len(cloned_experiment.trials), 1)
-        cloned_df = cloned_experiment.lookup_data_for_trial(0).df
+        cloned_df = cloned_experiment.lookup_data(trial_indices={0}).df
         self.assertEqual(cloned_df["trial_index"].iloc[0], 0)
 
         # Clone with data with "step" column

@@ -454,11 +454,10 @@ class BaseTrial(ABC, SortableBase):
         """Lookup cached data on experiment for this trial.
 
         Returns:
-            If not merging across timestamps, the latest ``Data`` object
-            associated with the trial. If merging, all data for trial, merged.
+            All ``Data`` on the experiment that is associated with this trial.
 
         """
-        return self.experiment.lookup_data_for_trial(trial_index=self.index)
+        return self.experiment.lookup_data(trial_indices={self.index})
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the
