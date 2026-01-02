@@ -67,7 +67,7 @@ class TestWithDBSettingsBase(TestCase):
     def get_random_generation_strategy(self) -> GenerationStrategy:
         """Get an GenerationStrategy instance with random name."""
 
-        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
+        generation_strategy = get_generation_strategy()
         gs_name = "".join(random.choice(string.ascii_letters) for i in range(8))
         generation_strategy._name = gs_name
         return generation_strategy

@@ -36,7 +36,6 @@ from ax.exceptions.core import (
     AxError,
     DataRequiredError,
     SearchSpaceExhausted,
-    UnsupportedError,
     UserInputError,
 )
 from ax.exceptions.generation_strategy import (
@@ -386,14 +385,14 @@ class TestGenerationStrategy(TestCase):
         name should follow the format "GenerationNode"+Stepidx.
         """
         gs = self.sobol_MBM_step_GS
-        self.assertEqual(gs._steps[0].name, "GenerationStep_0")
-        self.assertEqual(gs._steps[1].name, "GenerationStep_1")
+        self.assertEqual(gs._nodes[0].name, "GenerationStep_0_Sobol")
+        self.assertEqual(gs._nodes[1].name, "GenerationStep_1_BoTorch")
 
     def test_name(self) -> None:
-        self.assertEqual(self.sobol_GS._name, "Sobol")
+        self.assertEqual(self.sobol_GS._name, "GenerationStep_0_Sobol")
         self.assertEqual(
             self.sobol_MBM_step_GS.name,
-            "Sobol+MBM",
+            "Sobol+MBM",  # The GS is created with explicit name="Sobol+MBM"
         )
         self.sobol_GS._name = "SomeGSName"
         self.assertEqual(self.sobol_GS.name, "SomeGSName")
@@ -407,15 +406,6 @@ class TestGenerationStrategy(TestCase):
                     GenerationStep(
                         generator=Generators.BOTORCH_MODULAR, num_trials=-10
                     ),
-                ]
-            )
-
-        # only last num_trials can be -1.
-        with self.assertRaises(UserInputError):
-            GenerationStrategy(
-                steps=[
-                    GenerationStep(generator=Generators.SOBOL, num_trials=-1),
-                    GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=10),
                 ]
             )
 
@@ -444,15 +434,30 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             str(gs1),
             (
-                "GenerationStrategy(name='Sobol+MBM', steps=[Sobol for 5 trials,"
-                " BoTorch for subsequent trials])"
+                "GenerationStrategy(name='Sobol+MBM', "
+                "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
+                "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
+                "generator_key_override=None)], "
+                "transition_criteria="
+                "[MinTrials(transition_to='GenerationStep_1_BoTorch')]), "
+                "GenerationNode(name='GenerationStep_1_BoTorch', "
+                "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
+                "generator_key_override=None)], "
+                "transition_criteria=[])])"
             ),
         )
         gs2 = GenerationStrategy(
             steps=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)]
         )
         self.assertEqual(
-            str(gs2), "GenerationStrategy(name='Sobol', steps=[Sobol for all trials])"
+            str(gs2),
+            (
+                "GenerationStrategy(name='GenerationStep_0_Sobol', "
+                "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
+                "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
+                "generator_key_override=None)], "
+                "transition_criteria=[])])"
+            ),
         )
 
         gs3 = GenerationStrategy(
@@ -503,6 +508,21 @@ class TestGenerationStrategy(TestCase):
         for _ in range(5):
             exp.new_trial(gs.gen_single_trial(exp))
         with self.assertRaises(DataRequiredError):
+            gs.gen_single_trial(exp)
+
+    def test_one_node_with_finite_num_trials(self) -> None:
+        # We should fail to transition the next model if there is not
+        # enough data observed.
+        # pyre-fixme[6]: For 1st param expected `bool` but got `Experiment`.
+        exp = get_branin_experiment(get_branin_experiment())
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(generator=Generators.SOBOL, num_trials=5),
+            ]
+        )
+        for _ in range(5):
+            exp.new_trial(gs.gen_single_trial(exp))
+        with self.assertRaises(GenerationStrategyCompleted):
             gs.gen_single_trial(exp)
 
     def test_do_not_enforce_min_observations(self) -> None:
@@ -620,7 +640,10 @@ class TestGenerationStrategy(TestCase):
                 ),
             ]
         )
-        self.assertEqual(factorial_thompson_gs.name, "Factorial+Thompson")
+        self.assertEqual(
+            factorial_thompson_gs.name,
+            "GenerationStep_0_Factorial+GenerationStep_1_Thompson",
+        )
         mock_adapter = self.mock_discrete_adapter.return_value
 
         # Initial factorial batch.
@@ -640,9 +663,11 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(generator=Generators.THOMPSON, num_trials=2),
             ]
         )
-        ftgs._curr = ftgs._steps[1]
-        self.assertEqual(ftgs.current_step_index, 1)
-        self.assertEqual(ftgs.clone_reset().current_step_index, 0)
+        ftgs._curr = ftgs._nodes[1]
+        self.assertEqual(ftgs.current_node_name, "GenerationStep_1_Thompson")
+        self.assertEqual(
+            ftgs.clone_reset().current_node_name, "GenerationStep_0_Factorial"
+        )
 
     def test_kwargs_passed(self) -> None:
         gs = GenerationStrategy(
@@ -1305,34 +1330,22 @@ class TestGenerationStrategy(TestCase):
 
         # check error raised if provided both steps and nodes under node list
         with self.assertRaisesRegex(
-            GenerationStrategyMisconfiguredException, "`GenerationStrategy` inputs are:"
+            GenerationStrategyMisconfiguredException,
+            ".* must either be entirely comprised",
         ):
             GenerationStrategy(
                 nodes=[
                     node_1,
-                    GenerationStep(
-                        generator=Generators.SOBOL,
-                        num_trials=5,
-                        generator_kwargs=self.step_generator_kwargs,
+                    cast(
+                        GenerationNode,
+                        GenerationStep(
+                            generator=Generators.SOBOL,
+                            num_trials=5,
+                            generator_kwargs=self.step_generator_kwargs,
+                        ),
                     ),
                     node_2,
                 ],
-            )
-        # check that warning is logged if no nodes have transition arguments
-        with self.assertLogs(GenerationStrategy.__module__, logging.WARNING) as logger:
-            warning_msg = (
-                "None of the nodes in this GenerationStrategy "
-                "contain a `transition_to` argument in their transition_criteria. "
-            )
-            GenerationStrategy(
-                nodes=[
-                    node_2,
-                    node_3,
-                ],
-            )
-            self.assertTrue(
-                any(warning_msg in output for output in logger.output),
-                logger.output,
             )
 
     def test_gs_with_suggested_n_is_zero(self) -> None:
@@ -1610,14 +1623,6 @@ class TestGenerationStrategy(TestCase):
             trial.mark_running(no_runner_required=True)
             exp.attach_data(get_branin_data(trials=[trial]))
             trial.mark_completed()
-
-    def test_step_based_gs_only(self) -> None:
-        """Test the step_based_gs_only decorator"""
-        gs_test = self.sobol_MBM_GS_nodes
-        with self.assertRaisesRegex(
-            UnsupportedError, "is not supported for GenerationNode based"
-        ):
-            gs_test.current_step_index
 
     def test_generation_strategy_eq_print(self) -> None:
         """

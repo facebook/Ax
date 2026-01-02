@@ -112,35 +112,6 @@ class CenterGenerationNode(ExternalGenerationNode):
             **gs_gen_kwargs,
         )
 
-    def _compute_center_params(self) -> TParameterization:
-        """Compute the center of the search space."""
-        search_space = none_throws(self.search_space)
-        parameters = {}
-        derived_params = []
-        for name, p in search_space.parameters.items():
-            if isinstance(p, RangeParameter):
-                if p.logit_scale:
-                    # Leverage scipy's numerically stable logit and expit functions
-                    center = expit((logit(p.lower) + logit(p.upper)) / 2.0)
-                elif p.log_scale:
-                    center = 10 ** ((math.log10(p.lower) + math.log10(p.upper)) / 2.0)
-                else:
-                    center = (float(p.lower) + float(p.upper)) / 2.0
-                parameters[name] = p.cast(center)
-            elif isinstance(p, ChoiceParameter):
-                parameters[name] = p.values[int(len(p.values) / 2)]
-            elif isinstance(p, FixedParameter):
-                parameters[name] = p.value
-            elif isinstance(p, DerivedParameter):
-                derived_params.append(p)
-            else:
-                raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
-        for p in derived_params:
-            parameters[p.name] = p.compute(parameters=parameters)
-        if search_space.is_hierarchical:
-            parameters = search_space._cast_parameterization(parameters=parameters)
-        return parameters
-
     def get_next_candidate(
         self, pending_parameters: list[TParameterization]
     ) -> TParameterization:
@@ -170,4 +141,33 @@ class CenterGenerationNode(ExternalGenerationNode):
                 "Center of the search space does not satisfy parameter constraints. "
                 "The generation strategy will fallback to Sobol. "
             )
+        return parameters
+
+    def _compute_center_params(self) -> TParameterization:
+        """Compute the center of the search space."""
+        search_space = none_throws(self.search_space)
+        parameters = {}
+        derived_params = []
+        for name, p in search_space.parameters.items():
+            if isinstance(p, RangeParameter):
+                if p.logit_scale:
+                    # Leverage scipy's numerically stable logit and expit functions
+                    center = expit((logit(p.lower) + logit(p.upper)) / 2.0)
+                elif p.log_scale:
+                    center = 10 ** ((math.log10(p.lower) + math.log10(p.upper)) / 2.0)
+                else:
+                    center = (float(p.lower) + float(p.upper)) / 2.0
+                parameters[name] = p.cast(center)
+            elif isinstance(p, ChoiceParameter):
+                parameters[name] = p.values[int(len(p.values) / 2)]
+            elif isinstance(p, FixedParameter):
+                parameters[name] = p.value
+            elif isinstance(p, DerivedParameter):
+                derived_params.append(p)
+            else:
+                raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
+        for p in derived_params:
+            parameters[p.name] = p.compute(parameters=parameters)
+        if search_space.is_hierarchical:
+            parameters = search_space._cast_parameterization(parameters=parameters)
         return parameters
