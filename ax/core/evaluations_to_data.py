@@ -11,7 +11,6 @@ from enum import Enum
 
 import pandas as pd
 from ax.core.data import Data, MAP_KEY
-from ax.core.map_data import data_from_df_infer_type
 from ax.core.types import FloatLike, SingleMetricData, TEvaluationOutcome
 from ax.exceptions.core import UserInputError
 
@@ -134,4 +133,4 @@ def raw_evaluations_to_data(
     df["metric_signature"] = df["metric_name"].map(metric_name_to_signature)
     df["trial_index"] = trial_index
 
-    return data_from_df_infer_type(df=df)
+    return Data(df=df)
