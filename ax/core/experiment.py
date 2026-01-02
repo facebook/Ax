@@ -31,7 +31,6 @@ from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_dfs_favoring_recent, Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import combine_datas_infer_type, data_from_df_infer_type
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
@@ -982,9 +981,7 @@ class Experiment(Base):
         if len(oks) < 1:
             return None
 
-        data = combine_datas_infer_type(
-            data_list=[ok.ok for ok in oks],
-        )
+        data = Data.from_multiple_data(data=[ok.ok for ok in oks])
         self.attach_data(data=data)
 
     def lookup_data_for_trial(self, trial_index: int) -> Data:
@@ -1468,8 +1465,7 @@ class Experiment(Base):
                     inplace=True,
                 )
                 # Attach updated data to new trial on experiment.
-                old_data = data_from_df_infer_type(df=new_df)
-                self.attach_data(data=old_data)
+                self.attach_data(data=Data(df=new_df))
             if trial.status == TrialStatus.ABANDONED:
                 new_trial.mark_abandoned(reason=trial.abandoned_reason)
             elif trial.status is not TrialStatus.RUNNING:

@@ -20,7 +20,6 @@ from logging import Logger
 from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data
-from ax.core.map_data import combine_datas_infer_type
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
@@ -522,8 +521,7 @@ class Metric(SortableBase, SerializationMixin):
                 exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
             )
 
-        data = [ok.ok for ok in oks]
-        return combine_datas_infer_type(data_list=data)
+        return Data.from_multiple_data(data=[ok.ok for ok in oks])
 
     @classmethod
     def _unwrap_trial_data_multi(
@@ -578,9 +576,7 @@ class Metric(SortableBase, SerializationMixin):
                     exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
                 )
 
-        data = [ok.ok for ok in oks]
-
-        return combine_datas_infer_type(data_list=data)
+        return Data.from_multiple_data(data=[ok.ok for ok in oks])
 
     @classmethod
     def _unwrap_experiment_data_multi(
@@ -611,8 +607,7 @@ class Metric(SortableBase, SerializationMixin):
                 exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
             )
 
-        data = [ok.ok for ok in oks]
-        return combine_datas_infer_type(data_list=data)
+        return Data.from_multiple_data(data=[ok.ok for ok in oks])
 
     @classmethod
     def _wrap_experiment_data(cls, data: Data) -> dict[int, MetricFetchResult]:
