@@ -75,7 +75,7 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import are_relationships_loaded
 from ax.storage.utils import (
-    combine_datas_on_data_by_trial,
+    data_by_trial_to_data,
     DomainType,
     EXPECT_RELATIVIZED_OUTCOMES,
     MetricIntent,
@@ -298,9 +298,7 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
-            trial_type_to_runner.update(
-                {t_type: None for t_type in trial_types_with_metrics}
-            )
+            trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
@@ -363,11 +361,10 @@ class Decoder:
         for data_sqa in experiment_sqa.data:
             trial_index = data_sqa.trial_index
             timestamp = data_sqa.time_created
-            # TODO: Use metrics-like Data type field in Data instead.
             data_by_trial[trial_index][timestamp] = self.data_from_sqa(
                 data_sqa=data_sqa
             )
-        data_by_trial = combine_datas_on_data_by_trial(data_by_trial=data_by_trial)
+        experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
 
         trial_type_to_runner = {
             sqa_runner.trial_type: self.runner_from_sqa(sqa_runner)
@@ -390,7 +387,6 @@ class Decoder:
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
-        experiment._data_by_trial = dict(data_by_trial)
         # `_trial_type_to_runner` is set in _init_mt_experiment_from_sqa
         if subclass != "MultiTypeExperiment":
             experiment._trial_type_to_runner = cast(
