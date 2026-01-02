@@ -8,8 +8,8 @@
 
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.map_replay import MapDataReplayMetric
@@ -21,7 +21,6 @@ from ax.utils.testing.core_stubs import (
 )
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
-from pyre_extensions import assert_is_instance
 
 
 class MapDataReplayMetricTest(TestCase):
@@ -29,9 +28,7 @@ class MapDataReplayMetricTest(TestCase):
         historical_experiment = get_test_map_data_experiment(
             num_trials=2, num_fetches=2, num_complete=2
         )
-        historical_data: MapData = assert_is_instance(
-            historical_experiment.lookup_data(), MapData
-        )
+        historical_data = historical_experiment.lookup_data()
         replay_metric = MapDataReplayMetric(
             name="test_metric",
             map_data=historical_data,
@@ -91,7 +88,7 @@ class MapDataReplayMetricTest(TestCase):
         # Trial 0: steps [0.25, 0.95]
         # Trial 1: steps [0.25, 1.0]
         full_df[MAP_KEY] = pd.Series([0.25, 0.95, 0.0, 0.25, 1.0, 0.0])
-        historical_data = MapData(df=full_df)
+        historical_data = Data(df=full_df)
         replay_metric = MapDataReplayMetric(
             name="test_metric",
             map_data=historical_data,

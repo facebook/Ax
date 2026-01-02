@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
+
 from collections.abc import Iterable
 from copy import deepcopy
 from functools import cached_property
@@ -16,8 +18,10 @@ from logging import Logger
 from typing import Any, TypeVar
 
 import numpy as np
+
+import numpy.typing as npt
 import pandas as pd
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
@@ -40,30 +44,37 @@ MAP_KEY = "step"
 class Data(Base, SerializationMixin):
     """Class storing numerical data for an experiment.
 
-    The dataframe is retrieved via the `df` property. The data can be stored
-    to an external store for future use by attaching it to an experiment using
-    `experiment.attach_data()` (this requires a description to be set.)
+    The dataframe is retrieved via the ``full_df`` property; when a "step"
+    column is present, this indicates progression over time, and data for the
+    most recent step per trial-arm-metric can be accessed with the `df`
+    property. The data can be stored to an external store for future use by
+    attaching it to an experiment using `experiment.attach_data()`.
+
+    IMPORTANT: A ``Data``'s attributes, such as ``full_df``, should not be
+    mutated, because cached properties ``df``, ``has_step_column``, and
+    ``trial_indices`` will not be updated. If you need to change ``full_df``,
+    construct a new ``Data``.
 
 
     Attributes:
-        full_df: DataFrame with underlying data. For Data, the required columns
+        full_df: DataFrame with underlying data. The required columns
             are "arm_name", "metric_name", "mean", and "sem", the latter two of
             which must be numeric. This is close to the raw data input by the
-            user as ``df``; by contrast, in the ``Data`` subclass ``MapData``,
-            the property ``self.df`` may be a subset of the full data used for
-            modeling. Constructing ``df`` can be expensive, so it is better to
-            reference ``full_df`` than ``df`` for operations that do not require
-            scanning the full data, such as accessing the columns of the
-            DataFrame.
+            user as ``df``.
+        has_step_column: Whether the data contains a "step" column (equivalently,
+            `MAP_KEY`).
+        _memo_df: Cached representation of ``df`` (see below).
 
     Properties:
-        df: Potentially smaller representation of the data used for modeling. In
-            the base class ``Data``, ``df`` equals ``full_df``. In the subclass
-            ``MapData``, ``df`` contains only the most recent ``step`` values
-            for each trial-arm-metric. Because constructing ``df`` can be
-            expensive, it is recommended to reference ``full_df`` for operations
-            that do not require scanning the full data, such as accessing the
-            columns of the DataFrame.
+        df: Potentially smaller representation of the data used for modeling.
+            When no "step" column is present, ``df`` equals ``full_df``. When a
+            ``step`` column is present in ``full_df``, ``df`` contains only the
+            most recent ``step`` values for each trial-arm-metric. Because
+            constructing ``df`` can be expensive, it is recommended to reference
+            ``full_df`` for operations that do not require scanning the full
+            data, such as accessing the columns of the DataFrame.
+        trial_indices: The distinct values in ``full_df``'s ``trial_index``
+            column.
     """
 
     # Note: Although the SEM (standard error of the mean) is a required column,
@@ -90,16 +101,22 @@ class Data(Base, SerializationMixin):
         "metric_signature": np.dtype("O"),
         "mean": np.float64,
         "sem": np.float64,
-        # Metadata columns available for all subclasses.
         "start_time": pd.Timestamp,
         "end_time": pd.Timestamp,
         "n": int,
-        # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
         "random_split": int,
-        # Used with MapData
         MAP_KEY: float,
     }
+
+    # When constructing `data.df` or calling `data.latest`, keep only 1 or N
+    # rows from each (trial, arm, metric) group
+    DEDUPLICATE_BY_COLUMNS = [
+        "trial_index",
+        "arm_name",
+        "metric_name",
+        "metric_signature",
+    ]
 
     full_df: pd.DataFrame
 
@@ -111,7 +128,11 @@ class Data(Base, SerializationMixin):
         """Initialize a ``Data`` object from the given DataFrame.
 
         Args:
-            df: DataFrame with underlying data, and required columns.
+            df: DataFrame with underlying data, and required columns. Data must
+                be unique at the level of ("trial_index", "arm_name",
+                "metric_name"), plus "step" if a "step" column is present. A
+                lightly processed version of this argument will become the
+                `Data`'s `full_df` attribute.
             _skip_ordering_and_validation: If True, uses the given DataFrame
                 as is, without ordering its columns or validating its contents.
                 Intended only for use in `Data.filter`, where the contents
@@ -122,14 +143,14 @@ class Data(Base, SerializationMixin):
             self.full_df = pd.DataFrame.from_dict(
                 {
                     col: pd.Series([], dtype=self.COLUMN_DATA_TYPES[col])
-                    for col in self.required_columns()
+                    for col in self.REQUIRED_COLUMNS
                 }
             )
         elif _skip_ordering_and_validation:
             self.full_df = df
         else:
             columns = set(df.columns)
-            missing_columns = self.required_columns() - columns
+            missing_columns = self.REQUIRED_COLUMNS - columns
             if missing_columns:
                 raise ValueError(
                     f"Dataframe must contain required columns {list(missing_columns)}."
@@ -140,6 +161,8 @@ class Data(Base, SerializationMixin):
                 df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
             self.full_df = self._get_df_with_cols_in_expected_order(df=df)
+        self._memo_df = None
+        self.has_step_column = MAP_KEY in self.full_df.columns
 
     @classmethod
     def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
@@ -181,10 +204,6 @@ class Data(Base, SerializationMixin):
         df.reset_index(inplace=True, drop=True)
         return df
 
-    def required_columns(self) -> set[str]:
-        """Names of columns that must be present in the underlying ``DataFrame``."""
-        return self.REQUIRED_COLUMNS
-
     @classmethod
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """Serialize the class-dependent properties needed to initialize this Data.
@@ -200,7 +219,7 @@ class Data(Base, SerializationMixin):
         decoder_registry: TDecoderRegistry | None = None,
         class_decoder_registry: TClassDecoderRegistry | None = None,
     ) -> dict[str, Any]:
-        """Given a dictionary, extract the properties needed to initialize the object.
+        """Given a dictionary, extract the properties needed to initialize the data.
         Used for storage.
 
         Note: Older Data saved with the `MapData` class may have been stored with
@@ -215,36 +234,63 @@ class Data(Base, SerializationMixin):
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.
             args["df"] = pd.read_json(StringIO(args["df"]["value"]), dtype=False)
-        # Backward compatibility
         return extract_init_args(args=args, class_=cls)
 
     @property
     def df(self) -> pd.DataFrame:
-        return self.full_df
+        """
+        Return data aggregated up to the final step of each trial-arm-metric.
+
+        If there is no "step" column, this is the same as ``full_df``, since it
+        is assumed that there is only one row per (trial, arm, metric) group.
+
+        If there is a "step" column, once this function is called, its result is
+        written to ``self._memo_df``, and ``self._memo_df`` is returned on any
+        subsequent calls, since it is assumed that data has not been mutated in
+        place.
+        """
+        # Case: no step column, so no aggregation needed
+        if not self.has_step_column:
+            return self.full_df
+        # Case: Result already cached
+        if self._memo_df is not None:
+            return self._memo_df
+
+        # Case: Empty data
+        if self.full_df.empty:
+            return self.full_df
+
+        idxs = (
+            self.full_df.fillna({MAP_KEY: np.inf})
+            .groupby(self.DEDUPLICATE_BY_COLUMNS)[MAP_KEY]
+            .idxmax()
+            # In the case where all MAP_KEY values are NaN for a group we return an
+            # arbitrary row from that group.
+            .fillna(
+                self.full_df.groupby(self.DEDUPLICATE_BY_COLUMNS).apply(
+                    lambda group: group.index[0]
+                )
+            )
+        )
+        self._memo_df = self.full_df.loc[idxs]
+
+        return self._memo_df
 
     @classmethod
-    def from_multiple_data(cls: type[TData], data: Iterable[TData]) -> TData:
+    def from_multiple_data(cls: type[TData], data: Iterable[Data]) -> TData:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
         Args:
             data: Iterable of Ax objects of this class to combine.
         """
-        dfs = []
-
-        for datum in data:
-            if type(datum) is not cls:
-                raise TypeError(
-                    f"All data objects must be instances of {cls}. Got "
-                    f"{cls} and {type(datum)}."
-                )
-            if not datum.full_df.empty:
-                dfs.append(datum.df)
+        dfs = [datum.full_df for datum in data if not datum.full_df.empty]
 
         if len(dfs) == 0:
             return cls()
 
-        return cls(df=pd.concat(dfs, axis=0, sort=True))
+        result_has_step_column = any(d.has_step_column for d in data)
+        return cls(df=pd.concat(dfs, axis=0, sort=not result_has_step_column))
 
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
@@ -268,11 +314,11 @@ class Data(Base, SerializationMixin):
         return set() if self.df.empty else set(self.df["metric_signature"].values)
 
     def filter(
-        self: TData,
+        self: Data,
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
         metric_signatures: Iterable[str] | None = None,
-    ) -> TData:
+    ) -> Data:
         """Construct a new object with the subset of rows corresponding to the
         provided trial indices, metric names, and metric signatures. If trial_indices,
         metric_names, or metric_signatures are not provided, that dimension will not be
@@ -329,6 +375,10 @@ class Data(Base, SerializationMixin):
                 status_quo arm)
 
         """
+        if self.has_step_column:
+            raise NotImplementedError(
+                "Relativization is not supported for data with step columns."
+            )
         df = self.df.copy()
         df_rel = relativize_dataframe(
             df=df,
@@ -343,7 +393,117 @@ class Data(Base, SerializationMixin):
     @cached_property
     def trial_indices(self) -> set[int]:
         """Return the set of trial indices in the data."""
-        return set(self.df["trial_index"].unique())
+        if self._memo_df is not None:
+            # Use a smaller df if available
+            return set(self.df["trial_index"].unique())
+        # If no small df is available, use the full df
+        return set(self.full_df["trial_index"].unique())
+
+    def latest(self, rows_per_group: int = 1) -> Data:
+        """Return a new Data with the most recently observed `rows_per_group`
+        rows for each (trial_index, arm, metric) group, determined by the "step"
+        values, where higher implies more recent.
+
+        This function considers only the relative ordering of the "step" values,
+        making it most suitable when these values are equally spaced.
+
+        If `rows_per_group` is greater than the number of rows in a given
+        (trial_index, arm, metric) group, then all rows are returned.
+
+        If there are no "step" values, then this simply returns the original.
+        """
+        if not self.has_step_column:
+            if rows_per_group != 1:
+                raise UnsupportedError(
+                    "Cannot have rows_per_group greater than 1 for data without"
+                    " a 'step' column, because there should inherently be only "
+                    "one row per (trial, arm, metric) group."
+                )
+            return self
+        # Note: Normally, a groupby-apply automatically returns a DataFrame that is
+        # sorted by the group keys, but this is not true when using filtrations like
+        # "tail."
+
+        # Optimizer beware: This is slow and it has proven difficult to speed it
+        # up. `latest` takes up a large portion of the time, and so does the groupby;
+        # sorting can take ~40% of the time. If you find this to be a bottleneck, it
+        # may be better to avoid unnecessary calls.
+
+        return Data(
+            df=(
+                self.full_df.sort_values(MAP_KEY)
+                .groupby(self.DEDUPLICATE_BY_COLUMNS)
+                .tail(rows_per_group)
+                .sort_values(self.DEDUPLICATE_BY_COLUMNS)
+            )
+        )
+
+    def subsample(
+        self: TData,
+        keep_every: int | None = None,
+        limit_rows_per_group: int | None = None,
+        limit_rows_per_metric: int | None = None,
+        include_first_last: bool = True,
+    ) -> TData:
+        """Return a new Data that subsamples the `MAP_KEY` column in an
+        equally-spaced manner. This function considers only the relative ordering
+        of the `MAP_KEY` values, making it most suitable when these values are
+        equally spaced.
+
+        There are three ways that this can be done:
+            1. If `keep_every = k` is set, then every kth row of the DataFrame in the
+                `MAP_KEY` column is kept after grouping by `DEDUPLICATE_BY_COLUMNS`.
+                In other words, every kth step of each (arm, metric) will be kept.
+            2. If `limit_rows_per_group = n`, the method will find the (arm, metric)
+                pair with the largest number of rows in the `MAP_KEY` column and select
+                an appropriate `keep_every` such that each (arm, metric) has at most
+                `n` rows in the `MAP_KEY` column.
+            3. If `limit_rows_per_metric = n`, the method will select an
+                appropriate `keep_every` such that the total number of rows per
+                metric is less than `n`.
+        If multiple of `keep_every`, `limit_rows_per_group`, `limit_rows_per_metric`,
+        then the priority is in the order above: 1. `keep_every`,
+        2. `limit_rows_per_group`, and 3. `limit_rows_per_metric`.
+
+        Note that we want all curves to be subsampled with nearly the same spacing.
+        Internally, the method converts `limit_rows_per_group` and
+        `limit_rows_per_metric` to a `keep_every` quantity that will satisfy the
+        original request.
+
+        When `include_first_last` is True, then the method will use the `keep_every`
+        as a guideline and for each group, produce (nearly) evenly spaced points that
+        include the first and last points.
+        """
+        if (
+            keep_every is None
+            and limit_rows_per_group is None
+            and limit_rows_per_metric is None
+        ):
+            logger.warning(
+                "None of `keep_every`, `limit_rows_per_group`, or "
+                "`limit_rows_per_metric` is specified. Returning the original data "
+                "without subsampling."
+            )
+            return self
+        if not self.has_step_column:
+            # Data should automatically obey all the conditions, since there is
+            # just one row per trial-arm-metric group
+            return self
+
+        subsampled_metric_dfs = []
+        for metric_name in self.full_df["metric_name"].unique():
+            metric_full_df = _filter_df(self.full_df, metric_names=[metric_name])
+            subsampled_metric_dfs.append(
+                _subsample_one_metric(
+                    metric_full_df,
+                    keep_every=keep_every,
+                    limit_rows_per_group=limit_rows_per_group,
+                    limit_rows_per_metric=limit_rows_per_metric,
+                    include_first_last=include_first_last,
+                )
+            )
+        subsampled_df: pd.DataFrame = pd.concat(subsampled_metric_dfs)
+        return self.__class__(df=subsampled_df)
 
 
 def combine_dfs_favoring_recent(
@@ -491,3 +651,76 @@ def relativize_dataframe(
     # Reorder columns to match expected order (reuses Data class logic)
     df_rel = Data._get_df_with_cols_in_expected_order(df_rel)
     return df_rel
+
+
+def _ceil_divide(
+    a: int | np.int_ | npt.NDArray[np.int_], b: int | np.int_ | npt.NDArray[np.int_]
+) -> np.int_ | npt.NDArray[np.int_]:
+    return -np.floor_divide(-a, b)
+
+
+def _subsample_rate(
+    full_df: pd.DataFrame,
+    keep_every: int | None = None,
+    limit_rows_per_group: int | None = None,
+    limit_rows_per_metric: int | None = None,
+) -> int:
+    if keep_every is not None:
+        return keep_every
+
+    grouped_full_df = full_df.groupby(Data.DEDUPLICATE_BY_COLUMNS)
+    group_sizes = grouped_full_df.size()
+    max_rows = group_sizes.max()
+
+    if limit_rows_per_group is not None:
+        return _ceil_divide(max_rows, limit_rows_per_group).item()
+
+    if limit_rows_per_metric is not None:
+        # search for the `keep_every` such that when you apply it to each group,
+        # the total number of rows is smaller than `limit_rows_per_metric`.
+        ks = np.arange(max_rows, 0, -1)
+        # total sizes in ascending order
+        total_sizes = np.sum(
+            _ceil_divide(group_sizes.values, ks[..., np.newaxis]), axis=1
+        )
+        # binary search
+        i = bisect_right(total_sizes, limit_rows_per_metric)
+        # if no such `k` is found, then `derived_keep_every` stays as 1.
+        if i > 0:
+            return ks[i - 1].item()
+
+    raise ValueError(
+        "at least one of `keep_every`, `limit_rows_per_group`, "
+        "or `limit_rows_per_metric` must be specified."
+    )
+
+
+def _subsample_one_metric(
+    full_df: pd.DataFrame,
+    keep_every: int | None = None,
+    limit_rows_per_group: int | None = None,
+    limit_rows_per_metric: int | None = None,
+    include_first_last: bool = True,
+) -> pd.DataFrame:
+    """Helper function to subsample a dataframe that holds a single metric."""
+
+    grouped_full_df = full_df.groupby(Data.DEDUPLICATE_BY_COLUMNS)
+
+    derived_keep_every = _subsample_rate(
+        full_df, keep_every, limit_rows_per_group, limit_rows_per_metric
+    )
+
+    if derived_keep_every <= 1:
+        return full_df
+    filtered_dfs = []
+    for _, df_g in grouped_full_df:
+        df_g = df_g.sort_values(MAP_KEY)
+        if include_first_last:
+            rows_per_group = _ceil_divide(len(df_g), derived_keep_every)
+            linspace_idcs = np.linspace(0, len(df_g) - 1, rows_per_group)
+            idcs = np.round(linspace_idcs).astype(int)
+            filtered_df = df_g.iloc[idcs]
+        else:
+            filtered_df = df_g.iloc[:: int(derived_keep_every)]
+        filtered_dfs.append(filtered_df)
+    return pd.concat(filtered_dfs)

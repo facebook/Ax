@@ -11,11 +11,12 @@ import pandas as pd
 from ax.core.data import Data
 from ax.core.map_data import MAP_KEY, MapData
 from ax.core.tests.test_data import TestDataBase
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 
 
 class TestMapData(TestDataBase):
-    cls: type[MapData] = MapData
+    has_step_column = True
 
 
 class MapDataTest(TestCase):
@@ -89,23 +90,27 @@ class MapDataTest(TestCase):
                 },
             ]
         )
-
         self.mmd = MapData(df=self.df)
 
     def test_df(self) -> None:
         df = self.mmd.df
         self.assertEqual(set(df["trial_index"].drop_duplicates()), {0, 1})
 
-    def test_init(self) -> None:
-        # Initialize empty
-        empty = MapData()
-        self.assertTrue(empty.full_df.empty)
-
-        # Check that the required columns include the map keys.
-        self.assertEqual(
-            empty.REQUIRED_COLUMNS.union([MAP_KEY]), empty.required_columns()
-        )
-        self.assertEqual(set(empty.full_df.columns), empty.required_columns())
+        with self.subTest("Empty data"):
+            df = Data(
+                df=pd.DataFrame(
+                    columns=[
+                        "trial_index",
+                        "arm_name",
+                        MAP_KEY,
+                        "metric_name",
+                        "metric_signature",
+                        "mean",
+                        "sem",
+                    ]
+                )
+            ).df
+            self.assertTrue(df.empty)
 
     def test_combine(self) -> None:
         with self.subTest("From no MapDatas"):
@@ -125,26 +130,37 @@ class MapDataTest(TestCase):
             data = Data.from_multiple_data([data])
             self.assertEqual(len(data.full_df), len(map_data.full_df))
 
-    def test_upcast(self) -> None:
-        fresh = MapData(df=self.df)
-        # Assert df is not cached before first call
-        self.assertIsNone(fresh._memo_df)
+    def test_caching(self) -> None:
+        with self.subTest("With step column"):
+            fresh = MapData(df=self.df)
+            # Assert df is not cached before first call
+            self.assertIsNone(fresh._memo_df)
 
-        self.assertEqual(
-            fresh.df.columns.size,
-            fresh.full_df.columns.size,
-        )
+            self.assertEqual(
+                fresh.df.columns.size,
+                fresh.full_df.columns.size,
+            )
 
-        # Assert df is cached after first call
-        self.assertIsNotNone(fresh._memo_df)
+            # Assert df is cached after first call
+            self.assertIsNotNone(fresh._memo_df)
 
-        self.assertTrue(
-            fresh.df.equals(
-                fresh.full_df.sort_values(MAP_KEY).drop_duplicates(
-                    MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
+            self.assertTrue(
+                fresh.df.equals(
+                    fresh.full_df.sort_values(MAP_KEY).drop_duplicates(
+                        MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
+                    )
                 )
             )
-        )
+
+        with self.subTest("No step column"):
+            data = MapData(df=self.df.drop(columns=["step"]))
+            # Assert df is not cached before first call
+            self.assertIsNone(data._memo_df)
+
+            self.assertIs(data.df, data.full_df)
+
+            # Nothing cached
+            self.assertIsNone(data._memo_df)
 
     def test_latest(self) -> None:
         seed = 8888
@@ -211,6 +227,16 @@ class MapDataTest(TestCase):
                     large_map_data_latest.full_df
                 )
             )
+
+        with self.subTest("No step column"):
+            data = Data(df=large_map_data.df.drop(columns=["step"]))
+            latest = data.latest(rows_per_group=1)
+            self.assertIs(latest, data)
+
+            with self.assertRaisesRegex(
+                UnsupportedError, "Cannot have rows_per_group greater than 1"
+            ):
+                data.latest(rows_per_group=2)
 
     def test_subsample(self) -> None:
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
@@ -310,6 +336,11 @@ class MapDataTest(TestCase):
             len(subsample_map_df[subsample_map_df["metric_name"] == "b"]),
             len(full_df[full_df["metric_name"] == "b"]),
         )
+
+        with self.subTest("Data without step column"):
+            data = Data(df=large_map_data.df.drop(columns=["step"]))
+            subsample = data.subsample(keep_every=10, limit_rows_per_group=3)
+            self.assertIs(subsample, data)
 
     def test_dtype_conversion(self) -> None:
         df = self.df

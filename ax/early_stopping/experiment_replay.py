@@ -12,7 +12,6 @@ from time import perf_counter
 
 from ax.adapter.registry import Generators
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
@@ -46,8 +45,10 @@ def replay_experiment(
     savings for a given `early_stopping_strategy`.
     """
     historical_map_data = historical_experiment.lookup_data()
-    if not isinstance(historical_map_data, MapData):
-        logger.warning("Replaying an experiment requires MapData.")
+    if not historical_map_data.has_step_column:
+        logger.warning(
+            "Replaying an experiment requires the data to have a 'step' column."
+        )
         return None
     historical_map_data = historical_map_data.subsample(
         limit_rows_per_group=num_samples_per_curve, include_first_last=True
