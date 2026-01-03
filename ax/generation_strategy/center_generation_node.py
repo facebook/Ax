@@ -7,23 +7,18 @@
 # pyre-strict
 
 from dataclasses import dataclass
-from typing import Any
 
 from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.observation import ObservationFeatures
 from ax.core.parameter import DerivedParameter
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    AutoTransitionAfterGenOrExhaustion,
-)
+from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
 from pyre_extensions import none_throws
 
 
@@ -43,7 +38,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         super().__init__(
             name="CenterOfSearchSpace",
             transition_criteria=[
-                AutoTransitionAfterGenOrExhaustion(
+                AutoTransitionAfterGen(
                     transition_to=next_node_name,
                     continue_trial_generation=False,
                 )
@@ -52,6 +47,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         )
         self.search_space: SearchSpace | None = None
         self.next_node_name = next_node_name
+        self._center_params: TParameterization | None = None
         self.fallback_specs: dict[type[Exception], GeneratorSpec] = {
             AxGenerationException: GeneratorSpec(
                 generator_enum=Generators.SOBOL, generator_key_override="Fallback_Sobol"
@@ -59,50 +55,29 @@ class CenterGenerationNode(ExternalGenerationNode):
             **self.fallback_specs,  # This includes the default fallbacks.
         }
 
+    def should_skip_generation(self, experiment: Experiment) -> bool:
+        """Will indicate this node should be skipped if center arm already exists
+        on the experiment or is infeasible, even when using chebyshev center.
+
+        Args:
+            experiment: The experiment to check against.
+
+        """
+        self.search_space = experiment.search_space
+        self._center_params = self.compute_center_params()
+
+        # Skip if center is infeasible
+        if self._center_params is None:
+            return True
+
+        # Skip if center already exists in experiment
+        center_arm = Arm(parameters=self._center_params)
+        return center_arm.signature in experiment.arms_by_signature
+
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         self.search_space = experiment.search_space
 
-    def gen(
-        self,
-        *,
-        experiment: Experiment,
-        pending_observations: dict[str, list[ObservationFeatures]] | None,
-        skip_fit: bool = False,
-        data: Data | None = None,
-        n: int | None = None,
-        arms_per_node: dict[str, int] | None = None,
-        **gs_gen_kwargs: Any,
-    ) -> GeneratorRun | None:
-        """Generate candidates or skip if search space is exhausted.
-
-        This method checks if the center point already exists or is infeasible
-        before attempting generation. If so, it sets _should_skip to True and
-        returns None, allowing the generation strategy to transition to the next node.
-        """
-        # Check if center already exists or is infeasible
-        self.search_space = experiment.search_space
-        center_params = self.compute_center_params()
-
-        # Check if unable to find a suitable center
-        if center_params is None:
-            self._should_skip = True
-            return None
-
-        # Check if center already exists in experiment
-        center_arm = Arm(parameters=center_params)
-        if center_arm.signature in experiment.arms_by_signature:
-            self._should_skip = True
-            return None
-
-        # Otherwise, proceed with normal generation
-        return super().gen(
-            experiment=experiment,
-            pending_observations=pending_observations,
-            skip_fit=skip_fit,
-            data=data,
-            arms_per_node=arms_per_node,
-            **gs_gen_kwargs,
-        )
+        self._center_params = self.compute_center_params()
 
     def compute_center_params(self) -> TParameterization | None:
         """Compute the center of the search space.

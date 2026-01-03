@@ -23,8 +23,6 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 
 
-# TODO[drfreund]: Introduce a `GenerationNodeInterface` to
-# make inheritance/overriding of `GenNode` methods cleaner.
 class ExternalGenerationNode(GenerationNode, ABC):
     """A generation node intended to be used with non-Ax methods for
     candidate generation.
@@ -111,6 +109,51 @@ class ExternalGenerationNode(GenerationNode, ABC):
             A dictionary mapping parameter names to parameter values for the next
             candidate suggested by the method.
         """
+
+    def should_skip_generation(self, experiment: Experiment) -> bool:
+        """A method that can be implemented by ExternalGenerationNode subclasses to
+        define logic for skipping generation from that node. Defaults to False.
+
+        NOTE: This results in skipping generation prior to fitting to save fit compute
+
+        Args:
+            experiment: The experiment to check against.
+
+        Returns:
+            True if this node should be skipped, False otherwise.
+        """
+        return False
+
+    def gen(
+        self,
+        *,
+        experiment: Experiment,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        skip_fit: bool = False,
+        data: Data | None = None,
+        n: int | None = None,
+        arms_per_node: dict[str, int] | None = None,
+        **gs_gen_kwargs: Any,
+    ) -> GeneratorRun | None:
+        """Generate candidates, with early skip check before fitting.
+
+        This method checks should_skip_generation() before calling the parent's
+        gen() method. This allows subclasses to skip generation without incurring
+        the cost of model fitting.
+        """
+        if self.should_skip_generation(experiment):
+            self._should_skip = True
+            return None
+
+        return super().gen(
+            experiment=experiment,
+            pending_observations=pending_observations,
+            skip_fit=skip_fit,
+            data=data,
+            n=n,
+            arms_per_node=arms_per_node,
+            **gs_gen_kwargs,
+        )
 
     @property
     def _fitted_adapter(self) -> None:
