@@ -14,6 +14,7 @@ import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.adapter.transforms.base import Transform
+from ax.api.protocols.metric import IMetric
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
     BenchmarkMapMetric,
@@ -216,6 +217,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     IsSingleObjective: transition_criterion_to_dict,
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
+    IMetric: metric_to_dict,
     MapMetric: metric_to_dict,
     MaxGenerationParallelism: transition_criterion_to_dict,
     Metric: metric_to_dict,
@@ -334,6 +336,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "InputConstructorPurpose": InputConstructorPurpose,
+    "IMetric": IMetric,
     "Interval": Interval,
     "IsSingleObjective": IsSingleObjective,
     "Keys": Keys,

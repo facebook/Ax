@@ -9,6 +9,7 @@
 from collections.abc import Callable
 from typing import Any
 
+from ax.api.protocols.metric import IMetric
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.metrics.branin import BraninMetric
@@ -43,6 +44,7 @@ CORE_METRIC_REGISTRY: dict[type[Metric], int] = {
     ChemistryMetric: 7,
     MapMetric: 8,
     BraninTimestampMapMetric: 9,
+    IMetric: 10,
 }
 
 
