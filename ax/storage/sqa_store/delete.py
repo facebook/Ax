@@ -91,3 +91,51 @@ def delete_generation_strategy(
         for gs in gs_list:
             session.delete(gs)
         session.flush()
+
+
+def orphan_generation_strategy(exp_name: str, config: SQAConfig | None = None) -> None:
+    """Orphan the generation strategy associated with an experiment by setting
+    its experiment_id to NULL.
+
+    This preserves the old GS and its generator runs in the database,
+    but makes it invisible to normal experiment queries. This allows for
+    "deleting" a generation strategy from an experiment without cascading deletion
+    of arms, generator runs, and trials. It also enables resetting the generation
+    strategy and being able to save/load an experiment created by two generation
+    strategies.
+
+    Args:
+        exp_name: Name of the experiment for which the generation strategy
+            should be orphaned.
+        config: The SQAConfig.
+    """
+    config = config or SQAConfig()
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
+    gs_sqa_class = config.class_to_sqa_class[GenerationStrategy]
+
+    with session_scope() as session:
+        # find experiment id
+        exp_id = (
+            # pyre-ignore[16]: `SQABase` has no attribute `id`
+            session.query(exp_sqa_class.id)
+            # pyre-fixme[16]: `SQABase` has no attribute `name`.
+            .filter(exp_sqa_class.name == exp_name)
+            .scalar()
+        )
+        if exp_id is None:
+            return
+
+        # orphan the gs associated with the experiment if there is one
+        old_gs = (
+            session.query(gs_sqa_class)
+            # pyre-ignore[16]: `SQABase` has no attribute `experiment_id`
+            .filter(gs_sqa_class.experiment_id == exp_id)
+            .one_or_none()
+        )
+        if old_gs is not None:
+            old_gs.experiment_id = None
+            session.flush()
+            logger.info(
+                f"Orphaned generation strategy (id={old_gs.id}) for experiment "
+                f"{exp_name}."
+            )
