@@ -51,7 +51,6 @@ def listens_for_multiple(
     return wrapper
 
 
-# pyre-fixme[3]: Return annotation cannot be `Any`.
 def consistency_exactly_one(instance: SQABase, exactly_one_fields: list[str]) -> Any:
     """Ensure that exactly one of `exactly_one_fields` has a value set."""
     values = [getattr(instance, field) is not None for field in exactly_one_fields]

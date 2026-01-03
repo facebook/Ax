@@ -20,6 +20,7 @@ import pandas as pd
 from ax.adapter.registry import Generators
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
+from ax.api.protocols.metric import IMetric
 from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.auxiliary import (
@@ -1863,6 +1864,14 @@ class SQAStoreTest(TestCase):
         metric = cast(Metric, self.decoder.metric_from_sqa(sqa_metric))
         self.assertEqual(metric.name, metric_name)
         self.assertEqual(metric.signature, metric_name)
+
+    def test_IMetricEncodeDecode(self) -> None:
+        metric_name = "test_imetric"
+        imetric = IMetric(name=metric_name)
+        sqa_metric = self.encoder.metric_to_sqa(imetric)
+        decoded_metric = cast(Metric, self.decoder.metric_from_sqa(sqa_metric))
+        self.assertIsInstance(decoded_metric, IMetric)
+        self.assertEqual(decoded_metric.name, metric_name)
 
     def test_MetricDecodeWithSignatureOverride(self) -> None:
         metric_name = "testMetric"

@@ -22,6 +22,7 @@ from ax.adapter.registry import Generators
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.one_hot import OneHot
+from ax.api.protocols.metric import IMetric
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
@@ -353,6 +354,7 @@ TEST_CASES = [
         ),
     ),
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
+    ("IMetric", lambda: IMetric(name="test")),
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
     ("MapData", get_map_data),
