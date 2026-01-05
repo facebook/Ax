@@ -1649,8 +1649,12 @@ class Experiment(Base):
 
     @property
     def is_multi_type(self) -> bool:
-        """Whether this Experiment contains more than one trial type."""
-        return len(self._trial_type_to_runner) > 1
+        """
+        Whether this Experiment supports at least one non-None trial type.
+        """
+        supported_types = {*self._trial_type_to_runner.keys()}
+
+        return len(supported_types - {None}) > 0
 
     @property
     def default_trial_type(self) -> str | None:

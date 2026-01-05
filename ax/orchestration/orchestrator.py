@@ -362,7 +362,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             Trial type for the experiment this Orchestrator is running if the
             experiment is a MultiTypeExperiment and None otherwise.
         """
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.is_multi_type:
             return self.options.mt_experiment_trial_type
         return None
 
@@ -1576,7 +1576,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     "will be unable to fetch intermediate results with which to "
                     "evaluate early stopping criteria."
                 )
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.is_multi_type:
             if options.mt_experiment_trial_type is None:
                 raise UserInputError(
                     "Must specify `mt_experiment_trial_type` for MultiTypeExperiment."

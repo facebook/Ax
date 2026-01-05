@@ -24,7 +24,6 @@ from ax.core.base_trial import BaseTrial
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.runner import Runner
@@ -445,14 +444,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             for metric_name in metric_names
         ]
 
-        if isinstance(self.experiment, MultiTypeExperiment):
-            experiment = assert_is_instance(self.experiment, MultiTypeExperiment)
-            experiment.add_tracking_metrics(
-                metrics=metric_objects,
-                metrics_to_trial_types=metrics_to_trial_types,
-            )
-        else:
-            self.experiment.add_tracking_metrics(metrics=metric_objects)
+        self.experiment.add_tracking_metrics(
+            metrics=metric_objects,
+            metrics_to_trial_types=metrics_to_trial_types,
+        )
 
     @copy_doc(Experiment.remove_tracking_metric)
     def remove_tracking_metric(self, metric_name: str) -> None:

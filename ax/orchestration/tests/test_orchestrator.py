@@ -1307,7 +1307,7 @@ class TestAxOrchestrator(TestCase):
         init_test_engine_and_session_factory(force_init=True)
         branin_gs = self.two_sobol_steps_GS
         # With runners & metrics, `Orchestrator.run_all_trials` should run.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner(
                 "type1", SyntheticRunnerWithPredictableStatusPolling()
             )
@@ -2209,7 +2209,7 @@ class TestAxOrchestrator(TestCase):
         gs = get_online_sobol_mbm_generation_strategy()
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
@@ -2259,7 +2259,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
@@ -2312,7 +2312,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
@@ -2389,7 +2389,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
