@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+import logging
+
 from math import ceil
 from typing import Any, cast, Mapping
 
@@ -52,6 +54,8 @@ from ax.utils.common.constants import Keys
 from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm import defaultload, joinedload, lazyload, noload
 from sqlalchemy.orm.exc import DetachedInstanceError
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 # ---------------------------- Loading `Experiment`. ---------------------------
@@ -537,21 +541,32 @@ def _load_generation_strategy_by_id(
 def get_generation_strategy_id(experiment_name: str, decoder: Decoder) -> int | None:
     """Get DB ID of the generation strategy, associated with the experiment
     with the given name if its in DB, return None otherwise.
+
+    If multiple generation strategies are associated with the experiment,
+    returns the latest one (highest DB ID).
     """
     exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
     gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
     with session_scope() as session:
-        sqa_gs_id = (
+        sqa_gs_ids = (
             session.query(gs_sqa_class.id)  # pyre-ignore[16]
             .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
             # pyre-fixme[16]: `SQABase` has no attribute `name`.
             .filter(exp_sqa_class.name == experiment_name)
-            .one_or_none()
+            .order_by(gs_sqa_class.id.desc())
+            .all()
         )
 
-    if sqa_gs_id is None:
+    if not sqa_gs_ids:
         return None
-    return sqa_gs_id[0]
+
+    if len(sqa_gs_ids) > 1:
+        logger.warning(
+            f"Found {len(sqa_gs_ids)} generation strategies for experiment "
+            f"{experiment_name}. Loading the latest one (id={sqa_gs_ids[0][0]})."
+        )
+
+    return sqa_gs_ids[0][0]
 
 
 def get_generation_strategy_sqa(

@@ -2910,6 +2910,34 @@ class SQAStoreTest(TestCase):
         # Full GS fails the equality check
         self.assertEqual(str(generation_strategy), str(loaded_generation_strategy))
 
+    def test_load_latest_generation_strategy_when_multiple_exist(self) -> None:
+        experiment = get_branin_experiment()
+        gs1 = choose_generation_strategy_legacy(experiment.search_space)
+        gs1.experiment = experiment
+        save_experiment(experiment)
+        save_generation_strategy(generation_strategy=gs1)
+        self.assertEqual(
+            gs1.db_id,
+            load_generation_strategy_by_experiment_name(experiment.name).db_id,
+        )
+
+        # create a second generation strategy for the experiment
+        gs2 = choose_generation_strategy_legacy(experiment.search_space)
+        gs2._name = "second_gs"
+        gs2.experiment = experiment
+        save_generation_strategy(generation_strategy=gs2)
+
+        # check that the latest generation stragey is loaded
+        with self.assertLogs(
+            "ax.storage.sqa_store.load", level=logging.WARNING
+        ) as logs:
+            loaded_gs = load_generation_strategy_by_experiment_name(experiment.name)
+            self.assertEqual(loaded_gs.db_id, gs2.db_id)
+            self.assertEqual(loaded_gs.name, gs2.name)
+            self.assertTrue(
+                any("Found 2 generation strategies" in log for log in logs.output)
+            )
+
     def test_query_historical_experiments_given_parameters(self) -> None:
         # This test validates the query behavior for historical experiments.
         config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
