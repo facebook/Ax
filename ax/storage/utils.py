@@ -11,6 +11,8 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from hashlib import md5
 
+import pandas as pd
+
 from ax.core.data import combine_dfs_favoring_recent, Data
 
 
@@ -71,22 +73,35 @@ def stable_hash(s: str) -> int:
     return int(md5(s.encode("utf-8")).hexdigest(), 16)
 
 
-def combine_datas_on_data_by_trial(
-    data_by_trial: Mapping[int, dict[int, Data]],
-) -> dict[int, OrderedDict[int, Data]]:
+def data_to_data_by_trial(data: Data) -> dict[int, OrderedDict[int, Data]]:
     """
-    Load Ax Data from JSON.
+    Convert data to legacy {trial_index: {timestamp: Data}} format.
+
+    There is no longer timestamp info, so timestamps are set to 0.
+    """
+    if len(data.full_df) == 0:
+        return {}
+    return {
+        trial_index: OrderedDict([(0, Data(df=df))])
+        for trial_index, df in data.full_df.groupby("trial_index")
+    }
+
+
+def _combine_datas_to_one_per_trial(
+    data_by_trial: Mapping[int, dict[int, Data]],
+) -> list[pd.DataFrame]:
+    """
+    Move data from the format `{trial_index: {timestamp: Data}}` to a list of
+    DataFrames, one for each trial.
 
     Old `_data_by_trial` is in the format `{trial_index: {timestamp: Data}}`.
-    Current data is in the format `{trial_index: {0: Data}}`. This function
-    converts `_data_by_trial` from the old format to the current format. Within
-    each trial_index, it combines each fetch with the previous one,
-    deduplicating in favor of the new data when there are multiple observations
-    with the same "trial_index", "metric_name", and "arm_name", and, when
-    present, "step."
+    Within each trial_index, this function combines each fetch with the previous
+    one, deduplicating in favor of the new data when there are multiple
+    observations with the same "trial_index", "metric_name", and "arm_name",
+    and, when present, "step."
     """
-    combined_data_by_trial = {}
-    for trial_index, trial_data in data_by_trial.items():
+    combined_dfs = []
+    for trial_data in data_by_trial.values():
         if len(trial_data) == 0:
             continue
         sorted_datas = [data for _, data in sorted(trial_data.items())]
@@ -94,5 +109,15 @@ def combine_datas_on_data_by_trial(
         while len(sorted_datas) > 0:
             old_df = sorted_datas.pop().full_df
             df = combine_dfs_favoring_recent(last_df=old_df, new_df=df)
-        combined_data_by_trial[trial_index] = OrderedDict([(0, Data(df=df))])
-    return combined_data_by_trial
+        combined_dfs.append(df)
+    return combined_dfs
+
+
+def data_by_trial_to_data(data_by_trial: Mapping[int, dict[int, Data]]) -> Data:
+    """
+    Convert data from legacy {trial_index: {timestamp: Data}} format to Data.
+    """
+    combined_dfs = _combine_datas_to_one_per_trial(data_by_trial=data_by_trial)
+    if len(combined_dfs) == 0:
+        return Data()
+    return Data(df=pd.concat(combined_dfs, axis=0, ignore_index=True))

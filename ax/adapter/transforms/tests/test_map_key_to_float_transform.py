@@ -541,8 +541,9 @@ class MapKeyToFloatTransformTest(TestCase):
         )
 
     def test_transform_experiment_data(self) -> None:
-        # First, set up a case with no NaNs.
-        data = self.experiment.lookup_data()
+        # First, set up a case with no NaNs in the provided data (there are NaNs
+        # in experiment.data).
+        data = Data(df=self.experiment.lookup_data().full_df.copy())
         data.full_df["step"] = data.full_df["step"].fillna(0)
         experiment_data = extract_experiment_data(
             experiment=self.experiment,
