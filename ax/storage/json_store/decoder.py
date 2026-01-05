@@ -598,7 +598,7 @@ def multi_type_experiment_from_json(
     object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> MultiTypeExperiment:
+) -> Experiment:
     """Load AE MultiTypeExperiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
 
@@ -626,7 +626,7 @@ def multi_type_experiment_from_json(
     }
     kwargs["default_runner"] = _trial_type_to_runner[object_json["default_trial_type"]]
 
-    experiment = MultiTypeExperiment(**kwargs)
+    experiment = Experiment(**kwargs)
     for metric in tracking_metrics:
         experiment._tracking_metrics[metric.name] = metric
     experiment._metric_to_trial_type = _metric_to_trial_type

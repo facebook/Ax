@@ -34,7 +34,6 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -604,9 +603,9 @@ def get_test_map_data_experiment(
 
 def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
-) -> MultiTypeExperiment:
+) -> Experiment:
     oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"]), minimize=True))
-    experiment = MultiTypeExperiment(
+    experiment = Experiment(
         name="test_exp",
         search_space=get_branin_search_space(),
         default_trial_type="type1",

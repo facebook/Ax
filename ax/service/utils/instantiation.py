@@ -18,7 +18,6 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
@@ -901,22 +900,6 @@ class InstantiationBase:
 
         if owners is not None:
             properties["owners"] = owners
-        if default_trial_type is not None:
-            return MultiTypeExperiment(
-                name=none_throws(name),
-                search_space=cls.make_search_space(
-                    parameters=parameters, parameter_constraints=parameter_constraints
-                ),
-                default_trial_type=none_throws(default_trial_type),
-                runner=none_throws(default_runner),
-                optimization_config=optimization_config,
-                tracking_metrics=tracking_metrics,
-                status_quo=status_quo_arm,
-                description=description,
-                is_test=is_test,
-                experiment_type=experiment_type,
-                properties=properties,
-            )
 
         return Experiment(
             name=name,
@@ -929,6 +912,7 @@ class InstantiationBase:
             properties=properties,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
             is_test=is_test,
+            default_trial_type=default_trial_type,
             runner=default_runner,
         )
 

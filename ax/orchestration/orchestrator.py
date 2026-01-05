@@ -27,7 +27,6 @@ from ax.core.experiment import (
 )
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -57,7 +56,7 @@ from ax.utils.common.logger import (
     set_ax_logger_levels,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """ \
@@ -477,9 +476,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         instance.
         """
         if self.trial_type is not None:
-            runner = assert_is_instance(
-                self.experiment, MultiTypeExperiment
-            ).runner_for_trial_type(trial_type=none_throws(self.trial_type))
+            runner = self.experiment.runner_for_trial_type(
+                trial_type=none_throws(self.trial_type)
+            )
         else:
             runner = self.experiment.runner
         if runner is None:
@@ -1990,9 +1989,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         try:
             kwargs = deepcopy(self.options.fetch_kwargs)
             if self.trial_type is not None:
-                metrics = assert_is_instance(
-                    self.experiment, MultiTypeExperiment
-                ).metrics_for_trial_type(trial_type=none_throws(self.trial_type))
+                metrics = self.experiment.metrics_for_trial_type(
+                    trial_type=none_throws(self.trial_type)
+                )
                 kwargs["metrics"] = metrics
             results = self.experiment.fetch_trials_data_results(
                 trial_indices=trial_indices,

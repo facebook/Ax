@@ -30,7 +30,6 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -257,7 +256,7 @@ class Decoder:
     def _init_mt_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
-    ) -> MultiTypeExperiment:
+    ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
         properties = dict(experiment_sqa.properties or {})
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
@@ -300,7 +299,7 @@ class Decoder:
             # important for adding metrics.
             trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
-        experiment = MultiTypeExperiment(
+        experiment = Experiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
             search_space=search_space,
