@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -21,14 +20,14 @@ import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
 from ax.core.base_trial import BaseTrial
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.multi_type_experiment import (
+from ax.core.experiment import (
+    Experiment,
     filter_trials_by_type,
     get_trial_indices_for_statuses,
-    MultiTypeExperiment,
 )
+from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus

@@ -417,7 +417,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         metric_names: list[str],
         metric_definitions: dict[str, dict[str, Any]] | None = None,
         metrics_to_trial_types: dict[str, str] | None = None,
-        canonical_names: dict[str, str] | None = None,
     ) -> None:
         """Add a list of new metrics to the experiment.
 
@@ -435,9 +434,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 trial types for each metric. If provided, the metrics will be
                 added with their respective trial types. If not provided, then the
                 default trial type will be used.
-            canonical_names: A mapping from metric name (of a particular trial type)
-                to the metric name of the default trial type. Only applicable to
-                MultiTypeExperiment.
         """
         metric_definitions = (
             self.metric_definitions
@@ -454,7 +450,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             experiment.add_tracking_metrics(
                 metrics=metric_objects,
                 metrics_to_trial_types=metrics_to_trial_types,
-                canonical_names=canonical_names,
             )
         else:
             self.experiment.add_tracking_metrics(metrics=metric_objects)

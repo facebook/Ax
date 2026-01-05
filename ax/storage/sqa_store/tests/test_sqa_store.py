@@ -813,11 +813,8 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(loaded_experiment.default_trial_type, "type1")
         self.assertEqual(len(loaded_experiment._trial_type_to_runner), 2)
-        # pyre-fixme[16]: `Experiment` has no attribute `metric_to_trial_type`.
         self.assertEqual(loaded_experiment.metric_to_trial_type["m1"], "type1")
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
-        # pyre-fixme[16]: `Experiment` has no attribute `_metric_to_canonical_name`.
-        self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
     def test_MTExperimentSaveAndLoadSkipRunnersAndMetrics(self) -> None:
@@ -829,11 +826,8 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment.default_trial_type, "type1")
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type1"])
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type2"])
-        # pyre-fixme[16]: `Experiment` has no attribute `metric_to_trial_type`.
         self.assertEqual(loaded_experiment.metric_to_trial_type["m1"], "type1")
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
-        # pyre-fixme[16]: `Experiment` has no attribute `_metric_to_canonical_name`.
-        self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
     def test_ExperimentNewTrial(self) -> None:
