@@ -12,7 +12,7 @@ import inspect
 
 import logging
 import warnings
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import partial, reduce
@@ -142,7 +142,7 @@ class Experiment(Base):
         self._runner = runner
         self.is_test: bool = is_test
 
-        self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
+        self.data: Data = Data()
         self._experiment_type: str | None = experiment_type
         self._optimization_config: OptimizationConfig | None = None
         self._tracking_metrics: dict[str, Metric] = {}
@@ -864,11 +864,9 @@ class Experiment(Base):
 
     def attach_data(self, data: Data, **kwargs: Any) -> None:
         """
-        Attach data to the experiment's `_data_by_trial` attribute.
+        Update the experiment's `data` attribute.
 
-        Store data in `experiment._data_by_trial`, to be looked up via
-        ``experiment.lookup_data_for_trial`` or ``experiment.lookup_data()``.
-        When a new observation is attached to a trial that already has an
+        When a new observation is attached and ``self.data`` already has an
         observation for that arm name, metric, and (if present) step, the new
         observation replaces the old one.
 
@@ -906,33 +904,19 @@ class Experiment(Base):
                 "fetch_data`, add them via `experiment.add_tracking_metric` or update "
                 "the experiment's optimization config."
             )
-        for trial_index, trial_df in data.full_df.groupby("trial_index"):
-            if trial_index not in self.trials:
-                raise ValueError(
-                    f"Cannot attach data for trial {trial_index} because it has"
-                    " not been attached to the experiment."
-                )
-            if not data.has_step_column:
-                trial_df = sort_by_trial_index_and_arm_name(df=trial_df)
-            current_trial_data = (
-                self._data_by_trial[trial_index]
-                if trial_index in self._data_by_trial
-                else OrderedDict()
+        unattached_trial_indices = data.trial_indices - set(self.trials.keys())
+        if unattached_trial_indices:
+            raise ValueError(
+                f"Cannot attach data for trials {unattached_trial_indices} "
+                "because they have not been attached to the experiment."
             )
-            if len(current_trial_data) == 1:
-                _, last_data = current_trial_data.popitem()
-                combined_df = combine_dfs_favoring_recent(
-                    last_df=last_data.full_df, new_df=trial_df
-                )
-            elif len(current_trial_data) == 0:
-                combined_df = trial_df
-            else:
-                raise ValueError(
-                    "Each dict within `_data_by_trial` should have at most one "
-                    "element."
-                )
-            current_trial_data = OrderedDict({0: Data(df=combined_df)})
-            self._data_by_trial[trial_index] = current_trial_data
+
+        new_df = combine_dfs_favoring_recent(
+            last_df=self.data.full_df, new_df=data.full_df
+        )
+        if not data.has_step_column:
+            new_df = sort_by_trial_index_and_arm_name(df=new_df)
+        self.data = Data(df=new_df)
 
     def attach_fetch_results(
         self,
@@ -946,7 +930,7 @@ class Experiment(Base):
         to the experiment.
 
         NOTE: Any Errs in the results passed in will silently be dropped! This will
-        cause the Experiment to fail to find them in the _data_by_trial cache and
+        cause the Experiment to fail to find them in ``self.data`` and
         attempt to refetch at fetch time. If this is not your intended behavior you
         MUST resolve your results first and use attach_data directly instead.
         """
@@ -997,33 +981,20 @@ class Experiment(Base):
         Returns:
             The requested data object.
         """
-        try:
-            trial_data_dict = self._data_by_trial[trial_index]
-        except KeyError:
+        if trial_index not in self.data.trial_indices:
             return Data()
-
-        if len(trial_data_dict) == 0:
-            return Data()
-
-        if set(trial_data_dict.keys()) != {0}:
-            raise AxError(
-                "The only timestamp present for each trial in _data_by_trial "
-                "should be zero."
-            )
-        return trial_data_dict[0]
-
-        storage_time = max(trial_data_dict.keys())
-        return trial_data_dict[storage_time]
+        elif {trial_index} == self.data.trial_indices:
+            return self.data
+        return self.data.filter(trial_indices=[trial_index])
 
     def lookup_data(
         self,
         trial_indices: Iterable[int] | None = None,
     ) -> Data:
         """
-        Combine stored ``Data``s for trials ``trial_indices`` into one ``Data``.
+        Return ``Data`` for trials ``trial_indices``.
 
         For each trial, returns data present for this trial.  Returns
-        empty data if no data is present. This method will not fetch data from
         metrics - to do that, use `fetch_data()` instead.
 
         Args:
@@ -1033,23 +1004,13 @@ class Experiment(Base):
         Returns:
             Data for trials ``trial_indices`` on the experiment.
         """
-        trial_indices = (
-            list(self.trials.keys()) if trial_indices is None else list(trial_indices)
-        )
+        if trial_indices is None:
+            return self.data
+        trial_indices = list(trial_indices)
         if len(trial_indices) == 0:
             return Data()
 
-        data_by_trial = []
-        for trial_index in trial_indices:
-            trial_data = self.lookup_data_for_trial(trial_index=trial_index)
-            data_by_trial.append(trial_data)
-
-        return Data.from_multiple_data(data_by_trial)
-
-    # Temporary. This will become an attribute in the next diff.
-    @property
-    def data(self) -> Data:
-        return self.lookup_data()
+        return self.data.filter(trial_indices=trial_indices)
 
     @property
     def num_trials(self) -> int:
@@ -1870,8 +1831,11 @@ class Experiment(Base):
                 stacklevel=2,
             )
 
-        data_by_trial = {}
-        for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
+        old_index_to_new_index = {}
+        intersection_indices = trial_indices_to_keep.intersection(
+            original_trial_indices
+        )
+        for trial_index in intersection_indices:
             trial = self.trials[trial_index]
             if not isinstance(trial, (Trial, BatchTrial)):
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
@@ -1879,19 +1843,13 @@ class Experiment(Base):
                 cloned_experiment, clear_trial_type=clear_trial_type
             )
             new_index = new_trial.index
-            if (
-                trial_index in self._data_by_trial
-                and len(trial_data_dict := self._data_by_trial[trial_index]) > 0
-            ):
-                timestamp = max(trial_data_dict.keys())
-                # Clone the data to avoid overwriting the original in the DB.
-                trial_data = trial_data_dict[timestamp].clone()
-                trial_data.df["trial_index"] = new_index
-                data_by_trial[new_index] = OrderedDict([(0, trial_data)])
+            old_index_to_new_index[trial_index] = new_index
 
-        # Attach the data extracted from the original experiment.
-        cloned_experiment._data_by_trial = data_by_trial
-
+        new_df = self.data.full_df.loc[
+            lambda x: x["trial_index"].isin(intersection_indices)
+        ]
+        new_df.loc[:, "trial_index"] = new_df["trial_index"].map(old_index_to_new_index)
+        cloned_experiment.data = self.data.__class__(df=new_df)
         return cloned_experiment
 
     @property

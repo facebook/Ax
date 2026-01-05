@@ -288,21 +288,20 @@ def save_or_update_data_for_trials(
     def add_experiment_id(sqa: SQAData) -> None:
         sqa.experiment_id = experiment.db_id
 
-    datas, data_encode_args, datas_to_keep, trial_idcs = [], [], [], []
+    datas, data_encode_args, trial_idcs = [], [], []
     data_sqa_class: type[SQAData] = cast(
         type[SQAData], encoder.config.class_to_sqa_class[Data]
     )
     for trial in trials:
         trial_idcs.append(trial.index)
-        trial_datas = experiment._data_by_trial.get(trial.index, {})
-        for ts, data in trial_datas.items():
-            if data.db_id is None:
-                # This is data we have not saved before; we should add it to the
-                # database. Previously saved data for this experiment can be removed.
-                datas.append(data)
-                data_encode_args.append({"trial_index": trial.index, "timestamp": ts})
-            else:
-                datas_to_keep.append(data.db_id)
+        # NOTE: Even if identical data for this trial already exists in the
+        # database, we will generally already have lost its db_id in the process
+        # of merging each trial's Data into one Experiment-level Data, so we
+        # must save it again, replacing the previously saved data for that
+        # trial.
+        data = experiment.lookup_data_for_trial(trial_index=trial.index)
+        datas.append(data)
+        data_encode_args.append({"trial_index": trial.index, "timestamp": 0})
 
         # For trials, for which we saved new data, we can first remove previously
         # saved data if it's no longer on the experiment.
@@ -311,9 +310,7 @@ def save_or_update_data_for_trials(
                 experiment_id=experiment.db_id
             ).filter(data_sqa_class.trial_index.isnot(None)).filter(
                 data_sqa_class.trial_index.in_(trial_idcs)
-                # pyre-fixme [16]: sqlalchemy.sql.schema.Column` has no attribute
-                # `not_in`.
-            ).filter(data_sqa_class.id.not_in(datas_to_keep)).delete()
+            ).delete()
 
     _bulk_merge_into_session(
         objs=datas,

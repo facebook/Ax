@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from collections import OrderedDict
 from time import sleep
 from unittest.mock import MagicMock, patch
 
@@ -676,9 +675,8 @@ class ExperimentTest(TestCase):
 
         # Verify we do get the stored data if there are an unimplemented metrics.
         # Remove attached data for nonexistent metric.
-        exp._data_by_trial[0][0] = Data(
-            exp._data_by_trial[0][0].full_df.loc[lambda x: x["metric_name"] != "z"]
-        )
+        exp.data.full_df = exp.data.full_df.loc[lambda x: x["metric_name"] != "z"]
+
         # Remove implemented metric that is `available_while_running`
         # (and therefore not pulled from cache).
         exp.remove_tracking_metric(metric_name="b")
@@ -703,15 +701,6 @@ class ExperimentTest(TestCase):
         fetched_data = exp.fetch_data(metrics=[Metric(name="not_on_experiment")])
         # when pulling looked-up data.
         self.assertEqual(fetched_data, Data())
-
-        with self.subTest("Invalid legacy data format"):
-            exp._data_by_trial[0][1] = exp._data_by_trial[0][0]
-            with self.assertRaisesRegex(
-                AxError,
-                "The only timestamp present for each trial in _data_by_trial "
-                "should be zero",
-            ):
-                exp.lookup_data_for_trial(trial_index=0)
 
     def test_bulk_configure_metrics(self) -> None:
         exp = get_branin_experiment_with_multi_objective()
@@ -831,9 +820,9 @@ class ExperimentTest(TestCase):
             option is deprecated.
         - calling `experiment.attach_data` with any other unsupported arguments
             produces a ValueError
-        - `experiment.attach_data` results in
-            `experiment._data_by_trial[trial_index]` only having one item for
-            each trial index
+        - `experiment.attach_data` results in combining old dfs with new without
+            loss of trial-arm-metric[-step] observations and deduplicating in
+            favor of new
         """
         exp = Experiment(
             name="test",
@@ -859,10 +848,7 @@ class ExperimentTest(TestCase):
             }
         )
         data1 = Data(df=df1)
-        with self.assertRaisesRegex(
-            ValueError,
-            "Cannot attach data for trial 0 because it has not been attached",
-        ):
+        with self.assertRaisesRegex(ValueError, "Cannot attach data for trials"):
             exp.attach_data(data=data1)
 
         exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 1.0}])
@@ -924,35 +910,6 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(data.full_df), 5)
         self.assertEqual(data.full_df["step"].isnull().sum(), 3)
         self.assertEqual((data.full_df["step"] == 0).sum(), 2)
-
-        with self.subTest("Experiment with legacy data format"):
-            exp = Experiment(
-                name="test",
-                search_space=get_branin_search_space(),
-                optimization_config=OptimizationConfig(
-                    objective=Objective(metric=Metric(name="a", lower_is_better=True))
-                ),
-                tracking_metrics=[Metric(name="b"), Metric(name="c")],
-                runner=SyntheticRunner(),
-            )
-            exp.attach_trial(parameterizations=[{"x1": 0.0, "x2": 1.0}])
-            df = pd.DataFrame.from_records(
-                [
-                    {
-                        "trial_index": 0,
-                        "mean": 3.0,
-                        "arm_name": "0_0",
-                        "metric_name": "a",
-                        "metric_signature": "a",
-                        "sem": None,
-                    }
-                ]
-            )
-            data = Data(df=df)
-
-            exp._data_by_trial = {0: OrderedDict([(0, data), (1, data)])}
-            with self.assertRaisesRegex(ValueError, "should have at most one element"):
-                exp.attach_data(Data(df=df))
 
         with self.subTest("Mix of Data with and without step columns gives NaNs"):
             exp = get_branin_experiment_with_timestamp_map_metric(

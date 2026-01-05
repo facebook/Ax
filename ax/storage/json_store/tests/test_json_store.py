@@ -1949,14 +1949,13 @@ class JSONStoreTest(TestCase):
             }
             decoded = data_from_json(data_by_trial_json=data_by_trial_json)
 
-            self.assertEqual(set(decoded.keys()), {0})
-            self.assertEqual(set(decoded[0].keys()), {0})
-            df = decoded[0][0].full_df
+            self.assertEqual(decoded.trial_indices, {0})
+            df = decoded.full_df
             # b is present even though it wasn't in the most recent fetch
             self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
             # We have the old mean of b and the new mean of a
             self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
-            self.assertEqual(len(decoded[0]), 1)
+            self.assertEqual((df["trial_index"] == 0).sum(), 2)
 
         with self.subTest("One past fetch"):
             # Encodes this:
@@ -1979,12 +1978,13 @@ class JSONStoreTest(TestCase):
                 }
             }
             decoded = data_from_json(data_by_trial_json=data_by_trial_json)
-            self.assertEqual(set(decoded.keys()), {0})
+            self.assertEqual(decoded.trial_indices, {0})
 
         with self.subTest("Empty data"):
             data_by_trial_json = {0: OrderedDict()}
             decoded = data_from_json(data_by_trial_json=data_by_trial_json)
-            self.assertEqual(len(decoded), 0)
+            self.assertIsInstance(decoded, Data)
+            self.assertEqual(len(decoded.full_df), 0)
 
     def test_experiment_data_by_trial_bc(self) -> None:
         """
@@ -2157,12 +2157,12 @@ class JSONStoreTest(TestCase):
             "_trial_type_to_runner": {None: None},
             "default_data_type": {"__type": "DataType", "name": "DATA"},
         }
-        decoded = object_from_json(object_json=experiment_json)
-        self.assertEqual(set(decoded._data_by_trial.keys()), {0})
-        self.assertEqual(set(decoded._data_by_trial[0].keys()), {0})
-        df = decoded._data_by_trial[0][0].full_df
+        decoded_experiment = object_from_json(object_json=experiment_json)
+        decoded_data = decoded_experiment.data
+        self.assertEqual(set(decoded_data.trial_indices), {0})
+        df = decoded_data.full_df
         # b is present even though it wasn't in the most recent fetch
         self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
         # We have the old mean of b and the new mean of a
         self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
-        self.assertEqual(len(decoded._data_by_trial[0]), 1)
+        self.assertEqual((df["trial_index"] == 0).sum(), 2)
