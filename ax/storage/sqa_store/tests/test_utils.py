@@ -68,7 +68,7 @@ class SQAStoreUtilsTest(TestCase):
         self.assertEqual(exp1, exp2)
 
         # empty some of exp2 db_ids
-        data = exp2.lookup_data_for_trial(0)
+        data = exp2.lookup_data(trial_indices={0})
         # pyre-fixme[8]: Attribute has type `int`; used as `None`.
         data.db_id = None
 

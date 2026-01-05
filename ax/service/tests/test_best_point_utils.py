@@ -667,9 +667,7 @@ class TestBestPointUtils(TestCase):
             input_obj = assert_is_instance(
                 input_optimization_config.objective, MultiObjective
             )
-            status_quo_df = exp.lookup_data_for_trial(
-                trial_index=status_quo_trial_index
-            ).df
+            status_quo_df = exp.lookup_data(trial_indices={status_quo_trial_index}).df
             # This is not a real test of `derelativize_opt_config` but rather
             # making sure the values on the experiment have't drifted
             self.assertEqual(status_quo_df["metric_name"].tolist(), ["m1", "m2", "m3"])
