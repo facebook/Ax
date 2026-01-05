@@ -305,7 +305,7 @@ class Decoder:
             description=experiment_sqa.description,
             search_space=search_space,
             default_trial_type=default_trial_type,
-            default_runner=trial_type_to_runner.get(default_trial_type),
+            runner=trial_type_to_runner.get(default_trial_type),
             optimization_config=opt_config,
             status_quo=status_quo,
             properties=properties,
@@ -320,7 +320,6 @@ class Decoder:
             experiment.add_tracking_metric(
                 tracking_metric,
                 trial_type=none_throws(sqa_metric.trial_type),
-                canonical_name=sqa_metric.canonical_name,
             )
         return experiment
 

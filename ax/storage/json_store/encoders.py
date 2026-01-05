@@ -104,7 +104,6 @@ def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> dict[str, 
     """Convert AE multitype experiment to a dictionary."""
     multi_type_dict = {
         "default_trial_type": experiment._default_trial_type,
-        "_metric_to_canonical_name": experiment._metric_to_canonical_name,
         "_metric_to_trial_type": experiment._metric_to_trial_type,
         "_trial_type_to_runner": experiment._trial_type_to_runner,
     }

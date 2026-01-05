@@ -908,7 +908,7 @@ class InstantiationBase:
                     parameters=parameters, parameter_constraints=parameter_constraints
                 ),
                 default_trial_type=none_throws(default_trial_type),
-                default_runner=none_throws(default_runner),
+                runner=none_throws(default_runner),
                 optimization_config=optimization_config,
                 tracking_metrics=tracking_metrics,
                 status_quo=status_quo_arm,

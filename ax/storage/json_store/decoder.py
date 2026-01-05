@@ -602,7 +602,6 @@ def multi_type_experiment_from_json(
     """Load AE MultiTypeExperiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
 
-    _metric_to_canonical_name = object_json.pop("_metric_to_canonical_name")
     _metric_to_trial_type = object_json.pop("_metric_to_trial_type")
     _trial_type_to_runner = object_from_json(
         object_json.pop("_trial_type_to_runner"),
@@ -630,7 +629,6 @@ def multi_type_experiment_from_json(
     experiment = MultiTypeExperiment(**kwargs)
     for metric in tracking_metrics:
         experiment._tracking_metrics[metric.name] = metric
-    experiment._metric_to_canonical_name = _metric_to_canonical_name
     experiment._metric_to_trial_type = _metric_to_trial_type
     experiment._trial_type_to_runner = _trial_type_to_runner
 

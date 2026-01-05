@@ -220,10 +220,6 @@ class Encoder:
 
             for metric in tracking_metrics:
                 metric.trial_type = experiment._metric_to_trial_type[metric.name]
-                if metric.name in experiment._metric_to_canonical_name:
-                    metric.canonical_name = experiment._metric_to_canonical_name[
-                        metric.name
-                    ]
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
         properties = experiment._properties.copy()

@@ -2740,7 +2740,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
                 Objective(Metric(name="branin"), minimize=True)
             ),
             default_trial_type="type1",
-            default_runner=None,
+            runner=None,
             name="branin_experiment_no_impl_runner_or_metrics",
         )
         self.sobol_MBM_GS = choose_generation_strategy_legacy(
