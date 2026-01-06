@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -21,14 +20,13 @@ import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
 from ax.core.base_trial import BaseTrial
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.multi_type_experiment import (
+from ax.core.experiment import (
+    Experiment,
     filter_trials_by_type,
     get_trial_indices_for_statuses,
-    MultiTypeExperiment,
 )
+from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -58,7 +56,7 @@ from ax.utils.common.logger import (
     set_ax_logger_levels,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """ \
@@ -363,7 +361,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             Trial type for the experiment this Orchestrator is running if the
             experiment is a MultiTypeExperiment and None otherwise.
         """
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.is_multi_type:
             return self.options.mt_experiment_trial_type
         return None
 
@@ -478,9 +476,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         instance.
         """
         if self.trial_type is not None:
-            runner = assert_is_instance(
-                self.experiment, MultiTypeExperiment
-            ).runner_for_trial_type(trial_type=none_throws(self.trial_type))
+            runner = self.experiment.runner_for_trial_type(
+                trial_type=none_throws(self.trial_type)
+            )
         else:
             runner = self.experiment.runner
         if runner is None:
@@ -1577,7 +1575,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     "will be unable to fetch intermediate results with which to "
                     "evaluate early stopping criteria."
                 )
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.is_multi_type:
             if options.mt_experiment_trial_type is None:
                 raise UserInputError(
                     "Must specify `mt_experiment_trial_type` for MultiTypeExperiment."
@@ -1991,9 +1989,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         try:
             kwargs = deepcopy(self.options.fetch_kwargs)
             if self.trial_type is not None:
-                metrics = assert_is_instance(
-                    self.experiment, MultiTypeExperiment
-                ).metrics_for_trial_type(trial_type=none_throws(self.trial_type))
+                metrics = self.experiment.metrics_for_trial_type(
+                    trial_type=none_throws(self.trial_type)
+                )
                 kwargs["metrics"] = metrics
             results = self.experiment.fetch_trials_data_results(
                 trial_indices=trial_indices,

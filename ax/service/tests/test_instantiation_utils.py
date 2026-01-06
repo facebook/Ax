@@ -372,7 +372,7 @@ class TestInstantiationtUtils(TestCase):
             default_trial_type="test_trial_type",
             default_runner=SyntheticRunner(),
         )
-        self.assertEqual(experiment.__class__.__name__, "MultiTypeExperiment")
+        self.assertEqual(experiment.__class__.__name__, "Experiment")
 
     def test_make_single_type_experiment_with_no_default_trial_type(self) -> None:
         experiment = InstantiationBase.make_experiment(

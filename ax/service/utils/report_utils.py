@@ -32,7 +32,6 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -787,7 +786,7 @@ def exp_to_df(
         )
 
     # Accept Experiment and SimpleExperiment
-    if isinstance(exp, MultiTypeExperiment):
+    if exp.is_multi_type:
         raise ValueError("Cannot transform MultiTypeExperiments to DataFrames.")
 
     key_components = ["trial_index", "arm_name"]

@@ -26,7 +26,6 @@ from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -1307,7 +1306,7 @@ class TestAxOrchestrator(TestCase):
         init_test_engine_and_session_factory(force_init=True)
         branin_gs = self.two_sobol_steps_GS
         # With runners & metrics, `Orchestrator.run_all_trials` should run.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner(
                 "type1", SyntheticRunnerWithPredictableStatusPolling()
             )
@@ -2211,7 +2210,7 @@ class TestAxOrchestrator(TestCase):
         gs = get_online_sobol_mbm_generation_strategy()
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
@@ -2261,7 +2260,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
@@ -2314,7 +2313,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
@@ -2391,7 +2390,7 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
 
         # this is a HITL experiment, so we don't want trials completing on their own.
-        if isinstance(self.branin_experiment, MultiTypeExperiment):
+        if self.branin_experiment.is_multi_type:
             self.branin_experiment.update_runner("type1", InfinitePollRunner())
         else:
             self.branin_experiment.runner = InfinitePollRunner()
@@ -2694,7 +2693,7 @@ class TestAxOrchestrator(TestCase):
 
 class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     EXPECTED_orchestrator_REPR: str = (
-        "Orchestrator(experiment=MultiTypeExperiment(branin_test_experiment), "
+        "Orchestrator(experiment=Experiment(branin_test_experiment), "
         "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
         "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
         "options=OrchestratorOptions(max_pending_trials=10, "
@@ -2736,13 +2735,13 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
             trial_type="type1", runner=RunnerToAllowMultipleMapMetricFetches()
         )
 
-        self.branin_experiment_no_impl_runner_or_metrics = MultiTypeExperiment(
+        self.branin_experiment_no_impl_runner_or_metrics = Experiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
                 Objective(Metric(name="branin"), minimize=True)
             ),
             default_trial_type="type1",
-            default_runner=None,
+            runner=None,
             name="branin_experiment_no_impl_runner_or_metrics",
         )
         self.sobol_MBM_GS = choose_generation_strategy_legacy(

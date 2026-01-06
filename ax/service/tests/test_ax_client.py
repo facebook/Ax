@@ -22,7 +22,6 @@ from ax.core.arm import Arm
 from ax.core.data import Data, MAP_KEY
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
@@ -949,21 +948,21 @@ class TestAxClient(TestCase):
             default_runner=SyntheticRunner(),
         )
 
-        self.assertEqual(ax_client.experiment.__class__.__name__, "MultiTypeExperiment")
-        experiment = assert_is_instance(ax_client.experiment, MultiTypeExperiment)
         self.assertEqual(
-            experiment._trial_type_to_runner["test_trial_type"].__class__.__name__,
+            ax_client.experiment._trial_type_to_runner[
+                "test_trial_type"
+            ].__class__.__name__,
             "SyntheticRunner",
         )
         self.assertEqual(
-            experiment._metric_to_trial_type,
+            ax_client.experiment._metric_to_trial_type,
             {
                 "test_tracking_metric": "test_trial_type",
                 "test_objective": "test_trial_type",
                 "some_metric": "test_trial_type",
             },
         )
-        experiment.add_trial_type(
+        ax_client.experiment.add_trial_type(
             trial_type="test_trial_type_2",
             runner=SyntheticRunner(),
         )
@@ -981,7 +980,7 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            experiment._metric_to_trial_type,
+            ax_client.experiment._metric_to_trial_type,
             {
                 "test_tracking_metric": "test_trial_type",
                 "test_objective": "test_trial_type",
