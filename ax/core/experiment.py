@@ -27,9 +27,13 @@ from ax.core.auxiliary import (
     AuxiliaryExperimentValidation,
     TransferLearningMetadata,
 )
-from ax.core.base_trial import BaseTrial, sort_by_trial_index_and_arm_name
+from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import combine_dfs_favoring_recent, Data
+from ax.core.data import (
+    combine_dfs_favoring_recent,
+    Data,
+    sort_by_trial_index_and_arm_name,
+)
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
