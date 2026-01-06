@@ -968,25 +968,6 @@ class Experiment(Base):
         data = Data.from_multiple_data(data=[ok.ok for ok in oks])
         self.attach_data(data=data)
 
-    def lookup_data_for_trial(self, trial_index: int) -> Data:
-        """Look up stored data for a specific trial.
-
-        Returns data for this trial. Returns empty data if no data
-        is present. This method will not fetch data from metrics - to do that,
-        use `fetch_data()` instead.
-
-        Args:
-            trial_index: The index of the trial to lookup data for.
-
-        Returns:
-            The requested data object.
-        """
-        if trial_index not in self.data.trial_indices:
-            return Data()
-        elif {trial_index} == self.data.trial_indices:
-            return self.data
-        return self.data.filter(trial_indices=[trial_index])
-
     def lookup_data(
         self,
         trial_indices: Iterable[int] | None = None,
@@ -1009,6 +990,8 @@ class Experiment(Base):
         trial_indices = list(trial_indices)
         if len(trial_indices) == 0:
             return Data()
+        if set(trial_indices) == self.data.trial_indices:
+            return self.data
 
         return self.data.filter(trial_indices=trial_indices)
 
@@ -1392,7 +1375,7 @@ class Experiment(Base):
                 none_throws(trial.arm).parameters,
                 raise_error=search_space_check_membership_raise_error,
             )
-            dat = old_experiment.lookup_data_for_trial(trial_index=trial.index)
+            dat = old_experiment.lookup_data(trial_indices={trial.index})
             # Set trial index and arm name to their values in new trial.
             new_trial = self.new_trial()
             add_arm_and_prevent_naming_collision(

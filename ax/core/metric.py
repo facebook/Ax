@@ -362,8 +362,8 @@ class Metric(SortableBase, SerializationMixin):
         # first identify trial + metric combos to fetch, then fetch them all
         # at once.
         for trial in completed_trials:
-            cached_trial_data = experiment.lookup_data_for_trial(
-                trial_index=trial.index,
+            cached_trial_data = experiment.lookup_data(
+                trial_indices={trial.index},
             )
 
             cached_metric_signatures = cached_trial_data.metric_signatures
