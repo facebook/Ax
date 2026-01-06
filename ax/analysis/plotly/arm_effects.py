@@ -36,7 +36,7 @@ from ax.analysis.utils import (
 )
 from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.arm import Arm
-from ax.core.base_trial import sort_by_trial_index_and_arm_name
+from ax.core.data import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy

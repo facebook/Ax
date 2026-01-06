@@ -14,10 +14,8 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Any, TYPE_CHECKING
 
-import pandas as pd
-
 from ax.core.arm import Arm
-from ax.core.data import Data
+from ax.core.data import Data, sort_by_trial_index_and_arm_name
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric, MetricFetchResult
@@ -911,58 +909,3 @@ class BaseTrial(ABC, SortableBase):
             new_trial.mark_failed(reason=self.failed_reason)
             return
         new_trial.mark_as(self.status, unsafe=True)
-
-
-def sort_by_trial_index_and_arm_name(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Sorts the dataframe by trial index and arm name. The arm names with default patterns
-    (e.g. `0_1`, `3_11`) are sorted by trial index part (before underscore) and arm
-    number part (after underscore) within trial index. The arm names with non-default
-    patterns (e.g. `status_quo`, `control`, `capped_param_1`) are sorted alphabetically
-    and will be on the top of the sorted dataframe.
-
-    Args:
-        df: The DataFrame to sort.
-
-    Returns:
-        The sorted DataFrame.
-    """
-
-    # Create new columns for sorting the default arm names
-    df["is_default"] = pd.notna(df["arm_name"]) & df["arm_name"].str.count(
-        pat=r"^\d+_\d+$"
-    )
-
-    df["trial_index_part"] = float("NaN")
-    df["arm_name_part"] = float("NaN")
-
-    split_arm_name = df.loc[df["is_default"], "arm_name"].str.split("_")
-    df.loc[df["is_default"], "trial_index_part"] = split_arm_name.str.get(0).astype(int)
-    df.loc[df["is_default"], "arm_name_part"] = split_arm_name.str.get(1).astype(int)
-
-    # Sort the DataFrame by the new columns (trial_index_part and arm_number_part)
-    # for default arm names
-    df = (
-        df.sort_values(
-            by=[
-                "trial_index",
-                "is_default",
-                "trial_index_part",
-                "arm_name_part",
-                "arm_name",
-            ],
-            inplace=False,
-        ).reset_index(drop=True)
-        if not df.empty
-        else df
-    )
-
-    # Drop the temporary 'trial_index_part' and 'arm_number_part' columns
-    df.drop(
-        columns=["trial_index_part", "arm_name_part", "is_default"],
-        # Ignore errors that occur when dropping columns that do not exist in the
-        # dataframe.
-        errors="ignore",
-        inplace=True,
-    )
-    return df

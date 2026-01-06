@@ -15,9 +15,8 @@ from ax.core import BatchTrial, Experiment, Trial
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.data import Data
+from ax.core.data import Data, sort_by_trial_index_and_arm_name
 from ax.core.evaluations_to_data import raw_evaluations_to_data
-from ax.core.experiment import sort_by_trial_index_and_arm_name
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
