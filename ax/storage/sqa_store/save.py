@@ -299,7 +299,7 @@ def save_or_update_data_for_trials(
         # of merging each trial's Data into one Experiment-level Data, so we
         # must save it again, replacing the previously saved data for that
         # trial.
-        data = experiment.lookup_data_for_trial(trial_index=trial.index)
+        data = experiment.lookup_data(trial_indices={trial.index})
         datas.append(data)
         data_encode_args.append({"trial_index": trial.index, "timestamp": 0})
 
