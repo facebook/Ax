@@ -508,6 +508,10 @@ class BatchTrial(BaseTrial):
         """Clone the trial and attach it to a specified experiment.
         If None provided, attach it to the current experiment.
 
+        When cloning to a different experiment, the trial's index is preserved.
+        When cloning to the same experiment, a new index is auto-assigned to
+        avoid collision.
+
         Args:
             experiment: The experiment to which the cloned trial will belong.
                 If unspecified, uses the current experiment.
@@ -517,15 +521,22 @@ class BatchTrial(BaseTrial):
         Returns:
             A new instance of the trial.
         """
-        use_old_experiment = experiment is None
+        cloning_to_same_experiment = (
+            experiment is None or experiment is self._experiment
+        )
         experiment = self._experiment if experiment is None else experiment
-        new_trial = experiment.new_batch_trial(
+        # Preserve trial index when cloning to a different experiment;
+        # auto-assign new index when cloning to the same experiment.
+        new_trial = BatchTrial(
+            experiment=experiment,
             trial_type=None if clear_trial_type else self._trial_type,
             ttl_seconds=self._ttl_seconds,
             generator_runs=[
-                gr if use_old_experiment else gr.clone() for gr in self.generator_runs
+                gr if cloning_to_same_experiment else gr.clone()
+                for gr in self.generator_runs
             ],
             should_add_status_quo_arm=include_sq and self.should_add_status_quo_arm,
+            index=None if cloning_to_same_experiment else self.index,
         )
         self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial

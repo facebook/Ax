@@ -301,6 +301,10 @@ class Trial(BaseTrial):
         """Clone the trial and attach it to the specified experiment.
         If no experiment is provided, the original experiment will be used.
 
+        When cloning to a different experiment, the trial's index is preserved.
+        When cloning to the same experiment, a new index is auto-assigned to
+        avoid collision.
+
         Args:
             experiment: The experiment to which the cloned trial will belong.
                 If unspecified, uses the current experiment.
@@ -310,10 +314,17 @@ class Trial(BaseTrial):
         Returns:
             A new instance of the trial.
         """
+        cloning_to_same_experiment = (
+            experiment is None or experiment is self._experiment
+        )
         experiment = self._experiment if experiment is None else experiment
-        new_trial = experiment.new_trial(
+        # Preserve trial index when cloning to a different experiment;
+        # auto-assign new index when cloning to the same experiment.
+        new_trial = Trial(
+            experiment=experiment,
             ttl_seconds=self.ttl_seconds,
             trial_type=None if clear_trial_type else self.trial_type,
+            index=None if cloning_to_same_experiment else self.index,
         )
         if self.generator_run is not None:
             new_trial.add_generator_run(self.generator_run.clone())
