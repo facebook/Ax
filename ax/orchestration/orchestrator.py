@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -21,14 +20,14 @@ import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
 from ax.core.base_trial import BaseTrial
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.multi_type_experiment import (
+from ax.core.experiment import (
+    Experiment,
     filter_trials_by_type,
     get_trial_indices_for_statuses,
-    MultiTypeExperiment,
 )
+from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -363,7 +362,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             Trial type for the experiment this Orchestrator is running if the
             experiment is a MultiTypeExperiment and None otherwise.
         """
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.is_multi_type:
             return self.options.mt_experiment_trial_type
         return None
 
@@ -1577,7 +1576,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     "will be unable to fetch intermediate results with which to "
                     "evaluate early stopping criteria."
                 )
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.is_multi_type:
             if options.mt_experiment_trial_type is None:
                 raise UserInputError(
                     "Must specify `mt_experiment_trial_type` for MultiTypeExperiment."

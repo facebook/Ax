@@ -610,7 +610,7 @@ def get_multi_type_experiment(
         name="test_exp",
         search_space=get_branin_search_space(),
         default_trial_type="type1",
-        default_runner=SyntheticRunner(dummy_metadata="dummy1"),
+        runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
         status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}),
     )
@@ -620,7 +620,8 @@ def get_multi_type_experiment(
     )
     # Switch the order of variables so metric gives different results
     experiment.add_tracking_metric(
-        BraninMetric("m2", ["x2", "x1"]), trial_type="type2", canonical_name="m1"
+        BraninMetric("m2", ["x2", "x1"]),
+        trial_type="type2",
     )
 
     if add_trials and add_trial_type:
