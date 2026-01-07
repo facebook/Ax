@@ -114,7 +114,6 @@ def batch_trial_from_json(
     # objects stored before these fields were added.
     failed_reason: str | None = None,
     ttl_seconds: int | None = None,
-    generation_step_index: int | None = None,
     properties: dict[str, Any] | None = None,
     stop_metadata: dict[str, Any] | None = None,
     **kwargs: Any,
@@ -148,7 +147,6 @@ def batch_trial_from_json(
     batch._generator_runs = generator_runs
     batch._abandoned_arms_metadata = abandoned_arms_metadata
     batch._num_arms_created = num_arms_created
-    batch._generation_step_index = generation_step_index
     batch._properties = properties or {}
     batch._refresh_arms_by_name()  # Trigger cache build
 
@@ -181,7 +179,6 @@ def trial_from_json(
     # objects stored before these fields were added.
     failed_reason: str | None = None,
     ttl_seconds: int | None = None,
-    generation_step_index: int | None = None,
     properties: dict[str, Any] | None = None,
     stop_metadata: dict[str, Any] | None = None,
     **kwargs: Any,
@@ -210,7 +207,6 @@ def trial_from_json(
     trial._run_metadata = run_metadata or {}
     trial._stop_metadata = stop_metadata or {}
     trial._num_arms_created = num_arms_created
-    trial._generation_step_index = generation_step_index
     trial._properties = properties or {}
     warn_on_kwargs(callable_with_kwargs=Trial, **kwargs)
     return trial

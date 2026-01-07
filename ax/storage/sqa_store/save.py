@@ -113,13 +113,11 @@ def save_generation_strategy(
     Returns:
         The ID of the saved generation strategy.
     """
-    # Start up SQA encoder.
-    config = SQAConfig() if config is None else config
-    encoder = Encoder(config=config)
-    decoder = Decoder(config=config)
-
+    config = config or SQAConfig()
     return _save_generation_strategy(
-        generation_strategy=generation_strategy, encoder=encoder, decoder=decoder
+        generation_strategy=generation_strategy,
+        encoder=Encoder(config=config),
+        decoder=Decoder(config=config),
     )
 
 
@@ -413,17 +411,12 @@ def _update_generation_strategy(
             "should be saved before generation strategy."
         )
 
-    curr_index = (
-        None
-        if generation_strategy.is_node_based
-        else generation_strategy.current_step_index
-    )
     # there is always a node name
     curr_node_name = generation_strategy.current_node_name
     with session_scope() as session:
         session.query(gs_sqa_class).filter_by(id=gs_id).update(
             {
-                "curr_index": curr_index,
+                "curr_index": None,  # Storage of `GenerationStep`-s is deprecated.
                 "experiment_id": experiment_id,
                 "curr_node_name": curr_node_name,
             }
