@@ -34,6 +34,7 @@ from ax.core.data import (
     Data,
     sort_by_trial_index_and_arm_name,
 )
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
@@ -151,6 +152,7 @@ class Experiment(Base):
         self._optimization_config: OptimizationConfig | None = None
         self._tracking_metrics: dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
+        self._status: ExperimentStatus | None = None
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
 
@@ -235,6 +237,27 @@ class Experiment(Base):
     def experiment_type(self, experiment_type: str | None) -> None:
         """Set the type of the experiment."""
         self._experiment_type = experiment_type
+
+    @property
+    def status(self) -> ExperimentStatus | None:
+        """The current status of the experiment.
+
+        Status tracks the high-level lifecycle phase of the experiment:
+        DRAFT, INITIALIZATION, OPTIMIZATION, COMPLETED.
+
+        For new experiments, status defaults to DRAFT. For legacy experiments
+        that were created before the status field was added, status may be None.
+        """
+        return self._status
+
+    @status.setter
+    def status(self, status: ExperimentStatus | None) -> None:
+        """Set the status of the experiment.
+
+        Args:
+            status: The new status for the experiment.
+        """
+        self._status = status
 
     @property
     def search_space(self) -> SearchSpace:
@@ -618,6 +641,18 @@ class Experiment(Base):
             raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
 
         del self._tracking_metrics[metric_name]
+        return self
+
+    def set_status(self, status: ExperimentStatus) -> Experiment:
+        """Set the status of the experiment.
+
+        Args:
+            status: The new status of the experiment.
+
+        Returns:
+            The experiment instance.
+        """
+        self._status = status
         return self
 
     @property

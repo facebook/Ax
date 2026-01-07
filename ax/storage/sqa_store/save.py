@@ -536,6 +536,42 @@ def update_properties_on_experiment(
         )
 
 
+def update_experiment_status(
+    experiment_with_updated_status: Experiment,
+    config: SQAConfig | None = None,
+) -> None:
+    """Update experiment status in the database.
+
+    This function provides an efficient way to update only the experiment's status
+    field without re-saving the entire experiment. Use this when you need to persist
+    status changes immediately after calling status transition methods
+    (e.g., mark_initialization(), mark_optimization()).
+
+    Note: save_experiment() already handles status updates, so this function is
+    optional. Use it when you need status-only updates for efficiency.
+
+    Args:
+        experiment_with_updated_status: Experiment with updated status.
+        config: SQAConfig to use for database operations.
+
+    Raises:
+        ValueError: If experiment has not been saved to the database yet.
+    """
+    config = SQAConfig() if config is None else config
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
+
+    exp_id = experiment_with_updated_status.db_id
+    if exp_id is None:
+        raise ValueError("Experiment must be saved before being updated.")
+
+    with session_scope() as session:
+        session.query(exp_sqa_class).filter_by(id=exp_id).update(
+            {
+                "status": experiment_with_updated_status.status,
+            }
+        )
+
+
 def update_properties_on_trial(
     trial_with_updated_properties: BaseTrial,
     config: SQAConfig | None = None,

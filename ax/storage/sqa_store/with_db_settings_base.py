@@ -66,6 +66,7 @@ try:  # We don't require SQLAlchemy by default.
         _save_or_update_trials,
         _update_generation_strategy,
         save_analysis_card,
+        update_experiment_status,
         update_properties_on_experiment,
         update_runner_on_experiment,
     )
@@ -468,6 +469,27 @@ class WithDBSettingsBase:
             return True
         return False
 
+    def _update_experiment_status_in_db_if_possible(
+        self,
+        experiment_with_updated_status: Experiment,
+    ) -> bool:
+        """Update experiment status in the database if DB settings are configured.
+
+        Args:
+            experiment_with_updated_status: Experiment with updated status.
+
+        Returns:
+            True if the update was performed, False if DB settings are not configured.
+        """
+        if self.db_settings_set:
+            _update_experiment_status_in_db(
+                experiment_with_updated_status=experiment_with_updated_status,
+                sqa_config=self.db_settings.encoder.config,
+                suppress_all_errors=self._suppress_all_errors,
+            )
+            return True
+        return False
+
     def _save_analysis_card_to_db_if_possible(
         self,
         experiment: Experiment,
@@ -621,6 +643,22 @@ def _update_experiment_properties_in_db(
 ) -> None:
     update_properties_on_experiment(
         experiment_with_updated_properties=experiment_with_updated_properties,
+        config=sqa_config,
+    )
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _update_experiment_status_in_db(
+    experiment_with_updated_status: Experiment,
+    sqa_config: SQAConfig,
+    suppress_all_errors: bool,  # Used by the decorator.
+) -> None:
+    update_experiment_status(
+        experiment_with_updated_status=experiment_with_updated_status,
         config=sqa_config,
     )
 
