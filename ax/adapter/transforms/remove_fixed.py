@@ -168,28 +168,22 @@ class RemoveFixed(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            # Only untransform observations with specified parameters
-            # where at least one of them is not a fixed or derived parameter.
-            # This would be empty when status quo param values are not specified
-            if obsf.parameters:
-                for p_name, p in self.nontunable_parameters.items():
-                    if isinstance(p, DerivedParameter):
-                        # Compute only when all dependencies present. Partial
-                        # observations occur in _untransform_objective_thresholds
-                        # where fixed_features provides context for outcome
-                        # constraint untransformation. Derived parameters are
-                        # never needed as context since: (1) they're removed from
-                        # search space, (2) context parameters (e.g., task IDs)
-                        # must be tunable parameters in transformed space.
-                        if all(
-                            dep_name in obsf.parameters
-                            for dep_name in p._parameter_names_to_weights
-                        ):
-                            obsf.parameters[p_name] = p.compute(
-                                parameters=obsf.parameters
-                            )
-                    else:
-                        obsf.parameters[p_name] = p.value
+            for p_name, p in self.nontunable_parameters.items():
+                if isinstance(p, DerivedParameter):
+                    # Compute only when all dependencies present. Partial
+                    # observations occur in _untransform_objective_thresholds
+                    # where fixed_features provides context for outcome
+                    # constraint untransformation. Derived parameters are
+                    # never needed as context since: (1) they're removed from
+                    # search space, (2) context parameters (e.g., task IDs)
+                    # must be tunable parameters in transformed space.
+                    if all(
+                        dep_name in obsf.parameters
+                        for dep_name in p._parameter_names_to_weights
+                    ):
+                        obsf.parameters[p_name] = p.compute(parameters=obsf.parameters)
+                else:
+                    obsf.parameters[p_name] = p.value
         return observation_features
 
     def transform_experiment_data(
