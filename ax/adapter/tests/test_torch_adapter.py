@@ -18,7 +18,7 @@ import torch
 from ax.adapter.adapter_utils import _binary_pref_to_comp_pair, _consolidate_comparisons
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate
-from ax.adapter.registry import Cont_X_trans, MBM_X_trans
+from ax.adapter.registry import Cont_X_trans, MBM_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.relativize import RelativizeWithConstantControl
@@ -34,7 +34,12 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig, PreferenceOptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
@@ -1335,6 +1340,46 @@ class TorchAdapterTest(TestCase):
         torch.testing.assert_close(
             torch_opt_config.pruning_target_point, expected_target
         )
+
+    @mock_botorch_optimize
+    def test_moo_with_derived_parameter(self) -> None:
+        # Makes sure candidate generation works e2e with a derived parameter
+        # and multi-objective optimization. In particular, this checks that
+        # _untransform_objective_thresholds works without issues.
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=10.0,
+                    digits=2,
+                ),
+                DerivedParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="2.0 * x + 1.0",
+                ),
+            ]
+        )
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [2.0, 5.0], [3.0, 7.0]],
+            search_space=search_space,
+        )
+        adapter = TorchAdapter(
+            experiment=experiment,
+            generator=BoTorchGenerator(),
+            transforms=MBM_X_trans + Y_trans,
+        )
+        gr = adapter.gen(n=1)
+        self.assertEqual(set(gr.arms[0].parameters.keys()), {"x", "y"})
+        # GR above does not return objective thresholds since they're dropped
+        # in Adapter.gen. Let's also test infer_objective_thresholds explicitly.
+        objective_thresholds = adapter.infer_objective_thresholds(
+            search_space=experiment.search_space,
+            optimization_config=experiment.optimization_config,
+        )
+        self.assertEqual(len(objective_thresholds), len(experiment.metrics))
 
 
 class AdapterWithPLBOTest(TestCase):

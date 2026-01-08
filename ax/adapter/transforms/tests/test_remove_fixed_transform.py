@@ -152,13 +152,11 @@ class RemoveFixedTransformTest(TestCase):
         )
         self.assertEqual(t_obs, t_obs_different)
 
-        # Test untransform with empty parameters (status quo case)
-        # This would previously fail on p.compute(parameters=obsf.parameters)
-        # when obsf.parameters is {} for DerivedParameter
+        # Test untransform with empty parameters
         empty_obs_features = [ObservationFeatures(parameters={})]
         result = self.t.untransform_observation_features(empty_obs_features)
         # Should return unchanged empty observation features
-        self.assertEqual(result, [ObservationFeatures(parameters={})])
+        self.assertEqual(result, [ObservationFeatures(parameters={"c": "a"})])
 
     def test_UntransformPartialObservationFeatures(self) -> None:
         """Test untransforming observation features with partial parameters.
