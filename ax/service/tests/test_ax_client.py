@@ -9,6 +9,7 @@
 import math
 import sys
 import time
+import warnings
 from itertools import product
 from math import ceil
 from typing import Any, TYPE_CHECKING
@@ -266,6 +267,20 @@ def get_client_with_simple_discrete_moo_problem(
 
 class TestAxClient(TestCase):
     """Tests service-like API functionality."""
+
+    def test_deprecation_warning(self) -> None:
+        # Should warn for AxClient but not for arbitrary subclasses.
+        with self.assertWarnsRegex(
+            DeprecationWarning, "`AxClient` class is deprecated and will be removed"
+        ):
+            AxClient()
+
+        class TestAxClient(AxClient):
+            pass
+
+        with warnings.catch_warnings(record=True) as ws:
+            TestAxClient()
+        self.assertEqual(len(ws), 0)
 
     @mock_botorch_optimize
     def test_interruption(self) -> None:
