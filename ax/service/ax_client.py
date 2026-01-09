@@ -179,6 +179,15 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
         global_stopping_strategy: BaseGlobalStoppingStrategy | None = None,
     ) -> None:
+        if self.__class__.__name__ in ["AxClient", "AxClientInternal"]:
+            warnings.warn(
+                "The `AxClient` class is deprecated and will be removed in Ax 1.4.0. "
+                "Please migrate to the modern Ax API / `Client` class, found under "
+                "ax/api. For example usage, check out the tutorials at https://ax.dev ",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         super().__init__(
             db_settings=db_settings,
             suppress_all_errors=suppress_storage_errors,
