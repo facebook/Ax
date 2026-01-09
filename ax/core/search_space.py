@@ -8,10 +8,14 @@
 
 from __future__ import annotations
 
+import math
+
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from logging import Logger
+
+import numpy as np
 
 import pandas as pd
 from ax import core
@@ -36,6 +40,9 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
+from scipy.optimize import linprog
+
+from scipy.special import expit, logit
 
 
 logger: Logger = get_logger(__name__)
@@ -571,6 +578,134 @@ class SearchSpace(Base):
             parameters=[p.clone() for p in self._parameters.values()],
             parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
         )
+
+    def compute_naive_center(self) -> TParameterization:
+        """Compute the naive center of the search space.
+
+        For range parameters, the center is the midpoint of the range. If the
+        parameter is log-scale, then the center point will correspond to the
+        mid-point in log-scale. If the parameter is logit-scale, then the center
+        point will correspond to the mid-point in logit-scale.
+        For choice parameters, the center point is determined as the value
+        that is at the middle of the values list.
+        For both choice and integer range parameters, ties are broken in
+        favor of the larger value / index. For example, a binary parameter with
+        values [0, 1] will be sampled as 1.
+        Fixed parameters are returned at their only allowed value.
+
+        Returns:
+            A parameterization with the center values for each parameter.
+        """
+        parameters = {}
+        derived_params = []
+        for name, p in self.parameters.items():
+            if isinstance(p, RangeParameter):
+                if p.logit_scale:
+                    center = expit((logit(p.lower) + logit(p.upper)) / 2.0)
+                elif p.log_scale:
+                    center = 10 ** ((math.log10(p.lower) + math.log10(p.upper)) / 2.0)
+                else:
+                    center = (float(p.lower) + float(p.upper)) / 2.0
+                parameters[name] = p.cast(center)
+            elif isinstance(p, ChoiceParameter):
+                parameters[name] = p.values[int(len(p.values) / 2)]
+            elif isinstance(p, FixedParameter):
+                parameters[name] = p.value
+            elif isinstance(p, DerivedParameter):
+                derived_params.append(p)
+            else:
+                raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
+        for p in derived_params:
+            parameters[p.name] = p.compute(parameters=parameters)
+        if self.is_hierarchical:
+            parameters = self._cast_parameterization(parameters=parameters)
+        return parameters
+
+    def compute_chebyshev_center(self) -> dict[str, float] | None:
+        """Compute the Chebyshev center of the constraint polytope.
+
+        The Chebyshev center is the center of the largest inscribed ball in the
+        feasible region defined by the parameter constraints. This is computed
+        by solving a linear program. It is most limited by the tightest constraint.
+
+        For a polytope defined by a @ x <= b, the Chebyshev center (x_c, r) is
+        the solution to:
+            maximize r, where r is the radius of the inscribed ball
+            subject to: a_i^T x + r ||a_i||_2 <= b_i for all i
+
+        Note: this only considers natural (non-log, non-logit) range parameters.
+        Other parameter types are handled naively via compute_naive_center.
+
+        Returns:
+            A dictionary mapping parameter names to values at the Chebyshev center,
+            or None if the problem is infeasible.
+        """
+        # Only consider non-log, non-logit range parameters
+        natural_range_params = {
+            name: param
+            for name, param in self.range_parameters.items()
+            if not param.log_scale and not param.logit_scale
+        }
+
+        if not natural_range_params:
+            return {}
+
+        constraint_matrix = []
+        bound_vector = []
+        param_names = list(natural_range_params.keys())
+        num_params = len(natural_range_params)
+        param_name_to_idx = {name: idx for idx, name in enumerate(param_names)}
+
+        # Add parameter constraints
+        for constraint in self.parameter_constraints:
+            row = np.zeros(num_params)
+            for param_name, weight in constraint.constraint_dict.items():
+                if param_name in param_name_to_idx:
+                    row[param_name_to_idx[param_name]] = weight
+
+            constraint_matrix.append(row)
+            bound_vector.append(constraint.bound)
+
+        # Add parameter bounds
+        for name, idx in param_name_to_idx.items():
+            param = natural_range_params[name]
+            # lower bound: -x_i <= -lower_i
+            row_lower = np.zeros(num_params)
+            row_lower[idx] = -1.0
+            constraint_matrix.append(row_lower)
+            bound_vector.append(-float(param.lower))
+
+            # upper bound: x_i <= upper_i
+            row_upper = np.zeros(num_params)
+            row_upper[idx] = 1.0
+            constraint_matrix.append(row_upper)
+            bound_vector.append(float(param.upper))
+
+        constraint_matrix = np.array(constraint_matrix)
+        bound_vector = np.array(bound_vector)
+
+        # Compute norm for each vector in constraint matrix
+        row_norms = np.linalg.norm(constraint_matrix, axis=1)
+        augmented_constraint_matrix = np.column_stack([constraint_matrix, row_norms])
+
+        # Set objective vector which maximizes r (minimize -r == maximize r)
+        radius_objective_vector = np.zeros(num_params + 1)
+        radius_objective_vector[-1] = -1.0
+        result = linprog(
+            c=radius_objective_vector,
+            A_ub=augmented_constraint_matrix,
+            b_ub=bound_vector,
+            bounds=[(None, None)] * num_params + [(0, None)],  # no bounds except r >= 0
+        )
+
+        if not result.success or result.x is None:
+            return None
+
+        center_values = result.x[:num_params]  # remove r
+        center_dict = {
+            name: float(center_values[param_name_to_idx[name]]) for name in param_names
+        }
+        return center_dict
 
     def _validate_parameter_constraints(
         self, parameter_constraints: list[ParameterConstraint]
