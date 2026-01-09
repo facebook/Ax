@@ -21,9 +21,7 @@ from ax.core.types import TParameterization
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    AutoTransitionAfterGenOrExhaustion,
-)
+from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
 from pyre_extensions import none_throws
 
 
@@ -43,7 +41,7 @@ class CenterGenerationNode(ExternalGenerationNode):
         super().__init__(
             name="CenterOfSearchSpace",
             transition_criteria=[
-                AutoTransitionAfterGenOrExhaustion(
+                AutoTransitionAfterGen(
                     transition_to=next_node_name,
                     continue_trial_generation=False,
                 )
@@ -58,9 +56,12 @@ class CenterGenerationNode(ExternalGenerationNode):
             ),
             **self.fallback_specs,  # This includes the default fallbacks.
         }
+        # custom property to enable single center point computation
+        self._center_params: TParameterization | None = None
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
-        self.search_space = experiment.search_space
+        # State is already set in gen() and will persist during generation
+        pass
 
     def gen(
         self,
@@ -79,27 +80,26 @@ class CenterGenerationNode(ExternalGenerationNode):
         before attempting generation. If so, it sets _should_skip to True and
         returns None, allowing the generation strategy to transition to the next node.
         """
-        # Check if center already exists or is infeasible
         self.search_space = experiment.search_space
-        center_params = self.compute_center_params()
+        self._center_params = self.compute_center_params()
 
         # Check if unable to find a suitable center
-        if center_params is None:
+        if self._center_params is None:
             self._should_skip = True
             return None
 
         # Check if center already exists in experiment
-        center_arm = Arm(parameters=center_params)
+        center_arm = Arm(parameters=self._center_params)
         if center_arm.signature in experiment.arms_by_signature:
             self._should_skip = True
             return None
 
-        # Otherwise, proceed with normal generation
         return super().gen(
             experiment=experiment,
             pending_observations=pending_observations,
             skip_fit=skip_fit,
             data=data,
+            n=n,
             arms_per_node=arms_per_node,
             **gs_gen_kwargs,
         )
@@ -164,12 +164,4 @@ class CenterGenerationNode(ExternalGenerationNode):
         parameter bounds and parameter constraints w.r.t non-log range parameters.
         This finds the center of the largest inscribed ball in the feasible region.
         """
-        center_params = self.compute_center_params()
-        if center_params is None:
-            # raising an exception here will cause fallback to sobol, currently
-            # it should be very unlikely to hit this case
-            raise AxGenerationException(
-                "Center of the search space does not satisfy parameter "
-                "constraints. The generation strategy will fallback to Sobol. "
-            )
-        return center_params
+        return none_throws(self._center_params)
