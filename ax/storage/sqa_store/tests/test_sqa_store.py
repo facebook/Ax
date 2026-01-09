@@ -527,6 +527,29 @@ class SQAStoreTest(TestCase):
                 config=SQAConfig(experiment_type_enum=TestExperimentTypeEnum),
             )
 
+    def test_experiment_status_save_load(self) -> None:
+        """Test that experiment status is correctly saved and loaded."""
+        from ax.core.experiment_status import ExperimentStatus
+
+        # Test None status (backward compatibility)
+        with self.subTest(status=None):
+            exp = get_experiment()
+            exp._name = "test_exp_status_none"
+            exp.status = None
+            save_experiment(exp)
+            loaded_exp = load_experiment(exp.name)
+            self.assertEqual(loaded_exp.status, None)
+
+        # Test all ExperimentStatus enum values
+        for status in ExperimentStatus:
+            with self.subTest(status=status):
+                exp = get_experiment()
+                exp._name = f"test_exp_status_{status.name.lower()}"
+                exp.status = status
+                save_experiment(exp)
+                loaded_exp = load_experiment(exp.name)
+                self.assertEqual(loaded_exp.status, status)
+
     def test_LoadExperimentTrialsInBatches(self) -> None:
         for _ in range(4):
             self.experiment.new_trial()
