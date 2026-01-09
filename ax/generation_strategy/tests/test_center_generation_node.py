@@ -10,7 +10,6 @@
 from unittest.mock import patch
 
 from ax.adapter.registry import Generators
-
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.parameter import (
@@ -30,9 +29,7 @@ from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    AutoTransitionAfterGenOrExhaustion,
-)
+from ax.generation_strategy.transition_criterion import AutoTransitionAfterGen
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from pyre_extensions import none_throws
@@ -123,7 +120,7 @@ class TestCenterGenerationNode(TestCase):
         self.assertEqual(
             self.node.transition_criteria,
             [
-                AutoTransitionAfterGenOrExhaustion(
+                AutoTransitionAfterGen(
                     transition_to="test", continue_trial_generation=False
                 )
             ],
