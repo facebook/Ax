@@ -91,9 +91,11 @@ class Client(WithDBSettingsBase):
         """
 
         super().__init__(  # Initialize WithDBSettingsBase
-            db_settings=db_settings_from_storage_config(storage_config=storage_config)
-            if storage_config is not None
-            else None,
+            db_settings=(
+                db_settings_from_storage_config(storage_config=storage_config)
+                if storage_config is not None
+                else None
+            ),
         )
 
         self._storage_config = storage_config
@@ -129,9 +131,9 @@ class Client(WithDBSettingsBase):
 
         experiment_struct = ExperimentStruct(
             parameters=[*parameters],
-            parameter_constraints=[*parameter_constraints]
-            if parameter_constraints
-            else [],
+            parameter_constraints=(
+                [*parameter_constraints] if parameter_constraints else []
+            ),
             name=name,
             description=description,
             experiment_type=experiment_type,
@@ -251,7 +253,17 @@ class Client(WithDBSettingsBase):
         or adds the ``Metric`` provided to the ``Experiment`` as a tracking metric if
         that metric was not already present.
         """
-        self._set_metrics(metrics=metrics)
+        core_metrics: list[Metric] = []
+        for m in metrics:
+            if isinstance(m, Metric):
+                if m.__class__.__module__.startswith("ax.api.protocols"):
+                    core_metrics.append(Metric(name=m.name))
+                else:
+                    core_metrics.append(m)
+            else:
+                core_metrics.append(Metric(name=m.name))
+
+        self._set_metrics(metrics=core_metrics)
 
     # -------------------- Section 1.2: Set (not API) -------------------------------
     def set_experiment(self, experiment: Experiment) -> None:
@@ -675,9 +687,11 @@ class Client(WithDBSettingsBase):
                 tolerated_trial_failure_rate=tolerated_trial_failure_rate,
                 init_seconds_between_polls=initial_seconds_between_polls,
             ),
-            db_settings=db_settings_from_storage_config(self._storage_config)
-            if self._storage_config is not None
-            else None,
+            db_settings=(
+                db_settings_from_storage_config(self._storage_config)
+                if self._storage_config is not None
+                else None
+            ),
         )
 
         # Note: This Orchestrator call will handle storage internally
@@ -733,18 +747,20 @@ class Client(WithDBSettingsBase):
     def summarize(
         self,
         trial_indices: Iterable[int] | None = None,
-        trial_statuses: Sequence[
-            Literal[
-                "candidate",
-                "running",
-                "failed",
-                "completed",
-                "abandoned",
-                "early_stopped",
-                "staged",
+        trial_statuses: (
+            Sequence[
+                Literal[
+                    "candidate",
+                    "running",
+                    "failed",
+                    "completed",
+                    "abandoned",
+                    "early_stopped",
+                    "staged",
+                ]
             ]
-        ]
-        | None = None,
+            | None
+        ) = None,
     ) -> pd.DataFrame:
         """
         Special convenience method for producing the ``DataFrame`` produced by the
@@ -1003,9 +1019,11 @@ class Client(WithDBSettingsBase):
             The restored ``Client``.
         """
         db_settings_base = WithDBSettingsBase(
-            db_settings=db_settings_from_storage_config(storage_config=storage_config)
-            if storage_config is not None
-            else None
+            db_settings=(
+                db_settings_from_storage_config(storage_config=storage_config)
+                if storage_config is not None
+                else None
+            )
         )
 
         maybe_experiment, maybe_generation_strategy = (
@@ -1240,26 +1258,49 @@ class Client(WithDBSettingsBase):
             encoder_registry = (
                 self._storage_config.registry_bundle.sqa_config.json_encoder_registry
             )
-            class_encoder_registry = self._storage_config.registry_bundle.sqa_config.json_class_encoder_registry  # noqa: E501
+            class_encoder_registry = (
+                self._storage_config.registry_bundle.sqa_config.json_class_encoder_registry
+            )  # noqa: E501
         else:
             encoder_registry = CORE_ENCODER_REGISTRY
             class_encoder_registry = CORE_CLASS_ENCODER_REGISTRY
 
-        return {
-            "_type": self.__class__.__name__,
-            "experiment": object_to_json(
-                self._experiment,
-                encoder_registry=encoder_registry,
-                class_encoder_registry=class_encoder_registry,
-            ),
-            "generation_strategy": object_to_json(
-                self._generation_strategy,
-                encoder_registry=encoder_registry,
-                class_encoder_registry=class_encoder_registry,
+        # NOTE: Custom runners may not be in the encoder registry; strip runner from the
+        # experiment snapshot and require users to reattach after loading.
+        maybe_runner = self._experiment.runner
+        runner_was_stripped = maybe_runner is not None
+        if runner_was_stripped:
+            self._experiment.runner = None
+
+        try:
+            snapshot = {
+                "_type": self.__class__.__name__,
+                "experiment": object_to_json(
+                    self._experiment,
+                    encoder_registry=encoder_registry,
+                    class_encoder_registry=class_encoder_registry,
+                ),
+                "generation_strategy": (
+                    object_to_json(
+                        self._generation_strategy,
+                        encoder_registry=encoder_registry,
+                        class_encoder_registry=class_encoder_registry,
+                    )
+                    if self._maybe_generation_strategy is not None
+                    else None
+                ),
+                "runner_was_stripped": runner_was_stripped,
+            }
+        finally:
+            self._experiment.runner = maybe_runner
+
+        if runner_was_stripped:
+            logger.warning(
+                "Runner was not serialized in this JSON snapshot. "
+                "Reattach it after loading (e.g., client.configure_runner(...))."
             )
-            if self._maybe_generation_strategy is not None
-            else None,
-        }
+
+        return snapshot
 
     @classmethod
     def _from_json_snapshot(
@@ -1267,6 +1308,13 @@ class Client(WithDBSettingsBase):
         snapshot: dict[str, Any],
         storage_config: StorageConfig | None = None,
     ) -> Self:
+        # Runner was stripped during snapshot serialization; reattach after loading.
+        if snapshot.get("runner_was_stripped"):
+            logger.warning(
+                "Loaded JSON snapshot did not include a Runner. "
+                "Reattach it (e.g., client.configure_runner(...))."
+            )
+
         # If the user has supplied custom encoder registries, use them. Otherwise use
         # the core encoder registries.
         if storage_config is not None and storage_config.registry_bundle is not None:
@@ -1287,14 +1335,15 @@ class Client(WithDBSettingsBase):
             class_decoder_registry=class_decoder_registry,
         )
 
+        gs_json = snapshot.get("generation_strategy")
         generation_strategy = (
             generation_strategy_from_json(
-                generation_strategy_json=snapshot["generation_strategy"],
+                generation_strategy_json=gs_json,
                 experiment=experiment,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-            if "generation_strategy" in snapshot
+            if gs_json is not None
             else None
         )
 
