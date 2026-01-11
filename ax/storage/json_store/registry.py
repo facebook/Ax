@@ -15,6 +15,8 @@ from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.adapter.transforms.base import Transform
 from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.api.protocols.metric import IMetric
+from ax.api.protocols.runner import IRunner
 from ax.benchmark.benchmark_metric import (
     BenchmarkMapMetric,
     BenchmarkMapUnavailableWhileRunningMetric,
@@ -211,6 +213,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
+    IMetric: metric_to_dict,
     ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
     IsSingleObjective: transition_criterion_to_dict,
@@ -257,6 +260,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     SobolQMCNormalSampler: botorch_component_to_dict,
     Surrogate: surrogate_to_dict,
     SyntheticRunner: runner_to_dict,
+    IRunner: runner_to_dict,
     ThresholdEarlyStoppingStrategy: threshold_early_stopping_strategy_to_dict,
     Trial: trial_to_dict,
     ObservationFeatures: observation_features_to_dict,
@@ -336,6 +340,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "InputConstructorPurpose": InputConstructorPurpose,
     "Interval": Interval,
     "IsSingleObjective": IsSingleObjective,
+    "IMetric": IMetric,
+    "IRunner": IRunner,
     "Keys": Keys,
     # DEPRECATED; remains here backward compatibility, with old class
     # name linked to the new corresponding class
