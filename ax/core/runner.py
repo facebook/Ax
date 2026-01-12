@@ -10,15 +10,20 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from logging import Logger
 from typing import Any, TYPE_CHECKING
 
+from ax.core.trial_status import TrialStatus
 from ax.utils.common.base import Base
+from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
 
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401
+
+logger: Logger = get_logger(__name__)
 
 
 class Runner(Base, SerializationMixin, ABC):
@@ -159,3 +164,51 @@ class Runner(Base, SerializationMixin, ABC):
             obj=self
         ) == other.serialize_init_args(obj=other)
         return same_class and same_init_args
+
+    def robust_poll_trial_status(
+        self,
+        trials: Iterable[core.base_trial.BaseTrial],
+    ) -> dict[core.base_trial.TrialStatus, set[int]]:
+        """Robustly polls trial statuses with automatic fallback to individual polling.
+
+        First attempts to poll all trials at once for efficiency. If this fails,
+        falls back to polling each trial individually, setting trial status to
+        ABANDONED if the fallback fails.
+
+        Args:
+            trials: Trials to poll for status updates.
+
+        Returns:
+            A dictionary mapping TrialStatus to sets of trial indices.
+        """
+        trials_list = list(trials)
+        if len(trials_list) == 0:
+            return {}
+
+        # First, try to poll all trials at once (most efficient).
+        try:
+            return self.poll_trial_status(trials=trials_list)
+        except Exception:
+            logger.warning(
+                "Failed to poll all trial statuses at once. "
+                "Falling back to polling trials individually."
+            )
+
+        # Fallback: poll trials one-at-a-time and capture failures.
+        status_dict: dict[TrialStatus, set[int]] = {}
+        for trial in trials_list:
+            try:
+                single_status_dict = self.poll_trial_status(trials=[trial])
+            except Exception as e:
+                logger.exception(
+                    f"Failed to retrieve status of trial {trial.index} due to error: "
+                    f"{e}. Setting trial status to ABANDONED so that this "
+                    "parameterization is not attempted again."
+                )
+                single_status_dict = {TrialStatus.ABANDONED: {trial.index}}
+            for status, index_set in single_status_dict.items():
+                if status in status_dict:
+                    status_dict[status] |= index_set
+                else:
+                    status_dict[status] = index_set
+        return status_dict

@@ -838,6 +838,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         are running; that logic is handled in ``orchestrator.poll``, which calls
         this function.
 
+        NOTE: If polling all trials at once fails, falls back to polling trials
+        one-at-a-time and abandons any trial whose status check fails. This
+        reduces polling efficiency but enhances robustness.
+
         Returns:
             A dictionary mapping TrialStatus to a list of trial indices that have
             the respective status at the time of the polling. This does not need to
@@ -852,7 +856,8 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         trials = filter_trials_by_type(trials=trials, trial_type=self.trial_type)
         if len(trials) == 0:
             return {}
-        return self.runner.poll_trial_status(trials=trials)
+
+        return self.runner.robust_poll_trial_status(trials=trials)
 
     def wait_for_completed_trials_and_report_results(
         self,

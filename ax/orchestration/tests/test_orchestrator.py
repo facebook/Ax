@@ -69,8 +69,10 @@ from ax.orchestration.tests.orchestrator_test_utils import (
     NoReportResultsRunner,
     RunnerToAllowMultipleMapMetricFetches,
     RunnerWithAllFailedTrials,
+    RunnerWithAllPollsFailing,
     RunnerWithEarlyStoppingStrategy,
     RunnerWithFailedAndAbandonedTrials,
+    RunnerWithFailingPollTrialStatus,
     RunnerWithFrequentFailedTrials,
     SyntheticRunnerWithPredictableStatusPolling,
     SyntheticRunnerWithSingleRunningTrial,
@@ -1643,6 +1645,81 @@ class TestAxOrchestrator(TestCase):
             DUMMY_EXCEPTION,
         )
         self.assertIsNone(orchestrator.experiment.trials[completed_idx]._failed_reason)
+
+    def test_poll_trial_status_fallback_to_individual_polling(self) -> None:
+        """Test that poll_trial_status falls back to individual polling when
+        batch polling fails, and successfully completes trials."""
+        self.branin_experiment.runner = RunnerWithFailingPollTrialStatus()
+        gs = self.two_sobol_steps_GS
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                total_trials=3,
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        with self.assertLogs(logger="ax.core.runner") as lg:
+            orchestrator.run_all_trials()
+
+        # Check that the fallback warning was logged
+        self.assertTrue(
+            any(
+                "Failed to poll all trial statuses at once" in msg
+                and "Falling back to polling trials individually" in msg
+                for msg in lg.output
+            ),
+            f"Expected fallback warning not found in logs: {lg.output}",
+        )
+
+        # All trials should have completed successfully despite batch poll failures
+        self.assertTrue(
+            all(
+                t.completed_successfully
+                for t in orchestrator.experiment.trials.values()
+            )
+        )
+        self.assertEqual(len(orchestrator.experiment.trials), 3)
+
+    def test_poll_trial_status_abandons_trial_on_individual_failure(self) -> None:
+        """Test that poll_trial_status marks individual trials as ABANDONED when
+        their status cannot be retrieved."""
+        self.branin_experiment.runner = RunnerWithAllPollsFailing()
+        gs = self.sobol_GS_no_parallelism
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                total_trials=2,
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        with self.assertLogs(logger="ax.core.runner") as lg:
+            # Expect FailureRateExceededError since all trials will be abandoned
+            with self.assertRaises(FailureRateExceededError):
+                orchestrator.run_all_trials()
+
+        # Check that the abandonment warning was logged
+        self.assertTrue(
+            any(
+                "Failed to retrieve status of trial" in msg
+                and "Setting trial status to ABANDONED" in msg
+                for msg in lg.output
+            ),
+            f"Expected abandonment warning not found in logs: {lg.output}",
+        )
+
+        # All trials should be abandoned due to poll failures
+        self.assertTrue(
+            all(
+                t.status == TrialStatus.ABANDONED
+                for t in orchestrator.experiment.trials.values()
+            )
+        )
 
     def test_fetch_and_process_trials_data_results_failed_objective_available_while_running(  # noqa
         self,
