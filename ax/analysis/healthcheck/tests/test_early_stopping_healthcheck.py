@@ -323,13 +323,16 @@ class TestEarlyStoppingAnalysis(TestCase):
         healthcheck = EarlyStoppingAnalysis(early_stopping_strategy=None)
 
         with self.subTest("basic_nudge"):
-            with patch(
-                "ax.analysis.healthcheck.early_stopping_healthcheck.replay_experiment",
-                return_value=object(),
-            ), patch(
-                "ax.analysis.healthcheck.early_stopping_healthcheck"
-                ".estimate_early_stopping_savings",
-                return_value=0.25,
+            with (
+                patch(
+                    "ax.analysis.healthcheck.early_stopping_healthcheck.replay_experiment",
+                    return_value=object(),
+                ),
+                patch(
+                    "ax.analysis.healthcheck.early_stopping_healthcheck"
+                    ".estimate_early_stopping_savings",
+                    return_value=0.25,
+                ),
             ):
                 card = healthcheck.compute(experiment=self.experiment)
 

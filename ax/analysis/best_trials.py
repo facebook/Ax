@@ -9,7 +9,6 @@
 from typing import final, Sequence
 
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
 from ax.analysis.summary import Summary
 from ax.analysis.utils import validate_experiment

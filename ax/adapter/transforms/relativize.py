@@ -122,9 +122,9 @@ class BaseRelativize(Transform, ABC):
 
         if isinstance(optimization_config, PreferenceOptimizationConfig):
             objective = optimization_config.objective
-            assert isinstance(
-                objective, MultiObjective
-            ), f"Expected MultiObjective, got {type(objective).__name__}"
+            assert isinstance(objective, MultiObjective), (
+                f"Expected MultiObjective, got {type(objective).__name__}"
+            )
             new_optimization_config = optimization_config.clone_with_args(
                 objective=objective,
                 outcome_constraints=constraints,

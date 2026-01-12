@@ -9,14 +9,12 @@
 from __future__ import annotations
 
 import math
-
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from logging import Logger
 
 import numpy as np
-
 import pandas as pd
 from ax import core
 from ax.core.arm import Arm
@@ -41,7 +39,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 from scipy.optimize import linprog
-
 from scipy.special import expit, logit
 
 
@@ -719,8 +716,7 @@ class SearchSpace(Base):
                     )
                 elif isinstance(p, DerivedParameter):
                     raise ValueError(
-                        "Parameter constraints cannot be used with derived "
-                        "parameters."
+                        "Parameter constraints cannot be used with derived parameters."
                     )
 
     def _validate_hierarchical_structure(self) -> None:

@@ -12,7 +12,6 @@ from typing import Protocol
 
 import numpy as np
 import numpy.typing as npt
-
 from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, kendalltau, norm, pearsonr, spearmanr
 from sklearn.neighbors import KernelDensity

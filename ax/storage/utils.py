@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from hashlib import md5
 
 import pandas as pd
-
 from ax.core.data import combine_dfs_favoring_recent, Data
 
 

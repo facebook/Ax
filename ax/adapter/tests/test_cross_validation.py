@@ -141,12 +141,15 @@ class CrossValidationTest(TestCase):
         )
 
         # Test LOO - use naive CV path by mocking efficient LOO
-        with mock.patch(
-            "ax.adapter.cross_validation._efficient_loo_cross_validate",
-            side_effect=ValueError("Force fallback to naive CV"),
-        ), mock.patch.object(
-            self.adapter, "cross_validate", wraps=self.adapter.cross_validate
-        ) as mock_cv:
+        with (
+            mock.patch(
+                "ax.adapter.cross_validation._efficient_loo_cross_validate",
+                side_effect=ValueError("Force fallback to naive CV"),
+            ),
+            mock.patch.object(
+                self.adapter, "cross_validate", wraps=self.adapter.cross_validate
+            ) as mock_cv,
+        ):
             result = cross_validate(adapter=self.adapter, folds=-1)
         self.assertEqual(len(result), 4)
         z = mock_cv.mock_calls
@@ -163,19 +166,23 @@ class CrossValidationTest(TestCase):
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
         # Test LOO in transformed space - use naive path by mocking efficient LOO
-        with mock.patch(
-            "ax.adapter.cross_validation._efficient_loo_cross_validate",
-            side_effect=ValueError("Force fallback to naive CV"),
-        ), mock.patch.object(
-            self.adapter,
-            "_transform_inputs_for_cv",
-            wraps=self.adapter._transform_inputs_for_cv,
-        ) as mock_transform_cv, mock.patch.object(
-            self.adapter,
-            "_cross_validate",
-            side_effect=lambda **kwargs: [self.observation_data]
-            * len(kwargs["cv_test_points"]),
-        ) as mock_cv:
+        with (
+            mock.patch(
+                "ax.adapter.cross_validation._efficient_loo_cross_validate",
+                side_effect=ValueError("Force fallback to naive CV"),
+            ),
+            mock.patch.object(
+                self.adapter,
+                "_transform_inputs_for_cv",
+                wraps=self.adapter._transform_inputs_for_cv,
+            ) as mock_transform_cv,
+            mock.patch.object(
+                self.adapter,
+                "_cross_validate",
+                side_effect=lambda **kwargs: [self.observation_data]
+                * len(kwargs["cv_test_points"]),
+            ) as mock_cv,
+        ):
             result = cross_validate(adapter=self.adapter, folds=-1, untransform=False)
         result_predicted_obs_data = [cv_result.predicted for cv_result in result]
         self.assertEqual(result_predicted_obs_data, [self.observation_data] * 4)
@@ -246,12 +253,15 @@ class CrossValidationTest(TestCase):
 
         # test observation noise - use naive path by disabling efficient LOO
         for untransform in (True, False):
-            with mock.patch(
-                "ax.adapter.cross_validation._efficient_loo_cross_validate",
-                side_effect=ValueError("Force fallback to naive CV"),
-            ), mock.patch.object(
-                self.adapter, "_cross_validate", wraps=self.adapter._cross_validate
-            ) as mock_cv:
+            with (
+                mock.patch(
+                    "ax.adapter.cross_validation._efficient_loo_cross_validate",
+                    side_effect=ValueError("Force fallback to naive CV"),
+                ),
+                mock.patch.object(
+                    self.adapter, "_cross_validate", wraps=self.adapter._cross_validate
+                ) as mock_cv,
+            ):
                 result = cross_validate(
                     adapter=self.adapter,
                     folds=-1,
@@ -500,9 +510,12 @@ class CrossValidationTest(TestCase):
     def test_efficient_loo_cv_is_attempted(self) -> None:
         """Test that efficient LOO CV is attempted only when all conditions are met."""
         # Setup adapter with a BoTorchGenerator
-        with mock.patch(
-            "botorch.cross_validation.efficient_loo_cv"
-        ) as mock_efficient_loo, mock.patch("botorch.cross_validation.ensemble_loo_cv"):
+        with (
+            mock.patch(
+                "botorch.cross_validation.efficient_loo_cv"
+            ) as mock_efficient_loo,
+            mock.patch("botorch.cross_validation.ensemble_loo_cv"),
+        ):
             # Create mock LOO results
             # Create a mock posterior
             mock_mean = torch.tensor([[1.0], [2.0], [3.0], [4.0]])
@@ -570,11 +583,13 @@ class CrossValidationTest(TestCase):
 
         # For adapter with aux experiments, directly verify the condition check
         # rather than running through the full cross_validate path
-        with self.subTest(condition="has auxiliary experiments"), mock.patch(
-            "ax.adapter.cross_validation._efficient_loo_cross_validate"
-        ) as mock_efficient, mock.patch(
-            "ax.adapter.cross_validation._fold_cross_validate"
-        ) as mock_fold:
+        with (
+            self.subTest(condition="has auxiliary experiments"),
+            mock.patch(
+                "ax.adapter.cross_validation._efficient_loo_cross_validate"
+            ) as mock_efficient,
+            mock.patch("ax.adapter.cross_validation._fold_cross_validate") as mock_fold,
+        ):
             mock_fold.return_value = []
             cross_validate(adapter=adapter_with_aux)
             self.assertFalse(
@@ -584,9 +599,12 @@ class CrossValidationTest(TestCase):
 
         for kwargs, adapter_override, desc in conditions_preventing_efficient_loo:
             adapter = adapter_override or self.adapter
-            with self.subTest(condition=desc), mock.patch(
-                "ax.adapter.cross_validation._efficient_loo_cross_validate"
-            ) as mock_efficient:
+            with (
+                self.subTest(condition=desc),
+                mock.patch(
+                    "ax.adapter.cross_validation._efficient_loo_cross_validate"
+                ) as mock_efficient,
+            ):
                 # pyre-ignore[6]: kwargs is properly typed for cross_validate
                 cross_validate(adapter=adapter, **kwargs)
                 self.assertFalse(
@@ -596,13 +614,15 @@ class CrossValidationTest(TestCase):
 
         # Test logger when efficient LOO fails even though all conditions were met
         with self.subTest(condition="efficient LOO fails with exception"):
-            with mock.patch(
-                "ax.adapter.cross_validation._efficient_loo_cross_validate"
-            ) as mock_efficient, mock.patch(
-                "ax.adapter.cross_validation._fold_cross_validate"
-            ) as mock_fold, mock.patch(
-                "ax.adapter.cross_validation.logger"
-            ) as mock_logger:
+            with (
+                mock.patch(
+                    "ax.adapter.cross_validation._efficient_loo_cross_validate"
+                ) as mock_efficient,
+                mock.patch(
+                    "ax.adapter.cross_validation._fold_cross_validate"
+                ) as mock_fold,
+                mock.patch("ax.adapter.cross_validation.logger") as mock_logger,
+            ):
                 # Force efficient LOO to fail
                 mock_efficient.side_effect = ValueError("Test failure reason")
                 mock_fold.return_value = []
@@ -701,13 +721,16 @@ class CrossValidationTest(TestCase):
             )
 
         # Run naive CV (by forcing fallback)
-        with mock.patch(
-            "ax.adapter.cross_validation._efficient_loo_cross_validate",
-            side_effect=ValueError("Force fallback to naive CV"),
-        ), mock.patch(
-            "ax.adapter.cross_validation._fold_cross_validate",
-            wraps=_fold_cross_validate,
-        ) as mock_naive_cv:
+        with (
+            mock.patch(
+                "ax.adapter.cross_validation._efficient_loo_cross_validate",
+                side_effect=ValueError("Force fallback to naive CV"),
+            ),
+            mock.patch(
+                "ax.adapter.cross_validation._fold_cross_validate",
+                wraps=_fold_cross_validate,
+            ) as mock_naive_cv,
+        ):
             result_naive = cross_validate(
                 adapter=adapter,
                 folds=-1,
@@ -719,12 +742,15 @@ class CrossValidationTest(TestCase):
             self.assertTrue(mock_naive_cv.called, "Naive CV not called")
 
         # Run efficient CV
-        with mock.patch(
-            "ax.adapter.cross_validation._efficient_loo_cross_validate",
-            wraps=_efficient_loo_cross_validate,
-        ) as mock_efficient, mock.patch(
-            "ax.adapter.cross_validation._fold_cross_validate",
-        ) as mock_naive:
+        with (
+            mock.patch(
+                "ax.adapter.cross_validation._efficient_loo_cross_validate",
+                wraps=_efficient_loo_cross_validate,
+            ) as mock_efficient,
+            mock.patch(
+                "ax.adapter.cross_validation._fold_cross_validate",
+            ) as mock_naive,
+        ):
             result_efficient = cross_validate(
                 adapter=adapter,
                 folds=-1,
@@ -765,14 +791,12 @@ class CrossValidationTest(TestCase):
                 if untransform:
                     self.assertTrue(
                         np.all(obs_means > 5.0),
-                        f"untransform=True: expected original space, "
-                        f"got {obs_means}",
+                        f"untransform=True: expected original space, got {obs_means}",
                     )
                 else:
                     self.assertTrue(
                         np.all(np.abs(obs_means) < 3.0),
-                        f"untransform=False: expected standardized, "
-                        f"got {obs_means}",
+                        f"untransform=False: expected standardized, got {obs_means}",
                     )
 
         # Compare predictions

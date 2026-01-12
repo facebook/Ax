@@ -11,7 +11,6 @@ from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.base_trial import TrialStatus
-
 from ax.core.data import Data
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError

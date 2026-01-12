@@ -178,7 +178,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_last_prog = df_trial[MAP_KEY].max()
         data_last_prog = df_trial[df_trial[MAP_KEY] == trial_last_prog]["mean"].iloc[0]
         logger.info(
-            "Early stopping objective at last progression is:\n" f"{data_last_prog}."
+            f"Early stopping objective at last progression is:\n{data_last_prog}."
         )
         should_early_stop = (
             data_last_prog > self.metric_threshold

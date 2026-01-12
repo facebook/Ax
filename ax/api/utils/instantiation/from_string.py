@@ -145,8 +145,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
             bound = -1 * coefficient
         else:
             raise UserInputError(
-                "Only linear outcome constraints are supported, found "
-                f"{constraint_str}"
+                f"Only linear outcome constraints are supported, found {constraint_str}"
             )
 
     if len(constraint_dict) == 1:

@@ -14,7 +14,6 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
-
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core.base_trial import BaseTrial, TrialStatus

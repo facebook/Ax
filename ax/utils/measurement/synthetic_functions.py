@@ -61,9 +61,9 @@ class SyntheticFunction(ABC):
         for x in args:
             if isinstance(x, np.ndarray):
                 return self.f(X=x)
-            assert np.isscalar(
-                x
-            ), f"Expected numerical arguments or numpy arrays, got {type(x)}."
+            assert np.isscalar(x), (
+                f"Expected numerical arguments or numpy arrays, got {type(x)}."
+            )
             if isinstance(x, int):
                 x = float(x)
         return assert_is_instance(self.f(np.array(args)), float)

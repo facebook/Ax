@@ -15,7 +15,6 @@ from typing import cast
 import pandas as pd
 from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
-
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective

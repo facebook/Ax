@@ -126,11 +126,14 @@ class TensorboardMetricTest(TestCase):
         metric = TensorboardMetric(name="loss", tag="loss")
 
         trial = get_trial()
-        with mock.patch.object(
-            TensorboardMetric,
-            "_get_event_multiplexer_for_trial",
-            return_value=nan_multiplexer,
-        ), mock.patch.object(logger, "warning") as mock_warning:
+        with (
+            mock.patch.object(
+                TensorboardMetric,
+                "_get_event_multiplexer_for_trial",
+                return_value=nan_multiplexer,
+            ),
+            mock.patch.object(logger, "warning") as mock_warning,
+        ):
             result = metric.fetch_trial_data(trial=trial)
         mock_warning.assert_called_once_with(
             "1 / 4 data points are NaNs or Infs. Filtering out non-finite values."

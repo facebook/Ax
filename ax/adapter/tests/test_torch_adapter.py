@@ -214,9 +214,12 @@ class TorchAdapterTest(TestCase):
         pending_observations = {
             "y2": [ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0, "x3": 3.0})]
         }
-        with ExitStack() as es, mock.patch.object(
-            generator, "gen", return_value=gen_return_value
-        ) as mock_gen:
+        with (
+            ExitStack() as es,
+            mock.patch.object(
+                generator, "gen", return_value=gen_return_value
+            ) as mock_gen,
+        ):
             es.enter_context(
                 mock.patch.object(
                     generator, "best_point", return_value=best_point_return_value
@@ -327,9 +330,10 @@ class TorchAdapterTest(TestCase):
         obsf = ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0})
 
         # Check for value error when optimization config is not set.
-        with mock.patch.object(
-            adapter, "_optimization_config", None
-        ), self.assertRaisesRegex(ValueError, "optimization_config"):
+        with (
+            mock.patch.object(adapter, "_optimization_config", None),
+            self.assertRaisesRegex(ValueError, "optimization_config"),
+        ):
             adapter.evaluate_acquisition_function(observation_features=[obsf])
 
         mock_acq_val = 5.0
@@ -422,11 +426,14 @@ class TorchAdapterTest(TestCase):
         gen_return_value = TorchGenResults(
             points=torch.tensor([[1.0]]), weights=torch.tensor([1.0])
         )
-        with mock.patch(
-            f"{TorchGenerator.__module__}.TorchGenerator.best_point",
-            return_value=torch.tensor([best_point_value]),
-            autospec=True,
-        ), mock.patch.object(adapter, "predict", return_value=predict_return_value):
+        with (
+            mock.patch(
+                f"{TorchGenerator.__module__}.TorchGenerator.best_point",
+                return_value=torch.tensor([best_point_value]),
+                autospec=True,
+            ),
+            mock.patch.object(adapter, "predict", return_value=predict_return_value),
+        ):
             with mock.patch.object(
                 adapter.generator, "gen", return_value=gen_return_value
             ):
@@ -823,14 +830,17 @@ class TorchAdapterTest(TestCase):
                 weights=torch.tensor([1.0]),
                 gen_metadata={Keys.EXPECTED_ACQF_VAL: [1.0], **additional_metadata},
             )
-            with mock.patch.object(
-                adapter,
-                "_untransform_objective_thresholds",
-                wraps=adapter._untransform_objective_thresholds,
-            ) as mock_untransform, mock.patch.object(
-                generator,
-                "gen",
-                return_value=gen_return_value,
+            with (
+                mock.patch.object(
+                    adapter,
+                    "_untransform_objective_thresholds",
+                    wraps=adapter._untransform_objective_thresholds,
+                ) as mock_untransform,
+                mock.patch.object(
+                    generator,
+                    "gen",
+                    return_value=gen_return_value,
+                ),
             ):
                 adapter.gen(n=1)
             if additional_metadata.get("objective_thresholds", None) is None:

@@ -10,7 +10,6 @@ import enum
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-
 from logging import Logger
 from typing import Any, Union
 
@@ -327,9 +326,9 @@ class InstantiationBase:
         representation: TParameterRepresentation,
         parameter_type: str | None,
     ) -> DerivedParameter:
-        assert (
-            "expression_str" in representation
-        ), "expression_str is required for derived parameters."
+        assert "expression_str" in representation, (
+            "expression_str is required for derived parameters."
+        )
         msg = "parameter_type is required for derived parameters."
         return DerivedParameter(
             name=name,
@@ -387,9 +386,9 @@ class InstantiationBase:
             )
 
         if parameter_class == "choice":
-            assert (
-                "values" in representation
-            ), "Values are required for choice parameters."
+            assert "values" in representation, (
+                "Values are required for choice parameters."
+            )
             values = representation["values"]
             if isinstance(values, list) and len(values) == 1:
                 logger.info(

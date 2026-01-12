@@ -7,12 +7,10 @@
 # pyre-strict
 
 import logging
-
 from math import ceil
 from typing import Any, cast, Mapping
 
 import pandas as pd
-
 from ax.core.analysis_card import AnalysisCard, AnalysisCardBase
 from ax.core.auxiliary import (
     AuxiliaryExperiment,

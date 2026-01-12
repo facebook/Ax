@@ -290,8 +290,7 @@ def _check_if_is_in_standard_search_space(
     if num_parameter_constraints > 2:
         is_in_standard = False
         why_not_is_in_standard += [
-            f"{num_parameter_constraints} parameter constraints "
-            "(max in-standard is 2)"
+            f"{num_parameter_constraints} parameter constraints (max in-standard is 2)"
         ]
         if num_parameter_constraints > 5:
             is_supported = False
@@ -568,8 +567,7 @@ def format_tier_message(
         if why_not_supported:
             why_msg = "\n".join("\t- " + s for s in why_not_supported)
             why_msg = (
-                "\n\nWhy this experiment is not in the 'Advanced' tier: "
-                f"\n{why_msg}\n"
+                f"\n\nWhy this experiment is not in the 'Advanced' tier: \n{why_msg}\n"
             )
             msg += why_msg
     if tier_messages.additional_info:

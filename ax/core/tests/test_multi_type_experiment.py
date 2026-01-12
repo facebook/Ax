@@ -211,13 +211,11 @@ class MultiTypeExperimentTest(TestCase):
 
         # Mock is needed because SyntheticRunner does not implement a 'stop'
         # method
-        with patch.object(
-            runner1, "stop", return_value=None
-        ) as mock_runner_stop1, patch.object(
-            runner2, "stop", return_value=None
-        ) as mock_runner_stop2, patch.object(
-            BaseTrial, "mark_early_stopped"
-        ) as mock_mark_stopped:
+        with (
+            patch.object(runner1, "stop", return_value=None) as mock_runner_stop1,
+            patch.object(runner2, "stop", return_value=None) as mock_runner_stop2,
+            patch.object(BaseTrial, "mark_early_stopped") as mock_mark_stopped,
+        ):
             self.experiment.stop_trial_runs(
                 trials=[self.experiment.trials[0], self.experiment.trials[1]]
             )

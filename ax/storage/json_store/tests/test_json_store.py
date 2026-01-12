@@ -756,8 +756,7 @@ class JSONStoreTest(TestCase):
         empty_df_json = {
             "__type": "DataFrame",
             "value": (
-                '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{}'
-                ',"sem":{}}'
+                '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{},"sem":{}}'
             ),
         }
         with self.subTest("Description is None"):
@@ -1203,7 +1202,7 @@ class JSONStoreTest(TestCase):
                                 "__type": "Type[Transform]",
                                 "index_in_registry": 6,
                                 "transform_type": (
-                                    "<class 'ax.adapter.transforms" ".one_hot.OneHot'>"
+                                    "<class 'ax.adapter.transforms.one_hot.OneHot'>"
                                 ),
                             },
                             {

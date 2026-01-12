@@ -10,7 +10,6 @@ import numbers
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Sequence
-
 from logging import Logger
 from typing import Any
 

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from bisect import bisect_right
-
 from collections.abc import Iterable
 from copy import deepcopy
 from functools import cached_property
@@ -18,7 +17,6 @@ from logging import Logger
 from typing import Any, TypeVar
 
 import numpy as np
-
 import numpy.typing as npt
 import pandas as pd
 from ax.exceptions.core import UnsupportedError, UserInputError

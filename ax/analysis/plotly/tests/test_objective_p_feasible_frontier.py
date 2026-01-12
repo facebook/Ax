@@ -9,7 +9,6 @@ import json
 
 import torch
 from ax.adapter.registry import Generators
-
 from ax.analysis.plotly.objective_p_feasible_frontier import (
     ObjectivePFeasibleFrontierPlot,
 )

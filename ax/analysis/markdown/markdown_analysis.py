@@ -8,7 +8,6 @@
 
 import markdown
 import pandas as pd
-
 from ax.core.analysis_card import AnalysisCard
 from IPython.display import Markdown
 

@@ -13,9 +13,7 @@ from decimal import Decimal
 from typing import Any
 
 from ax.core.evaluations_to_data import DataType
-
 from ax.core.parameter import ParameterType
-
 from ax.core.trial_status import TrialStatus
 from ax.core.types import (
     ComparisonOp,

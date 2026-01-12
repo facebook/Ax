@@ -60,7 +60,6 @@ from ax.storage.json_store.registry import (
 from ax.storage.sqa_store.with_db_settings_base import WithDBSettingsBase
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
-
 from pyre_extensions import assert_is_instance, none_throws
 from typing_extensions import Self
 

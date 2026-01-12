@@ -13,7 +13,6 @@ from unittest import mock
 from unittest.mock import patch, PropertyMock
 
 import numpy as np
-
 import pandas as pd
 import torch
 from ax.adapter.cross_validation import AssessModelFitResult
@@ -355,21 +354,22 @@ class TestBestPointUtils(TestCase):
         trial = exp.new_trial(generator_run=generator_run)
         trial.run().mark_completed()
 
-        with patch.object(
-            TorchAdapter,
-            "model_best_point",
-            return_value=(
-                (
-                    exp.trials[0].arms[0],
+        with (
+            patch.object(
+                TorchAdapter,
+                "model_best_point",
+                return_value=(
                     (
-                        {"branin": 34.76260622783635},
-                        {"branin": {"branin": 0.00028306433439807734}},
-                    ),
-                )
-            ),
-        ) as mock_model_best_point, self.assertLogs(
-            logger=best_point_logger, level="WARN"
-        ) as lg:
+                        exp.trials[0].arms[0],
+                        (
+                            {"branin": 34.76260622783635},
+                            {"branin": {"branin": 0.00028306433439807734}},
+                        ),
+                    )
+                ),
+            ) as mock_model_best_point,
+            self.assertLogs(logger=best_point_logger, level="WARN") as lg,
+        ):
             # Test bad model fit causes function to resort back to raw data
             with patch(
                 "ax.service.utils.best_point.assess_model_fit",
@@ -643,10 +643,13 @@ class TestBestPointUtils(TestCase):
             constraint.relative = True
 
         # Check errors.
-        with self.subTest("No fit with status quo"), self.assertRaisesRegex(
-            DataRequiredError,
-            "Optimization config has relative constraint, but model was not fit"
-            " with status quo.",
+        with (
+            self.subTest("No fit with status quo"),
+            self.assertRaisesRegex(
+                DataRequiredError,
+                "Optimization config has relative constraint, but model was not fit"
+                " with status quo.",
+            ),
         ):
             derelativize_opt_config(
                 optimization_config=input_optimization_config, experiment=exp
@@ -986,15 +989,18 @@ class TestBestPointUtils(TestCase):
                 mock_model_best_point.reset_mock()
 
             # Test 2: One metric has bad fit - should fallback to raw data
-            with self.assertLogs(logger=best_point_logger, level="WARN") as lg, patch(
-                "ax.service.utils.best_point.assess_model_fit",
-                return_value=AssessModelFitResult(
-                    good_fit_metrics_to_fisher_score={
-                        "branin": 0.8,
-                    },
-                    bad_fit_metrics_to_fisher_score={
-                        "distance_from_origin": 0.1,
-                    },
+            with (
+                self.assertLogs(logger=best_point_logger, level="WARN") as lg,
+                patch(
+                    "ax.service.utils.best_point.assess_model_fit",
+                    return_value=AssessModelFitResult(
+                        good_fit_metrics_to_fisher_score={
+                            "branin": 0.8,
+                        },
+                        bad_fit_metrics_to_fisher_score={
+                            "distance_from_origin": 0.1,
+                        },
+                    ),
                 ),
             ):
                 result = get_best_parameters_from_model_predictions_with_trial_index(
@@ -1015,14 +1021,17 @@ class TestBestPointUtils(TestCase):
                 mock_model_best_point.reset_mock()
 
             # Test 3: All metrics have bad fit - should fallback to raw data
-            with self.assertLogs(logger=best_point_logger, level="WARN") as lg, patch(
-                "ax.service.utils.best_point.assess_model_fit",
-                return_value=AssessModelFitResult(
-                    good_fit_metrics_to_fisher_score={},
-                    bad_fit_metrics_to_fisher_score={
-                        "branin": 0.1,
-                        "distance_from_origin": 0.2,
-                    },
+            with (
+                self.assertLogs(logger=best_point_logger, level="WARN") as lg,
+                patch(
+                    "ax.service.utils.best_point.assess_model_fit",
+                    return_value=AssessModelFitResult(
+                        good_fit_metrics_to_fisher_score={},
+                        bad_fit_metrics_to_fisher_score={
+                            "branin": 0.1,
+                            "distance_from_origin": 0.2,
+                        },
+                    ),
                 ),
             ):
                 result = get_best_parameters_from_model_predictions_with_trial_index(

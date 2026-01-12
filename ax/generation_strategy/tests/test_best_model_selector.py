@@ -9,7 +9,6 @@
 from unittest.mock import Mock, patch
 
 from ax.adapter.registry import Generators
-
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
@@ -91,12 +90,15 @@ class TestBestModelSelector(TestCase):
         )
         for ms in self.generator_specs:
             ms._fitted_adapter = Mock()
-        with patch(
-            "ax.generation_strategy.generator_spec.cross_validate",
-            return_value=Mock(),
-        ) as mock_cv, patch(
-            "ax.generation_strategy.generator_spec.compute_diagnostics",
-            side_effect=self.diagnostics,
+        with (
+            patch(
+                "ax.generation_strategy.generator_spec.cross_validate",
+                return_value=Mock(),
+            ) as mock_cv,
+            patch(
+                "ax.generation_strategy.generator_spec.compute_diagnostics",
+                side_effect=self.diagnostics,
+            ),
         ):
             # Max/mean picks index 2 since it has the largest mean (0.55 vs 0.1 & 0.2).
             self.assertIs(

@@ -362,10 +362,13 @@ class TestAxOrchestrator(TestCase):
 
     def test_validate_early_stopping_strategy(self) -> None:
         branin_gs = self.sobol_MBM_GS
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertRaises(ValueError):
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertRaises(ValueError),
+        ):
             Orchestrator(
                 experiment=self.branin_experiment,
                 generation_strategy=branin_gs,
@@ -539,15 +542,18 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        with patch.object(
-            Orchestrator,
-            "poll_and_process_results",
-            wraps=orchestrator.poll_and_process_results,
-        ) as mock_poll_and_process_results, patch.object(
-            Orchestrator,
-            "run_trials_and_yield_results",
-            wraps=orchestrator.run_trials_and_yield_results,
-        ) as mock_run_trials_and_yield_results:
+        with (
+            patch.object(
+                Orchestrator,
+                "poll_and_process_results",
+                wraps=orchestrator.poll_and_process_results,
+            ) as mock_poll_and_process_results,
+            patch.object(
+                Orchestrator,
+                "run_trials_and_yield_results",
+                wraps=orchestrator.run_trials_and_yield_results,
+            ) as mock_run_trials_and_yield_results,
+        ):
             manager = Mock()
             manager.attach_mock(
                 mock_poll_and_process_results, "poll_and_process_results"
@@ -1133,12 +1139,15 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         # All trials should be marked complete after one run.
-        with patch(
-            "ax.service.utils.early_stopping.should_stop_trials_early",
-            wraps=lambda trial_indices, **kwargs: dict.fromkeys(trial_indices),
-        ) as mock_should_stop_trials_early, patch.object(
-            InfinitePollRunner, "stop", return_value=None
-        ) as mock_stop_trial_run:
+        with (
+            patch(
+                "ax.service.utils.early_stopping.should_stop_trials_early",
+                wraps=lambda trial_indices, **kwargs: dict.fromkeys(trial_indices),
+            ) as mock_should_stop_trials_early,
+            patch.object(
+                InfinitePollRunner, "stop", return_value=None
+            ) as mock_stop_trial_run,
+        ):
             res_list = list(
                 orchestrator.run_trials_and_yield_results(max_trials=total_trials)
             )
@@ -1209,14 +1218,17 @@ class TestAxOrchestrator(TestCase):
             fetch_results.append(result)
             return result
 
-        with patch(
-            "ax.service.utils.early_stopping.should_stop_trials_early",
-            return_value={},
-        ) as mock_should_stop, patch.object(
-            orchestrator,
-            "_fetch_data_and_return_trial_indices_with_new_data",
-            side_effect=track_fetch_results,
-        ) as mock_fetch:
+        with (
+            patch(
+                "ax.service.utils.early_stopping.should_stop_trials_early",
+                return_value={},
+            ) as mock_should_stop,
+            patch.object(
+                orchestrator,
+                "_fetch_data_and_return_trial_indices_with_new_data",
+                side_effect=track_fetch_results,
+            ) as mock_fetch,
+        ):
             orchestrator.run_n_trials(max_trials=total_trials)
             # Calculate fetches with actual new data
             num_fetches_with_new_data = sum(1 for r in fetch_results if len(r) > 0)
@@ -1559,14 +1571,17 @@ class TestAxOrchestrator(TestCase):
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
         gs = orchestrator.generation_strategy
         gm = gs.gen
-        with patch(  # Record calls to functions, but still execute them.
-            self.PENDING_FEATURES_BATCH_EXTRACTOR[0],
-            side_effect=self.PENDING_FEATURES_BATCH_EXTRACTOR[1],
-        ) as mock_get_pending, patch.object(
-            gs,
-            "gen",
-            wraps=gm,
-        ) as mock_gen:
+        with (
+            patch(  # Record calls to functions, but still execute them.
+                self.PENDING_FEATURES_BATCH_EXTRACTOR[0],
+                side_effect=self.PENDING_FEATURES_BATCH_EXTRACTOR[1],
+            ) as mock_get_pending,
+            patch.object(
+                gs,
+                "gen",
+                wraps=gm,
+            ) as mock_gen,
+        ):
             orchestrator.run_n_trials(max_trials=1)
             mock_gen.assert_called_once()
             mock_get_pending.assert_called()
@@ -1633,20 +1648,25 @@ class TestAxOrchestrator(TestCase):
         self,
     ) -> None:
         gs = self.two_sobol_steps_GS
-        with patch(
-            f"{BraninTimestampMapMetric.__module__}.BraninTimestampMapMetric.f",
-            side_effect=[Exception("yikes!"), {"mean": 0, MAP_KEY: 12345}],
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.f",
-            side_effect=[Exception("yikes!"), 0],
-        ), patch(
-            f"{RunnerToAllowMultipleMapMetricFetches.__module__}."
-            "RunnerToAllowMultipleMapMetricFetches.poll_trial_status",
-            side_effect=[
-                {TrialStatus.RUNNING: {0}},
-                {TrialStatus.COMPLETED: {0}},
-            ],
-        ), self.assertLogs(logger="ax.orchestration.orchestrator", level="INFO") as lg:
+        with (
+            patch(
+                f"{BraninTimestampMapMetric.__module__}.BraninTimestampMapMetric.f",
+                side_effect=[Exception("yikes!"), {"mean": 0, MAP_KEY: 12345}],
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=[Exception("yikes!"), 0],
+            ),
+            patch(
+                f"{RunnerToAllowMultipleMapMetricFetches.__module__}."
+                "RunnerToAllowMultipleMapMetricFetches.poll_trial_status",
+                side_effect=[
+                    {TrialStatus.RUNNING: {0}},
+                    {TrialStatus.COMPLETED: {0}},
+                ],
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator", level="INFO") as lg,
+        ):
             orchestrator = Orchestrator(
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
@@ -1667,9 +1687,13 @@ class TestAxOrchestrator(TestCase):
         self,
     ) -> None:
         gs = self.two_sobol_steps_GS
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
-        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=Exception("yikes!"),
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             orchestrator = Orchestrator(
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
@@ -1701,12 +1725,17 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=Exception("yikes!"),
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)
@@ -1746,13 +1775,17 @@ class TestAxOrchestrator(TestCase):
         BraninMetric.recoverable_exceptions = {AxError, TypeError}
         # we're throwing a recoverable exception because UserInputError
         # is a subclass of AxError
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f",
-            side_effect=UserInputError("yikes!"),
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=UserInputError("yikes!"),
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             orchestrator.run_n_trials(max_trials=1)
         self.assertTrue(
             any(
@@ -1792,12 +1825,17 @@ class TestAxOrchestrator(TestCase):
         # we're throwing a unrecoverable exception because Exception is not subclass
         # of either error type in recoverable_exceptions
         BraninMetric.recoverable_exceptions = {AxError, TypeError}
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=Exception("yikes!"),
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)

@@ -196,9 +196,9 @@ class GenerationStrategy(Base):
         for backward compatibility.
         """
         node_names_for_all_steps = [step._name for step in self._nodes]
-        assert (
-            self._curr.name in node_names_for_all_steps
-        ), "The current step is not found in the list of steps"
+        assert self._curr.name in node_names_for_all_steps, (
+            "The current step is not found in the list of steps"
+        )
 
         return node_names_for_all_steps.index(self._curr.name)
 

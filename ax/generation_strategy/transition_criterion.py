@@ -11,10 +11,8 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING
 
 from ax.core import MultiObjectiveOptimizationConfig
-
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
-
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException

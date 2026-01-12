@@ -8,7 +8,6 @@ from typing import Any
 
 # backward compatibility
 from ax.core.data import MAP_KEY  # noqa F401
-
 from ax.exceptions.core import AxError
 
 

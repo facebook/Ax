@@ -780,9 +780,9 @@ class TorchAdapter(Adapter):
         if update_outcomes_and_parameters:
             self.outcomes = ordered_outcomes
         else:
-            assert (
-                ordered_outcomes == self.outcomes
-            ), f"Unexpected ordering of outcomes: {ordered_outcomes} != {self.outcomes}"
+            assert ordered_outcomes == self.outcomes, (
+                f"Unexpected ordering of outcomes: {ordered_outcomes} != {self.outcomes}"
+            )
         return datasets, candidate_metadata, search_space_digest
 
     def _fit(

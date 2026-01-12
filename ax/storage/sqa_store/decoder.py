@@ -226,8 +226,7 @@ class Decoder:
             runner = self.runner_from_sqa(runner_sqa=experiment_sqa.runners[0])
         else:
             raise ValueError(
-                "Multiple runners on experiment "
-                "only supported for MultiTypeExperiment."
+                "Multiple runners on experiment only supported for MultiTypeExperiment."
             )
 
         auxiliary_experiments_by_purpose = (
@@ -1286,8 +1285,7 @@ class Decoder:
     ) -> ObjectiveThreshold:
         if metric_sqa.bound is None:
             raise SQADecodeError(
-                "Cannot decode SQAMetric to ObjectiveThreshold because "
-                "bound is None."
+                "Cannot decode SQAMetric to ObjectiveThreshold because bound is None."
             )
 
         if metric_sqa.relative is None:

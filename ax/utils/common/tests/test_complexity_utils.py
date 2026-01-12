@@ -16,7 +16,6 @@ from ax.utils.common.complexity_utils import (
     OptimizationSummary,
     summarize_ax_optimization_complexity,
 )
-
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment,

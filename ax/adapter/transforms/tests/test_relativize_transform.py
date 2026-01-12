@@ -23,7 +23,6 @@ from ax.adapter.transforms.relativize import (
     RelativizeWithConstantControl,
     SelectiveRelativizeWithConstantControl,
 )
-
 from ax.core import BatchTrial
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment

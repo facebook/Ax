@@ -204,12 +204,13 @@ class SobolGeneratorTest(TestCase):
 
         rounding_func = mock.Mock(wraps=rounding_function)
 
-        with mock.patch(
-            "ax.generators.random.base.logger.warning"
-        ) as mock_logger, mock.patch(
-            "botorch.utils.sampling.sample_polytope",
-            wraps=sample_polytope,
-        ) as wrapped_sampler:
+        with (
+            mock.patch("ax.generators.random.base.logger.warning") as mock_logger,
+            mock.patch(
+                "botorch.utils.sampling.sample_polytope",
+                wraps=sample_polytope,
+            ) as wrapped_sampler,
+        ):
             generated_points, _ = generator.gen(
                 n=3,
                 search_space_digest=ssd,

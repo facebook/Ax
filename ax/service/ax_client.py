@@ -734,7 +734,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index, raw_data=raw_data
         )
-        logger.info(f"Updated trial {trial_index} with data: " f"{data_update_repr}.")
+        logger.info(f"Updated trial {trial_index} with data: {data_update_repr}.")
 
     def complete_trial(
         self,
@@ -774,7 +774,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index, raw_data=raw_data, complete_trial=True
         )
-        logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
+        logger.info(f"Completed trial {trial_index} with data: {data_update_repr}.")
 
     def log_trial_failure(
         self, trial_index: int, metadata: dict[str, str] | None = None

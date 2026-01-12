@@ -1031,8 +1031,7 @@ class DerivedParameterTest(TestCase):
                 )
         with self.assertRaisesRegex(
             UserInputError,
-            "Derived parameters must have at least one parameter in "
-            "`expression_str`.",
+            "Derived parameters must have at least one parameter in `expression_str`.",
         ):
             DerivedParameter(
                 name="x",
@@ -1115,8 +1114,7 @@ class DerivedParameterTest(TestCase):
         self.assertEqual(self.param1.parameter_names_to_weights, {"c": 5.0})
         with self.assertRaisesRegex(
             UserInputError,
-            "Derived parameters must have at least one parameter in "
-            "`expression_str`.",
+            "Derived parameters must have at least one parameter in `expression_str`.",
         ):
             self.param1.set_expression_str(expression_str="1.0")
 

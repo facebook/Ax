@@ -61,8 +61,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
         )
         with self.assertRaisesRegex(
             ValueError,
-            "All repeated arms with noiseless measurements "
-            "must have the same means.",
+            "All repeated arms with noiseless measurements must have the same means.",
         ):
             MergeRepeatedMeasurements(experiment_data=experiment_data)
         # test noiseless, same means

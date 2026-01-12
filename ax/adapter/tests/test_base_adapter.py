@@ -619,10 +619,13 @@ class BaseAdapterTest(TestCase):
                 # Fetch constraint metric an additional time. This will lead to two
                 # separate observations for the status quo arm.
                 exp.fetch_data(metrics=[exp.metrics["branin_map_constraint"]])
-            with self.assertNoLogs(logger=logger, level="WARN"), mock.patch(
-                "ax.adapter.base._combine_multiple_status_quo_observations",
-                wraps=_combine_multiple_status_quo_observations,
-            ) as mock_combine:
+            with (
+                self.assertNoLogs(logger=logger, level="WARN"),
+                mock.patch(
+                    "ax.adapter.base._combine_multiple_status_quo_observations",
+                    wraps=_combine_multiple_status_quo_observations,
+                ) as mock_combine,
+            ):
                 adapter = Adapter(
                     experiment=exp,
                     generator=Generator(),
@@ -660,9 +663,12 @@ class BaseAdapterTest(TestCase):
             )
 
         # Case 2: Experiment has an optimization config with no map metrics
-        with mock.patch(
-            "ax.adapter.base.has_map_metrics", return_value=False
-        ) as mock_extract, self.assertLogs(logger=logger, level="WARN") as mock_logs:
+        with (
+            mock.patch(
+                "ax.adapter.base.has_map_metrics", return_value=False
+            ) as mock_extract,
+            self.assertLogs(logger=logger, level="WARN") as mock_logs,
+        ):
             adapter = Adapter(
                 experiment=exp,
                 generator=Generator(),
@@ -1109,9 +1115,10 @@ class BaseAdapterTest(TestCase):
         self.assertTrue(np.allclose(f["m1"], np.ones(3) * 2.0))
 
         # Test for error if an observation is dropped.
-        with mock.patch.object(
-            adapter, "_predict", side_effect=mock_predict
-        ), self.assertRaisesRegex(ModelError, "Predictions resulted in fewer"):
+        with (
+            mock.patch.object(adapter, "_predict", side_effect=mock_predict),
+            self.assertRaisesRegex(ModelError, "Predictions resulted in fewer"),
+        ):
             adapter.predict(
                 observation_features=[
                     ObservationFeatures(parameters={"x": 3.0, "y": 4.0}),

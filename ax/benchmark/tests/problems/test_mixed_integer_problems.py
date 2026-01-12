@@ -10,7 +10,6 @@ from unittest.mock import patch
 import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
-
 from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_ackley,
     get_discrete_hartmann,
