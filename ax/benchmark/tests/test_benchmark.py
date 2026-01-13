@@ -995,6 +995,21 @@ class TestBenchmark(TestCase):
                 problem=problem, dict_of_dict_of_params={0: {}}
             )
 
+        with self.subTest("custom noise is ignored for noiseless oracle"):
+            problem_with_custom_noise = dataclasses.replace(
+                problem,
+                test_function=dataclasses.replace(
+                    problem.test_function,
+                    add_custom_noise=lambda df, *args: df.assign(mean=999.0, sem=0.0),
+                ),
+            )
+            oracle_exp = get_oracle_experiment_from_params(
+                problem=problem_with_custom_noise,
+                dict_of_dict_of_params={0: {"0": near_opt_params}},
+            )
+            df = oracle_exp.fetch_data().df
+            self.assertAlmostEqual(df["mean"].iloc[0], Branin._optimal_value, places=5)
+
     def _test_multi_fidelity_or_multi_task(
         self, fidelity_or_task: Literal["fidelity", "task"]
     ) -> None:
