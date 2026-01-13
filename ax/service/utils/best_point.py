@@ -8,6 +8,7 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
+from copy import copy
 from logging import Logger
 
 import numpy as np
@@ -18,11 +19,6 @@ from ax.adapter.adapter_utils import (
     predicted_pareto_frontier as predicted_pareto,
 )
 from ax.adapter.base import Adapter
-from ax.adapter.cross_validation import (
-    assess_model_fit,
-    compute_diagnostics,
-    cross_validate,
-)
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.derelativize import Derelativize
@@ -44,7 +40,6 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.plot.pareto_utils import get_tensor_converter_adapter
 from ax.utils.common.logger import get_logger
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
-from numpy import nan
 from numpy.typing import NDArray
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -238,8 +233,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
     and its ``predict`` method (if implemented). If ``adapter`` is not a
     ``TorchAdapter``, the best point is extracted from the (first) generator run
     of the latest trial. If the latest trial doesn't have a generator run, returns
-    None. If the model fit assessment returns bad fit for any of the metrics, this
-    will fall back to returning the best point based on raw observations.
+    None.
 
     TModelPredictArm is of the form:
         ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
@@ -268,10 +262,51 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             "multi-objective optimization configs. This method will return an "
             "arbitrary point on the pareto frontier."
         )
-    gr = None
     data = experiment.lookup_data(trial_indices=trial_indices)
-    # Extract the latest GR from the experiment.
-    for _, trial in sorted(experiment.trials.items(), key=lambda x: x[0], reverse=True):
+
+    # 1. If the adapter is a TorchAdapter, use it to get best points
+    if isinstance(adapter, TorchAdapter):
+        use_subset_of_data = trial_indices is not None and trial_indices != list(
+            experiment.trials.keys()
+        )
+        if use_subset_of_data:
+            # get the adapter for the subset of data that we have access to for
+            # best point prediction
+            available_trial_observations, search_space = (
+                adapter._process_and_transform_data(experiment=experiment, data=data)
+            )
+            best_point_adapter = copy(adapter)
+            best_point_adapter._fit_if_implemented(
+                search_space=search_space,
+                experiment_data=available_trial_observations,
+                time_so_far=0.0,
+            )
+        else:
+            best_point_adapter = adapter
+
+        res = best_point_adapter.model_best_point()
+        # Check if that fails
+        if res is not None:
+            best_arm, best_arm_predictions = res
+            # Map the arm to the trial index of the first trial that contains it.
+            for trial_index, trial in experiment.trials.items():
+                if best_arm in trial.arms:
+                    return (
+                        trial_index,
+                        none_throws(best_arm).parameters,
+                        best_arm_predictions,
+                    )
+
+    # 2. Otherwise, _extract_best_arm_from_gr (fallback)
+    # Extract the latest generator run from the experiment
+    gr = None
+    if trial_indices is not None:
+        filtered_trials = {
+            k: v for k, v in experiment.trials.items() if k in trial_indices
+        }
+    else:
+        filtered_trials = experiment.trials
+    for _, trial in sorted(filtered_trials.items(), key=lambda x: x[0], reverse=True):
         if isinstance(trial, Trial):
             gr = trial.generator_run
         elif isinstance(trial, BatchTrial):
@@ -286,70 +321,9 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             return None
         return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
-    # Check to see if the adapter is worth using.
-    cv_results = cross_validate(adapter=adapter)
-    diagnostics = compute_diagnostics(result=cv_results)
-    assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
-
-    # For ScalarizedObjective, check model fit for all component metrics
-    # For regular Objective, check model fit for the single objective metric
-    if isinstance(optimization_config.objective, ScalarizedObjective):
-        objective_metric_names = [
-            metric.name for metric in optimization_config.objective.metrics
-        ]
-    else:
-        objective_metric_names = [optimization_config.objective.metric.name]
-
-    # If model fit is bad for any objective metric, use raw results
-    bad_fit_objective_metrics = [
-        name
-        for name in objective_metric_names
-        if name in assess_model_fit_results.bad_fit_metrics_to_fisher_score
-    ]
-
-    if bad_fit_objective_metrics:
-        logger.warning(
-            f"Model fit is poor for objective metric(s) {bad_fit_objective_metrics}; "
-            "falling back on raw data for best point."
-        )
-
-        # Check if any of the objective metrics are noisy
-        noisy_metrics = [
-            name
-            for name in bad_fit_objective_metrics
-            if not _is_all_noiseless(df=data.df, metric_name=name)
-        ]
-        if noisy_metrics:
-            logger.warning(
-                f"Model fit is poor and data on objective metric(s) "
-                f"{noisy_metrics} is noisy; interpret best points "
-                "results carefully."
-            )
-
-        return get_best_by_raw_objective_with_trial_index(
-            experiment=experiment,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-        )
-
-    res = adapter.model_best_point()
-    if res is None:
-        if gr is None:
-            return None
-        return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
-
-    best_arm, best_arm_predictions = res
-
-    # Map the arm to the trial index of the first trial that contains it.
-    for trial_index, trial in experiment.trials.items():
-        if best_arm in trial.arms:
-            return (
-                trial_index,
-                none_throws(best_arm).parameters,
-                best_arm_predictions,
-            )
-
-    return None
+    if gr is None:
+        return None
+    return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
 
 def get_best_by_raw_objective_with_trial_index(
@@ -630,17 +604,6 @@ def is_row_feasible(
         df["arm_name"].apply(tag_feasible_arms),
         pd.Series,
     )
-
-
-def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
-    """Noiseless is defined as SEM = 0 or SEM = NaN on a given metric (usually
-    the objective).
-    """
-
-    name_mask = df["metric_name"] == metric_name
-    df_metric_arms_sems = df[name_mask]["sem"]
-
-    return ((df_metric_arms_sems == 0) | df_metric_arms_sems == nan).all()
 
 
 def get_values_of_outcomes_single_or_scalarized_objective(
