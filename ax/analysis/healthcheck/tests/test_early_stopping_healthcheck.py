@@ -325,7 +325,8 @@ class TestEarlyStoppingAnalysis(TestCase):
         with self.subTest("basic_nudge"):
             with (
                 patch(
-                    "ax.analysis.healthcheck.early_stopping_healthcheck.replay_experiment",
+                    "ax.analysis.healthcheck.early_stopping_healthcheck."
+                    "replay_experiment",
                     return_value=object(),
                 ),
                 patch(
