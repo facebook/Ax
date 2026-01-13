@@ -781,7 +781,8 @@ class TorchAdapter(Adapter):
             self.outcomes = ordered_outcomes
         else:
             assert ordered_outcomes == self.outcomes, (
-                f"Unexpected ordering of outcomes: {ordered_outcomes} != {self.outcomes}"
+                f"Unexpected ordering of outcomes: {ordered_outcomes} != "
+                f"{self.outcomes}"
             )
         return datasets, candidate_metadata, search_space_digest
 
