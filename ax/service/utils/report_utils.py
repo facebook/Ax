@@ -871,16 +871,12 @@ def exp_to_df(
         df=arms_df, trials_dict=trial_to_status, column_name="trial_status"
     )
 
-    # Add trial reason for failed or abandoned trials
+    # Add trial status reason for failed, abandoned, or early stopped trials
     trial_to_reason = {
         index: (
-            f"{trial.failed_reason[:15]}..."
-            if trial.status.is_failed and trial.failed_reason is not None
-            else (
-                f"{trial.abandoned_reason[:15]}..."
-                if trial.status.is_abandoned and trial.abandoned_reason is not None
-                else None
-            )
+            f"{trial.status_reason[:15]}..."
+            if trial.status_reason is not None
+            else None
         )
         for index, trial in trials
     }

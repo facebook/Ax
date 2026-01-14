@@ -102,7 +102,6 @@ def batch_trial_from_json(
     time_completed: datetime | None,
     time_staged: datetime | None,
     time_run_started: datetime | None,
-    abandoned_reason: str | None,
     run_metadata: dict[str, Any] | None,
     generator_runs: list[GeneratorRun],
     runner: Runner | None,
@@ -112,6 +111,8 @@ def batch_trial_from_json(
     status_quo: Arm | None,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
+    status_reason: str | None = None,
+    abandoned_reason: str | None = None,
     failed_reason: str | None = None,
     ttl_seconds: int | None = None,
     generation_step_index: int | None = None,
@@ -141,8 +142,9 @@ def batch_trial_from_json(
     batch._time_completed = time_completed
     batch._time_staged = time_staged
     batch._time_run_started = time_run_started
-    batch._abandoned_reason = abandoned_reason
-    batch._failed_reason = failed_reason
+    # Backward compatibility: use status_reason if available, otherwise fall back
+    # to abandoned_reason or failed_reason
+    batch._status_reason = status_reason or abandoned_reason or failed_reason
     batch._run_metadata = run_metadata or {}
     batch._stop_metadata = stop_metadata or {}
     batch._generator_runs = generator_runs
@@ -172,13 +174,14 @@ def trial_from_json(
     time_completed: datetime | None,
     time_staged: datetime | None,
     time_run_started: datetime | None,
-    abandoned_reason: str | None,
     run_metadata: dict[str, Any] | None,
     generator_run: GeneratorRun,
     runner: Runner | None,
     num_arms_created: int,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
+    status_reason: str | None = None,
+    abandoned_reason: str | None = None,
     failed_reason: str | None = None,
     ttl_seconds: int | None = None,
     generation_step_index: int | None = None,
@@ -205,8 +208,9 @@ def trial_from_json(
     trial._time_completed = time_completed
     trial._time_staged = time_staged
     trial._time_run_started = time_run_started
-    trial._abandoned_reason = abandoned_reason
-    trial._failed_reason = failed_reason
+    # Backward compatibility: use status_reason if available, otherwise fall back
+    # to abandoned_reason or failed_reason
+    trial._status_reason = status_reason or abandoned_reason or failed_reason
     trial._run_metadata = run_metadata or {}
     trial._stop_metadata = stop_metadata or {}
     trial._num_arms_created = num_arms_created

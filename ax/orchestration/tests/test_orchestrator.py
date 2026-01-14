@@ -1635,14 +1635,14 @@ class TestAxOrchestrator(TestCase):
         )[0]
 
         self.assertEqual(
-            orchestrator.experiment.trials[failed_idx]._failed_reason,
+            orchestrator.experiment.trials[failed_idx].status_reason,
             DUMMY_EXCEPTION,
         )
         self.assertEqual(
-            orchestrator.experiment.trials[abandoned_idx]._abandoned_reason,
+            orchestrator.experiment.trials[abandoned_idx].status_reason,
             DUMMY_EXCEPTION,
         )
-        self.assertIsNone(orchestrator.experiment.trials[completed_idx]._failed_reason)
+        self.assertIsNone(orchestrator.experiment.trials[completed_idx].status_reason)
 
     def test_fetch_and_process_trials_data_results_failed_objective_available_while_running(  # noqa
         self,

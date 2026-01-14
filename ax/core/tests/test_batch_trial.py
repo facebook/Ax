@@ -314,7 +314,7 @@ class BatchTrialTest(TestCase):
 
         self.assertEqual(self.batch.status, TrialStatus.ABANDONED)
         self.assertIsNotNone(self.batch.time_completed)
-        self.assertEqual(self.batch.abandoned_reason, reason)
+        self.assertEqual(self.batch.status_reason, reason)
 
     def test_FailedBatchTrial(self) -> None:
         self.experiment.runner = SyntheticRunner()
