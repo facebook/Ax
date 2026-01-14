@@ -38,7 +38,7 @@ TArmTrial = tuple[str, int]
 
 # Threshold for switching to pending points extraction based on trial status.
 MANY_TRIALS_IN_EXPERIMENT = 100
-TRIAL_STALE_THRESHOLD_DAYS = 10
+OLD_TRIAL_THRESHOLD_DAYS = 10
 
 # --------------------------- Data integrity utils. ---------------------------
 
@@ -567,27 +567,28 @@ def get_target_trial_index(
     if len(sorted_running_trials) > 0:
         return sorted_running_trials[0].index
 
-    # Priority 3: the longest running trial with data. At this point all valid trials
-    # are non-running because we would have returned above otherwise.
-    stale_threshold = datetime.now() - timedelta(days=TRIAL_STALE_THRESHOLD_DAYS)
-    non_stale_trial_indices = set()
-    for trial_idx in valid_trial_indices:
-        trial = experiment.trials[trial_idx]
-        if trial.time_completed is None or trial.time_completed >= stale_threshold:
-            non_stale_trial_indices.add(trial_idx)
-
-    # if all trials are stale fallback to using stale trials instead of nothing
-    if len(non_stale_trial_indices) == 0 and len(valid_trial_indices) > 0:
-        non_stale_trial_indices = valid_trial_indices
-
-    non_running_trials_with_data = [
-        experiment.trials[i] for i in non_stale_trial_indices
+    # Priority 3: select from non-running trials with data, excluding:
+    # - trials that were failed/abandoned/early stopped, likely indicating a problem
+    # with the trial and therefore should not be selected as the target trial
+    # - old trials completed > 10 days ago (unless all are old)
+    valid_completed_trials = [
+        experiment.trials[idx]
+        for idx in valid_trial_indices
+        if experiment.trials[idx].status == TrialStatus.COMPLETED
     ]
-    sorted_non_running_trials_with_data = _sort_trials(
-        trials=non_running_trials_with_data, trials_are_running=False
-    )
-    if len(sorted_non_running_trials_with_data) > 0:
-        return sorted_non_running_trials_with_data[0].index
+
+    old_threshold = datetime.now() - timedelta(days=OLD_TRIAL_THRESHOLD_DAYS)
+    non_old_trials = [
+        trial
+        for trial in valid_completed_trials
+        if trial.time_completed is None or trial.time_completed >= old_threshold
+    ]
+    if non_old_trials:
+        return _sort_trials(trials=non_old_trials, trials_are_running=False)[0].index
+    elif valid_completed_trials:
+        return _sort_trials(trials=valid_completed_trials, trials_are_running=False)[
+            0
+        ].index
 
     return None
 

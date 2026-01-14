@@ -778,6 +778,7 @@ class UtilsTest(TestCase):
         self.assertIsNone(get_target_trial_index(experiment=experiment))
         # Add data to SQ.
         trial = experiment.new_trial().add_arm(experiment.status_quo)
+        trial.mark_running(no_runner_required=True)
         experiment.attach_data(get_branin_data(trials=[trial]))
         self.assertEqual(get_target_trial_index(experiment=experiment), trial.index)
 
@@ -915,3 +916,40 @@ class UtilsTest(TestCase):
                     )
                 )
             )
+
+    def test_get_target_trial_index_only_selects_completed_trials(self) -> None:
+        # should return None since the only trial with data is failed
+        failed_trial = (
+            self.batch_experiment.new_batch_trial()
+            .add_arm(self.batch_experiment.status_quo)
+            .mark_running(no_runner_required=True)
+        )
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=failed_trial))
+        failed_trial.mark_failed()
+        self.assertIsNone(get_target_trial_index(experiment=self.batch_experiment))
+
+        # should return the completed trial, not the failed one
+        completed_trial = (
+            self.batch_experiment.new_batch_trial()
+            .add_arm(self.batch_experiment.status_quo)
+            .mark_running(no_runner_required=True)
+        )
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=completed_trial))
+        completed_trial.mark_completed(unsafe=True)
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment),
+            completed_trial.index,
+        )
+
+        # should return the completed trial, not the failed or abandoned ones
+        abandoned_trial = (
+            self.batch_experiment.new_batch_trial()
+            .add_arm(self.batch_experiment.status_quo)
+            .mark_running(no_runner_required=True)
+        )
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=abandoned_trial))
+        abandoned_trial.mark_abandoned()
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment),
+            completed_trial.index,
+        )
