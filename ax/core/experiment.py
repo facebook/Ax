@@ -1418,10 +1418,8 @@ class Experiment(Base):
                 )
                 # Attach updated data to new trial on experiment.
                 self.attach_data(data=Data(df=new_df))
-            if trial.status == TrialStatus.ABANDONED:
-                new_trial.mark_abandoned(reason=trial.abandoned_reason)
-            elif trial.status is not TrialStatus.RUNNING:
-                new_trial.mark_as(trial.status)
+            if trial.status is not TrialStatus.RUNNING:
+                new_trial.mark_as(trial.status, reason=trial.status_reason)
             copied_trials.append(new_trial)
 
         if self._name is not None:

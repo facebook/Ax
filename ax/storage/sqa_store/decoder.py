@@ -998,8 +998,7 @@ class Decoder:
         trial._time_completed = trial_sqa.time_completed
         trial._time_staged = trial_sqa.time_staged
         trial._time_run_started = trial_sqa.time_run_started
-        trial._abandoned_reason = trial_sqa.abandoned_reason
-        trial._failed_reason = trial_sqa.failed_reason
+        trial._status_reason = trial_sqa.abandoned_reason or trial_sqa.failed_reason
         # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
         #  `Optional[Dict[str, Any]]`.
         # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as

@@ -360,11 +360,11 @@ class UtilsTest(TestCase):
         self.assertEqual(trial.status, TrialStatus.FAILED)
 
         # Check that the failure reason contains information about missing metrics
-        self.assertIsNotNone(trial.failed_reason)
+        self.assertIsNotNone(trial.status_reason)
 
         self.assertTrue(
-            "missing" in trial.failed_reason,
-            f"Expected 'missing' in failure reason, but got: {trial.failed_reason}",
+            "missing" in trial.status_reason,
+            f"Expected 'missing' in failure reason, but got: {trial.status_reason}",
         )
 
         with self.subTest("Test with no opt config"):

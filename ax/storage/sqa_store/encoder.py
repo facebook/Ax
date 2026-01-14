@@ -1011,8 +1011,8 @@ class Encoder:
         trial_class: SQATrial = self.config.class_to_sqa_class[Trial]
         trial_sqa = trial_class(  # pyre-fixme[29]: `SQATrial` is not a function.
             id=trial.db_id,
-            abandoned_reason=trial.abandoned_reason,
-            failed_reason=trial.failed_reason,
+            # NOTE: Using the old column here since SQA will soon get refactored.
+            failed_reason=trial.status_reason,
             deployed_name=trial.deployed_name,
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),

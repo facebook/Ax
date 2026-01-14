@@ -121,8 +121,7 @@ class BaseTrial(ABC, SortableBase):
         self._time_staged: datetime | None = None
         self._time_run_started: datetime | None = None
 
-        self._abandoned_reason: str | None = None
-        self._failed_reason: str | None = None
+        self._status_reason: str | None = None
         self._run_metadata: dict[str, Any] = {}
         self._stop_metadata: dict[str, Any] = {}
 
@@ -544,12 +543,9 @@ class BaseTrial(ABC, SortableBase):
         return self._status == TrialStatus.ABANDONED
 
     @property
-    def abandoned_reason(self) -> str | None:
-        return self._abandoned_reason
-
-    @property
-    def failed_reason(self) -> str | None:
-        return self._failed_reason
+    def status_reason(self) -> str | None:
+        """Reason string for the trial status (failed, abandoned, or early stopped)."""
+        return self._status_reason
 
     def mark_staged(self, unsafe: bool = False) -> BaseTrial:
         """Mark the trial as being staged for running.
@@ -646,7 +642,7 @@ class BaseTrial(ABC, SortableBase):
 
         if reason is not None and len(reason) > MAX_ABANDONED_REASON_LENGTH:
             reason = reason[:MAX_ABANDONED_REASON_LENGTH] + "..."
-        self._abandoned_reason = reason
+        self._status_reason = reason
         self._status = TrialStatus.ABANDONED
         self._time_completed = datetime.now()
         return self
@@ -664,15 +660,18 @@ class BaseTrial(ABC, SortableBase):
                 "Can only mark failed a trial that is currently running."
             )
 
-        self._failed_reason = reason
+        self._status_reason = reason
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
         return self
 
-    def mark_early_stopped(self, unsafe: bool = False) -> BaseTrial:
+    def mark_early_stopped(
+        self, reason: str | None = None, unsafe: bool = False
+    ) -> BaseTrial:
         """Mark trial as early stopped.
 
         Args:
+            reason: The reason the trial was early stopped.
             unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
@@ -689,6 +688,7 @@ class BaseTrial(ABC, SortableBase):
                     "abandoned instead."
                 )
 
+        self._status_reason = reason
         self._status = TrialStatus.EARLY_STOPPED
         self._time_completed = datetime.now()
         return self
@@ -740,7 +740,7 @@ class BaseTrial(ABC, SortableBase):
         elif status == TrialStatus.COMPLETED:
             self.mark_completed(unsafe=unsafe)
         elif status == TrialStatus.EARLY_STOPPED:
-            self.mark_early_stopped(unsafe=unsafe)
+            self.mark_early_stopped(reason=kwargs.get("reason"), unsafe=unsafe)
         elif status == TrialStatus.STALE:
             self.mark_stale(unsafe=unsafe)
         else:
@@ -895,17 +895,6 @@ class BaseTrial(ABC, SortableBase):
         # Set status and reason accordingly.
         if self.status == TrialStatus.CANDIDATE:
             return
-        if self.status == TrialStatus.STAGED:
-            new_trial.mark_staged()
-            return
-        # Other statuses require the state first be set to `RUNNING`.
-        new_trial.mark_running(no_runner_required=True, unsafe=True)
-        if self.status == TrialStatus.RUNNING:
-            return
-        if self.status == TrialStatus.ABANDONED:
-            new_trial.mark_abandoned(reason=self.abandoned_reason)
-            return
-        if self.status == TrialStatus.FAILED:
-            new_trial.mark_failed(reason=self.failed_reason)
-            return
-        new_trial.mark_as(self.status, unsafe=True)
+        new_trial.mark_as(
+            self.status, reason=self.status_reason, no_runner_required=True, unsafe=True
+        )

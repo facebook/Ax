@@ -179,7 +179,7 @@ class TrialTest(TestCase):
             self.assertTrue(trial.status.is_abandoned)
             self.assertFalse(trial.status.is_failed)
             self.assertTrue(trial.did_not_complete)
-            self.assertEqual(trial.abandoned_reason, stored_reason)
+            self.assertEqual(trial.status_reason, stored_reason)
 
     def test_failed(self) -> None:
         fail_reason = "testing"
@@ -189,7 +189,7 @@ class TrialTest(TestCase):
 
         self.assertTrue(self.trial.status.is_failed)
         self.assertTrue(self.trial.did_not_complete)
-        self.assertEqual(self.trial.failed_reason, fail_reason)
+        self.assertEqual(self.trial.status_reason, fail_reason)
 
     def test_staleness(self) -> None:
         # Test that only candidate trials can be marked as stale
@@ -259,11 +259,9 @@ class TrialTest(TestCase):
                 self.assertTrue(self.trial.status == status)
 
                 if status == TrialStatus.ABANDONED:
-                    self.assertEqual(self.trial.abandoned_reason, "test_reason_abandon")
-                    self.assertIsNone(self.trial.failed_reason)
+                    self.assertEqual(self.trial.status_reason, "test_reason_abandon")
                 elif status == TrialStatus.FAILED:
-                    self.assertEqual(self.trial.failed_reason, "test_reason_failed")
-                    self.assertIsNone(self.trial.abandoned_reason)
+                    self.assertEqual(self.trial.status_reason, "test_reason_failed")
 
                 if status != TrialStatus.RUNNING:
                     self.assertTrue(self.trial.status.is_terminal)
@@ -477,7 +475,7 @@ class TrialTest(TestCase):
             TrialStatus.ABANDONED,
             TrialStatus.STALE,
         ]:
-            self.trial._failed_reason = self.trial._abandoned_reason = None
+            self.trial._status_reason = None
             if status != TrialStatus.CANDIDATE:
                 self.trial.mark_as(
                     status=status, unsafe=True, no_runner_required=True, reason="test"
@@ -487,6 +485,7 @@ class TrialTest(TestCase):
             test_trial._index = self.trial.index
             test_trial._time_created = self.trial._time_created
             test_trial._time_staged = self.trial._time_staged
+            test_trial._time_run_started = self.trial._time_run_started
             self.assertEqual(self.trial, test_trial)
 
     def test_mark_complete_custom_date(self) -> None:

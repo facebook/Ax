@@ -701,7 +701,7 @@ class TestClient(TestCase):
             TrialStatus.FAILED,
         )
         self.assertEqual(
-            client._experiment.trials[trial_index]._failed_reason,
+            client._experiment.trials[trial_index].status_reason,
             "testing the optional parameter",
         )
 
