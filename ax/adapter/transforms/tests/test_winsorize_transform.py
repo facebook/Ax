@@ -535,7 +535,13 @@ class WinsorizeTransformTest(TestCase):
                         "trial_index": t.index,
                         "metric_signature": metric_name,
                     }
-                    for metric_name, mean, sem in (("a", 1.0, 2.0), ("b", 2.0, 4.0))
+                    # Needs data for all metrics in opt config to identify target
+                    # trial for transforms
+                    for metric_name, mean, sem in (
+                        ("a", 1.0, 2.0),
+                        ("b", 2.0, 4.0),
+                        ("c", 3.0, 1.0),
+                    )
                 ]
             )
         )
@@ -553,7 +559,7 @@ class WinsorizeTransformTest(TestCase):
                 adapter=adapter,
             )
         self.assertDictEqual(
-            t.cutoffs, {"a": (-INF, INF), "b": (-INF, INF), "c": (0.5, INF)}
+            t.cutoffs, {"a": (-INF, INF), "b": (-INF, INF), "c": (-3.25, INF)}
         )
         # Winsorizes with `derelativize_with_raw_status_quo`.
         t = Winsorize(
@@ -563,7 +569,7 @@ class WinsorizeTransformTest(TestCase):
             config={"derelativize_with_raw_status_quo": True},
         )
         self.assertDictEqual(
-            t.cutoffs, {"a": (-INF, 4.25), "b": (-INF, 4.25), "c": (0.5, INF)}
+            t.cutoffs, {"a": (-INF, 4.25), "b": (-INF, 4.25), "c": (-3.25, INF)}
         )
 
     def test_transform_experiment_data(self) -> None:

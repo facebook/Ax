@@ -321,7 +321,6 @@ class TestEarlyStoppingAnalysis(TestCase):
     def test_hypothetical_savings_nudge(self) -> None:
         """Test hypothetical savings reporting via the nudge path."""
         healthcheck = EarlyStoppingAnalysis(early_stopping_strategy=None)
-
         with self.subTest("basic_nudge"):
             with (
                 patch(

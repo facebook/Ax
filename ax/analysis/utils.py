@@ -170,7 +170,10 @@ def prepare_arm_data(
     # Compute the trial index of the target trial both to pass as a fixed feature
     # during prediction if using model predictions, and to relativize against the
     # status quo arm from the target trial if relativizing.
-    target_trial_index = get_target_trial_index(experiment=experiment)
+    target_trial_index = get_target_trial_index(
+        experiment=experiment,
+        require_data_for_all_metrics=True,
+    )
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
