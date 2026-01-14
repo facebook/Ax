@@ -29,6 +29,7 @@ from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
@@ -246,12 +247,16 @@ class ResultsAnalysis(Analysis):
             adapter=adapter,
         )
 
-        # Compute progression plots for MapMetrics (learning curves)
+        # Compute progression plots if there is curve data.
         progression_group = None
         data = experiment.lookup_data()
         metrics = experiment.metrics.values()
         map_metrics = [m for m in metrics if isinstance(m, MapMetric)]
-        if data.has_step_column and len(map_metrics) > 0:
+        if (
+            data.has_step_column
+            and data.full_df[MAP_KEY].notna().any()
+            and len(map_metrics) > 0
+        ):
             progression_cards = [
                 ProgressionPlot(
                     metric_name=m.name, by_wallclock_time=by_wallclock_time
