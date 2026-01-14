@@ -17,11 +17,14 @@ from math import inf
 from typing import Any, cast, Union
 from warnings import warn
 
+import numpy as np
+import numpy.typing as npt
 from ax.core.types import TNumeric, TParameterization, TParamValue
 from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.string_utils import sanitize_name, unsanitize_name
+from pandas import DataFrame as PandasDataFrame
 from pyre_extensions import assert_is_instance, none_throws
 from scipy.special import expit, logit
 from sympy.core.add import Add
@@ -120,6 +123,22 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
         Returns:
             True if valid, False otherwise.
+        """
+
+    @abstractmethod
+    def validate_array(
+        self,
+        values: npt.NDArray,
+    ) -> npt.NDArray:
+        """Vectorized validation for a NumPy array of values.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of values to validate.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
         """
 
     @abstractmethod
@@ -591,6 +610,27 @@ class RangeParameter(Parameter):
 
         return True
 
+    def validate_array(
+        self,
+        values: npt.NDArray,
+        tol: float = EPS,
+    ) -> npt.NDArray:
+        """Vectorized validation for RangeParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+        NaN values are considered invalid, consistent with the validate() method.
+
+        Args:
+            values: A NumPy array of values to validate.
+            tol: Absolute tolerance for floating point comparisons.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        # Vectorized bounds check with tolerance
+        # NaN comparisons naturally return False, so NaN values are invalid
+        return (values >= self.lower - tol) & (values <= self.upper + tol)
+
     def is_valid_type(self, value: TParamValue) -> bool:
         """Same as default except allows floats whose value is an int
         for Int parameters.
@@ -975,6 +1015,24 @@ class ChoiceParameter(Parameter):
             )
         return is_valid
 
+    def validate_array(
+        self,
+        values: npt.NDArray,
+    ) -> npt.NDArray:
+        """Vectorized validation for ChoiceParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of values to validate.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        # np.isin works with any dtype including strings
+        # None values naturally return False since None isn't in self._values
+        return np.isin(values, np.array(self._values, dtype=object))
+
     @property
     def dependents(self) -> dict[TParamValue, list[str]]:
         if not self.is_hierarchical:
@@ -1130,6 +1188,24 @@ class FixedParameter(Parameter):
                 f"Value {value} is not equal to the fixed value: {self._value}."
             )
         return is_valid
+
+    def validate_array(
+        self,
+        values: npt.NDArray,
+    ) -> npt.NDArray:
+        """Vectorized validation for FixedParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of values to validate.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        # Vectorized equality check
+        # None values naturally return False since None != self._value
+        return np.asarray(values == self._value)
 
     @property
     def dependents(self) -> dict[TParamValue, list[str]]:
@@ -1389,6 +1465,48 @@ class DerivedParameter(Parameter):
                 f" value: {expected_value}."
             )
         return is_valid
+
+    def compute_array(self, df: PandasDataFrame) -> npt.NDArray:
+        """Compute the derived parameter value for all rows in a DataFrame.
+
+        Args:
+            df: A DataFrame containing the constituent parameter columns.
+
+        Returns:
+            A NumPy array with the computed derived values. Rows with NaN values
+            for any constituent parameter will have NaN as the computed value.
+        """
+        computed = np.full(len(df), self._intercept, dtype=np.float64)
+        for p_name, weight in self._parameter_names_to_weights.items():
+            if p_name in df.columns:
+                # Let NaN propagate naturally through arithmetic
+                col_values = df[p_name].to_numpy(dtype=np.float64, na_value=np.nan)
+                computed = computed + col_values * weight
+            else:
+                # Missing column = NaN for all rows
+                computed = np.full(len(df), np.nan, dtype=np.float64)
+        return computed
+
+    def validate_array(
+        self,
+        values: npt.NDArray,
+        df: PandasDataFrame | None = None,
+    ) -> npt.NDArray:
+        """Vectorized validation for DerivedParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of derived parameter values to validate.
+            df: The full DataFrame containing constituent parameter columns.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        if df is None:
+            return np.full(len(values), False, dtype=bool)
+        computed = self.compute_array(df)
+        return np.abs(values - computed) < EPS
 
     def clone(self) -> DerivedParameter:
         return DerivedParameter(
