@@ -36,6 +36,13 @@ class TestContourPlot(TestCase):
                     "type": "range",
                     "bounds": [-1.0, 1.0],
                 },
+                {
+                    "name": "z",
+                    "type": "choice",
+                    "values": [1, 2, 3, 4],
+                    "value_type": "int",
+                    "is_ordered": True,
+                },
             ],
             objectives={"bar": ObjectiveProperties(minimize=True)},
         )
@@ -213,3 +220,25 @@ class TestContourPlot(TestCase):
                 experiment=self.client.experiment,
                 generation_strategy=self.client.generation_strategy,
             )
+
+    def test_compute_with_choice_parameter(self) -> None:
+        """Test contour plot with ordered ChoiceParameter on one axis."""
+        analysis = ContourPlot(
+            x_parameter_name="x", y_parameter_name="z", metric_name="bar"
+        )
+        card = analysis.compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+
+        # Assert: Verify the contour plot was created successfully
+        self.assertEqual(card.name, "ContourPlot")
+        self.assertEqual(card.title, "bar (Mean) vs. x, z")
+        self.assertIn("x", card.df.columns)
+        self.assertIn("z", card.df.columns)
+        self.assertIn("bar_mean", card.df.columns)
+
+        # Assert: Verify that z only contains the discrete choice values
+        unique_z_values = card.df["z"].unique()
+        for value in unique_z_values:
+            self.assertIn(value, [1, 2, 3, 4])
