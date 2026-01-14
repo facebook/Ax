@@ -182,18 +182,6 @@ class TransformToNewSQSpecificTest(TestCase):
             )
 
         self.assertEqual(t.default_trial_idx, 0)
-        # test falling back to latest trial with SQ data
-        with mock.patch(
-            "ax.adapter.transforms.transform_to_new_sq.get_target_trial_index",
-            return_value=10,
-        ):
-            t = TransformToNewSQ(
-                search_space=self.exp.search_space,
-                experiment_data=experiment_data,
-                adapter=self.adapter,
-            )
-
-        self.assertEqual(t.default_trial_idx, 1)
 
     def test_transform_experiment_data(self) -> None:
         # Create two more trials with different SQ observations.

@@ -285,7 +285,12 @@ def _prepare_data(
     ).sort_values(by=parameter_name)
 
     if relativize:
-        target_trial_index = none_throws(get_target_trial_index(experiment=experiment))
+        target_trial_index = none_throws(
+            get_target_trial_index(
+                experiment=experiment,
+                require_data_for_all_metrics=True,
+            )
+        )
         df = relativize_data(
             experiment=experiment,
             df=df,

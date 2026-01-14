@@ -77,13 +77,6 @@ class TransformToNewSQ(BaseRelativize):
             target_trial_index = get_target_trial_index(
                 experiment=none_throws(adapter)._experiment
             )
-            trials_indices_with_sq_data = self.status_quo_data_by_trial.keys()
-            if target_trial_index not in trials_indices_with_sq_data:
-                target_trial_index = max(trials_indices_with_sq_data)
-                logger.warning(
-                    "No status quo data for target trial. Failing back to "
-                    f"{target_trial_index}."
-                )
 
         if target_trial_index is not None:
             self.default_trial_idx: int = assert_is_instance(
