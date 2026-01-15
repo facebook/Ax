@@ -90,7 +90,7 @@ def create_problem_from_botorch(
     *,
     test_problem_class: type[BaseTestProblem] | str,
     test_problem_kwargs: dict[str, Any],
-    noise_std: float | list[float] = 0.0,
+    noise_std: float | dict[str, float] = 0.0,
     num_trials: int,
     baseline_value: float | None = None,
     name: str | None = None,
