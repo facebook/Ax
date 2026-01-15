@@ -1636,6 +1636,7 @@ class ExperimentTest(TestCase):
 
     def test_stop_trial(self) -> None:
         self.experiment.new_trial()
+        test_reason = "Early stopping due to poor performance"
         with (
             patch.object(self.experiment, "runner"),
             patch.object(
@@ -1643,9 +1644,13 @@ class ExperimentTest(TestCase):
             ) as mock_runner_stop,
             patch.object(BaseTrial, "mark_early_stopped") as mock_mark_stopped,
         ):
-            self.experiment.stop_trial_runs(trials=[self.experiment.trials[0]])
-            mock_runner_stop.assert_called_once()
-            mock_mark_stopped.assert_called_once()
+            self.experiment.stop_trial_runs(
+                trials=[self.experiment.trials[0]], reasons=[test_reason]
+            )
+            mock_runner_stop.assert_called_once_with(
+                trial=self.experiment.trials[0], reason=test_reason
+            )
+            mock_mark_stopped.assert_called_once_with(reason=test_reason)
 
     def test_stop_trial_without_runner(self) -> None:
         self.experiment.new_trial()

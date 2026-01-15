@@ -1256,7 +1256,11 @@ class TestAxOrchestrator(TestCase):
                 experiment: Experiment,
                 current_node: GenerationNode | None = None,
             ) -> dict[int, str | None]:
-                return {idx: None for idx in trial_indices if idx % 2 == 1}
+                return {
+                    idx: f"Trial {idx} stopped by OddIndexEarlyStoppingStrategy"
+                    for idx in trial_indices
+                    if idx % 2 == 1
+                }
 
         self.branin_timestamp_map_metric_experiment.runner = (
             RunnerWithEarlyStoppingStrategy()
@@ -1313,6 +1317,14 @@ class TestAxOrchestrator(TestCase):
         self.assertAlmostEqual(
             ess.estimate_early_stopping_savings(orchestrator.experiment),
             1.0 / 3.0,
+        )
+
+        # Verify that the status reason from early stopping strategy is retained.
+        early_stopped_trial = orchestrator.experiment.trials[1]
+        self.assertEqual(early_stopped_trial.status, TrialStatus.EARLY_STOPPED)
+        self.assertEqual(
+            early_stopped_trial.status_reason,
+            "Trial 1 stopped by OddIndexEarlyStoppingStrategy",
         )
 
     def test_orchestrator_with_metric_with_new_data_after_completion(self) -> None:
