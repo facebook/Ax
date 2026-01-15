@@ -422,6 +422,111 @@ class SearchSpace(Base):
 
         return True
 
+    def check_membership_df(
+        self,
+        arm_data: pd.DataFrame,
+        check_all_parameters_present: bool = True,
+    ) -> list[bool]:
+        """Vectorized membership check for a DataFrame of parameterizations.
+
+        This method efficiently checks whether each row in the DataFrame belongs
+        in the search space, using vectorized operations instead of iterating
+        through rows one at a time.
+
+        Checks that the given parameter values have the same name/type as
+        search space parameters, are contained in the search space domain,
+        and satisfy the parameter constraints.
+
+        Args:
+            arm_data: DataFrame with one column per parameter. May contain a
+                "metadata" column which will be ignored. Rows with NaN values
+                for a parameter are treated as not having that parameter.
+            check_all_parameters_present: Ensure that parameterization specifies
+                values for all parameters as expected by the search space.
+
+        Returns:
+            A list of booleans indicating whether each row is in-design.
+        """
+        # Get DataFrame columns excluding metadata
+        df_cols = {col for col in arm_data.columns if col != "metadata"}
+        ss_params = set(self.parameters.keys())
+
+        # Check all parameters present (for non-hierarchical search spaces)
+        # This must happen BEFORE filtering to detect extra columns
+        if check_all_parameters_present and not self.is_hierarchical:
+            if df_cols != ss_params:
+                # All rows are out of design if parameters don't match
+                return [False] * len(arm_data)
+
+        # Filter to only parameter columns that exist in search space.
+        # This is needed for check_all_parameters_present=False where some
+        # search space params may be missing from the DataFrame.
+        param_cols = [col for col in arm_data.columns if col in ss_params]
+        df = arm_data[param_cols]
+
+        # Initialize result as all True
+        in_design = pd.Series(True, index=df.index)
+
+        if len(df) == 0:
+            return in_design.tolist()
+
+        # Validate each parameter using vectorized operations
+        for name, param in self.parameters.items():
+            if name not in df.columns:
+                continue
+            # Convert to NumPy array, handling pd.NA appropriately
+            col = df[name]
+            if param.is_numeric:
+                values = col.to_numpy(dtype=float, na_value=np.nan)
+            else:
+                values = col.where(pd.notna(col), None).to_numpy()
+            # DerivedParameter needs the full DataFrame to compute expected values
+            if isinstance(param, DerivedParameter):
+                valid = param.validate_array(values, df=df)
+            else:
+                valid = param.validate_array(values)
+            # For hierarchical search spaces, null values for inactive parameters
+            # are valid (handled by hierarchical validation logic below)
+            if self.is_hierarchical:
+                is_null = col.isna().to_numpy()
+                valid = valid | is_null
+            in_design &= pd.Series(valid, index=df.index)
+
+        # Check parameter constraints (linear inequalities) vectorized
+        for constraint in self._parameter_constraints:
+            weighted_sum = pd.Series(0.0, index=df.index)
+            for param_name, weight in constraint.constraint_dict.items():
+                if param_name not in df.columns:
+                    # Missing column = invalid, set to NaN so comparison fails
+                    weighted_sum = pd.Series(np.nan, index=df.index)
+                    break
+                # NaN values propagate if exists, causing comparison to return False
+                weighted_sum = weighted_sum + df[param_name] * weight
+            in_design &= weighted_sum <= constraint.bound + 1e-8
+
+        # Handle hierarchical search space structure
+        if self.is_hierarchical:
+            # Use vectorized apply for hierarchical validation
+            def _check_hierarchical_row(row: pd.Series) -> bool:
+                params: dict[str, TParamValue] = {
+                    str(k): v for k, v in row.items() if pd.notna(v)
+                }
+                try:
+                    cast_params = set(
+                        self._cast_parameterization(
+                            parameters=params,
+                            check_all_parameters_present=check_all_parameters_present,
+                        ).keys()
+                    )
+                    return cast_params == set(params.keys())
+                except RuntimeError:
+                    return False
+
+            hierarchical_valid = df.apply(_check_hierarchical_row, axis=1)
+            in_design &= hierarchical_valid
+
+        return in_design.tolist()
+
     def check_types(
         self,
         parameterization: TParameterization,

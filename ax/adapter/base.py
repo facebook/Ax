@@ -15,7 +15,6 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-import pandas as pd
 from ax.adapter.data_utils import (
     DataLoaderConfig,
     ExperimentData,
@@ -370,19 +369,10 @@ class Adapter:
         experiment_data = t.transform_experiment_data(
             experiment_data=experiment_data,
         )
-        # TODO [T230585235]: Implement more efficient membership checks.
-        return [
-            search_space.check_membership(
-                parameterization={k: v for k, v in params.items() if not pd.isnull(v)}
-            )
-            for params in experiment_data.arm_data.drop(
-                # Ignoring errors which can be raised by missing metadata column
-                # when the data is empty.
-                columns=["metadata"],
-                inplace=False,
-                errors="ignore",
-            ).to_dict(orient="records")
-        ]
+        # Use vectorized membership check for efficiency.
+        return search_space.check_membership_df(
+            arm_data=experiment_data.arm_data,
+        )
 
     def _set_model_space(self, arm_data: DataFrame) -> None:
         """Set model space, possibly expanding range parameters to cover data."""

@@ -295,6 +295,89 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss2.check_membership(p_dict, raise_error=True)
 
+    def test_check_membership_df(self) -> None:
+        """Test vectorized membership check on DataFrames."""
+        # Create test DataFrame with valid and invalid rows
+        test_data = pd.DataFrame(
+            {
+                "a": [1.0, 20.0, 3.0, 1.0, 1.0],  # Row 1 OOD (20 > 5.5)
+                "b": [5, 5, 5, 5, 5],
+                "c": ["foo", "bar", "invalid", "foo", "foo"],  # Row 2 OOD ("invalid")
+                "d": [True, True, True, False, True],  # Row 3 OOD (False != True)
+                "e": [0.2, 0.1, 0.0, 0.0, 0.3],  # Row 4 OOD (0.3 not in values)
+                "f": [5, 5, 5, 5, 5],
+                "h": [3.0, 41.0, 7.0, 3.0, 3.0],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2"), (3, "arm3"), (4, "arm4")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        result = self.ss1.check_membership_df(test_data)
+        expected = [True, False, False, False, False]  # Only row 0 is valid
+        self.assertEqual(result, expected)
+
+        # Test with parameter constraints (ss2 has constraint a <= b)
+        test_data_constrained = pd.DataFrame(
+            {
+                "a": [1.0, 3.0, 5.0],
+                "b": [5, 5, 4],  # Row 2 violates constraint (5 > 4)
+                "c": ["foo", "bar", "baz"],
+                "d": [True, True, True],
+                "e": [0.0, 0.1, 0.2],
+                "f": [5, 5, 5],
+                "h": [3.0, 7.0, 11.0],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        result_constrained = self.ss2.check_membership_df(test_data_constrained)
+        expected_constrained = [True, True, False]
+        self.assertEqual(result_constrained, expected_constrained)
+
+        # Test with NaN values (missing parameters)
+        test_data_with_nan = pd.DataFrame(
+            {
+                "a": [1.0, pd.NA, 3.0],
+                "b": [5, 5, 5],
+                "c": ["foo", "bar", "baz"],
+                "d": [True, True, True],
+                "e": [0.0, 0.1, 0.2],
+                "f": [5, 5, 5],
+                "h": [3.0, pd.NA, 7.0],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        # With check_all_parameters_present=False, only column presence is skipped.
+        # Null values are still invalid (consistent with check_membership behavior).
+        result_with_nan = self.ss1.check_membership_df(
+            test_data_with_nan, check_all_parameters_present=False
+        )
+        expected_with_nan = [True, False, True]
+        self.assertEqual(result_with_nan, expected_with_nan)
+
+        # Test with empty DataFrame
+        empty_df = pd.DataFrame(
+            columns=["a", "b", "c", "d", "e", "f", "h"],
+            index=pd.MultiIndex.from_tuples([], names=["trial_index", "arm_name"]),
+        )
+        result_empty = self.ss1.check_membership_df(empty_df)
+        self.assertEqual(len(result_empty), 0)
+
+        # Test with metadata column (should be ignored)
+        test_data_with_metadata = test_data.copy()
+        test_data_with_metadata["metadata"] = [{"key": "value"}] * len(test_data)
+        result_with_metadata = self.ss1.check_membership_df(test_data_with_metadata)
+        self.assertEqual(result, result_with_metadata)
+
     def test_CheckTypes(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
@@ -762,6 +845,28 @@ class HierarchicalSearchSpaceTest(TestCase):
                 "num_boost_rounds": 12,
             }
         )
+
+    def test_check_membership_df(self) -> None:
+        """Test vectorized membership check on hierarchical search spaces."""
+        # Create a DataFrame with valid and invalid rows for HSS
+        test_data = pd.DataFrame(
+            {
+                "model": ["Linear", "XGBoost", "Linear", "XGBoost"],
+                "learning_rate": [0.01, None, 0.01, 0.05],  # Row 3 invalid (has lr)
+                "l2_reg_weight": [0.0001, None, 0.0001, None],  # Row 3 invalid
+                "num_boost_rounds": [None, 15, None, 15],  # Row 2 valid (XGBoost)
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2"), (3, "arm3")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        result = self.hss_1.check_membership_df(
+            test_data, check_all_parameters_present=False
+        )
+        expected = [True, True, True, False]
+        self.assertEqual(result, expected)
 
     def test_init(self) -> None:
         self.assertEqual(
