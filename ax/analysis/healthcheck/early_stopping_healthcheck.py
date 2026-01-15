@@ -17,7 +17,6 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 )
 from ax.analysis.utils import validate_experiment
 from ax.core.base_trial import TrialStatus
-from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -28,7 +27,13 @@ from ax.early_stopping.experiment_replay import (
     MIN_SAVINGS_THRESHOLD,
 )
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.early_stopping.utils import estimate_early_stopping_savings
+from ax.early_stopping.utils import (
+    EARLY_STOPPING_NUDGE_MSG,
+    EARLY_STOPPING_NUDGE_TITLE,
+    EARLY_STOPPING_SAVINGS_TITLE,
+    estimate_early_stopping_savings,
+    format_early_stopping_savings_message,
+)
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from pyre_extensions import none_throws, override
@@ -352,26 +357,10 @@ class EarlyStoppingAnalysis(Analysis):
         n_running = len(experiment.trial_indices_by_status[TrialStatus.RUNNING])
         n_ran = n_stopped + n_completed + n_failed + n_running
 
-        ess_msg = (
-            f"Throughout this experiment, {n_stopped} trials were early stopped, "
-            f"out of a total of {n_ran} trials. "
-        )
-
-        if savings > 0:
-            ess_msg += (
-                f"The capacity savings (computed using {MAP_KEY}) are "
-                f"estimated to be {savings * 100:.0f}%."
-            )
-        else:
-            ess_msg += (
-                "Capacity savings are not yet available. Either no trials have "
-                "been early stopped, or no trials have completed (which is "
-                "required to estimate savings). Check back once more trials are "
-                "completed and/or early stopped."
-            )
-
         # Add multi-objective note if applicable
-        subtitle = ess_msg
+        subtitle = format_early_stopping_savings_message(
+            n_stopped=n_stopped, n_ran=n_ran, savings=savings
+        )
         if len(target_ess_metric_names) > 1:
             subtitle += (
                 f"\n\nNote: Although {len(target_ess_metric_names)} metrics are "
@@ -399,7 +388,7 @@ class EarlyStoppingAnalysis(Analysis):
         )
 
         return self._create_card(
-            title="Capacity savings due to early stopping",
+            title=EARLY_STOPPING_SAVINGS_TITLE,
             subtitle=subtitle,
             df=df,
             status=HealthcheckStatus.PASS,
@@ -454,13 +443,8 @@ class EarlyStoppingAnalysis(Analysis):
         # Found significant potential savings - nudge the user
         savings_pct = 100 * savings
 
-        subtitle = (
-            "This sweep uses metrics that are **compatible with early stopping**! "
-            "Using early stopping could have saved you both capacity and "
-            "optimization wall time. For example, we estimate that using early "
-            f"stopping on the '{metric.name}' metric could have provided "
-            f"{savings_pct:.0f}% capacity savings, with no regression in "
-            "optimization performance."
+        subtitle = EARLY_STOPPING_NUDGE_MSG.format(
+            metric_name=metric.name, savings=savings_pct
         )
 
         # Append additional info if provided
@@ -477,10 +461,7 @@ class EarlyStoppingAnalysis(Analysis):
             ]
         )
 
-        title = (
-            f"{savings_pct:.0f}% potential capacity savings if you turn on "
-            f"early stopping feature"
-        )
+        title = EARLY_STOPPING_NUDGE_TITLE.format(savings=savings_pct)
 
         return self._create_card(
             title=title,
