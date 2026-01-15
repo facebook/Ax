@@ -22,16 +22,18 @@ from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.early_stopping.dispatch import get_default_ess_or_none
-from ax.early_stopping.experiment_replay import replay_experiment
+from ax.early_stopping.experiment_replay import (
+    estimate_hypothetical_early_stopping_savings,
+    MAX_PENDING_TRIALS,
+    MIN_SAVINGS_THRESHOLD,
+)
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from pyre_extensions import none_throws, override
 
-DEFAULT_MIN_SAVINGS_THRESHOLD = 0.01  # 1% threshold
-MAX_PENDING_TRIALS_DEFAULT = 5
+
 DEFAULT_EARLY_STOPPING_HEALTHCHECK_TITLE = "Early Stopping Healthcheck"
 
 # Type alias for auto_early_stopping_config
@@ -73,8 +75,8 @@ class EarlyStoppingAnalysis(Analysis):
     def __init__(
         self,
         early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
-        min_savings_threshold: float = DEFAULT_MIN_SAVINGS_THRESHOLD,
-        max_pending_trials: int = MAX_PENDING_TRIALS_DEFAULT,
+        min_savings_threshold: float = MIN_SAVINGS_THRESHOLD,
+        max_pending_trials: int = MAX_PENDING_TRIALS,
         auto_early_stopping_config: AutoEarlyStoppingConfig | None = None,
         nudge_additional_info: str | None = None,
     ) -> None:
@@ -87,7 +89,7 @@ class EarlyStoppingAnalysis(Analysis):
                 default early stopping strategy will only be used for
                 single-objective unconstrained experiments.
             min_savings_threshold: Minimum savings threshold to suggest early
-                stopping. Default is 0.01 (1% savings).
+                stopping. Default is 0.1 (10% savings).
             max_pending_trials: Maximum number of pending trials for replay
                 orchestrator. Default is 5.
             auto_early_stopping_config: A string for configuring automated early
@@ -407,22 +409,38 @@ class EarlyStoppingAnalysis(Analysis):
         self, experiment: Experiment
     ) -> HealthcheckAnalysisCard:
         """Check if early stopping should be suggested (nudge) by estimating
-        hypothetical savings using replay logic."""
-        # Get map metrics from the experiment
-        # Note: validate_applicable_state already ensures map_metrics is non-empty
-        map_metrics = self._get_map_metrics(experiment)
+        hypothetical savings using replay logic.
 
-        # Estimate hypothetical savings for compatible metrics using replay
-        metric_to_savings = self._estimate_hypothetical_savings_with_replay(
-            experiment=experiment, map_metrics=map_metrics
-        )
-
-        if not metric_to_savings:
-            # No significant savings detected
+        Only applicable for single-objective unconstrained experiments where a
+        default early stopping strategy is available.
+        """
+        opt_config = none_throws(experiment.optimization_config)
+        metric = next(iter(opt_config.objective.metrics))
+        try:
+            savings = estimate_hypothetical_early_stopping_savings(
+                experiment=experiment,
+                metric=metric,
+                max_pending_trials=self.max_pending_trials,
+            )
+        except Exception as e:
+            # Exception is raised when estimate_hypothetical_early_stopping_savings
+            # cannot compute savings. This happens for:
+            # - Multi-objective or constrained experiments (no default ESS)
+            # - Experiments without MapMetric data
+            # - Experiment replay failures
             return self._create_card(
                 subtitle=(
-                    "Early stopping is not enabled. While this experiment has "
-                    "data with a progression ('step' column) we did not detect "
+                    f"Early stopping is not enabled. Automatic savings estimation "
+                    f"is unavailable for this experiment: {e} To use "
+                    f"early stopping, configure a strategy manually."
+                ),
+                status=HealthcheckStatus.PASS,
+            )
+
+        if savings < self.min_savings_threshold:
+            return self._create_card(
+                subtitle=(
+                    "Early stopping is not enabled. We did not detect "
                     "significant potential savings at this time.\n\n"
                     "This could be because:\n"
                     "- The experiment hasn't run enough trials yet\n"
@@ -434,15 +452,14 @@ class EarlyStoppingAnalysis(Analysis):
             )
 
         # Found significant potential savings - nudge the user
-        best_metric_name = max(metric_to_savings, key=metric_to_savings.get)
-        best_savings = metric_to_savings[best_metric_name]
+        savings_pct = 100 * savings
 
         subtitle = (
             "This sweep uses metrics that are **compatible with early stopping**! "
             "Using early stopping could have saved you both capacity and "
             "optimization wall time. For example, we estimate that using early "
-            f"stopping on the '{best_metric_name}' metric could have provided "
-            f"{best_savings:.0f}% capacity savings, with no regression in "
+            f"stopping on the '{metric.name}' metric could have provided "
+            f"{savings_pct:.0f}% capacity savings, with no regression in "
             "optimization performance."
         )
 
@@ -451,19 +468,17 @@ class EarlyStoppingAnalysis(Analysis):
             subtitle += f" {self.nudge_additional_info}"
 
         # Create detailed metrics table
-        metric_rows = [
-            {
-                "Metric Name": metric_name,
-                "Estimated Savings": f"{savings:.1f}%",
-            }
-            for metric_name, savings in sorted(
-                metric_to_savings.items(), key=lambda x: x[1], reverse=True
-            )
-        ]
-        df = pd.DataFrame(metric_rows)
+        df = pd.DataFrame(
+            [
+                {
+                    "Metric Name": metric.name,
+                    "Estimated Savings": f"{savings_pct:.1f}%",
+                }
+            ]
+        )
 
         title = (
-            f"{best_savings:.0f}% potential capacity savings if you turn on "
+            f"{savings_pct:.0f}% potential capacity savings if you turn on "
             f"early stopping feature"
         )
 
@@ -472,8 +487,8 @@ class EarlyStoppingAnalysis(Analysis):
             subtitle=subtitle,
             df=df,
             status=HealthcheckStatus.WARNING,
-            potential_savings=best_savings,
-            best_metric=best_metric_name,
+            potential_savings=savings_pct,
+            best_metric=metric.name,
         )
 
     def _get_problem_type(self, experiment: Experiment) -> str:
@@ -504,63 +519,3 @@ class EarlyStoppingAnalysis(Analysis):
                 reverse=True,
             )
         return map_metrics
-
-    def _estimate_hypothetical_savings_with_replay(
-        self, experiment: Experiment, map_metrics: list[MapMetric]
-    ) -> dict[str, float]:
-        """
-        Estimate hypothetical early stopping savings for each map metric using
-        replay infrastructure.
-
-        This is the accurate method that replays the experiment with early stopping
-        enabled to calculate actual savings.
-
-        Args:
-            experiment: The experiment to analyze
-            map_metrics: List of MapMetrics to analyze
-
-        Returns:
-            Dictionary mapping metric names to estimated savings percentages
-            (only includes metrics where savings > min_savings_threshold)
-        """
-        metric_to_savings: dict[str, float] = {}
-
-        MAX_REPLAYS = 3
-        MAX_REPLAY_TRIALS = 50
-        REPLAY_NUM_POINTS_PER_CURVE = 20
-        REPLAY_PERCENTILE_THRESHOLD = 65
-        REPLAY_MIN_PROGRESSION_FRAC = 0.4
-        REPLAY_MIN_CURVES = 5
-
-        # Limit to first few metrics to avoid expensive computation
-        for map_metric in map_metrics[:MAX_REPLAYS]:
-            try:
-                # Create replayed experiment with early stopping
-                replayed_experiment = replay_experiment(
-                    historical_experiment=experiment,
-                    num_samples_per_curve=REPLAY_NUM_POINTS_PER_CURVE,
-                    max_replay_trials=MAX_REPLAY_TRIALS,
-                    metric=map_metric,
-                    max_pending_trials=self.max_pending_trials,
-                    early_stopping_strategy=PercentileEarlyStoppingStrategy(
-                        min_curves=REPLAY_MIN_CURVES,
-                        min_progression=REPLAY_MIN_PROGRESSION_FRAC,
-                        percentile_threshold=REPLAY_PERCENTILE_THRESHOLD,
-                        normalize_progressions=True,
-                    ),
-                )
-
-                if replayed_experiment is not None:
-                    savings = estimate_early_stopping_savings(
-                        experiment=replayed_experiment
-                    )
-
-                    # Only include if savings exceed threshold (> 1%)
-                    if savings > self.min_savings_threshold:
-                        metric_to_savings[map_metric.name] = 100 * savings
-
-            except Exception:
-                # Skip metrics that fail replay
-                continue
-
-        return metric_to_savings
