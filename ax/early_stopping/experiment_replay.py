@@ -17,7 +17,10 @@ from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.early_stopping.dispatch import get_default_ess_or_none
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
+from ax.early_stopping.utils import estimate_early_stopping_savings
+from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
@@ -28,6 +31,12 @@ from ax.runners.map_replay import MapDataReplayRunner
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
+
+# Constants for experiment replay
+MAX_REPLAY_TRIALS: int = 50
+REPLAY_NUM_POINTS_PER_CURVE: int = 20
+MAX_PENDING_TRIALS: int = 5
+MIN_SAVINGS_THRESHOLD: float = 0.1  # 10% threshold
 
 
 def replay_experiment(
@@ -105,3 +114,55 @@ def replay_experiment(
     orchestrator.run_all_trials()
     logger.info(f"Replayed the experiment in {perf_counter() - start_time} seconds.")
     return experiment
+
+
+def estimate_hypothetical_early_stopping_savings(
+    experiment: Experiment,
+    metric: Metric,
+    max_pending_trials: int = MAX_PENDING_TRIALS,
+) -> float:
+    """Estimate hypothetical early stopping savings using experiment replay.
+
+    This function replays the experiment with a default early stopping strategy
+    to calculate what savings would have been achieved if early stopping were
+    enabled.
+
+    Args:
+        experiment: The experiment to analyze.
+        metric: The metric to use for early stopping replay.
+        max_pending_trials: Maximum number of pending trials for the replay
+            orchestrator. Defaults to 5.
+
+    Returns:
+        Estimated savings as a fraction (0.0 to 1.0).
+
+    Raises:
+        UnsupportedError: If early stopping savings cannot be estimated.
+            This can happen when:
+            - No default early stopping strategy is available for this experiment
+              (e.g., multi-objective, constrained, or non-MapMetric experiments)
+            - The experiment data does not have progression data for replay
+            - The experiment replay fails due to invalid experiment state
+    """
+    default_ess = get_default_ess_or_none(experiment=experiment)
+    if default_ess is None:
+        raise UnsupportedError(
+            "No default early stopping strategy available (multi-objective, "
+            "constrained, or non-MapMetric experiment)."
+        )
+
+    replayed_experiment = replay_experiment(
+        historical_experiment=experiment,
+        num_samples_per_curve=REPLAY_NUM_POINTS_PER_CURVE,
+        max_replay_trials=MAX_REPLAY_TRIALS,
+        metric=metric,
+        max_pending_trials=max_pending_trials,
+        early_stopping_strategy=default_ess,
+    )
+
+    if replayed_experiment is None:
+        raise UnsupportedError(
+            "Experiment data does not have progression data for replay."
+        )
+
+    return estimate_early_stopping_savings(experiment=replayed_experiment)
