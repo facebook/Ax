@@ -160,6 +160,36 @@ class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
         raise ValueError("Failing for testing purposes.")
 
 
+class RunnerWithFailingPollTrialStatus(SyntheticRunner):
+    """Test runner where poll_trial_status fails when polling all trials at once
+    but succeeds when polling individually. Used to test fallback behavior."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.batch_poll_call_count = 0
+
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> dict[TrialStatus, set[int]]:
+        trials_list = list(trials)
+        # Fail when polling multiple trials at once (batch mode)
+        if len(trials_list) > 1:
+            self.batch_poll_call_count += 1
+            raise RuntimeError("Simulated batch poll failure for testing.")
+        # Succeed when polling individual trials
+        return {TrialStatus.COMPLETED: {trials_list[0].index}}
+
+
+class RunnerWithAllPollsFailing(SyntheticRunner):
+    """Test runner where poll_trial_status always fails. Used to test that
+    individual trial failures are marked as ABANDONED."""
+
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> dict[TrialStatus, set[int]]:
+        raise RuntimeError("Simulated poll failure for testing.")
+
+
 class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
     run_trial_call_count = 0
 

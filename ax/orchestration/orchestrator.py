@@ -838,6 +838,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         are running; that logic is handled in ``orchestrator.poll``, which calls
         this function.
 
+        NOTE: If polling all trials at once fails, falls back to polling trials
+        one-at-a-time and abandons any trial whose status check fails. This
+        reduces polling efficiency but enhances robustness.
+
         Returns:
             A dictionary mapping TrialStatus to a list of trial indices that have
             the respective status at the time of the polling. This does not need to
@@ -852,7 +856,37 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         trials = filter_trials_by_type(trials=trials, trial_type=self.trial_type)
         if len(trials) == 0:
             return {}
-        return self.runner.poll_trial_status(trials=trials)
+
+        # First, try to poll all trials at once (most efficient).
+        try:
+            return self.runner.poll_trial_status(trials=trials)
+        except NO_RETRY_EXCEPTIONS:
+            # Non-retryable exceptions should propagate immediately.
+            raise
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to poll all trial statuses at once; encountered "
+                f"exception: {e}. Falling back to polling trials individually."
+            )
+
+        # Fallback: poll trials one-at-a-time and abandon any that fail.
+        status_dict: dict[TrialStatus, set[int]] = {}
+        for trial in trials:
+            try:
+                single_status_dict = self.runner.poll_trial_status(trials=[trial])
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to retrieve status of trial {trial.index}; encountered "
+                    f"exception: {e}. Setting trial status to ABANDONED so that this "
+                    "parameterization is not attempted again."
+                )
+                single_status_dict = {TrialStatus.ABANDONED: {trial.index}}
+            for status, index_set in single_status_dict.items():
+                if status in status_dict:
+                    status_dict[status] |= index_set
+                else:
+                    status_dict[status] = index_set
+        return status_dict
 
     def wait_for_completed_trials_and_report_results(
         self,
