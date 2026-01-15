@@ -1689,7 +1689,7 @@ class ExperimentTest(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "name",
                 "m1",

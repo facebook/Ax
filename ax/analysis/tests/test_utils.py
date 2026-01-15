@@ -147,7 +147,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -194,7 +194,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -225,7 +225,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -334,7 +334,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -378,7 +378,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -411,7 +411,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -450,7 +450,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -493,7 +493,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -578,7 +578,7 @@ class TestUtils(TestCase):
         self.assertFalse(np.isnan(ood_df.foo_sem.iloc[0]))
 
     def test_prepare_arm_data_includes_failure_reasons(self) -> None:
-        """Test that the fail_reason column is properly populated."""
+        """Test that the status_reason column is properly populated."""
         client = Client()
         client.configure_experiment(
             name="test_failure_reasons",
@@ -600,16 +600,16 @@ class TestUtils(TestCase):
             use_model_predictions=False,
         )
 
-        # Verify fail_reason column is populated correctly
-        self.assertIn("fail_reason", df.columns)
+        # Verify status_reason column is populated correctly
+        self.assertIn("status_reason", df.columns)
         self.assertTrue(
-            pd.isna(df[df["trial_index"] == 0]["fail_reason"].iloc[0])
+            pd.isna(df[df["trial_index"] == 0]["status_reason"].iloc[0])
         )  # Success: no reason
         self.assertEqual(
-            df[df["trial_index"] == 1]["fail_reason"].iloc[0], "Regular failure"
+            df[df["trial_index"] == 1]["status_reason"].iloc[0], "Regular failure"
         )  # Regular failure
         self.assertEqual(
-            df[df["trial_index"] == 2]["fail_reason"].iloc[0], STALE_FAIL_REASON
+            df[df["trial_index"] == 2]["status_reason"].iloc[0], STALE_FAIL_REASON
         )  # Stale failure
 
     def test_relativize_df_with_sq(self) -> None:
