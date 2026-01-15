@@ -19,6 +19,65 @@ from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
 
+# Early stopping message constants for use in analysis and reporting
+EARLY_STOPPING_STATUS_MSG = (
+    "Throughout this experiment, {n_stopped} trials were early stopped, out "
+    "of a total of {n_ran} trials. "
+)
+
+EARLY_STOPPING_SAVINGS_TITLE = "Capacity savings due to early stopping"
+
+EARLY_STOPPING_SAVINGS_MSG = (
+    "The capacity savings (computed using {map_key}) are estimated to be "
+    "{savings:.0f}%."
+)
+
+EARLY_STOPPING_SAVINGS_TBD = (
+    "Capacity savings are not yet available. Either no trials have been early "
+    "stopped, or no trials have completed (which is required to estimate "
+    "savings). Check back once more trials are completed and/or early stopped."
+)
+
+EARLY_STOPPING_NUDGE_MSG = (
+    "This sweep uses metrics that are **compatible with early stopping**! "
+    "Using early stopping could have saved you both capacity and optimization "
+    "wall time. For example, we estimate that using early stopping on the "
+    "'{metric_name}' metric could have provided {savings:.0f}% capacity "
+    "savings, with no regression in optimization performance."
+)
+
+EARLY_STOPPING_NUDGE_TITLE = (
+    "{savings:.0f}% potential capacity savings if you turn on early stopping feature"
+)
+
+
+def format_early_stopping_savings_message(
+    n_stopped: int,
+    n_ran: int,
+    savings: float,
+) -> str:
+    """Format a message describing early stopping status and savings.
+
+    Args:
+        n_stopped: Number of trials that were early stopped.
+        n_ran: Total number of trials that ran.
+        savings: Resource savings as a fraction (0.0 to 1.0). For example, 0.11
+            indicates 11% savings.
+
+    Returns:
+        A formatted message string describing the early stopping status and
+        either the estimated savings percentage or a note that savings are
+        not yet available.
+    """
+    msg = EARLY_STOPPING_STATUS_MSG.format(n_stopped=n_stopped, n_ran=n_ran)
+
+    if savings > 0:
+        msg += EARLY_STOPPING_SAVINGS_MSG.format(map_key=MAP_KEY, savings=savings * 100)
+    else:
+        msg += EARLY_STOPPING_SAVINGS_TBD
+
+    return msg
+
 
 def _is_worse(a: Any, b: Any, minimize: bool) -> Any:
     """Determine if value `a` is worse than value `b` based on optimization direction.
