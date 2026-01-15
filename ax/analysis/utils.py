@@ -255,7 +255,7 @@ def prepare_arm_data(
         if trial_index != -1
         else "Additional Arm"
     )
-    df["fail_reason"] = df["trial_index"].apply(
+    df["status_reason"] = df["trial_index"].apply(
         lambda trial_index: experiment.trials[trial_index].status_reason
         if trial_index != -1
         and experiment.trials[trial_index].status_reason is not None

@@ -1920,7 +1920,8 @@ class Experiment(Base):
             - trial_index: The trial index of the arm
             - arm_name: The name of the arm
             - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
-            - failure_reason: The reason for the failure, if applicable
+            - status_reason: The reason for the trial status (e.g., failure,
+                abandonment, early stopping), if applicable
             - generation_node: The name of the ``GenerationNode`` that generated the arm
             - **METADATA: Any metadata associated with the trial, as specified by the
                 Experiment's runner.run_metadata_report_keys field
@@ -2002,7 +2003,7 @@ class Experiment(Base):
                     "trial_index": trial.index,
                     "arm_name": arm.name,
                     "trial_status": trial.status.name,
-                    "fail_reason": trial.run_metadata.get("fail_reason", None),
+                    "status_reason": trial.status_reason,
                     "generation_node": generation_node,
                     **metadata,
                     **observed_means,

@@ -226,7 +226,7 @@ class ArmEffectsPlot(Analysis):
                     "trial_index",
                     "trial_status",
                     "arm_name",
-                    "fail_reason",
+                    "status_reason",
                     "generation_node",
                     f"{self.metric_name}_mean",
                     f"{self.metric_name}_sem",
