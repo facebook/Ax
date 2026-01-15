@@ -21,6 +21,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrategy
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_metric,
@@ -139,15 +140,40 @@ class TestEarlyStoppingAnalysis(TestCase):
         """Test behavior when early stopping is not enabled."""
         healthcheck = EarlyStoppingAnalysis(early_stopping_strategy=None)
 
-        with self.subTest("no_savings_detected"):
-            card = healthcheck.compute(experiment=self.experiment)
+        with self.subTest("no_savings_available"):
+            # Mock estimate_hypothetical_early_stopping_savings to raise an exception
+            # This happens for MOO/constrained experiments, non-MapMetric data,
+            # or replay failures
+            with patch(
+                "ax.analysis.healthcheck.early_stopping_healthcheck"
+                ".estimate_hypothetical_early_stopping_savings",
+                side_effect=UnsupportedError(
+                    "No default early stopping strategy available."
+                ),
+            ):
+                card = healthcheck.compute(experiment=self.experiment)
+            self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
             self.assertIn("Early stopping is not enabled", card.subtitle)
+            self.assertIn("Automatic savings estimation is unavailable", card.subtitle)
+
+        with self.subTest("low_savings_detected"):
+            # Mock low savings below threshold (default 10%)
+            mock_savings = 0.05  # 5% savings
+            with patch(
+                "ax.analysis.healthcheck.early_stopping_healthcheck"
+                ".estimate_hypothetical_early_stopping_savings",
+                return_value=mock_savings,
+            ):
+                card = healthcheck.compute(experiment=self.experiment)
+            self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
+            self.assertIn("Early stopping is not enabled", card.subtitle)
+            self.assertIn("did not detect significant potential savings", card.subtitle)
 
         with self.subTest("potential_savings_detected"):
-            mock_savings = {"ax_test_metric": 25.0}
-            with patch.object(
-                healthcheck,
-                "_estimate_hypothetical_savings_with_replay",
+            mock_savings = 0.25  # 25% as a decimal
+            with patch(
+                "ax.analysis.healthcheck.early_stopping_healthcheck"
+                ".estimate_hypothetical_early_stopping_savings",
                 return_value=mock_savings,
             ):
                 card = healthcheck.compute(experiment=self.experiment)
@@ -322,17 +348,10 @@ class TestEarlyStoppingAnalysis(TestCase):
         """Test hypothetical savings reporting via the nudge path."""
         healthcheck = EarlyStoppingAnalysis(early_stopping_strategy=None)
         with self.subTest("basic_nudge"):
-            with (
-                patch(
-                    "ax.analysis.healthcheck.early_stopping_healthcheck."
-                    "replay_experiment",
-                    return_value=object(),
-                ),
-                patch(
-                    "ax.analysis.healthcheck.early_stopping_healthcheck"
-                    ".estimate_early_stopping_savings",
-                    return_value=0.25,
-                ),
+            with patch(
+                "ax.analysis.healthcheck.early_stopping_healthcheck"
+                ".estimate_hypothetical_early_stopping_savings",
+                return_value=0.25,
             ):
                 card = healthcheck.compute(experiment=self.experiment)
 
@@ -348,10 +367,10 @@ class TestEarlyStoppingAnalysis(TestCase):
                 early_stopping_strategy=None, nudge_additional_info=nudge_info
             )
 
-            mock_savings = {"ax_test_metric": 25.0}
-            with patch.object(
-                healthcheck_with_info,
-                "_estimate_hypothetical_savings_with_replay",
+            mock_savings = 0.25
+            with patch(
+                "ax.analysis.healthcheck.early_stopping_healthcheck"
+                ".estimate_hypothetical_early_stopping_savings",
                 return_value=mock_savings,
             ):
                 card = healthcheck_with_info.compute(experiment=self.experiment)
