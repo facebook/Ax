@@ -98,7 +98,7 @@ class TestBenchmarkRunner(TestCase):
             )
             for modified_bounds, noise_std in product(
                 (None, [(0.0, 2.0)] * 6),
-                (0.0, [0.1] * num_outcomes),
+                (0.0, {name: 0.1 for name in outcome_names}),
             )
         ]
         param_based_cases = [
@@ -108,11 +108,14 @@ class TestBenchmarkRunner(TestCase):
                 num_outcomes,
             )
             for num_outcomes in (1, 2)
-            for noise_std in (0.0, [float(i) for i in range(num_outcomes)])
+            for noise_std in (
+                0.0,
+                {f"objective_{i}": float(i) for i in range(num_outcomes)},
+            )
         ]
         surrogate_cases = [
             (get_soo_surrogate_test_function(lazy=False), noise_std, 1)
-            for noise_std in (0.0, 1.0, [0.0], [1.0])
+            for noise_std in (0.0, 1.0, {"branin": 0.0}, {"branin": 1.0})
         ]
         for test_function, noise_std, num_outcomes in (
             botorch_cases + param_based_cases + surrogate_cases
@@ -137,11 +140,8 @@ class TestBenchmarkRunner(TestCase):
             ):
                 self.assertIs(runner.test_function, test_function)
                 self.assertEqual(runner.outcome_names, outcome_names)
-                if isinstance(noise_std, list):
-                    self.assertEqual(
-                        runner.get_noise_stds(),
-                        dict(zip(runner.outcome_names, noise_std)),
-                    )
+                if isinstance(noise_std, dict):
+                    self.assertEqual(runner.get_noise_stds(), noise_std)
                 else:  # float
                     self.assertEqual(
                         runner.get_noise_stds(),
@@ -244,15 +244,17 @@ class TestBenchmarkRunner(TestCase):
                     set(runner.test_function.outcome_names), set(res.keys())
                 )
 
-                for i, df in enumerate(res.values()):
-                    if isinstance(noise_std, list):
-                        self.assertEqual(df["sem"].item(), noise_std[i])
-                        if all(n == 0 for n in noise_std):
-                            self.assertTrue(np.array_equal(df["mean"], Y[i, :]))
+                for outcome_name, df in res.items():
+                    if isinstance(noise_std, dict):
+                        self.assertEqual(df["sem"].item(), noise_std[outcome_name])
+                        if all(n == 0 for n in noise_std.values()):
+                            Y_idx = runner.outcome_names.index(outcome_name)
+                            self.assertTrue(np.array_equal(df["mean"], Y[Y_idx, :]))
                     else:  # float
                         self.assertEqual(df["sem"].item(), noise_std)
                         if noise_std == 0:
-                            self.assertTrue(np.array_equal(df["mean"], Y[i, :]))
+                            Y_idx = runner.outcome_names.index(outcome_name)
+                            self.assertTrue(np.array_equal(df["mean"], Y[Y_idx, :]))
 
             with self.subTest(f"test `poll_trial_status()`, {test_description}"):
                 self.assertEqual(
@@ -321,14 +323,10 @@ class TestBenchmarkRunner(TestCase):
             )
             self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
 
-        with self.subTest("list noise_std"):
-            runner = BenchmarkRunner(test_function=test_function, noise_std=[1.0])
-            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
-
     def test_heterogeneous_noise(self) -> None:
         outcome_names = ["objective_0", "constraint"]
         noise_dict = {"objective_0": 0.1, "constraint": 0.05}
-        for noise_std in [[0.1, 0.05], noise_dict]:
+        for noise_std in [noise_dict]:
             runner = BenchmarkRunner(
                 test_function=BoTorchTestFunction(
                     botorch_problem=ConstrainedHartmann(dim=6),

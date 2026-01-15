@@ -45,9 +45,9 @@ class BenchmarkProblem(Base):
             data. This will be used by a `BenchmarkRunner`.
         noise_std: Describes how noise is added to the output of the
             `test_function`. If a float, IID random normal noise with that
-            standard deviation is added. A list of floats, or a dict whose keys
-            match `test_functions.outcome_names`, sets different noise
-            standard deviations for the different outcomes produced by the
+            standard deviation is added. A dict whose keys match
+            `test_functions.outcome_names` sets different noise standard
+            deviations for the different outcomes produced by the
             `test_function`. This will be used by a `BenchmarkRunner`.
         optimal_value: The best ground-truth objective value, used for scoring
             optimization results on a scale from 0 to 100, where achieving the
@@ -93,7 +93,7 @@ class BenchmarkProblem(Base):
     optimization_config: OptimizationConfig
     num_trials: int
     test_function: BenchmarkTestFunction
-    noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
+    noise_std: float | Mapping[str, float] = 0.0
     optimal_value: float
     baseline_value: float
     worst_feasible_value: float | None = None
