@@ -5,11 +5,13 @@
 
 # pyre-strict
 
+import numpy as np
 import pandas as pd
 from ax.analysis.plotly.progression import (
     _calculate_wallclock_timeseries,
     ProgressionPlot,
 )
+from ax.core.data import Data, MAP_KEY
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -34,6 +36,28 @@ class TestProgression(TestCase):
             plot = ProgressionPlot(metric_name="branin")
             state = plot.validate_applicable_state(experiment=experiment)
             self.assertEqual(state, "Requires data to have a column 'step.'")
+
+        with self.subTest("All step values are NaN"):
+            # Create a new experiment with map data where all MAP_KEY values are NaN
+            experiment = get_test_map_data_experiment(
+                num_trials=2, num_fetches=3, num_complete=2
+            )
+
+            # Replace all MAP_KEY values with NaN in the fetched data
+            original_data = experiment.fetch_data()
+            modified_df = original_data.full_df.copy()
+            modified_df[MAP_KEY] = np.nan
+
+            # Create a new Data object and attach it
+            nan_data = Data(df=modified_df)
+            experiment.data = nan_data
+
+            # Validate that progression plot is not applicable
+            plot = ProgressionPlot(metric_name="branin_map")
+            state = plot.validate_applicable_state(experiment=experiment)
+            self.assertEqual(
+                state, "All progression values for metric 'branin_map' are NaN."
+            )
 
     def test_compute(self) -> None:
         analysis = ProgressionPlot(metric_name="branin_map")

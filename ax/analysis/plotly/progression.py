@@ -75,7 +75,7 @@ class ProgressionPlot(Analysis):
     ) -> str | None:
         """
         ProgressionPlot requires an Experiment with data that has a "step"
-        column.
+        column with valid (non-NaN) values.
         """
         if (
             experiment_invalid_reason := validate_experiment(
@@ -89,6 +89,20 @@ class ProgressionPlot(Analysis):
         data = none_throws(experiment).lookup_data()
         if not data.has_step_column:
             return "Requires data to have a column 'step.'"
+
+        # Check if the step column has any valid (non-NaN) values
+        metric_name = self._metric_name or select_metric(
+            experiment=none_throws(experiment)
+        )
+        df = none_throws(experiment).lookup_data().full_df
+        metric_df = df[df["metric_name"] == metric_name]
+
+        if metric_df.empty:
+            return f"No data found for metric '{metric_name}'."
+
+        # Check if all step values are NaN
+        if metric_df[MAP_KEY].isna().all():
+            return f"All progression values for metric '{metric_name}' are NaN."
 
     @override
     def compute(
