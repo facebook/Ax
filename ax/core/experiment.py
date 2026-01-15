@@ -1262,7 +1262,7 @@ class Experiment(Base):
                     "for experiment or trial."
                 )
             runner.stop(trial=trial, reason=reason)
-            trial.mark_early_stopped()
+            trial.mark_early_stopped(reason=reason)
 
     def _attach_trial(self, trial: BaseTrial, index: int | None = None) -> int:
         """Attach a trial to this experiment.
