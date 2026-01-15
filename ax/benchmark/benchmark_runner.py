@@ -24,7 +24,6 @@ from ax.exceptions.core import UnsupportedError
 from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
-from pyre_extensions import assert_is_instance
 
 
 def _dict_of_arrays_to_df(
@@ -163,7 +162,7 @@ class BenchmarkRunner(Runner):
         test_function: A ``BenchmarkTestFunction`` from which to generate
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
-            a list or dict to be per-metric.
+            a dict to be per-metric.
         step_runtime_function: A function that takes in parameters
             (in ``TParameterization`` format) and returns the runtime of a step.
         max_concurrency: The maximum number of trials that can be running at a
@@ -176,7 +175,7 @@ class BenchmarkRunner(Runner):
     """
 
     test_function: BenchmarkTestFunction
-    noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
+    noise_std: float | Mapping[str, float] = 0.0
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     max_concurrency: int = 1
     force_use_simulated_backend: bool = False
@@ -243,17 +242,11 @@ class BenchmarkRunner(Runner):
         noise_std = self.noise_std
         if isinstance(noise_std, float | int):
             return {name: float(noise_std) for name in self.outcome_names}
-        elif isinstance(noise_std, dict):
-            if not set(noise_std.keys()) == set(self.outcome_names):
-                raise ValueError(
-                    "Noise std must have keys equal to outcome names if given as "
-                    "a dict."
-                )
-            return noise_std
-        # list of floats
-        return dict(
-            zip(self.outcome_names, assert_is_instance(noise_std, list), strict=True)
-        )
+        if not set(noise_std.keys()) == set(self.outcome_names):
+            raise ValueError(
+                "Noise std must have keys equal to outcome names if given as a dict."
+            )
+        return dict(noise_std)
 
     def run(self, trial: BaseTrial) -> dict[str, BenchmarkTrialMetadata]:
         """Run the trial by evaluating its parameterization(s).
