@@ -59,7 +59,10 @@ class GenerationStrategyDispatchStruct:
                     ``choose_generation_strategy``. This is an advanced option
                     and should not be considered a part of the public API.
         initialization_budget: The number of trials to use for initialization.
-            If ``None``, a default budget of 5 trials is used.
+            If ``None``, a default budget of 5 trials is used. Note that FAILED
+            and ABANDONED trials are excluded from this count, allowing more
+            trials to be generated to meet the
+            `min_observed_initialization_trials` requirement.
         initialization_random_seed: The random seed to use with the Sobol generator
             that generates the initialization trials.
         initialize_with_center: If True, the center of the search space is used as the
