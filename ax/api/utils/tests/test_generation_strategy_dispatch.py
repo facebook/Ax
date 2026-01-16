@@ -102,6 +102,7 @@ class TestDispatchUtils(TestCase):
                 block_gen_if_met=False,
                 block_transition_if_unmet=True,
                 use_all_trials_in_exp=False,
+                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             ),
             MinTrials(
                 threshold=4,
@@ -370,3 +371,54 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(
                     mbm_spec.generator_kwargs["surrogate_spec"], expected_ss
                 )
+
+    def test_abandoned_and_failed_trials_excluded_from_initialization_budget(
+        self,
+    ) -> None:
+        """Test that FAILED and ABANDONED trials don't count toward init budget."""
+        struct = GenerationStrategyDispatchStruct(
+            method="fast",
+            initialization_budget=5,
+            allow_exceeding_initialization_budget=False,
+        )
+        gs = choose_generation_strategy(struct=struct)
+
+        # Verify the first MinTrials criterion excludes FAILED and ABANDONED
+        sobol_node = gs._nodes[1]  # Node 0 is Center
+        first_tc = assert_is_instance(sobol_node._transition_criteria[0], MinTrials)
+        self.assertEqual(
+            first_tc.not_in_statuses, [TrialStatus.FAILED, TrialStatus.ABANDONED]
+        )
+        self.assertEqual(first_tc.threshold, 5)
+        self.assertTrue(first_tc.block_gen_if_met)
+
+        # Test the actual behavior: Generate 5 trials, mark 3 as ABANDONED,
+        # verify that Sobol can still generate more trials
+        experiment = get_branin_experiment()
+        gs.experiment = experiment
+
+        # Generate 5 initial trials
+        for _ in range(5):
+            gr = gs.gen_single_trial(experiment)
+            trial = experiment.new_trial(generator_run=gr)
+            trial.mark_running(no_runner_required=True)
+
+            # Mark trials 2, 3, 4 as ABANDONED
+            if trial.index in [2, 3, 4]:
+                trial.mark_abandoned()
+            else:
+                trial.mark_completed()
+
+        # Check we have 2 COMPLETED and 3 ABANDONED
+        self.assertEqual(
+            len(experiment.trial_indices_by_status[TrialStatus.COMPLETED]), 2
+        )
+        self.assertEqual(
+            len(experiment.trial_indices_by_status[TrialStatus.ABANDONED]), 3
+        )
+
+        # Should still be able to generate from Sobol since only 2 "valid" trials exist
+        gr = gs.gen_single_trial(experiment)
+        self.assertIsNotNone(gr)
+        # Verify it's from Sobol
+        self.assertEqual(gr._generator_key, "Sobol")

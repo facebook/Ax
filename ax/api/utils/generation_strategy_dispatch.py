@@ -45,8 +45,9 @@ def _get_sobol_node(
         - If the initialization budget is not specified, it defaults to 5.
         - The TC will not block generation if `allow_exceeding_initialization_budget`
             is set to True.
-        - The TC is currently not restricted to any trial statuses and will
-            count all trials.
+        - The TC excludes FAILED and ABANDONED trials from the count, so that
+            more trials can be generated to meet the
+            `min_observed_initialization_trials` requirement.
         - `use_existing_trials_for_initialization` controls whether trials previously
             attached to the experiment are counted as part of the initialization budget.
     - MinTrials enforcing the minimum number of observed initialization trials.
@@ -72,6 +73,7 @@ def _get_sobol_node(
             block_gen_if_met=(not allow_exceeding_initialization_budget),
             block_transition_if_unmet=True,
             use_all_trials_in_exp=use_existing_trials_for_initialization,
+            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         ),
         MinTrials(  # This represents minimum observed trials requirement.
             threshold=min_observed_initialization_trials,
