@@ -5,12 +5,14 @@
 
 # pyre-strict
 
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
+from ax.benchmark.noise import GaussianNoise, Noise
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -43,12 +45,10 @@ class BenchmarkProblem(Base):
             as one trial.
         test_function: A `BenchmarkTestFunction`, which will generate noiseless
             data. This will be used by a `BenchmarkRunner`.
-        noise_std: Describes how noise is added to the output of the
-            `test_function`. If a float, IID random normal noise with that
-            standard deviation is added. A dict whose keys match
-            `test_functions.outcome_names` sets different noise standard
-            deviations for the different outcomes produced by the
-            `test_function`. This will be used by a `BenchmarkRunner`.
+        noise: A `Noise` object that determines how noise is added to the
+            ground-truth evaluations produced by the `test_function`. Defaults
+            to noiseless (`GaussianNoise(noise_std=0.0)`).
+        noise_std: Deprecated. Use `noise` instead.
         optimal_value: The best ground-truth objective value, used for scoring
             optimization results on a scale from 0 to 100, where achieving the
             `optimal_value` receives a score of 100. The `optimal_value` should
@@ -93,7 +93,8 @@ class BenchmarkProblem(Base):
     optimization_config: OptimizationConfig
     num_trials: int
     test_function: BenchmarkTestFunction
-    noise_std: float | Mapping[str, float] = 0.0
+    noise: Noise = field(default_factory=GaussianNoise)
+    noise_std: float | Mapping[str, float] | None = None
     optimal_value: float
     baseline_value: float
     worst_feasible_value: float | None = None
@@ -108,6 +109,23 @@ class BenchmarkProblem(Base):
     tracking_metrics: list[Metric] | None = None
 
     def __post_init__(self) -> None:
+        # Handle backward compatibility for noise_std parameter
+        if self.noise_std is not None:
+            warnings.warn(
+                "noise_std is deprecated. Use noise=GaussianNoise(noise_std=...) "
+                "instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Check if noise was also explicitly set (not default)
+            if not isinstance(self.noise, GaussianNoise) or self.noise.noise_std != 0.0:
+                raise ValueError(
+                    "Cannot specify both 'noise_std' and a non-default 'noise'. "
+                    "Use only 'noise=GaussianNoise(noise_std=...)' instead."
+                )
+            # Convert noise_std to GaussianNoise (use 0 if None)
+            self.noise = GaussianNoise(noise_std=self.noise_std or 0)
+
         # Validate inputs
         if self.report_inference_value_as_trace and self.is_moo:
             raise NotImplementedError(

@@ -147,7 +147,7 @@ def get_benchmark_runner(
 
     return BenchmarkRunner(
         test_function=problem.test_function,
-        noise_std=problem.noise_std,
+        noise=problem.noise,
         step_runtime_function=problem.step_runtime_function,
         max_concurrency=max_concurrency,
         force_use_simulated_backend=force_use_simulated_backend,
@@ -189,9 +189,9 @@ def get_oracle_experiment_from_params(
         optimization_config=problem.optimization_config,
     )
 
-    # Ensure noiseless evaluation by replacing any custom noise function with None
-    noiseless_test_function = replace(problem.test_function, add_custom_noise=None)
-    runner = BenchmarkRunner(test_function=noiseless_test_function, noise_std=0.0)
+    # The test function produces ground-truth values; noise is handled by
+    # BenchmarkRunner's Noise object (default is noiseless GaussianNoise).
+    runner = BenchmarkRunner(test_function=problem.test_function)
 
     # Silence INFO logs from ax.core.experiment that state "Attached custom
     # parameterizations"

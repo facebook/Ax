@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
+from ax.benchmark.noise import GaussianNoise
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from pyre_extensions import none_throws
@@ -116,7 +117,7 @@ def get_jenatton_benchmark_problem(
         search_space=get_jenatton_search_space(),
         optimization_config=optimization_config,
         test_function=Jenatton(outcome_names=[name]),
-        noise_std=noise_std,
+        noise=GaussianNoise(noise_std=noise_std),
         num_trials=num_trials,
         optimal_value=JENATTON_OPTIMAL_VALUE,
         baseline_value=JENATTON_BASELINE_VALUE,
