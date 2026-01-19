@@ -7,7 +7,6 @@
 # pyre-strict
 
 
-from collections.abc import Mapping
 from contextlib import nullcontext
 from dataclasses import replace
 from itertools import product
@@ -15,10 +14,11 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
-from ax.benchmark.benchmark_runner import _add_noise, BenchmarkRunner
+from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
+from ax.benchmark.noise import GaussianNoise
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
     Jenatton,
@@ -29,7 +29,6 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_soo_surrogate_test_function,
 )
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
@@ -39,7 +38,6 @@ from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
-from pandas import DataFrame
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -132,7 +130,8 @@ class TestBenchmarkRunner(TestCase):
                 outcome_names = ["branin"]
 
             # Set up runner
-            runner = BenchmarkRunner(test_function=test_function, noise_std=noise_std)
+            noise = GaussianNoise(noise_std=noise_std)
+            runner = BenchmarkRunner(test_function=test_function, noise=noise)
 
             test_description = f"{test_function=}, {noise_std=}"
             with self.subTest(
@@ -141,10 +140,17 @@ class TestBenchmarkRunner(TestCase):
                 self.assertIs(runner.test_function, test_function)
                 self.assertEqual(runner.outcome_names, outcome_names)
                 if isinstance(noise_std, dict):
-                    self.assertEqual(runner.get_noise_stds(), noise_std)
+                    self.assertEqual(
+                        assert_is_instance(runner.noise, GaussianNoise).get_noise_stds(
+                            runner.outcome_names
+                        ),
+                        noise_std,
+                    )
                 else:  # float
                     self.assertEqual(
-                        runner.get_noise_stds(),
+                        assert_is_instance(runner.noise, GaussianNoise).get_noise_stds(
+                            runner.outcome_names
+                        ),
                         {name: noise_std for name in runner.outcome_names},
                     )
 
@@ -271,71 +277,23 @@ class TestBenchmarkRunner(TestCase):
                 ):
                     BenchmarkRunner.deserialize_init_args({})
 
-    def test__add_noise(self) -> None:
-        np.random.seed(0)
-        y_true = np.arange(6)
-        arm_name = ["0_0", "0_1", "0_0", "0_1", "0_0", "0_1"]
-        metric_name = ["foo", "foo", "bar", "bar", "baz", "baz"]
-
-        df = DataFrame(
-            {"Y_true": y_true, "metric_name": metric_name, "arm_name": arm_name}
-        )
-
-        noise_stds = {"foo": 1, "bar": 2, "baz": 3}
-        arm_weights = {"0_0": 1, "0_1": 2}
-        result = _add_noise(df=df, noise_stds=noise_stds, arm_weights=arm_weights)
-        self.assertEqual(set(result.columns), set(df.columns) | {"mean", "sem"})
-        expected_sem = df["metric_name"].map(noise_stds) / np.sqrt(
-            df["arm_name"].map(arm_weights) / 3
-        )
-        self.assertEqual(result["sem"].tolist(), expected_sem.tolist())
-        noise = df["mean"] - df["Y_true"]
-        self.assertNotEqual(noise.std(), 0)
-
-        z_scores = noise / expected_sem
-        self.assertNotEqual(z_scores.std(), 0)
-
-        chi_squared_stat = (z_scores**2).sum()
-        # None of these assertions would have failed in 10M simulations.
-        # Each has some tolerance from the most extreme value seen in 10M sims.
-        self.assertGreater(chi_squared_stat, 0.005)
-        self.assertLess(chi_squared_stat, 45)
-        self.assertLess(np.abs(z_scores).min(), 2)
-        self.assertGreater(z_scores.max(), 0.05)
-
-    def test_get_noise_stds(self) -> None:
-        test_function = BoTorchTestFunction(
-            botorch_problem=Hartmann(dim=6),
-            outcome_names=["objective_0"],
-        )
-        expected_noise_sd_dict = {"objective_0": 1.0}
-        with self.subTest("float noise_std"):
-            runner = BenchmarkRunner(test_function=test_function, noise_std=1.0)
-            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
-
-        with self.subTest("int noise_std"):
-            runner = BenchmarkRunner(test_function=test_function, noise_std=1)
-            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
-
-        with self.subTest("dict noise_std"):
-            runner = BenchmarkRunner(
-                test_function=test_function, noise_std=expected_noise_sd_dict
-            )
-            self.assertDictEqual(runner.get_noise_stds(), expected_noise_sd_dict)
-
     def test_heterogeneous_noise(self) -> None:
         outcome_names = ["objective_0", "constraint"]
         noise_dict = {"objective_0": 0.1, "constraint": 0.05}
         for noise_std in [noise_dict]:
+            noise = GaussianNoise(noise_std=noise_std)
             runner = BenchmarkRunner(
                 test_function=BoTorchTestFunction(
                     botorch_problem=ConstrainedHartmann(dim=6),
                     outcome_names=outcome_names,
                 ),
-                noise_std=noise_std,
+                noise=noise,
             )
             self.assertDictEqual(
-                assert_is_instance(runner.get_noise_stds(), dict), noise_dict
+                assert_is_instance(runner.noise, GaussianNoise).get_noise_stds(
+                    outcome_names
+                ),
+                noise_dict,
             )
 
             X = torch.rand(1, 6, dtype=torch.double)
@@ -371,41 +329,40 @@ class TestBenchmarkRunner(TestCase):
             self.assertEqual(obj_df["sem"].item(), 0.1)
             self.assertEqual(res["constraint"]["sem"].item(), 0.05)
 
-            with self.subTest("heterogeneous arm weights"):
-                arm_0 = Arm(name="0_0", parameters={f"x{i}": 0.0 for i in range(6)})
-                arm_1 = Arm(name="0_1", parameters={f"x{i}": 0.5 for i in range(6)})
-                trial = Mock(spec=BatchTrial)
-                trial.arms = [arm_0, arm_1]
-                trial.index = 0
-                # arm stds get multiplied by sqrt([25/9, 25/16])
-                trial.arm_weights = {arm_0: 9, arm_1: 16}
-                res = runner.run(trial=trial)["benchmark_metadata"].dfs
-                expected_relative_noise_levels = np.array([5 / 3, 5 / 4])
-                for metric_name, df in res.items():
-                    self.assertTrue(
-                        np.array_equal(
-                            df["sem"],
-                            noise_dict[metric_name] * expected_relative_noise_levels,
-                        )
+        with self.subTest("heterogeneous arm weights"):
+            arm_0 = Arm(name="0_0", parameters={f"x{i}": 0.0 for i in range(6)})
+            arm_1 = Arm(name="0_1", parameters={f"x{i}": 0.5 for i in range(6)})
+            trial = Mock(spec=BatchTrial)
+            trial.arms = [arm_0, arm_1]
+            trial.index = 0
+            # arm stds get multiplied by sqrt([25/9, 25/16])
+            trial.arm_weights = {arm_0: 9, arm_1: 16}
+            res = runner.run(trial=trial)["benchmark_metadata"].dfs
+            expected_relative_noise_levels = np.array([5 / 3, 5 / 4])
+            for metric_name, df in res.items():
+                self.assertTrue(
+                    np.array_equal(
+                        df["sem"],
+                        noise_dict[metric_name] * expected_relative_noise_levels,
                     )
+                )
 
     def test_with_learning_curve(self) -> None:
         test_function = IdentityTestFunction(outcome_names=["foo", "bar"], n_steps=10)
 
         params = {"x0": 1.2}
-        runner = BenchmarkRunner(test_function=test_function, noise_std=0.0)
-
-        experiment = Experiment(
-            name="test",
-            is_test=True,
-            runner=runner,
-            search_space=Mock(spec=SearchSpace),
-        )
 
         for noise_std in [0.0, 0.1]:
             with self.subTest(noise_std=noise_std):
                 runner = BenchmarkRunner(
-                    test_function=test_function, noise_std=noise_std
+                    test_function=test_function,
+                    noise=GaussianNoise(noise_std=noise_std),
+                )
+                experiment = Experiment(
+                    name="test",
+                    is_test=True,
+                    runner=runner,
+                    search_space=Mock(spec=SearchSpace),
                 )
 
                 trial = Trial(experiment=experiment)
@@ -427,9 +384,17 @@ class TestBenchmarkRunner(TestCase):
 
         with self.subTest("with SimulatedBackendRunner"):
             runner = BenchmarkRunner(
-                test_function=test_function, noise_std=0.0, max_concurrency=2
+                test_function=test_function,
+                noise=GaussianNoise(noise_std=0.0),
+                max_concurrency=2,
             )
 
+            experiment = Experiment(
+                name="test_sb",
+                is_test=True,
+                runner=runner,
+                search_space=Mock(spec=SearchSpace),
+            )
             arm = Arm(name="0_0", parameters=params)
             trial = Trial(experiment=experiment)
             trial.add_arm(arm=arm)
@@ -450,7 +415,7 @@ class TestBenchmarkRunner(TestCase):
         )
         runner = BenchmarkRunner(
             test_function=test_function,
-            noise_std=0.0,
+            noise=GaussianNoise(noise_std=0.0),
             step_runtime_function=lambda params: params["x0"],
         )
         experiment = Experiment(
@@ -480,59 +445,3 @@ class TestBenchmarkRunner(TestCase):
                 ValueError, "Step duration must be non-negative"
             ):
                 runner.run(trial=trial)
-
-    def test_wrong_noise_std_keys(self) -> None:
-        test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
-        runner = BenchmarkRunner(test_function=test_function, noise_std={"alpaca": 4})
-        with self.assertRaisesRegex(
-            ValueError, "Noise std must have keys equal to outcome names"
-        ):
-            runner.get_noise_stds()
-
-    def test_add_custom_noise(self) -> None:
-        """Test that custom noise function is used when provided."""
-
-        # Create a custom noise function that adds fixed noise
-        def custom_noise_fn(
-            df: DataFrame,
-            trial: BaseTrial | None,
-            noise_stds: Mapping[str, float] | None,
-            arm_weights: Mapping[str, float] | None,
-        ) -> DataFrame:
-            df["mean"] = df["Y_true"] + 0.5  # Fixed offset
-            df["sem"] = 0.1  # Fixed SEM
-            return df
-
-        test_function = IdentityTestFunction(
-            outcome_names=["foo"], add_custom_noise=custom_noise_fn
-        )
-        runner = BenchmarkRunner(
-            test_function=test_function,
-            noise_std=0.0,  # Must be 0 when custom noise is used
-        )
-
-        params = {"x0": 1.0}
-        arm = Arm(name="0_0", parameters=params)
-        trial = Mock(spec=Trial)
-        trial.arms = [arm]
-        trial.arm = arm
-        trial.index = 0
-
-        res = runner.run(trial=trial)["benchmark_metadata"].dfs
-        df = res["foo"]
-
-        # Verify custom noise was applied (mean = Y_true + 0.5)
-        expected_y_true = 1.0  # IdentityTestFunction returns sum of params
-        self.assertEqual(df["mean"].item(), expected_y_true + 0.5)
-        self.assertEqual(df["sem"].item(), 0.1)
-
-        with self.subTest("custom_noise_and_noise_std_conflict"):
-            with self.assertRaisesRegex(
-                ValueError,
-                "Cannot specify both `add_custom_noise` on the test function and "
-                "a `noise_std`",
-            ):
-                BenchmarkRunner(
-                    test_function=test_function,
-                    noise_std=1.0,
-                )

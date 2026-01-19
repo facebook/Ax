@@ -6,30 +6,11 @@
 # pyre-strict
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-import pandas as pd
-from ax.core.base_trial import BaseTrial
 from ax.core.types import TParamValue
 from torch import Tensor
-
-# Type alias for the custom noise function.
-# The callable takes all the arguments that are exposed in the benchmark runner:
-#   - df: The lookup_data().df DataFrame. Mandatory
-#   - trial: The trial being evaluated
-#   - noise_stds: Mapping from metric name to noise std
-#   - arm_weights: Mapping from arm name to weight, or None for single-arm trials
-# And returns a DataFrame with added "mean" and "sem" columns.
-TAddCustomNoise = Callable[
-    [
-        pd.DataFrame,
-        BaseTrial | None,
-        Mapping[str, float] | None,
-        Mapping[str, float] | None,
-    ],
-    pd.DataFrame,
-]
 
 
 @dataclass(kw_only=True)
@@ -37,7 +18,7 @@ class BenchmarkTestFunction(ABC):
     """
     The basic Ax class for generating deterministic data to benchmark against.
 
-    (Noise - if desired - is added by the runner.)
+    (Noise - if desired - is added by the runner using a `Noise` object.)
 
     Args:
         outcome_names: Names of the outcomes.
@@ -45,14 +26,10 @@ class BenchmarkTestFunction(ABC):
             if data is not time-series. If data is time-series, this will
             eventually become the number of values on a `MapMetric` for
             evaluations that run to completion.
-        add_custom_noise: Optional callable to add custom noise to evaluation
-            results. If provided, it will be called instead of the default noise
-            behavior, overriding the noise_std argument.
     """
 
     outcome_names: Sequence[str]
     n_steps: int = 1
-    add_custom_noise: TAddCustomNoise | None = None
 
     @abstractmethod
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:

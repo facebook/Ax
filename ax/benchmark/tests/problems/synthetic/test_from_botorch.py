@@ -11,6 +11,7 @@ import torch
 from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_problem import get_continuous_search_space
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
+from ax.benchmark.noise import GaussianNoise
 from ax.benchmark.problems.synthetic.from_botorch import (
     _get_name,
     create_problem_from_botorch,
@@ -145,7 +146,9 @@ class TestFromBoTorch(TestCase):
         botorch_problem = assert_is_instance(
             test_problem.botorch_problem, ConstrainedBaseTestProblem
         )
-        self.assertEqual(ax_problem.noise_std, noise_std)
+        self.assertEqual(
+            assert_is_instance(ax_problem.noise, GaussianNoise).noise_std, noise_std
+        )
         opt_config = ax_problem.optimization_config
         outcome_constraints = opt_config.outcome_constraints
         self.assertEqual(
