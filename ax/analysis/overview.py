@@ -35,7 +35,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import OrchestratorOptions
+from ax.orchestration.orchestrator_options import OrchestratorOptions
 from pyre_extensions import override
 
 
