@@ -466,7 +466,7 @@ def choose_generation_strategy_legacy(
             logger.debug(
                 f"calculated num_initialization_trials={num_initialization_trials}"
             )
-        steps = []
+        nodes = []
         # `disable_progbar` and jit_compile defaults and overrides
         model_is_saasbo = use_saasbo and (suggested_model is Generators.BOTORCH_MODULAR)
         if disable_progbar is not None and not model_is_saasbo:
@@ -493,7 +493,7 @@ def choose_generation_strategy_legacy(
             # Note: With `use_all_trials_in_exp=True`, the Sobol step will automatically
             # account for any existing trials in the experiment, so we can use the total
             # number of initialization trials directly.
-            steps.append(
+            nodes.append(
                 _make_sobol_step(
                     num_trials=num_initialization_trials,
                     min_trials_observed=min_sobol_trials_observed,
@@ -503,7 +503,7 @@ def choose_generation_strategy_legacy(
                     should_deduplicate=should_deduplicate,
                 )
             )
-        steps.append(
+        nodes.append(
             _make_botorch_step(
                 generator=suggested_model,
                 winsorization_config=winsorization_config,
@@ -518,17 +518,17 @@ def choose_generation_strategy_legacy(
             ),
         )
         # set name for GS
-        bo_step = steps[-1]
-        surrogate_spec = bo_step.generator_kwargs.get("surrogate_spec")
+        bo_step = nodes[-1]
+        surrogate_spec = bo_step.generator_spec.generator_kwargs.get("surrogate_spec")
         name = None
         if (
-            bo_step.generator is Generators.BOTORCH_MODULAR
+            bo_step.generator_spec.generator_enum is Generators.BOTORCH_MODULAR
             and surrogate_spec is not None
             and (model_config := surrogate_spec.model_configs[0]).botorch_model_class
             == SaasFullyBayesianSingleTaskGP
         ):
             name = f"Sobol+{model_config.name}"
-        gs = GenerationStrategy(steps=steps, name=name)
+        gs = GenerationStrategy(nodes=nodes, name=name)
         logger.info(
             f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
             f" {num_initialization_trials} will take longer to generate due"

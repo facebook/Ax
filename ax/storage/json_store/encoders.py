@@ -10,7 +10,6 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from ax.adapter.registry import _encode_callables_as_references
 from ax.adapter.transforms.base import Transform
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
@@ -51,10 +50,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    TransitionCriterion,
-    TrialBasedCriterion,
-)
+from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
@@ -75,7 +71,6 @@ from ax.utils.testing.backend_simulator import (
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
-from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -132,7 +127,6 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "runner": batch.runner,
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
-        "generation_step_index": batch._generation_step_index,
         "properties": batch._properties,
     }
 
@@ -155,7 +149,6 @@ def trial_to_dict(trial: Trial) -> dict[str, Any]:
         "generator_run": trial.generator_run,
         "runner": trial.runner,
         "num_arms_created": trial._num_arms_created,
-        "generation_step_index": trial._generation_step_index,
         "properties": trial._properties,
     }
 
@@ -372,7 +365,6 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> dict[str, Any]:
         "adapter_kwargs": gr._adapter_kwargs,
         "gen_metadata": gr._gen_metadata,
         "generator_state_after_gen": gr._generator_state_after_gen,
-        "generation_step_index": gr._generation_step_index,
         "candidate_metadata_by_arm_signature": cand_metadata,
         "generation_node_name": gr._generation_node_name,
     }
@@ -402,36 +394,9 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
 
 def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
-    if tc := generation_step.transition_criteria:
-        # If True, `use_all_trials_in_exp` will be set on the first TC.
-        # Otherwise, it'll be False.
-        use_all_trials_in_exp = assert_is_instance(
-            tc[0], TrialBasedCriterion
-        ).use_all_trials_in_exp
-    else:
-        # If there is no TC, then the argument is irrelevant, so we can use False.
-        use_all_trials_in_exp = False
-    return {
-        "__type": generation_step.__class__.__name__,
-        "generator": generation_step.generator,
-        "num_trials": generation_step.num_trials,
-        "min_trials_observed": generation_step.min_trials_observed,
-        "completion_criteria": generation_step.completion_criteria,
-        "max_parallelism": generation_step.max_parallelism,
-        "use_update": generation_step.use_update,
-        "enforce_num_trials": generation_step.enforce_num_trials,
-        "generator_kwargs": _encode_callables_as_references(
-            generation_step.generator_kwargs or {}
-        ),
-        "generator_gen_kwargs": _encode_callables_as_references(
-            generation_step.generator_gen_kwargs or {}
-        ),
-        "index": generation_step.index,
-        "should_deduplicate": generation_step.should_deduplicate,
-        "transition_criteria": generation_step.transition_criteria,
-        "generator_name": generation_step.generator_name,
-        "use_all_trials_in_exp": use_all_trials_in_exp,
-    }
+    # pyre-fixme[6]: Currently, Pyre doesn't recognize that `Generation
+    #  Step.__new__` actually returns a `GenerationNode`.
+    return generation_node_to_dict(generation_node=generation_step)
 
 
 def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
@@ -459,15 +424,12 @@ def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> dict[str, Any]:
     """Converts Ax generation strategy to a dictionary."""
-    node_based_gs = generation_strategy.is_node_based
     return {
         "__type": generation_strategy.__class__.__name__,
         "db_id": generation_strategy._db_id,
         "name": generation_strategy.name,
-        "steps": generation_strategy._steps if not node_based_gs else [],
-        "curr_index": (
-            generation_strategy.current_step_index if not node_based_gs else -1
-        ),
+        "steps": [],
+        "curr_index": -1,
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.adapter is not None,
         "experiment": generation_strategy._experiment,
