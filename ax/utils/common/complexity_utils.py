@@ -13,7 +13,7 @@ from ax.adapter.adapter_utils import can_map_to_binary, is_unordered_choice
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
 from ax.exceptions.core import OptimizationNotConfiguredError, UserInputError
-from ax.orchestration.orchestrator import OrchestratorOptions
+from ax.orchestration.orchestrator_options import OrchestratorOptions
 
 STANDARD_TIER_MESSAGE = """This experiment is in tier 'Standard'.
 
