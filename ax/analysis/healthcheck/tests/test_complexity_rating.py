@@ -20,7 +20,7 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.orchestration.orchestrator import OrchestratorOptions
+from ax.orchestration.orchestrator_options import OrchestratorOptions
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 

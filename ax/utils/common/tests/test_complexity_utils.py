@@ -8,7 +8,7 @@
 
 from ax.core.metric import Metric
 from ax.exceptions.core import OptimizationNotConfiguredError, UserInputError
-from ax.orchestration.orchestrator import OrchestratorOptions
+from ax.orchestration.orchestrator_options import OrchestratorOptions
 from ax.utils.common.complexity_utils import (
     check_if_in_standard,
     DEFAULT_TIER_MESSAGES,
