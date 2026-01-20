@@ -26,7 +26,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.metrics.map_replay import MapDataReplayMetric
-from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
+from ax.orchestration.orchestrator_options import OrchestratorOptions
 from ax.runners.map_replay import MapDataReplayRunner
 from ax.utils.common.logger import get_logger
 
@@ -92,6 +92,9 @@ def replay_experiment(
     )
 
     # Setup a Orchestrator with a dummy gs to replay the historical experiment
+    # Lazy import to avoid sqlalchemy dependency at module load time
+    from ax.orchestration.orchestrator import Orchestrator
+
     dummy_sobol_gs = GenerationStrategy(
         name="sobol",
         steps=[

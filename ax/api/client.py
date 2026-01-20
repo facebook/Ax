@@ -44,7 +44,8 @@ from ax.early_stopping.strategies import (
 )
 from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
+from ax.orchestration.orchestrator import Orchestrator
+from ax.orchestration.orchestrator_options import OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
