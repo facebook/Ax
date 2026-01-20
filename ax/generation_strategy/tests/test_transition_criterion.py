@@ -224,7 +224,7 @@ class TestTransitionCriterion(TestCase):
             MinTrials(
                 threshold=3,
                 block_gen_if_met=True,
-                transition_to="GenerationStep_1",
+                transition_to="GenerationStep_1_BoTorch",
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             ),
@@ -233,14 +233,14 @@ class TestTransitionCriterion(TestCase):
             MinTrials(
                 threshold=4,
                 block_gen_if_met=False,
-                transition_to="GenerationStep_2",
+                transition_to="GenerationStep_2_BoTorch",
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             ),
             MinTrials(
                 only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=2,
-                transition_to="GenerationStep_2",
+                transition_to="GenerationStep_2_BoTorch",
             ),
             MaxGenerationParallelism(
                 threshold=1,
@@ -251,13 +251,13 @@ class TestTransitionCriterion(TestCase):
         ]
         step_2_expected_transition_criteria = []
         self.assertEqual(
-            gs._steps[0].transition_criteria, step_0_expected_transition_criteria
+            gs._nodes[0].transition_criteria, step_0_expected_transition_criteria
         )
         self.assertEqual(
-            gs._steps[1].transition_criteria, step_1_expected_transition_criteria
+            gs._nodes[1].transition_criteria, step_1_expected_transition_criteria
         )
         self.assertEqual(
-            gs._steps[2].transition_criteria, step_2_expected_transition_criteria
+            gs._nodes[2].transition_criteria, step_2_expected_transition_criteria
         )
 
     def test_min_trials_is_met(self) -> None:
@@ -285,8 +285,8 @@ class TestTransitionCriterion(TestCase):
             experiment.new_trial(
                 generator_run=gs.gen_single_trial(experiment=experiment)
             )
-        node_0_trials = gs._steps[0].trials_from_node
-        node_1_trials = gs._steps[1].trials_from_node
+        node_0_trials = gs._nodes[0].trials_from_node
+        node_1_trials = gs._nodes[1].trials_from_node
 
         self.assertEqual(len(node_0_trials), 4)
         self.assertEqual(len(node_1_trials), 0)
@@ -294,9 +294,9 @@ class TestTransitionCriterion(TestCase):
         # MinTrials is met should not pass yet, because no trials
         # are marked completed
         self.assertFalse(
-            gs._steps[0]
+            gs._nodes[0]
             .transition_criteria[1]
-            .is_met(experiment=experiment, curr_node=gs._steps[0])
+            .is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
         # Should pass after two trials are marked completed
@@ -305,9 +305,9 @@ class TestTransitionCriterion(TestCase):
             if idx == 1:
                 break
         self.assertTrue(
-            gs._steps[0]
+            gs._nodes[0]
             .transition_criteria[1]
-            .is_met(experiment=experiment, curr_node=gs._steps[0])
+            .is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
         # Check mixed status MinTrials
@@ -316,13 +316,13 @@ class TestTransitionCriterion(TestCase):
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
         )
         self.assertFalse(
-            min_criterion.is_met(experiment=experiment, curr_node=gs._steps[0])
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
         for idx, trial in experiment.trials.items():
             if idx == 2:
                 trial._status = TrialStatus.EARLY_STOPPED
         self.assertTrue(
-            min_criterion.is_met(experiment=experiment, curr_node=gs._steps[0])
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
     def test_auto_transition(self) -> None:
@@ -449,19 +449,19 @@ class TestTransitionCriterion(TestCase):
         )
         max_criterion = MinTrials(threshold=2, block_gen_if_met=True)
         self.assertFalse(
-            max_criterion.is_met(experiment=experiment, curr_node=gs._steps[0])
+            max_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
         for _i in range(3):
             experiment.new_trial(gs.gen_single_trial(experiment=experiment))
         self.assertTrue(
-            max_criterion.is_met(experiment=experiment, curr_node=gs._steps[0])
+            max_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
         # Before marking trial status it should be false, until trials are completed
         self.assertFalse(
             max_criterion_with_status.is_met(
-                experiment=experiment, curr_node=gs._steps[0]
+                experiment=experiment, curr_node=gs._nodes[0]
             )
         )
         for idx, trial in experiment.trials.items():
@@ -470,7 +470,7 @@ class TestTransitionCriterion(TestCase):
                 break
         self.assertTrue(
             max_criterion_with_status.is_met(
-                experiment=experiment, curr_node=gs._steps[0]
+                experiment=experiment, curr_node=gs._nodes[0]
             )
         )
 

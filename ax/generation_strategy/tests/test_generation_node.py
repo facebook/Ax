@@ -413,17 +413,28 @@ class TestGenerationStep(TestCase):
             generator_kwargs=self.generator_kwargs,
         )
         self.generator_spec = GeneratorSpec(
-            generator_enum=self.sobol_generation_step.generator,
+            # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+            #  Step.__new__` actually returns a `GenerationNode`.
+            generator_enum=self.sobol_generation_step.generator_spec.generator_enum,
             generator_kwargs=self.generator_kwargs,
         )
 
     def test_init(self) -> None:
         self.assertEqual(
+            # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+            #  Step.__new__` actually returns a `GenerationNode`.
             self.sobol_generation_step.generator_specs,
             [self.generator_spec],
         )
-        self.assertEqual(self.sobol_generation_step.generator_name, "Sobol")
         self.assertEqual(
+            # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+            #  Step.__new__` actually returns a `GenerationNode`.
+            self.sobol_generation_step.generator_spec.generator_enum.value,
+            "Sobol",
+        )
+        self.assertEqual(
+            # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+            #  Step.__new__` actually returns a `GenerationNode`.
             self.sobol_generation_step.transition_criteria,
             [
                 MinTrials(
@@ -445,7 +456,9 @@ class TestGenerationStep(TestCase):
             generator_name="Custom Sobol",
             use_all_trials_in_exp=True,
         )
-        self.assertEqual(named_generation_step.generator_name, "Custom Sobol")
+        self.assertEqual(
+            named_generation_step.generator_spec.generator_key_override, "Custom Sobol"
+        )
         self.assertEqual(
             named_generation_step.transition_criteria,
             [
@@ -487,15 +500,19 @@ class TestGenerationStep(TestCase):
 
     def test_properties(self) -> None:
         step = self.sobol_generation_step
-        self.assertEqual(step.generator_spec, self.generator_spec)
-        self.assertEqual(step._unique_id, "-1")
+        # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+        #  Step.__new__` actually returns a `GenerationNode`.
+        spec = step.generator_spec
+        self.assertEqual(spec, self.generator_spec)
+        # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+        #  Step.__new__` actually returns a `GenerationNode`.
+        self.assertEqual(step._unique_id, "GenerationStep_-1_Sobol")
         # Make sure that generator_kwargs and generator_gen_kwargs are synchronized
         # to the underlying model spec.
-        spec = step.generator_spec
         spec.generator_kwargs.update({"new_kwarg": 1})
         spec.generator_gen_kwargs.update({"new_gen_kwarg": 1})
-        self.assertEqual(step.generator_kwargs, spec.generator_kwargs)
-        self.assertEqual(step.generator_gen_kwargs, spec.generator_gen_kwargs)
+        self.assertEqual(spec.generator_kwargs, spec.generator_kwargs)
+        self.assertEqual(spec.generator_gen_kwargs, spec.generator_gen_kwargs)
 
 
 class TestGenerationNodeWithBestModelSelector(TestCase):
