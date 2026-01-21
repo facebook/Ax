@@ -1857,14 +1857,16 @@ class TestAxOrchestrator(TestCase):
             any(
                 re.search(
                     r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.FAILED",
+                    "TrialStatus.ABANDONED",
                     warning,
                 )
                 is not None
                 for warning in lg.output
             )
         )
-        self.assertEqual(orchestrator.experiment.trials[0].status, TrialStatus.FAILED)
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
+        )
 
     def test_fetch_and_process_trials_data_results_failed_objective_but_recoverable(
         self,
@@ -1957,14 +1959,16 @@ class TestAxOrchestrator(TestCase):
             any(
                 re.search(
                     r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.FAILED",
+                    "TrialStatus.ABANDONED",
                     warning,
                 )
                 is not None
                 for warning in lg.output
             )
         )
-        self.assertEqual(orchestrator.experiment.trials[0].status, TrialStatus.FAILED)
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
+        )
 
     def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.
