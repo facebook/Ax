@@ -32,6 +32,7 @@ dependencies = [
     "sympy",
     "markdown",
     "graphviz",
+    "SQLAlchemy==1.4.17",
 ]
 
 [project.optional-dependencies]
@@ -46,10 +47,6 @@ dev = [
     "sphinx_rtd_theme",
     "lxml",
     "mdformat-myst",
-]
-
-mysql = [
-    "SQLAlchemy==1.4.17",
 ]
 
 notebook = [
@@ -67,7 +64,7 @@ unittest_minimal = [
 ]
 
 unittest = [
-    "ax-platform[dev,mysql,notebook,unittest_minimal]",
+    "ax-platform[dev,notebook,unittest_minimal]",
 ]
 
 tutorial = [

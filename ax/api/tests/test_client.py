@@ -228,6 +228,112 @@ class TestClient(TestCase):
         all_metrics = [objective.metric] + list(client._experiment.tracking_metrics)
         self.assertEqual(len(all_metrics), 3)
 
+    def test_configure_optimization_with_pruning_target_parameterization(self) -> None:
+        client = Client()
+
+        float_parameter = RangeParameterConfig(
+            name="float_param",
+            parameter_type="float",
+            bounds=(0.0, 1.0),
+        )
+        int_parameter = RangeParameterConfig(
+            name="int_param",
+            parameter_type="int",
+            bounds=(0, 10),
+        )
+        choice_parameter = ChoiceParameterConfig(
+            name="choice_param",
+            parameter_type="str",
+            values=["a", "b", "c"],
+        )
+
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[float_parameter, int_parameter, choice_parameter],
+        )
+
+        # Test that pruning_target_parameterization is set correctly
+        pruning_target = {
+            "float_param": 0.5,
+            "int_param": 5,
+            "choice_param": "b",
+        }
+        client.configure_optimization(
+            objective="-ne",
+            outcome_constraints=["qps >= 0"],
+            pruning_target_parameterization=pruning_target,
+        )
+
+        optimization_config = client._experiment.optimization_config
+        self.assertIsNotNone(optimization_config)
+        self.assertIsNotNone(optimization_config.pruning_target_parameterization)
+        self.assertEqual(
+            optimization_config.pruning_target_parameterization.parameters,
+            pruning_target,
+        )
+
+    def test_configure_optimization_pruning_target_validation(self) -> None:
+        client = Client()
+
+        float_parameter = RangeParameterConfig(
+            name="float_param",
+            parameter_type="float",
+            bounds=(0.0, 1.0),
+        )
+        int_parameter = RangeParameterConfig(
+            name="int_param",
+            parameter_type="int",
+            bounds=(0, 10),
+        )
+        choice_parameter = ChoiceParameterConfig(
+            name="choice_param",
+            parameter_type="str",
+            values=["a", "b", "c"],
+        )
+
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[float_parameter, int_parameter, choice_parameter],
+        )
+
+        # Test that invalid pruning_target_parameterization raises an error
+        # (parameter value out of bounds)
+        invalid_pruning_target = {
+            "float_param": 2.0,  # Out of bounds (0.0, 1.0)
+            "int_param": 5,
+            "choice_param": "b",
+        }
+        with self.assertRaises(ValueError):
+            client.configure_optimization(
+                objective="-ne",
+                pruning_target_parameterization=invalid_pruning_target,
+            )
+
+        # Test that invalid choice value raises an error
+        invalid_choice_target = {
+            "float_param": 0.5,
+            "int_param": 5,
+            "choice_param": "invalid_choice",  # Not in ["a", "b", "c"]
+        }
+        with self.assertRaises(ValueError):
+            client.configure_optimization(
+                objective="-ne",
+                pruning_target_parameterization=invalid_choice_target,
+            )
+
+        # Test that unknown parameter raises an error
+        unknown_param_target = {
+            "float_param": 0.5,
+            "int_param": 5,
+            "choice_param": "b",
+            "unknown_param": 42,  # Not in search space
+        }
+        with self.assertRaises(ValueError):
+            client.configure_optimization(
+                objective="-ne",
+                pruning_target_parameterization=unknown_param_target,
+            )
+
     def test_configure_runner(self) -> None:
         client = Client()
         runner = DummyRunner()

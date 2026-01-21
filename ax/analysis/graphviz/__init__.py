@@ -5,9 +5,14 @@
 
 # pyre-strict
 
+from ax.analysis.graphviz.generation_strategy_graph import GenerationStrategyGraph
 from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
 from ax.analysis.graphviz.hierarchical_search_space_graph import (
     HierarchicalSearchSpaceGraph,
 )
 
-__all__ = ["GraphvizAnalysisCard", "HierarchicalSearchSpaceGraph"]
+__all__ = [
+    "GenerationStrategyGraph",
+    "GraphvizAnalysisCard",
+    "HierarchicalSearchSpaceGraph",
+]

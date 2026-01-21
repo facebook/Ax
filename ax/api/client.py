@@ -30,6 +30,7 @@ from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.storage import db_settings_from_storage_config
 from ax.api.utils.structs import ExperimentStruct, GenerationStrategyDispatchStruct
 from ax.core.analysis_card import AnalysisCardBase
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -146,6 +147,7 @@ class Client(WithDBSettingsBase):
         self,
         objective: str,
         outcome_constraints: Sequence[str] | None = None,
+        pruning_target_parameterization: TParameterization | None = None,
     ) -> None:
         """
         Configures the goals of the optimization by setting the ``OptimizationConfig``.
@@ -165,15 +167,42 @@ class Client(WithDBSettingsBase):
                 Ex: "qps >= 0.95 * baseline" will constrain such that the QPS is at
                 least 95% of the baseline arm's QPS.
                 Note that scalarized outcome constraints cannot be relative.
+            pruning_target_parameterization: Parameterization containing the target
+                values for irrelevant parameters. The target values are used to prune
+                irrelevant parameters from candidates generated via Bayesian
+                optimization: when Ax considers arms to suggest for the next trial,
+                it will seek to have the proposed arms differ from the target arm as
+                little as possible, without a loss in optimization performance. If
+                not specified and a status_quo is set on the experiment, it will be
+                used as the pruning target. Must be a valid member of the search
+                space.
 
 
         Saves to database on completion if ``storage_config`` is present.
         """
+        # Validate and convert the pruning_target_parameterization to an Arm if
+        # provided
+        pruning_target_arm: Arm | None = None
+        if pruning_target_parameterization is not None:
+            self._experiment.search_space.validate_membership(
+                # pyre-fixme[6]: Core Ax TParameterization is dict not Mapping
+                parameters=pruning_target_parameterization
+            )
+            pruning_target_arm = Arm(
+                parameters=pruning_target_parameterization, name="pruning_target"
+            )
+
         old_metrics = self._experiment.metrics
-        self._experiment.optimization_config = optimization_config_from_string(
+        optimization_config = optimization_config_from_string(
             objective_str=objective,
             outcome_constraint_strs=outcome_constraints,
         )
+        # Set the pruning_target_parameterization on the optimization config if
+        # provided
+        if pruning_target_arm is not None:
+            optimization_config.pruning_target_parameterization = pruning_target_arm
+
+        self._experiment.optimization_config = optimization_config
         self._set_metrics(metrics=list(old_metrics.values()))
         self._save_experiment_to_db_if_possible(experiment=self._experiment)
 

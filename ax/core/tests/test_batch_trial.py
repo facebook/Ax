@@ -115,9 +115,6 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_runs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
 
-        # Overwrite the GS index to not-None.
-        self.batch._generation_step_index = 0
-
         # one of these arms already exists on the BatchTrial,
         # so we should just update its weight
         new_arms = [
@@ -135,8 +132,6 @@ class BatchTrialTest(TestCase):
             float(sum(self.batch.weights)),
             float(sum(self.weights)) + new_gr_total_weight,
         )
-        # Check the GS index was not overwritten to None.
-        self.assertEqual(self.batch._generation_step_index, 0)
 
     def test_InitWithGeneratorRun(self) -> None:
         generator_run = GeneratorRun(arms=self.arms, weights=self.weights)
