@@ -2121,9 +2121,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         metric_name: str | None = None,
         metric_fetch_e: MetricFetchE | None = None,
     ) -> TrialStatus:
-        trial.mark_failed(unsafe=True)
-
-        return TrialStatus.FAILED
+        trial.mark_abandoned(
+            reason=metric_fetch_e.message if metric_fetch_e else None, unsafe=True
+        )
+        return TrialStatus.ABANDONED
 
     def _get_failure_rate_exceeded_error(
         self,
