@@ -56,9 +56,9 @@ from ax.orchestration.orchestrator import Orchestrator
 from ax.service.utils.best_point import (
     _prepare_data_for_trace,
     derelativize_opt_config,
+    get_best_parameters_from_model_predictions_with_trial_index,
     get_trace,
 )
-from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
@@ -363,9 +363,8 @@ def get_best_parameters(
     trial_indices: Iterable[int] | None = None,
 ) -> TParameterization | None:
     """
-    Get the most promising point.
-
-    Only SOO is supported. It will return None if no best point can be found.
+    Get the most promising point. Returns None if no point is predicted to
+    satisfy all outcome constraints.
 
     Args:
         experiment: The experiment to get the data from. This should contain
@@ -375,9 +374,9 @@ def get_best_parameters(
             best point.
         trial_indices: Use data from only these trials. If None, use all data.
     """
-    result = BestPointMixin._get_best_trial(
+    result = get_best_parameters_from_model_predictions_with_trial_index(
         experiment=experiment,
-        generation_strategy=generation_strategy,
+        adapter=generation_strategy.adapter,
         trial_indices=trial_indices,
     )
     if result is None:
@@ -590,7 +589,7 @@ def run_optimization_with_orchestrator(
 
     orchestrator = Orchestrator(
         experiment=experiment,
-        generation_strategy=method.generation_strategy.clone_reset(),
+        generation_strategy=method.generation_strategy,
         options=orchestrator_options,
     )
 
@@ -653,6 +652,8 @@ def benchmark_replication(
     Return:
         ``BenchmarkResult`` object.
     """
+    # Reset the generation strategy to ensure that it is in an unused state.
+    method.generation_strategy = method.generation_strategy.clone_reset()
     experiment = run_optimization_with_orchestrator(
         problem=problem,
         method=method,
