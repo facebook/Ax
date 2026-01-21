@@ -71,12 +71,22 @@ OPTIMIZATION_COMPLETION_MSG = """Optimization completed with total of {num_trial
 trials attached to the underlying Ax experiment '{experiment_name}'.
 """
 FAILURE_EXCEEDED_MSG = (
-    "Failure rate exceeds the tolerated trial failure rate of {f_rate} (at least "
-    "{n_failed} out of first {n_ran} trials failed or were abandoned). Checks are "
-    "triggered both at the end of an optimization and if at least {min_failed} trials "
-    "have either failed, or have been abandoned, potentially automatically due to "
-    "issues with the trial."
+    "NOTE: This error is usually not caused by Ax. Please please check any trial "
+    "evaluation processes/jobs to see why they are failing, and ensure that they "
+    "succeed over the entire range of the parameters defined in this optimization.\n\n"
+    "Trials are failing or being abandoned at a rate {observed_rate} that exceeds the "
+    "tolerated trial failure rate of {f_rate} (at least {n_failed} out of first "
+    "{n_ran} trials failed or were abandoned). Checks are triggered both at the end "
+    "of an optimization and if at least {min_failed} trials have been "
+    "failed/abandoned, potentially automatically due to issues with the trial."
 )
+METRIC_FETCH_ERR_MESSAGE = (
+    "A majority of the trial failures encountered are due to metric fetching errors. "
+    "This could mean the metrics are flaky, broken, or misconfigured. Please check "
+    "that the trial processes/jobs are successfully producing the expected metrics and "
+    "that the metric is correctly configured."
+)
+
 EXPECTED_STAGED_MSG = (
     "Expected all trials to be in status {expected} after running or staging, "
     "found {t_idx_to_status}."
@@ -2132,11 +2142,18 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         num_ran_in_orchestrator: int,
     ) -> FailureRateExceededError:
         return FailureRateExceededError(
-            FAILURE_EXCEEDED_MSG.format(
+            (
+                f"{METRIC_FETCH_ERR_MESSAGE}\n"
+                if self._num_trials_bad_due_to_err > num_bad_in_orchestrator / 2
+                else ""
+            )
+            + " Orignal error message: "
+            + FAILURE_EXCEEDED_MSG.format(
                 f_rate=self.options.tolerated_trial_failure_rate,
                 n_failed=num_bad_in_orchestrator,
                 n_ran=num_ran_in_orchestrator,
                 min_failed=self.options.min_failed_trials_for_failure_rate_check,
+                observed_rate=float(num_bad_in_orchestrator) / num_ran_in_orchestrator,
             )
         )
 
