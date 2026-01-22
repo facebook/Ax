@@ -397,9 +397,10 @@ class Data(Base, SerializationMixin):
         """Return the set of trial indices in the data."""
         if self._memo_df is not None:
             # Use a smaller df if available
-            return set(self.df["trial_index"].unique())
+            # Convert to Python int for consistent set operations
+            return {int(idx) for idx in self.df["trial_index"].unique()}
         # If no small df is available, use the full df
-        return set(self.full_df["trial_index"].unique())
+        return {int(idx) for idx in self.full_df["trial_index"].unique()}
 
     def latest(self, rows_per_group: int = 1) -> Data:
         """Return a new Data with the most recently observed `rows_per_group`
