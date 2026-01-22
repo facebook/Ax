@@ -66,7 +66,7 @@ jobs:
         uv pip install git+https://github.com/cornellius-gp/linear_operator.git
         uv pip install git+https://github.com/cornellius-gp/gpytorch.git
         uv pip install git+https://github.com/pytorch/botorch.git
-        uv pip install -e ".[dev,mysql,notebook]"
+        uv pip install -e ".[dev,notebook]"
         uv pip install --upgrade build setuptools setuptools_scm wheel
     - name: Extract reduced version and save to env var
       # strip the commit hash from the version to enable upload to pypi
