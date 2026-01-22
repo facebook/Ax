@@ -52,7 +52,7 @@ jobs:
     - name: Install dependencies
       run: |
         # use stable Botorch
-        uv pip install -e ".[dev,mysql,notebook]"
+        uv pip install -e ".[dev,notebook]"
         uv pip install --upgrade build setuptools setuptools_scm wheel
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
