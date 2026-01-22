@@ -5,7 +5,9 @@
 
 # pyre-strict
 
-from collections.abc import Mapping
+import contextlib
+import warnings
+from collections.abc import Iterator, Mapping
 from enum import Enum
 from logging import Logger
 from typing import Protocol
@@ -13,7 +15,14 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 from ax.utils.common.logger import get_logger
-from scipy.stats import fisher_exact, kendalltau, norm, pearsonr, spearmanr
+from scipy.stats import (  # pyre-fixme[21]
+    ConstantInputWarning,
+    fisher_exact,
+    kendalltau,
+    norm,
+    pearsonr,
+    spearmanr,
+)
 from sklearn.neighbors import KernelDensity
 
 
@@ -38,6 +47,22 @@ class ModelFitMetricDirection(Enum):
 
     MINIMIZE = "minimize"
     MAXIMIZE = "maximize"
+
+
+@contextlib.contextmanager
+def _suppress_correlation_warnings() -> Iterator[None]:
+    """Suppress numpy invalid value and scipy ConstantInputWarning.
+
+    These warnings are expected when computing correlations on constant arrays,
+    which can occur in model fit diagnostics when predictions or observations
+    have no variance.
+    """
+    with np.errstate(invalid="ignore"), warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=ConstantInputWarning,  # pyre-fixme[16]
+        )
+        yield
 
 
 """
@@ -262,7 +287,7 @@ def _correlation_coefficient(
     y_pred: npt.NDArray,
     se_pred: npt.NDArray,
 ) -> float:
-    with np.errstate(invalid="ignore"):
+    with _suppress_correlation_warnings():
         rho, _ = pearsonr(y_pred, y_obs)
     return float(rho)
 
@@ -272,7 +297,7 @@ def _rank_correlation(
     y_pred: npt.NDArray,
     se_pred: npt.NDArray,
 ) -> float:
-    with np.errstate(invalid="ignore"):
+    with _suppress_correlation_warnings():
         rho, _ = spearmanr(y_pred, y_obs)
     return float(rho)
 
@@ -282,7 +307,7 @@ def _kendall_tau_rank_correlation(
     y_pred: npt.NDArray,
     se_pred: npt.NDArray,
 ) -> float:
-    with np.errstate(invalid="ignore"):
+    with _suppress_correlation_warnings():
         rho, _ = kendalltau(x=y_pred, y=y_obs)
     return float(rho)
 
