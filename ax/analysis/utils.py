@@ -630,8 +630,8 @@ def _prepare_p_feasible(
         con_upper=torch.tensor(con_upper, dtype=torch.double),
         con_both_inds=torch.empty(0, dtype=torch.int),
         con_both=torch.empty(0),
-        means=torch.tensor(means, dtype=torch.double).T,
-        sigmas=torch.tensor(sigmas, dtype=torch.double).T,
+        means=torch.tensor(np.array(means), dtype=torch.double).T,
+        sigmas=torch.tensor(np.array(sigmas), dtype=torch.double).T,
     )
 
     return pd.Series(log_prob_feas.exp())
