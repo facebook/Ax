@@ -240,12 +240,13 @@ def _efficient_loo_cross_validate(
         # This is a known limitation for fully Bayesian models and models with
         # non-Gaussian posteriors (such as PFNs).
         # Shape: n x 1 x m
-        loo_means = posterior.mixture_mean.detach().cpu().numpy()
-        loo_vars = posterior.mixture_variance.detach().cpu().numpy()
+        # Use .copy() to ensure arrays are writeable (numpy returns read-only views)
+        loo_means = posterior.mixture_mean.detach().cpu().numpy().copy()
+        loo_vars = posterior.mixture_variance.detach().cpu().numpy().copy()
     else:
         # Shape: n x 1 x m
-        loo_means = posterior.mean.detach().cpu().numpy()
-        loo_vars = posterior.variance.detach().cpu().numpy()
+        loo_means = posterior.mean.detach().cpu().numpy().copy()
+        loo_vars = posterior.variance.detach().cpu().numpy().copy()
 
     # Squeeze out the q dimension: n x 1 x m -> n x m
     loo_means = loo_means.squeeze(1)
