@@ -311,7 +311,7 @@ class Cast(Transform):
             p: type_map[param.parameter_type]
             for p, param in self.search_space.parameters.items()
         }
-        arm_data = arm_data.astype(dtype=column_to_type, copy=False)
+        arm_data = arm_data.astype(dtype=column_to_type)
         # Round to digits if any parameter specifies it.
         for p_name in parameter_names:
             parameter = self.search_space.parameters[p_name]

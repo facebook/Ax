@@ -171,7 +171,7 @@ class Data(Base, SerializationMixin):
             c for c in current_order if c not in overall_order
         ]
         if current_order != desired_order:
-            return df.reindex(columns=desired_order, copy=False)
+            return df.reindex(columns=desired_order)
         return df
 
     @classmethod
