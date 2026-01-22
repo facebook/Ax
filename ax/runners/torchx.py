@@ -182,7 +182,7 @@ try:
         def stop(self, trial: BaseTrial, reason: str | None = None) -> dict[str, Any]:
             """Kill the given trial."""
             app_handle: str = trial.run_metadata[TORCHX_APP_HANDLE]
-            self._torchx_runner.stop(app_handle)
+            self._torchx_runner.cancel(app_handle)
             return {"reason": reason} if reason else {}
 
 except ImportError:
