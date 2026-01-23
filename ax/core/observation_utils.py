@@ -122,8 +122,8 @@ def _observations_from_dataframe(
                 features=ObservationFeatures(**obs_kwargs),
                 data=ObservationData(
                     metric_signatures=d["metric_signature"].tolist(),
-                    means=d["mean"].values,
-                    covariance=np.diag(d["sem"].values ** 2),
+                    means=d["mean"].to_numpy(copy=True),
+                    covariance=np.diag(d["sem"].to_numpy(copy=True) ** 2),
                 ),
                 arm_name=arm_name,
             )
