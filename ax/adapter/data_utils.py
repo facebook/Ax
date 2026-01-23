@@ -240,9 +240,8 @@ class ExperimentData:
                 level=["trial_index", "arm_name"], group_keys=False
             )
             # With map keys, we expect this to be pre-sorted but we can't guarantee.
-            .apply(lambda df: df.sort_index(level=2).ffill().tail(1)).droplevel(
-                2
-            )  # Remove map key from the index.
+            .apply(lambda df: df.sort_index(level=2).ffill().tail(1))
+            .droplevel(2)  # Remove map key from the index.
         )
         return ExperimentData(
             arm_data=self.arm_data.copy(),
