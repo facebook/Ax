@@ -175,4 +175,8 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                 [1.0, w1 + 2 * w2, 0.5**0.5, (6 / 5.0) ** 0.5],
             ],
         )
-        assert_frame_equal(transformed_data.observation_data, expected_obs_data)
+        # check_dtype=False because pandas 3.0 uses StringDtype for string columns
+        # while the manually created DataFrame uses object dtype.
+        assert_frame_equal(
+            transformed_data.observation_data, expected_obs_data, check_dtype=False
+        )

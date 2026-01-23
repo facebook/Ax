@@ -9,7 +9,7 @@ authors = [{name = "Meta Platforms, Inc."}]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["Experimentation", "Optimization"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

@@ -162,6 +162,9 @@ class MergeRepeatedMeasurements(Transform):
                 keep="first"
             )
         ]
+        # In pandas 3.0, filtering returns a read-only view. We need to copy the
+        # DataFrame before modifying it in-place.
+        observation_data = observation_data.copy()
         for index in observation_data.index:
             arm_name = assert_is_instance(index, tuple)[1]
             metric_dict = self.arm_to_merged[arm_name]

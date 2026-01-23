@@ -122,7 +122,9 @@ def _observations_from_dataframe(
                 features=ObservationFeatures(**obs_kwargs),
                 data=ObservationData(
                     metric_signatures=d["metric_signature"].tolist(),
-                    means=d["mean"].values,
+                    # Use .copy() to ensure we get writable arrays (pandas 3.0 returns
+                    # read-only views by default from .values).
+                    means=d["mean"].values.copy(),
                     covariance=np.diag(d["sem"].values ** 2),
                 ),
                 arm_name=arm_name,
