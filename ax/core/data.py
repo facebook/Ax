@@ -88,15 +88,14 @@ class Data(Base, SerializationMixin):
     }
 
     # Note on text data: https://pandas.pydata.org/docs/user_guide/text.html
-    # Its type can either be `numpy.dtypes.ObjectDType` or StringDtype extension
-    # type; the later is still experimental. So we are using object.
+    # Using StringDtype for string columns, which is the default in pandas 3.0+.
     COLUMN_DATA_TYPES: dict[str, Any] = {
         # Ubiquitous columns.
         "trial_index": int,
-        "arm_name": np.dtype("O"),
+        "arm_name": pd.StringDtype(),
         # Metric data-related columns.
-        "metric_name": np.dtype("O"),
-        "metric_signature": np.dtype("O"),
+        "metric_name": pd.StringDtype(),
+        "metric_signature": pd.StringDtype(),
         "mean": np.float64,
         "sem": np.float64,
         "start_time": pd.Timestamp,
@@ -393,9 +392,9 @@ class Data(Base, SerializationMixin):
         """Return the set of trial indices in the data."""
         if self._memo_df is not None:
             # Use a smaller df if available
-            return set(self.df["trial_index"].unique())
+            return {int(idx) for idx in self.df["trial_index"].unique()}
         # If no small df is available, use the full df
-        return set(self.full_df["trial_index"].unique())
+        return {int(idx) for idx in self.full_df["trial_index"].unique()}
 
     def latest(self, rows_per_group: int = 1) -> Data:
         """Return a new Data with the most recently observed `rows_per_group`
