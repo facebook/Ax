@@ -593,7 +593,7 @@ def _prepare_p_feasible(
             means.append(df_constraint[f"{oc_name}_mean"].tolist())
 
         else:
-            means.append(np.nan * np.ones(len(df_constraint)))
+            means.append([float("nan")] * len(df_constraint))
         sigmas.append(
             (df_constraint[f"{oc_name}_sem"].fillna(0)).tolist()
             if f"{oc_name}_sem" in df_constraint.columns
