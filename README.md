@@ -87,8 +87,8 @@ artificial evaluation function):
 
 ## Installation
 
-Ax requires Python 3.10 or newer. A full list of Ax's direct dependencies can be
-found in [setup.py](https://github.com/facebook/Ax/blob/main/setup.py).
+Ax requires Python 3.11 or newer. A full list of Ax's direct dependencies can be
+found in [pyproject.toml](https://github.com/facebook/Ax/blob/main/pyproject.toml).
 
 We recommend installing Ax via pip, even if using Conda environment:
 
