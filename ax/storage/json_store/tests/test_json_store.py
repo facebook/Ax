@@ -55,9 +55,11 @@ from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSp
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
     _DEPRECATED_GENERATOR_TO_REPLACEMENT,
+    _raise_on_legacy_callable_refs,
     data_from_json,
     generation_node_from_json,
     generation_strategy_from_json,
+    generator_spec_from_json,
     object_from_json,
 )
 from ax.storage.json_store.decoders import (
@@ -2131,3 +2133,41 @@ class JSONStoreTest(TestCase):
         # We have the old mean of b and the new mean of a
         self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
         self.assertEqual((df["trial_index"] == 0).sum(), 2)
+
+    def test_raise_on_legacy_callable_refs(self) -> None:
+        """Test that _raise_on_legacy_callable_refs raises on legacy callable refs."""
+        kwarg_dict = {
+            "normal_key": "normal_value",
+            "legacy_callable": {"is_callable_as_path": True, "path": "some.path"},
+            "nested_dict": {"key": "value"},
+        }
+        with self.assertRaisesRegex(
+            JSONDecodeError,
+            "Legacy callable reference 'legacy_callable' cannot be decoded",
+        ):
+            _raise_on_legacy_callable_refs(kwarg_dict)
+
+    def test_raise_on_legacy_callable_refs_preserves_non_callables(self) -> None:
+        """Test that _raise_on_legacy_callable_refs preserves non-callable refs."""
+        kwarg_dict = {
+            "normal_key": "normal_value",
+            "nested_dict": {"key": "value"},
+        }
+        result = _raise_on_legacy_callable_refs(kwarg_dict)
+        self.assertEqual(result, kwarg_dict)
+
+    def test_generator_spec_from_json_raises_on_legacy_callables(self) -> None:
+        """Test generator_spec_from_json raises on legacy callable refs in kwargs."""
+        generator_spec_json = {
+            "generator_enum": {"__type": "Generators", "name": "SOBOL"},
+            "generator_kwargs": {
+                "seed": 42,
+                "legacy_fn": {"is_callable_as_path": True, "path": "some.fn"},
+            },
+            "generator_gen_kwargs": {},
+        }
+        with self.assertRaisesRegex(
+            JSONDecodeError,
+            "Legacy callable reference 'legacy_fn' cannot be decoded",
+        ):
+            generator_spec_from_json(generator_spec_json)
