@@ -68,10 +68,9 @@ from ax.utils.common.kwargs import (
     get_function_default_arguments,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import callable_from_reference, callable_to_reference
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -361,8 +360,8 @@ class GeneratorRegistryBase(Enum):
         generator_key = generator_key_override if generator_key_override else self.value
         adapter._set_kwargs_to_save(
             generator_key=generator_key,
-            generator_kwargs=_encode_callables_as_references(generator_kwargs),
-            adapter_kwargs=_encode_callables_as_references(adapter_kwargs),
+            generator_kwargs=_raise_on_callables(generator_kwargs),
+            adapter_kwargs=_raise_on_callables(adapter_kwargs),
         )
         return adapter
 
@@ -469,29 +468,16 @@ def _extract_generator_state_after_gen(
     return generator_class.deserialize_state(serialized_model_state)
 
 
-def _encode_callables_as_references(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
-    """Converts callables to references of form <module>.<qualname>, and returns
-    the resulting dictionary.
-    """
-    return {
-        k: (
-            {"is_callable_as_path": True, "value": callable_to_reference(v)}
-            if isfunction(v)
-            else v
-        )
-        for k, v in kwarg_dict.items()
-    }
+def _raise_on_callables(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
+    """Returns the kwarg_dict unchanged if no callables are present.
 
-
-def _decode_callables_from_references(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
-    """Retrieves callables from references of form <module>.<qualname>, and returns
-    the resulting dictionary.
+    Raises:
+        UserInputError: If any value in the dict is a callable.
     """
-    return {
-        k: (
-            callable_from_reference(assert_is_instance(v.get("value"), str))
-            if isinstance(v, dict) and v.get("is_callable_as_path", False)
-            else v
-        )
-        for k, v in kwarg_dict.items()
-    }
+    for k, v in kwarg_dict.items():
+        if isfunction(v):
+            raise UserInputError(
+                f"Callable '{k}' cannot be serialized. Callable serialization "
+                "is not supported."
+            )
+    return kwarg_dict

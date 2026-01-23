@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from ax.adapter.registry import _decode_callables_from_references, GeneratorRegistryBase
+from ax.adapter.registry import GeneratorRegistryBase
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -73,6 +73,22 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 logger: Logger = get_logger(__name__)
+
+
+def _raise_on_legacy_callable_refs(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
+    """Returns kwarg_dict unchanged if no legacy callable refs are present.
+
+    Raises:
+        JSONDecodeError: If any value is a legacy encoded callable reference.
+    """
+    for k, v in kwarg_dict.items():
+        if isinstance(v, dict) and v.get("is_callable_as_path", False):
+            raise JSONDecodeError(
+                f"Legacy callable reference '{k}' cannot be decoded. "
+                "Callable serialization is not supported."
+            )
+    return kwarg_dict
+
 
 # Deprecated generators registry entries and their replacements.
 # Used below in `_update_deprecated_model_registry`.
@@ -995,7 +1011,7 @@ def generation_step_from_json(
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
         generator_kwargs=(
-            _decode_callables_from_references(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     kwargs,
                     decoder_registry=decoder_registry,
@@ -1006,7 +1022,7 @@ def generation_step_from_json(
             else {}
         ),
         generator_gen_kwargs=(
-            _decode_callables_from_references(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     gen_kwargs,
                     decoder_registry=decoder_registry,
@@ -1052,8 +1068,6 @@ def generator_spec_from_json(
         # Old arg name for backwards compatibility.
         generator_spec_json["generator_enum"] = generator_spec_json.pop("model_enum")
     return GeneratorSpec(
-        # Generator enum and all other non *_kwargs fields.
-        # *_kwargs are not bundled into here due to the need to decode callables.
         **{
             k: object_from_json(
                 object_json=v,
@@ -1063,7 +1077,7 @@ def generator_spec_from_json(
             for k, v in generator_spec_json.items()
         },
         generator_kwargs=(
-            _decode_callables_from_references(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     object_json=kwargs,
                     decoder_registry=decoder_registry,
@@ -1074,7 +1088,7 @@ def generator_spec_from_json(
             else {}
         ),
         generator_gen_kwargs=(
-            _decode_callables_from_references(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     object_json=gen_kwargs,
                     decoder_registry=decoder_registry,
@@ -1085,7 +1099,7 @@ def generator_spec_from_json(
             else {}
         ),
         cv_kwargs=(
-            _decode_callables_from_references(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     object_json=cv_kwargs,
                     decoder_registry=decoder_registry,

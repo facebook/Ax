@@ -10,6 +10,7 @@ from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
     _extract_generator_state_after_gen,
+    _raise_on_callables,
     Cont_X_trans,
     GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
@@ -326,3 +327,34 @@ class ModelRegistryTest(TestCase):
             generator_run=gr, generator_class=SobolGenerator
         )
         self.assertEqual(extracted, {})
+
+
+class CallableValidationTest(TestCase):
+    def test_raise_on_callables_raises_for_functions(self) -> None:
+        def example_func(x: int) -> int:
+            return x * 2
+
+        kwarg_dict = {
+            "callback": example_func,
+            "some_value": 42,
+            "another_value": "test",
+        }
+
+        with self.assertRaisesRegex(
+            Exception,
+            "Callable 'callback' cannot be serialized",
+        ):
+            _raise_on_callables(kwarg_dict)
+
+    def test_raise_on_callables_preserves_non_callables(self) -> None:
+        kwarg_dict = {
+            "int_value": 42,
+            "str_value": "test",
+            "list_value": [1, 2, 3],
+            "dict_value": {"nested": "value"},
+            "none_value": None,
+        }
+
+        result = _raise_on_callables(kwarg_dict)
+
+        self.assertEqual(result, kwarg_dict)
