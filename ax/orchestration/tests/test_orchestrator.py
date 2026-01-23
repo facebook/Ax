@@ -1540,7 +1540,9 @@ class TestAxOrchestrator(TestCase):
 
         # We override the optimization config but not objectives, so an error
         # results as expected, but only much deeper in the stack.
-        with self.assertRaisesRegex(ValueError, "'branin_a' is not in list"):
+        # Python <3.14: "'branin_a' is not in list"
+        # Python 3.14+: "list.index(x): x not in list"
+        with self.assertRaisesRegex(ValueError, "not in list"):
             orchestrator.get_pareto_optimal_parameters(
                 optimization_config=get_branin_multi_objective_optimization_config(
                     has_objective_thresholds=True
