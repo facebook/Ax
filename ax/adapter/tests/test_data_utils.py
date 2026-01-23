@@ -532,11 +532,7 @@ class TestDataUtils(TestCase):
                 ]
             ),
         )
-        # check_dtype=False because pandas 3.0 uses StringDtype for string columns
-        # while the manually created DataFrame uses object dtype.
-        assert_frame_equal(
-            expected_obs_data, experiment_data.observation_data, check_dtype=False
-        )
+        assert_frame_equal(expected_obs_data, experiment_data.observation_data)
 
     def test_filter_by_arm_name(self) -> None:
         # This is a 2 objective experiment with 5 trials, 1 arm each.

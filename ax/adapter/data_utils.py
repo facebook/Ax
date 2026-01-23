@@ -290,12 +290,7 @@ class ExperimentData:
                     none_throws(obs_ft.metadata)[data_rows.index.name] = idx
                 obs_data = ObservationData(
                     metric_signatures=metric_signatures,
-                    # Use .copy() to ensure we get writable arrays (pandas 3.0 returns
-                    # read-only views by default from .to_numpy()).
-                    means=row_df["mean"][metric_signatures]
-                    .to_numpy()
-                    .reshape(-1)
-                    .copy(),
+                    means=row_df["mean"][metric_signatures].to_numpy().reshape(-1),
                     covariance=np.diag(
                         np.square(
                             row_df["sem"][metric_signatures].to_numpy().reshape(-1)
