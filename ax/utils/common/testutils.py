@@ -319,6 +319,12 @@ class TestCase(fake_filesystem_unittest.TestCase):
         if logger.parent is not None and hasattr(logger.parent, "handlers"):
             logger.parent.handlers[0].setLevel(logging.WARNING)
 
+        # Deprecation warnings originating from Ax.
+        warnings.filterwarnings(
+            "ignore",
+            category=DeprecationWarning,
+            module=r"ax\..*",
+        )
         # Choice parameter default parameter type / is_ordered warnings.
         warnings.filterwarnings(
             "ignore",
