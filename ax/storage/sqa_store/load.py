@@ -29,6 +29,10 @@ from ax.exceptions.core import (
     ObjectNotFoundError,
 )
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+
+# necessary to import this file so SQLAlchemy knows about the event listeners
+# see https://fburl.com/8mn7yjt2
+from ax.storage.sqa_store import validation as _validation_listeners  # noqa: F401
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.reduced_state import (
