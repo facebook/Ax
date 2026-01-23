@@ -798,7 +798,7 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
 
     objective_thresholds = torch.tensor(objective_thresholds, dtype=torch.double)
 
-    metrics_tensor = torch.from_numpy(df_wide[objective.metric_names].to_numpy())
+    metrics_tensor = torch.from_numpy(df_wide[objective.metric_names].to_numpy().copy())
     return _compute_hv_trace(
         ref_point=objective_thresholds,
         metrics_tensor=metrics_tensor,
