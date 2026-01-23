@@ -240,8 +240,9 @@ class ExperimentData:
                 level=["trial_index", "arm_name"], group_keys=False
             )
             # With map keys, we expect this to be pre-sorted but we can't guarantee.
-            .apply(lambda df: df.sort_index(level=2).ffill().tail(1))
-            .droplevel(2)  # Remove map key from the index.
+            .apply(lambda df: df.sort_index(level=2).ffill().tail(1)).droplevel(
+                2
+            )  # Remove map key from the index.
         )
         return ExperimentData(
             arm_data=self.arm_data.copy(),
@@ -290,10 +291,14 @@ class ExperimentData:
                     none_throws(obs_ft.metadata)[data_rows.index.name] = idx
                 obs_data = ObservationData(
                     metric_signatures=metric_signatures,
-                    means=row_df["mean"][metric_signatures].to_numpy().reshape(-1),
+                    means=row_df["mean"][metric_signatures]
+                    .to_numpy(copy=True)
+                    .reshape(-1),
                     covariance=np.diag(
                         np.square(
-                            row_df["sem"][metric_signatures].to_numpy().reshape(-1)
+                            row_df["sem"][metric_signatures]
+                            .to_numpy(copy=True)
+                            .reshape(-1)
                         )
                     ),
                 )
