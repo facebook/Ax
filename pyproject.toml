@@ -22,7 +22,7 @@ dynamic = ["version"]
 dependencies = [
     "botorch[pymoo]>=0.16.1,<0.16.2dev9999",
     "jinja2",  # also a Plotly dep
-    "pandas",
+    "pandas<3.0.0",
     "scipy",
     "scikit-learn<1.8.0",
     "ipywidgets",
