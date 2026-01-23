@@ -22,6 +22,7 @@ dynamic = ["version"]
 dependencies = [
     "botorch[pymoo]>=0.16.1,<0.16.2dev9999",
     "jinja2",  # also a Plotly dep
+    "numpy>=1.20,<2.0",  # Pin to NumPy 1.x until codebase is NumPy 2.0 compatible
     "pandas",
     "scipy",
     "scikit-learn<1.8.0",
@@ -54,8 +55,7 @@ notebook = [
 ]
 
 unittest_minimal = [
-    # For tensorboard unit tests (min req: numpy 2.0 compatibility).
-    "tensorboard>=2.18.0",
+    "tensorboard>=2.18.0",  # For tensorboard unit tests
     "torchx",  # For torchx unit tests.
     # Required for building RayTune tutorial notebook and
     # deserializing data for benchmark suites.
