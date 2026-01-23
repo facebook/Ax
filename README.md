@@ -113,8 +113,9 @@ install Ax with the `notebook` extra:
 pip install "ax-platform[notebook]"
 ```
 
-Extras for running Ax's tutorial's locally (`tutorials`) and for installing all
-dependencies necessary for developing Ax (`dev`) are also available.
+Extras for using Ax with MySQL storage (`mysql`), for running Ax's tutorial's
+locally (`tutorials`), and for installing all dependencies necessary for
+developing Ax (`dev`) are also available.
 
 ## Install Ax from source
 
