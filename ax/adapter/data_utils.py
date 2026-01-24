@@ -290,10 +290,14 @@ class ExperimentData:
                     none_throws(obs_ft.metadata)[data_rows.index.name] = idx
                 obs_data = ObservationData(
                     metric_signatures=metric_signatures,
-                    means=row_df["mean"][metric_signatures].to_numpy().reshape(-1),
+                    means=row_df["mean"][metric_signatures]
+                    .to_numpy(copy=True)
+                    .reshape(-1),
                     covariance=np.diag(
                         np.square(
-                            row_df["sem"][metric_signatures].to_numpy().reshape(-1)
+                            row_df["sem"][metric_signatures]
+                            .to_numpy(copy=True)
+                            .reshape(-1)
                         )
                     ),
                 )
