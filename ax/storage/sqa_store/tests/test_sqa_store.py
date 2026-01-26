@@ -54,9 +54,15 @@ from ax.exceptions.core import (
 )
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.json_store.decoder import transition_criterion_from_json
+from ax.storage.json_store.registry import (
+    CORE_CLASS_DECODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+)
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics
 from ax.storage.registry_bundle import RegistryBundle
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY, register_runner
@@ -3311,3 +3317,32 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(tl_metadata_0.overlap_parameters)
             # Should have 2 overlapping parameters (w and x)
             self.assertEqual(len(none_throws(tl_metadata_0.overlap_parameters)), 2)
+
+    def test_transition_criterion_deserialize_with_extra_fields(self) -> None:
+        """Test that deserialization gracefully handles extra/unknown fields
+        ie this validates that backwards compatibility is maintained"""
+        # Simulate old serialized format with extra fields that no longer exist
+        old_format_json = {
+            "threshold": 5,
+            "only_in_statuses": [{"__type": "TrialStatus", "name": "RUNNING"}],
+            "not_in_statuses": None,
+            "transition_to": "test_node",
+            "block_gen_if_met": True,
+            "block_transition_if_unmet": False,
+            "use_all_trials_in_exp": False,
+            "continue_trial_generation": False,
+            "some_deprecated_field": "should_be_ignored",
+        }
+
+        # Should not raise, extra field should be ignored
+        criterion = assert_is_instance(
+            transition_criterion_from_json(
+                transition_criterion_class=MaxGenerationParallelism,
+                object_json=old_format_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            ),
+            MaxGenerationParallelism,
+        )
+        self.assertEqual(criterion.threshold, 5)
+        self.assertEqual(criterion.transition_to, "test_node")

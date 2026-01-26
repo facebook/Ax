@@ -42,11 +42,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    AuxiliaryExperimentCheck,
-    TransitionCriterion,
-    TrialBasedCriterion,
-)
+from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -63,6 +59,7 @@ from ax.storage.json_store.registry import (
 from ax.storage.utils import data_by_trial_to_data
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
+    extract_init_args,
     SerializationMixin,
     TClassDecoderRegistry,
     TDecoderRegistry,
@@ -280,16 +277,16 @@ def object_from_json(
                 object_json["outcome_transform_options"] = (
                     outcome_transform_options_json
                 )
-        elif isclass(_class) and (
-            issubclass(_class, TrialBasedCriterion)
-            or issubclass(_class, AuxiliaryExperimentCheck)
+        elif (
+            isclass(_class)
+            and issubclass(_class, TransitionCriterion)
+            and _class is not TransitionCriterion  # TransitionCriterion is abstract
         ):
-            # TrialBasedCriterion contains a list of `TrialStatus` for args.
-            # AuxiliaryExperimentCheck contains AuxiliaryExperimentPurpose objects
-            # They need to be unpacked by hand to properly retain the types.
-            return unpack_transition_criteria_from_json(
-                class_=_class,
-                transition_criteria_json=object_json,
+            # TransitionCriterion may contain nested Ax objects (TrialStatus, etc.)
+            # that need recursive deserialization via object_from_json.
+            return transition_criterion_from_json(
+                transition_criterion_class=_class,
+                object_json=object_json,
                 **vars(registry_kwargs),
             )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
@@ -430,32 +427,34 @@ def generator_run_from_json(
     return generator_run
 
 
-def unpack_transition_criteria_from_json(
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-    #  avoid runtime subscripting errors.
-    class_: type,
-    transition_criteria_json: dict[str, Any],
+def transition_criterion_from_json(
+    transition_criterion_class: type[TransitionCriterion],
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> TransitionCriterion | None:
-    """Load Ax transition criteria that depend on Trials from JSON.
+) -> TransitionCriterion:
+    """Load TransitionCriterion from JSON.
 
-    Since ``TrialBasedCriterion`` contain lists of ``TrialStatus``,
-    the json for these criterion needs to be carefully unpacked and
-    re-processed via ``object_from_json`` in order to maintain correct
-    typing. We pass in ``class_`` in order to correctly handle all classes
-    which inherit from ``TrialBasedCriterion`` (ex: ``MinTrials``).
+    TransitionCriterion subclasses may contain nested Ax objects (like TrialStatus
+    enums and AuxiliaryExperimentPurpose) that need recursive deserialization via
+    object_from_json. We also use extract_init_args for backwards compatibility,
+    filtering to only valid constructor arguments.
     """
-    new_dict = {}
-    for key, value in transition_criteria_json.items():
-        new_val = object_from_json(
+    # Recursively deserialize nested objects (e.g., TrialStatus enums)
+    decoded = {
+        key: object_from_json(
             object_json=value,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         )
-        new_dict[key] = new_val
+        for key, value in object_json.items()
+    }
 
-    return class_(**new_dict)
+    # filter to only valid constructor args (backwards compatibility)
+    init_args = extract_init_args(args=decoded, class_=transition_criterion_class)
+
+    # pyre-ignore[45]: Class passed is always a concrete subclass.
+    return transition_criterion_class(**init_args)
 
 
 def search_space_from_json(
