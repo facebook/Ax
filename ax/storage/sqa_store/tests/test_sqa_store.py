@@ -171,7 +171,9 @@ GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_sear
 T = TypeVar("T")
 
 
-class TestExperimentTypeEnum(Enum):
+class MockExperimentTypeEnum(Enum):
+    """Mock enum for testing experiment types (not a pytest test class)."""
+
     TEST = 0
 
 
@@ -526,7 +528,7 @@ class SQAStoreTest(TestCase):
         self.experiment.experiment_type = "TEST"
         save_experiment(
             self.experiment,
-            config=SQAConfig(experiment_type_enum=TestExperimentTypeEnum),
+            config=SQAConfig(experiment_type_enum=MockExperimentTypeEnum),
         )
         self.assertIsNotNone(self.experiment.db_id)
 
@@ -537,7 +539,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQAEncodeError):
             save_experiment(
                 self.experiment,
-                config=SQAConfig(experiment_type_enum=TestExperimentTypeEnum),
+                config=SQAConfig(experiment_type_enum=MockExperimentTypeEnum),
             )
 
     def test_load_experiment_trials_in_batches(self) -> None:
@@ -3020,7 +3022,7 @@ class SQAStoreTest(TestCase):
 
     def test_query_historical_experiments_given_parameters(self) -> None:
         # This test validates the query behavior for historical experiments.
-        config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+        config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
         with self.subTest("returns_empty_when_no_matching_experiments"):
             # Query with empty experiment_types list should return empty
@@ -3077,7 +3079,7 @@ class SQAStoreTest(TestCase):
         self,
     ) -> None:
         with self.subTest("returns_empty_when_no_experiments"):
-            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
             # No experiments are saved, so should return empty
             search_space = get_search_space()
@@ -3091,7 +3093,7 @@ class SQAStoreTest(TestCase):
             self.assertEqual(result, {})
 
         with self.subTest("returns_transferable_experiments_with_overlap"):
-            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
             # Create and save a source experiment with data
             # Use get_experiment_with_batch_trial which has search space with w, x, y, z
@@ -3132,7 +3134,7 @@ class SQAStoreTest(TestCase):
             self.assertEqual(len(none_throws(metadata.overlap_parameters)), 2)
 
         with self.subTest("filters_by_overlap_threshold"):
-            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
             # Create and save a source experiment with parameters w, x, y, z
             source_experiment = get_experiment_with_batch_trial()
@@ -3209,7 +3211,7 @@ class SQAStoreTest(TestCase):
             self.assertNotIn("exp_with_partial_overlap", result_below)
 
         with self.subTest("respects_max_num_exps"):
-            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
             # Create multiple experiments with the same type and matching params
             for i in range(3):
@@ -3273,7 +3275,7 @@ class SQAStoreTest(TestCase):
                 )
 
         with self.subTest("returns_candidate_experiments_for_transfer_learning"):
-            config = SQAConfig(experiment_type_enum=TestExperimentTypeEnum)
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
             # Create and save source experiments with data attached
             # (required by the query which joins on SQAData)

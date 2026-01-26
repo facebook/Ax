@@ -51,8 +51,8 @@ class SyntheticRunnerWithPredictableStatusPolling(SyntheticRunner):
         return {TrialStatus.COMPLETED: completed}
 
 
-class TestOrchestrator(Orchestrator):
-    """Test Orchestrator that only implements ``report_results`` for convenience in
+class MockOrchestrator(Orchestrator):
+    """Mock Orchestrator that only implements ``report_results`` for convenience in
     testing.
     """
 

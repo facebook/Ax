@@ -67,6 +67,7 @@ from ax.orchestration.tests.orchestrator_test_utils import (
     BrokenRunnerValueError,
     DUMMY_EXCEPTION,
     InfinitePollRunner,
+    MockOrchestrator,
     NoReportResultsRunner,
     RunnerToAllowMultipleMapMetricFetches,
     RunnerWithAllFailedTrials,
@@ -79,7 +80,6 @@ from ax.orchestration.tests.orchestrator_test_utils import (
     SyntheticRunnerWithSingleRunningTrial,
     SyntheticRunnerWithStatusPolling,
     TEST_MEAN,
-    TestOrchestrator,
 )
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
@@ -1111,7 +1111,7 @@ class TestAxOrchestrator(TestCase):
     def test_run_trials_and_yield_results(self) -> None:
         total_trials = 3
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1143,7 +1143,7 @@ class TestAxOrchestrator(TestCase):
         total_trials = 3
         self.branin_experiment.runner = InfinitePollRunner()
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1217,7 +1217,7 @@ class TestAxOrchestrator(TestCase):
 
         self.branin_experiment.runner = RunnerWithIntermittentData()
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1286,7 +1286,7 @@ class TestAxOrchestrator(TestCase):
             RunnerWithEarlyStoppingStrategy()
         )
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_timestamp_map_metric_experiment,
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1473,7 +1473,7 @@ class TestAxOrchestrator(TestCase):
     def test_max_pending_trials(self) -> None:
         # With runners & metrics, `BareBonesTestOrchestrator.run_all_trials` should run.
         gs = self.sobol_MBM_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -2827,7 +2827,7 @@ class TestAxOrchestrator(TestCase):
         self.assertIn("status_quo", data.df["arm_name"].values)
 
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=experiment,
             generation_strategy=gs,
             options=OrchestratorOptions(
