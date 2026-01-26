@@ -27,7 +27,6 @@ from ax.generation_strategy.transition_criterion import (
     IsSingleObjective,
     MaxGenerationParallelism,
     MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
     MinTrials,
 )
 from ax.utils.common.logger import get_logger
@@ -525,16 +524,6 @@ class TestTransitionCriterion(TestCase):
             "MinimumPreferenceOccurances({'metric_signature': 'm1', 'threshold': 3, "
             + "'transition_to': None, 'block_gen_if_met': False, "
             "'block_transition_if_unmet': True})",
-        )
-        deprecated_min_trials_criterion = MinimumTrialsInStatus(
-            status=TrialStatus.COMPLETED, threshold=3
-        )
-        self.assertEqual(
-            str(deprecated_min_trials_criterion),
-            "MinimumTrialsInStatus({"
-            + "'status': <enum 'TrialStatus'>.COMPLETED, "
-            + "'threshold': 3, "
-            + "'transition_to': None})",
         )
         max_parallelism = MaxGenerationParallelism(
             only_in_statuses=[TrialStatus.EARLY_STOPPED],
