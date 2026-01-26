@@ -54,14 +54,11 @@ from ax.exceptions.core import (
 )
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
+from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
-from ax.storage.json_store.decoder import (
-    generation_node_from_json,
-    transition_criterion_from_json,
-)
+from ax.storage.json_store.decoder import generation_node_from_json
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
@@ -3321,35 +3318,6 @@ class SQAStoreTest(TestCase):
             # Should have 2 overlapping parameters (w and x)
             self.assertEqual(len(none_throws(tl_metadata_0.overlap_parameters)), 2)
 
-    def test_transition_criterion_deserialize_with_extra_fields(self) -> None:
-        """Test that deserialization gracefully handles extra/unknown fields
-        ie this validates that backwards compatibility is maintained"""
-        # Simulate old serialized format with extra fields that no longer exist
-        old_format_json = {
-            "threshold": 5,
-            "only_in_statuses": [{"__type": "TrialStatus", "name": "RUNNING"}],
-            "not_in_statuses": None,
-            "transition_to": "test_node",
-            "block_gen_if_met": True,
-            "block_transition_if_unmet": False,
-            "use_all_trials_in_exp": False,
-            "continue_trial_generation": False,
-            "some_deprecated_field": "should_be_ignored",
-        }
-
-        # Should not raise, extra field should be ignored
-        criterion = assert_is_instance(
-            transition_criterion_from_json(
-                transition_criterion_class=MaxGenerationParallelism,
-                object_json=old_format_json,
-                decoder_registry=CORE_DECODER_REGISTRY,
-                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-            ),
-            MaxGenerationParallelism,
-        )
-        self.assertEqual(criterion.threshold, 5)
-        self.assertEqual(criterion.transition_to, "test_node")
-
     def test_gen_node_deserialize_with_tc_transition_to_none(
         self,
     ) -> None:
@@ -3369,10 +3337,11 @@ class SQAStoreTest(TestCase):
             ],
             "transition_criteria": [
                 {
-                    "__type": "MaxGenerationParallelism",
+                    "__type": "MaxGenerationParallelism",  # Old class
                     "threshold": 3,
                     "only_in_statuses": [{"__type": "TrialStatus", "name": "RUNNING"}],
                     "transition_to": None,  # Old default
+                    "some_deprecated_field": "should_be_ignored",
                 }
             ],
         }
@@ -3384,9 +3353,10 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(node.name, "test_node")
         self.assertEqual(len(node.transition_criteria), 1)
+        # Verify MaxGenerationParallelism (from JSON) is decoded as MinTrials
         criterion = assert_is_instance(
             node.transition_criteria[0],
-            MaxGenerationParallelism,
+            MinTrials,
         )
         self.assertEqual(criterion.threshold, 3)
         # transition_to should now be set to the node name (pointing to itself)

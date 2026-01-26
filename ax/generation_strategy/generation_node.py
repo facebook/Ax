@@ -42,7 +42,6 @@ from ax.adapter.registry import (
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
-    MaxGenerationParallelism,
     MinTrials,
     TransitionCriterion,
     TrialBasedCriterion,
@@ -1128,7 +1127,7 @@ class GenerationStep:
             )
         if max_parallelism is not None:
             transition_criteria.append(
-                MaxGenerationParallelism(
+                MinTrials(
                     threshold=max_parallelism,
                     transition_to=placeholder_transition_to,
                     only_in_statuses=[TrialStatus.RUNNING],

@@ -40,7 +40,6 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
-    MaxGenerationParallelism,
     MinTrials,
 )
 from ax.generators.torch.botorch_modular.surrogate import (
@@ -208,10 +207,11 @@ def sobol_gpei_generation_node_gs(
             only_in_statuses=[TrialStatus.CANDIDATE],
             not_in_statuses=None,
         ),
-        MaxGenerationParallelism(
+        MinTrials(
             threshold=1000,
             transition_to="MBM_node",
             block_gen_if_met=True,
+            block_transition_if_unmet=False,
             only_in_statuses=[TrialStatus.RUNNING],
             not_in_statuses=None,
             continue_trial_generation=False,

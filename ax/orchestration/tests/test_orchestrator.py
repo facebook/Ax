@@ -49,7 +49,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
-from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
+from ax.generation_strategy.transition_criterion import TrialBasedCriterion
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.orchestration.orchestrator import (
@@ -1171,7 +1171,7 @@ class TestAxOrchestrator(TestCase):
             # Extract max_parallelism from transition criteria
             node0_max_parallelism = None
             for tc in self.two_sobol_steps_GS._nodes[0].transition_criteria:
-                if isinstance(tc, MaxGenerationParallelism):
+                if tc.block_gen_if_met and isinstance(tc, TrialBasedCriterion):
                     node0_max_parallelism = tc.threshold
                     break
             self.assertEqual(

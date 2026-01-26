@@ -22,7 +22,6 @@ from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
-    MaxGenerationParallelism,
     MinTrials,
 )
 from ax.utils.common.logger import get_logger
@@ -186,7 +185,7 @@ class TestTransitionCriterion(TestCase):
                 threshold=2,
                 transition_to="GenerationStep_2_BoTorch",
             ),
-            MaxGenerationParallelism(
+            MinTrials(
                 threshold=1,
                 only_in_statuses=[TrialStatus.RUNNING],
                 block_gen_if_met=True,
@@ -466,7 +465,7 @@ class TestTransitionCriterion(TestCase):
             + "'continue_trial_generation': False, "
             + "'count_only_trials_with_data': False})",
         )
-        max_parallelism = MaxGenerationParallelism(
+        max_parallelism_criterion = MinTrials(
             only_in_statuses=[TrialStatus.EARLY_STOPPED],
             threshold=3,
             transition_to="GenerationStep_2",
@@ -475,8 +474,8 @@ class TestTransitionCriterion(TestCase):
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
-            str(max_parallelism),
-            "MaxGenerationParallelism({'threshold': 3, "
+            str(max_parallelism_criterion),
+            "MinTrials({'threshold': 3, "
             + "'transition_to': 'GenerationStep_2', "
             + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.EARLY_STOPPED], "
@@ -484,7 +483,8 @@ class TestTransitionCriterion(TestCase):
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
-            + "'continue_trial_generation': False})",
+            + "'continue_trial_generation': False, "
+            + "'count_only_trials_with_data': False})",
         )
         auto_transition = AutoTransitionAfterGen(transition_to="GenerationStep_2")
         self.assertEqual(

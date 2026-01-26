@@ -76,7 +76,6 @@ from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
-    MaxGenerationParallelism,
     MinTrials,
     TransitionCriterion,
 )
@@ -214,7 +213,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapMetric: metric_to_dict,
-    MaxGenerationParallelism: transition_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
@@ -340,7 +338,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MapData": Data,
     "MapMetric": MapMetric,
     "MaxTrials": MinTrials,
-    "MaxGenerationParallelism": MaxGenerationParallelism,
+    # DEPRECATED; backward compatibility for MaxGenerationParallelism -> MinTrials
+    "MaxGenerationParallelism": MinTrials,
     "Metric": Metric,
     "MinTrials": MinTrials,
     # DEPRECATED; backward compatibility for MinimumTrialsInStatus -> MinTrials
