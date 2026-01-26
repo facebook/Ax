@@ -732,35 +732,3 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
             f"This criterion, {self.criterion_class} has been met but cannot "
             "continue generation from its associated GenerationNode."
         )
-
-
-# TODO: Deprecate once legacy usecase is updated
-class MinimumTrialsInStatus(TransitionCriterion):
-    """
-    Deprecated and replaced with more flexible MinTrials criterion.
-    """
-
-    def __init__(
-        self,
-        status: TrialStatus,
-        threshold: int,
-        transition_to: str | None = None,
-    ) -> None:
-        self.status = status
-        self.threshold = threshold
-        super().__init__(transition_to=transition_to)
-
-    def is_met(
-        self,
-        experiment: Experiment,
-        curr_node: GenerationNode,
-    ) -> bool:
-        return len(experiment.trial_indices_by_status[self.status]) >= self.threshold
-
-    def block_continued_generation_error(
-        self,
-        node_name: str | None,
-        experiment: Experiment | None,
-        trials_from_node: set[int],
-    ) -> None:
-        pass
