@@ -7,36 +7,52 @@
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import PreferenceOptimizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_experiment_with_custom_runner_and_metric,
 )
+from ax.utils.testing.preference_stubs import get_pbo_experiment
 
 
 class TestUtilityProgressionAnalysis(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.analysis = UtilityProgressionAnalysis()
+
+    def _assert_valid_utility_card(
+        self,
+        card: PlotlyAnalysisCard,
+    ) -> None:
+        """Assert that a card has valid structure for utility progression."""
+        self.assertIsInstance(card, PlotlyAnalysisCard)
+        self.assertEqual(card.name, "UtilityProgressionAnalysis")
+        self.assertIn("trace_index", card.df.columns)
+        self.assertIn("utility", card.df.columns)
+
     def test_utility_progression_soo(self) -> None:
         """Test that UtilityProgressionAnalysis works for SOO experiments."""
         # Setup: Create SOO experiment with completed trials
         experiment = get_branin_experiment(with_completed_trial=True, num_trial=3)
 
-        analysis = UtilityProgressionAnalysis()
-
         # Execute: Validate that analysis is applicable
-        validation_result = analysis.validate_applicable_state(experiment=experiment)
+        validation_result = self.analysis.validate_applicable_state(
+            experiment=experiment
+        )
 
         # Assert: Analysis should be applicable (no error message)
         self.assertIsNone(validation_result)
 
         # Execute: Compute the analysis
-        card = analysis.compute(experiment=experiment)
+        card = self.analysis.compute(experiment=experiment)
 
         # Assert: Check that we got a valid card with correct structure
-        self.assertIsInstance(card, PlotlyAnalysisCard)
-        self.assertEqual(card.name, "UtilityProgressionAnalysis")
-        self.assertIn("trace_index", card.df.columns)
-        self.assertIn("utility", card.df.columns)
+        self._assert_valid_utility_card(card)
         self.assertEqual(len(card.df), 3)  # 3 completed trials
 
     def test_utility_progression_moo(self) -> None:
@@ -47,23 +63,18 @@ class TestUtilityProgressionAnalysis(TestCase):
             with_completed_batch=True,
             with_status_quo=True,
         )
-
-        analysis = UtilityProgressionAnalysis()
-
         # Execute: Validate that analysis is applicable
-        validation_result = analysis.validate_applicable_state(experiment=experiment)
-
+        validation_result = self.analysis.validate_applicable_state(
+            experiment=experiment
+        )
         # Assert: Analysis should be applicable (no error message)
         self.assertIsNone(validation_result)
 
         # Execute: Compute the analysis
-        card = analysis.compute(experiment=experiment)
+        card = self.analysis.compute(experiment=experiment)
 
         # Assert: Check that we got a valid card with correct structure
-        self.assertIsInstance(card, PlotlyAnalysisCard)
-        self.assertEqual(card.name, "UtilityProgressionAnalysis")
-        self.assertIn("trace_index", card.df.columns)
-        self.assertIn("utility", card.df.columns)
+        self._assert_valid_utility_card(card)
         self.assertGreater(len(card.df), 0)
 
         # Assert: Check that subtitle contains expected content for MOO
@@ -79,16 +90,70 @@ class TestUtilityProgressionAnalysis(TestCase):
                 msg="Hypervolume should be non-decreasing",
             )
 
+    def test_utility_progression_bope(self) -> None:
+        """Test UtilityProgressionAnalysis for BOPE experiments."""
+        metric_names = ["branin_a", "branin_b"]
+
+        # Setup: Create main BO experiment with metric data
+        bope_experiment = get_pbo_experiment(
+            num_experimental_metrics=len(metric_names),
+            tracking_metric_names=metric_names,
+            num_experimental_trials=3,
+            num_preference_trials=0,
+        )
+
+        # Setup: Create and attach PE_EXPERIMENT with preference data
+        pe_experiment = get_pbo_experiment(
+            parameter_names=metric_names,
+            num_experimental_metrics=0,
+            num_experimental_trials=0,
+            num_preference_trials=2,
+            unbounded_search_space=True,
+            experiment_name="test_profile",
+        )
+
+        # Setup: Attach PE_EXPERIMENT with preference data to main experiment
+        bope_experiment.add_auxiliary_experiment(
+            auxiliary_experiment=AuxiliaryExperiment(
+                experiment=pe_experiment, data=pe_experiment.lookup_data()
+            ),
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+        )
+
+        # Setup: Set PreferenceOptimizationConfig
+        bope_experiment.optimization_config = PreferenceOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name=m), minimize=False)
+                    for m in metric_names
+                ]
+            ),
+            preference_profile_name="test_profile",
+        )
+
+        # Execute & Assert
+        self.assertIsNone(
+            self.analysis.validate_applicable_state(experiment=bope_experiment)
+        )
+
+        # Execute: Compute the analysis
+        card = self.analysis.compute(experiment=bope_experiment)
+
+        # Assert: Check that we got a valid card with correct structure
+        self._assert_valid_utility_card(card)
+        self.assertGreater(len(card.df), 0)
+
+        # Assert: Check that subtitle mentions preference/utility-based trace
+        self.assertIn("preference", card.subtitle.lower())
+
     def test_validation_no_optimization_config(self) -> None:
         """Test that validation fails when no optimization config is present."""
         # Setup: Create experiment with trials but without optimization config
         experiment = get_branin_experiment(with_completed_trial=True, num_trial=1)
         experiment._optimization_config = None
 
-        analysis = UtilityProgressionAnalysis()
-
         # Execute: Validate the analysis
-        error_message = analysis.validate_applicable_state(experiment=experiment)
+        error_message = self.analysis.validate_applicable_state(experiment=experiment)
 
         # Assert: Validation should fail with appropriate error
         self.assertIsNotNone(error_message)
@@ -99,10 +164,8 @@ class TestUtilityProgressionAnalysis(TestCase):
         # Setup: Create experiment with no trials
         experiment = get_branin_experiment(with_trial=False)
 
-        analysis = UtilityProgressionAnalysis()
-
         # Execute: Validate the analysis
-        error_message = analysis.validate_applicable_state(experiment=experiment)
+        error_message = self.analysis.validate_applicable_state(experiment=experiment)
 
         # Assert: Validation should fail due to no trials
         self.assertEqual(error_message, "Experiment has no trials.")
@@ -113,10 +176,8 @@ class TestUtilityProgressionAnalysis(TestCase):
         experiment = get_branin_experiment(with_trial=True)
         experiment.trials[0].mark_running(no_runner_required=True)
 
-        analysis = UtilityProgressionAnalysis()
-
         # Execute: Validate the analysis
-        error_message = analysis.validate_applicable_state(experiment=experiment)
+        error_message = self.analysis.validate_applicable_state(experiment=experiment)
 
         # Assert: Validation should fail due to no data
         self.assertEqual(error_message, "Experiment has no data.")
@@ -129,16 +190,11 @@ class TestUtilityProgressionAnalysis(TestCase):
             num_trials=3,
         )
 
-        analysis = UtilityProgressionAnalysis()
-
         # Execute: Compute the analysis
-        card = analysis.compute(experiment=experiment)
+        card = self.analysis.compute(experiment=experiment)
 
         # Assert: Check that we got a valid card
-        self.assertIsInstance(card, PlotlyAnalysisCard)
-        self.assertEqual(card.name, "UtilityProgressionAnalysis")
-        self.assertIn("trace_index", card.df.columns)
-        self.assertIn("utility", card.df.columns)
+        self._assert_valid_utility_card(card)
         self.assertEqual(len(card.df), 3)
 
         # Assert: Check that title/subtitle show the formula
