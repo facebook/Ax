@@ -384,26 +384,22 @@ class GenerationStrategy(Base):
             step._step_index = idx
             step._generation_strategy = self
 
-            # Set transition_to field for all but the last step, which transitions
-            # to itself.
-            # transition_to = step.name
-            try:
-                next_step = steps[idx + 1]
-                transition_to = GEN_STEP_NAME.format(
+            # Determine transition_to for steps, last step will transition to self
+            is_last_step = idx == len(steps) - 1
+            next_step_name = (
+                step.name
+                if is_last_step
+                else GEN_STEP_NAME.format(
                     step_index=idx + 1,
-                    generator_name=next_step.generator_name,
+                    generator_name=steps[idx + 1].generator_name,
                 )
-                # for transition_criteria in step.transition_criteria:
-                #     if (
-                #         transition_criteria.criterion_class
-                #         != "MaxGenerationParallelism"
-                #     ):
-                #         transition_criteria._transition_to = transition_to
-            except IndexError:  # Last step, steps[idx+1] was not possible
-                transition_to = step.name
+            )
             for tc in step.transition_criteria:
-                if tc.criterion_class != "MaxGenerationParallelism":
-                    tc._transition_to = transition_to
+                if tc.criterion_class == "MaxGenerationParallelism":
+                    # MaxGenerationParallelism transitions to self (current step)
+                    tc._transition_to = step.name
+                else:
+                    tc._transition_to = next_step_name
         self._curr = steps[0]
 
     def _validate_and_set_node_graph(self, nodes: list[GenerationNode]) -> None:
