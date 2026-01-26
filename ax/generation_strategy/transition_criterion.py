@@ -108,7 +108,6 @@ class TransitionCriterion(SortableBase):
     @property
     def _unique_id(self) -> str:
         """Unique id for this TransitionCriterion."""
-        # TODO @mgarrard validate that this is unique enough
         return str(self)
 
 
