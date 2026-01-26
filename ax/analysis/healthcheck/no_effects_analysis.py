@@ -31,6 +31,8 @@ class TestOfNoEffectAnalysis(Analysis):
     groups are identical assuming unequal variances across groups.
     """
 
+    __test__ = False  # Not a pytest test class (statistical "Test of No Effect")
+
     def __init__(self, no_effect_alpha: float = 0.05) -> None:
         r"""
         Args:
