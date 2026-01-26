@@ -57,7 +57,6 @@ from ax.generation_strategy.generation_strategy import (
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
-    MaxGenerationParallelism,
     MinTrials,
 )
 from ax.generators.random.sobol import SobolGenerator
@@ -1233,11 +1232,12 @@ class TestGenerationStrategy(TestCase):
                 threshold=2,
                 transition_to="node_2",
             ),
-            MaxGenerationParallelism(
+            MinTrials(
                 threshold=1,
                 only_in_statuses=[TrialStatus.RUNNING],
                 block_gen_if_met=True,
                 block_transition_if_unmet=False,
+                transition_to="node_1",
             ),
         ]
         node_1 = GenerationNode(

@@ -42,11 +42,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    AuxiliaryExperimentCheck,
-    TransitionCriterion,
-    TrialBasedCriterion,
-)
+from ax.generation_strategy.transition_criterion import MinTrials, TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -63,6 +59,7 @@ from ax.storage.json_store.registry import (
 from ax.storage.utils import data_by_trial_to_data
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
+    extract_init_args,
     SerializationMixin,
     TClassDecoderRegistry,
     TDecoderRegistry,
@@ -280,16 +277,16 @@ def object_from_json(
                 object_json["outcome_transform_options"] = (
                     outcome_transform_options_json
                 )
-        elif isclass(_class) and (
-            issubclass(_class, TrialBasedCriterion)
-            or issubclass(_class, AuxiliaryExperimentCheck)
+        elif (
+            isclass(_class)
+            and issubclass(_class, TransitionCriterion)
+            and _class is not TransitionCriterion  # TransitionCriterion is abstract
         ):
-            # TrialBasedCriterion contains a list of `TrialStatus` for args.
-            # AuxiliaryExperimentCheck contains AuxiliaryExperimentPurpose objects
-            # They need to be unpacked by hand to properly retain the types.
-            return unpack_transition_criteria_from_json(
-                class_=_class,
-                transition_criteria_json=object_json,
+            # TransitionCriterion may contain nested Ax objects (TrialStatus, etc.)
+            # that need recursive deserialization via object_from_json.
+            return transition_criterion_from_json(
+                transition_criterion_class=_class,
+                object_json=object_json,
                 **vars(registry_kwargs),
             )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
@@ -430,32 +427,51 @@ def generator_run_from_json(
     return generator_run
 
 
-def unpack_transition_criteria_from_json(
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-    #  avoid runtime subscripting errors.
-    class_: type,
-    transition_criteria_json: dict[str, Any],
+def transition_criterion_from_json(
+    transition_criterion_class: type[TransitionCriterion],
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> TransitionCriterion | None:
-    """Load Ax transition criteria that depend on Trials from JSON.
+) -> TransitionCriterion:
+    """Load TransitionCriterion from JSON.
 
-    Since ``TrialBasedCriterion`` contain lists of ``TrialStatus``,
-    the json for these criterion needs to be carefully unpacked and
-    re-processed via ``object_from_json`` in order to maintain correct
-    typing. We pass in ``class_`` in order to correctly handle all classes
-    which inherit from ``TrialBasedCriterion`` (ex: ``MinTrials``).
+    TransitionCriterion subclasses may contain nested Ax objects (like TrialStatus
+    enums and AuxiliaryExperimentPurpose) that need recursive deserialization via
+    object_from_json. We also use extract_init_args for backwards compatibility,
+    filtering to only valid constructor arguments.
     """
-    new_dict = {}
-    for key, value in transition_criteria_json.items():
-        new_val = object_from_json(
+    # Handle deprecated MinimumTrialsInStatus -> MinTrials conversion
+    if transition_criterion_class is MinTrials and "status" in object_json:
+        logger.warning(
+            "`MinimumTrialsInStatus` has been deprecated and removed. "
+            "Converting to `MinTrials` with equivalent functionality."
+        )
+        status = object_from_json(
+            object_json=object_json.get("status"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        return MinTrials(
+            threshold=object_json.get("threshold"),
+            only_in_statuses=[status],
+            transition_to=object_json.get("transition_to"),
+            use_all_trials_in_exp=True,
+        )
+
+    decoded = {
+        key: object_from_json(
             object_json=value,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         )
-        new_dict[key] = new_val
+        for key, value in object_json.items()
+    }
 
-    return class_(**new_dict)
+    # filter to only valid constructor args (backwards compatibility)
+    init_args = extract_init_args(args=decoded, class_=transition_criterion_class)
+
+    # pyre-ignore[45]: Class passed is always a concrete subclass.
+    return transition_criterion_class(**init_args)
 
 
 def search_space_from_json(
@@ -806,6 +822,14 @@ def generation_node_from_json(
     # if needed during _validate_and_set_step_sequence.
     generation_node_json.pop("step_index", None)
 
+    # Backwards compatibility: For transition criteria with transition_to=None
+    # set transition_to to point to itself.
+    transition_criteria_json = generation_node_json.pop("transition_criteria")
+    if transition_criteria_json is not None:
+        for tc_json in transition_criteria_json:
+            if tc_json.get("transition_to") is None:
+                tc_json["transition_to"] = name
+
     return GenerationNode(
         name=name,
         generator_specs=object_from_json(
@@ -820,7 +844,7 @@ def generation_node_from_json(
         ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
         transition_criteria=object_from_json(
-            object_json=generation_node_json.pop("transition_criteria"),
+            object_json=transition_criteria_json,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
@@ -983,15 +1007,6 @@ def generation_step_from_json(
         gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     else:
         gen_kwargs = generation_step_json.pop("generator_gen_kwargs", None)
-    completion_criteria = (
-        object_from_json(
-            generation_step_json.pop("completion_criteria"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        )
-        if "completion_criteria" in generation_step_json.keys()
-        else []
-    )
     if "model" in generation_step_json:
         # Old arg name for backwards compatibility.
         generator_json = generation_step_json.pop("model")
@@ -1005,9 +1020,6 @@ def generation_step_from_json(
         ),
         num_trials=generation_step_json.pop("num_trials"),
         min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
-        completion_criteria=(
-            completion_criteria if completion_criteria is not None else []
-        ),
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
         generator_kwargs=(

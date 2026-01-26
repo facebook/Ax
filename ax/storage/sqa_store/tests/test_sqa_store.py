@@ -54,9 +54,15 @@ from ax.exceptions.core import (
 )
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.generation_strategy.transition_criterion import MinTrials
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.storage.json_store.decoder import generation_node_from_json
+from ax.storage.json_store.registry import (
+    CORE_CLASS_DECODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+)
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics
 from ax.storage.registry_bundle import RegistryBundle
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY, register_runner
@@ -3311,3 +3317,47 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(tl_metadata_0.overlap_parameters)
             # Should have 2 overlapping parameters (w and x)
             self.assertEqual(len(none_throws(tl_metadata_0.overlap_parameters)), 2)
+
+    def test_gen_node_deserialize_with_tc_transition_to_none(
+        self,
+    ) -> None:
+        """Test backwards compatibility when loading a MaxGenerationParallelism
+        that was stored with transition_to=None
+        """
+        old_format_node_json = {
+            "__type": "GenerationNode",
+            "name": "test_node",
+            "generator_specs": [
+                {
+                    "__type": "GeneratorSpec",
+                    "generator_enum": {"__type": "Generators", "name": "SOBOL"},
+                    "generator_kwargs": {},
+                    "generator_gen_kwargs": {},
+                }
+            ],
+            "transition_criteria": [
+                {
+                    "__type": "MaxGenerationParallelism",  # Old class
+                    "threshold": 3,
+                    "only_in_statuses": [{"__type": "TrialStatus", "name": "RUNNING"}],
+                    "transition_to": None,  # Old default
+                    "some_deprecated_field": "should_be_ignored",
+                }
+            ],
+        }
+
+        node = generation_node_from_json(
+            generation_node_json=old_format_node_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+        self.assertEqual(node.name, "test_node")
+        self.assertEqual(len(node.transition_criteria), 1)
+        # Verify MaxGenerationParallelism (from JSON) is decoded as MinTrials
+        criterion = assert_is_instance(
+            node.transition_criteria[0],
+            MinTrials,
+        )
+        self.assertEqual(criterion.threshold, 3)
+        # transition_to should now be set to the node name (pointing to itself)
+        self.assertEqual(criterion.transition_to, "test_node")

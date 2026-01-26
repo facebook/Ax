@@ -384,26 +384,24 @@ class GenerationStrategy(Base):
             step._step_index = idx
             step._generation_strategy = self
 
-            # Set transition_to field for all but the last step, which transitions
-            # to itself.
-            # transition_to = step.name
-            try:
-                next_step = steps[idx + 1]
-                transition_to = GEN_STEP_NAME.format(
+            # Determine transition_to for steps, last step will transition to self
+            is_last_step = idx == len(steps) - 1
+            next_step_name = (
+                step.name
+                if is_last_step
+                else GEN_STEP_NAME.format(
                     step_index=idx + 1,
-                    generator_name=next_step.generator_name,
+                    generator_name=steps[idx + 1].generator_name,
                 )
-                # for transition_criteria in step.transition_criteria:
-                #     if (
-                #         transition_criteria.criterion_class
-                #         != "MaxGenerationParallelism"
-                #     ):
-                #         transition_criteria._transition_to = transition_to
-            except IndexError:  # Last step, steps[idx+1] was not possible
-                transition_to = step.name
+            )
             for tc in step.transition_criteria:
-                if tc.criterion_class != "MaxGenerationParallelism":
-                    tc._transition_to = transition_to
+                # Only max parallelism criteria (block_gen_if_met=True AND
+                # block_transition_if_unmet=False) transition to self; all other
+                # criteria transition to the next step
+                if tc.block_gen_if_met and not tc.block_transition_if_unmet:
+                    tc._transition_to = step.name
+                else:
+                    tc._transition_to = next_step_name
         self._curr = steps[0]
 
     def _validate_and_set_node_graph(self, nodes: list[GenerationNode]) -> None:
@@ -438,24 +436,9 @@ class GenerationStrategy(Base):
         # Validate transition edges:
         # - All `transition_to` targets must exist in this GS
         # - All TCs on one edge must have the same `continue_trial_generation` setting
-        #  All but `MaxGenerationParallelism` TCs must have a `transition_to` set
         for node in nodes:
             for next_node, tcs in node.transition_edges.items():
-                if next_node is None:
-                    # TODO[drfreund]: Handle the case of the last generation step not
-                    # having any transition criteria.
-                    # TODO[mgarrard]: Remove MaxGenerationParallelism check when
-                    # we update TransitionCriterion always define `transition_to`
-                    # NOTE: This is done in D86066476
-                    for tc in tcs:
-                        if "MaxGenerationParallelism" not in tc.criterion_class:
-                            raise GenerationStrategyMisconfiguredException(
-                                error_info="Only MaxGenerationParallelism transition"
-                                " criterion can have a null `transition_to` argument,"
-                                f" but {tc.criterion_class} does not define "
-                                f"`transition_to` on {node.name}."
-                            )
-                elif next_node not in node_names:
+                if next_node not in node_names:
                     raise GenerationStrategyMisconfiguredException(
                         error_info=f"`transition_to` argument "
                         f"{next_node} does not correspond to any node in"

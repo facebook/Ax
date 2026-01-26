@@ -14,6 +14,7 @@ from ax.core import MultiObjectiveOptimizationConfig
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
+from ax.core.utils import get_trial_indices_with_required_metrics
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 
@@ -21,25 +22,25 @@ if TYPE_CHECKING:
     from ax.generation_strategy.generation_node import GenerationNode
 
 from ax.utils.common.base import SortableBase
-from ax.utils.common.serialization import SerializationMixin, serialize_init_args
+from ax.utils.common.serialization import serialize_init_args
 from pyre_extensions import none_throws
 
 
 DATA_REQUIRED_MSG = (
     "All trials for current node {node_name} have been generated, "
     "but not enough data has been observed to proceed to the next "
-    "Generation node. Try again when more is are available."
+    "Generation node. Try again when more data is available."
 )
 
 
-class TransitionCriterion(SortableBase, SerializationMixin):
+class TransitionCriterion(SortableBase):
     """
     Simple class to describe a condition which must be met for this GenerationNode to
     take an action such as generation, transition, etc.
 
     Args:
         transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met, if it exists.
+            transition to when this criterion is met.
         block_gen_if_met: A flag to prevent continued generation from the
             associated GenerationNode if this criterion is met but other criterion
             remain unmet. Ex: ``MinTrials`` has not been met yet, but
@@ -47,9 +48,7 @@ class TransitionCriterion(SortableBase, SerializationMixin):
             we will raise an error, otherwise we will continue to generate trials
             until ``MinTrials`` is met (thus overriding MinTrials).
         block_transition_if_unmet: A flag to prevent the node from completing and
-            being able to transition to another node. Ex: MaxGenerationParallelism
-            defaults to setting this to False since we can complete and move on from
-            this node without ever reaching its threshold.
+            being able to transition to another node.
         continue_trial_generation: A flag to indicate that all generation for a given
             trial is not completed, and thus even after transition, the next node will
             continue to generate arms for the same trial. Example usage: in
@@ -57,11 +56,11 @@ class TransitionCriterion(SortableBase, SerializationMixin):
             different ``GenerationNodes`` by setting this flag to True.
     """
 
-    _transition_to: str | None = None
+    _transition_to: str
 
     def __init__(
         self,
-        transition_to: str | None = None,
+        transition_to: str,
         block_transition_if_unmet: bool | None = True,
         block_gen_if_met: bool | None = False,
         continue_trial_generation: bool | None = False,
@@ -72,9 +71,9 @@ class TransitionCriterion(SortableBase, SerializationMixin):
         self.continue_trial_generation = continue_trial_generation
 
     @property
-    def transition_to(self) -> str | None:
+    def transition_to(self) -> str:
         """The name of the next GenerationNode after this TransitionCriterion is
-        completed, if it exists.
+        completed.
         """
         return self._transition_to
 
@@ -108,7 +107,6 @@ class TransitionCriterion(SortableBase, SerializationMixin):
     @property
     def _unique_id(self) -> str:
         """Unique id for this TransitionCriterion."""
-        # TODO @mgarrard validate that this is unique enough
         return str(self)
 
 
@@ -234,9 +232,7 @@ class TrialBasedCriterion(TransitionCriterion):
         threshold: The threshold as an integer for this criterion. Ex: If we want to
             generate at most 3 trials, then the threshold is 3.
         block_transition_if_unmet: A flag to prevent the node from completing and
-            being able to transition to another node. Ex: MaxGenerationParallelism
-            defaults to setting this to False since we can complete and move on from
-            this node without ever reaching its threshold.
+            being able to transition to another node.
         block_gen_if_met: A flag to prevent continued generation from the
             associated GenerationNode if this criterion is met but other criterion
             remain unmet. Ex: ``MinTrials`` has not been met yet, but
@@ -263,11 +259,11 @@ class TrialBasedCriterion(TransitionCriterion):
     def __init__(
         self,
         threshold: int,
+        transition_to: str,
         block_transition_if_unmet: bool | None = True,
         block_gen_if_met: bool | None = False,
         only_in_statuses: list[TrialStatus] | None = None,
         not_in_statuses: list[TrialStatus] | None = None,
-        transition_to: str | None = None,
         use_all_trials_in_exp: bool | None = False,
         continue_trial_generation: bool | None = False,
         count_only_trials_with_data: bool = False,
@@ -333,9 +329,11 @@ class TrialBasedCriterion(TransitionCriterion):
         """
         all_trials_to_check = self.all_trials_to_check(experiment=experiment)
         if self.count_only_trials_with_data:
-            data_trial_indices = experiment.data.trial_indices
-            # TODO[@mgarrard]: determine if we need to actually check data with
-            # more granularity, e.g. number of days of data, etc.
+            data_trial_indices = get_trial_indices_with_required_metrics(
+                experiment=experiment,
+                df=experiment.lookup_data().df,
+                require_data_for_all_metrics=False,
+            )
             all_trials_to_check = all_trials_to_check.intersection(data_trial_indices)
         # Some criteria may rely on experiment level data, instead of only trials
         # generated from the node associated with the criterion.
@@ -381,93 +379,17 @@ class TrialBasedCriterion(TransitionCriterion):
         )
 
 
-class MaxGenerationParallelism(TrialBasedCriterion):
-    """Specific TransitionCriterion implementation which defines the maximum number
-    of trials that can simultaneously be in the designated trial statuses. The
-    default behavior is to block generation from the associated GenerationNode if the
-    threshold is met. This is configured via the `block_gen_if_met` flag being set to
-    True. This criterion defaults to not blocking transition to another node via the
-    `block_transition_if_unmet` flag being set to False.
-
-    Args:
-        threshold: The threshold as an integer for this criterion. Ex: If we want to
-            generate at most 3 trials, then the threshold is 3.
-        only_in_statuses: A list of trial statuses to filter on when checking the
-            criterion threshold.
-        not_in_statuses: A list of trial statuses to exclude when checking the
-            criterion threshold.
-        transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met, if it exists.
-        block_transition_if_unmet: A flag to prevent the node from completing and
-            being able to transition to another node. Ex: MaxGenerationParallelism
-            defaults to setting this to False since we can complete and move on from
-            this node without ever reaching its threshold.
-        block_gen_if_met: A flag to prevent continued generation from the
-            associated GenerationNode if this criterion is met but other criterion
-            remain unmet. Ex: ``MinTrials`` has not been met yet, but
-            MinTrials has been reached. If this flag is set to true on MinTrials then
-            we will raise an error, otherwise we will continue to generate trials
-            until ``MinTrials`` is met (thus overriding MinTrials).
-        use_all_trials_in_exp: A flag to use all trials in the experiment, instead of
-            only those generated by the current GenerationNode.
-        continue_trial_generation: A flag to indicate that all generation for a given
-            trial is not completed, and thus even after transition, the next node will
-            continue to generate arms for the same trial. Example usage: in
-            ``BatchTrial``s we may  enable generation of arms within a batch from
-            different ``GenerationNodes`` by setting this flag to True. Defaults to
-            False for MaxGenerationParallelism since this criterion isn't currently
-            used for node -> node or trial -> trial transition.
-        count_only_trials_with_data: If set to True, only trials with data will be
-            counted towards the ``threshold``. Defaults to False.
-    """
-
-    def __init__(
-        self,
-        threshold: int,
-        only_in_statuses: list[TrialStatus] | None = None,
-        not_in_statuses: list[TrialStatus] | None = None,
-        transition_to: str | None = None,
-        block_transition_if_unmet: bool | None = False,
-        block_gen_if_met: bool | None = True,
-        use_all_trials_in_exp: bool | None = False,
-        continue_trial_generation: bool | None = True,
-    ) -> None:
-        super().__init__(
-            threshold=threshold,
-            only_in_statuses=only_in_statuses,
-            not_in_statuses=not_in_statuses,
-            transition_to=transition_to,
-            block_gen_if_met=block_gen_if_met,
-            block_transition_if_unmet=block_transition_if_unmet,
-            use_all_trials_in_exp=use_all_trials_in_exp,
-            continue_trial_generation=continue_trial_generation,
-        )
-
-    def block_continued_generation_error(
-        self,
-        node_name: str,
-        experiment: Experiment,
-        trials_from_node: set[int],
-    ) -> None:
-        """Raises the appropriate error (should only be called when the
-        ``GenerationNode`` is blocked from continued generation). For this
-        class, the exception is ``MaxParallelismReachedException``.
-        """
-        assert self.block_gen_if_met  # Sanity check.
-        raise MaxParallelismReachedException(
-            node_name=node_name,
-            num_running=self.num_contributing_to_threshold(
-                experiment=experiment, trials_from_node=trials_from_node
-            ),
-        )
-
-
 class MinTrials(TrialBasedCriterion):
     """
-    Simple class to enforce a minimum threshold for the number of trials with the
-    designated statuses being generated by a specific GenerationNode. The default
-    behavior is to block transition to the next node if the threshold is unmet, but
-    not affect continued generation.
+    Simple class to enforce a threshold for the number of trials with the
+    designated statuses being generated by a specific GenerationNode.
+
+    This class can be configured to behave as either:
+    - A minimum trials criterion (default): blocks transition to next node until
+        the threshold is met; block_transition_if_unmet=True
+    - A maximum parallelism criterion: blocks further generation from the current node
+        when threshold is reached; block_gen_if_met=True
+
 
     Args:
         threshold: The threshold as an integer for this criterion. Ex: If we want to
@@ -477,17 +399,14 @@ class MinTrials(TrialBasedCriterion):
         not_in_statuses: A list of trial statuses to exclude when checking the
             criterion threshold.
         transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met, if it exists.
+            transition to when this criterion is met.
         block_transition_if_unmet: A flag to prevent the node from completing and
-            being able to transition to another node. Ex: MaxGenerationParallelism
-            defaults to setting this to False since we can complete and move on from
-            this node without ever reaching its threshold.
+            being able to transition to another node. Defaults to True for minimum
+            trials behavior. Set to False for maximum parallelism behavior.
         block_gen_if_met: A flag to prevent continued generation from the
             associated GenerationNode if this criterion is met but other criterion
-            remain unmet. Ex: ``MinTrials`` has not been met yet, but
-            MinTrials has been reached. If this flag is set to true on MinTrials then
-            we will raise an error, otherwise we will continue to generate trials
-            until ``MinTrials`` is met (thus overriding MinTrials).
+            remain unmet. Defaults to False for minimum trials behavior. Set to True
+            for maximum parallelism behavior.
         use_all_trials_in_exp: A flag to use all trials in the experiment, instead of
             only those generated by the current GenerationNode.
         continue_trial_generation: A flag to indicate that all generation for a given
@@ -502,9 +421,9 @@ class MinTrials(TrialBasedCriterion):
     def __init__(
         self,
         threshold: int,
+        transition_to: str,
         only_in_statuses: list[TrialStatus] | None = None,
         not_in_statuses: list[TrialStatus] | None = None,
-        transition_to: str | None = None,
         block_transition_if_unmet: bool | None = True,
         block_gen_if_met: bool | None = False,
         use_all_trials_in_exp: bool | None = False,
@@ -513,9 +432,9 @@ class MinTrials(TrialBasedCriterion):
     ) -> None:
         super().__init__(
             threshold=threshold,
+            transition_to=transition_to,
             only_in_statuses=only_in_statuses,
             not_in_statuses=not_in_statuses,
-            transition_to=transition_to,
             block_gen_if_met=block_gen_if_met,
             block_transition_if_unmet=block_transition_if_unmet,
             use_all_trials_in_exp=use_all_trials_in_exp,
@@ -529,76 +448,27 @@ class MinTrials(TrialBasedCriterion):
         experiment: Experiment,
         trials_from_node: set[int],
     ) -> None:
-        """Raises the appropriate error (should only be called when the
-        ``GenerationNode`` is blocked from continued generation). For this
-        class, the exception is ``DataRequiredError``.
+        """Raises the appropriate error when generation is blocked.
+
+        This method is called when block_gen_if_met=True and the criterion is met.
+        The exception type depends on the criterion's behavior:
+        - Max parallelism (block_transition_if_unmet=False):
+            MaxParallelismReachedException
+        - Enforce num_trials (block_transition_if_unmet=True): DataRequiredError
         """
         assert self.block_gen_if_met  # Sanity check.
-        raise DataRequiredError(DATA_REQUIRED_MSG.format(node_name=node_name))
-
-
-class MinimumPreferenceOccurances(TransitionCriterion):
-    """
-    In a preference Experiment (i.e. Metric values may either be zero for No and
-    nonzero for Yes) do not transition until a minimum number of both Yes and No
-    responses have been received.
-
-    Args:
-        metric_signature: signature of the metric to check for preference occurrences.
-        threshold: The threshold as an integer for this criterion. Ex: If we want to
-            generate at most 3 trials, then the threshold is 3.
-        transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met, if it exists.
-        block_gen_if_met: A flag to prevent continued generation from the
-            associated GenerationNode if this criterion is met but other criterion
-            remain unmet. Ex: ``MinTrials`` has not been met yet, but
-            MinTrials has been reached. If this flag is set to true on MinTrials then
-            we will raise an error, otherwise we will continue to generate trials
-            until ``MinTrials`` is met (thus overriding MinTrials).
-        block_transition_if_unmet: A flag to prevent the node from completing and
-            being able to transition to another node. Ex: MaxGenerationParallelism
-            defaults to setting this to False since we can complete and move on from
-            this node without ever reaching its threshold.
-    """
-
-    def __init__(
-        self,
-        metric_signature: str,
-        threshold: int,
-        transition_to: str | None = None,
-        block_gen_if_met: bool | None = False,
-        block_transition_if_unmet: bool | None = True,
-    ) -> None:
-        self.metric_signature = metric_signature
-        self.threshold = threshold
-        super().__init__(
-            transition_to=transition_to,
-            block_gen_if_met=block_gen_if_met,
-            block_transition_if_unmet=block_transition_if_unmet,
-        )
-
-    def is_met(
-        self,
-        experiment: Experiment,
-        curr_node: GenerationNode,
-    ) -> bool:
-        # TODO: @mgarrard replace fetch_data with lookup_data
-        data = experiment.fetch_data(
-            metrics=[experiment.signature_to_metric[self.metric_signature]]
-        )
-
-        count_no = (data.df["mean"] == 0).sum()
-        count_yes = (data.df["mean"] != 0).sum()
-
-        return count_no >= self.threshold and count_yes >= self.threshold
-
-    def block_continued_generation_error(
-        self,
-        node_name: str,
-        experiment: Experiment,
-        trials_from_node: set[int],
-    ) -> None:
-        pass
+        if not self.block_transition_if_unmet:
+            # Max parallelism behavior: temporarily blocked, waiting for trials
+            # to complete
+            raise MaxParallelismReachedException(
+                node_name=node_name,
+                num_running=self.num_contributing_to_threshold(
+                    experiment=experiment, trials_from_node=trials_from_node
+                ),
+            )
+        else:
+            # Enforce num_trials behavior: hard limit reached, need to transition
+            raise DataRequiredError(DATA_REQUIRED_MSG.format(node_name=node_name))
 
 
 class AuxiliaryExperimentCheck(TransitionCriterion):
@@ -633,9 +503,7 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
             we will raise an error, otherwise we will continue to generate trials
             until ``MinTrials`` is met (thus overriding MinTrials).
         block_transition_if_unmet: A flag to prevent the node from completing and
-            being able to transition to another node. Ex: MaxGenerationParallelism
-            defaults to setting this to False since we can complete and move on from
-            this node without ever reaching its threshold.
+            being able to transition to another node.
         continue_trial_generation: A flag to indicate that all generation for a given
             trial is not completed, and thus even after transition, the next node will
             continue to generate arms for the same trial. Example usage: in
@@ -732,35 +600,3 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
             f"This criterion, {self.criterion_class} has been met but cannot "
             "continue generation from its associated GenerationNode."
         )
-
-
-# TODO: Deprecate once legacy usecase is updated
-class MinimumTrialsInStatus(TransitionCriterion):
-    """
-    Deprecated and replaced with more flexible MinTrials criterion.
-    """
-
-    def __init__(
-        self,
-        status: TrialStatus,
-        threshold: int,
-        transition_to: str | None = None,
-    ) -> None:
-        self.status = status
-        self.threshold = threshold
-        super().__init__(transition_to=transition_to)
-
-    def is_met(
-        self,
-        experiment: Experiment,
-        curr_node: GenerationNode,
-    ) -> bool:
-        return len(experiment.trial_indices_by_status[self.status]) >= self.threshold
-
-    def block_continued_generation_error(
-        self,
-        node_name: str | None,
-        experiment: Experiment | None,
-        trials_from_node: set[int],
-    ) -> None:
-        pass

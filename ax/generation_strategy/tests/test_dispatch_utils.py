@@ -22,10 +22,7 @@ from ax.generation_strategy.dispatch_utils import (
     DEFAULT_BAYESIAN_PARALLELISM,
 )
 from ax.generation_strategy.generation_node import GenerationNode
-from ax.generation_strategy.transition_criterion import (
-    MaxGenerationParallelism,
-    MinTrials,
-)
+from ax.generation_strategy.transition_criterion import MinTrials, TrialBasedCriterion
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
@@ -621,12 +618,12 @@ class TestDispatchUtils(TestCase):
                 sobol_gpei._nodes[0].transition_criteria[0], MinTrials
             )
             self.assertTrue(node0_min_trials.block_gen_if_met)
-            # Check that max_parallelism is set by verifying MaxGenerationParallelism
-            # criterion exists on node 1
+            # Check that max_parallelism is set by verifying a TrialBasedCriterion
+            # with block_gen_if_met=True exists on node 1
             node1_max_parallelism = [
                 tc
                 for tc in sobol_gpei._nodes[1].transition_criteria
-                if isinstance(tc, MaxGenerationParallelism)
+                if tc.block_gen_if_met and isinstance(tc, TrialBasedCriterion)
             ]
             self.assertTrue(len(node1_max_parallelism) > 0)
         with self.subTest("False"):
@@ -647,11 +644,11 @@ class TestDispatchUtils(TestCase):
             )
             self.assertFalse(node0_min_trials.block_gen_if_met)
             # Check that max_parallelism is None by verifying no
-            # MaxGenerationParallelism criterion exists on node 1
+            # TrialBasedCriterion with block_gen_if_met=True exists on node 1
             node1_max_parallelism = [
                 tc
                 for tc in sobol_gpei._nodes[1].transition_criteria
-                if isinstance(tc, MaxGenerationParallelism)
+                if tc.block_gen_if_met and isinstance(tc, TrialBasedCriterion)
             ]
             self.assertEqual(len(node1_max_parallelism), 0)
         with self.subTest("False and max_parallelism_override"):
@@ -820,7 +817,11 @@ class TestDispatchUtils(TestCase):
     def _get_max_parallelism(self, node: GenerationNode) -> int | None:
         """Helper to extract max_parallelism from transition criteria."""
         for tc in node.transition_criteria:
-            if isinstance(tc, MaxGenerationParallelism):
+            if (
+                tc.block_gen_if_met
+                and not tc.block_transition_if_unmet
+                and isinstance(tc, TrialBasedCriterion)
+            ):
                 return tc.threshold
         return None
 

@@ -7,12 +7,9 @@
 
 
 from logging import Logger
-from unittest.mock import patch
 
-import pandas as pd
 from ax.adapter.registry import Generators
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import (
@@ -25,9 +22,6 @@ from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
     IsSingleObjective,
-    MaxGenerationParallelism,
-    MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
     MinTrials,
 )
 from ax.utils.common.logger import get_logger
@@ -50,57 +44,6 @@ class TestTransitionCriterion(TestCase):
             generator_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.branin_experiment = get_branin_experiment()
-
-    def test_minimum_preference_criterion(self) -> None:
-        criterion = MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
-        experiment = get_experiment()
-        generation_strategy = GenerationStrategy(
-            name="SOBOL::default",
-            steps=[
-                GenerationStep(
-                    generator=Generators.SOBOL,
-                    num_trials=-1,
-                    completion_criteria=[criterion],
-                ),
-                GenerationStep(
-                    generator=Generators.BOTORCH_MODULAR,
-                    num_trials=-1,
-                    max_parallelism=1,
-                ),
-            ],
-        )
-        generation_strategy.experiment = experiment
-
-        # Has not seen enough of each preference
-        self.assertFalse(
-            generation_strategy._maybe_transition_to_next_node(
-                raise_data_required_error=False
-            )
-        )
-
-        data = Data(
-            df=pd.DataFrame(
-                {
-                    "trial_index": range(6),
-                    "arm_name": [f"{i}_0" for i in range(6)],
-                    "metric_name": ["m1" for _ in range(6)],
-                    "mean": [0, 0, 0, 1, 1, 1],
-                    "sem": [0 for _ in range(6)],
-                    "metric_signature": ["m1" for _ in range(6)],
-                }
-            )
-        )
-        with patch.object(experiment, "fetch_data", return_value=data):
-            # We have seen three "yes" and three "no"
-            self.assertTrue(
-                generation_strategy._maybe_transition_to_next_node(
-                    raise_data_required_error=False
-                )
-            )
-            self.assertEqual(
-                generation_strategy._curr.generator_spec_to_gen_from.generator_enum,
-                Generators.BOTORCH_MODULAR,
-            )
 
     def test_aux_experiment_check(self) -> None:
         # Test incorrect instantiation
@@ -242,11 +185,12 @@ class TestTransitionCriterion(TestCase):
                 threshold=2,
                 transition_to="GenerationStep_2_BoTorch",
             ),
-            MaxGenerationParallelism(
+            MinTrials(
                 threshold=1,
                 only_in_statuses=[TrialStatus.RUNNING],
                 block_gen_if_met=True,
                 block_transition_if_unmet=False,
+                transition_to="GenerationStep_1_BoTorch",
             ),
         ]
         step_2_expected_transition_criteria = []
@@ -313,6 +257,7 @@ class TestTransitionCriterion(TestCase):
         # Check mixed status MinTrials
         min_criterion = MinTrials(
             threshold=3,
+            transition_to="next_node",  # placeholder for testing, transition not used
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
         )
         self.assertFalse(
@@ -444,10 +389,13 @@ class TestTransitionCriterion(TestCase):
         gs.experiment = experiment
         max_criterion_with_status = MinTrials(
             threshold=2,
+            transition_to="next_node",
             block_gen_if_met=True,
             only_in_statuses=[TrialStatus.COMPLETED],
         )
-        max_criterion = MinTrials(threshold=2, block_gen_if_met=True)
+        max_criterion = MinTrials(
+            threshold=2, transition_to="next_node", block_gen_if_met=True
+        )
         self.assertFalse(
             max_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
@@ -478,18 +426,18 @@ class TestTransitionCriterion(TestCase):
         self.maxDiff = None
         min_trials_criterion = MinTrials(
             threshold=5,
+            transition_to="GenerationStep_1",
             block_gen_if_met=True,
             block_transition_if_unmet=False,
-            transition_to="GenerationStep_1",
             only_in_statuses=[TrialStatus.COMPLETED],
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
             str(min_trials_criterion),
             "MinTrials({'threshold': 5, "
+            + "'transition_to': 'GenerationStep_1', "
             + "'only_in_statuses': [<enum 'TrialStatus'>.COMPLETED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'transition_to': 'GenerationStep_1', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
@@ -497,45 +445,27 @@ class TestTransitionCriterion(TestCase):
             + "'count_only_trials_with_data': False})",
         )
         minimum_trials_in_status_criterion = MinTrials(
-            only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
             threshold=0,
             transition_to="GenerationStep_2",
+            only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
             block_gen_if_met=True,
             block_transition_if_unmet=False,
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
             str(minimum_trials_in_status_criterion),
-            "MinTrials({'threshold': 0, 'only_in_statuses': "
+            "MinTrials({'threshold': 0, "
+            + "'transition_to': 'GenerationStep_2', "
+            + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.COMPLETED, <enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': False, "
             + "'count_only_trials_with_data': False})",
         )
-        minimum_preference_occurrences_criterion = MinimumPreferenceOccurances(
-            metric_signature="m1", threshold=3
-        )
-        self.assertEqual(
-            str(minimum_preference_occurrences_criterion),
-            "MinimumPreferenceOccurances({'metric_signature': 'm1', 'threshold': 3, "
-            + "'transition_to': None, 'block_gen_if_met': False, "
-            "'block_transition_if_unmet': True})",
-        )
-        deprecated_min_trials_criterion = MinimumTrialsInStatus(
-            status=TrialStatus.COMPLETED, threshold=3
-        )
-        self.assertEqual(
-            str(deprecated_min_trials_criterion),
-            "MinimumTrialsInStatus({"
-            + "'status': <enum 'TrialStatus'>.COMPLETED, "
-            + "'threshold': 3, "
-            + "'transition_to': None})",
-        )
-        max_parallelism = MaxGenerationParallelism(
+        max_parallelism_criterion = MinTrials(
             only_in_statuses=[TrialStatus.EARLY_STOPPED],
             threshold=3,
             transition_to="GenerationStep_2",
@@ -544,15 +474,17 @@ class TestTransitionCriterion(TestCase):
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
-            str(max_parallelism),
-            "MaxGenerationParallelism({'threshold': 3, 'only_in_statuses': "
+            str(max_parallelism_criterion),
+            "MinTrials({'threshold': 3, "
+            + "'transition_to': 'GenerationStep_2', "
+            + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
-            + "'continue_trial_generation': True})",
+            + "'continue_trial_generation': False, "
+            + "'count_only_trials_with_data': False})",
         )
         auto_transition = AutoTransitionAfterGen(transition_to="GenerationStep_2")
         self.assertEqual(

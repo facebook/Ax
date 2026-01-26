@@ -46,7 +46,7 @@ from ax.exceptions.core import (
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
+from ax.generation_strategy.transition_criterion import TrialBasedCriterion
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.plot.base import AxPlotConfig
@@ -865,10 +865,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         parallelism_settings = []
         for node in self.generation_strategy._nodes:
-            # Extract max_parallelism from MaxGenerationParallelism criterion
+            # Extract max_parallelism from criteria with block_gen_if_met=True
             max_parallelism = None
             for tc in node.transition_criteria:
-                if isinstance(tc, MaxGenerationParallelism):
+                if tc.block_gen_if_met and isinstance(tc, TrialBasedCriterion):
                     max_parallelism = tc.threshold
                     break
             # Try to get num_trials from the node. If there's no MinTrials
