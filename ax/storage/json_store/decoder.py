@@ -42,7 +42,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import TransitionCriterion
+from ax.generation_strategy.transition_criterion import MinTrials, TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -440,7 +440,24 @@ def transition_criterion_from_json(
     object_from_json. We also use extract_init_args for backwards compatibility,
     filtering to only valid constructor arguments.
     """
-    # Recursively deserialize nested objects (e.g., TrialStatus enums)
+    # Handle deprecated MinimumTrialsInStatus -> MinTrials conversion
+    if transition_criterion_class is MinTrials and "status" in object_json:
+        logger.warning(
+            "`MinimumTrialsInStatus` has been deprecated and removed. "
+            "Converting to `MinTrials` with equivalent functionality."
+        )
+        status = object_from_json(
+            object_json=object_json.get("status"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        return MinTrials(
+            threshold=object_json.get("threshold"),
+            only_in_statuses=[status],
+            transition_to=object_json.get("transition_to"),
+            use_all_trials_in_exp=True,
+        )
+
     decoded = {
         key: object_from_json(
             object_json=value,

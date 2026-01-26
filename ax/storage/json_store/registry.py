@@ -78,7 +78,6 @@ from ax.generation_strategy.transition_criterion import (
     IsSingleObjective,
     MaxGenerationParallelism,
     MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
     MinTrials,
     TransitionCriterion,
 )
@@ -219,7 +218,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MaxGenerationParallelism: transition_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
-    MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
     GeneratorSpec: generator_spec_to_dict,
@@ -347,7 +345,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MaxGenerationParallelism": MaxGenerationParallelism,
     "Metric": Metric,
     "MinTrials": MinTrials,
-    "MinimumTrialsInStatus": MinimumTrialsInStatus,
+    # DEPRECATED; backward compatibility for MinimumTrialsInStatus -> MinTrials
+    "MinimumTrialsInStatus": MinTrials,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
     "GeneratorRegistryBase": GeneratorRegistryBase,
     "ModelRegistryBase": GeneratorRegistryBase,
