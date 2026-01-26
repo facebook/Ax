@@ -58,7 +58,10 @@ from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
-from ax.storage.json_store.decoder import transition_criterion_from_json
+from ax.storage.json_store.decoder import (
+    generation_node_from_json,
+    transition_criterion_from_json,
+)
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
@@ -3345,4 +3348,46 @@ class SQAStoreTest(TestCase):
             MaxGenerationParallelism,
         )
         self.assertEqual(criterion.threshold, 5)
+        self.assertEqual(criterion.transition_to, "test_node")
+
+    def test_gen_node_deserialize_with_tc_transition_to_none(
+        self,
+    ) -> None:
+        """Test backwards compatibility when loading a MaxGenerationParallelism
+        that was stored with transition_to=None
+        """
+        old_format_node_json = {
+            "__type": "GenerationNode",
+            "name": "test_node",
+            "generator_specs": [
+                {
+                    "__type": "GeneratorSpec",
+                    "generator_enum": {"__type": "Generators", "name": "SOBOL"},
+                    "generator_kwargs": {},
+                    "generator_gen_kwargs": {},
+                }
+            ],
+            "transition_criteria": [
+                {
+                    "__type": "MaxGenerationParallelism",
+                    "threshold": 3,
+                    "only_in_statuses": [{"__type": "TrialStatus", "name": "RUNNING"}],
+                    "transition_to": None,  # Old default
+                }
+            ],
+        }
+
+        node = generation_node_from_json(
+            generation_node_json=old_format_node_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+        self.assertEqual(node.name, "test_node")
+        self.assertEqual(len(node.transition_criteria), 1)
+        criterion = assert_is_instance(
+            node.transition_criteria[0],
+            MaxGenerationParallelism,
+        )
+        self.assertEqual(criterion.threshold, 3)
+        # transition_to should now be set to the node name (pointing to itself)
         self.assertEqual(criterion.transition_to, "test_node")

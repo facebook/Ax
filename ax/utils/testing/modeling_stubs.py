@@ -228,10 +228,11 @@ def sobol_gpei_generation_node_gs(
         ),
         MaxGenerationParallelism(
             threshold=1000,
-            transition_to=None,
+            transition_to="MBM_node",
             block_gen_if_met=True,
             only_in_statuses=[TrialStatus.RUNNING],
             not_in_statuses=None,
+            continue_trial_generation=False,
         ),
     ]
     auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
