@@ -87,9 +87,10 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
+    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MinTrials,
-    TrialBasedCriterion,
+    TransitionCriterion,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
@@ -177,7 +178,7 @@ def get_experiment_with_map_data_type() -> Experiment:
     return experiment
 
 
-def get_trial_based_criterion() -> list[TrialBasedCriterion]:
+def get_trial_based_criterion() -> list[TransitionCriterion]:
     return [
         MinTrials(
             threshold=3,
@@ -190,6 +191,9 @@ def get_trial_based_criterion() -> list[TrialBasedCriterion]:
             not_in_statuses=[
                 TrialStatus.RUNNING,
             ],
+        ),
+        AutoTransitionAfterGen(
+            transition_to="next_node",
         ),
     ]
 
