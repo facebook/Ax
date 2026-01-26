@@ -503,6 +503,11 @@ class JSONStoreTest(TestCase):
                 # _step_index is non-persistent state, unset on original to match
                 # the decoded object which will have _step_index=None.
                 original_object._step_index = None
+                # Transition_to is set during decode for backwards
+                # compatibility. Update original to match decoded.
+                for tc in original_object.transition_criteria:
+                    if tc.transition_to is None:
+                        tc._transition_to = original_object.name
             if isinstance(original_object, torch.nn.Module):
                 self.assertIsInstance(
                     converted_object,

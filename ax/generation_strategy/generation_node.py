@@ -1134,7 +1134,9 @@ class GenerationStep:
                     only_in_statuses=[TrialStatus.RUNNING],
                     block_gen_if_met=True,
                     block_transition_if_unmet=False,
-                    transition_to=None,  # Re-set in GS constructor.
+                    # MaxParallelism transitions to self,
+                    # this will be confirmed in GS init
+                    transition_to=f"GenerationStep_{str(index)}",
                 )
             )
 
