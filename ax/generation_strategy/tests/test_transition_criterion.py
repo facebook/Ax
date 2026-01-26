@@ -51,7 +51,9 @@ class TestTransitionCriterion(TestCase):
         self.branin_experiment = get_branin_experiment()
 
     def test_minimum_preference_criterion(self) -> None:
-        criterion = MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
+        criterion = MinimumPreferenceOccurances(
+            metric_signature="m1", threshold=3, transition_to="next_node"
+        )
         experiment = get_experiment()
         generation_strategy = GenerationStrategy(
             name="SOBOL::default",
@@ -313,6 +315,7 @@ class TestTransitionCriterion(TestCase):
         # Check mixed status MinTrials
         min_criterion = MinTrials(
             threshold=3,
+            transition_to="next_node",  # placeholder for testing, transition not used
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
         )
         self.assertFalse(
@@ -444,10 +447,13 @@ class TestTransitionCriterion(TestCase):
         gs.experiment = experiment
         max_criterion_with_status = MinTrials(
             threshold=2,
+            transition_to="next_node",
             block_gen_if_met=True,
             only_in_statuses=[TrialStatus.COMPLETED],
         )
-        max_criterion = MinTrials(threshold=2, block_gen_if_met=True)
+        max_criterion = MinTrials(
+            threshold=2, transition_to="next_node", block_gen_if_met=True
+        )
         self.assertFalse(
             max_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
@@ -478,18 +484,18 @@ class TestTransitionCriterion(TestCase):
         self.maxDiff = None
         min_trials_criterion = MinTrials(
             threshold=5,
+            transition_to="GenerationStep_1",
             block_gen_if_met=True,
             block_transition_if_unmet=False,
-            transition_to="GenerationStep_1",
             only_in_statuses=[TrialStatus.COMPLETED],
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
             str(min_trials_criterion),
             "MinTrials({'threshold': 5, "
+            + "'transition_to': 'GenerationStep_1', "
             + "'only_in_statuses': [<enum 'TrialStatus'>.COMPLETED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'transition_to': 'GenerationStep_1', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
@@ -497,19 +503,20 @@ class TestTransitionCriterion(TestCase):
             + "'count_only_trials_with_data': False})",
         )
         minimum_trials_in_status_criterion = MinTrials(
-            only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
             threshold=0,
             transition_to="GenerationStep_2",
+            only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
             block_gen_if_met=True,
             block_transition_if_unmet=False,
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
             str(minimum_trials_in_status_criterion),
-            "MinTrials({'threshold': 0, 'only_in_statuses': "
+            "MinTrials({'threshold': 0, "
+            + "'transition_to': 'GenerationStep_2', "
+            + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.COMPLETED, <enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
@@ -517,12 +524,12 @@ class TestTransitionCriterion(TestCase):
             + "'count_only_trials_with_data': False})",
         )
         minimum_preference_occurrences_criterion = MinimumPreferenceOccurances(
-            metric_signature="m1", threshold=3
+            metric_signature="m1", threshold=3, transition_to="next_node"
         )
         self.assertEqual(
             str(minimum_preference_occurrences_criterion),
             "MinimumPreferenceOccurances({'metric_signature': 'm1', 'threshold': 3, "
-            + "'transition_to': None, 'block_gen_if_met': False, "
+            + "'transition_to': 'next_node', 'block_gen_if_met': False, "
             "'block_transition_if_unmet': True})",
         )
         max_parallelism = MaxGenerationParallelism(
