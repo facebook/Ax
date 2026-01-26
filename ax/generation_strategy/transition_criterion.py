@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from ax.generation_strategy.generation_node import GenerationNode
 
 from ax.utils.common.base import SortableBase
-from ax.utils.common.serialization import SerializationMixin, serialize_init_args
+from ax.utils.common.serialization import serialize_init_args
 from pyre_extensions import none_throws
 
 
@@ -32,7 +32,7 @@ DATA_REQUIRED_MSG = (
 )
 
 
-class TransitionCriterion(SortableBase, SerializationMixin):
+class TransitionCriterion(SortableBase):
     """
     Simple class to describe a condition which must be met for this GenerationNode to
     take an action such as generation, transition, etc.
