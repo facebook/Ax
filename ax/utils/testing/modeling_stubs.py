@@ -41,7 +41,6 @@ from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
     MaxGenerationParallelism,
-    MinimumPreferenceOccurances,
     MinTrials,
 )
 from ax.generators.torch.botorch_modular.surrogate import (
@@ -119,7 +118,6 @@ def get_observation2(
 
 def get_generation_strategy(
     with_experiment: bool = False,
-    with_completion_criteria: int = 0,
     with_generation_nodes: bool = False,  # kept for backward compatibility
 ) -> GenerationStrategy:
     # All generation strategies now use GenerationNode internally.
@@ -128,22 +126,6 @@ def get_generation_strategy(
     gs = sobol_gpei_generation_node_gs()
     if with_experiment:
         gs._experiment = get_experiment()
-
-    if with_completion_criteria > 0:
-        # Add completion criteria to the first node's transition criteria.
-        # These need a transition_to argument to pass validation.
-        existing_criteria = list(gs._nodes[0]._transition_criteria)
-        existing_criteria.extend(
-            [
-                MinimumPreferenceOccurances(
-                    metric_signature="m1",
-                    threshold=3,
-                    transition_to=gs._nodes[1].name,
-                )
-            ]
-            * with_completion_criteria
-        )
-        gs._nodes[0]._transition_criteria = existing_criteria
     return gs
 
 
