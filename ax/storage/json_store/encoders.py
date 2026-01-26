@@ -440,7 +440,7 @@ def generation_strategy_to_dict(
 
 def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, Any]:
     """Convert Ax TransitionCriterion to a dictionary."""
-    properties = criterion.serialize_init_args(obj=criterion)
+    properties = serialize_init_args(obj=criterion)
     properties["__type"] = criterion.__class__.__name__
     return properties
 
