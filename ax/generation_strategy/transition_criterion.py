@@ -424,13 +424,13 @@ class MaxGenerationParallelism(TrialBasedCriterion):
     def __init__(
         self,
         threshold: int,
+        transition_to: str,
         only_in_statuses: list[TrialStatus] | None = None,
         not_in_statuses: list[TrialStatus] | None = None,
-        transition_to: str | None = None,
         block_transition_if_unmet: bool | None = False,
         block_gen_if_met: bool | None = True,
         use_all_trials_in_exp: bool | None = False,
-        continue_trial_generation: bool | None = True,
+        continue_trial_generation: bool | None = False,
     ) -> None:
         super().__init__(
             threshold=threshold,

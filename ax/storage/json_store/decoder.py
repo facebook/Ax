@@ -805,6 +805,14 @@ def generation_node_from_json(
     # if needed during _validate_and_set_step_sequence.
     generation_node_json.pop("step_index", None)
 
+    # Backwards compatibility: For transition criteria with transition_to=None
+    # set transition_to to point to itself.
+    transition_criteria_json = generation_node_json.pop("transition_criteria")
+    if transition_criteria_json is not None:
+        for tc_json in transition_criteria_json:
+            if tc_json.get("transition_to") is None:
+                tc_json["transition_to"] = name
+
     return GenerationNode(
         name=name,
         generator_specs=object_from_json(
@@ -819,7 +827,7 @@ def generation_node_from_json(
         ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
         transition_criteria=object_from_json(
-            object_json=generation_node_json.pop("transition_criteria"),
+            object_json=transition_criteria_json,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),

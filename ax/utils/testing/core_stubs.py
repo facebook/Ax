@@ -191,6 +191,7 @@ def get_trial_based_criterion() -> list[TransitionCriterion]:
             not_in_statuses=[
                 TrialStatus.RUNNING,
             ],
+            transition_to="Sobol",
         ),
         AutoTransitionAfterGen(
             transition_to="next_node",
