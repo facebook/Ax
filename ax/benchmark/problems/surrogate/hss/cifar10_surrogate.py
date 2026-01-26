@@ -9,7 +9,10 @@ import os
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.problems.surrogate.hss.base import HierarchicalSearchSpaceSurrogate
+from ax.benchmark.problems.surrogate.hss.base import (
+    HierarchicalSearchSpaceSurrogate,
+    load_xgb_regressor,
+)
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import (
@@ -135,16 +138,16 @@ def get_cifar10_surrogate_arguments() -> tuple[
         {"use_softplus_activation": True, "use_weight_decay": True},
     ]
 
-    lst_xgb_models: list[XGBRegressor] = [XGBRegressor() for i in range(4)]
-
-    for i, xgb_model in enumerate(lst_xgb_models):
-        xgb_model.load_model(
+    lst_xgb_models: list[XGBRegressor] = [
+        load_xgb_regressor(
             os.path.join(
                 os.path.dirname(os.path.realpath(__file__)),
                 "checkpoints",
                 f"cifar10_xgb_model_{i:d}.json",
             )
         )
+        for i in range(4)
+    ]
 
     return lst_active_param_names, flag_param_names, lst_flag_config, lst_xgb_models
 
