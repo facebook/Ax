@@ -195,9 +195,13 @@ class Data(Base, SerializationMixin):
             if col in df.columns.values and coltype is not Any:
                 # Pandas timestamp handlng is weird
                 dtype = "datetime64[ns]" if coltype is pd.Timestamp else coltype
-                if (dtype != dtypes[col]) and not (
-                    coltype is int and df.loc[:, col].isnull().any()
-                ):
+                current_dtype = dtypes[col]
+                # Handle StringDtype -> object conversion (pandas 2.0+ compatibility)
+                needs_cast = (
+                    isinstance(current_dtype, pd.StringDtype)
+                    or (dtype != current_dtype)
+                ) and not (coltype is int and df.loc[:, col].isnull().any())
+                if needs_cast:
                     df[col] = df[col].astype(dtype)
         df.reset_index(inplace=True, drop=True)
         return df
@@ -393,9 +397,10 @@ class Data(Base, SerializationMixin):
         """Return the set of trial indices in the data."""
         if self._memo_df is not None:
             # Use a smaller df if available
-            return set(self.df["trial_index"].unique())
+            # Convert to Python int for consistent set operations
+            return {int(idx) for idx in self.df["trial_index"].unique()}
         # If no small df is available, use the full df
-        return set(self.full_df["trial_index"].unique())
+        return {int(idx) for idx in self.full_df["trial_index"].unique()}
 
     def latest(self, rows_per_group: int = 1) -> Data:
         """Return a new Data with the most recently observed `rows_per_group`

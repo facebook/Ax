@@ -331,6 +331,18 @@ class TestCase(fake_filesystem_unittest.TestCase):
             message=".*is not specified for .ChoiceParameter.*",
             category=AxParameterWarning,
         )
+        # AxClient deprecation warning (will be removed in Ax 1.4.0).
+        warnings.filterwarnings(
+            "ignore",
+            message=r"The `AxClient` class is deprecated",
+            category=DeprecationWarning,
+        )
+        # GenerationStrategy steps deprecation warning (will be removed early 2026).
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Specifying `steps` input is no longer supported",
+            category=DeprecationWarning,
+        )
         # BoTorch float32 warning.
         warnings.filterwarnings(
             "ignore",
