@@ -12,7 +12,12 @@ from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.one_hot import OH_PARAM_INFIX, OneHot
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
@@ -274,6 +279,7 @@ class OneHotTransformTest(TestCase):
         )
 
     def test_with_hierarchical_search_space(self) -> None:
+        # Case 1: Transforming hierarchical parameter is not supported.
         ss = SearchSpace(
             parameters=[
                 ChoiceParameter(
@@ -295,3 +301,70 @@ class OneHotTransformTest(TestCase):
             UnsupportedError, "would encode .* which is a hierarchical"
         ):
             OneHot(search_space=ss)
+
+        # Case 2: Depedents of hierarchical parameter are transformed
+        # and the dependents are updated.
+        ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
+                    is_ordered=True,  # Ordered, so it won't be OH-encoded
+                    dependents={"a": ["y", "z"]},
+                ),
+                ChoiceParameter(
+                    name="y",
+                    parameter_type=ParameterType.STRING,
+                    values=["d", "e", "f"],
+                    is_ordered=False,
+                ),
+                RangeParameter(
+                    name="z",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                FixedParameter(
+                    name="w",
+                    parameter_type=ParameterType.STRING,
+                    value="w",
+                    dependents={"w": ["t"]},
+                ),
+                ChoiceParameter(
+                    name="t",
+                    parameter_type=ParameterType.STRING,
+                    values=["s", "r", "q"],
+                    is_ordered=True,
+                ),
+            ]
+        )
+        t = OneHot(search_space=ss)
+        ss2 = t.transform_search_space(ss.clone())
+
+        # y should be transformed to y_OH_PARAM_0, y_OH_PARAM_1, y_OH_PARAM_2
+        expected_params = {
+            "x",
+            "y" + OH_PARAM_INFIX + "0",
+            "y" + OH_PARAM_INFIX + "1",
+            "y" + OH_PARAM_INFIX + "2",
+            "z",
+            "w",
+            "t",
+        }
+        self.assertEqual(set(ss2.parameters.keys()), expected_params)
+
+        # x should have updated dependents
+        self.assertEqual(
+            ss2.parameters["x"].dependents,
+            {
+                "a": [
+                    "y" + OH_PARAM_INFIX + "0",
+                    "y" + OH_PARAM_INFIX + "1",
+                    "y" + OH_PARAM_INFIX + "2",
+                    "z",
+                ]
+            },
+        )
+        # w should keep original dependents
+        self.assertEqual(ss2.parameters["w"].dependents, {"w": ["t"]})
