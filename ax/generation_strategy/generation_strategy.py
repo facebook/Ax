@@ -180,8 +180,20 @@ class GenerationStrategy(Base):
 
     @property
     def optimization_complete(self) -> bool:
-        """Checks whether all nodes are completed in the generation strategy."""
-        return all(node.is_completed for node in self._nodes)
+        """Checks whether optimization is complete.
+
+        A strategy is complete when the current node's transition criteria
+        are met and point back to itself (self-transition).
+
+        Nodes with no transition_criteria are infinite by design and never complete.
+        """
+        if len(self._curr.transition_criteria) == 0:
+            return False
+
+        can_transition, next_node = self._curr.should_transition_to_next_node(
+            raise_data_required_error=False
+        )
+        return can_transition and next_node == self._curr.name
 
     def gen_single_trial(
         self,
@@ -612,13 +624,13 @@ class GenerationStrategy(Base):
         self,
         raise_data_required_error: bool = True,
     ) -> bool:
-        """Moves this generation strategy to next node if the current node is completed,
-        and it is not the last node in this generation strategy. This method is safe to
-        use both when generating candidates or simply checking how many generator runs
-        (to be made into trials) can currently be produced.
+        """Moves this generation strategy to next node if the current node's
+        transition criteria are met. This method is safe to use both when generating
+        candidates or simply checking how many generator runs (to be made into trials)
+        can currently be produced.
 
-        NOTE: this method raises ``GenerationStrategyCompleted`` error if the current
-        generation node is complete, but it is also the last in generation strategy.
+        NOTE: this method raises ``GenerationStrategyCompleted`` error if the
+        optimization is complete
 
         Args:
             raise_data_required_error: Whether to raise ``DataRequiredError`` in the
