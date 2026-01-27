@@ -32,7 +32,11 @@ class TestAEPsychCriterion(TestCase):
     """
 
     def test_single_criterion(self) -> None:
-        criterion = MinimumPreferenceOccurances(metric_signature="m1", threshold=3)
+        criterion = MinimumPreferenceOccurances(
+            metric_signature="m1",
+            threshold=3,
+            transition_to="next_node",  # overwritten during GS init
+        )
 
         experiment = get_experiment()
 
@@ -91,8 +95,16 @@ class TestAEPsychCriterion(TestCase):
 
     def test_many_criteria(self) -> None:
         criteria = [
-            MinimumPreferenceOccurances(metric_signature="m1", threshold=3),
-            MinTrials(only_in_statuses=[TrialStatus.COMPLETED], threshold=5),
+            MinimumPreferenceOccurances(
+                metric_signature="m1",
+                threshold=3,
+                transition_to="next_node",  # overwritten during GS init
+            ),
+            MinTrials(
+                only_in_statuses=[TrialStatus.COMPLETED],
+                threshold=5,
+                transition_to="next_node",  # overwritten during GS init
+            ),
         ]
 
         experiment = get_experiment()
