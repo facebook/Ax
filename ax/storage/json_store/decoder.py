@@ -1007,15 +1007,6 @@ def generation_step_from_json(
         gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     else:
         gen_kwargs = generation_step_json.pop("generator_gen_kwargs", None)
-    completion_criteria = (
-        object_from_json(
-            generation_step_json.pop("completion_criteria"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        )
-        if "completion_criteria" in generation_step_json.keys()
-        else []
-    )
     if "model" in generation_step_json:
         # Old arg name for backwards compatibility.
         generator_json = generation_step_json.pop("model")
@@ -1029,9 +1020,6 @@ def generation_step_from_json(
         ),
         num_trials=generation_step_json.pop("num_trials"),
         min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
-        completion_criteria=(
-            completion_criteria if completion_criteria is not None else []
-        ),
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
         generator_kwargs=(
