@@ -28,11 +28,7 @@ from ax.core.auxiliary import (
 )
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import (
-    combine_dfs_favoring_recent,
-    Data,
-    sort_by_trial_index_and_arm_name,
-)
+from ax.core.data import combine_data_rows_favoring_recent, Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
@@ -893,11 +889,9 @@ class Experiment(Base):
             raise ValueError(
                 f"Unexpected arguments {unexpected_args} passed to `attach_data`."
             )
-        if data.full_df.empty:
+        if data.empty:
             raise ValueError("Data to attach is empty.")
-        metrics_not_on_exp = set(data.full_df["metric_name"].values) - set(
-            self.metrics.keys()
-        )
+        metrics_not_on_exp = data.metric_names - set(self.metrics.keys())
         if metrics_not_on_exp:
             logger.debug(
                 f"Attached data has some metrics ({metrics_not_on_exp}) that are "
@@ -914,12 +908,11 @@ class Experiment(Base):
                 "because they have not been attached to the experiment."
             )
 
-        new_df = combine_dfs_favoring_recent(
-            last_df=self.data.full_df, new_df=data.full_df
+        self.data = Data(
+            data_rows=combine_data_rows_favoring_recent(
+                last_rows=self.data._data_rows, new_rows=data._data_rows
+            )
         )
-        if not data.has_step_column:
-            new_df = sort_by_trial_index_and_arm_name(df=new_df)
-        self.data = Data(df=new_df)
 
     def attach_fetch_results(
         self,

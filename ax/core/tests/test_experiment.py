@@ -955,7 +955,7 @@ class ExperimentTest(TestCase):
         with self.subTest("Empty trial indices"):
             looked_up = exp.lookup_data(trial_indices=[])
             self.assertIsInstance(looked_up, Data)
-            self.assertTrue(looked_up.full_df.empty)
+            self.assertTrue(looked_up.empty)
 
     def test_attach_and_sort_data(self) -> None:
         n = 4

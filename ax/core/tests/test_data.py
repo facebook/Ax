@@ -150,7 +150,7 @@ class DataTest(TestCase):
 
         # Test empty initialization
         empty = Data()
-        self.assertTrue(empty.full_df.empty)
+        self.assertTrue(empty.empty)
         self.assertEqual(set(empty.full_df.columns), empty.REQUIRED_COLUMNS)
         self.assertFalse(empty.has_step_column)
 

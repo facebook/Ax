@@ -646,9 +646,9 @@ class TestClient(TestCase):
                         "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
                         "metric_name": {0: "foo", 1: "foo", 2: "bar"},
                         "metric_signature": {0: "foo", 1: "foo", 2: "bar"},
-                        "mean": {0: 2.0, 1: 1.0, 2: 2.0},
+                        "mean": {0: 1.0, 1: 2.0, 2: 2.0},
                         "sem": {0: np.nan, 1: np.nan, 2: np.nan},
-                        "step": {0: 10.0, 1: np.nan, 2: np.nan},
+                        "step": {0: np.nan, 1: 10.0, 2: np.nan},
                     }
                 )
             ),
