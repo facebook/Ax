@@ -7,12 +7,9 @@
 
 
 from logging import Logger
-from unittest.mock import patch
 
-import pandas as pd
 from ax.adapter.registry import Generators
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import (
@@ -26,7 +23,6 @@ from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
-    MinimumPreferenceOccurances,
     MinTrials,
 )
 from ax.utils.common.logger import get_logger
@@ -49,59 +45,6 @@ class TestTransitionCriterion(TestCase):
             generator_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
         self.branin_experiment = get_branin_experiment()
-
-    def test_minimum_preference_criterion(self) -> None:
-        criterion = MinimumPreferenceOccurances(
-            metric_signature="m1", threshold=3, transition_to="next_node"
-        )
-        experiment = get_experiment()
-        generation_strategy = GenerationStrategy(
-            name="SOBOL::default",
-            steps=[
-                GenerationStep(
-                    generator=Generators.SOBOL,
-                    num_trials=-1,
-                    completion_criteria=[criterion],
-                ),
-                GenerationStep(
-                    generator=Generators.BOTORCH_MODULAR,
-                    num_trials=-1,
-                    max_parallelism=1,
-                ),
-            ],
-        )
-        generation_strategy.experiment = experiment
-
-        # Has not seen enough of each preference
-        self.assertFalse(
-            generation_strategy._maybe_transition_to_next_node(
-                raise_data_required_error=False
-            )
-        )
-
-        data = Data(
-            df=pd.DataFrame(
-                {
-                    "trial_index": range(6),
-                    "arm_name": [f"{i}_0" for i in range(6)],
-                    "metric_name": ["m1" for _ in range(6)],
-                    "mean": [0, 0, 0, 1, 1, 1],
-                    "sem": [0 for _ in range(6)],
-                    "metric_signature": ["m1" for _ in range(6)],
-                }
-            )
-        )
-        with patch.object(experiment, "lookup_data", return_value=data):
-            # We have seen three "yes" and three "no"
-            self.assertTrue(
-                generation_strategy._maybe_transition_to_next_node(
-                    raise_data_required_error=False
-                )
-            )
-            self.assertEqual(
-                generation_strategy._curr.generator_spec_to_gen_from.generator_enum,
-                Generators.BOTORCH_MODULAR,
-            )
 
     def test_aux_experiment_check(self) -> None:
         # Test incorrect instantiation
@@ -522,15 +465,6 @@ class TestTransitionCriterion(TestCase):
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': False, "
             + "'count_only_trials_with_data': False})",
-        )
-        minimum_preference_occurrences_criterion = MinimumPreferenceOccurances(
-            metric_signature="m1", threshold=3, transition_to="next_node"
-        )
-        self.assertEqual(
-            str(minimum_preference_occurrences_criterion),
-            "MinimumPreferenceOccurances({'metric_signature': 'm1', 'threshold': 3, "
-            + "'transition_to': 'next_node', 'block_gen_if_met': False, "
-            "'block_transition_if_unmet': True})",
         )
         max_parallelism = MaxGenerationParallelism(
             only_in_statuses=[TrialStatus.EARLY_STOPPED],
