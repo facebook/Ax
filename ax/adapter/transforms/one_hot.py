@@ -21,11 +21,18 @@ from ax.adapter.transforms.utils import (
     HSS_ERROR_MSG_TEMPLATE,
 )
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    Parameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization, TParamValue
 from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
+from ax.utils.common.typeutils import assert_is_instance_of_tuple
 from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
@@ -116,6 +123,10 @@ class OneHot(Transform):
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}
+        # Build a mapping from the original parameter name to the list of new
+        # OH parameter names for the parameters being transformed in this search
+        # space. This is used to update the dependents of hierarchical parameters.
+        oh_param_names_for_p: dict[str, list[str]] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters:
                 p = assert_is_instance(p, ChoiceParameter)
@@ -140,6 +151,7 @@ class OneHot(Transform):
                         encoded_p[self.encoded_values[p_name].index(v)]
                         for v in p.values
                     ]
+                oh_param_names_for_p[p_name] = encoded_p
                 for new_p_name in encoded_p:
                     transformed_parameters[new_p_name] = RangeParameter(
                         name=new_p_name,
@@ -149,6 +161,24 @@ class OneHot(Transform):
                     )
             else:
                 transformed_parameters[p_name] = p
+
+        # Update the dependents of hierarchical parameters to reference the new
+        # OH parameter names instead of the original parameter names.
+        for p in transformed_parameters.values():
+            if not p.is_hierarchical:
+                continue
+            new_dependents = {}
+            for val, deps in p.dependents.items():
+                new_deps = []
+                for dep in deps:
+                    # Get the OH param names for the dependents being transformed.
+                    # If the dependent is not being transformed, keep it as is.
+                    new_deps.extend(oh_param_names_for_p.get(dep, [dep]))
+                new_dependents[val] = new_deps
+            assert_is_instance_of_tuple(
+                p, (ChoiceParameter, FixedParameter)
+            ).dependents = new_dependents
+
         return construct_new_search_space(
             search_space=search_space,
             parameters=list(transformed_parameters.values()),
