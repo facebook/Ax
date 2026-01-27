@@ -433,24 +433,9 @@ class GenerationStrategy(Base):
         # Validate transition edges:
         # - All `transition_to` targets must exist in this GS
         # - All TCs on one edge must have the same `continue_trial_generation` setting
-        #  All but `MaxGenerationParallelism` TCs must have a `transition_to` set
         for node in nodes:
             for next_node, tcs in node.transition_edges.items():
-                if next_node is None:
-                    # TODO[drfreund]: Handle the case of the last generation step not
-                    # having any transition criteria.
-                    # TODO[mgarrard]: Remove MaxGenerationParallelism check when
-                    # we update TransitionCriterion always define `transition_to`
-                    # NOTE: This is done in D86066476
-                    for tc in tcs:
-                        if "MaxGenerationParallelism" not in tc.criterion_class:
-                            raise GenerationStrategyMisconfiguredException(
-                                error_info="Only MaxGenerationParallelism transition"
-                                " criterion can have a null `transition_to` argument,"
-                                f" but {tc.criterion_class} does not define "
-                                f"`transition_to` on {node.name}."
-                            )
-                elif next_node not in node_names:
+                if next_node not in node_names:
                     raise GenerationStrategyMisconfiguredException(
                         error_info=f"`transition_to` argument "
                         f"{next_node} does not correspond to any node in"
@@ -612,7 +597,6 @@ class GenerationStrategy(Base):
         # if we will transition nodes, check if the transition criterion which define
         # the transition from this node to the next node indicate that we should
         # continue generating in the same trial, otherwise end the generation.
-        assert next_node is not None
         return all(
             tc.continue_trial_generation
             for tc in self._curr.transition_edges[next_node]
@@ -648,12 +632,5 @@ class GenerationStrategy(Base):
                     f"Generation strategy {self} generated all the trials as "
                     "specified in its nodes."
                 )
-            if next_node is None:
-                # If the last node did not specify which node to transition to,
-                # move to the next node in the list.
-                current_node_index = self._nodes.index(self._curr)
-                next_node = self._nodes[current_node_index + 1].name
-            for node in self._nodes:
-                if node.name == next_node:
-                    self._curr = node
+            self._curr = self.nodes_by_name[next_node]
         return move_to_next_node
