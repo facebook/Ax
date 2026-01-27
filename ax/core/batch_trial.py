@@ -515,13 +515,24 @@ class BatchTrial(BaseTrial):
         """
         use_old_experiment = experiment is None
         experiment = self._experiment if experiment is None else experiment
+        has_sq_gr = any(
+            gr._generator_run_type == GeneratorRunType.STATUS_QUO.name
+            for gr in self.generator_runs
+        )
+        has_sq_arm = self.status_quo is not None and self.status_quo in self.arm_weights
         new_trial = experiment.new_batch_trial(
             trial_type=None if clear_trial_type else self._trial_type,
             ttl_seconds=self._ttl_seconds,
             generator_runs=[
                 gr if use_old_experiment else gr.clone() for gr in self.generator_runs
             ],
-            should_add_status_quo_arm=include_sq and self.should_add_status_quo_arm,
+            should_add_status_quo_arm=include_sq
+            and self.should_add_status_quo_arm
+            and not has_sq_gr
+            and not has_sq_arm,
+        )
+        new_trial.should_add_status_quo_arm = (
+            include_sq and self.should_add_status_quo_arm
         )
         self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial
