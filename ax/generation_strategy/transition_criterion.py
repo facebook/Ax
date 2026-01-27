@@ -540,69 +540,6 @@ class MinTrials(TrialBasedCriterion):
         raise DataRequiredError(DATA_REQUIRED_MSG.format(node_name=node_name))
 
 
-class MinimumPreferenceOccurances(TransitionCriterion):
-    """
-    In a preference Experiment (i.e. Metric values may either be zero for No and
-    nonzero for Yes) do not transition until a minimum number of both Yes and No
-    responses have been received.
-
-    Args:
-        metric_signature: signature of the metric to check for preference occurrences.
-        threshold: The threshold as an integer for this criterion. Ex: If we want to
-            generate at most 3 trials, then the threshold is 3.
-        transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met.
-        block_gen_if_met: A flag to prevent continued generation from the
-            associated GenerationNode if this criterion is met but other criterion
-            remain unmet. Ex: ``MinTrials`` has not been met yet, but
-            MinTrials has been reached. If this flag is set to true on MinTrials then
-            we will raise an error, otherwise we will continue to generate trials
-            until ``MinTrials`` is met (thus overriding MinTrials).
-        block_transition_if_unmet: A flag to prevent the node from completing and
-            being able to transition to another node. Ex: MaxGenerationParallelism
-            defaults to setting this to False since we can complete and move on from
-            this node without ever reaching its threshold.
-    """
-
-    def __init__(
-        self,
-        metric_signature: str,
-        threshold: int,
-        transition_to: str,
-        block_gen_if_met: bool | None = False,
-        block_transition_if_unmet: bool | None = True,
-    ) -> None:
-        self.metric_signature = metric_signature
-        self.threshold = threshold
-        super().__init__(
-            transition_to=transition_to,
-            block_gen_if_met=block_gen_if_met,
-            block_transition_if_unmet=block_transition_if_unmet,
-        )
-
-    def is_met(
-        self,
-        experiment: Experiment,
-        curr_node: GenerationNode,
-    ) -> bool:
-        data = experiment.lookup_data().filter(
-            metric_signatures=[self.metric_signature]
-        )
-
-        count_no = (data.df["mean"] == 0).sum()
-        count_yes = (data.df["mean"] != 0).sum()
-
-        return count_no >= self.threshold and count_yes >= self.threshold
-
-    def block_continued_generation_error(
-        self,
-        node_name: str,
-        experiment: Experiment,
-        trials_from_node: set[int],
-    ) -> None:
-        pass
-
-
 class AuxiliaryExperimentCheck(TransitionCriterion):
     """A class to transition from one GenerationNode to another by checking if certain
     types of Auxiliary Experiment purposes exists.
