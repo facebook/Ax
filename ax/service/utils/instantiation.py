@@ -720,17 +720,22 @@ class InstantiationBase:
             cls.constraint_from_str(c, parameter_map) for c in parameter_constraints
         ]
 
-        if any(
-            any(
-                isinstance(parameter_map[parameter], ChoiceParameter)
-                for parameter in constraint.constraint_dict
-            )
-            for constraint in typed_parameter_constraints
-        ):
-            raise UnsupportedError(
-                "Constraints on ChoiceParameters are not allowed. Try absorbing "
-                "this constraint into the associated range parameter's bounds."
-            )
+        # Check for non-numerical or unordered ChoiceParameters in constraints
+        for constraint in typed_parameter_constraints:
+            for param_name in constraint.constraint_dict:
+                param = parameter_map[param_name]
+                if isinstance(param, ChoiceParameter):
+                    if not param.is_numeric:
+                        raise UnsupportedError(
+                            f"Constraints on non-numerical ChoiceParameters are not "
+                            f"allowed. Parameter '{param_name}' has type "
+                            f"{param.parameter_type.name}."
+                        )
+                    if not param.is_ordered:
+                        raise UnsupportedError(
+                            f"Constraints on unordered ChoiceParameters are not "
+                            f"allowed. Parameter '{param_name}' has is_ordered=False."
+                        )
 
         if any(
             any(
