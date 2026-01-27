@@ -77,7 +77,7 @@ class TestAEPsychCriterion(TestCase):
                 }
             )
         )
-        with patch.object(experiment, "fetch_data", return_value=data):
+        with patch.object(experiment, "lookup_data", return_value=data):
             move_to_next_node = generation_strategy._maybe_transition_to_next_node(
                 raise_data_required_error=False
             )
@@ -133,7 +133,7 @@ class TestAEPsychCriterion(TestCase):
                 }
             )
         )
-        with patch.object(experiment, "fetch_data", return_value=data):
+        with patch.object(experiment, "lookup_data", return_value=data):
             move_to_next_node = generation_strategy._maybe_transition_to_next_node(
                 raise_data_required_error=False
             )
@@ -156,7 +156,7 @@ class TestAEPsychCriterion(TestCase):
             )
         )
 
-        with patch.object(experiment, "fetch_data", return_value=data):
+        with patch.object(experiment, "lookup_data", return_value=data):
             move_to_next_node = generation_strategy._maybe_transition_to_next_node(
                 raise_data_required_error=False
             )

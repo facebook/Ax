@@ -581,9 +581,8 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         experiment: Experiment,
         curr_node: GenerationNode,
     ) -> bool:
-        # TODO: @mgarrard replace fetch_data with lookup_data
-        data = experiment.fetch_data(
-            metrics=[experiment.signature_to_metric[self.metric_signature]]
+        data = experiment.lookup_data().filter(
+            metric_signatures=[self.metric_signature]
         )
 
         count_no = (data.df["mean"] == 0).sum()

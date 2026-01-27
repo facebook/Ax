@@ -89,7 +89,7 @@ class TestTransitionCriterion(TestCase):
                 }
             )
         )
-        with patch.object(experiment, "fetch_data", return_value=data):
+        with patch.object(experiment, "lookup_data", return_value=data):
             # We have seen three "yes" and three "no"
             self.assertTrue(
                 generation_strategy._maybe_transition_to_next_node(
