@@ -14,6 +14,7 @@ from ax.core import MultiObjectiveOptimizationConfig
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
+from ax.core.utils import get_trial_indices_with_required_metrics
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 
@@ -255,8 +256,9 @@ class TrialBasedCriterion(TransitionCriterion):
             continue to generate arms for the same trial. Example usage: in
             ``BatchTrial``s we may  enable generation of arms within a batch from
             different ``GenerationNodes`` by setting this flag to True.
-        count_only_trials_with_data: If set to True, only trials with data will be
-            counted towards the ``threshold``. Defaults to False.
+        count_only_trials_with_data: If set to True, only trials with data for all
+            metrics in the opt config will be counted towards the ``threshold``.
+            Defaults to False.
     """
 
     def __init__(
@@ -332,9 +334,11 @@ class TrialBasedCriterion(TransitionCriterion):
         """
         all_trials_to_check = self.all_trials_to_check(experiment=experiment)
         if self.count_only_trials_with_data:
-            data_trial_indices = experiment.data.trial_indices
-            # TODO[@mgarrard]: determine if we need to actually check data with
-            # more granularity, e.g. number of days of data, etc.
+            data_trial_indices = get_trial_indices_with_required_metrics(
+                experiment=experiment,
+                df=experiment.lookup_data().df,
+                require_data_for_all_metrics=False,
+            )
             all_trials_to_check = all_trials_to_check.intersection(data_trial_indices)
         # Some criteria may rely on experiment level data, instead of only trials
         # generated from the node associated with the criterion.

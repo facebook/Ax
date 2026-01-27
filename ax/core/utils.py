@@ -528,7 +528,7 @@ def get_target_trial_index(
         return None
 
     # trial indices that have data for required metrics
-    trial_indices_with_required_metrics = _get_trial_indices_with_required_metrics(
+    trial_indices_with_required_metrics = get_trial_indices_with_required_metrics(
         experiment=experiment,
         df=df,
         require_data_for_all_metrics=require_data_for_all_metrics,
@@ -593,7 +593,7 @@ def get_target_trial_index(
     return None
 
 
-def _get_trial_indices_with_required_metrics(
+def get_trial_indices_with_required_metrics(
     experiment: Experiment,
     df: "pd.DataFrame",
     require_data_for_all_metrics: bool,
