@@ -59,7 +59,7 @@ notebook = [
 unittest_minimal = [
     # For tensorboard unit tests (min req: numpy 2.0 compatibility).
     "tensorboard>=2.18.0",
-    "torchx",  # For torchx unit tests.
+    "torchx>=0.2.0",  # For torchx unit tests
     # Required for building RayTune tutorial notebook and
     # deserializing data for benchmark suites.
     "pyarrow",
