@@ -2583,7 +2583,7 @@ def get_branin_data_batch(
         for i in range(len(means))
         for metric in metrics
     ]
-    return Data(pd.DataFrame.from_records(records))
+    return Data(df=pd.DataFrame.from_records(records))
 
 
 def get_branin_data_multi_objective(

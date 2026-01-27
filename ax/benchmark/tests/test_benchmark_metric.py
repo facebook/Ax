@@ -295,8 +295,15 @@ class TestBenchmarkMetric(TestCase):
             ).drop(columns=drop_cols)
             if returns_full_data:
                 self.assertEqual(
-                    df_or_map_df[df_or_map_df["step"] == 0].to_dict(),
-                    expected_df.to_dict(),
+                    df_or_map_df[df_or_map_df["step"] == 0]
+                    .sort_values(["trial_index", "arm_name", "metric_name", "step"])
+                    .reset_index(drop=True)
+                    .to_dict(),
+                    expected_df.sort_values(
+                        ["trial_index", "arm_name", "metric_name", "step"]
+                    )
+                    .reset_index(drop=True)
+                    .to_dict(),
                 )
             else:
                 self.assertEqual(df_or_map_df.to_dict(), expected_df.to_dict())
