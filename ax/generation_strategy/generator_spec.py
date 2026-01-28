@@ -382,5 +382,4 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     @property
     def _unique_id(self) -> str:
         """Returns the unique ID of this model spec"""
-        # TODO @mgarrard verify that this is unique enough
         return str(hash(self))
