@@ -14,7 +14,7 @@ from copy import deepcopy
 from functools import cached_property
 from io import StringIO
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -34,7 +34,6 @@ from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
-TData = TypeVar("TData", bound="Data")
 DF_REPR_MAX_LENGTH = 1000
 MAP_KEY = "step"
 
@@ -119,7 +118,7 @@ class Data(Base, SerializationMixin):
     full_df: pd.DataFrame
 
     def __init__(
-        self: TData,
+        self,
         df: pd.DataFrame | None = None,
         _skip_ordering_and_validation: bool = False,
     ) -> None:
@@ -159,8 +158,9 @@ class Data(Base, SerializationMixin):
                 df = df.dropna(axis=0, how="all", ignore_index=True)
             df = self._safecast_df(df=df)
             self.full_df = self._get_df_with_cols_in_expected_order(df=df)
-        self._memo_df = None
-        self.has_step_column = MAP_KEY in self.full_df.columns
+
+        self._memo_df: pd.DataFrame | None = None
+        self.has_step_column: bool = MAP_KEY in self.full_df.columns
 
     @classmethod
     def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
@@ -175,7 +175,7 @@ class Data(Base, SerializationMixin):
         return df
 
     @classmethod
-    def _safecast_df(cls: type[TData], df: pd.DataFrame) -> pd.DataFrame:
+    def _safecast_df(cls, df: pd.DataFrame) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
         Needed because numpy does not support NaNs in integer arrays.
@@ -275,7 +275,7 @@ class Data(Base, SerializationMixin):
         return self._memo_df
 
     @classmethod
-    def from_multiple_data(cls: type[TData], data: Iterable[Data]) -> TData:
+    def from_multiple_data(cls, data: Iterable[Data]) -> Data:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
@@ -339,7 +339,7 @@ class Data(Base, SerializationMixin):
             _skip_ordering_and_validation=True,
         )
 
-    def clone(self: TData) -> TData:
+    def clone(self) -> Data:
         """Returns a new Data object with the same underlying dataframe."""
         return self.__class__(df=deepcopy(self.full_df))
 
@@ -347,13 +347,13 @@ class Data(Base, SerializationMixin):
         return type(self) is type(o) and dataframe_equals(self.full_df, o.full_df)
 
     def relativize(
-        self: TData,
+        self,
         status_quo_name: str = "status_quo",
         as_percent: bool = False,
         include_sq: bool = False,
         bias_correction: bool = True,
         control_as_constant: bool = False,
-    ) -> TData:
+    ) -> Data:
         """Relativize a data object w.r.t. a status_quo arm.
 
         Args:
@@ -437,12 +437,12 @@ class Data(Base, SerializationMixin):
         )
 
     def subsample(
-        self: TData,
+        self,
         keep_every: int | None = None,
         limit_rows_per_group: int | None = None,
         limit_rows_per_metric: int | None = None,
         include_first_last: bool = True,
-    ) -> TData:
+    ) -> Data:
         """Return a new Data that subsamples the `MAP_KEY` column in an
         equally-spaced manner. This function considers only the relative ordering
         of the `MAP_KEY` values, making it most suitable when these values are
