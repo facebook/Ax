@@ -1147,22 +1147,22 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         """
         # Create experiment with 5 trials
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
-        data = exp.fetch_data()
+        data_df = exp.fetch_data().full_df
 
         # Manually set objective values to create ties
         # At progression=2, set trials 0, 1, 2 to have the same best value (30.0)
         # and trials 3, 4 to have worse values
-        progression_2_mask = (data.full_df["metric_name"] == "branin_map") & (
-            data.full_df[MAP_KEY] == 2
+        progression_2_mask = (data_df["metric_name"] == "branin_map") & (
+            data_df[MAP_KEY] == 2
         )
 
         # Set values: trials 0, 1, 2 all have value 30.0 (tied for best)
         # trials 3, 4 have worse values 90.0, 95.0
         for trial_idx, value in [(0, 30.0), (1, 30.0), (2, 30.0), (3, 90.0), (4, 95.0)]:
-            trial_mask = progression_2_mask & (data.full_df["trial_index"] == trial_idx)
-            data.full_df.loc[trial_mask, "mean"] = value
+            trial_mask = progression_2_mask & (data_df["trial_index"] == trial_idx)
+            data_df.loc[trial_mask, "mean"] = value
 
-        exp.attach_data(data=data)
+        exp.data = Data(df=data_df)
 
         # Use n_best_trials_to_complete=2, which is less than the 3 tied top trials
         # With rank-based logic, all 3 tied trials (rank=1) should be protected
@@ -1540,13 +1540,13 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = exp.fetch_data()
+        data_df = exp.fetch_data().full_df
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.full_df.loc[data.full_df["metric_name"] == "branin_map", MAP_KEY] = (
+        data_df.loc[data_df["metric_name"] == "branin_map", MAP_KEY] = (
             unaligned_timestamps
         )
-        exp.attach_data(data=data)
+        exp.data = Data(df=data_df)
 
         """
         Dataframe after interpolation:

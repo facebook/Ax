@@ -1377,9 +1377,7 @@ class TestAxOrchestrator(TestCase):
             return_value=timedelta(hours=1),
         ):
             orchestrator.run_all_trials()
-        self.assertFalse(
-            orchestrator.experiment.lookup_data(trial_indices={0}).full_df.empty
-        )
+        self.assertFalse(orchestrator.experiment.lookup_data(trial_indices={0}).empty)
 
     def test_run_trials_in_batches(self) -> None:
         gs = self.two_sobol_steps_GS

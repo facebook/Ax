@@ -87,7 +87,7 @@ class MapDataReplayMetricTest(TestCase):
         # After assinging steps, we have following steps for branin_map:
         # Trial 0: steps [0.25, 0.95]
         # Trial 1: steps [0.25, 1.0]
-        full_df[MAP_KEY] = pd.Series([0.25, 0.95, 0.0, 0.25, 1.0, 0.0])
+        full_df[MAP_KEY] = pd.Series([0.25, 0.0, 0.95, 0.25, 0.0, 1.0])
         historical_data = Data(df=full_df)
         replay_metric = MapDataReplayMetric(
             name="test_metric",

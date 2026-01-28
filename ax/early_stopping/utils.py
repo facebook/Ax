@@ -248,7 +248,7 @@ def estimate_early_stopping_savings(experiment: Experiment) -> float:
     """
 
     map_data = experiment.lookup_data()
-    if map_data.full_df.empty:
+    if map_data.empty:
         return 0
     # Get max progression (resources used) for each trial
     resources_used = map_data.full_df.groupby("trial_index")[MAP_KEY].max()

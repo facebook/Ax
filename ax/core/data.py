@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import itertools
+import math
 from bisect import bisect_right
 from collections.abc import Iterable
 from copy import deepcopy
@@ -162,17 +164,12 @@ class Data(Base, SerializationMixin):
                 `Data`'s `full_df` attribute.
         """
         if data_rows is not None:
-            if isinstance(data_rows, pd.DataFrame):
-                raise ValueError(
-                    "data_rows must be an iterable of DataRows, not a DataFrame."
-                )
-
             if df is not None:
                 raise ValueError(
-                    "Cannot provide both data_rows and df. Please provide only one."
+                    "Cannot initialize Data with both data_rows and df. "
+                    "Please provide only one."
                 )
-
-            self._data_rows = [*data_rows]
+            self._data_rows = list(data_rows)
         elif df is not None:
             # Unroll the df into a list of DataRows
             if missing_columns := self.REQUIRED_COLUMNS - {*df.columns}:
@@ -180,26 +177,27 @@ class Data(Base, SerializationMixin):
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
 
-            if extra_columns := {*df.columns} - {*self.COLUMN_DATA_TYPES.keys()}:
-                logger.warning(
-                    f"Dataframe contains extra columns {list(extra_columns)}, these "
-                    "will be ignored."
-                )
-
             self._data_rows = [
                 DataRow(
-                    trial_index=row["trial_index"],
-                    arm_name=row["arm_name"],
-                    metric_name=row["metric_name"],
-                    metric_signature=row["metric_signature"],
-                    mean=row["mean"],
-                    se=row["sem"],
-                    step=row.get(MAP_KEY),
-                    start_time=row.get("start_time"),
-                    end_time=row.get("end_time"),
-                    n=row.get("n"),
+                    # pyre-ignore[16] Intentional unsafe namedtuple access
+                    trial_index=row.trial_index,
+                    # pyre-ignore[16] Intentional unsafe namedtuple access
+                    arm_name=row.arm_name,
+                    # pyre-ignore[16] Intentional unsafe namedtuple access
+                    metric_name=row.metric_name,
+                    # pyre-ignore[16] Intentional unsafe namedtuple access
+                    metric_signature=row.metric_signature,
+                    # pyre-ignore[16] Intentional unsafe namedtuple access
+                    mean=row.mean,
+                    # pyre-ignore[16] Intentional unsafe namedtuple access
+                    se=row.sem,
+                    step=getattr(row, "step", None),
+                    start_time=getattr(row, "start_time", None),
+                    end_time=getattr(row, "end_time", None),
+                    n=getattr(row, "n", None),
                 )
-                for _, row in df.iterrows()
+                # Using itertuples() instead of iterrows() for speed
+                for row in df.itertuples(index=False)
             ]
         else:
             self._data_rows = []
@@ -208,6 +206,11 @@ class Data(Base, SerializationMixin):
         self.has_step_column: bool = any(
             row.step is not None for row in self._data_rows
         )
+
+    @property
+    def empty(self) -> bool:
+        """Whether the data is empty."""
+        return len(self._data_rows) == 0
 
     @cached_property
     def full_df(self) -> pd.DataFrame:
@@ -347,7 +350,7 @@ class Data(Base, SerializationMixin):
             return self._memo_df
 
         # Case: Empty data
-        if self.full_df.empty:
+        if self.empty:
             return self.full_df
 
         idxs = (
@@ -374,13 +377,7 @@ class Data(Base, SerializationMixin):
         Args:
             data: Iterable of Ax objects of this class to combine.
         """
-        dfs = [datum.full_df for datum in data if not datum.full_df.empty]
-
-        if len(dfs) == 0:
-            return cls()
-
-        result_has_step_column = any(d.has_step_column for d in data)
-        return cls(df=pd.concat(dfs, axis=0, sort=not result_has_step_column))
+        return Data(data_rows=itertools.chain(*[d._data_rows for d in data]))
 
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
@@ -389,12 +386,13 @@ class Data(Base, SerializationMixin):
             df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
         return f"{self.__class__.__name__}(df=\n{df_markdown})"
 
-    @property
+    @cached_property
     def metric_names(self) -> set[str]:
         """Set of metric names that appear in the underlying dataframe of
         this object.
         """
-        return set() if self.df.empty else set(self.df["metric_name"].values)
+
+        return {row.metric_name for row in self._data_rows}
 
     @property
     def metric_signatures(self) -> set[str]:
@@ -482,11 +480,8 @@ class Data(Base, SerializationMixin):
     @cached_property
     def trial_indices(self) -> set[int]:
         """Return the set of trial indices in the data."""
-        if self._memo_df is not None:
-            # Use a smaller df if available
-            return set(self.df["trial_index"].unique())
-        # If no small df is available, use the full df
-        return set(self.full_df["trial_index"].unique())
+
+        return {row.trial_index for row in self._data_rows}
 
     def latest(self, rows_per_group: int = 1) -> Data:
         """Return a new Data with the most recently observed `rows_per_group`
@@ -595,6 +590,37 @@ class Data(Base, SerializationMixin):
         return self.__class__(df=subsampled_df)
 
 
+def combine_data_rows_favoring_recent(
+    last_rows: Iterable[DataRow], new_rows: Iterable[DataRow]
+) -> list[DataRow]:
+    """Combine last_rows and new_rows.
+
+    Deduplicate in favor of new_rows when there are multiple observations with
+    the same "trial_index", "metric_name", "arm_name", and "step".
+
+    Args:
+        last_rows: The rows of data currently attached to a trial
+        new_rows: A list of rows containing new data to be attached
+    """
+
+    deduped: dict[tuple[int, str, str, float | None], DataRow] = {}
+
+    # Loop over all rows without creating a new list in memory
+    for row in itertools.chain(last_rows, new_rows):
+        # NaN must be treated specially since NaN != NaN
+        if row.step is not None and math.isnan(row.step):
+            step_key = None
+        else:
+            step_key = row.step
+
+        key = (row.trial_index, row.metric_name, row.arm_name, step_key)
+        deduped[key] = row
+
+    return list(deduped.values())
+
+
+# This function is only used in ax/storage and can be removed
+# once storage is refactored to use DataRows.
 def combine_dfs_favoring_recent(
     last_df: pd.DataFrame, new_df: pd.DataFrame
 ) -> pd.DataFrame:
