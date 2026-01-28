@@ -6,14 +6,18 @@
 # pyre-strict
 
 from itertools import product
+from unittest.mock import patch
 
 from ax.adapter.registry import Generators
+from ax.adapter.torch import TorchAdapter
 from ax.analysis.plotly.sensitivity import (
+    _prepare_data,
     compute_sensitivity_adhoc,
     SensitivityAnalysisPlot,
 )
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.core.data import MAP_KEY
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
@@ -176,3 +180,45 @@ class TestSensitivityAnalysisPlot(TestCase):
                 _ = analysis.compute(
                     experiment=experiment, generation_strategy=generation_strategy
                 )
+
+    @mock_botorch_optimize
+    def test_exclude_map_key(self) -> None:
+        """Test that exclude_map_key parameter works correctly."""
+        client = get_test_client()
+        adapter = Generators.BOTORCH_MODULAR(
+            experiment=client.experiment, data=client.experiment.lookup_data()
+        )
+
+        # Test that exclude_map_key=True excludes MAP_KEY from results when present
+        # by mocking ax_parameter_sens to return results with MAP_KEY
+        mock_results = {"bar": {"x": 0.6, MAP_KEY: 0.4}}
+
+        with patch(
+            "ax.analysis.plotly.sensitivity.ax_parameter_sens",
+            return_value=mock_results,
+        ) as mock_sens:
+            _prepare_data(
+                adapter=assert_is_instance(adapter, TorchAdapter),
+                metric_name="bar",
+                order="first",
+                exclude_map_key=True,
+            )
+            # Verify ax_parameter_sens was called with exclude_map_key=True
+            mock_sens.assert_called_once()
+            call_kwargs = mock_sens.call_args.kwargs
+            self.assertTrue(call_kwargs.get("exclude_map_key", False))
+
+        # Test that SensitivityAnalysisPlot accepts the new parameters
+        analysis = SensitivityAnalysisPlot(
+            metric_name="bar",
+            order="first",
+            exclude_map_key=True,
+        )
+        self.assertTrue(analysis.exclude_map_key)
+
+        # Test compute_sensitivity_adhoc accepts the new parameters
+        cards = compute_sensitivity_adhoc(
+            adapter=adapter,
+            exclude_map_key=True,
+        ).flatten()
+        self.assertEqual(len(cards), 1)
