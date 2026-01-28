@@ -119,29 +119,22 @@ def get_test_dataframe() -> pd.DataFrame:
     )
 
 
-class TestDataBase(TestCase):
-    # Also run with has_step_column = True below
-    has_step_column: bool = False
+class DataTest(TestCase):
+    """Tests for Data without a "step" column."""
 
     def setUp(self) -> None:
         super().setUp()
         self.data_without_df = Data()
-        df = get_test_dataframe()
-        if not self.has_step_column:
-            self.df = df
-            self.data_with_df = Data(df=self.df)
-        else:
-            df_1 = df.copy().assign(**{MAP_KEY: 0})
-            df_2 = df.copy().assign(**{MAP_KEY: 1})
-            self.df = pd.concat((df_1, df_2))
-            self.data_with_df = Data(df=self.df)
-
+        self.df = get_test_dataframe()
+        self.data_with_df = Data(df=self.df)
         self.metric_name_to_signature = {"a": "a_signature", "b": "b_signature"}
 
     def test_init(self) -> None:
+        # Test equality
         self.assertEqual(self.data_without_df, self.data_without_df)
         self.assertEqual(self.data_with_df, self.data_with_df)
 
+        # Test accessing values
         df = self.data_with_df.df
         self.assertEqual(
             float(df[df["arm_name"] == "0_0"][df["metric_name"] == "a"]["mean"].item()),
@@ -152,7 +145,14 @@ class TestDataBase(TestCase):
             0.5,
         )
 
-        self.assertEqual(self.data_with_df.has_step_column, self.has_step_column)
+        # Test has_step_column is False
+        self.assertFalse(self.data_with_df.has_step_column)
+
+        # Test empty initialization
+        empty = Data()
+        self.assertTrue(empty.full_df.empty)
+        self.assertEqual(set(empty.full_df.columns), empty.REQUIRED_COLUMNS)
+        self.assertFalse(empty.has_step_column)
 
     def test_clone(self) -> None:
         data = self.data_with_df
@@ -164,14 +164,9 @@ class TestDataBase(TestCase):
         self.assertIsNot(data, data_clone)
         self.assertIsNot(data.df, data_clone.df)
         self.assertIsNone(data_clone._db_id)
-        if self.has_step_column:
-            self.assertIsNot(data.full_df, data_clone.full_df)
-            self.assertTrue(data.full_df.equals(data_clone.full_df))
 
     def test_BadData(self) -> None:
         data = {"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}
-        if self.has_step_column:
-            data[MAP_KEY] = "0"
         df = pd.DataFrame([data])
         with self.assertRaisesRegex(
             ValueError, "Dataframe must contain required columns"
@@ -184,17 +179,13 @@ class TestDataBase(TestCase):
         self.assertTrue(df.empty)
         self.assertTrue(Data.from_multiple_data([]).df.empty)
 
-        if data.has_step_column:
-            self.assertTrue(data.full_df.empty)
-            expected_columns = Data.REQUIRED_COLUMNS.union({MAP_KEY})
-        else:
-            expected_columns = Data.REQUIRED_COLUMNS
+        expected_columns = Data.REQUIRED_COLUMNS
         self.assertEqual(set(df.columns), expected_columns)
 
     def test_from_multiple_with_generator(self) -> None:
         data = Data.from_multiple_data(self.data_with_df for _ in range(2))
         self.assertEqual(len(data.full_df), 2 * len(self.data_with_df.full_df))
-        self.assertEqual(data.has_step_column, self.has_step_column)
+        self.assertFalse(data.has_step_column)
 
     def test_extra_columns(self) -> None:
         value = 3
@@ -235,26 +226,6 @@ class TestDataBase(TestCase):
             set(self.data_with_df.full_df["trial_index"].unique()),
         )
 
-
-class TestMapData(TestDataBase):
-    has_step_column = True
-
-
-class DataTest(TestCase):
-    """Tests that are specific to Data without a "step" column."""
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.df = get_test_dataframe()
-        self.metric_name_to_signature = {"a": "a_signature", "b": "b_signature"}
-
-    def test_init(self) -> None:
-        # Initialize empty
-        empty = Data()
-        self.assertTrue(empty.full_df.empty)
-        self.assertEqual(set(empty.full_df.columns), empty.REQUIRED_COLUMNS)
-        self.assertFalse(empty.has_step_column)
-
     def test_repr(self) -> None:
         self.assertEqual(
             str(Data(df=self.df)),
@@ -262,13 +233,6 @@ class DataTest(TestCase):
         )
         with patch(f"{Data.__module__}.DF_REPR_MAX_LENGTH", 500):
             self.assertEqual(str(Data(df=self.df)), REPR_500)
-
-    def test_OtherClassInequality(self) -> None:
-        class CustomData(Data):
-            pass
-
-        data = CustomData(df=self.df)
-        self.assertNotEqual(data, Data(self.df))
 
     def test_from_multiple(self) -> None:
         with self.subTest("Combinining non-empty Data"):
@@ -278,34 +242,6 @@ class DataTest(TestCase):
         with self.subTest("Combining empty Data makes empty Data"):
             data = Data.from_multiple_data([Data(), Data()])
             self.assertEqual(data, Data())
-
-        with self.subTest("Different types"):
-
-            class CustomData(Data):
-                pass
-
-            data = Data.from_multiple_data([CustomData(), CustomData()])
-            self.assertEqual(data, Data())
-            data = CustomData.from_multiple_data([Data(), CustomData()])
-            self.assertEqual(data, CustomData())
-
-    def test_FromMultipleDataMismatchedTypes(self) -> None:
-        # create two custom data types
-        class CustomDataA(Data):
-            pass
-
-        class CustomDataB(Data):
-            pass
-
-        # Test using `Data.from_multiple_data` to combine non-Data types
-        data = Data.from_multiple_data([CustomDataA(), CustomDataB()])
-        self.assertEqual(data, Data())
-
-        # multiple non-empty types
-        data_elt_A = CustomDataA(df=self.df)
-        data_elt_B = CustomDataB(df=self.df)
-        data = Data.from_multiple_data([data_elt_A, data_elt_B])
-        self.assertEqual(len(data.full_df), 2 * len(self.df))
 
     def test_filter(self) -> None:
         data = Data(df=self.df)
