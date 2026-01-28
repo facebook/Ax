@@ -44,6 +44,7 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     # don't need to recur into them during `copy_db_ids`.
     "auxiliary_experiments_by_purpose",
     "_metric_fetching_errors",
+    "_data_rows",
 }
 SKIP_ATTRS_ERROR_SUFFIX = "Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
 

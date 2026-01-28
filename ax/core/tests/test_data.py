@@ -187,14 +187,6 @@ class DataTest(TestCase):
         self.assertEqual(len(data.full_df), 2 * len(self.data_with_df.full_df))
         self.assertFalse(data.has_step_column)
 
-    def test_extra_columns(self) -> None:
-        value = 3
-        extra_col_df = self.df.assign(foo=value)
-        data = Data(df=extra_col_df)
-        self.assertIn("foo", data.full_df.columns)
-        self.assertIn("foo", data.df.columns)
-        self.assertTrue((data.full_df["foo"] == value).all())
-
     def test_get_df_with_cols_in_expected_order(self) -> None:
         with self.subTest("Wrong order"):
             df = pd.DataFrame(columns=["mean", "trial_index", "hat"], data=[[0] * 3])

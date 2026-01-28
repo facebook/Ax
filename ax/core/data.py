@@ -38,6 +38,36 @@ DF_REPR_MAX_LENGTH = 1000
 MAP_KEY = "step"
 
 
+class DataRow:
+    def __init__(
+        self,
+        trial_index: int,
+        arm_name: str,
+        metric_name: str,
+        metric_signature: str,
+        mean: float,
+        se: float,
+        step: float | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        n: int | None = None,
+    ) -> None:
+        self.trial_index: int = trial_index
+        self.arm_name: str = arm_name
+
+        self.metric_name: str = metric_name
+        self.metric_signature: str = metric_signature
+
+        self.mean: float = mean
+        self.se: float = se
+
+        self.step: float | None = step
+
+        self.start_time: int | None = start_time
+        self.end_time: int | None = end_time
+        self.n: int | None = n
+
+
 class Data(Base, SerializationMixin):
     """Class storing numerical data for an experiment.
 
@@ -101,8 +131,6 @@ class Data(Base, SerializationMixin):
         "start_time": pd.Timestamp,
         "end_time": pd.Timestamp,
         "n": int,
-        "frac_nonnull": np.float64,
-        "random_split": int,
         MAP_KEY: float,
     }
 
@@ -115,52 +143,116 @@ class Data(Base, SerializationMixin):
         "metric_signature",
     ]
 
-    full_df: pd.DataFrame
+    _data_rows: list[DataRow]
 
     def __init__(
         self,
+        data_rows: Iterable[DataRow] | None = None,
         df: pd.DataFrame | None = None,
-        _skip_ordering_and_validation: bool = False,
     ) -> None:
         """Initialize a ``Data`` object from the given DataFrame.
 
         Args:
+            data_rows: Iterable of DataRows. If provided, this will be used as the
+                source of truth for Data, over df.
             df: DataFrame with underlying data, and required columns. Data must
                 be unique at the level of ("trial_index", "arm_name",
                 "metric_name"), plus "step" if a "step" column is present. A
                 lightly processed version of this argument will become the
                 `Data`'s `full_df` attribute.
-            _skip_ordering_and_validation: If True, uses the given DataFrame
-                as is, without ordering its columns or validating its contents.
-                Intended only for use in `Data.filter`, where the contents
-                of the DataFrame are known to be ordered and valid.
         """
-        if df is None:
-            # Initialize with barebones DF with expected dtypes
-            self.full_df = pd.DataFrame.from_dict(
+        if data_rows is not None:
+            if isinstance(data_rows, pd.DataFrame):
+                raise ValueError(
+                    "data_rows must be an iterable of DataRows, not a DataFrame."
+                )
+
+            if df is not None:
+                raise ValueError(
+                    "Cannot provide both data_rows and df. Please provide only one."
+                )
+
+            self._data_rows = [*data_rows]
+        elif df is not None:
+            # Unroll the df into a list of DataRows
+            if missing_columns := self.REQUIRED_COLUMNS - {*df.columns}:
+                raise ValueError(
+                    f"Dataframe must contain required columns {list(missing_columns)}."
+                )
+
+            if extra_columns := {*df.columns} - {*self.COLUMN_DATA_TYPES.keys()}:
+                logger.warning(
+                    f"Dataframe contains extra columns {list(extra_columns)}, these "
+                    "will be ignored."
+                )
+
+            self._data_rows = [
+                DataRow(
+                    trial_index=row["trial_index"],
+                    arm_name=row["arm_name"],
+                    metric_name=row["metric_name"],
+                    metric_signature=row["metric_signature"],
+                    mean=row["mean"],
+                    se=row["sem"],
+                    step=row.get(MAP_KEY),
+                    start_time=row.get("start_time"),
+                    end_time=row.get("end_time"),
+                    n=row.get("n"),
+                )
+                for _, row in df.iterrows()
+            ]
+        else:
+            self._data_rows = []
+
+        self._memo_df: pd.DataFrame | None = None
+        self.has_step_column: bool = any(
+            row.step is not None for row in self._data_rows
+        )
+
+    @cached_property
+    def full_df(self) -> pd.DataFrame:
+        """
+        Convert the DataRows into a pandas DataFrame. If step, start_time, or end_time
+        is None for all rows the column will be elided.
+        """
+        if len(self._data_rows) == 0:
+            return pd.DataFrame.from_dict(
                 {
                     col: pd.Series([], dtype=self.COLUMN_DATA_TYPES[col])
                     for col in self.REQUIRED_COLUMNS
                 }
             )
-        elif _skip_ordering_and_validation:
-            self.full_df = df
-        else:
-            columns = set(df.columns)
-            missing_columns = self.REQUIRED_COLUMNS - columns
-            if missing_columns:
-                raise ValueError(
-                    f"Dataframe must contain required columns {list(missing_columns)}."
-                )
-            # Drop rows where every input is null. Since `dropna` can be slow, first
-            # check trial index to see if dropping nulls might be needed.
-            if df["trial_index"].isnull().any():
-                df = df.dropna(axis=0, how="all", ignore_index=True)
-            df = self._safecast_df(df=df)
-            self.full_df = self._get_df_with_cols_in_expected_order(df=df)
 
-        self._memo_df: pd.DataFrame | None = None
-        self.has_step_column: bool = MAP_KEY in self.full_df.columns
+        # Detect whether any of the optional attributes are present and should be
+        # included as columns in the full DataFrame.
+        include_step = any(row.step is not None for row in self._data_rows)
+        include_start_time = any(row.start_time is not None for row in self._data_rows)
+        include_end_time = any(row.end_time is not None for row in self._data_rows)
+        include_n = any(row.n is not None for row in self._data_rows)
+
+        records = [
+            {
+                "trial_index": row.trial_index,
+                "arm_name": row.arm_name,
+                "metric_name": row.metric_name,
+                "metric_signature": row.metric_signature,
+                "mean": row.mean,
+                "sem": row.se,
+                **({"step": row.step} if include_step else {}),
+                **({"start_time": row.start_time} if include_start_time else {}),
+                **({"end_time": row.end_time} if include_end_time else {}),
+                **({"n": row.n} if include_n else {}),
+            }
+            for row in self._data_rows
+        ]
+
+        return sort_by_trial_index_and_arm_name(
+            df=self._get_df_with_cols_in_expected_order(
+                df=self._safecast_df(
+                    df=pd.DataFrame.from_records(records),
+                ),
+            )
+        )
 
     @classmethod
     def _get_df_with_cols_in_expected_order(cls, df: pd.DataFrame) -> pd.DataFrame:
@@ -336,7 +428,6 @@ class Data(Base, SerializationMixin):
                 metric_names=metric_names,
                 metric_signatures=metric_signatures,
             ).reset_index(drop=True),
-            _skip_ordering_and_validation=True,
         )
 
     def clone(self) -> Data:

@@ -696,10 +696,6 @@ class JSONStoreTest(TestCase):
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
             self.assertEqual(len(map_data.full_df), 2)
-            # Even though the "epoch" and "timestamps" columns have not been
-            # renamed to "step", they are present
-            self.assertEqual(map_data.full_df["epoch"].tolist(), [0.0, 1.0])
-            self.assertEqual(map_data.full_df["timestamps"].tolist(), [3.0, 4.0])
             self.assertIsInstance(map_data, Data)
 
         with self.subTest("Single map key"):
@@ -720,8 +716,8 @@ class JSONStoreTest(TestCase):
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            self.assertIn("epoch", map_data.full_df.columns)
-            self.assertEqual(map_data.full_df["epoch"].tolist(), [0.0, 1.0])
+            self.assertEqual(len(map_data.full_df), 2)
+            self.assertIsInstance(map_data, Data)
 
         with self.subTest("No map key"):
             data_json = {

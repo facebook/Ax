@@ -673,7 +673,7 @@ class ExperimentTest(TestCase):
 
         # Verify we do get the stored data if there are an unimplemented metrics.
         # Remove attached data for nonexistent metric.
-        exp.data.full_df = exp.data.full_df.loc[lambda x: x["metric_name"] != "z"]
+        exp.data = Data(df=exp.data.full_df.loc[lambda x: x["metric_name"] != "z"])
 
         # Remove implemented metric that is `available_while_running`
         # (and therefore not pulled from cache).
@@ -685,7 +685,9 @@ class ExperimentTest(TestCase):
         looked_up_df = looked_up_data.full_df
         self.assertFalse((looked_up_df["metric_name"] == "z").any())
         self.assertTrue(
-            batch.fetch_data().full_df.equals(
+            batch.fetch_data()
+            .full_df.sort_values(["arm_name", "metric_name"], ignore_index=True)
+            .equals(
                 looked_up_df.loc[lambda x: (x["trial_index"] == 0)].sort_values(
                     ["arm_name", "metric_name"], ignore_index=True
                 )

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, TYPE_CHECKING
 
 from ax.core.arm import Arm
-from ax.core.data import Data, sort_by_trial_index_and_arm_name
+from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.metric import Metric, MetricFetchResult
@@ -438,8 +438,6 @@ class BaseTrial(ABC, SortableBase):
         data = Metric._unwrap_trial_data_multi(
             results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
-        if not data.has_step_column:
-            data.full_df = sort_by_trial_index_and_arm_name(data.full_df)
 
         return data
 

@@ -414,11 +414,14 @@ class ReportUtilsTest(TestCase):
                 experiment=exp,
                 model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             )
-            self.assertIn(
-                "Pareto plotting not supported for experiments with relative objective "
-                "thresholds.",
-                log.output[0],
+            self.assertTrue(
+                any(
+                    "Pareto plotting not supported for experiments with relative "
+                    "objective thresholds." in msg
+                    for msg in log.output
+                )
             )
+
             for metric_suffix in ("a", "b"):
                 expected_msg = (
                     "Created contour plots for metric branin_"

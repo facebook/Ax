@@ -207,7 +207,7 @@ def get_observed_pareto_frontiers(
         ):
             # Make sure status quo is always included, for derelativization
             arm_names.append(experiment.status_quo.name)
-        data = Data(data.df[data.df["arm_name"].isin(arm_names)])
+        data = Data(df=data.df[data.df["arm_name"].isin(arm_names)])
     adapter = get_tensor_converter_adapter(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(adapter=adapter)
     # Convert to ParetoFrontierResults
