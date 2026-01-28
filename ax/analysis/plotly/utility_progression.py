@@ -125,7 +125,15 @@ class UtilityProgressionAnalysis(Analysis):
         # Subtitle and y-axis label vary by problem type
         title = _UTILITY_PROGRESSION_TITLE
 
-        if experiment.is_moo_problem:
+        if experiment.is_bope_problem:
+            y_label = "User Preference Score"
+            subtitle = (
+                "Shows the best user preference score achieved so far across "
+                f"completed trials. {_TRACE_INDEX_EXPLANATION} "
+                f"{_CUMULATIVE_BEST_EXPLANATION} "
+                f"{_INFEASIBLE_TRIALS_EXPLANATION}"
+            )
+        elif experiment.is_moo_problem:
             y_label = "Hypervolume"
             subtitle = (
                 "Shows the hypervolume of the Pareto frontier achieved so far across "
