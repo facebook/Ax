@@ -820,7 +820,8 @@ class Decoder:
                 "Cannot decode a generation strategy with a non-zero number of "
                 "generator runs without an experiment."
             )
-        if gs_sqa.nodes is None:  # Backward compat. for pre-nodes strategies.
+        # Backward compat: use steps if nodes is None or empty
+        if not gs_sqa.nodes:
             nodes = object_from_json(
                 gs_sqa.steps,
                 decoder_registry=self.config.json_decoder_registry,
