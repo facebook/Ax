@@ -257,14 +257,10 @@ def _get_default_n(experiment: Experiment, next_node: GenerationNode) -> int:
         The default number of arms to generate from the next node, used if no n is
         provided to the ``GenerationStrategy``'s gen call.
     """
-    # If the generator spec contains `n` use that value first
-    # TODO #1 [drfreund, mgarrard]: Eliminate the need to do this; the order should be:
-    # `arms_per_node[node_name]` > `input_constuctors(n)` > `gen_spec...kwargs["n"]`
-    # NOTE: We might need to simply disallow `n` in `gen_spec...kwargs`: it should
-    # probably never be hardcoded there. Without it, we can just enforce that at a
-    # point within generation strategy, an `n` is passed down to `gen_spec.gen`.
-    # And if we keep it, we don't have a clear point in this stack at which we are
-    # "no longer allowed to have a null `n`."
+    # If the generator spec contains `n` use that value first.
+    # TODO [drfreund, mgarrard]: Consider disallowing `n` in `gen_spec...kwargs`:
+    # it should probably never be hardcoded there. This would enforce that `n`
+    # is always passed down through the generation strategy at runtime.
     if next_node.generator_spec_to_gen_from.generator_gen_kwargs.get("n") is not None:
         return next_node.generator_spec_to_gen_from.generator_gen_kwargs["n"]
 
