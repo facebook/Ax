@@ -41,7 +41,6 @@ from ax.adapter.registry import (
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
-    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MinTrials,
     TransitionCriterion,
@@ -248,21 +247,6 @@ class GenerationNode(SerializationMixin, SortableBase):
     def experiment(self) -> Experiment:
         """Returns the experiment associated with this GenerationStrategy"""
         return self.generation_strategy.experiment
-
-    @property
-    def is_completed(self) -> bool:
-        """Returns True if this GenerationNode is complete and should transition to
-        the next node.
-        """
-        # TODO: @mgarrard make this logic more robust and general
-        # We won't mark a node completed if it has an AutoTransitionAfterGen criterion
-        # as this is typically used in cyclic generation strategies
-        should_transition, _ = self.should_transition_to_next_node(
-            raise_data_required_error=False
-        )
-        return should_transition and not any(
-            isinstance(tc, AutoTransitionAfterGen) for tc in self.transition_criteria
-        )
 
     @property
     def previous_node(self) -> GenerationNode | None:
