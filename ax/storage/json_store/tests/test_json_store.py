@@ -277,12 +277,6 @@ TEST_CASES = [
     (
         "GenerationStrategy",
         partial(
-            get_generation_strategy, with_experiment=True, with_completion_criteria=3
-        ),
-    ),
-    (
-        "GenerationStrategy",
-        partial(
             get_generation_strategy,
             with_experiment=True,
         ),
