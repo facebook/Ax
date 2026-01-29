@@ -11,6 +11,7 @@ from math import nan
 from unittest import mock
 
 import numpy as np
+import pandas as pd
 from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.adapter.registry import Generators
 from ax.core.data import Data, MAP_KEY
@@ -28,6 +29,9 @@ from ax.utils.testing.core_stubs import (
 from pandas import DataFrame, MultiIndex, Timestamp
 from pandas.testing import assert_frame_equal
 from pyre_extensions import none_throws
+
+# Disable pandas 3.0 StringDtype inference to match data_utils.py behavior.
+pd.options.future.infer_string = False
 
 
 class TestDataUtils(TestCase):
