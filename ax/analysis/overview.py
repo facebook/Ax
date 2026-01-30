@@ -8,7 +8,7 @@
 from typing import Any, final
 
 from ax.adapter.base import Adapter
-from ax.analysis.analysis import Analysis, ErrorAnalysisCard
+from ax.analysis.analysis import Analysis
 from ax.analysis.diagnostics import DiagnosticAnalysis
 from ax.analysis.healthcheck.baseline_improvement import BaselineImprovementAnalysis
 from ax.analysis.healthcheck.can_generate_candidates import (
@@ -19,7 +19,7 @@ from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
 from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
-from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import sort_healthcheck_cards
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
 from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
@@ -247,21 +247,14 @@ class OverviewAnalysis(Analysis):
             if analyis is not None
         ]
 
-        non_passing_health_checks = [
-            card
-            for card in health_check_cards
-            if (isinstance(card, HealthcheckAnalysisCard) and not card.is_passing())
-            or isinstance(card, ErrorAnalysisCard)
-        ]
-
         health_checks_group = (
             AnalysisCardGroup(
                 name="HealthchecksAnalysis",
                 title=HEALTH_CHECK_CARDGROUP_TITLE,
                 subtitle=HEALTH_CHECK_CARDGROUP_SUBTITLE,
-                children=non_passing_health_checks,
+                children=sort_healthcheck_cards(health_check_cards),
             )
-            if len(non_passing_health_checks) > 0
+            if len(health_check_cards) > 0
             else None
         )
 
