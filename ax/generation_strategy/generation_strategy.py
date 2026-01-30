@@ -19,12 +19,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.utils import extend_pending_observations, extract_pending_observations
-from ax.exceptions.core import (
-    AxError,
-    DataRequiredError,
-    UnsupportedError,
-    UserInputError,
-)
+from ax.exceptions.core import AxError, DataRequiredError, UnsupportedError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
@@ -185,8 +180,20 @@ class GenerationStrategy(Base):
 
     @property
     def optimization_complete(self) -> bool:
-        """Checks whether all nodes are completed in the generation strategy."""
-        return all(node.is_completed for node in self._nodes)
+        """Checks whether optimization is complete.
+
+        A strategy is complete when the current node's transition criteria
+        are met and point back to itself (self-transition).
+
+        Nodes with no transition_criteria are infinite by design and never complete.
+        """
+        if len(self._curr.transition_criteria) == 0:
+            return False
+
+        can_transition, next_node = self._curr.should_transition_to_next_node(
+            raise_data_required_error=False
+        )
+        return can_transition and next_node == self._curr.name
 
     def gen_single_trial(
         self,
@@ -247,7 +254,6 @@ class GenerationStrategy(Base):
         n: int | None = None,
         fixed_features: ObservationFeatures | None = None,
         num_trials: int = 1,
-        arms_per_node: dict[str, int] | None = None,
     ) -> list[list[GeneratorRun]]:
         """Produce GeneratorRuns for multiple trials at once with the possibility of
         using multiple models per trial, getting multiple GeneratorRuns per trial.
@@ -275,12 +281,6 @@ class GenerationStrategy(Base):
                 important to specify all necessary fixed features.
             num_trials: Number of trials to generate generator runs for in this call.
                 If not provided, defaults to 1.
-            arms_per_node: An optional map from node name to the number of arms to
-                generate from that node. If not provided, will default to the number
-                of arms specified in the node's ``InputConstructors`` or n if no
-                ``InputConstructors`` are defined on the node. We expect either n or
-                arms_per_node to be provided, but not both, and this is an advanced
-                argument that should only be used by advanced users.
 
         Returns:
             A list of lists of lists generator runs. Each outer list represents
@@ -306,7 +306,6 @@ class GenerationStrategy(Base):
                     data=data,
                     n=n,
                     pending_observations=pending_observations,
-                    arms_per_node=arms_per_node,
                     fixed_features=fixed_features,
                     first_generation_in_multi=len(grs_for_multiple_trials) < 1,
                 )
@@ -467,24 +466,6 @@ class GenerationStrategy(Base):
 
         self._curr = nodes[0]
 
-    def _validate_arms_per_node(self, arms_per_node: dict[str, int] | None) -> None:
-        """Validate that the arms_per_node argument is valid if it is provided.
-
-        Args:
-            arms_per_node: A map from node name to the number of arms to
-                generate from that node.
-        """
-        if arms_per_node is not None and not set(self.nodes_by_name).issubset(
-            arms_per_node
-        ):
-            raise UserInputError(
-                "Each node defined in the `GenerationStrategy` must have an "
-                "associated number of arms to generate from that node defined "
-                f"in `arms_per_node`. {arms_per_node} does not include all of "
-                f"{self.nodes_by_name.keys()}. "
-                "It may help to double-check the spelling."
-            )
-
     def _make_default_name(self) -> str:
         """Make a default name for this generation strategy; used when no name is passed
         to the constructor. For node-based generation strategies, the name is
@@ -515,10 +496,6 @@ class GenerationStrategy(Base):
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         data: Data | None = None,
         fixed_features: ObservationFeatures | None = None,
-        # TODO: Consider naming `arms_per_node` smtg like `arms_per_node_override`,
-        # to convey its manually-specified nature (if it's not specified, GS selects
-        # what to do on its own).
-        arms_per_node: dict[str, int] | None = None,
         first_generation_in_multi: bool = True,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
@@ -548,12 +525,6 @@ class GenerationStrategy(Base):
                 passed down to the underlying nodes. Note: if provided this will
                 override any algorithmically determined fixed features so it is
                 important to specify all necessary fixed features.
-            arms_per_node: An optional map from node name to the number of arms to
-                generate from that node. If not provided, will default to the number
-                of arms specified in the node's ``InputConstructors`` or n if no
-                ``InputConstructors`` are defined on the node. We expect either n or
-                arms_per_node to be provided, but not both, and this is an advanced
-                argument that should only be used by advanced users.
 
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
@@ -570,7 +541,6 @@ class GenerationStrategy(Base):
             pending_observations if pending_observations is not None else {}
         )
         self.experiment = experiment
-        self._validate_arms_per_node(arms_per_node=arms_per_node)
         pack_gs_gen_kwargs = {
             "grs_this_gen": grs_this_gen,
             "fixed_features": fixed_features,
@@ -596,7 +566,6 @@ class GenerationStrategy(Base):
                     pending_observations=pending_observations,
                     skip_fit=not (first_generation_in_multi or transitioned),
                     n=n,
-                    arms_per_node=arms_per_node,
                     **pack_gs_gen_kwargs,
                 )
             except DataRequiredError as err:
@@ -655,13 +624,13 @@ class GenerationStrategy(Base):
         self,
         raise_data_required_error: bool = True,
     ) -> bool:
-        """Moves this generation strategy to next node if the current node is completed,
-        and it is not the last node in this generation strategy. This method is safe to
-        use both when generating candidates or simply checking how many generator runs
-        (to be made into trials) can currently be produced.
+        """Moves this generation strategy to next node if the current node's
+        transition criteria are met. This method is safe to use both when generating
+        candidates or simply checking how many generator runs (to be made into trials)
+        can currently be produced.
 
-        NOTE: this method raises ``GenerationStrategyCompleted`` error if the current
-        generation node is complete, but it is also the last in generation strategy.
+        NOTE: this method raises ``GenerationStrategyCompleted`` error if the
+        optimization is complete
 
         Args:
             raise_data_required_error: Whether to raise ``DataRequiredError`` in the

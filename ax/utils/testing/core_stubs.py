@@ -182,6 +182,7 @@ def get_trial_based_criterion() -> list[TransitionCriterion]:
     return [
         MinTrials(
             threshold=3,
+            transition_to="next_node",
             only_in_statuses=[TrialStatus.RUNNING, TrialStatus.COMPLETED],
             not_in_statuses=None,
         ),
