@@ -426,7 +426,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         skip_fit: bool = False,
         data: Data | None = None,
         n: int | None = None,
-        arms_per_node: dict[str, int] | None = None,
         **gs_gen_kwargs: Any,
     ) -> GeneratorRun | None:
         """This method generates candidates using `self._gen` and handles deduplication
@@ -451,9 +450,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             data: Optional override for the experiment data used to generate candidates;
                 if not specified, will use ``experiment.lookup_data()`` (extracted in
                 ``Adapter``).
-            arms_per_node: A manual override for users interacting with a gen. strategy
-                via a Python API; a mapping from node name to the specific number of
-                arms it should produce. Passed down here by `GenerationStrategy.gen`.
             gs_gen_kwargs: Keyword arguments, passed to ``GenerationStrategy.gen``.
                 These might be modified by this node's input constructors, before
                 being passed down to ``ModelSpec.gen``, where these will override any
@@ -484,13 +480,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         if self._should_skip:
             logger.debug(f"Skipping generation for node {self.name}.")
             return None
-
-        if arms_per_node:
-            if self.name not in arms_per_node:
-                raise UnsupportedError(
-                    "If manually specifying arms per node, all nodes must be specified."
-                )
-            generator_gen_kwargs["n"] = arms_per_node[self.name]
 
         # TODO[drfreund]: Move this to `Adapter` or another more suitable place.
         # Keeping here for now to limit the scope of the current changeset.
@@ -992,8 +981,6 @@ class GenerationStep:
         generator_gen_kwargs: Each call to `generation_strategy.gen` performs a call
             to the step's adapter's `gen` under the hood; `generator_gen_kwargs` will be
             passed to the adapter's `gen` like: `adapter.gen(**generator_gen_kwargs)`.
-        completion_criteria: List of TransitionCriterion. All `is_met` must evaluate
-            True for the GenerationStrategy to move on to the next Step
         index: Index of this generation step, for use internally in `Generation
             Strategy`. Do not assign as it will be reassigned when instantiating
             `GenerationStrategy` with a list of its steps.
@@ -1024,7 +1011,6 @@ class GenerationStep:
         num_trials: int,
         generator_kwargs: dict[str, Any] | None = None,
         generator_gen_kwargs: dict[str, Any] | None = None,
-        completion_criteria: Sequence[TransitionCriterion] | None = None,
         min_trials_observed: int = 0,
         max_parallelism: int | None = None,
         enforce_num_trials: bool = True,
@@ -1061,7 +1047,6 @@ class GenerationStep:
 
         generator_kwargs = generator_kwargs or {}
         generator_gen_kwargs = generator_gen_kwargs or {}
-        completion_criteria = completion_criteria or []
 
         if (
             enforce_num_trials
@@ -1101,46 +1086,45 @@ class GenerationStep:
         # is set in `GenerationStrategy` constructor, because only then is the order
         # of the generation steps actually known.
         transition_criteria: list[TransitionCriterion] = []
+        # Placeholder - will be overwritten in _validate_and_set_step_sequence in GS
+        placeholder_transition_to = f"GenerationStep_{str(index)}"
+
         if num_trials != -1:
             transition_criteria.append(
                 MinTrials(
                     threshold=num_trials,
+                    transition_to=placeholder_transition_to,
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
                     block_gen_if_met=enforce_num_trials,
                     block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
-                    transition_to=None,  # Re-set in GS constructor.
                 )
             )
 
         if min_trials_observed > 0:
             transition_criteria.append(
                 MinTrials(
+                    threshold=min_trials_observed,
+                    transition_to=placeholder_transition_to,
                     only_in_statuses=[
                         TrialStatus.COMPLETED,
                         TrialStatus.EARLY_STOPPED,
                     ],
-                    threshold=min_trials_observed,
                     block_gen_if_met=False,
                     block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
-                    transition_to=None,  # Re-set in GS constructor.
                 )
             )
         if max_parallelism is not None:
             transition_criteria.append(
                 MaxGenerationParallelism(
                     threshold=max_parallelism,
+                    transition_to=placeholder_transition_to,
                     only_in_statuses=[TrialStatus.RUNNING],
                     block_gen_if_met=True,
                     block_transition_if_unmet=False,
-                    # MaxParallelism transitions to self,
-                    # this will be confirmed in GS init
-                    transition_to=f"GenerationStep_{str(index)}",
                 )
             )
-
-        transition_criteria += list(completion_criteria)
 
         # Create and return a GenerationNode instance
         node = GenerationNode(
