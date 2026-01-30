@@ -6,7 +6,11 @@
 
 # pyre-strict
 
-from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter_constraint import (
+    ParameterConstraint,
+    validate_constraint_parameters,
+)
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -122,3 +126,114 @@ class ParameterConstraintTest(TestCase):
             inequality="2 * x - 3 * y <= 6.0",
         )
         self.assertTrue(constraint1 < constraint2)
+
+
+class ValidateConstraintParametersTest(TestCase):
+    def test_range_parameter_allowed(self) -> None:
+        """Test that RangeParameter is allowed in constraints."""
+        param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=10.0,
+        )
+        # Should not raise
+        validate_constraint_parameters(parameters=[param])
+
+    def test_range_parameter_log_scale_rejected(self) -> None:
+        """Test that log-scale RangeParameter is rejected."""
+        param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.1,
+            upper=10.0,
+            log_scale=True,
+        )
+        with self.assertRaisesRegex(ValueError, "log scale"):
+            validate_constraint_parameters(parameters=[param])
+
+    def test_numerical_ordered_choice_parameter_allowed(self) -> None:
+        """Test that numerical ordered ChoiceParameter is allowed in constraints."""
+        param = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            values=[8, 16, 32],
+            is_ordered=True,
+            log_scale=False,
+        )
+        # Should not raise
+        validate_constraint_parameters(parameters=[param])
+
+    def test_numerical_ordered_float_choice_parameter_allowed(self) -> None:
+        """Test that numerical ordered float ChoiceParameter is allowed."""
+        param = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            values=[0.1, 0.5, 1.0],
+            is_ordered=True,
+        )
+        # Should not raise
+        validate_constraint_parameters(parameters=[param])
+
+    def test_non_numerical_choice_parameter_rejected(self) -> None:
+        """Test that non-numerical ChoiceParameter is rejected."""
+        param = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["a", "b", "c"],
+            is_ordered=True,
+        )
+        with self.assertRaisesRegex(ValueError, "numerical ChoiceParameters"):
+            validate_constraint_parameters(parameters=[param])
+
+    def test_unordered_choice_parameter_rejected(self) -> None:
+        """Test that unordered numerical ChoiceParameter is rejected."""
+        param = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            values=[8, 16, 32],
+            is_ordered=False,
+        )
+        with self.assertRaisesRegex(ValueError, "ordered ChoiceParameters"):
+            validate_constraint_parameters(parameters=[param])
+
+    def test_log_scale_choice_parameter_rejected(self) -> None:
+        """Test that log-scale ChoiceParameter is rejected."""
+        param = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            values=[1, 10, 100, 1000],
+            is_ordered=True,
+            log_scale=True,
+        )
+        with self.assertRaisesRegex(ValueError, "log scale"):
+            validate_constraint_parameters(parameters=[param])
+
+    def test_mixed_range_and_choice_parameters_allowed(self) -> None:
+        """Test that mixed RangeParameter and ChoiceParameter constraints work."""
+        range_param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=10.0,
+        )
+        choice_param = ChoiceParameter(
+            name="y",
+            parameter_type=ParameterType.INT,
+            values=[8, 16, 32],
+            is_ordered=True,
+            log_scale=False,
+        )
+        # Should not raise
+        validate_constraint_parameters(parameters=[range_param, choice_param])
+
+    def test_duplicate_parameters_rejected(self) -> None:
+        """Test that duplicate parameters are rejected."""
+        param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=10.0,
+        )
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            validate_constraint_parameters(parameters=[param, param])
