@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import math
 import dataclasses
 import datetime
 import enum
@@ -77,8 +78,13 @@ def object_to_json(
     if _type in encoder_registry:
         obj_dict = encoder_registry[_type](obj)
         return {k: _object_to_json(v) for k, v in obj_dict.items()}
+    elif _type is float:
+        # Handle NaN and Infinity which are not JSON compliant
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
     # Python built-in types + `typing` module types
-    if _type in (str, int, float, bool, type(None)):
+    if _type in (str, int, bool, type(None)):
         return obj
     elif _type is list:
         return [_object_to_json(x) for x in obj]
