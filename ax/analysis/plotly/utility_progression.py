@@ -7,6 +7,7 @@
 
 from typing import final
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 from ax.adapter.base import Adapter
@@ -111,6 +112,13 @@ class UtilityProgressionAnalysis(Analysis):
                 "No utility trace data available. This can happen when there are no "
                 "completed trials with valid data, or when all trials violate outcome "
                 "constraints."
+            )
+
+        # Check if all points are infeasible (inf or -inf values)
+        if all(np.isinf(value) for value in trace):
+            raise ExperimentNotReadyError(
+                "All trials in the utility trace are infeasible (violate outcome "
+                "constraints). No feasible points to plot."
             )
 
         # Create DataFrame with 1-based trace index for user-friendly display
