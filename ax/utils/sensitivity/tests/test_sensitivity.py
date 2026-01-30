@@ -13,8 +13,10 @@ from unittest.mock import patch
 
 import torch
 from ax.adapter.base import Adapter
+from ax.adapter.data_utils import DataLoaderConfig
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
+from ax.core.data import MAP_KEY
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
@@ -34,7 +36,10 @@ from ax.utils.sensitivity.sobol_measures import (
     SobolSensitivityGPMean,
     SobolSensitivityGPSampling,
 )
-from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_experiment_with_timestamp_map_metric,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.utils.transforms import unnormalize
 from gpytorch.distributions import MultivariateNormal
@@ -48,6 +53,20 @@ def get_adapter(saasbo: bool = False) -> Adapter:
     if saasbo:
         return Generators.SAASBO(experiment=exp, data=exp.fetch_data())
     return Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
+
+
+@mock_botorch_optimize
+def get_adapter_with_map_metric() -> TorchAdapter:
+    """Create a TorchAdapter with a map metric (step feature)."""
+    exp = get_branin_experiment_with_timestamp_map_metric(with_trials_and_data=True)
+    return cast(
+        TorchAdapter,
+        Generators.BOTORCH_MODULAR(
+            experiment=exp,
+            data=exp.lookup_data(),
+            data_loader_config=DataLoaderConfig(),
+        ),
+    )
 
 
 class SensitivityAnalysisTest(TestCase):
@@ -395,12 +414,14 @@ class SensitivityAnalysisTest(TestCase):
                     metrics=None,
                     order="total",
                     signed=False,
+                    exclude_map_key=False,
                     **sobol_kwargs,
                 )
                 ind_deriv = compute_derivatives_from_model_list(
                     model_list=[adapter.generator.surrogate.model],
                     bounds=torch.tensor(adapter.generator.search_space_digest.bounds).T,
                     discrete_features=discrete_features,
+                    fixed_features=None,
                     **sobol_kwargs,
                 )
                 set_rng_seed(seed)  # reset seed to keep discrete features the same
@@ -410,6 +431,7 @@ class SensitivityAnalysisTest(TestCase):
                     metrics=None,
                     order="total",
                     signed=True,
+                    exclude_map_key=False,
                     **sobol_kwargs,
                 )
                 for i, pname in enumerate(["x1", "x2"]):
@@ -586,3 +608,47 @@ class SensitivityAnalysisTest(TestCase):
             num_mc_samples=num_mc_samples,
         )
         self.assertTrue(torch.equal(A, B))
+
+    def test_ax_parameter_sens_exclude_map_key(self) -> None:
+        """Test that exclude_map_key excludes/includes MAP_KEY from output."""
+        adapter = get_adapter_with_map_metric()
+        generator = cast(BoTorchGenerator, adapter.generator)
+        feature_names = list(generator.search_space_digest.feature_names)
+
+        # Verify that the adapter has a "step" feature (MAP_KEY)
+        self.assertIn(MAP_KEY, feature_names)
+
+        sobol_kwargs = {"input_qmc": True, "num_mc_samples": 10}
+
+        # Call with exclude_map_key=True
+        result_excluded = ax_parameter_sens(
+            adapter=adapter,
+            metrics=None,
+            order="first",
+            signed=False,
+            exclude_map_key=True,
+            **sobol_kwargs,
+        )
+
+        # Call with exclude_map_key=False
+        result_included = ax_parameter_sens(
+            adapter=adapter,
+            metrics=None,
+            order="first",
+            signed=False,
+            exclude_map_key=False,
+            **sobol_kwargs,
+        )
+
+        # Verify results structure
+        for metric_name, param_sens_excluded in result_excluded.items():
+            # MAP_KEY should not be in output when excluded
+            self.assertNotIn(MAP_KEY, param_sens_excluded.keys())
+
+            # MAP_KEY should be in output when included
+            param_sens_included = result_included[metric_name]
+            self.assertIn(MAP_KEY, param_sens_included.keys())
+
+            # Non-MAP_KEY parameters should be present in both
+            for param_name in param_sens_excluded.keys():
+                self.assertIn(param_name, param_sens_included.keys())

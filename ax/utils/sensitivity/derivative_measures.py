@@ -12,6 +12,10 @@ from typing import Any
 
 import torch
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
+from ax.utils.sensitivity.fixed_feature_model import (
+    FixedFeatureModel,
+    prepare_fixed_feature_inputs,
+)
 from botorch.models.model import Model
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.posteriors.posterior import Posterior
@@ -90,7 +94,9 @@ class GpDGSMGpMean:
                 this list are generated using an integer-valued uniform distribution,
                 rather than the default (pseudo-)random continuous uniform distribution.
         """
-        self.dim: int = assert_is_instance(model.train_inputs, tuple)[0].shape[-1]
+        # Use bounds to determine dimension - this is more robust than train_inputs
+        # when using FixedFeatureModel wrappers that reduce the effective dimension
+        self.dim: int = bounds.shape[-1]
         self.derivative_gp = derivative_gp
         self.kernel_type = kernel_type
         self.bootstrap: bool = num_bootstrap_samples > 1
@@ -416,6 +422,7 @@ def compute_derivatives_from_model_list(
     model_list: Sequence[Model],
     bounds: torch.Tensor,
     discrete_features: list[int] | None = None,
+    fixed_features: dict[int, float] | None = None,
     **kwargs: Any,
 ) -> torch.Tensor:
     """
@@ -429,15 +436,32 @@ def compute_derivatives_from_model_list(
         discrete_features: If specified, the inputs associated with the indices in
             this list are generated using an integer-valued uniform distribution,
             rather than the default (pseudo-)random continuous uniform distribution.
+        fixed_features: If specified, a dictionary mapping feature indices to fixed
+            values. These features will be held constant and their derivatives will
+            not be computed. The bounds tensor should include all features.
         kwargs: Passed along to GpDGSMGpMean.
 
     Returns:
-        A (m x d) tensor of gradient measures.
+        A (m x d') tensor of gradient measures, where d' is the number of non-fixed
+        features.
     """
+    # Handle fixed features by reducing bounds and wrapping models
+    models_to_use: Sequence[Model] | list[FixedFeatureModel] = model_list
+    if fixed_features is not None and len(fixed_features) > 0:
+        models_to_use, bounds, discrete_features = prepare_fixed_feature_inputs(
+            model_list=list(model_list),
+            bounds=bounds,
+            discrete_features=discrete_features,
+            fixed_features=fixed_features,
+        )
+
     indices = []
-    for model in model_list:
+    for model in models_to_use:
         sens_class = GpDGSMGpMean(
-            model=model, bounds=bounds, discrete_features=discrete_features, **kwargs
+            model=model,  # pyre-ignore[6]: FixedFeatureModel wraps Model
+            bounds=bounds,
+            discrete_features=discrete_features,
+            **kwargs,
         )
         indices.append(sens_class.gradient_measure())
     return torch.stack(indices)
