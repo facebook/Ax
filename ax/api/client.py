@@ -987,6 +987,24 @@ class Client(WithDBSettingsBase):
             for i in range(len(points))
         ]
 
+   def to_json_snapshot(self) -> dict[str, Any]:
+        """
+        Return a JSON-serializable snapshot of this ``Client``'s settings and state
+        as a dictionary.
+
+        This can be used to share experiments programmatically or store them
+        in databases without writing to a file.
+
+        Returns:
+            A JSON-serializable dictionary representing the Client's state.
+
+        Example:
+            >>> snapshot = client.to_json_snapshot()
+            >>> # Store in database, send over network, etc.
+            >>> json_string = json.dumps(snapshot)
+        """
+        return self._to_json_snapshot()
+        
     # -------------------- Section 4: Save/Load -------------------------------------
     # Note: SQL storage handled automatically during regular usage
     def save_to_json_file(self, filepath: str = "ax_client_snapshot.json") -> None:
