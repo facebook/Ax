@@ -18,6 +18,7 @@ from ax.analysis.plotly.plotly_analysis import (
 )
 from ax.analysis.plotly.surface.utils import (
     get_features_for_slice_or_contour,
+    get_fixed_values_for_slice_or_contour,
     get_parameter_values,
     is_axis_log_scale,
 )
@@ -29,7 +30,7 @@ from ax.analysis.utils import (
     validate_experiment,
 )
 from ax.core.experiment import Experiment
-from ax.core.parameter import DerivedParameter
+from ax.core.parameter import DerivedParameter, TParamValue
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -43,7 +44,8 @@ CONTOUR_CARDGROUP_SUBTITLE = (
     "These plots show the relationship between a metric and two parameters. They "
     "show the predicted values of the metric (indicated by color) as a function of "
     "the two parameters on the x- and y-axes while keeping all other parameters "
-    "fixed at their status_quo value (or mean value if status_quo is unavailable). "
+    "fixed at their status_quo value (if available), best trial value, or the "
+    "center of the search space."
 )
 
 
@@ -51,8 +53,10 @@ CONTOUR_CARDGROUP_SUBTITLE = (
 class ContourPlot(Analysis):
     """
     Plot a 2D surface of the surrogate model's predicted outcomes for a given pair of
-    parameters, where all other parameters are held fixed at their status-quo value or
-    mean if no status quo is available.
+    parameters, where all other parameters are held fixed at their status_quo value
+    (if available and within the search space), otherwise at their values from the best
+    trial (for single-objective optimization), or at the center of the search space if
+    neither is available.
 
     The DataFrame computed will contain the following columns:
         - PARAMETER_NAME: The value of the x parameter specified
@@ -152,6 +156,12 @@ class ContourPlot(Analysis):
 
         metric_name = self.metric_name or select_metric(experiment=experiment)
 
+        # Get fixed parameter values and description
+        fixed_values, fixed_values_description = get_fixed_values_for_slice_or_contour(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+        )
+
         df = _prepare_data(
             experiment=experiment,
             model=relevant_adapter,
@@ -159,6 +169,7 @@ class ContourPlot(Analysis):
             y_parameter_name=self.y_parameter_name,
             metric_name=metric_name,
             relativize=self.relativize,
+            fixed_values=fixed_values,
         )
 
         fig = _prepare_plot(
@@ -187,13 +198,12 @@ class ContourPlot(Analysis):
             subtitle=(
                 "The contour plot visualizes the predicted outcomes "
                 f"for {metric_name} across a two-dimensional parameter space, "
-                "with other parameters held fixed at their status_quo value "
-                "(or mean value if status_quo is unavailable). This plot helps "
-                "in identifying regions of optimal performance and understanding "
-                "how changes in the selected parameters influence the predicted "
-                "outcomes. Contour lines represent levels of constant predicted "
-                "values, providing insights into the gradient and potential optima "
-                "within the parameter space."
+                f"with other parameters held fixed at {fixed_values_description}. "
+                "This plot helps in identifying regions of optimal performance and "
+                "understanding how changes in the selected parameters influence the "
+                "predicted outcomes. Contour lines represent levels of constant "
+                "predicted values, providing insights into the gradient and potential "
+                "optima within the parameter space."
             ),
             df=df,
             fig=fig,
@@ -215,7 +225,8 @@ def compute_contour_adhoc(
     a notebook setting.
 
     Args:
-        parameter_name: The name of the parameter to plot on the x-axis.
+        x_parameter_name: The name of the parameter to plot on the x-axis.
+        y_parameter_name: The name of the parameter to plot on the y-axis.
         experiment: The experiment to source data from.
         generation_strategy: Optional. The generation strategy to extract the adapter
             from.
@@ -247,6 +258,7 @@ def _prepare_data(
     y_parameter_name: str,
     metric_name: str,
     relativize: bool,
+    fixed_values: dict[str, TParamValue],
 ) -> pd.DataFrame:
     trials = experiment.extract_relevant_trials(trial_statuses=STATUSES_EXPECTING_DATA)
     sampled = [
@@ -279,14 +291,15 @@ def _prepare_data(
     ys = [*[sample["y_parameter_name"] for sample in sampled], *unsampled_ys]
 
     # Construct observation features for each parameter value previously chosen by
-    # fixing all other parameters to their status-quo value or mean.
-    features = features = [
+    # fixing all other parameters to values from get_fixed_values_for_slice_or_contour.
+    features = [
         get_features_for_slice_or_contour(
             parameters={
                 x_parameter_name: x,
                 y_parameter_name: y,
             },
             search_space=experiment.search_space,
+            fixed_values=fixed_values,
         )
         for x in xs
         for y in ys

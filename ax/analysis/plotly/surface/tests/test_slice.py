@@ -66,17 +66,10 @@ class TestSlicePlot(TestCase):
             "SlicePlot",
         )
         self.assertEqual(card.title, "bar vs. x")
-        self.assertEqual(
+        # Subtitle should mention "their best trial value"
+        self.assertIn(
+            "while keeping all other parameters fixed at their best trial value",
             card.subtitle,
-            (
-                "The slice plot provides a one-dimensional view of predicted "
-                "outcomes for bar as a function of a single parameter, "
-                "while keeping all other parameters fixed at their status_quo "
-                "value (or mean value if status_quo is unavailable). "
-                "This visualization helps in understanding the sensitivity and "
-                "impact of changes in the selected parameter on the predicted "
-                "metric outcomes."
-            ),
         )
         self.assertEqual(
             {*card.df.columns},
@@ -109,17 +102,10 @@ class TestSlicePlot(TestCase):
             "SlicePlot",
         )
         self.assertEqual(card.title, "bar vs. x")
-        self.assertEqual(
+        # Subtitle should mention "their best trial value"
+        self.assertIn(
+            "while keeping all other parameters fixed at their best trial value",
             card.subtitle,
-            (
-                "The slice plot provides a one-dimensional view of predicted "
-                "outcomes for bar as a function of a single parameter, "
-                "while keeping all other parameters fixed at their status_quo "
-                "value (or mean value if status_quo is unavailable). "
-                "This visualization helps in understanding the sensitivity and "
-                "impact of changes in the selected parameter on the predicted "
-                "metric outcomes."
-            ),
         )
         self.assertEqual(
             {*card.df.columns},
