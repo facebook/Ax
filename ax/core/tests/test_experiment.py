@@ -988,40 +988,44 @@ class ExperimentTest(TestCase):
 
         sorted_dfs = []
         sorted_dfs.append(
-            pd.DataFrame(
-                {
-                    "trial_index": [0] * 5,
-                    "arm_name": [
-                        "status_quo",
-                        "0_0",
-                        "0_1",
-                        "0_2",
-                        "0_11",
-                    ],
-                    "metric_name": ["b"] * 5,
-                    "metric_signature": ["b"] * 5,
-                    "mean": [5.0, 1.0, 4.0, 2.0, 3.0],
-                    "sem": [0.3, 0.1, 0.25, 0.15, 0.2],
-                }
-            )
+            Data(
+                df=pd.DataFrame(
+                    {
+                        "trial_index": [0] * 5,
+                        "arm_name": [
+                            "status_quo",
+                            "0_0",
+                            "0_1",
+                            "0_2",
+                            "0_11",
+                        ],
+                        "metric_name": ["b"] * 5,
+                        "metric_signature": ["b"] * 5,
+                        "mean": [5.0, 1.0, 4.0, 2.0, 3.0],
+                        "sem": [0.3, 0.1, 0.25, 0.15, 0.2],
+                    }
+                )
+            ).df
         )
 
         sorted_dfs.append(
-            pd.DataFrame(
-                {
-                    "trial_index": [1] * 4,
-                    "arm_name": [
-                        "1_0",
-                        "1_1",
-                        "1_2",
-                        "1_13",
-                    ],
-                    "metric_name": ["b"] * 4,
-                    "metric_signature": ["b"] * 4,
-                    "mean": [6.0, 7.0, 8.0, 9.0],
-                    "sem": [0.35, 0.4, 0.45, 0.5],
-                }
-            )
+            Data(
+                df=pd.DataFrame(
+                    {
+                        "trial_index": [1] * 4,
+                        "arm_name": [
+                            "1_0",
+                            "1_1",
+                            "1_2",
+                            "1_13",
+                        ],
+                        "metric_name": ["b"] * 4,
+                        "metric_signature": ["b"] * 4,
+                        "mean": [6.0, 7.0, 8.0, 9.0],
+                        "sem": [0.35, 0.4, 0.45, 0.5],
+                    }
+                )
+            ).df
         )
 
         exp.attach_data(Data(df=unsorted_df))

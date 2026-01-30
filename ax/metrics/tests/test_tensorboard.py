@@ -15,6 +15,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from ax.core.data import Data
 from ax.core.metric import MetricFetchE
 from ax.metrics.tensorboard import _grid_interpolate, logger, TensorboardMetric
 from ax.storage.json_store.decoder import object_from_json
@@ -103,20 +104,22 @@ class TensorboardMetricTest(TestCase):
 
         df = result.unwrap().full_df
 
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": fake_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": fake_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
 
@@ -211,20 +214,22 @@ class TensorboardMetricTest(TestCase):
 
         df = result.unwrap().full_df
 
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": smooth_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": smooth_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
 
@@ -264,20 +269,22 @@ class TensorboardMetricTest(TestCase):
 
         df = result.unwrap().full_df
 
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": cummin_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": cummin_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
 
@@ -378,20 +385,22 @@ class TensorboardMetricTest(TestCase):
             )
             result = metric.fetch_trial_data(trial=trial)
         df = result.unwrap().full_df
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": percentile_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": percentile_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
 

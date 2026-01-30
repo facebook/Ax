@@ -22,6 +22,7 @@ from dataclasses import dataclass, InitVar
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
@@ -32,6 +33,11 @@ from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
 from pandas import DataFrame, MultiIndex, Series
 from pyre_extensions import none_throws
+
+# Disable pandas 3.0 StringDtype inference for this module.
+# This ensures string columns like arm_name keep object dtype to match
+# Data.COLUMN_DATA_TYPES. See: https://pandas.pydata.org/docs/whatsnew/v3.0.0.html
+pd.options.future.infer_string = False
 
 
 @dataclass(frozen=True)
