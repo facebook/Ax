@@ -40,7 +40,7 @@ class TransitionCriterion(SortableBase):
 
     Args:
         transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met, if it exists.
+            transition to when this criterion is met.
         block_gen_if_met: A flag to prevent continued generation from the
             associated GenerationNode if this criterion is met but other criterion
             remain unmet. Ex: ``MinTrials`` has not been met yet, but
@@ -58,11 +58,11 @@ class TransitionCriterion(SortableBase):
             different ``GenerationNodes`` by setting this flag to True.
     """
 
-    _transition_to: str | None = None
+    _transition_to: str
 
     def __init__(
         self,
-        transition_to: str | None = None,
+        transition_to: str,
         block_transition_if_unmet: bool | None = True,
         block_gen_if_met: bool | None = False,
         continue_trial_generation: bool | None = False,
@@ -73,9 +73,9 @@ class TransitionCriterion(SortableBase):
         self.continue_trial_generation = continue_trial_generation
 
     @property
-    def transition_to(self) -> str | None:
+    def transition_to(self) -> str:
         """The name of the next GenerationNode after this TransitionCriterion is
-        completed, if it exists.
+        completed.
         """
         return self._transition_to
 
@@ -264,11 +264,11 @@ class TrialBasedCriterion(TransitionCriterion):
     def __init__(
         self,
         threshold: int,
+        transition_to: str,
         block_transition_if_unmet: bool | None = True,
         block_gen_if_met: bool | None = False,
         only_in_statuses: list[TrialStatus] | None = None,
         not_in_statuses: list[TrialStatus] | None = None,
-        transition_to: str | None = None,
         use_all_trials_in_exp: bool | None = False,
         continue_trial_generation: bool | None = False,
         count_only_trials_with_data: bool = False,
@@ -480,7 +480,7 @@ class MinTrials(TrialBasedCriterion):
         not_in_statuses: A list of trial statuses to exclude when checking the
             criterion threshold.
         transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met, if it exists.
+            transition to when this criterion is met.
         block_transition_if_unmet: A flag to prevent the node from completing and
             being able to transition to another node. Ex: MaxGenerationParallelism
             defaults to setting this to False since we can complete and move on from
@@ -505,9 +505,9 @@ class MinTrials(TrialBasedCriterion):
     def __init__(
         self,
         threshold: int,
+        transition_to: str,
         only_in_statuses: list[TrialStatus] | None = None,
         not_in_statuses: list[TrialStatus] | None = None,
-        transition_to: str | None = None,
         block_transition_if_unmet: bool | None = True,
         block_gen_if_met: bool | None = False,
         use_all_trials_in_exp: bool | None = False,
@@ -516,9 +516,9 @@ class MinTrials(TrialBasedCriterion):
     ) -> None:
         super().__init__(
             threshold=threshold,
+            transition_to=transition_to,
             only_in_statuses=only_in_statuses,
             not_in_statuses=not_in_statuses,
-            transition_to=transition_to,
             block_gen_if_met=block_gen_if_met,
             block_transition_if_unmet=block_transition_if_unmet,
             use_all_trials_in_exp=use_all_trials_in_exp,
@@ -551,7 +551,7 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         threshold: The threshold as an integer for this criterion. Ex: If we want to
             generate at most 3 trials, then the threshold is 3.
         transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met, if it exists.
+            transition to when this criterion is met.
         block_gen_if_met: A flag to prevent continued generation from the
             associated GenerationNode if this criterion is met but other criterion
             remain unmet. Ex: ``MinTrials`` has not been met yet, but
@@ -568,7 +568,7 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         self,
         metric_signature: str,
         threshold: int,
-        transition_to: str | None = None,
+        transition_to: str,
         block_gen_if_met: bool | None = False,
         block_transition_if_unmet: bool | None = True,
     ) -> None:
