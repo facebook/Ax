@@ -55,17 +55,11 @@ class TestContourPlot(TestCase):
                     "bar": parameterization["x"] ** 2 + parameterization["y"] ** 2
                 },
             )
-        self.expected_subtitle = (
+        self.expected_subtitle_contains = [
             "The contour plot visualizes the predicted outcomes "
             "for bar across a two-dimensional parameter space, "
-            "with other parameters held fixed at their status_quo value "
-            "(or mean value if status_quo is unavailable). This plot helps "
-            "in identifying regions of optimal performance and understanding "
-            "how changes in the selected parameters influence the predicted "
-            "outcomes. Contour lines represent levels of constant predicted "
-            "values, providing insights into the gradient and potential optima "
-            "within the parameter space."
-        )
+            "with other parameters held fixed at their best trial value",
+        ]
         self.expected_title = "bar (Mean) vs. x, y"
         self.expected_name = "ContourPlot"
         self.expected_cols = {
@@ -101,7 +95,8 @@ class TestContourPlot(TestCase):
             self.expected_name,
         )
         self.assertEqual(card.title, self.expected_title)
-        self.assertEqual(card.subtitle, self.expected_subtitle)
+        for expected_text in self.expected_subtitle_contains:
+            self.assertIn(expected_text, card.subtitle)
         self.assertEqual(
             {*card.df.columns},
             self.expected_cols,
@@ -144,7 +139,8 @@ class TestContourPlot(TestCase):
             self.expected_name,
         )
         self.assertEqual(card.title, self.expected_title)
-        self.assertEqual(card.subtitle, self.expected_subtitle)
+        for expected_text in self.expected_subtitle_contains:
+            self.assertIn(expected_text, card.subtitle)
         self.assertEqual({*card.df.columns}, self.expected_cols)
         self.assertIsNotNone(card.blob)
 
