@@ -18,6 +18,7 @@ from ax.analysis.plotly.plotly_analysis import (
 )
 from ax.analysis.plotly.surface.utils import (
     get_features_for_slice_or_contour,
+    get_fixed_values_for_slice_or_contour,
     get_parameter_values,
     is_axis_log_scale,
 )
@@ -35,7 +36,7 @@ from ax.analysis.utils import (
 )
 from ax.core.analysis_card import AnalysisCardBase
 from ax.core.experiment import Experiment
-from ax.core.parameter import DerivedParameter
+from ax.core.parameter import DerivedParameter, TParamValue
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -49,7 +50,8 @@ SLICE_CARDGROUP_SUBTITLE = (
     "These plots show the relationship between a metric and a parameter. They "
     "show the predicted values of the metric on the y-axis as a function of the "
     "parameter on the x-axis while keeping all other parameters fixed at their "
-    "status_quo value (or mean value if status_quo is unavailable). "
+    "status_quo value (if available), best trial value, or the center of the "
+    "search space."
 )
 
 
@@ -57,13 +59,15 @@ SLICE_CARDGROUP_SUBTITLE = (
 class SlicePlot(Analysis):
     """
     Plot a 1D "slice" of the surrogate model's predicted outcomes for a given
-    parameter, where all other parameters are held fixed at their status-quo value or
-    mean if no status quo is available.
+    parameter, where all other parameters are held fixed at their status_quo value
+    (if available and within the search space), otherwise at their values from the best
+    trial (for single-objective optimization), or at the center of the search space if
+    neither is available.
 
     The DataFrame computed will contain the following columns:
         - PARAMETER_NAME: The value of the parameter specified
-        - METRIC_NAME_mean: The predected mean of the metric specified
-        - METRIC_NAME_sem: The predected sem of the metric specified
+        - METRIC_NAME_mean: The predicted mean of the metric specified
+        - METRIC_NAME_sem: The predicted sem of the metric specified
         - sampled: Whether the parameter value was sampled in at least one trial
     """
 
@@ -147,12 +151,19 @@ class SlicePlot(Analysis):
 
         metric_name = self.metric_name or select_metric(experiment=experiment)
 
+        # Get fixed parameter values and description
+        fixed_values, fixed_values_description = get_fixed_values_for_slice_or_contour(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+        )
+
         df = _prepare_data(
             experiment=experiment,
             model=relevant_adapter,
             parameter_name=self.parameter_name,
             metric_name=metric_name,
             relativize=self.relativize,
+            fixed_values=fixed_values,
         )
 
         fig = _prepare_plot(
@@ -172,8 +183,8 @@ class SlicePlot(Analysis):
             subtitle=(
                 "The slice plot provides a one-dimensional view of predicted "
                 f"outcomes for {metric_name} as a function of a single parameter, "
-                "while keeping all other parameters fixed at their status_quo "
-                "value (or mean value if status_quo is unavailable). "
+                f"while keeping all other parameters fixed at "
+                f"{fixed_values_description}. "
                 "This visualization helps in understanding the sensitivity and "
                 "impact of changes in the selected parameter on the predicted "
                 "metric outcomes."
@@ -229,6 +240,7 @@ def _prepare_data(
     parameter_name: str,
     metric_name: str,
     relativize: bool,
+    fixed_values: dict[str, TParamValue],
 ) -> pd.DataFrame:
     trials = experiment.extract_relevant_trials(trial_statuses=STATUSES_EXPECTING_DATA)
     sampled_xs = [
@@ -252,11 +264,12 @@ def _prepare_data(
     xs = [*[sample["parameter_value"] for sample in sampled_xs], *unsampled_xs]
 
     # Construct observation features for each parameter value previously chosen by
-    # fixing all other parameters to their status-quo value or mean.
+    # fixing all other parameters to values from get_fixed_values_for_slice_or_contour.
     features = [
         get_features_for_slice_or_contour(
             parameters={parameter_name: x},
             search_space=experiment.search_space,
+            fixed_values=fixed_values,
         )
         for x in xs
     ]
