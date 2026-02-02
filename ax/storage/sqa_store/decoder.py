@@ -1010,6 +1010,9 @@ class Decoder:
         # NOTE: Need dtype=False, otherwise infers arm_names like
         # "4_1" should be int 41.
         df = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
+        # Ensure trial_index is int (dtype=False can leave it as string)
+        if "trial_index" in df.columns:
+            df["trial_index"] = df["trial_index"].astype(int)
         if "metric_signature" not in df.columns:
             df["metric_signature"] = df["metric_name"]
 

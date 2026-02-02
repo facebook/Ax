@@ -180,7 +180,9 @@ class Data(Base, SerializationMixin):
             self._data_rows = [
                 DataRow(
                     # pyre-ignore[16] Intentional unsafe namedtuple access
-                    trial_index=row.trial_index,
+                    # int() cast needed because pd.read_json with dtype=False
+                    # can return string trial indices from storage
+                    trial_index=int(row.trial_index),
                     # pyre-ignore[16] Intentional unsafe namedtuple access
                     arm_name=row.arm_name,
                     # pyre-ignore[16] Intentional unsafe namedtuple access
