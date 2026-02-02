@@ -1479,7 +1479,7 @@ class AcquisitionTest(TestCase):
             side_effect=[
                 torch.tensor([0.0]),  # baseline acquisition value
                 torch.tensor([1.0]),  # original dense acquisition value
-                torch.tensor([0.8, 0.7]),
+                torch.tensor([0.7, 0.3]),
             ]
         )
         acq.evaluate = mock_evaluate
