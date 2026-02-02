@@ -1676,6 +1676,33 @@ class AcquisitionTest(TestCase):
             torch.equal(pruned_values, torch.tensor([0.95], dtype=torch.double))
         )
 
+    @mock_botorch_optimize
+    def test_no_pruning_with_qLogProbabilityOfFeasibility(self) -> None:
+        # Test that pruning is NOT called when using qLogProbabilityOfFeasibility,
+        # even when prune_irrelevant_parameters option is enabled
+        self.options = {"prune_irrelevant_parameters": True}
+        self.botorch_acqf_class = qLogProbabilityOfFeasibility  # pyre-ignore [8]
+        self.botorch_acqf_options = {}
+        acquisition = self.get_acquisition_function(
+            fixed_features=self.fixed_features,
+        )
+        n = 1
+        with mock.patch.object(
+            acquisition,
+            "_prune_irrelevant_parameters",
+            wraps=acquisition._prune_irrelevant_parameters,
+        ) as mock_prune_irrelevant_parameters:
+            acquisition.optimize(
+                n=n,
+                search_space_digest=self.search_space_digest,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+            mock_prune_irrelevant_parameters.assert_not_called()
+            self.assertIsNone(acquisition.num_pruned_dims)
+
 
 class MultiAcquisitionTest(AcquisitionTest):
     acquisition_class = MultiAcquisition

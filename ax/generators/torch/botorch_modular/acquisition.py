@@ -36,6 +36,7 @@ from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.exceptions.errors import BotorchError, InputDataError
@@ -54,6 +55,7 @@ from torch import Tensor
 
 try:
     from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
+
 except ImportError:
     optimize_with_nsgaii = None
 
@@ -670,7 +672,9 @@ class Acquisition(Base):
                 f"Unknown optimizer: {optimizer}. This code should be unreachable."
             )
         # prune irrelevant parameters post-hoc
-        if self.options.get("prune_irrelevant_parameters", False):
+        if self.options.get("prune_irrelevant_parameters", False) and not isinstance(
+            self.acqf, qLogProbabilityOfFeasibility
+        ):
             if self._pruning_target_point is None:
                 logger.info(
                     "Must specify pruning_target_point to prune irrelevant "
