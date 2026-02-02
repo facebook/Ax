@@ -831,7 +831,7 @@ class Acquisition(Base):
             self._pruning_target_point,
             message="Must specify pruning_target_point to prune irrelevant parameters",
         )
-        irrelevance_pruning_rtol = self.options.get("irrelevance_pruning_rtol", 0.1)
+        irrelevance_pruning_rtol = self.options.get("irrelevance_pruning_rtol", 0.2)
         initial_X_pending = self.X_pending
         pruned_af_vals = []
         excluded_indices = set(search_space_digest.fidelity_features)
