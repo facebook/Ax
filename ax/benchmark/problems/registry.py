@@ -77,6 +77,16 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
             "observe_noise_sd": False,
         },
     ),
+    "branin50": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.Branin,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+            "observe_noise_sd": False,
+            "n_dummy_dimensions": 48,
+        },
+    ),
     "branin_currin": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
         factory_kwargs={
@@ -132,6 +142,16 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
             "num_trials": 25,
             "observe_noise_sd": False,
             "n_dummy_dimensions": 24,
+        },
+    ),
+    "hartmann50": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.Hartmann,
+            "test_problem_kwargs": {"dim": 6},
+            "num_trials": 50,
+            "observe_noise_sd": False,
+            "n_dummy_dimensions": 44,
         },
     ),
     "jenatton": BenchmarkProblemRegistryEntry(
