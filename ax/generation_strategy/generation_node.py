@@ -426,7 +426,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         skip_fit: bool = False,
         data: Data | None = None,
         n: int | None = None,
-        arms_per_node: dict[str, int] | None = None,
         **gs_gen_kwargs: Any,
     ) -> GeneratorRun | None:
         """This method generates candidates using `self._gen` and handles deduplication
@@ -451,9 +450,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             data: Optional override for the experiment data used to generate candidates;
                 if not specified, will use ``experiment.lookup_data()`` (extracted in
                 ``Adapter``).
-            arms_per_node: A manual override for users interacting with a gen. strategy
-                via a Python API; a mapping from node name to the specific number of
-                arms it should produce. Passed down here by `GenerationStrategy.gen`.
             gs_gen_kwargs: Keyword arguments, passed to ``GenerationStrategy.gen``.
                 These might be modified by this node's input constructors, before
                 being passed down to ``ModelSpec.gen``, where these will override any
@@ -484,13 +480,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         if self._should_skip:
             logger.debug(f"Skipping generation for node {self.name}.")
             return None
-
-        if arms_per_node:
-            if self.name not in arms_per_node:
-                raise UnsupportedError(
-                    "If manually specifying arms per node, all nodes must be specified."
-                )
-            generator_gen_kwargs["n"] = arms_per_node[self.name]
 
         # TODO[drfreund]: Move this to `Adapter` or another more suitable place.
         # Keeping here for now to limit the scope of the current changeset.
