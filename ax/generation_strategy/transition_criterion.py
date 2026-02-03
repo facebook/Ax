@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 from ax.utils.common.base import SortableBase
 from ax.utils.common.serialization import serialize_init_args
-from pyre_extensions import none_throws
 
 
 DATA_REQUIRED_MSG = (
@@ -223,7 +222,6 @@ class IsSingleObjective(TransitionCriterion):
         experiment: Experiment,
         trials_from_node: set[int],
     ) -> None:
-        # TODO: @mgarrard add error message that makes sense
         pass
 
 
@@ -550,7 +548,7 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
     Example usage: In Bayesian optimization with preference exploration (BOPE), we
     check if the preference exploration (PE) auxiliary experiment exists to indicate
     transition to the node that will generate candidates based on the learned
-    objective.Since preference exploration is usually conducted after the exploratory
+    objective. Since preference exploration is usually conducted after the exploratory
     batch is completed, we do not know at experiment creation time if the PE node
     should be used during the GenerationStrategy.
 
@@ -566,11 +564,9 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
             out of a node based on AuxiliaryExperimentPurpose. Criterion is met when
             all inclusion and exclusion checks pass.
         block_gen_if_met: A flag to prevent continued generation from the
-            associated GenerationNode if this criterion is met but other criterion
-            remain unmet. Ex: ``MinTrials`` has not been met yet, but
-            MinTrials has been reached. If this flag is set to true on MinTrials then
-            we will raise an error, otherwise we will continue to generate trials
-            until ``MinTrials`` is met (thus overriding MinTrials).
+            associated GenerationNode if this criterion is met but other criteria
+            remain unmet. Defaults to False since auxiliary experiment checks are
+            typically used for transition logic rather than blocking generation.
         block_transition_if_unmet: A flag to prevent the node from completing and
             being able to transition to another node. Ex: MaxGenerationParallelism
             defaults to setting this to False since we can complete and move on from
@@ -629,7 +625,7 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
         """Helper method to check if all elements in expected_aux_exp_purposes
         are in (or not in) aux_exp_purposes"""
         if expected_aux_exp_purposes is not None:
-            for purpose in none_throws(expected_aux_exp_purposes):
+            for purpose in expected_aux_exp_purposes:
                 purpose_present = (
                     purpose in aux_exp_by_purposes
                     and len(aux_exp_by_purposes[purpose]) > 0
@@ -662,12 +658,4 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
         experiment: Experiment,
         trials_from_node: set[int],
     ) -> None:
-        """Raises the appropriate error (should only be called when the
-        ``GenerationNode`` is blocked from continued generation). For this
-        class, the exception is ``DataRequiredError``.
-        """
-        assert self.block_gen_if_met  # Sanity check.
-        raise DataRequiredError(
-            f"This criterion, {self.criterion_class} has been met but cannot "
-            "continue generation from its associated GenerationNode."
-        )
+        pass
