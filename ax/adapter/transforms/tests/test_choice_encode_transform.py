@@ -9,7 +9,7 @@
 from copy import deepcopy
 
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.data_utils import _use_object_dtype_for_strings, extract_experiment_data
 from ax.adapter.transforms.choice_encode import (
     ChoiceToNumericChoice,
     OrderedChoiceToIntegerRange,
@@ -258,6 +258,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         self.assertEqual(hss.parameters["x2"].parameter_type, ParameterType.INT)
         self.assertEqual(hss.parameters["x2"].dependents, {0: [], 1: ["x3"]})
 
+    @_use_object_dtype_for_strings
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
             {"x": 2.2, "a": 2, "b": 10.0, "c": 10.0, "d": "r", "e": "q"},

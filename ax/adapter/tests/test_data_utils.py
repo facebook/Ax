@@ -11,7 +11,11 @@ from math import nan
 from unittest import mock
 
 import numpy as np
-from ax.adapter.data_utils import DataLoaderConfig, extract_experiment_data
+from ax.adapter.data_utils import (
+    _use_object_dtype_for_strings,
+    DataLoaderConfig,
+    extract_experiment_data,
+)
 from ax.adapter.registry import Generators
 from ax.core.data import Data, MAP_KEY
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -97,6 +101,7 @@ class TestDataUtils(TestCase):
             )
             self.assertEqual(experiment_data, experiment_data)
 
+    @_use_object_dtype_for_strings
     def test_extract_experiment_data_non_map(self) -> None:
         # This is a 2 objective experiment with 2 trials, 1 arm each.
         observations = [[0.1, 1.0], [0.2, 2.0]]
@@ -248,6 +253,7 @@ class TestDataUtils(TestCase):
             )
         )
 
+    @_use_object_dtype_for_strings
     def test_extract_experiment_data_map(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_trials_and_data=True)
         t_0_metric = 55.602112642270264
@@ -261,7 +267,8 @@ class TestDataUtils(TestCase):
         expected_arm_df = DataFrame(
             [{"x1": 0.0, "x2": 0.0}, {"x1": 1.0, "x2": 1.0}],
             index=MultiIndex.from_tuples(
-                [(0, "0_0"), (1, "1_0")], names=["trial_index", "arm_name"]
+                [(0, "0_0"), (1, "1_0")],
+                names=["trial_index", "arm_name"],
             ),
         )
         assert_frame_equal(
@@ -359,6 +366,7 @@ class TestDataUtils(TestCase):
         # Check equality with self.
         self.assertEqual(experiment_data, experiment_data)
 
+    @_use_object_dtype_for_strings
     def test_extract_experiment_data_multiple_map(self) -> None:
         # Checks that multiple map metrics are correctly normalized.
         # Using a custom Data input to simplify testing.
@@ -467,6 +475,7 @@ class TestDataUtils(TestCase):
         for df in [experiment_data.arm_data, experiment_data.observation_data]:
             self.assertEqual(set(df.index.get_level_values("arm_name")), expected_arms)
 
+    @_use_object_dtype_for_strings
     def test_extract_experiment_data_with_metadata_columns(self) -> None:
         # Tests the case where the Data.df includes additional columns,
         # such as start_time and end_time, besides the usual required columns.
@@ -522,7 +531,7 @@ class TestDataUtils(TestCase):
                 names=["trial_index", "arm_name"],
             ),
             columns=MultiIndex.from_tuples(
-                tuples=[
+                [
                     ("mean", "branin_a"),
                     ("mean", "branin_b"),
                     ("sem", "branin_a"),

@@ -11,7 +11,11 @@ from unittest.mock import patch
 
 import numpy as np
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import ExperimentData, extract_experiment_data
+from ax.adapter.data_utils import (
+    _use_object_dtype_for_strings,
+    ExperimentData,
+    extract_experiment_data,
+)
 from ax.adapter.transforms.cast import Cast
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import (
@@ -449,6 +453,7 @@ class CastTransformTest(TestCase):
         )
         self.assertEqual(set(transformed.arm_data.columns), expected_columns)
 
+    @_use_object_dtype_for_strings
     def test_transform_experiment_data_cast(self) -> None:
         # Test for casting to the correct data type and dropping of Nones.
         experiment = get_experiment_with_observations(
@@ -495,6 +500,7 @@ class CastTransformTest(TestCase):
         ]
         assert_frame_equal(transformed.observation_data, expected_obs_data)
 
+    @_use_object_dtype_for_strings
     def test_transform_experiment_data_cast_map_data(self) -> None:
         # Check that indexing for removal of NaNs works correctly with data that
         # has a "step" column.

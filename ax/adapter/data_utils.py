@@ -15,13 +15,15 @@ parameterizations and the metric observations (from a Data object).
 
 from __future__ import annotations
 
+import functools
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass, InitVar
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
+import pandas as pd
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
@@ -351,6 +353,32 @@ def extract_experiment_data(
     return ExperimentData(arm_data=arm_data, observation_data=observation_data)
 
 
+def _use_object_dtype_for_strings(
+    func: Callable[..., Any],
+) -> Callable[..., Any]:
+    """Decorator to disable pandas 3.0 StringDtype inference.
+
+    This ensures string columns like arm_name keep object dtype to match
+    Data.COLUMN_DATA_TYPES. See: https://pandas.pydata.org/docs/whatsnew/v3.0.0.html
+
+    On older pandas versions that don't have the future.infer_string option,
+    this decorator is a no-op since the StringDtype inference doesn't exist.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Check if the future.infer_string option exists (pandas 3.0+)
+        if hasattr(pd.options, "future") and hasattr(pd.options.future, "infer_string"):
+            with pd.option_context("future.infer_string", False):
+                return func(*args, **kwargs)
+        else:
+            # Older pandas version - no StringDtype inference to disable
+            return func(*args, **kwargs)
+
+    return wrapper
+
+
+@_use_object_dtype_for_strings
 def _extract_arm_data(experiment: Experiment) -> DataFrame:
     """Extract a dataframe containing the trial index, arm name,
     parameterizations, and metadata from the given experiment.
@@ -383,6 +411,7 @@ def _extract_arm_data(experiment: Experiment) -> DataFrame:
     return df
 
 
+@_use_object_dtype_for_strings
 def _extract_observation_data(
     experiment: Experiment,
     data_loader_config: DataLoaderConfig,
