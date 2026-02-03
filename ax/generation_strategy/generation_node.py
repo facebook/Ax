@@ -1101,42 +1101,43 @@ class GenerationStep:
         # is set in `GenerationStrategy` constructor, because only then is the order
         # of the generation steps actually known.
         transition_criteria: list[TransitionCriterion] = []
+        # Placeholder - will be overwritten in _validate_and_set_step_sequence in GS
+        placeholder_transition_to = f"GenerationStep_{str(index)}"
+
         if num_trials != -1:
             transition_criteria.append(
                 MinTrials(
                     threshold=num_trials,
+                    transition_to=placeholder_transition_to,
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
                     block_gen_if_met=enforce_num_trials,
                     block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
-                    transition_to=None,  # Re-set in GS constructor.
                 )
             )
 
         if min_trials_observed > 0:
             transition_criteria.append(
                 MinTrials(
+                    threshold=min_trials_observed,
+                    transition_to=placeholder_transition_to,
                     only_in_statuses=[
                         TrialStatus.COMPLETED,
                         TrialStatus.EARLY_STOPPED,
                     ],
-                    threshold=min_trials_observed,
                     block_gen_if_met=False,
                     block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
-                    transition_to=None,  # Re-set in GS constructor.
                 )
             )
         if max_parallelism is not None:
             transition_criteria.append(
                 MaxGenerationParallelism(
                     threshold=max_parallelism,
+                    transition_to=placeholder_transition_to,
                     only_in_statuses=[TrialStatus.RUNNING],
                     block_gen_if_met=True,
                     block_transition_if_unmet=False,
-                    # MaxParallelism transitions to self,
-                    # this will be confirmed in GS init
-                    transition_to=f"GenerationStep_{str(index)}",
                 )
             )
 
