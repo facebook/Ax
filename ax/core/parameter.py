@@ -1325,7 +1325,8 @@ class DerivedParameter(Parameter):
         Args:
             name: Name of the parameter.
             parameter_type: Enum indicating the type of parameter value. Expects
-                "float", or "int". "bool" and "str" are not supported.
+                "float", or "int". "bool" and "str" are supported only for simple
+                copies (expression_str must be a single parameter name).
             expression_str: A string expression of the derived parameter definition.
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
@@ -1336,17 +1337,14 @@ class DerivedParameter(Parameter):
             raise UnsupportedError(
                 "Derived parameters do not support specifying a target value."
             )
-        elif parameter_type not in (ParameterType.FLOAT, ParameterType.INT):
-            raise UserInputError(
-                "Derived parameters must be of type float or int, but got "
-                f"{parameter_type}."
-            )
 
-        self.set_expression_str(expression_str=expression_str)
         self._name = name
-        self._parameter_type = parameter_type
+        self._parameter_type = parameter_type  # Set first so validation works
         self._is_fidelity = is_fidelity
         self._target_value = target_value
+
+        # Parse expression and validate type constraint (reuses set_expression_str)
+        self.set_expression_str(expression_str)
 
     def _parse_expression_str(self, expression_str: str) -> None:
         """Parse the expression str into parameter names and coefficients.
@@ -1362,6 +1360,8 @@ class DerivedParameter(Parameter):
         elif not isinstance(expression, (Add, Mul, Symbol)):
             raise UnsupportedError("Only linear expressions are currently supported.")
         coefficient_dict = expression.as_coefficients_dict()
+        # NOTE: the constant/intercept term is always stored with the integer 1 as its
+        # key, representing the "unit monomial" (x^0 = 1).
         self._intercept = float(coefficient_dict.pop(1, 0.0))
         parameter_names_to_weights = {}
         for name, coef in coefficient_dict.items():
@@ -1375,6 +1375,9 @@ class DerivedParameter(Parameter):
     @property
     def domain_repr(self) -> str:
         """Returns a string representation of the derived parameter."""
+        if self._is_simple_copy:
+            return f"value={self.source_parameter_name}"
+
         terms = [
             f"{weight} * {name}"
             for name, weight in self._parameter_names_to_weights.items()
@@ -1391,9 +1394,39 @@ class DerivedParameter(Parameter):
     def expression_str(self) -> str:
         return self._expression_str
 
+    @property
+    def _is_simple_copy(self) -> bool:
+        """Check if this derived parameter is a simple copy of another parameter.
+
+        A simple copy means the expression has exactly one source parameter with
+        coefficient 1.0 and no intercept (i.e., `derived_param = source_param`).
+        """
+        return (
+            len(self._parameter_names_to_weights) == 1
+            and self._intercept == 0.0
+            and list(self._parameter_names_to_weights.values())[0] == 1.0
+        )
+
+    @property
+    def source_parameter_name(self) -> str | None:
+        """Return the source parameter name if this is a simple copy, else None."""
+        if self._is_simple_copy:
+            return list(self._parameter_names_to_weights.keys())[0]
+        return None
+
     def set_expression_str(self, expression_str: str) -> None:
         self._expression_str = expression_str
+        # Parse expression first to determine if it's a simple copy
         self._parse_expression_str(expression_str=expression_str)
+        # Re-validate: BOOL and STRING only allowed for simple copies
+        if self._parameter_type not in (ParameterType.FLOAT, ParameterType.INT):
+            if not self._is_simple_copy:
+                raise UserInputError(
+                    f"Derived parameters of type {self._parameter_type.name} must be "
+                    "simple copies (expression_str must be a single parameter name "
+                    "with no arithmetic). For expressions with arithmetic, use FLOAT "
+                    "or INT."
+                )
 
     @property
     def intercept(self) -> float:
@@ -1415,6 +1448,13 @@ class DerivedParameter(Parameter):
         Returns:
             The value of the derived parameter.
         """
+        if self._is_simple_copy:
+            # Direct copy - works for all parameter types
+            source_name = self.source_parameter_name
+            value = parameters[none_throws(source_name)]
+            return self.cast(value)
+
+        # Arithmetic expression - only for numeric types
         return self.cast(
             self._intercept
             + sum(
@@ -1452,13 +1492,20 @@ class DerivedParameter(Parameter):
                 )
             return False
         expected_value = self.compute(parameters=parameters)
-        is_valid = (
-            abs(
-                assert_is_instance(expected_value, TNumeric)
-                - assert_is_instance(value, TNumeric)
+
+        # For numeric types, use epsilon comparison; for others, use equality
+        if self._parameter_type in (ParameterType.FLOAT, ParameterType.INT):
+            is_valid = (
+                abs(
+                    assert_is_instance(expected_value, TNumeric)
+                    - assert_is_instance(value, TNumeric)
+                )
+                < EPS
             )
-            < EPS
-        )
+        else:
+            # BOOL and STRING use exact equality
+            is_valid = expected_value == value
+
         if raises and not is_valid:
             raise UserInputError(
                 f"Value {value} is not equal to the expected derived"
@@ -1475,7 +1522,21 @@ class DerivedParameter(Parameter):
         Returns:
             A NumPy array with the computed derived values. Rows with NaN values
             for any constituent parameter will have NaN as the computed value.
+            For non-numeric types (BOOL, STRING), returns an object array.
         """
+        if self._is_simple_copy:
+            source_name = none_throws(self.source_parameter_name)
+            if source_name in df.columns:
+                # Return as object array for non-numeric types
+                if self._parameter_type in (ParameterType.BOOL, ParameterType.STRING):
+                    return df[source_name].to_numpy()
+                return df[source_name].to_numpy(dtype=np.float64, na_value=np.nan)
+            # Missing column
+            if self._parameter_type in (ParameterType.FLOAT, ParameterType.INT):
+                return np.full(len(df), np.nan, dtype=np.float64)
+            return np.full(len(df), None, dtype=object)
+
+        # Arithmetic expression - only for numeric types
         computed = np.full(len(df), self._intercept, dtype=np.float64)
         for p_name, weight in self._parameter_names_to_weights.items():
             if p_name in df.columns:
@@ -1506,7 +1567,12 @@ class DerivedParameter(Parameter):
         if df is None:
             return np.full(len(values), False, dtype=bool)
         computed = self.compute_array(df)
-        return np.abs(values - computed) < EPS
+
+        if self._parameter_type in (ParameterType.FLOAT, ParameterType.INT):
+            return np.abs(values - computed) < EPS
+        else:
+            # For BOOL and STRING, use equality
+            return values == computed
 
     def clone(self) -> DerivedParameter:
         return DerivedParameter(
