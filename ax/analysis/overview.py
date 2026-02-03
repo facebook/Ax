@@ -215,11 +215,15 @@ class OverviewAnalysis(Analysis):
             if self.options is not None
             else None,
             ConstraintsFeasibilityAnalysis(),
-            PredictableMetricsAnalysis()
-            if self.model_fit_threshold is None
-            else PredictableMetricsAnalysis(
-                model_fit_threshold=self.model_fit_threshold
-            ),
+            (
+                PredictableMetricsAnalysis()
+                if self.model_fit_threshold is None
+                else PredictableMetricsAnalysis(
+                    model_fit_threshold=self.model_fit_threshold
+                )
+            )
+            if not has_batch_trials
+            else None,
             BaselineImprovementAnalysis() if not has_batch_trials else None,
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
