@@ -382,5 +382,9 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     @property
     def _unique_id(self) -> str:
         """Returns the unique ID of this model spec"""
-        # TODO @mgarrard verify that this is unique enough
+        # The `_unique_id` needs to be unique w.r.t. nearest parent class in
+        # storage; in this case, a `GenerationNode`. This hash uses all components
+        # of a `GeneratorSpec` and should therefore be sufficiently unique, since
+        # there is no reason why two `GeneratorSpec`-s that are exactly the same,
+        # would appear on the same `GenNode`.
         return str(hash(self))
