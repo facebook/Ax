@@ -578,18 +578,55 @@ class SearchSpaceTest(TestCase):
         ):
             self.ss1._validate_derived_parameter(parameter=self.invalid_derived_param)
 
-        # test with non-numeric param
+        # test with non-numeric param used in arithmetic expression
         derived_param = DerivedParameter(
-            name="z", parameter_type=ParameterType.FLOAT, expression_str="c"
+            name="z", parameter_type=ParameterType.FLOAT, expression_str="2.0 * c"
         )
         with self.assertRaisesRegex(
             ValueError,
             "Parameter c is not a float or int, but is used in a derived parameter.",
         ):
             self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test simple copy type incompatibility: numeric derived from non-numeric source
+        # tests the unified type compatibility rule: types must match OR both numeric
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.FLOAT, expression_str="c"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter c has type STRING, but the derived parameter has type FLOAT. "
+            "Simple copy derived parameters must have the same type as their source "
+            "parameter.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test simple copy type incompatibility: non-numeric derived from numeric source
+        # same validation rule as above, different type combination
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.STRING, expression_str="a"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter a has type FLOAT, but the derived parameter has type STRING. "
+            "Simple copy derived parameters must have the same type as their source "
+            "parameter.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
         # test int derived param with float constituent param
         derived_param = DerivedParameter(
             name="z", parameter_type=ParameterType.INT, expression_str="a"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter a is a float, but is used in a derived parameter with int type.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test int derived param with float constituent param (arithmetic expression)
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.INT, expression_str="2.0 * a"
         )
         with self.assertRaisesRegex(
             ValueError,
@@ -620,6 +657,37 @@ class SearchSpaceTest(TestCase):
             "to add an fixed value to a derived parameter.",
         ):
             self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test simple copy of STRING parameter - should succeed
+        string_derived_param = DerivedParameter(
+            name="derived_c", parameter_type=ParameterType.STRING, expression_str="c"
+        )
+        # This should NOT raise - it's a valid simple copy
+        self.ss1._validate_derived_parameter(parameter=string_derived_param)
+
+        # test simple copy of BOOL parameter - should succeed
+        # Add a non-fixed BOOL parameter to the search space
+        bool_choice_param = ChoiceParameter(
+            name="bool_choice", parameter_type=ParameterType.BOOL, values=[True, False]
+        )
+        self.ss1.add_parameter(bool_choice_param)
+        bool_derived_param = DerivedParameter(
+            name="derived_bool",
+            parameter_type=ParameterType.BOOL,
+            expression_str="bool_choice",
+        )
+        # This should NOT raise - it's a valid simple copy
+        self.ss1._validate_derived_parameter(parameter=bool_derived_param)
+
+        # test simple copy INT to FLOAT promotion - should succeed
+        # INT can be promoted to FLOAT (e.g., 3 -> 3.0)
+        int_to_float_derived_param = DerivedParameter(
+            name="derived_f_as_float",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="f",  # f is an INT parameter
+        )
+        # This should NOT raise - INT can be promoted to FLOAT
+        self.ss1._validate_derived_parameter(parameter=int_to_float_derived_param)
 
     def test_get_overlapping_parameters(self) -> None:
         with self.subTest("full_overlap"):

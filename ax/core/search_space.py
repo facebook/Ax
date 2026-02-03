@@ -896,6 +896,12 @@ class SearchSpace(Base):
 
     def _validate_derived_parameter(self, parameter: DerivedParameter) -> None:
         is_int = parameter.parameter_type == ParameterType.INT
+        is_simple_copy = parameter._is_simple_copy
+        derived_is_numeric = parameter.parameter_type in (
+            ParameterType.INT,
+            ParameterType.FLOAT,
+        )
+
         for p_name in parameter.parameter_names_to_weights.keys():
             p = self._parameters.get(p_name)
             if p is None:
@@ -903,17 +909,36 @@ class SearchSpace(Base):
                     f"Parameter {p_name} is not in the search space, but is used in a "
                     "derived parameter."
                 )
-            if not p.is_numeric:
+
+            # For arithmetic expressions, source must be numeric
+            if not is_simple_copy and not p.is_numeric:
                 raise ValueError(
                     f"Parameter {p_name} is not a float or int, but is used in a "
-                    "derived parameter."
+                    "derived parameter whose expression is not a simple copy."
                 )
-            elif is_int and p.parameter_type == ParameterType.FLOAT:
+
+            # For simple copies, validate type compatibility
+            # Valid: exact type match OR both numeric (int can promote to float)
+            if is_simple_copy:
+                types_compatible = parameter.parameter_type == p.parameter_type or (
+                    derived_is_numeric and p.is_numeric
+                )
+                if not types_compatible:
+                    raise ValueError(
+                        f"Parameter {p_name} has type {p.parameter_type.name}, but the "
+                        f"derived parameter has type {parameter.parameter_type.name}. "
+                        "Simple copy derived parameters must have the same type as "
+                        "their source parameter."
+                    )
+
+            # Float source cannot be used with Int derived parameter
+            if is_int and p.parameter_type == ParameterType.FLOAT:
                 raise ValueError(
                     f"Parameter {p_name} is a float, but is used in a derived "
                     "parameter with int type."
                 )
-            elif isinstance(p, DerivedParameter):
+
+            if isinstance(p, DerivedParameter):
                 raise ValueError(
                     "Parameter cannot be derived from another derived parameter."
                 )
