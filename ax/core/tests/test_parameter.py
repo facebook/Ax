@@ -9,6 +9,8 @@
 from math import isinf
 from typing import cast
 
+import numpy as np
+import pandas as pd
 from ax.core.parameter import (
     _get_parameter_type,
     ChoiceParameter,
@@ -1021,8 +1023,8 @@ class DerivedParameterTest(TestCase):
         for parameter_type in (ParameterType.BOOL, ParameterType.STRING):
             with self.assertRaisesRegex(
                 UserInputError,
-                "Derived parameters must be of type float or int, but got "
-                f"{parameter_type}.",
+                f"Derived parameters of type {parameter_type.name} must be simple "
+                "copies",
             ):
                 DerivedParameter(
                     name="x",
@@ -1170,6 +1172,132 @@ class DerivedParameterTest(TestCase):
             "cardinality for an integer DerivedParameter is not supported.",
         ):
             self.param2.cardinality()
+
+    def test_simple_copy(self) -> None:
+        """Test simple copy functionality for all parameter types including BOOL, and
+        STRING.
+        """
+        # Test 1: Simple copy detection - _is_simple_copy returns True for single param
+        dp_float = DerivedParameter(
+            name="derived_x",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="x",
+        )
+        self.assertTrue(dp_float._is_simple_copy)
+        self.assertEqual(dp_float.source_parameter_name, "x")
+
+        # Test 2: _is_simple_copy returns False for expressions with coefficients != 1
+        dp_scaled = DerivedParameter(
+            name="derived_scaled",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="2 * x",
+        )
+        self.assertFalse(dp_scaled._is_simple_copy)
+        self.assertIsNone(dp_scaled.source_parameter_name)
+
+        # Test 3: _is_simple_copy returns False for expressions with intercepts
+        dp_offset = DerivedParameter(
+            name="derived_offset",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="x + 1",
+        )
+        self.assertFalse(dp_offset._is_simple_copy)
+
+        # Test 4: _is_simple_copy returns False for multi-param expressions
+        dp_multi = DerivedParameter(
+            name="derived_multi",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="x + y",
+        )
+        self.assertFalse(dp_multi._is_simple_copy)
+
+        # Test 5: BOOL derived parameter - compute and validate
+        dp_bool = DerivedParameter(
+            name="derived_bool",
+            parameter_type=ParameterType.BOOL,
+            expression_str="flag",
+        )
+        self.assertTrue(dp_bool._is_simple_copy)
+        self.assertEqual(dp_bool.compute({"flag": True}), True)
+        self.assertEqual(dp_bool.compute({"flag": False}), False)
+        self.assertTrue(dp_bool.validate(True, parameters={"flag": True}))
+        self.assertTrue(dp_bool.validate(False, parameters={"flag": False}))
+        self.assertFalse(dp_bool.validate(True, parameters={"flag": False}))
+
+        # Test 6: STRING derived parameter - compute and validate
+        dp_string = DerivedParameter(
+            name="derived_string",
+            parameter_type=ParameterType.STRING,
+            expression_str="category",
+        )
+        self.assertTrue(dp_string._is_simple_copy)
+        self.assertEqual(dp_string.compute({"category": "foo"}), "foo")
+        self.assertEqual(dp_string.compute({"category": "bar"}), "bar")
+        self.assertTrue(dp_string.validate("foo", parameters={"category": "foo"}))
+        self.assertFalse(dp_string.validate("foo", parameters={"category": "bar"}))
+
+        # Test 7: domain_repr for simple copy
+        self.assertEqual(dp_bool.domain_repr, "value=flag")
+        self.assertEqual(dp_string.domain_repr, "value=category")
+
+        # Test 8: Error case - BOOL with non-simple expression
+        with self.assertRaisesRegex(UserInputError, "simple copies"):
+            DerivedParameter(
+                name="bad_bool",
+                parameter_type=ParameterType.BOOL,
+                expression_str="2 * flag",
+            )
+
+        # Test 9: Error case - STRING with non-simple expression
+        with self.assertRaisesRegex(UserInputError, "simple copies"):
+            DerivedParameter(
+                name="bad_string",
+                parameter_type=ParameterType.STRING,
+                expression_str="cat + 1",
+            )
+
+        # Test 10: compute_array and validate_array for BOOL
+        df = pd.DataFrame(
+            {
+                "flag": [True, False, True],
+                "other": [False, False, False],
+            }
+        )
+        computed_bool = dp_bool.compute_array(df)
+        self.assertTrue(np.array_equal(computed_bool, np.array([True, False, True])))
+        self.assertTrue(
+            np.array_equal(
+                dp_bool.validate_array(np.array([True, False, True]), df),
+                np.array([True, True, True]),
+            )
+        )
+
+        # Test 11: compute_array and validate_array for STRING
+        df_str = pd.DataFrame({"category": ["foo", "bar", "baz"]})
+        computed_str = dp_string.compute_array(df_str)
+        self.assertTrue(np.array_equal(computed_str, np.array(["foo", "bar", "baz"])))
+
+        # Test 12: compute_array for numeric (FLOAT) simple copy with column present
+        # (Covers line 1533: return df[source_name].to_numpy(dtype=np.float64, ...))
+        df_float = pd.DataFrame({"x": [1.0, 2.0, 3.0]})
+        np.testing.assert_array_equal(
+            dp_float.compute_array(df_float), np.array([1.0, 2.0, 3.0])
+        )
+
+        # Test 13: compute_array for simple copy with missing column
+        # (Covers lines 1535-1537)
+        df_missing = pd.DataFrame({"other": [1.0, 2.0]})
+        self.assertTrue(np.all(np.isnan(dp_float.compute_array(df_missing))))  # numeric
+        self.assertTrue(
+            np.all(pd.isna(dp_bool.compute_array(df_missing)))
+        )  # non-numeric
+
+        # Test 14: validate_array with df=None
+        # (Covers line 1568)
+        np.testing.assert_array_equal(
+            dp_float.validate_array(np.array([1.0, 2.0]), df=None),
+            np.array([False, False]),
+        )
 
 
 class ParameterEqualityTest(TestCase):
