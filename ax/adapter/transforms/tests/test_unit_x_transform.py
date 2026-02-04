@@ -9,7 +9,7 @@
 from copy import deepcopy
 
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.data_utils import _use_object_dtype_for_strings, extract_experiment_data
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -205,6 +205,7 @@ class UnitXTransformTest(TestCase):
         t.transform_search_space(new_search_space_with_target)
         self.assertEqual(new_search_space_with_target.parameters["x"].target_value, 0.5)
 
+    @_use_object_dtype_for_strings
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
             {"x": 1.0, "y": 1.5, "z": 1.0, "a": 1, "b": "b"},

@@ -1402,12 +1402,11 @@ class Experiment(Base):
             has_data = not dat.df.empty
             if has_data:
                 new_df = dat.full_df.copy()
-                new_df["trial_index"].replace(
-                    {trial.index: new_trial.index}, inplace=True
+                new_df["trial_index"] = new_df["trial_index"].replace(
+                    {trial.index: new_trial.index}
                 )
-                new_df["arm_name"].replace(
-                    {none_throws(trial.arm).name: none_throws(new_trial.arm).name},
-                    inplace=True,
+                new_df["arm_name"] = new_df["arm_name"].replace(
+                    {none_throws(trial.arm).name: none_throws(new_trial.arm).name}
                 )
                 # Attach updated data to new trial on experiment.
                 self.attach_data(data=Data(df=new_df))

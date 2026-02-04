@@ -1062,7 +1062,7 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1071,7 +1071,7 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1080,7 +1080,7 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1089,7 +1089,7 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1097,7 +1097,7 @@ class Decoder:
             name=analysis_card_sqa.name,
             title=title,
             subtitle=subtitle,
-            df=read_json(analysis_card_sqa.dataframe_json),
+            df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
             blob=blob,
             timestamp=analysis_card_sqa.timestamp,
         )

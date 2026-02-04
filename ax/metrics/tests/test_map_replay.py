@@ -65,17 +65,19 @@ class MapDataReplayMetricTest(TestCase):
         # the second fetch will be for MAP_KEY = 0 and MAP_KEY = 1
         data = experiment.fetch_data()
         metric_name = [replay_metric.name] * 4
-        expected_df = DataFrame(
-            {
-                "trial_index": [0, 0, 1, 1],
-                "arm_name": ["0_0", "0_0", "1_0", "1_0"],
-                "metric_name": metric_name,
-                "metric_signature": metric_name,
-                "mean": [146.138620, 117.388086, 113.057480, 90.815154],
-                "sem": [0.0, 0.0, 0.0, 0.0],
-                MAP_KEY: [0.0, 1.0, 0.0, 1.0],
-            }
-        )
+        expected_df = Data(
+            df=DataFrame(
+                {
+                    "trial_index": [0, 0, 1, 1],
+                    "arm_name": ["0_0", "0_0", "1_0", "1_0"],
+                    "metric_name": metric_name,
+                    "metric_signature": metric_name,
+                    "mean": [146.138620, 117.388086, 113.057480, 90.815154],
+                    "sem": [0.0, 0.0, 0.0, 0.0],
+                    MAP_KEY: [0.0, 1.0, 0.0, 1.0],
+                }
+            )
+        ).full_df
         assert_frame_equal(data.full_df, expected_df)
 
     def test_map_replay_non_uniform(self) -> None:
@@ -120,17 +122,19 @@ class MapDataReplayMetricTest(TestCase):
             trial.run()
 
         metric_name = [replay_metric.name] * 4
-        full_expected_df = DataFrame(
-            {
-                "trial_index": [0, 0, 1, 1],
-                "arm_name": ["0_0", "0_0", "1_0", "1_0"],
-                "metric_name": metric_name,
-                "metric_signature": metric_name,
-                "mean": [146.138620, 117.388086, 113.057480, 90.815154],
-                "sem": [0.0, 0.0, 0.0, 0.0],
-                MAP_KEY: [0.25, 0.95, 0.25, 1.0],
-            }
-        )
+        full_expected_df = Data(
+            df=DataFrame(
+                {
+                    "trial_index": [0, 0, 1, 1],
+                    "arm_name": ["0_0", "0_0", "1_0", "1_0"],
+                    "metric_name": metric_name,
+                    "metric_signature": metric_name,
+                    "mean": [146.138620, 117.388086, 113.057480, 90.815154],
+                    "sem": [0.0, 0.0, 0.0, 0.0],
+                    MAP_KEY: [0.25, 0.95, 0.25, 1.0],
+                }
+            )
+        ).full_df
 
         # Test that as we step through with steps of size 0.3625, we
         # first get both points at step 0.25.

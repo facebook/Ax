@@ -9,7 +9,7 @@
 from copy import deepcopy
 
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.data_utils import _use_object_dtype_for_strings, extract_experiment_data
 from ax.adapter.transforms.one_hot import OH_PARAM_INFIX, OneHot
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
@@ -226,6 +226,7 @@ class OneHotTransformTest(TestCase):
         untf_obs = self.t.untransform_observation_features(obs_ft)
         self.assertFalse(any(obs.parameters.get("b") == "b" for obs in untf_obs))
 
+    @_use_object_dtype_for_strings
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
             {"x": 2.2, "a": 2, "b": "b", "c": False, "d": 10.0},
