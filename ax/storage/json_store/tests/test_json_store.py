@@ -1725,6 +1725,145 @@ class JSONStoreTest(TestCase):
             )
         )
 
+    def test_arm_parameter_values_cast_to_parameter_type(self) -> None:
+        """Test that arm parameter values are cast to the appropriate type on load."""
+        from ax.core.arm import Arm
+        from ax.core.experiment import Experiment
+        from ax.core.parameter import RangeParameter
+        from ax.core.search_space import SearchSpace
+        from ax.storage.json_store.encoder import object_to_json
+
+        # Create an experiment with INT parameters
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    lower=0,
+                    upper=10,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+
+        experiment = Experiment(
+            name="test_experiment",
+            search_space=search_space,
+            status_quo=Arm(parameters={"x": 5, "y": 0.5}, name="status_quo"),
+        )
+
+        # Add a trial with an arm
+        trial = experiment.new_trial()
+        trial.add_arm(Arm(parameters={"x": 3, "y": 0.3}))
+
+        # Encode the experiment to JSON
+        experiment_json = object_to_json(
+            experiment,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Manually modify the JSON to simulate float values for INT parameters
+        # (as could happen when loading from external sources)
+        for arm_json in experiment_json["trials"][0]["generator_run"]["arms"]:
+            arm_json["parameters"]["x"] = 3.0  # float instead of int
+        experiment_json["status_quo"]["parameters"]["x"] = 5.0  # float instead of int
+
+        # Decode the experiment from JSON
+        loaded_experiment = object_from_json(
+            experiment_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Check that arm parameter values are cast to the correct type
+        loaded_arm = list(loaded_experiment.trials[0].arms)[0]
+        self.assertEqual(loaded_arm.parameters["x"], 3)
+        self.assertIs(type(loaded_arm.parameters["x"]), int)
+        self.assertEqual(loaded_arm.parameters["y"], 0.3)
+        self.assertIs(type(loaded_arm.parameters["y"]), float)
+
+        # Check that status_quo parameter values are cast to the correct type
+        status_quo = loaded_experiment.status_quo
+        self.assertIsNotNone(status_quo)
+        self.assertEqual(status_quo.parameters["x"], 5)
+        self.assertIs(type(status_quo.parameters["x"]), int)
+        self.assertEqual(status_quo.parameters["y"], 0.5)
+        self.assertIs(type(status_quo.parameters["y"]), float)
+
+    def test_cast_parameter_value_all_types(self) -> None:
+        """Test _cast_parameter_value handles all parameter types correctly."""
+        from ax.storage.json_store.decoders import _cast_parameter_value
+
+        # Test INT casting
+        self.assertEqual(_cast_parameter_value(3.0, ParameterType.INT), 3)
+        self.assertIs(type(_cast_parameter_value(3.0, ParameterType.INT)), int)
+        self.assertEqual(_cast_parameter_value(3, ParameterType.INT), 3)
+        self.assertIs(type(_cast_parameter_value(3, ParameterType.INT)), int)
+
+        # Test FLOAT casting
+        self.assertEqual(_cast_parameter_value(3, ParameterType.FLOAT), 3.0)
+        self.assertIs(type(_cast_parameter_value(3, ParameterType.FLOAT)), float)
+        self.assertEqual(_cast_parameter_value(3.5, ParameterType.FLOAT), 3.5)
+        self.assertIs(type(_cast_parameter_value(3.5, ParameterType.FLOAT)), float)
+
+        # Test BOOL casting
+        self.assertEqual(_cast_parameter_value(1, ParameterType.BOOL), True)
+        self.assertIs(type(_cast_parameter_value(1, ParameterType.BOOL)), bool)
+        self.assertEqual(_cast_parameter_value(0, ParameterType.BOOL), False)
+        self.assertIs(type(_cast_parameter_value(0, ParameterType.BOOL)), bool)
+        self.assertEqual(_cast_parameter_value(True, ParameterType.BOOL), True)
+        self.assertIs(type(_cast_parameter_value(True, ParameterType.BOOL)), bool)
+
+        # Test STRING casting
+        self.assertEqual(_cast_parameter_value("test", ParameterType.STRING), "test")
+        self.assertIs(type(_cast_parameter_value("test", ParameterType.STRING)), str)
+        self.assertEqual(_cast_parameter_value(123, ParameterType.STRING), "123")
+        self.assertIs(type(_cast_parameter_value(123, ParameterType.STRING)), str)
+
+        # Test None handling
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.INT))
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.FLOAT))
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.BOOL))
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.STRING))
+
+    def test_cast_arm_parameters_skips_unknown_params(self) -> None:
+        """Test that _cast_arm_parameters skips parameters not in search space."""
+        from ax.core.arm import Arm
+        from ax.core.parameter import RangeParameter
+        from ax.core.search_space import SearchSpace
+        from ax.storage.json_store.decoder import _cast_arm_parameters
+
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    lower=0,
+                    upper=10,
+                ),
+            ]
+        )
+
+        # Create an arm with a parameter that's not in the search space
+        arm = Arm(parameters={"x": 3.0, "unknown_param": "some_value"})
+
+        # Cast should work without error and only cast known parameters
+        _cast_arm_parameters(arm, search_space)
+
+        # x should be cast to int
+        self.assertEqual(arm.parameters["x"], 3)
+        self.assertIs(type(arm.parameters["x"]), int)
+
+        # unknown_param should remain unchanged
+        self.assertEqual(arm.parameters["unknown_param"], "some_value")
+        self.assertIs(type(arm.parameters["unknown_param"]), str)
+
     def test_surrogate_spec_backwards_compatibility(self) -> None:
         # This is an invalid example that has both deprecated args
         # and model config specified. Deprecated args will be ignored.

@@ -57,6 +57,7 @@ from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import _DEPRECATED_GENERATOR_KWARGS, object_from_json
+from ax.storage.json_store.decoders import _cast_parameter_value
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -88,6 +89,24 @@ from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 logger: Logger = get_logger(__name__)
+
+
+def _cast_arm_parameters(arm: Arm, search_space: SearchSpace) -> None:
+    """Cast arm parameter values to the appropriate Python type.
+
+    This is necessary because SQA may deserialize values as different types
+    (e.g., ints as floats). This function modifies the arm in place.
+
+    Args:
+        arm: The arm whose parameter values should be cast.
+        search_space: The search space containing parameter type information.
+    """
+    for param_name, param_value in arm._parameters.items():
+        if param_name in search_space.parameters:
+            parameter = search_space.parameters[param_name]
+            arm._parameters[param_name] = _cast_parameter_value(
+                param_value, parameter.parameter_type
+            )
 
 
 class Decoder:
@@ -378,9 +397,15 @@ class Decoder:
             if trial.ttl_seconds is not None:
                 experiment._trials_have_ttl = True
             for arm in trial.arms:
+                # Cast arm parameter values to the appropriate type based on the
+                # search space parameter types. This is necessary because SQA may
+                # deserialize values as different types (e.g., ints as floats).
+                _cast_arm_parameters(arm, experiment.search_space)
                 experiment._register_arm(arm)
         if experiment.status_quo is not None:
             sq = none_throws(experiment.status_quo)
+            # Cast status_quo arm parameter values as well.
+            _cast_arm_parameters(sq, experiment.search_space)
             experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
         experiment._experiment_type = self.get_enum_name(
