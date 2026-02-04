@@ -26,6 +26,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
+    PARAMETER_PYTHON_TYPE_MAP,
     ParameterType,
     TParamValue,
 )
@@ -91,6 +92,27 @@ def string_to_parameter_value(s: str, parameter_type: ParameterType) -> TParamVa
 
     elif parameter_type == ParameterType.STRING:
         return s
+
+
+def _cast_parameter_value(
+    value: TParamValue, parameter_type: ParameterType
+) -> TParamValue:
+    """Cast a parameter value to the appropriate Python type based on parameter_type.
+
+    This is necessary because JSON may deserialize values as different types
+    (e.g., ints as floats).
+
+    Args:
+        value: The value to cast.
+        parameter_type: The ParameterType to cast to.
+
+    Returns:
+        The value cast to the appropriate Python type.
+    """
+    if value is None:
+        return None
+    python_type = PARAMETER_PYTHON_TYPE_MAP[parameter_type]
+    return python_type(value)
 
 
 def batch_trial_from_json(

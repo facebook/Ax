@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.adapter.registry import GeneratorRegistryBase
+from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -47,6 +48,7 @@ from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
+    _cast_parameter_value,
     batch_trial_from_json,
     botorch_component_from_json,
     tensor_from_json,
@@ -70,6 +72,24 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 logger: Logger = get_logger(__name__)
+
+
+def _cast_arm_parameters(arm: Arm, search_space: SearchSpace) -> None:
+    """Cast arm parameter values to the appropriate Python type.
+
+    This is necessary because JSON may deserialize values as different types
+    (e.g., ints as floats). This function modifies the arm in place.
+
+    Args:
+        arm: The arm whose parameter values should be cast.
+        search_space: The search space containing parameter type information.
+    """
+    for param_name, param_value in arm._parameters.items():
+        if param_name in search_space.parameters:
+            parameter = search_space.parameters[param_name]
+            arm._parameters[param_name] = _cast_parameter_value(
+                param_value, parameter.parameter_type
+            )
 
 
 def _raise_on_legacy_callable_refs(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
@@ -759,11 +779,17 @@ def _load_experiment_info(
     )
     for trial in exp._trials.values():
         for arm in trial.arms:
+            # Cast arm parameter values to the appropriate type based on the
+            # search space parameter types. This is necessary because JSON may
+            # deserialize values as different types (e.g., ints as floats).
+            _cast_arm_parameters(arm, exp.search_space)
             exp._register_arm(arm)
         if trial.ttl_seconds is not None:
             exp._trials_have_ttl = True
     if exp.status_quo is not None:
         sq = none_throws(exp.status_quo)
+        # Cast status_quo arm parameter values as well.
+        _cast_arm_parameters(sq, exp.search_space)
         exp._register_arm(sq)
 
 

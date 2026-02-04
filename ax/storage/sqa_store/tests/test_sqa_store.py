@@ -43,6 +43,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.runner import Runner
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
@@ -349,6 +350,77 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(exp.db_id)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
+
+    def test_arm_parameter_values_cast_to_parameter_type(self) -> None:
+        """Test that arm parameter values are cast to the appropriate type on load.
+
+        This is important because SQA may deserialize values as different types
+        (e.g., ints as floats). This test directly modifies the SQA objects to
+        simulate float values for INT parameters, then verifies that the decoder
+        casts them back to the correct types.
+        """
+        # Create an experiment with INT and FLOAT parameters
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    lower=0,
+                    upper=10,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+
+        experiment = Experiment(
+            name="test_arm_param_cast_experiment_sqa",
+            search_space=search_space,
+            status_quo=Arm(parameters={"x": 5, "y": 0.5}, name="status_quo"),
+        )
+
+        # Add a trial with an arm
+        trial = experiment.new_trial()
+        trial.add_arm(Arm(parameters={"x": 3, "y": 0.3}))
+
+        # Encode the experiment to SQA
+        experiment_sqa = self.encoder.experiment_to_sqa(experiment)
+
+        # Manually modify the SQA objects to simulate float values for INT parameters
+        # This simulates what can happen when loading from external sources or
+        # when JSON deserialization converts ints to floats.
+        # Modify status_quo parameters
+        none_throws(experiment_sqa.status_quo_parameters)["x"] = (
+            5.0  # float instead of int
+        )
+
+        # Modify arm parameters in the trial's generator run
+        for trial_sqa in experiment_sqa.trials:
+            for gr_sqa in trial_sqa.generator_runs:
+                for arm_sqa in gr_sqa.arms:
+                    arm_sqa.parameters["x"] = 3.0  # float instead of int
+
+        # Decode the experiment from SQA
+        loaded_experiment = self.decoder.experiment_from_sqa(experiment_sqa)
+
+        # Check that arm parameter values are cast to the correct type
+        loaded_arm = list(loaded_experiment.trials[0].arms)[0]
+        self.assertEqual(loaded_arm.parameters["x"], 3)
+        self.assertIs(type(loaded_arm.parameters["x"]), int)
+        self.assertEqual(loaded_arm.parameters["y"], 0.3)
+        self.assertIs(type(loaded_arm.parameters["y"]), float)
+
+        # Check that status_quo parameter values are cast to the correct type
+        status_quo = loaded_experiment.status_quo
+        self.assertIsNotNone(status_quo)
+        self.assertEqual(none_throws(status_quo).parameters["x"], 5)
+        self.assertIs(type(none_throws(status_quo).parameters["x"]), int)
+        self.assertEqual(none_throws(status_quo).parameters["y"], 0.5)
+        self.assertIs(type(none_throws(status_quo).parameters["y"]), float)
 
     def test_saving_and_loading_experiment_with_aux_exp(self) -> None:
         aux_experiment = Experiment(
