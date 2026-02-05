@@ -208,11 +208,15 @@ class OverviewAnalysis(Analysis):
             and self.can_generate_reason is not None
             and self.can_generate_days_till_fail is not None
             else None,
-            ComplexityRatingAnalysis(
-                options=self.options,
-                tier_metadata=self.tier_metadata,
+            (
+                ComplexityRatingAnalysis(
+                    options=self.options,
+                    tier_metadata=self.tier_metadata,
+                )
+                if self.options is not None
+                else None
             )
-            if self.options is not None
+            if not has_batch_trials
             else None,
             ConstraintsFeasibilityAnalysis(),
             (
