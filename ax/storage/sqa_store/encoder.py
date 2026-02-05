@@ -246,6 +246,7 @@ class Encoder:
             status_quo_name=status_quo_name,
             status_quo_parameters=status_quo_parameters,
             time_created=experiment.time_created,
+            status=experiment.status,
             experiment_type=experiment_type,
             metrics=optimization_metrics + tracking_metrics,
             parameters=parameters,
