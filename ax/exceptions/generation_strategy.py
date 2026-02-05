@@ -37,8 +37,8 @@ class MaxParallelismReachedException(AxGenerationException):
             msg_start
             + f" has been reached: {num_running} trials are currently 'running'. Some "
             "trials need to be completed before more trials can be generated. See "
-            "https://ax.dev/docs/bayesopt.html to understand why limited parallelism "
-            "improves performance of Bayesian optimization."
+            "https://ax.dev/docs/tutorials/automating/#step-5-run-trials to understand "
+            "why limited parallelism improves performance of Bayesian optimization."
         )
 
 
