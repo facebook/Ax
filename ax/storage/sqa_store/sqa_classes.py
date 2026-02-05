@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any
 
 from ax.core.evaluations_to_data import DataType
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.parameter import ParameterType
 from ax.core.trial_status import TrialStatus
 from ax.core.types import (
@@ -375,6 +376,9 @@ class SQAExperiment(Base):
         JSONEncodedTextDict
     )
     time_created: Column[datetime] = Column(IntTimestamp, nullable=False)
+    status: Column[ExperimentStatus | None] = Column(
+        IntEnum(ExperimentStatus), nullable=True
+    )
     default_trial_type: Column[str | None] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     default_data_type: Column[DataType] = Column(IntEnum(DataType), nullable=True)
     # pyre-fixme[8]: Incompatible attribute type [8]: Attribute

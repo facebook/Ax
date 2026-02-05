@@ -17,6 +17,7 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data, sort_by_trial_index_and_arm_name
 from ax.core.evaluations_to_data import raw_evaluations_to_data
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -1852,6 +1853,15 @@ class ExperimentTest(TestCase):
                 "At least one non-status-quo arm should have non-zero "
                 "relativized value",
             )
+
+    def test_experiment_status_default(self) -> None:
+        """Test that new experiments have None status for backward compatibility."""
+        self.assertIsNone(self.experiment.status)
+
+    def test_experiment_status_property(self) -> None:
+        """Test the experiment status property getter and setter."""
+        self.experiment.status = ExperimentStatus.DRAFT
+        self.assertEqual(self.experiment.status, ExperimentStatus.DRAFT)
 
 
 class ExperimentWithMapDataTest(TestCase):

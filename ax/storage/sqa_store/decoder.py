@@ -408,6 +408,7 @@ class Decoder:
             _cast_arm_parameters(sq, experiment.search_space)
             experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
+        experiment._status = experiment_sqa.status
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
