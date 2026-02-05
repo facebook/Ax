@@ -398,11 +398,7 @@ class GenerationStrategy(Base):
                 )
             )
             for tc in step.transition_criteria:
-                if tc.criterion_class == "MaxGenerationParallelism":
-                    # MaxGenerationParallelism transitions to self (current step)
-                    tc._transition_to = step.name
-                else:
-                    tc._transition_to = next_step_name
+                tc._transition_to = next_step_name
         self._curr = steps[0]
 
     def _validate_and_set_node_graph(self, nodes: list[GenerationNode]) -> None:
