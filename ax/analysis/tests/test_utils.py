@@ -10,7 +10,12 @@ from itertools import product
 import numpy as np
 import pandas as pd
 from ax.analysis.plotly.utils import STALE_FAIL_REASON, truncate_label
-from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
+from ax.analysis.utils import (
+    _get_scalarized_constraint_mean_and_sem,
+    _prepare_p_feasible,
+    _relativize_df_with_sq,
+    prepare_arm_data,
+)
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
@@ -18,7 +23,9 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import relativize_dataframe
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus  # noqa
+from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
@@ -865,3 +872,152 @@ class TestUtils(TestCase):
                             trial_index=trial_index,
                             additional_arms=additional_arms,
                         )
+
+    def test_get_scalarized_constraint_mean_and_sem(self) -> None:
+        """Test _get_scalarized_constraint_mean_and_sem helper function."""
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0, 0],
+                "arm_name": ["arm1", "arm2", "arm3"],
+                "m1_mean": [1.0, 2.0, 3.0],
+                "m1_sem": [0.1, 0.2, 0.3],
+                "m2_mean": [10.0, 20.0, 30.0],
+                "m2_sem": [1.0, 2.0, 3.0],
+            }
+        )
+
+        # Create a scalarized constraint: 0.5 * m1 + 0.5 * m2 <= 10
+        constraint = ScalarizedOutcomeConstraint(
+            metrics=[Metric(name="m1"), Metric(name="m2")],
+            weights=[0.5, 0.5],
+            op=ComparisonOp.LEQ,
+            bound=10.0,
+        )
+
+        mean, sem = _get_scalarized_constraint_mean_and_sem(df, constraint)
+
+        # Combined mean: 0.5*m1 + 0.5*m2 for each row
+        expected_mean = np.array(
+            [0.5 * 1.0 + 0.5 * 10.0, 0.5 * 2.0 + 0.5 * 20.0, 0.5 * 3.0 + 0.5 * 30.0]
+        )
+        np.testing.assert_array_almost_equal(mean, expected_mean)
+
+        # Combined SEM: sqrt((0.5*sem1)^2 + (0.5*sem2)^2)
+        expected_sem = np.array(
+            [
+                np.sqrt((0.5 * 0.1) ** 2 + (0.5 * 1.0) ** 2),
+                np.sqrt((0.5 * 0.2) ** 2 + (0.5 * 2.0) ** 2),
+                np.sqrt((0.5 * 0.3) ** 2 + (0.5 * 3.0) ** 2),
+            ]
+        )
+        np.testing.assert_array_almost_equal(sem, expected_sem)
+
+    def test_get_scalarized_constraint_mean_and_sem_missing_metric(self) -> None:
+        """Test _get_scalarized_constraint_mean_and_sem with missing metric."""
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0],
+                "arm_name": ["arm1", "arm2"],
+                "m1_mean": [1.0, 2.0],
+                "m1_sem": [0.1, 0.2],
+                # m2 is intentionally missing
+            }
+        )
+
+        # Create a constraint that references missing metric m2
+        constraint = ScalarizedOutcomeConstraint(
+            metrics=[Metric(name="m1"), Metric(name="m2")],
+            weights=[0.5, 0.5],
+            op=ComparisonOp.LEQ,
+            bound=10.0,
+        )
+
+        mean, sem = _get_scalarized_constraint_mean_and_sem(df, constraint)
+
+        # Should return NaN mean and zero SEM for missing data
+        self.assertTrue(np.all(np.isnan(mean)))
+        np.testing.assert_array_equal(sem, np.zeros(2))
+
+    def test_prepare_p_feasible_scalarized_constraint(self) -> None:
+        """Test _prepare_p_feasible computes values for scalarized constraints."""
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0, 0],
+                "arm_name": ["arm1", "arm2", "arm3"],
+                "m1_mean": [5.0, 10.0, 15.0],
+                "m1_sem": [1.0, 1.0, 1.0],
+                "m2_mean": [5.0, 10.0, 15.0],
+                "m2_sem": [1.0, 1.0, 1.0],
+            }
+        )
+
+        # Scalarized constraint: m1 + m2 <= 25
+        # arm1: 5 + 5 = 10, well under bound -> high probability
+        # arm2: 10 + 10 = 20, under bound -> high probability
+        # arm3: 15 + 15 = 30, over bound -> low probability
+        scalarized_constraint = ScalarizedOutcomeConstraint(
+            metrics=[Metric(name="m1"), Metric(name="m2")],
+            weights=[1.0, 1.0],
+            op=ComparisonOp.LEQ,
+            bound=25.0,
+            relative=False,
+        )
+
+        p_feasible = _prepare_p_feasible(
+            df=df,
+            status_quo_df=None,
+            outcome_constraints=[scalarized_constraint],
+        )
+
+        # Verify p_feasible is not NaN (i.e., we're computing actual probabilities)
+        self.assertFalse(p_feasible.isna().any())
+
+        # arm1 should have highest feasibility (mean=10, well under 25)
+        # arm3 should have lowest feasibility (mean=30, over 25)
+        self.assertGreater(p_feasible.iloc[0], p_feasible.iloc[2])
+        self.assertGreater(p_feasible.iloc[1], p_feasible.iloc[2])
+
+    def test_prepare_p_feasible_mixed_constraints(self) -> None:
+        """Test _prepare_p_feasible with both regular and scalarized constraints."""
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0],
+                "arm_name": ["arm1", "arm2"],
+                "m1_mean": [5.0, 15.0],
+                "m1_sem": [1.0, 1.0],
+                "m2_mean": [5.0, 15.0],
+                "m2_sem": [1.0, 1.0],
+                "regular_mean": [8.0, 12.0],
+                "regular_sem": [0.5, 0.5],
+            }
+        )
+
+        # Regular constraint: regular <= 10
+        regular_constraint = OutcomeConstraint(
+            metric=Metric(name="regular"),
+            op=ComparisonOp.LEQ,
+            bound=10.0,
+            relative=False,
+        )
+
+        # Scalarized constraint: m1 + m2 <= 25
+        scalarized_constraint = ScalarizedOutcomeConstraint(
+            metrics=[Metric(name="m1"), Metric(name="m2")],
+            weights=[1.0, 1.0],
+            op=ComparisonOp.LEQ,
+            bound=25.0,
+            relative=False,
+        )
+
+        p_feasible = _prepare_p_feasible(
+            df=df,
+            status_quo_df=None,
+            outcome_constraints=[regular_constraint, scalarized_constraint],
+        )
+
+        # Both constraints should be evaluated (not NaN)
+        self.assertFalse(p_feasible.isna().any())
+
+        # arm1 (regular=8, scalarized=10) should be more feasible than
+        # arm2 (regular=12, scalarized=30)
+        self.assertGreater(p_feasible.iloc[0], p_feasible.iloc[1])
