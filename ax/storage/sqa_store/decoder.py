@@ -13,6 +13,7 @@ from logging import Logger
 from typing import Any, Callable, cast, Union
 
 import pandas as pd
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
@@ -1111,6 +1112,15 @@ class Decoder:
             )
         if blob_annotation == "healthcheck":
             return HealthcheckAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "graphviz":
+            return GraphvizAnalysisCard(
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,

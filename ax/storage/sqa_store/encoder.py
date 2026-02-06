@@ -10,6 +10,7 @@ from enum import Enum
 from logging import Logger
 from typing import Any, cast
 
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
@@ -1167,6 +1168,8 @@ class Encoder:
             blob_annotation = "markdown"
         elif isinstance(card, HealthcheckAnalysisCard):
             blob_annotation = "healthcheck"
+        elif isinstance(card, GraphvizAnalysisCard):
+            blob_annotation = "graphviz"
         else:
             blob_annotation = "dataframe"
 
