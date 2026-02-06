@@ -58,7 +58,7 @@ class TestAdapterFitMetrics(TestCase):
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,
             generation_strategy=self.generation_strategy,
-            options=OrchestratorOptions(max_pending_trials=NUM_SOBOL),
+            options=OrchestratorOptions(max_concurrent_trials=NUM_SOBOL),
         )
         # need to run some trials to initialize the Adapter
         orchestrator.run_n_trials(max_trials=NUM_SOBOL + 1)

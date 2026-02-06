@@ -5,12 +5,14 @@
 
 # pyre-strict
 
-from dataclasses import dataclass, field
+import warnings
+from dataclasses import dataclass, field, InitVar
 from enum import Enum
 from logging import INFO
 from typing import Any
 
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.exceptions.core import UserInputError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 
 
@@ -24,10 +26,10 @@ class OrchestratorOptions:
     """Settings for a Orchestrator instance.
 
     Attributes:
-        max_pending_trials: Maximum number of pending trials the Orchestrator
+        max_concurrent_trials: Maximum number of concurrent trials the Orchestrator
             can have ``STAGED`` or ``RUNNING`` at once, required. If looking
             to use ``Runner.poll_available_capacity`` as a primary guide for
-            how many trials should be pending at a given time, set this limit
+            how many trials should be concurrent at a given time, set this limit
             to a high number, as an upper bound on number of trials that
             should not be exceeded.
         trial_type: Type of trials (1-arm ``Trial`` or multi-arm ``Batch
@@ -90,7 +92,7 @@ class OrchestratorOptions:
             deployment. The size of the groups will be determined as
             the minimum of ``self.poll_available_capacity()`` and the number
             of generator runs that the generation strategy is able to produce
-            without more data or reaching its allowed max paralellism limit.
+            without more data or reaching its allowed max concurrency limit.
         debug_log_run_metadata: Whether to log run_metadata for debugging purposes.
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of
@@ -125,7 +127,7 @@ class OrchestratorOptions:
             Default to False.
     """
 
-    max_pending_trials: int = 10
+    max_concurrent_trials: int = 10
     trial_type: TrialType = TrialType.TRIAL
     batch_size: int | None = None
     total_trials: int | None = None
@@ -149,7 +151,24 @@ class OrchestratorOptions:
     enforce_immutable_search_space_and_opt_config: bool = True
     mt_experiment_trial_type: str | None = None
     terminate_if_status_quo_infeasible: bool = False
+    # Deprecated argument for backwards compatibility.
+    max_pending_trials: InitVar[int | None] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, max_pending_trials: int | None) -> None:
+        # Handle deprecated `max_pending_trials` argument.
+        if max_pending_trials is not None:
+            warnings.warn(
+                "`max_pending_trials` is deprecated and will be removed in Ax 1.4. "
+                "Use `max_concurrent_trials` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.max_concurrent_trials != 10:
+                raise UserInputError(
+                    "Cannot specify both `max_pending_trials` and "
+                    "`max_concurrent_trials`."
+                )
+            object.__setattr__(self, "max_concurrent_trials", max_pending_trials)
+
         if self.early_stopping_strategy is not None:
             object.__setattr__(self, "seconds_between_polls_backoff_factor", 1)

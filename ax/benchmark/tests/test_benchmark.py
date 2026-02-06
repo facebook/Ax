@@ -619,10 +619,10 @@ class TestBenchmark(TestCase):
         }
         self.assertEqual(start_times, expected_start_times)
 
-        with self.subTest("max_pending_trials = 1"):
+        with self.subTest("max_concurrent_trials = 1"):
             method = get_async_benchmark_method(
                 early_stopping_strategy=early_stopping_strategy,
-                max_pending_trials=1,
+                max_concurrent_trials=1,
             )
             experiment = self.run_optimization_with_orchestrator(
                 problem=problem, method=method, seed=0
@@ -652,7 +652,7 @@ class TestBenchmark(TestCase):
             self.assertEqual(max_run, {0: 4, 1: 2, 2: 2, 3: 2})
 
     def test_replication_variable_runtime(self) -> None:
-        method = get_async_benchmark_method(max_pending_trials=1)
+        method = get_async_benchmark_method(max_concurrent_trials=1)
         for map_data in [False, True]:
             with self.subTest(map_data=map_data):
                 problem = get_async_benchmark_problem(
@@ -1037,17 +1037,17 @@ class TestBenchmark(TestCase):
                 generation_strategy=get_sobol_mbm_generation_strategy(
                     model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
                 ),
-                max_pending_trials=2,
+                max_concurrent_trials=2,
                 batch_size=batch_size,
             )
             orchestrator_options = get_benchmark_orchestrator_options(
                 batch_size=none_throws(method.batch_size),
                 run_trials_in_batches=False,
-                max_pending_trials=method.max_pending_trials,
+                max_concurrent_trials=method.max_concurrent_trials,
                 early_stopping_strategy=method.early_stopping_strategy,
                 include_status_quo=include_sq,
             )
-            self.assertEqual(orchestrator_options.max_pending_trials, 2)
+            self.assertEqual(orchestrator_options.max_concurrent_trials, 2)
             self.assertEqual(orchestrator_options.init_seconds_between_polls, 0)
             self.assertEqual(orchestrator_options.min_seconds_before_poll, 0)
             self.assertEqual(orchestrator_options.batch_size, batch_size)

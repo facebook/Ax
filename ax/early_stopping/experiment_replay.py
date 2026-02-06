@@ -35,7 +35,7 @@ logger: Logger = get_logger(__name__)
 # Constants for experiment replay
 MAX_REPLAY_TRIALS: int = 50
 REPLAY_NUM_POINTS_PER_CURVE: int = 20
-MAX_PENDING_TRIALS: int = 5
+MAX_CONCURRENT_TRIALS: int = 5
 MIN_SAVINGS_THRESHOLD: float = 0.1  # 10% threshold
 
 
@@ -44,7 +44,7 @@ def replay_experiment(
     num_samples_per_curve: int,
     max_replay_trials: int,
     metric: Metric,
-    max_pending_trials: int,
+    max_concurrent_trials: int,
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     logging_level: int = logging.ERROR,
 ) -> Experiment | None:
@@ -99,7 +99,7 @@ def replay_experiment(
         ],
     )
     options = OrchestratorOptions(
-        max_pending_trials=max_pending_trials,
+        max_concurrent_trials=max_concurrent_trials,
         total_trials=min(len(historical_experiment.trials), max_replay_trials),
         seconds_between_polls_backoff_factor=1.0,
         min_seconds_before_poll=0.0,
@@ -119,7 +119,7 @@ def replay_experiment(
 def estimate_hypothetical_early_stopping_savings(
     experiment: Experiment,
     metric: Metric,
-    max_pending_trials: int = MAX_PENDING_TRIALS,
+    max_concurrent_trials: int = MAX_CONCURRENT_TRIALS,
 ) -> float:
     """Estimate hypothetical early stopping savings using experiment replay.
 
@@ -130,7 +130,7 @@ def estimate_hypothetical_early_stopping_savings(
     Args:
         experiment: The experiment to analyze.
         metric: The metric to use for early stopping replay.
-        max_pending_trials: Maximum number of pending trials for the replay
+        max_concurrent_trials: Maximum number of concurrent trials for the replay
             orchestrator. Defaults to 5.
 
     Returns:
@@ -156,7 +156,7 @@ def estimate_hypothetical_early_stopping_savings(
         num_samples_per_curve=REPLAY_NUM_POINTS_PER_CURVE,
         max_replay_trials=MAX_REPLAY_TRIALS,
         metric=metric,
-        max_pending_trials=max_pending_trials,
+        max_concurrent_trials=max_concurrent_trials,
         early_stopping_strategy=default_ess,
     )
 

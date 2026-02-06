@@ -215,7 +215,7 @@ class TestComplexityRatingAnalysis(TestCase):
             (
                 "invalid_failure_rate_check",
                 OrchestratorOptions(
-                    max_pending_trials=10,
+                    max_concurrent_trials=10,
                     min_failed_trials_for_failure_rate_check=50,
                 ),
                 {"user_supplied_max_trials": 100, "uses_standard_api": True},
