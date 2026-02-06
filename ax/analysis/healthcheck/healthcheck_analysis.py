@@ -5,17 +5,27 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 import json
 from enum import IntEnum
 
 import pandas as pd
-from ax.core.analysis_card import AnalysisCard
+from ax.analysis.analysis import ErrorAnalysisCard
+from ax.core.analysis_card import AnalysisCard, AnalysisCardBase
 
 
 class HealthcheckStatus(IntEnum):
     PASS = 0
     FAIL = 1
     WARNING = 2
+
+
+# Healthchecks that provide valuable progress info even when passing
+PRIORITY_HEALTHCHECKS: set[str] = {
+    "BaselineImprovementAnalysis",
+    "EarlyStoppingAnalysis",
+}
 
 
 class HealthcheckAnalysisCard(AnalysisCard):
@@ -49,3 +59,49 @@ def create_healthcheck_analysis_card(
             }
         ),
     )
+
+
+# Status order for sorting: FAIL first, then WARNING, then PASS
+_STATUS_SORT_ORDER: dict[HealthcheckStatus, int] = {
+    HealthcheckStatus.FAIL: 1,
+    HealthcheckStatus.WARNING: 2,
+    HealthcheckStatus.PASS: 3,
+}
+
+
+def sort_healthcheck_cards(
+    cards: list[AnalysisCardBase],
+) -> list[AnalysisCardBase]:
+    """
+    Sort healthcheck cards by severity and priority.
+
+    Order:
+        1. ErrorAnalysisCard (errors during computation)
+        2. FAIL status
+        3. WARNING status
+        4. PASS status with priority (BaselineImprovement, EarlyStopping, etc.)
+        5. PASS status (rest)
+
+    Args:
+        cards: List of analysis cards (typically HealthcheckAnalysisCard or
+            ErrorAnalysisCard instances).
+
+    Returns:
+        Sorted list of cards.
+    """
+
+    def sort_key(card: AnalysisCardBase) -> tuple[int, int, str]:
+        if isinstance(card, ErrorAnalysisCard):
+            return (0, 0, card.name)
+
+        if isinstance(card, HealthcheckAnalysisCard):
+            return (
+                _STATUS_SORT_ORDER[card.get_status()],
+                0 if card.name in PRIORITY_HEALTHCHECKS else 1,
+                card.name,
+            )
+
+        # Fallback for type safety (unreachable in practice)
+        return (4, 1, card.name)
+
+    return sorted(cards, key=sort_key)
