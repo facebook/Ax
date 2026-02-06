@@ -15,6 +15,7 @@ from typing import Any, cast, TYPE_CHECKING, Union
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
@@ -113,6 +114,10 @@ class GenerationNode(SerializationMixin, SortableBase):
             store the most recent previous ``GenerationNode`` name.
         should_skip: Whether to skip this node during generation time. Defaults to
             False, and can only currently be set to True via ``NodeInputConstructors``
+        suggested_experiment_status: Optional ``ExperimentStatus`` that indicates
+            what the experiment's status should be once the experiment adds trials
+            using ``GeneratorRun``-s produced from this node. This is advisory only
+            and does not automatically update the experiment's status.
         fallback_specs: Optional dict mapping expected exception types to `ModelSpec`
             fallbacks used when gen fails.
 
@@ -135,6 +140,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     _previous_node_name: str | None = None
     _trial_type: str | None = None
     _should_skip: bool = False
+    _suggested_experiment_status: ExperimentStatus | None = None
     fallback_specs: dict[type[Exception], GeneratorSpec]
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
@@ -156,6 +162,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         previous_node_name: str | None = None,
         trial_type: str | None = None,
         should_skip: bool = False,
+        suggested_experiment_status: ExperimentStatus | None = None,
         fallback_specs: dict[type[Exception], GeneratorSpec] | None = None,
     ) -> None:
         self._name = name
@@ -188,6 +195,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self._previous_node_name = previous_node_name
         self._trial_type = trial_type
         self._should_skip = should_skip
+        self._suggested_experiment_status = suggested_experiment_status
         self.fallback_specs = (
             fallback_specs if fallback_specs is not None else DEFAULT_FALLBACK
         )
@@ -366,6 +374,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         str_rep += (
             f", transition_criteria={str(self._brief_transition_criteria_repr())}"
         )
+        if self._suggested_experiment_status is not None:
+            str_rep += (
+                f", suggested_experiment_status={self._suggested_experiment_status!r}"
+            )
         return f"{str_rep})"
 
     def _fit(
@@ -999,6 +1011,7 @@ class GenerationStep:
             whether to transition to the next step. If False, `num_trials` and
             `min_trials_observed` will only count trials generatd by this step. If True,
             they will count all trials in the experiment (of corresponding statuses).
+        suggested_experiment_status: The suggested experiment status for this step.
 
     Note for developers: by "generator" here we really mean an ``Adapter`` object, which
     contains a ``Generator`` under the hood. We call it "generator" here to simplify and
@@ -1019,6 +1032,7 @@ class GenerationStep:
         use_all_trials_in_exp: bool = False,
         use_update: bool = False,  # DEPRECATED.
         index: int = -1,  # Index of this step, set internally.
+        suggested_experiment_status: ExperimentStatus | None = None,
         # Deprecated arguments for backwards compatibility.
         model_kwargs: dict[str, Any] | None = None,
         model_gen_kwargs: dict[str, Any] | None = None,
@@ -1135,6 +1149,7 @@ class GenerationStep:
                 step_index=index, generator_name=resolved_generator_name
             ),
             generator_specs=[generator_spec],
+            suggested_experiment_status=suggested_experiment_status,
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
         )
