@@ -137,7 +137,7 @@ def get_benchmark_runner(
             (used to generate data) and ``step_runtime_function`` (used to
             determine timing for the simulator).
         max_concurrency: The maximum number of trials that can be run concurrently.
-            Typically, ``max_pending_trials`` from ``OrchestratorOptions``, which are
+            Typically, ``max_concurrent_trials`` from ``OrchestratorOptions``, which are
             stored on the ``BenchmarkMethod``.
         force_use_simulated_backend: Whether to use a simulated backend even if
             ``max_concurrency`` is 1 and ``problem.step_runtime_function`` is
@@ -226,7 +226,7 @@ def get_oracle_experiment_from_params(
 def get_benchmark_orchestrator_options(
     batch_size: int | None,
     run_trials_in_batches: bool,
-    max_pending_trials: int,
+    max_concurrent_trials: int,
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     include_status_quo: bool = False,
     logging_level: int = DEFAULT_LOG_LEVEL,
@@ -240,7 +240,7 @@ def get_benchmark_orchestrator_options(
             for high-throughput settings where there are many trials and
             generating them in bulk reduces overhead (not to be confused with
             `BatchTrial`s, which are different).
-        max_pending_trials: The maximum number of pending trials allowed.
+        max_concurrent_trials: The maximum number of pending trials allowed.
         early_stopping_strategy: The early stopping strategy to use (if any).
         include_status_quo: Whether to include the status quo in each trial.
         logging_level: The logging level to use for the Orchestrator.
@@ -255,7 +255,7 @@ def get_benchmark_orchestrator_options(
     return OrchestratorOptions(
         # No new candidates can be generated while any are pending.
         # If batched, an entire batch must finish before the next can be generated.
-        max_pending_trials=max_pending_trials,
+        max_concurrent_trials=max_concurrent_trials,
         # Do not throttle, as is often necessary when polling real endpoints
         init_seconds_between_polls=0,
         min_seconds_before_poll=0,
@@ -568,14 +568,14 @@ def run_optimization_with_orchestrator(
     orchestrator_options = get_benchmark_orchestrator_options(
         batch_size=method.batch_size,
         run_trials_in_batches=run_trials_in_batches,
-        max_pending_trials=method.max_pending_trials,
+        max_concurrent_trials=method.max_concurrent_trials,
         early_stopping_strategy=method.early_stopping_strategy,
         include_status_quo=sq_arm is not None,
         logging_level=orchestrator_logging_level,
     )
     runner = get_benchmark_runner(
         problem=problem,
-        max_concurrency=orchestrator_options.max_pending_trials,
+        max_concurrency=orchestrator_options.max_concurrent_trials,
         force_use_simulated_backend=method.early_stopping_strategy is not None,
     )
     experiment = Experiment(
