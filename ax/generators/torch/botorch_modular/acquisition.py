@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import math
 import operator
 from collections.abc import Callable
 from functools import partial, reduce
@@ -47,7 +46,12 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete_local_search,
     optimize_acqf_mixed,
 )
-from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
+from botorch.optim.optimize_mixed import (
+    MAX_CARDINALITY_FOR_LOCAL_SEARCH,
+    MAX_CHOICES_ENUMERATE,
+    optimize_acqf_mixed_alternating,
+    should_use_mixed_alternating_optimizer,
+)
 from botorch.optim.parameter_constraints import evaluate_feasibility
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from pyre_extensions import none_throws
@@ -61,13 +65,6 @@ except ImportError:
 
 
 logger: Logger = get_logger(__name__)
-
-
-# For fully discrete search spaces.
-MAX_CHOICES_ENUMERATE = 10_000
-MAX_CARDINALITY_FOR_LOCAL_SEARCH = 100
-# For mixed search spaces.
-ALTERNATING_OPTIMIZER_THRESHOLD = 10
 
 
 def determine_optimizer(
@@ -119,17 +116,12 @@ def determine_optimizer(
             else:
                 optimizer = "optimize_acqf_discrete"
         else:
-            n_combos = math.prod([len(v) for v in discrete_choices.values()])
-            # If there are less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations of
-            # discrete choices, we will use `optimize_acqf_mixed`, which enumerates all
-            # discrete combinations and optimizes the continuous features with discrete
-            # features being fixed. Otherwise, we will use
-            # `optimize_acqf_mixed_alternating`, which alternates between
-            # continuous and discrete optimization steps.
-            if n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD:
-                optimizer = "optimize_acqf_mixed"
-            else:
+            # For mixed (not fully discrete) search spaces, use the shared utility
+            # from BoTorch to determine whether to use mixed alternating optimizer.
+            if should_use_mixed_alternating_optimizer(discrete_dims=discrete_choices):
                 optimizer = "optimize_acqf_mixed_alternating"
+            else:
+                optimizer = "optimize_acqf_mixed"
     return optimizer
 
 
