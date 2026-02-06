@@ -12,6 +12,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage, LLMProvider
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
@@ -46,6 +47,8 @@ __all__ = [
     "Experiment",
     "FixedParameter",
     "GeneratorRun",
+    "LLMMessage",
+    "LLMProvider",
     "Metric",
     "MultiObjective",
     "MultiObjectiveOptimizationConfig",

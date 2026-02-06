@@ -30,6 +30,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.evaluations_to_data import DataType
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -336,6 +337,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     # name linked to the new corresponding class
     "ListSurrogate": Surrogate,
     "L2NormMetric": L2NormMetric,
+    "LLMMessage": LLMMessage,
     "LogNormalPrior": LogNormalPrior,
     "MapData": Data,
     "MapMetric": MapMetric,
