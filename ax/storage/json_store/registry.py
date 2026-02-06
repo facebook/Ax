@@ -29,6 +29,7 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.evaluations_to_data import DataType
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -315,6 +316,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
     "Experiment": Experiment,
+    "ExperimentStatus": ExperimentStatus,
     "FactorialMetric": FactorialMetric,
     "FilterFeatures": FilterFeatures,
     "FixedParameter": fixed_parameter_from_json,

@@ -889,6 +889,15 @@ def generation_node_from_json(
             if "trial_type" in generation_node_json.keys()
             else None
         ),
+        suggested_experiment_status=(
+            object_from_json(
+                object_json=generation_node_json.pop("suggested_experiment_status"),
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            if "suggested_experiment_status" in generation_node_json.keys()
+            else None  # Default for old records without the field
+        ),
     )
 
 

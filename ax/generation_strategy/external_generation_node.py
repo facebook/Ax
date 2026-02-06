@@ -14,6 +14,7 @@ from typing import Any
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.types import TParameterization
@@ -48,6 +49,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
     def __init__(
         self,
         name: str,
+        suggested_experiment_status: ExperimentStatus | None = None,
         should_deduplicate: bool = True,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
     ) -> None:
@@ -59,6 +61,8 @@ class ExternalGenerationNode(GenerationNode, ABC):
 
         Args:
             name: Name of the generation node.
+            suggested_experiment_status: Optional suggested experiment status for this
+                node. Defaults to None if not specified.
             should_deduplicate: Whether to deduplicate the generated points against
                 the existing trials on the experiment. If True, the duplicate points
                 will be discarded and re-generated up to 5 times, after which a
@@ -73,6 +77,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         super().__init__(
             name=name,
             generator_specs=[],
+            suggested_experiment_status=suggested_experiment_status,
             best_model_selector=None,
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,

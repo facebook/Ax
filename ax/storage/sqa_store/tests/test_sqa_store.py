@@ -32,6 +32,7 @@ from ax.core.auxiliary import (
     TransferLearningMetadata,
 )
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -613,6 +614,27 @@ class SQAStoreTest(TestCase):
                 self.experiment,
                 config=SQAConfig(experiment_type_enum=MockExperimentTypeEnum),
             )
+
+    def test_experiment_status_save_load(self) -> None:
+        """Test that experiment status is correctly saved and loaded."""
+        # Test None status (backward compatibility)
+        with self.subTest(status=None):
+            exp = get_experiment()
+            exp._name = "test_exp_status_none"
+            exp.status = None
+            save_experiment(exp)
+            loaded_exp = load_experiment(exp.name)
+            self.assertEqual(loaded_exp.status, None)
+
+        # Test all ExperimentStatus enum values
+        for status in ExperimentStatus:
+            with self.subTest(status=status):
+                exp = get_experiment()
+                exp._name = f"test_exp_status_{status.name.lower()}"
+                exp.status = status
+                save_experiment(exp)
+                loaded_exp = load_experiment(exp.name)
+                self.assertEqual(loaded_exp.status, status)
 
     def test_load_experiment_trials_in_batches(self) -> None:
         for _ in range(4):

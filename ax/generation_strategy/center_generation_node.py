@@ -13,6 +13,7 @@ from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import DerivedParameter
@@ -29,7 +30,12 @@ from pyre_extensions import none_throws
 class CenterGenerationNode(ExternalGenerationNode):
     next_node_name: str
 
-    def __init__(self, next_node_name: str) -> None:
+    def __init__(
+        self,
+        next_node_name: str,
+        suggested_experiment_status: ExperimentStatus
+        | None = ExperimentStatus.INITIALIZATION,
+    ) -> None:
         """A generation node that samples the center of the search space.
         This generation node is only used to generate the first point of the experiment.
         After one point is generated, it will transition to `next_node_name`.
@@ -37,9 +43,16 @@ class CenterGenerationNode(ExternalGenerationNode):
         If the generated point is a duplicate of an arm already attached to the
         experiment, this will fallback to Sobol through the use of ``GenerationNode``
         deduplication logic.
+
+        Args:
+            next_node_name: The name of the node to transition to after generating
+                the center point.
+            suggested_experiment_status: Optional suggested experiment status for this
+                node.
         """
         super().__init__(
             name="CenterOfSearchSpace",
+            suggested_experiment_status=suggested_experiment_status,
             transition_criteria=[
                 AutoTransitionAfterGen(
                     transition_to=next_node_name,
