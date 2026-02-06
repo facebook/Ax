@@ -12,6 +12,7 @@ from typing import Any
 import torch
 from ax.adapter.registry import Generators
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
@@ -95,6 +96,7 @@ def _get_sobol_node(
         ],
         transition_criteria=transition_criteria,
         should_deduplicate=True,
+        suggested_experiment_status=ExperimentStatus.INITIALIZATION,
     )
 
 
@@ -175,6 +177,7 @@ def _get_mbm_node(
             )
         ],
         should_deduplicate=True,
+        suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
     ), mbm_name
 
 
@@ -225,6 +228,7 @@ def choose_generation_strategy(
                         generator_kwargs={"seed": struct.initialization_random_seed},
                     )
                 ],
+                suggested_experiment_status=ExperimentStatus.INITIALIZATION,
             )
         ]
         gs_name = "QuasiRandomSearch"
