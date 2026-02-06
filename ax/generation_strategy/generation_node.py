@@ -41,11 +41,12 @@ from ax.adapter.registry import (
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
-    AutoTransitionAfterGen,
+    GenerationBlockingCriterion,
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
     TransitionCriterion,
-    TrialBasedCriterion,
+    TrialCountBlockingCriterion,
 )
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
@@ -131,6 +132,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     _generator_spec_to_gen_from: GeneratorSpec | None = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Sequence[TransitionCriterion]
+    _generation_blocking_criteria: Sequence[GenerationBlockingCriterion]
     _input_constructors: TInputConstructorsByPurpose
     _previous_node_name: str | None = None
     _trial_type: str | None = None
@@ -150,6 +152,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         name: str,
         generator_specs: list[GeneratorSpec],
         transition_criteria: Sequence[TransitionCriterion] | None = None,
+        generation_blocking_criteria: Sequence[GenerationBlockingCriterion]
+        | None = None,
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
         input_constructors: TInputConstructorsByPurpose | None = None,
@@ -184,6 +188,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = transition_criteria or []
+        self._generation_blocking_criteria = generation_blocking_criteria or []
         self._input_constructors = input_constructors or {}
         self._previous_node_name = previous_node_name
         self._trial_type = trial_type
@@ -191,6 +196,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.fallback_specs = (
             fallback_specs if fallback_specs is not None else DEFAULT_FALLBACK
         )
+        # Cache for trials_from_node property to avoid recomputation
+        # on every access. Invalidated when trial count changes.
+        self._trials_from_node_cache: set[int] | None = None
+        self._cached_trial_count: int = -1
 
     @property
     def name(self) -> str:
@@ -238,6 +247,17 @@ class GenerationNode(SerializationMixin, SortableBase):
         return [] if self._transition_criteria is None else self._transition_criteria
 
     @property
+    def generation_blocking_criteria(self) -> Sequence[GenerationBlockingCriterion]:
+        """Returns the sequence of GenerationBlockingCriteria that will be used to
+        block generation from this node without triggering a transition.
+        """
+        return (
+            []
+            if self._generation_blocking_criteria is None
+            else self._generation_blocking_criteria
+        )
+
+    @property
     def input_constructors(self) -> TInputConstructorsByPurpose:
         """Returns the input constructors that will be used to determine any dynamic
         inputs to this ``GenerationNode``.
@@ -248,21 +268,6 @@ class GenerationNode(SerializationMixin, SortableBase):
     def experiment(self) -> Experiment:
         """Returns the experiment associated with this GenerationStrategy"""
         return self.generation_strategy.experiment
-
-    @property
-    def is_completed(self) -> bool:
-        """Returns True if this GenerationNode is complete and should transition to
-        the next node.
-        """
-        # TODO: @mgarrard make this logic more robust and general
-        # We won't mark a node completed if it has an AutoTransitionAfterGen criterion
-        # as this is typically used in cyclic generation strategies
-        should_transition, _ = self.should_transition_to_next_node(
-            raise_data_required_error=False
-        )
-        return should_transition and not any(
-            isinstance(tc, AutoTransitionAfterGen) for tc in self.transition_criteria
-        )
 
     @property
     def previous_node(self) -> GenerationNode | None:
@@ -307,23 +312,22 @@ class GenerationNode(SerializationMixin, SortableBase):
     def num_trials(self) -> int:
         """Returns the number of trials this node should generate.
 
-        Extracts the threshold from the first `MinTrials` transition criterion
-        that has `block_transition_if_unmet=True`. This represents the minimum
-        number of trials that must be generated before transitioning.
+        Extracts the threshold from the first `MinTrials` transition criterion.
+        This represents the minimum number of trials that must be generated
+        before transitioning.
 
         Returns:
             The number of trials (threshold value).
 
         Raises:
-            UserInputError: If no `MinTrials` transition criterion with
-                `block_transition_if_unmet=True` is found.
+            UserInputError: If no `MinTrials` transition criterion is found.
         """
         for tc in self.transition_criteria:
-            if isinstance(tc, MinTrials) and tc.block_transition_if_unmet:
+            if isinstance(tc, MinTrials):
                 return tc.threshold
         raise UserInputError(
             "`num_trials` property is only supported when a `MinTrials` "
-            "transition criterion with `block_transition_if_unmet=True` is present."
+            "transition criterion is present."
         )
 
     @property
@@ -365,6 +369,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         str_rep += f"[{generator_spec_str}]"
         str_rep += (
             f", transition_criteria={str(self._brief_transition_criteria_repr())}"
+        )
+        str_rep += (
+            ", generation_blocking_criteria="
+            f"{str(self._brief_generation_blocking_criteria_repr())}"
         )
         return f"{str_rep})"
 
@@ -740,17 +748,28 @@ class GenerationNode(SerializationMixin, SortableBase):
     def trials_from_node(self) -> set[int]:
         """Returns a set containing the indices of trials generated by this node.
 
+        Results are cached and invalidated when the experiment's trial count changes.
+
         Returns:
             Set[int]: A set containing all the indices of trials generated by this node.
         """
+        current_trial_count = len(self.experiment.trials)
+        if (
+            self._trials_from_node_cache is not None
+            and self._cached_trial_count == current_trial_count
+        ):
+            return self._trials_from_node_cache
+
+        # (re)-build cache
         trials_from_node = set()
-        for _idx, trial in self.experiment.trials.items():
+        for trial in self.experiment.trials.values():
             for gr in trial.generator_runs:
-                if (
-                    gr._generation_node_name is not None
-                    and gr._generation_node_name == self.name
-                ):
+                if gr._generation_node_name == self.name:
                     trials_from_node.add(trial.index)
+                    break
+
+        self._trials_from_node_cache = trials_from_node
+        self._cached_trial_count = current_trial_count
         return trials_from_node
 
     @property
@@ -808,76 +827,66 @@ class GenerationNode(SerializationMixin, SortableBase):
                 and the name of the node to gen from (either the current or next node)
         """
         # if no transition criteria are defined, this node can generate unlimited trials
-        if len(self.transition_criteria) == 0:
+        if (
+            len(self.transition_criteria) == 0
+            and len(self.generation_blocking_criteria) == 0
+        ):
             return False, self.name
 
         # For each "transition edge" (set of all transition criteria that lead from
         # current node (e.g. "node A") to another specific node ("e.g. "node B")
         # in the node DAG:
-        # I. Check if all of the transition criteria along that edge are met; if so,
+        # Check if all of the transition criteria along that edge are met; if so,
         # transition to the next node defined by that edge.
-        # II. If we did not transition along this edge, but the edge has some
-        # "generation blocking" transition criteria (ex `MaxGenerationParallelism`)
-        # that are met, raise the error associated with that criterion.
         for next_node, all_tc in self.transition_edges.items():
-            # I. Check if there are any TCs that block transition and whether all
-            # of them are met. If all of them are met, then we should transition.
-            transition_blocking = [tc for tc in all_tc if tc.block_transition_if_unmet]
-            all_transition_blocking_met_should_transition = transition_blocking and all(
+            # Check if all TCs are met. If all of them are met, then we should
+            # transition.
+            all_tc_met_should_transition = all_tc and all(
                 tc.is_met(
                     experiment=self.experiment,
                     curr_node=self,
                 )
-                for tc in transition_blocking
+                for tc in all_tc
             )
-            if all_transition_blocking_met_should_transition:
+            if all_tc_met_should_transition:
                 return True, next_node
 
-            # II. Raise any necessary generation errors: for any met criterion,
-            # call its `block_continued_generation_error` method if not all
-            # transition-blocking criteria are met. The method might not raise an
-            # error, depending on its implementation on given criterion, so the error
-            # from the first met one that does block continued generation, will raise.
-            if raise_data_required_error:
-                generation_blocking = [tc for tc in all_tc if tc.block_gen_if_met]
-                for tc in generation_blocking:
-                    if tc.is_met(self.experiment, curr_node=self):
-                        tc.block_continued_generation_error(
-                            node_name=self.name,
-                            experiment=self.experiment,
-                            trials_from_node=self.trials_from_node,
-                        )
-                # TODO[@mgarrard, @drfreund] Try replacing `block_gen_if_met` with
-                # a self-transition and rework this error block.
+        # Only check generation blocking criteria if we're NOT transitioning.
+        # This ensures transition takes priority over blocking.
+        if raise_data_required_error:
+            for criterion in self.generation_blocking_criteria:
+                if criterion.is_met(self.experiment, curr_node=self):
+                    criterion.block_continued_generation_error(
+                        node_name=self.name,
+                        experiment=self.experiment,
+                        trials_from_node=self.trials_from_node,
+                    )
 
         return False, self.name
 
     def new_trial_limit(self, raise_generation_errors: bool = False) -> int:
-        """How many trials can this generation strategy can currently produce
-        ``GeneratorRun``-s for (with potentially multiple generator runs produced for
-        each intended trial).
+        """How many trials this node can currently produce GeneratorRun-s for.
 
-        NOTE: Only considers transition criteria that inherit from
-        ``TrialBasedCriterion``.
+        NOTE: Considers TrialCountBlockingCriterion subclasses for limiting
+        generation.
 
         Returns:
             The number of generator runs that can currently be produced, with -1
             meaning unlimited generator runs.
         """
-        # TODO: @mgarrard Should we consider returning `None` if there is no limit?
-        trial_based_gen_blocking_criteria = [
-            criterion
-            for criterion in self.transition_criteria
-            if criterion.block_gen_if_met and isinstance(criterion, TrialBasedCriterion)
-        ]
+        # TODO: @mgarrard further improve and clarify this method
         # Cache trials_from_node to avoid repeated computation.
         trials_from_node = self.trials_from_node
-        gen_blocking_criterion_delta_from_threshold = [
-            criterion.num_till_threshold(
-                experiment=self.experiment, trials_from_node=trials_from_node
-            )
-            for criterion in trial_based_gen_blocking_criteria
-        ]
+
+        # Compute limits from generation_blocking_criteria
+        gen_blocking_criterion_delta_from_threshold = []
+        for criterion in self.generation_blocking_criteria:
+            if isinstance(criterion, TrialCountBlockingCriterion):
+                gen_blocking_criterion_delta_from_threshold.append(
+                    criterion.num_till_threshold(
+                        experiment=self.experiment, trials_from_node=trials_from_node
+                    )
+                )
 
         # Raise any necessary generation errors: for any met criterion,
         # call its `block_continued_generation_error` method The method might not
@@ -885,13 +894,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         # error from the first met one that does block continued generation, will be
         # raised.
         if raise_generation_errors:
-            for criterion in trial_based_gen_blocking_criteria:
+            for criterion in self.generation_blocking_criteria:
                 # TODO[mgarrard]: Raise a group of all the errors, from each gen-
                 # blocking transition criterion.
-                if criterion.is_met(
-                    self.experiment,
-                    curr_node=self,
-                ):
+                if criterion.is_met(self.experiment, curr_node=self):
                     criterion.block_continued_generation_error(
                         node_name=self.name,
                         experiment=self.experiment,
@@ -908,7 +914,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         Returns:
             str: A string representation of the transition criteria for this node.
         """
-        if self.transition_criteria is None:
+        if not self._transition_criteria:
             return "None"
         tc_list = ", ".join(
             [
@@ -917,6 +923,25 @@ class GenerationNode(SerializationMixin, SortableBase):
             ]
         )
         return f"[{tc_list}]"
+
+    def _brief_generation_blocking_criteria_repr(self) -> str:
+        """Returns a brief string representation of the
+        generation blocking criteria for this node.
+
+        Returns:
+            str: A string representation of the generation blocking criteria.
+        """
+        if self._generation_blocking_criteria is None:
+            return "None"
+        bc_list = ", ".join(
+            [
+                f"{bc.__class__.__name__}(threshold={bc.threshold})"
+                if isinstance(bc, TrialCountBlockingCriterion)
+                else f"{bc.__class__.__name__}()"
+                for bc in self.generation_blocking_criteria
+            ]
+        )
+        return f"[{bc_list}]"
 
     def apply_input_constructors(
         self,
@@ -1086,6 +1111,7 @@ class GenerationStep:
         # is set in `GenerationStrategy` constructor, because only then is the order
         # of the generation steps actually known.
         transition_criteria: list[TransitionCriterion] = []
+        generation_blocking_criteria: list[GenerationBlockingCriterion] = []
         # Placeholder - will be overwritten in _validate_and_set_step_sequence in GS
         placeholder_transition_to = f"GenerationStep_{str(index)}"
 
@@ -1095,11 +1121,18 @@ class GenerationStep:
                     threshold=num_trials,
                     transition_to=placeholder_transition_to,
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-                    block_gen_if_met=enforce_num_trials,
-                    block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
                 )
             )
+            # If enforce_num_trials is True, add a blocking criterion
+            if enforce_num_trials:
+                generation_blocking_criteria.append(
+                    MaxTrialsAwaitingData(
+                        threshold=num_trials,
+                        not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+                        use_all_trials_in_exp=use_all_trials_in_exp,
+                    )
+                )
 
         if min_trials_observed > 0:
             transition_criteria.append(
@@ -1110,19 +1143,14 @@ class GenerationStep:
                         TrialStatus.COMPLETED,
                         TrialStatus.EARLY_STOPPED,
                     ],
-                    block_gen_if_met=False,
-                    block_transition_if_unmet=True,
                     use_all_trials_in_exp=use_all_trials_in_exp,
                 )
             )
         if max_parallelism is not None:
-            transition_criteria.append(
+            generation_blocking_criteria.append(
                 MaxGenerationParallelism(
                     threshold=max_parallelism,
-                    transition_to=placeholder_transition_to,
                     only_in_statuses=[TrialStatus.RUNNING],
-                    block_gen_if_met=True,
-                    block_transition_if_unmet=False,
                 )
             )
 
@@ -1137,6 +1165,7 @@ class GenerationStep:
             generator_specs=[generator_spec],
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
+            generation_blocking_criteria=generation_blocking_criteria,
         )
 
         # Store step index on the node for naming in GenerationStrategy.

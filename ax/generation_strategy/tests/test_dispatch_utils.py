@@ -24,6 +24,7 @@ from ax.generation_strategy.dispatch_utils import (
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
 )
 from ax.generators.random.sobol import SobolGenerator
@@ -615,18 +616,20 @@ class TestDispatchUtils(TestCase):
                 ).threshold,
                 5,
             )
-            # Check that enforce_num_trials is True by verifying the MinTrials
-            # criterion has block_gen_if_met=True
-            node0_min_trials = assert_is_instance(
-                sobol_gpei._nodes[0].transition_criteria[0], MinTrials
-            )
-            self.assertTrue(node0_min_trials.block_gen_if_met)
+            # Check that enforce_num_trials is True by verifying MaxTrialsAwaitingData
+            # exists in generation_blocking_criteria
+            node0_blocking_criteria = [
+                bc
+                for bc in sobol_gpei._nodes[0].generation_blocking_criteria
+                if isinstance(bc, MaxTrialsAwaitingData)
+            ]
+            self.assertTrue(len(node0_blocking_criteria) > 0)
             # Check that max_parallelism is set by verifying MaxGenerationParallelism
-            # criterion exists on node 1
+            # criterion exists in generation_blocking_criteria
             node1_max_parallelism = [
-                tc
-                for tc in sobol_gpei._nodes[1].transition_criteria
-                if isinstance(tc, MaxGenerationParallelism)
+                bc
+                for bc in sobol_gpei._nodes[1].generation_blocking_criteria
+                if isinstance(bc, MaxGenerationParallelism)
             ]
             self.assertTrue(len(node1_max_parallelism) > 0)
         with self.subTest("False"):
@@ -640,18 +643,20 @@ class TestDispatchUtils(TestCase):
                 ).threshold,
                 5,
             )
-            # Check that enforce_num_trials is False by verifying the MinTrials
-            # criterion has block_gen_if_met=False
-            node0_min_trials = assert_is_instance(
-                sobol_gpei._nodes[0].transition_criteria[0], MinTrials
-            )
-            self.assertFalse(node0_min_trials.block_gen_if_met)
+            # Check that enforce_num_trials is False by verifying no
+            # MaxTrialsAwaitingData exists in generation_blocking_criteria
+            node0_blocking_criteria = [
+                bc
+                for bc in sobol_gpei._nodes[0].generation_blocking_criteria
+                if isinstance(bc, MaxTrialsAwaitingData)
+            ]
+            self.assertEqual(len(node0_blocking_criteria), 0)
             # Check that max_parallelism is None by verifying no
-            # MaxGenerationParallelism criterion exists on node 1
+            # MaxGenerationParallelism criterion exists in generation_blocking_criteria
             node1_max_parallelism = [
-                tc
-                for tc in sobol_gpei._nodes[1].transition_criteria
-                if isinstance(tc, MaxGenerationParallelism)
+                bc
+                for bc in sobol_gpei._nodes[1].generation_blocking_criteria
+                if isinstance(bc, MaxGenerationParallelism)
             ]
             self.assertEqual(len(node1_max_parallelism), 0)
         with self.subTest("False and max_parallelism_override"):
@@ -818,10 +823,10 @@ class TestDispatchUtils(TestCase):
         )
 
     def _get_max_parallelism(self, node: GenerationNode) -> int | None:
-        """Helper to extract max_parallelism from transition criteria."""
-        for tc in node.transition_criteria:
-            if isinstance(tc, MaxGenerationParallelism):
-                return tc.threshold
+        """Helper to extract max_parallelism from generation_blocking_criteria."""
+        for bc in node.generation_blocking_criteria:
+            if isinstance(bc, MaxGenerationParallelism):
+                return bc.threshold
         return None
 
     def test_max_parallelism_adjustments(self) -> None:
