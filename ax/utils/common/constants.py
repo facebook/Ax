@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from enum import Enum, unique
+from enum import StrEnum, unique
 
 # ------------------------- Miscellaneous -------------------------
 
@@ -36,7 +36,7 @@ subclasses with defined fetching logic.
 
 
 @unique
-class Keys(str, Enum):
+class Keys(StrEnum):
     """Enum of reserved keys in options dicts etc, alphabetized.
 
 
