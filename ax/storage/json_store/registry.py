@@ -77,6 +77,7 @@ from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
     TransitionCriterion,
 )
@@ -125,6 +126,7 @@ from ax.storage.json_store.encoders import (
     derived_parameter_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
+    generation_blocking_criterion_to_dict,
     generation_node_to_dict,
     generation_strategy_to_dict,
     generator_run_to_dict,
@@ -214,7 +216,8 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapMetric: metric_to_dict,
-    MaxGenerationParallelism: transition_criterion_to_dict,
+    MaxGenerationParallelism: generation_blocking_criterion_to_dict,
+    MaxTrialsAwaitingData: generation_blocking_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
@@ -341,6 +344,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MapMetric": MapMetric,
     "MaxTrials": MinTrials,
     "MaxGenerationParallelism": MaxGenerationParallelism,
+    "MaxTrialsAwaitingData": MaxTrialsAwaitingData,
     "Metric": Metric,
     "MinTrials": MinTrials,
     # DEPRECATED; backward compatibility for MinimumTrialsInStatus -> MinTrials

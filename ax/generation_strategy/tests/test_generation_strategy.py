@@ -215,7 +215,6 @@ class TestGenerationStrategy(TestCase):
             MinTrials(
                 threshold=5,
                 transition_to="MBM_node",
-                block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             )
@@ -226,7 +225,6 @@ class TestGenerationStrategy(TestCase):
                 # this self-pointing isn't representative of real-world, but is
                 # useful for testing attributes likes repr etc
                 transition_to="MBM_node",
-                block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             )
@@ -235,7 +233,6 @@ class TestGenerationStrategy(TestCase):
             MinTrials(
                 threshold=1,
                 transition_to="mbm",
-                block_transition_if_unmet=True,
                 only_in_statuses=[TrialStatus.RUNNING],
             )
         ]
@@ -266,14 +263,12 @@ class TestGenerationStrategy(TestCase):
         self.mbm_to_sobol2_with_running_trial = MinTrials(
             threshold=1,
             transition_to="sobol_2",
-            block_transition_if_unmet=True,
             only_in_statuses=[TrialStatus.RUNNING],
             use_all_trials_in_exp=True,
         )
         self.mbm_to_sobol2_with_completed_trial = MinTrials(
             threshold=1,
             transition_to="sobol_2",
-            block_transition_if_unmet=True,
             only_in_statuses=[TrialStatus.COMPLETED],
             use_all_trials_in_exp=True,
         )
@@ -336,13 +331,11 @@ class TestGenerationStrategy(TestCase):
                         MinTrials(
                             threshold=2,
                             transition_to="sobol_4",
-                            block_transition_if_unmet=True,
                             only_in_statuses=[TrialStatus.RUNNING],
                             use_all_trials_in_exp=True,
                         ),
                         AutoTransitionAfterGen(
                             transition_to="mbm",
-                            block_transition_if_unmet=True,
                             continue_trial_generation=False,
                         ),
                     ],
@@ -439,11 +432,13 @@ class TestGenerationStrategy(TestCase):
                 "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
                 "generator_key_override=None)], "
                 "transition_criteria="
-                "[MinTrials(transition_to='GenerationStep_1_BoTorch')]), "
+                "[MinTrials(transition_to='GenerationStep_1_BoTorch')], "
+                "generation_blocking_criteria=[MaxTrialsAwaitingData(threshold=5)]), "
                 "GenerationNode(name='GenerationStep_1_BoTorch', "
                 "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
                 "generator_key_override=None)], "
-                "transition_criteria=[])])"
+                "transition_criteria=None, "
+                "generation_blocking_criteria=[])])"
             ),
         )
         gs2 = GenerationStrategy(
@@ -456,7 +451,8 @@ class TestGenerationStrategy(TestCase):
                 "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
                 "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
                 "generator_key_override=None)], "
-                "transition_criteria=[])])"
+                "transition_criteria=None, "
+                "generation_blocking_criteria=[])])"
             ),
         )
 
@@ -480,7 +476,8 @@ class TestGenerationStrategy(TestCase):
             "name='test', "
             "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
             "generator_key_override=None)], "
-            "transition_criteria=[])])",
+            "transition_criteria=None, "
+            "generation_blocking_criteria=[])])",
         )
 
     def test_equality(self) -> None:
@@ -1220,30 +1217,29 @@ class TestGenerationStrategy(TestCase):
     # ---------- Tests for GenerationStrategies composed of GenerationNodes --------
     def test_gs_setup_with_nodes(self) -> None:
         """Test GS initialization and validation with nodes"""
-        node_1_criterion = [
+        node_1_transition_criteria = [
             MinTrials(
                 threshold=4,
-                block_gen_if_met=False,
                 transition_to="node_2",
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             ),
             MinTrials(
-                only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=2,
+                only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 transition_to="node_2",
             ),
+        ]
+        node_1_blocking_criteria = [
             MaxGenerationParallelism(
                 threshold=1,
                 only_in_statuses=[TrialStatus.RUNNING],
-                block_gen_if_met=True,
-                block_transition_if_unmet=False,
-                transition_to="node_1",
             ),
         ]
         node_1 = GenerationNode(
             name="node_1",
-            transition_criteria=node_1_criterion,
+            transition_criteria=node_1_transition_criteria,
+            generation_blocking_criteria=node_1_blocking_criteria,
             generator_specs=[self.sobol_generator_spec],
         )
         node_3 = GenerationNode(
@@ -1311,7 +1307,6 @@ class TestGenerationStrategy(TestCase):
                         transition_criteria=[
                             MinTrials(
                                 threshold=4,
-                                block_gen_if_met=False,
                                 transition_to="node_2",
                                 only_in_statuses=None,
                                 not_in_statuses=[
@@ -1383,7 +1378,6 @@ class TestGenerationStrategy(TestCase):
                     transition_criteria=[
                         AutoTransitionAfterGen(
                             transition_to="sobol_2",
-                            block_transition_if_unmet=True,
                             continue_trial_generation=False,
                         ),
                     ],
@@ -1440,7 +1434,6 @@ class TestGenerationStrategy(TestCase):
                     transition_criteria=[
                         AutoTransitionAfterGen(
                             transition_to="sobol_1",
-                            block_transition_if_unmet=True,
                             continue_trial_generation=False,
                         ),
                     ],
@@ -1599,15 +1592,11 @@ class TestGenerationStrategy(TestCase):
             transition_criteria=[
                 MinTrials(
                     threshold=3,
-                    block_gen_if_met=True,
-                    block_transition_if_unmet=True,
                     transition_to="MBM_node",
                 ),
                 MinTrials(
                     threshold=2,
                     only_in_statuses=[TrialStatus.COMPLETED],
-                    block_gen_if_met=False,
-                    block_transition_if_unmet=True,
                     transition_to="MBM_node",
                 ),
             ],
@@ -1752,7 +1741,6 @@ class TestGenerationStrategy(TestCase):
                     transition_criteria=[
                         AutoTransitionAfterGen(
                             transition_to="mbm",
-                            block_transition_if_unmet=True,
                             continue_trial_generation=False,
                         )
                     ],
@@ -1816,7 +1804,6 @@ class TestGenerationStrategy(TestCase):
             MinTrials(
                 threshold=1,
                 transition_to="sobol_2",
-                block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             )
@@ -1942,7 +1929,6 @@ class TestGenerationStrategy(TestCase):
             MinTrials(
                 threshold=1,
                 transition_to="sobol_2",
-                block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             )
@@ -1999,6 +1985,28 @@ class TestGenerationStrategy(TestCase):
             self.assertEqual(len(trial.generator_runs[0].arms), 1)
             self.assertEqual(trial.generator_runs[1]._generation_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs[1].arms), 8)
+
+    def test_optimization_complete_single_node_no_criteria(self) -> None:
+        """Test that a single node with no transition_criteria never completes."""
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    name="infinite sobol",
+                    generator_specs=[self.sobol_generator_spec],
+                    transition_criteria=[],  # No criteria = infinite by design
+                ),
+            ]
+        )
+        gs.experiment = exp
+
+        # Generate many trials - never completes
+        for _ in range(3):
+            self.assertFalse(gs.optimization_complete)
+            gr = gs.gen_single_trial(experiment=exp)
+            exp.new_trial(generator_run=gr).mark_running(no_runner_required=True)
+
+        self.assertFalse(gs.optimization_complete)
 
     # ------------- Testing helpers (put tests above this line) -------------
 
