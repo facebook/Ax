@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass
-from enum import Enum, unique
+from enum import StrEnum, unique
 from typing import TYPE_CHECKING
 
 from ax.core.data import Data
@@ -51,7 +51,7 @@ class AuxiliaryExperiment(SortableBase):
 
 
 @unique
-class AuxiliaryExperimentPurpose(Enum):
+class AuxiliaryExperimentPurpose(StrEnum):
     # BOPE Aux Experiment Usage pattern:
     # 1. Run the exploratory batch for the main / BO experiment.
     # 2. Use the BO experiment as the auxiliary experiment for the PE experiment
