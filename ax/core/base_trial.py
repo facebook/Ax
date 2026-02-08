@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
-from typing import Any, TYPE_CHECKING
+from typing import Any, Self, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -26,7 +26,6 @@ from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputEr
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
-from typing_extensions import Self
 
 
 if TYPE_CHECKING:

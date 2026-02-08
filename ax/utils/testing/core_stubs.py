@@ -17,7 +17,7 @@ from functools import partial
 from logging import Logger
 from math import prod
 from pathlib import Path
-from typing import Any, cast, Sequence
+from typing import Any, cast, Self, Sequence
 
 import numpy as np
 import pandas as pd
@@ -130,7 +130,6 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 from pyre_extensions import assert_is_instance, none_throws
-from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
 
