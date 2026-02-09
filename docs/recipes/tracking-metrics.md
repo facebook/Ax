@@ -22,23 +22,20 @@ client.configure_optimization(objective='custom_metric')
 
 ## Steps
 
-1. Call `configure_metrics` to add the metrics to your experiment
+1. Call `configure_tracking_metrics` to add the metrics to your experiment
 2. Attaching data with tracking metrics
 
-### 1. Call `configure_metrics` to add the metrics to your experiment
+### 1. Call `configure_tracking_metrics` to add the metrics to your experiment
 
-Call the `add_tracking_metrics` method, passing in the list of metrics we would
-like to track.
+Call the `configure_tracking_metrics` method, passing in the list of metric
+names you would like to track.
 
-When attaching metrics to an experiment, the Client will overwrite existing
-metrics on the Experiment with the provided Metric(s) if they share the same
-name. If no Metric with the same name exists, the Client will add the Metric as
-a tracking metric.
+If any of the metrics are already defined on the experiment, they will be
+skipped with a warning.
 
 ```python
-# Add the metrics to the experiment
-
-client.configure_metrics([IMetric(name="my_tracking_metric_1"), IMetric(name="my_tracking_metric_2")])
+# Add the tracking metrics to the experiment by name
+client.configure_tracking_metrics(["my_tracking_metric_1", "my_tracking_metric_2"])
 ```
 
 ### 2. Attaching data with tracking metrics
