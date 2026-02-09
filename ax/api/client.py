@@ -280,6 +280,33 @@ class Client(WithDBSettingsBase):
         """
         self._set_metrics(metrics=metrics)
 
+    def configure_tracking_metrics(self, metric_names: Sequence[str]) -> None:
+        """
+        Add tracking metrics to the ``Experiment`` by name.
+
+        Tracking metrics are metrics that are recorded during the experiment but
+        are not used as part of the ``OptimizationConfig`` (i.e., they are not
+        objectives or outcome constraints). Use this method to declare metrics
+        that you want to track alongside your optimization objectives.
+
+        If any of the metrics are already defined on the experiment, they will be
+        skipped with a warning.
+
+        Args:
+            metric_names: Names of metrics to be added as tracking metrics.
+
+        Saves to database on completion if ``storage_config`` is present.
+        """
+        for metric_name in metric_names:
+            if metric_name in self._experiment.metrics:
+                logger.warning(
+                    f"Metric {metric_name} already exists on experiment, skipping."
+                )
+                continue
+            self._experiment.add_tracking_metric(metric=Metric(name=metric_name))
+
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
+
     # -------------------- Section 1.2: Set (not API) -------------------------------
     def set_experiment(self, experiment: Experiment) -> None:
         """

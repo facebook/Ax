@@ -421,6 +421,35 @@ class TestClient(TestCase):
             client._experiment.tracking_metrics[0],
         )
 
+    def test_configure_tracking_metrics(self) -> None:
+        """Test adding tracking metrics to an experiment."""
+        client = Client()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.configure_tracking_metrics(metric_names=["tracking1"])
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(0, 1))
+            ],
+            name="test_tracking_metrics",
+        )
+        client.configure_optimization(objective="objective")
+
+        # Test adding tracking metrics
+        client.configure_tracking_metrics(metric_names=["tracking1", "tracking2"])
+
+        # Verify tracking metrics were added
+        self.assertIn("tracking1", client._experiment.metrics)
+        self.assertIn("tracking2", client._experiment.metrics)
+        self.assertEqual(len(client._experiment.tracking_metrics), 2)
+
+        # Test that adding an existing metric logs a warning and skips it
+        with mock.patch("ax.api.client.logger.warning") as mock_logger:
+            client.configure_tracking_metrics(metric_names=["tracking1"])
+            mock_logger.assert_called_once()
+            self.assertIn("already exists", mock_logger.call_args[0][0])
+
     def test_set_experiment(self) -> None:
         client = Client()
         experiment = get_branin_experiment()
