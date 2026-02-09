@@ -9,6 +9,7 @@ from logging import Logger
 from typing import Sequence
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import torch
 from ax.adapter.base import Adapter
@@ -540,6 +541,54 @@ def _extract_generation_node_name(trial: BaseTrial, arm: Arm) -> str:
     return Keys.UNKNOWN_GENERATION_NODE.value
 
 
+def _get_scalarized_constraint_mean_and_sem(
+    df: pd.DataFrame,
+    constraint: ScalarizedOutcomeConstraint,
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+    """
+    Compute the combined mean and SEM for a ScalarizedOutcomeConstraint.
+
+    For independent random variables:
+      combined_mean = sum(weight_i * mean_i)
+      combined_sem  = sqrt(sum((weight_i * sem_i)^2))
+
+    Args:
+        df: DataFrame with "{metric_name}_mean" and "{metric_name}_sem" columns.
+        constraint: The ScalarizedOutcomeConstraint.
+
+    Returns:
+        Tuple of (combined_mean, combined_sem) as numpy arrays.
+        If any component metric is missing, mean is NaN and sem is 0.
+    """
+    n_rows = len(df)
+    combined_mean = np.zeros(n_rows)
+    combined_var = np.zeros(n_rows)
+    all_metrics_present = True
+
+    for metric, weight in constraint.metric_weights:
+        mean_col = f"{metric.name}_mean"
+        sem_col = f"{metric.name}_sem"
+
+        if mean_col in df.columns:
+            combined_mean += weight * df[mean_col].values
+        else:
+            all_metrics_present = False
+            break
+
+        if sem_col in df.columns:
+            metric_sem = df[sem_col].fillna(0).values
+        else:
+            metric_sem = np.zeros(n_rows)
+
+        combined_var += (weight**2) * (metric_sem**2)
+
+    if not all_metrics_present:
+        # Match existing pattern: mean=NaN, sem=0 for missing data
+        return np.full(n_rows, np.nan), np.zeros(n_rows)
+
+    return combined_mean, np.sqrt(combined_var)
+
+
 def _prepare_p_feasible(
     df: pd.DataFrame,
     status_quo_df: pd.DataFrame | None,
@@ -571,34 +620,27 @@ def _prepare_p_feasible(
         return pd.Series(np.ones(len(df)))
 
     # If an arm is missing data for a metric leave the mean as NaN.
-    oc_names = []
-    for oc in outcome_constraints:
-        if isinstance(oc, ScalarizedOutcomeConstraint):
-            # take the str representation of the scalarized outcome constraint
-            oc_names.append(str(oc))
-        else:
-            oc_names.append(oc.metric.name)
-
-    assert len(oc_names) == len(outcome_constraints)
-
     means = []
     sigmas = []
-    for i, oc_name in enumerate(oc_names):
-        df_constraint = none_throws(rel_df if outcome_constraints[i].relative else df)
-        # TODO[T235432214]: currently we are leaving the mean as NaN if the constraint
-        # is on ScalarizedOutcomeConstraint but we should be able to calculate it by
-        # setting the mean to be weights * individual metrics and sem to be
-        # sqrt(sum((weights * individual_sems)^2)), assuming independence.
-        if f"{oc_name}_mean" in df_constraint.columns:
-            means.append(df_constraint[f"{oc_name}_mean"].tolist())
+    for oc in outcome_constraints:
+        df_constraint = none_throws(rel_df if oc.relative else df)
 
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            mean, sem = _get_scalarized_constraint_mean_and_sem(df_constraint, oc)
+            means.append(mean.tolist())
+            sigmas.append(sem.tolist())
         else:
-            means.append([float("nan")] * len(df_constraint))
-        sigmas.append(
-            (df_constraint[f"{oc_name}_sem"].fillna(0)).tolist()
-            if f"{oc_name}_sem" in df_constraint.columns
-            else [0] * len(df)
-        )
+            metric_name = oc.metric.name
+            if f"{metric_name}_mean" in df_constraint.columns:
+                means.append(df_constraint[f"{metric_name}_mean"].tolist())
+            else:
+                means.append([float("nan")] * len(df_constraint))
+
+            sigmas.append(
+                (df_constraint[f"{metric_name}_sem"].fillna(0)).tolist()
+                if f"{metric_name}_sem" in df_constraint.columns
+                else [0] * len(df)
+            )
 
     con_lower_inds = [
         i
@@ -665,28 +707,27 @@ def _prepare_p_feasible_per_constraint(
     if len(outcome_constraints) == 0:
         return pd.DataFrame(index=df.index)
 
-    oc_names = []
-    for oc in outcome_constraints:
-        if isinstance(oc, ScalarizedOutcomeConstraint):
-            oc_names.append(str(oc))
-        else:
-            oc_names.append(oc.metric.name)
-
     result_df = pd.DataFrame(index=df.index)
     # Compute probability for each constraint individually
-    for oc_name, oc in zip(oc_names, outcome_constraints):
+    for oc in outcome_constraints:
         df_constraint = none_throws(rel_df if oc.relative else df)
 
-        # Get mean and sigma for this constraint
-        if f"{oc_name}_mean" in df_constraint.columns:
-            mean = df_constraint[f"{oc_name}_mean"].values
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            mean, sigma = _get_scalarized_constraint_mean_and_sem(df_constraint, oc)
+            oc_display_name = str(oc)
         else:
-            mean = np.nan * np.ones(len(df_constraint))
+            metric_name = oc.metric.name
+            oc_display_name = metric_name
 
-        if f"{oc_name}_sem" in df_constraint.columns:
-            sigma = df_constraint[f"{oc_name}_sem"].fillna(0).values
-        else:
-            sigma = np.zeros(len(df))
+            if f"{metric_name}_mean" in df_constraint.columns:
+                mean = df_constraint[f"{metric_name}_mean"].values
+            else:
+                mean = np.full(len(df_constraint), np.nan)
+
+            if f"{metric_name}_sem" in df_constraint.columns:
+                sigma = df_constraint[f"{metric_name}_sem"].fillna(0).values
+            else:
+                sigma = np.zeros(len(df))
 
         # Convert to torch tensors (shape: [n_arms, 1])
         mean_tensor = torch.tensor(mean, dtype=torch.double).unsqueeze(-1)
@@ -706,7 +747,7 @@ def _prepare_p_feasible_per_constraint(
 
         # Convert back to numpy and store in result dataframe
         prob = log_prob.exp().squeeze().numpy()
-        result_df[f"p_feasible_{oc_name}"] = prob
+        result_df[f"p_feasible_{oc_display_name}"] = prob
 
     return result_df
 
