@@ -20,7 +20,7 @@ from typing import Any, TYPE_CHECKING
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-from ax.utils.common.result import Err, Ok, Result, UnwrapError
+from ax.utils.common.result import Err, Ok, Result
 from ax.utils.common.serialization import SerializationMixin
 
 if TYPE_CHECKING:
@@ -505,7 +505,6 @@ class Metric(SortableBase, SerializationMixin):
                 result for result in results.values() if isinstance(result, Err)
             ]
 
-            # TODO[mpolson64] Raise all errors in a group via PEP 654
             exceptions = [
                 (
                     err.err.exception
@@ -515,8 +514,8 @@ class Metric(SortableBase, SerializationMixin):
                 for err in errs
             ]
 
-            raise UnwrapError(errs) from (
-                exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+            raise ExceptionGroup(
+                f"Failed to fetch data for {len(errs)} trial(s)", exceptions
             )
 
         return Data.from_multiple_data(data=[ok.ok for ok in oks])
@@ -561,7 +560,6 @@ class Metric(SortableBase, SerializationMixin):
             ]
 
             if len(critical_errs) > 0:
-                # TODO[mpolson64] Raise all errors in a group via PEP 654
                 exceptions = [
                     (
                         err.err.exception
@@ -570,8 +568,9 @@ class Metric(SortableBase, SerializationMixin):
                     )
                     for err in critical_errs
                 ]
-                raise UnwrapError(critical_errs) from (
-                    exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+                raise ExceptionGroup(
+                    f"Failed to fetch data for {len(critical_errs)} critical metric(s)",
+                    exceptions,
                 )
 
         return Data.from_multiple_data(data=[ok.ok for ok in oks])
@@ -592,7 +591,6 @@ class Metric(SortableBase, SerializationMixin):
                 result for result in flattened if isinstance(result, Err)
             ]
 
-            # TODO[mpolson64] Raise all errors in a group via PEP 654
             exceptions = [
                 (
                     err.err.exception
@@ -601,8 +599,8 @@ class Metric(SortableBase, SerializationMixin):
                 )
                 for err in errs
             ]
-            raise UnwrapError(errs) from (
-                exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+            raise ExceptionGroup(
+                f"Failed to fetch data for {len(errs)} metric(s)", exceptions
             )
 
         return Data.from_multiple_data(data=[ok.ok for ok in oks])

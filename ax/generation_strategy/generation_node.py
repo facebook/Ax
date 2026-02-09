@@ -880,23 +880,27 @@ class GenerationNode(SerializationMixin, SortableBase):
         ]
 
         # Raise any necessary generation errors: for any met criterion,
-        # call its `block_continued_generation_error` method The method might not
-        # raise an error, depending on its implementation on given criterion, so the
-        # error from the first met one that does block continued generation, will be
-        # raised.
+        # collect all errors from blocking criteria and raise as ExceptionGroup.
         if raise_generation_errors:
+            generation_errors: list[Exception] = []
             for criterion in trial_based_gen_blocking_criteria:
-                # TODO[mgarrard]: Raise a group of all the errors, from each gen-
-                # blocking transition criterion.
                 if criterion.is_met(
                     self.experiment,
                     curr_node=self,
                 ):
-                    criterion.block_continued_generation_error(
-                        node_name=self.name,
-                        experiment=self.experiment,
-                        trials_from_node=self.trials_from_node,
-                    )
+                    try:
+                        criterion.block_continued_generation_error(
+                            node_name=self.name,
+                            experiment=self.experiment,
+                            trials_from_node=self.trials_from_node,
+                        )
+                    except Exception as e:
+                        generation_errors.append(e)
+            if generation_errors:
+                raise ExceptionGroup(
+                    f"Generation blocked by {len(generation_errors)} criteria",
+                    generation_errors,
+                )
         if len(gen_blocking_criterion_delta_from_threshold) == 0:
             return -1
         return max(min(gen_blocking_criterion_delta_from_threshold), -1)
