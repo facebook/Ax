@@ -34,6 +34,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
@@ -348,6 +349,14 @@ TEST_CASES = [
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
+    (
+        "LLMMessage",
+        lambda: LLMMessage(
+            role="assistant",
+            content="Hello!",
+            metadata={"finish_reason": "stop", "usage": {"total_tokens": 10}},
+        ),
+    ),
     ("MapData", get_map_data),
     ("MapMetric", partial(get_map_metric, name="test")),
     ("Metric", get_metric),
