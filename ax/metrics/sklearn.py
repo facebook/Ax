@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from enum import Enum
+from enum import StrEnum
 from functools import lru_cache
 from math import sqrt
 from typing import Any
@@ -28,20 +28,15 @@ from sklearn.model_selection import cross_val_score
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 
 
-class SklearnModelType(Enum):
-    # pyre-fixme[35]: Target cannot be annotated.
-    RF: str = "rf"
-    # pyre-fixme[35]: Target cannot be annotated.
-    NN: str = "nn"
+class SklearnModelType(StrEnum):
+    RF = "rf"
+    NN = "nn"
 
 
-class SklearnDataset(Enum):
-    # pyre-fixme[35]: Target cannot be annotated.
-    DIGITS: str = "digits"
-    # pyre-fixme[35]: Target cannot be annotated.
-    BOSTON: str = "boston"
-    # pyre-fixme[35]: Target cannot be annotated.
-    CANCER: str = "cancer"
+class SklearnDataset(StrEnum):
+    DIGITS = "digits"
+    BOSTON = "boston"
+    CANCER = "cancer"
 
 
 @lru_cache(maxsize=8)

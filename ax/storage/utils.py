@@ -9,6 +9,7 @@
 import enum
 from collections import OrderedDict
 from collections.abc import Mapping
+from enum import StrEnum
 from hashlib import md5
 
 import pandas as pd
@@ -25,7 +26,7 @@ class DomainType(enum.Enum):
     DERIVED = 4
 
 
-class MetricIntent(enum.Enum):
+class MetricIntent(StrEnum):
     """Class for enumerating metric use types."""
 
     OBJECTIVE = "objective"

@@ -6,7 +6,7 @@
 # pyre-strict
 
 from collections.abc import Mapping
-from enum import Enum
+from enum import StrEnum
 from logging import Logger
 from typing import Protocol
 
@@ -33,7 +33,7 @@ MSE = "MSE"
 KENDALL_TAU_RANK_CORRELATION = "Kendall tau rank correlation"
 
 
-class ModelFitMetricDirection(Enum):
+class ModelFitMetricDirection(StrEnum):
     """Model fit metric directions."""
 
     MINIMIZE = "minimize"
