@@ -324,7 +324,7 @@ class BaseTrial(ABC, SortableBase):
         self._stop_metadata.update(metadata)
         return self._stop_metadata
 
-    def run(self) -> BaseTrial:
+    def run(self) -> Self:
         """Deploys the trial according to the behavior on the runner.
 
         The runner returns a `run_metadata` dict containining metadata
@@ -349,7 +349,7 @@ class BaseTrial(ABC, SortableBase):
             self.mark_running()
         return self
 
-    def stop(self, new_status: TrialStatus, reason: str | None = None) -> BaseTrial:
+    def stop(self, new_status: TrialStatus, reason: str | None = None) -> Self:
         """Stops the trial according to the behavior on the runner.
 
         The runner returns a `stop_metadata` dict containining metadata
@@ -384,7 +384,7 @@ class BaseTrial(ABC, SortableBase):
         self.mark_as(new_status)
         return self
 
-    def complete(self, reason: str | None = None) -> BaseTrial:
+    def complete(self, reason: str | None = None) -> Self:
         """Stops the trial if functionality is defined on runner
             and marks trial completed.
 
@@ -524,7 +524,7 @@ class BaseTrial(ABC, SortableBase):
         """Reason string for the trial status (failed, abandoned, or early stopped)."""
         return self._status_reason
 
-    def mark_staged(self, unsafe: bool = False) -> BaseTrial:
+    def mark_staged(self, unsafe: bool = False) -> Self:
         """Mark the trial as being staged for running.
 
         Args:
@@ -542,7 +542,7 @@ class BaseTrial(ABC, SortableBase):
 
     def mark_running(
         self, no_runner_required: bool = False, unsafe: bool = False
-    ) -> BaseTrial:
+    ) -> Self:
         """Mark trial has started running.
 
         Args:
@@ -572,7 +572,7 @@ class BaseTrial(ABC, SortableBase):
 
     def mark_completed(
         self, unsafe: bool = False, time_completed: str | None = None
-    ) -> BaseTrial:
+    ) -> Self:
         """Mark trial as completed.
 
         Args:
@@ -596,9 +596,7 @@ class BaseTrial(ABC, SortableBase):
         )
         return self
 
-    def mark_abandoned(
-        self, reason: str | None = None, unsafe: bool = False
-    ) -> BaseTrial:
+    def mark_abandoned(self, reason: str | None = None, unsafe: bool = False) -> Self:
         """Mark trial as abandoned.
 
         NOTE: Arms in abandoned trials are considered to be 'pending points'
@@ -624,7 +622,7 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
-    def mark_failed(self, reason: str | None = None, unsafe: bool = False) -> BaseTrial:
+    def mark_failed(self, reason: str | None = None, unsafe: bool = False) -> Self:
         """Mark trial as failed.
 
         Args:
@@ -644,7 +642,7 @@ class BaseTrial(ABC, SortableBase):
 
     def mark_early_stopped(
         self, reason: str | None = None, unsafe: bool = False
-    ) -> BaseTrial:
+    ) -> Self:
         """Mark trial as early stopped.
 
         Args:
@@ -670,7 +668,7 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
-    def mark_stale(self, unsafe: bool = False) -> BaseTrial:
+    def mark_stale(self, unsafe: bool = False) -> Self:
         """Mark trial as stale.
 
         Args:
@@ -691,9 +689,7 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
-    def mark_as(
-        self, status: TrialStatus, unsafe: bool = False, **kwargs: Any
-    ) -> BaseTrial:
+    def mark_as(self, status: TrialStatus, unsafe: bool = False, **kwargs: Any) -> Self:
         """Mark trial with a new TrialStatus.
 
         Args:
@@ -724,7 +720,7 @@ class BaseTrial(ABC, SortableBase):
             raise TrialMutationError(f"Cannot mark trial as {status}.")
         return self
 
-    def mark_arm_abandoned(self, arm_name: str, reason: str | None = None) -> BaseTrial:
+    def mark_arm_abandoned(self, arm_name: str, reason: str | None = None) -> Self:
         raise NotImplementedError(
             "Abandoning arms is only supported for `BatchTrial`. "
             "Use `trial.mark_abandoned` if applicable."
