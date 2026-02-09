@@ -37,5 +37,11 @@
       "id": "analyses",
       "title": "Utilizing and Creating Ax Analyses"
     }
+  ],
+  "Advanced Features": [
+    {
+      "id": "bonsai",
+      "title": "Simple and interpretable arms with BONSAI."
+    }
   ]
 }
