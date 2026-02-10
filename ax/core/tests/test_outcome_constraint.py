@@ -63,14 +63,14 @@ class OutcomeConstraintTest(TestCase):
                 metric=self.minimize_metric, op=ComparisonOp.GEQ, bound=self.bound
             )
         mock_warning.debug.assert_called_once_with(
-            CONSTRAINT_WARNING_MESSAGE.format(**LOWER_BOUND_MISMATCH)
+            CONSTRAINT_WARNING_MESSAGE.format(**LOWER_BOUND_MISMATCH, name="bar")
         )
         with mock.patch(logger_name) as mock_warning:
             OutcomeConstraint(
                 metric=self.maximize_metric, op=ComparisonOp.LEQ, bound=self.bound
             )
         mock_warning.debug.assert_called_once_with(
-            CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
+            CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH, name="baz")
         )
 
     def test_Sortable(self) -> None:
@@ -144,14 +144,14 @@ class ObjectiveThresholdTest(TestCase):
                 metric=self.minimize_metric, op=ComparisonOp.GEQ, bound=self.bound
             )
         mock_warning.debug.assert_called_once_with(
-            CONSTRAINT_WARNING_MESSAGE.format(**LOWER_BOUND_MISMATCH)
+            CONSTRAINT_WARNING_MESSAGE.format(**LOWER_BOUND_MISMATCH, name="bar")
         )
         with mock.patch(logger_name) as mock_warning:
             ObjectiveThreshold(
                 metric=self.maximize_metric, op=ComparisonOp.LEQ, bound=self.bound
             )
         mock_warning.debug.assert_called_once_with(
-            CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
+            CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH, name="baz")
         )
 
     def test_Relativize(self) -> None:

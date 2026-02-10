@@ -28,7 +28,7 @@ UPPER_BOUND_MISMATCH: dict[str, str] = {"bound": "Upper", "is_better": "higher"}
 
 CONSTRAINT_THRESHOLD_WARNING_MESSAGE: str = (
     "Constraint threshold on {name} appears invalid: {bound} bound on metric "
-    + "for which {is_better} values is better."
+    + "for which {is_better} values are better."
 )
 UPPER_BOUND_THRESHOLD: dict[str, str] = {"bound": "Positive", "is_better": "lower"}
 LOWER_BOUND_THRESHOLD: dict[str, str] = {"bound": "Negative", "is_better": "higher"}
@@ -120,7 +120,7 @@ class OutcomeConstraint(SortableBase):
             if op == ComparisonOp.LEQ and not metric.lower_is_better:
                 fmt_data = UPPER_BOUND_MISMATCH
         if fmt_data is not None:
-            fmt_data["name"] = metric.name
+            fmt_data = {**fmt_data, "name": metric.name}
             msg = CONSTRAINT_WARNING_MESSAGE.format(**fmt_data)
             logger.debug(msg)
             return False, msg
@@ -156,7 +156,7 @@ class OutcomeConstraint(SortableBase):
             if self.bound > 0 and not self.metric.lower_is_better:
                 fmt_data = LOWER_BOUND_THRESHOLD
         if fmt_data is not None:
-            fmt_data["name"] = self.metric.name
+            fmt_data = {**fmt_data, "name": self.metric.name}
             msg += CONSTRAINT_THRESHOLD_WARNING_MESSAGE.format(**fmt_data)
             logger.debug(msg)
             return False, msg

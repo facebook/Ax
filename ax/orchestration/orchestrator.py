@@ -1227,7 +1227,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         if not self.options.wait_for_running_trials:
             return None
         return self.wait_for_completed_trials_and_report_results(
-            idle_callback, force_refit=True
+            idle_callback, force_refit=force_refit
         )
 
     def run(self, max_new_trials: int, timeout_hours: float | None = None) -> bool:
@@ -2093,9 +2093,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 if (
                     optimization_config is not None
                     and metric_name in optimization_config.metrics.keys()
-                    and not self.experiment.metrics[
-                        metric_name
-                    ].is_reconverable_fetch_e(metric_fetch_e=metric_fetch_e)
+                    and not self.experiment.metrics[metric_name].is_recoverable_fetch_e(
+                        metric_fetch_e=metric_fetch_e
+                    )
                 ):
                     status = self._mark_err_trial_status(
                         trial=self.experiment.trials[trial_index],

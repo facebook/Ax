@@ -90,7 +90,7 @@ class Arm(SortableBase):
         new_parameters = {}
         for k, v in parameters.items():
             new_parameters[k] = numpy_type_to_python_type(v)
-        parameters_str = json.dumps(parameters, sort_keys=True)
+        parameters_str = json.dumps(new_parameters, sort_keys=True)
         return hashlib.md5(parameters_str.encode("utf-8")).hexdigest()
 
     def clone(self, clear_name: bool = False) -> "Arm":
