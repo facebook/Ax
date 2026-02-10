@@ -121,9 +121,7 @@ def retry_on_exception(
                             wait_interval = min(
                                 MAX_WAIT_SECONDS, initial_wait_seconds * 2 ** (i - 1)
                             )
-                            # pyre-fixme[1001]: `asyncio.sleep(wait_interval)` is
-                            #  never awaited.
-                            asyncio.sleep(wait_interval)
+                            await asyncio.sleep(wait_interval)
                         return await func(*args, **kwargs)
                 # If we are here, it means the retries were finished but
                 # The error was suppressed. Hence return the default value provided.
