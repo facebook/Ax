@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from itertools import groupby
+from typing import Self
 
 from ax.core.arm import Arm
 from ax.core.metric import Metric
@@ -80,7 +81,7 @@ class OptimizationConfig(Base):
         self._outcome_constraints: list[OutcomeConstraint] = constraints
         self.pruning_target_parameterization = pruning_target_parameterization
 
-    def clone(self) -> "OptimizationConfig":
+    def clone(self) -> Self:
         """Make a copy of this optimization config."""
         return self.clone_with_args()
 
@@ -90,7 +91,7 @@ class OptimizationConfig(Base):
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
         pruning_target_parameterization: Arm
         | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
-    ) -> "OptimizationConfig":
+    ) -> Self:
         """Make a copy of this optimization config."""
         objective = self.objective.clone() if objective is None else objective
         outcome_constraints = (
@@ -104,7 +105,7 @@ class OptimizationConfig(Base):
             else pruning_target_parameterization
         )
 
-        return OptimizationConfig(
+        return self.__class__(
             objective=objective,
             outcome_constraints=outcome_constraints,
             pruning_target_parameterization=pruning_target_parameterization,
