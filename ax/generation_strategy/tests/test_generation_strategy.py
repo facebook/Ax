@@ -2000,6 +2000,28 @@ class TestGenerationStrategy(TestCase):
             self.assertEqual(trial.generator_runs[1]._generation_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs[1].arms), 8)
 
+    def test_optimization_complete_single_node_no_criteria(self) -> None:
+        """Test that a single node with no transition_criteria never completes."""
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    name="infinite sobol",
+                    generator_specs=[self.sobol_generator_spec],
+                    transition_criteria=[],  # No criteria = infinite by design
+                ),
+            ]
+        )
+        gs.experiment = exp
+
+        # Generate many trials - never completes
+        for _ in range(3):
+            self.assertFalse(gs.optimization_complete)
+            gr = gs.gen_single_trial(experiment=exp)
+            exp.new_trial(generator_run=gr).mark_running(no_runner_required=True)
+
+        self.assertFalse(gs.optimization_complete)
+
     # ------------- Testing helpers (put tests above this line) -------------
 
     def _run_GS_for_N_rounds(
