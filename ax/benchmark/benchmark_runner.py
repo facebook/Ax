@@ -121,7 +121,7 @@ class BenchmarkRunner(Runner):
         step_runtime_function: A function that takes in parameters
             (in ``TParameterization`` format) and returns the runtime of a step.
         max_concurrency: The maximum number of trials that can be running at a
-            given time. Typically, this is ``max_pending_trials`` from the
+            given time. Typically, this is ``max_concurrent_trials`` from the
             ``orchestrator_options`` on the ``BenchmarkMethod``.
         force_use_simulated_backend: If True, use the simulated backend even if
             ``max_concurrency`` is 1 and ``step_runtime_function`` is None. This

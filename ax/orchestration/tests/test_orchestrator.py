@@ -165,7 +165,7 @@ class TestAxOrchestrator(TestCase):
         "generator_key_override=None)], "
         "transition_criteria=[MaxGenerationParallelism("
         "transition_to='GenerationStep_1_BoTorch')])]), "
-        "options=OrchestratorOptions(max_pending_trials=10, "
+        "options=OrchestratorOptions(max_concurrent_trials=10, "
         "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
         "total_trials=0, tolerated_trial_failure_rate=0.2, "
         "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
@@ -1425,7 +1425,7 @@ class TestAxOrchestrator(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
-                max_pending_trials=100,
+                max_concurrent_trials=100,
                 init_seconds_between_polls=0,  # Short between polls so test is fast.
                 **self.orchestrator_options_kwargs,
             ),
@@ -1459,7 +1459,7 @@ class TestAxOrchestrator(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
-                max_pending_trials=100,
+                max_concurrent_trials=100,
                 init_seconds_between_polls=0,  # Short between polls so test is fast.
                 suppress_storage_errors_after_retries=True,
                 **self.orchestrator_options_kwargs,
@@ -1468,14 +1468,14 @@ class TestAxOrchestrator(TestCase):
         )
         self.assertEqual(mock_save_exp.call_count, 3)
 
-    def test_max_pending_trials(self) -> None:
+    def test_max_concurrent_trials(self) -> None:
         # With runners & metrics, `BareBonesTestOrchestrator.run_all_trials` should run.
         gs = self.sobol_MBM_GS
         orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
-                max_pending_trials=1,
+                max_concurrent_trials=1,
                 init_seconds_between_polls=0,  # Short between polls so test is fast.
                 **self.orchestrator_options_kwargs,
             ),
@@ -2858,7 +2858,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         "generator_key_override=None)], "
         "transition_criteria="
         "[MaxGenerationParallelism(transition_to='GenerationStep_1_BoTorch')])]), "
-        "options=OrchestratorOptions(max_pending_trials=10, "
+        "options=OrchestratorOptions(max_concurrent_trials=10, "
         "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
         "total_trials=0, tolerated_trial_failure_rate=0.2, "
         "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "

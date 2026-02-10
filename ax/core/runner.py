@@ -80,8 +80,8 @@ class Runner(Base, SerializationMixin, ABC):
         as is possible without violating Orchestrator settings). There is no need to
         artificially force this method to limit capacity; ``Orchestrator`` has other
         limitations in place to limit number of trials running at once,
-        like the ``OrchestratorOptions.max_pending_trials`` setting, or
-        more granular control in the form of the `max_parallelism`
+        like the ``OrchestratorOptions.max_concurrent_trials`` setting, or
+        more granular control in the form of the `max_concurrency`
         setting in each of the `GenerationStep`s of a `GenerationStrategy`).
 
         Returns:

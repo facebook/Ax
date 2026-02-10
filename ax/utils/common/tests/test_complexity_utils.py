@@ -118,7 +118,7 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
         # GIVEN custom orchestrator options
         options = OrchestratorOptions(
             tolerated_trial_failure_rate=0.25,
-            max_pending_trials=5,
+            max_concurrent_trials=5,
             min_failed_trials_for_failure_rate_check=10,
         )
 
@@ -131,7 +131,7 @@ class TestSummarizeAxOptimizationComplexity(TestCase):
 
         # THEN the summary should reflect orchestrator options
         self.assertEqual(summary.tolerated_trial_failure_rate, 0.25)
-        self.assertEqual(summary.max_pending_trials, 5)
+        self.assertEqual(summary.max_concurrent_trials, 5)
         self.assertEqual(summary.min_failed_trials_for_failure_rate_check, 10)
 
     def test_parameter_constraints_counted(self) -> None:
@@ -254,7 +254,7 @@ def get_optimization_summary(
     uses_global_stopping: bool = False,
     uses_standard_api: bool = True,
     tolerated_trial_failure_rate: float | None = 0.5,
-    max_pending_trials: int | None = 5,
+    max_concurrent_trials: int | None = 5,
     min_failed_trials_for_failure_rate_check: int | None = 5,
     non_default_advanced_options: bool | None = None,
     uses_merge_multiple_curves: bool | None = None,
@@ -273,7 +273,7 @@ def get_optimization_summary(
         uses_global_stopping=uses_global_stopping,
         uses_standard_api=uses_standard_api,
         tolerated_trial_failure_rate=tolerated_trial_failure_rate,
-        max_pending_trials=max_pending_trials,
+        max_concurrent_trials=max_concurrent_trials,
         min_failed_trials_for_failure_rate_check=(
             min_failed_trials_for_failure_rate_check
         ),
@@ -383,7 +383,7 @@ class TestCheckIfInStandard(TestCase):
             ),
             (
                 get_optimization_summary(
-                    max_pending_trials=3, min_failed_trials_for_failure_rate_check=7
+                    max_concurrent_trials=3, min_failed_trials_for_failure_rate_check=7
                 ),
                 "min_failed_trials_for_failure_rate_check=7",
             ),

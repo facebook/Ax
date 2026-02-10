@@ -111,7 +111,7 @@ class OptimizationSummary:
             is True).
         tolerated_trial_failure_rate: Maximum tolerated trial failure rate
             (should be <= 0.9).
-        max_pending_trials: Maximum number of pending trials.
+        max_concurrent_trials: Maximum number of concurrent trials.
         min_failed_trials_for_failure_rate_check: Minimum failed trials before
             failure rate is checked.
         non_default_advanced_options: Whether non-default advanced options are set.
@@ -133,7 +133,7 @@ class OptimizationSummary:
     # Optional keys
     max_trials: int | None = None
     tolerated_trial_failure_rate: float | None = None
-    max_pending_trials: int | None = None
+    max_concurrent_trials: int | None = None
     min_failed_trials_for_failure_rate_check: int | None = None
     non_default_advanced_options: bool | None = None
     uses_merge_multiple_curves: bool | None = None
@@ -211,7 +211,7 @@ def summarize_ax_optimization_complexity(
         uses_merge_multiple_curves=uses_merge_multiple_curves,
         uses_standard_api=uses_standard_api,
         tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
-        max_pending_trials=options.max_pending_trials,
+        max_concurrent_trials=options.max_concurrent_trials,
         min_failed_trials_for_failure_rate_check=(
             options.min_failed_trials_for_failure_rate_check
         ),
@@ -400,19 +400,19 @@ def _check_if_is_in_standard_other_settings(
         is_in_standard, is_supported = False, False
         why_not_supported.append(f"{tolerated_trial_failure_rate=} is larger than 0.9.")
 
-    max_pending_trials = optimization_summary.max_pending_trials
+    max_concurrent_trials = optimization_summary.max_concurrent_trials
     min_failed_trials_for_failure_rate_check = (
         optimization_summary.min_failed_trials_for_failure_rate_check
     )
     if (
-        max_pending_trials is not None
+        max_concurrent_trials is not None
         and min_failed_trials_for_failure_rate_check is not None
-        and max(2 * max_pending_trials, 5) < min_failed_trials_for_failure_rate_check
+        and max(2 * max_concurrent_trials, 5) < min_failed_trials_for_failure_rate_check
     ):
         is_in_standard, is_supported = False, False
         why_not_supported.append(
             f"{min_failed_trials_for_failure_rate_check=} exceeds "
-            f"{max(2 * max_pending_trials, 5)=}. Please reduce "
+            f"{max(2 * max_concurrent_trials, 5)=}. Please reduce "
             "min_failed_trials_for_failure_rate_check below the stated threshold for "
             "this sweep to be in a supported tier."
         )
@@ -457,7 +457,7 @@ def check_if_in_standard(
               num_categorical_6_inf, num_parameter_constraints
             - Optimization config: num_objectives, num_outcome_constraints
             - Other settings: max_trials, uses_early_stopping, uses_global_stopping,
-              uses_standard_api, tolerated_trial_failure_rate, max_pending_trials,
+              uses_standard_api, tolerated_trial_failure_rate, max_concurrent_trials,
               min_failed_trials_for_failure_rate_check, non_default_advanced_options,
               uses_merge_multiple_curves
         tier_messages: A ``TierMessages`` instance containing tier-specific

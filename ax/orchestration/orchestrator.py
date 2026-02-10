@@ -984,10 +984,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """
         if self._optimization_complete:
             return True, ""
-        if len(self.pending_trials) == 0 and self._get_max_pending_trials() == 0:
+        if len(self.pending_trials) == 0 and self._get_max_concurrent_trials() == 0:
             return (
                 True,
-                "All pending trials have completed and max_pending_trials is zero.",
+                "All pending trials have completed and max_concurrent_trials is zero.",
             )
 
         should_stop, message = self._should_stop_due_to_global_stopping_strategy()
@@ -1084,7 +1084,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         Effect on state:
             If the failure rate has been exceeded, a warning is logged and the private
             attribute `_failure_rate_has_been_exceeded` is set to True, which causes the
-            `_get_max_pending_trials` to return zero, so that no further trials are
+            `_get_max_concurrent_trials` to return zero, so that no further trials are
             scheduled and an error is raised at the end of the optimization.
 
         Returns:
@@ -1120,7 +1120,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     "check if anything could cause your metrics to be flaky or "
                     "broken."
                 )
-            # NOTE: this private attribute causes `_get_max_pending_trials` to
+            # NOTE: this private attribute causes `_get_max_concurrent_trials` to
             # return zero, which causes no further trials to be scheduled.
             self._failure_rate_has_been_exceeded = True
             return True
@@ -1639,14 +1639,14 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 "MultiTypeExperiment."
             )
 
-    def _get_max_pending_trials(self) -> int:
-        """Returns the maximum number of pending trials specified in the options, or
+    def _get_max_concurrent_trials(self) -> int:
+        """Returns the maximum number of concurrent trials specified in the options, or
         zero, if the failure rate limit has been exceeded at any point during the
         optimization.
         """
         if self._failure_rate_has_been_exceeded:
             return 0
-        return self.options.max_pending_trials
+        return self.options.max_concurrent_trials
 
     def _prepare_trials(
         self, max_new_trials: int
@@ -1679,14 +1679,15 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         # limit on pending trials and limit on total trials.
         n = capacity if self.options.run_trials_in_batches else 1
         total_trials = self.options.total_trials
-        max_pending_trials = self._get_max_pending_trials()
+        max_concurrent_trials = self._get_max_concurrent_trials()
 
         num_pending_trials = len(self.pending_trials)
-        max_pending_upper_bound = max_pending_trials - num_pending_trials
+        max_pending_upper_bound = max_concurrent_trials - num_pending_trials
         if max_pending_upper_bound < 1:
             self.logger.debug(
-                f"`max_pending_trials={max_pending_trials}` and {num_pending_trials} "
-                "trials are currently pending; not initiating any additional trials."
+                f"`max_concurrent_trials={max_concurrent_trials}` and "
+                f"{num_pending_trials} trials are currently pending; "
+                "not initiating any additional trials."
             )
             return [], []
         n = max_pending_upper_bound if n == -1 else min(max_pending_upper_bound, n)
