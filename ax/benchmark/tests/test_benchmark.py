@@ -1195,28 +1195,85 @@ class TestBenchmark(TestCase):
             new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
             self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
 
-        method = get_sobol_benchmark_method()
-        with self.subTest("MOO"):
-            problem = get_multi_objective_benchmark_problem()
-
+        with self.subTest("Multi-objective"):
+            # Multi-objective problem with step data
+            problem = get_async_benchmark_problem(
+                map_data=True,
+                n_steps=5,
+                num_objectives=2,
+                # Ensure we don't have two finishing at the same time, for
+                # determinism
+                step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
+            )
             experiment = self.run_optimization_with_orchestrator(
                 problem=problem, method=method, seed=0
             )
-            with self.assertRaisesRegex(
-                NotImplementedError, "only supported for single objective"
-            ):
-                get_opt_trace_by_steps(experiment=experiment)
+            new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
+            self.assertListEqual(
+                new_opt_trace.tolist(),
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    4.0,
+                    4.0,
+                    4.0,
+                    4.0,
+                    4.0,
+                    4.0,
+                    4.0,
+                ],
+            )
 
         with self.subTest("Constrained"):
-            problem = get_benchmark_problem("constrained_gramacy_observed_noise")
+            # Constrained problem with step data.
+            problem = get_async_benchmark_problem(
+                map_data=True,
+                n_steps=5,
+                num_constraints=1,
+                # Ensure we don't have two finishing at the same time, for
+                # determinism
+                step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
+            )
             experiment = self.run_optimization_with_orchestrator(
                 problem=problem, method=method, seed=0
             )
-            with self.assertRaisesRegex(
-                NotImplementedError,
-                "not supported for problems with outcome constraints",
-            ):
-                get_opt_trace_by_steps(experiment=experiment)
+            new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
+            self.assertListEqual(
+                new_opt_trace.tolist(),
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    1.0,
+                    2.0,
+                    2.0,
+                    2.0,
+                    2.0,
+                    2.0,
+                    2.0,
+                    3.0,
+                    3.0,
+                    3.0,
+                    3.0,
+                    3.0,
+                    3.0,
+                    3.0,
+                ],
+            )
 
     def test_get_benchmark_result_with_cumulative_steps(self) -> None:
         """See test_get_opt_trace_by_cumulative_epochs for more info."""

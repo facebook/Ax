@@ -312,15 +312,52 @@ def get_async_benchmark_problem(
     n_steps: int = 1,
     lower_is_better: bool = False,
     report_inference_value_as_trace: bool = False,
+    num_objectives: int = 1,
+    num_constraints: int = 0,
 ) -> BenchmarkProblem:
+    """
+    Create an early-stopping benchmark problem with MAP_KEY data.
+
+    Args:
+        map_data: Whether to use map metrics (required for early stopping).
+        step_runtime_fn: Optional runtime function for steps.
+        n_steps: Number of steps per trial.
+        lower_is_better: Whether lower values are better (for SOO).
+        report_inference_value_as_trace: Whether to report inference trace.
+        num_objectives: Number of objectives (1 for SOO, >1 for MOO).
+        num_constraints: Number of outcome constraints to add.
+
+    Returns:
+        A BenchmarkProblem suitable for early-stopping evaluation.
+    """
     search_space = get_discrete_search_space()
-    test_function = IdentityTestFunction(n_steps=n_steps)
-    optimization_config = get_soo_opt_config(
-        outcome_names=["objective"],
-        use_map_metric=map_data,
-        observe_noise_sd=True,
-        lower_is_better=lower_is_better,
-    )
+
+    # Create outcome names for objectives and constraints
+    objective_names = [f"objective_{i}" for i in range(num_objectives)]
+    constraint_names = [f"constraint_{i}" for i in range(num_constraints)]
+    outcome_names = [*objective_names, *constraint_names]
+
+    test_function = IdentityTestFunction(n_steps=n_steps, outcome_names=outcome_names)
+
+    if num_objectives == 1:
+        # Single-objective: first outcome is objective, rest are constraints
+        optimization_config = get_soo_opt_config(
+            outcome_names=outcome_names,
+            lower_is_better=lower_is_better,
+            observe_noise_sd=True,
+            use_map_metric=map_data,
+        )
+    else:
+        # Multi-objective: pass all outcomes (objectives + constraints)
+        # get_moo_opt_config will use the last num_constraints as constraints
+        optimization_config = get_moo_opt_config(
+            outcome_names=outcome_names,
+            ref_point=[1.0] * num_objectives,
+            num_constraints=num_constraints,
+            lower_is_better=lower_is_better,
+            observe_noise_sd=True,
+            use_map_metric=map_data,
+        )
 
     return BenchmarkProblem(
         name="test",
@@ -330,6 +367,7 @@ def get_async_benchmark_problem(
         num_trials=4,
         baseline_value=19 if lower_is_better else 0,
         optimal_value=0 if lower_is_better else 19,
+        worst_feasible_value=5.0 if num_constraints > 0 else None,
         step_runtime_function=step_runtime_fn,
         report_inference_value_as_trace=report_inference_value_as_trace,
     )
