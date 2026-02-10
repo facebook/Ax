@@ -361,6 +361,10 @@ class GenerationStrategy(Base):
             n._step_index = None
             if len(n.generator_specs) > 1:
                 n._generator_spec_to_gen_from = None
+            # Reset cache fields that are used for performance optimization only
+            # and should not affect equality comparisons.
+            n._trials_from_node_cache = set()
+            n._cached_trial_count = None
 
     # TODO: Deprecate `steps` argument fully in Q1'26.
     def _validate_and_set_step_sequence(self, steps: list[GenerationNode]) -> None:
