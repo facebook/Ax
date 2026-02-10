@@ -31,7 +31,6 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
@@ -1676,22 +1675,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         provided_metrics = data.metric_names
         missing_metrics = required_metrics - provided_metrics
         return not missing_metrics
-
-    @classmethod
-    def _get_pending_observation_features(
-        cls,
-        experiment: Experiment,
-    ) -> dict[str, list[ObservationFeatures]] | None:
-        """Extract pending points for the given experiment.
-
-        NOTE: With one-arm `Trial`-s, we use a more performant
-        ``get_pending_observation_features_based_on_trial_status`` utility instead
-        of ``get_pending_observation_features``, since we can determine whether a point
-        is pending based on the status of the corresponding trial.
-        """
-        return get_pending_observation_features_based_on_trial_status(
-            experiment=experiment
-        )
 
     # ------------------------------ Validators. -------------------------------
 
