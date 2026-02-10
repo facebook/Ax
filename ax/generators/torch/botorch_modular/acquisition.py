@@ -6,6 +6,14 @@
 
 # pyre-strict
 
+"""
+References
+
+.. [Daulton2026bonsai]
+    S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy. BONSAI: Bayesian
+    Optimization with Natural Simplicity and Interpretability. ArXiv, 2026.
+"""
+
 from __future__ import annotations
 
 import operator
@@ -782,7 +790,9 @@ class Acquisition(Base):
         inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         fixed_features: dict[int, float] | None = None,
     ) -> tuple[Tensor, Tensor]:
-        r"""Prune irrelevant parameters from the candidates.
+        r"""Prune irrelevant parameters from the candidates using BONSAI.
+
+        See [Daulton2026bonsai]_ for details.
 
         The method involves first optimizing the AF without any notion of irrelevance.
         Then, the irrelevant parameters are pruned via a sequential greedy algorithm

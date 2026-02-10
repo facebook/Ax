@@ -399,9 +399,9 @@ def choose_generation_strategy_legacy(
             step and automatic selection will be skipped.
         use_input_warping: Whether to use input warping in the model. This is only
             supported in conjunction with use_saasbo=True.
-        simplify_parameter_changes: Whether to simplify parameter changes in
-            arms generated via Bayesian Optimization by pruning irrelevant
-            parameter changes.
+        simplify_parameter_changes: Whether to use BONSAI [Daulton2026bonsai]_ to
+            simplify parameter changes in arms generated via Bayesian Optimization
+            by pruning irrelevant parameter changes.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config

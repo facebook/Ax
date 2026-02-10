@@ -114,8 +114,8 @@ def _get_mbm_node(
             - "fast": Uses MBM defaults.
             - "custom": Uses the provided ``model_config``.
         torch_device: The torch device to use for the MBM node.
-        simplify_parameter_changes: Whether to simplify parameter changes in
-            the MBM node.
+        simplify_parameter_changes: Whether to use BONSAI [Daulton2026bonsai]_ to
+            simplify parameter changes in the MBM node.
         model_config: Optional model config to use for the MBM node.
             This is only supported when ``method`` is "custom".
         botorch_acqf_class: An optional BoTorch ``AcquisitionFunction`` class
