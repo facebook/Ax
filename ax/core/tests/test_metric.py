@@ -105,14 +105,35 @@ class MetricTest(TestCase):
     def test_wrap_err(self) -> None:
         err = Err(MetricFetchE(message="failed!", exception=Exception("panic!")))
 
-        with self.assertRaisesRegex(Exception, "panic"):
-            Metric._unwrap_experiment_data_multi(results={0: {"foo": err}})
+        # With PEP 654 ExceptionGroups, errors are now wrapped in ExceptionGroup.
+        # We verify both the top-level ExceptionGroup message and that the
+        # original "panic!" exception is preserved as a nested exception.
+        with self.subTest("experiment_data_multi"):
+            with self.assertRaisesRegex(
+                ExceptionGroup, "Failed to fetch data for 1 metric"
+            ) as cm:
+                Metric._unwrap_experiment_data_multi(results={0: {"foo": err}})
+            eg = cm.exception
+            self.assertEqual(len(eg.exceptions), 1)
+            self.assertIn("panic", str(eg.exceptions[0]))
 
-        with self.assertRaisesRegex(Exception, "panic"):
-            Metric._unwrap_experiment_data(results={0: err})
+        with self.subTest("experiment_data"):
+            with self.assertRaisesRegex(
+                ExceptionGroup, "Failed to fetch data for 1 trial"
+            ) as cm:
+                Metric._unwrap_experiment_data(results={0: err})
+            eg = cm.exception
+            self.assertEqual(len(eg.exceptions), 1)
+            self.assertIn("panic", str(eg.exceptions[0]))
 
-        with self.assertRaisesRegex(Exception, "panic"):
-            Metric._unwrap_trial_data_multi(results={"foo": err})
+        with self.subTest("trial_data_multi"):
+            with self.assertRaisesRegex(
+                ExceptionGroup, "Failed to fetch data for 1 critical metric"
+            ) as cm:
+                Metric._unwrap_trial_data_multi(results={"foo": err})
+            eg = cm.exception
+            self.assertEqual(len(eg.exceptions), 1)
+            self.assertIn("panic", str(eg.exceptions[0]))
 
     def test_MetricFetchE(self) -> None:
         def foo() -> bool:

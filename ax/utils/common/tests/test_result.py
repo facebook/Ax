@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.utils.common.result import Err, Ok, Result, UnwrapError
+from ax.utils.common.result import Err, Ok, Result
 from ax.utils.common.testutils import TestCase
 
 
@@ -59,12 +59,12 @@ class ResultTest(TestCase):
 
     def test_unwrap(self) -> None:
         self.assertEqual(self.ok.unwrap(), 0)
-        with self.assertRaises(UnwrapError):
+        with self.assertRaises(RuntimeError):
             self.ok.unwrap_err()
         self.assertEqual(self.ok.unwrap_or(1), 0)
         self.assertEqual(self.ok.unwrap_or_else(1), 0)
 
-        with self.assertRaises(UnwrapError):
+        with self.assertRaises(RuntimeError):
             self.err.unwrap()
         self.assertEqual(self.err.unwrap_err(), "yikes")
         self.assertEqual(self.err.unwrap_or(1), 1)
