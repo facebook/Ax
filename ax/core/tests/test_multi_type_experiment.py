@@ -48,18 +48,8 @@ class MultiTypeExperimentTest(TestCase):
         self.assertEqual(b2.run_metadata["dummy_metadata"], "dummy3")
 
         df = self.experiment.fetch_data().df
-        for _, row in df.iterrows():
-            # Make sure proper metric present for each batch only
-            self.assertEqual(
-                row["metric_name"], "m1" if row["trial_index"] == 0 else "m2"
-            )
 
-        arm_0_slice = df.loc[df["arm_name"] == "0_0"]
-        self.assertNotEqual(
-            float(arm_0_slice[df["trial_index"] == 0]["mean"].item()),
-            float(arm_0_slice[df["trial_index"] == 1]["mean"].item()),
-        )
-        self.assertEqual(len(df), 2 * n)
+        self.assertEqual(len(df), 4 * n)
         self.assertEqual(self.experiment.default_trials, {0})
         # Set 2 metrics to be equal
         self.experiment.update_tracking_metric(
@@ -68,13 +58,21 @@ class MultiTypeExperimentTest(TestCase):
         df = self.experiment.fetch_data().df
         arm_0_slice = df.loc[df["arm_name"] == "0_0"]
         self.assertAlmostEqual(
-            float(arm_0_slice[df["trial_index"] == 0]["mean"].item()),
-            float(arm_0_slice[df["trial_index"] == 1]["mean"].item()),
+            float(
+                arm_0_slice[(df["trial_index"] == 0) & (df["metric_name"] == "m2")][
+                    "mean"
+                ].item()
+            ),
+            float(
+                arm_0_slice[(df["trial_index"] == 1) & (df["metric_name"] == "m2")][
+                    "mean"
+                ].item()
+            ),
             places=10,
         )
 
     def test_Repr(self) -> None:
-        self.assertEqual(str(self.experiment), "MultiTypeExperiment(test_exp)")
+        self.assertEqual(str(self.experiment), "Experiment(test_exp)")
 
     def test_Eq(self) -> None:
         exp2 = get_multi_type_experiment()
@@ -83,24 +81,19 @@ class MultiTypeExperimentTest(TestCase):
         self.assertTrue(self.experiment == exp2)
 
         self.experiment.add_tracking_metric(
-            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m4"
+            BraninMetric("m3", ["x2", "x1"]),
+            trial_type="type1",
         )
 
         # Test different set of metrics
         self.assertFalse(self.experiment == exp2)
 
         exp2.add_tracking_metric(
-            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m5"
+            BraninMetric("m3", ["x2", "x1"]),
+            trial_type="type1",
         )
 
-        # Test different metric definitions
-        self.assertFalse(self.experiment == exp2)
-
-        exp2.update_tracking_metric(
-            BraninMetric("m3", ["x2", "x1"]), trial_type="type1", canonical_name="m4"
-        )
-
-        # Should be the same
+        # Both have the same metrics now, should be equal
         self.assertTrue(self.experiment == exp2)
 
         exp2.remove_tracking_metric("m3")
