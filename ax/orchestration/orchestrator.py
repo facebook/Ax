@@ -58,7 +58,7 @@ from ax.utils.common.logger import (
     set_ax_logger_levels,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """ \
@@ -364,7 +364,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         self._validate_runner_and_implemented_metrics(experiment=self.experiment)
 
     @property
-    def trial_type(self) -> str | None:
+    def trial_type(self) -> str:
         """Trial type for the experiment this Orchestrator is running.
 
         This returns None if the experiment is not a MultitypeExperiment
@@ -374,8 +374,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             experiment is a MultiTypeExperiment and None otherwise.
         """
         if isinstance(self.experiment, MultiTypeExperiment):
-            return self.options.mt_experiment_trial_type
-        return None
+            return (
+                self.options.mt_experiment_trial_type or Keys.DEFAULT_TRIAL_TYPE.value
+            )
+        return Keys.DEFAULT_TRIAL_TYPE.value
 
     @property
     def running_trials(self) -> list[BaseTrial]:
@@ -487,12 +489,8 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """``Runner`` specified on the experiment associated with this ``Orchestrator``
         instance.
         """
-        if self.trial_type is not None:
-            runner = assert_is_instance(
-                self.experiment, MultiTypeExperiment
-            ).runner_for_trial_type(trial_type=none_throws(self.trial_type))
-        else:
-            runner = self.experiment.runner
+        runner = self.experiment.runner_for_trial_type(trial_type=self.trial_type)
+
         if runner is None:
             raise UnsupportedError(
                 "`Orchestrator` requires that experiment specifies a `Runner`."
@@ -2034,11 +2032,11 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
         try:
             kwargs = deepcopy(self.options.fetch_kwargs)
-            if self.trial_type is not None:
-                metrics = assert_is_instance(
-                    self.experiment, MultiTypeExperiment
-                ).metrics_for_trial_type(trial_type=none_throws(self.trial_type))
-                kwargs["metrics"] = metrics
+            metrics = self.experiment.metrics_for_trial_type(
+                trial_type=none_throws(self.trial_type)
+            )
+            kwargs["metrics"] = metrics
+
             results = self.experiment.fetch_trials_data_results(
                 trial_indices=trial_indices,
                 **kwargs,
