@@ -1417,7 +1417,7 @@ class ExperimentTest(TestCase):
         cloned_experiment._time_created = experiment._time_created
         self.assertEqual(cloned_experiment, experiment)
 
-        # test clear_trial_type
+        # test clear_trial_type - uses experiment's default_trial_type
         experiment = get_branin_experiment(
             with_batch=True,
             num_batch_trial=1,
@@ -1427,7 +1427,10 @@ class ExperimentTest(TestCase):
         with self.assertRaisesRegex(ValueError, ".* foo is not supported by the exp"):
             experiment.clone_with()
         cloned_experiment = experiment.clone_with(clear_trial_type=True)
-        self.assertIsNone(cloned_experiment.trials[0].trial_type)
+        self.assertEqual(
+            cloned_experiment.trials[0].trial_type,
+            cloned_experiment.default_trial_type,
+        )
 
         # Test cloning with specific properties to keep
         experiment_w_props = get_branin_experiment()
