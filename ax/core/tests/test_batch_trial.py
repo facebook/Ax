@@ -410,8 +410,9 @@ class BatchTrialTest(TestCase):
         cloned_batch._time_created = batch._time_created
         self.assertEqual(cloned_batch, batch)
         # test cloning with clear_trial_type=True
+        # When clear_trial_type=True, uses experiment's default_trial_type
         cloned_batch = batch.clone_to(clear_trial_type=True)
-        self.assertIsNone(cloned_batch.trial_type)
+        self.assertEqual(cloned_batch.trial_type, self.experiment.default_trial_type)
         self.assertEqual(
             cloned_batch.generation_method_str,
             f"{MANUAL_GENERATION_METHOD_STR}, {STATUS_QUO_GENERATION_METHOD_STR}",

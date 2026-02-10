@@ -226,7 +226,12 @@ class Encoder:
                         metric.name
                     ]
         elif experiment.runner:
-            runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
+            runners.append(
+                self.runner_to_sqa(
+                    none_throws(experiment.runner),
+                    trial_type=experiment.default_trial_type,
+                )
+            )
         properties = experiment._properties.copy()
         if (
             oc := experiment.optimization_config
