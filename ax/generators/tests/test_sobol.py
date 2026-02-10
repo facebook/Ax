@@ -50,15 +50,9 @@ class SobolGeneratorTest(TestCase):
         state = generator._get_state()
         self.assertEqual(state.get("init_position"), 3)
         self.assertEqual(state.get("seed"), generator.seed)
-        generator.gen(
-            n=3,
-            search_space_digest=ssd,
-            rounding_func=lambda x: x,
-            generated_points=generated_points,
-        )
 
     def test_SobolGeneratorFixedSpace(self) -> None:
-        generator = SobolGenerator(seed=0, deduplicate=False)
+        generator = SobolGenerator(seed=0)
         ssd = self._create_ssd(n_tunable=0, n_fixed=2)
         generated_points, _ = generator.gen(
             n=3,
@@ -70,32 +64,6 @@ class SobolGeneratorTest(TestCase):
         np_bounds = np.array(ssd.bounds)
         self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
-        # Should error out if deduplicating since there's only one feasible point.
-        generator = SobolGenerator(seed=0, deduplicate=True)
-        with self.assertRaisesRegex(SearchSpaceExhausted, "Rejection sampling"):
-            generated_points, _ = generator.gen(
-                n=3,
-                search_space_digest=ssd,
-                fixed_features={0: 1, 1: 2},
-                rounding_func=lambda x: x,
-            )
-        # But we can generate 1 point.
-        generated_points, _ = generator.gen(
-            n=1,
-            search_space_digest=ssd,
-            fixed_features={0: 1, 1: 2},
-            rounding_func=lambda x: x,
-        )
-        self.assertEqual(np.shape(generated_points), (1, 2))
-        # Errors out if we have already generated the only point.
-        with self.assertRaisesRegex(SearchSpaceExhausted, "Rejection sampling"):
-            generator.gen(
-                n=1,
-                search_space_digest=ssd,
-                fixed_features={0: 1, 1: 2},
-                rounding_func=lambda x: x,
-                generated_points=generated_points,
-            )
 
     def test_SobolGeneratorNoScramble(self) -> None:
         generator = SobolGenerator(scramble=False)
@@ -126,16 +94,15 @@ class SobolGeneratorTest(TestCase):
             rounding_func=lambda x: x,
         )
         np_bounds = np.array(ssd.bounds)
-        all_generated = np.zeros((0, len(ssd.bounds)))
+        all_generated = []
         for expected_points in bulk_generated_points:
             generated_points, weights = generator.gen(
                 n=1,
                 search_space_digest=ssd,
                 fixed_features={fixed_param_index: 1},
                 rounding_func=lambda x: x,
-                generated_points=all_generated,
             )
-            all_generated = np.vstack((all_generated, generated_points))
+            all_generated.append(generated_points)
             self.assertEqual(weights, [1])
             self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
             self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
@@ -226,24 +193,6 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.all(generated_points @ A.transpose() <= b))
         rounding_func.assert_called()
 
-        rounding_func.reset_mock()
-        with mock.patch(
-            "botorch.utils.sampling.sample_polytope",
-            wraps=sample_polytope,
-        ) as wrapped_sampler:
-            generator.gen(
-                n=3,
-                search_space_digest=ssd,
-                linear_constraints=(A, b),
-                rounding_func=rounding_func,
-                generated_points=generated_points,
-            )
-        # last call for (6th generated point) uses seed=5
-        self.assertEqual(wrapped_sampler.call_args.kwargs["seed"], 5)
-        self.assertEqual(wrapped_sampler.call_args.kwargs["n_thinning"], 3)
-
-        rounding_func.assert_called()
-
     def test_SobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection
         # sampler gives a search space exhausted error.  Testing fallback to
@@ -292,7 +241,6 @@ class SobolGeneratorTest(TestCase):
             search_space_digest=ssd,
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
-            generated_points=generated_points_first_batch,
         )
 
         generated_points_two_trials = np.vstack(
@@ -328,30 +276,3 @@ class SobolGeneratorTest(TestCase):
                 model_gen_options={"max_rs_draws": 0},
                 rounding_func=lambda x: x,
             )
-
-    def test_SobolGeneratorDedupe(self) -> None:
-        generator = SobolGenerator(seed=0, deduplicate=True)
-        n_tunable = fixed_param_index = 3
-        ssd = self._create_ssd(n_tunable=n_tunable, n_fixed=1)
-        generated_points, _ = generator.gen(
-            n=2,
-            search_space_digest=ssd,
-            linear_constraints=(
-                np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
-                np.array([1, 1]),
-            ),
-            fixed_features={fixed_param_index: 1},
-            rounding_func=lambda x: x,
-        )
-        self.assertEqual(len(generated_points), 2)
-        generated_points, _ = generator.gen(
-            n=1,
-            search_space_digest=ssd,
-            linear_constraints=(
-                np.array([[1, 1, 0, 0], [0, 1, 1, 0]]),
-                np.array([1, 1]),
-            ),
-            fixed_features={fixed_param_index: 1},
-            rounding_func=lambda x: x,
-        )
-        self.assertEqual(len(generated_points), 1)

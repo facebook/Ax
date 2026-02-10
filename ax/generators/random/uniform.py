@@ -23,14 +23,12 @@ class UniformGenerator(RandomGenerator):
 
     def __init__(
         self,
-        deduplicate: bool = True,
         seed: int | None = None,
         init_position: int = 0,
         generated_points: npt.NDArray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__(
-            deduplicate=deduplicate,
             seed=seed,
             init_position=init_position,
             generated_points=generated_points,

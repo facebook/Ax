@@ -50,24 +50,17 @@ class RandomGenerator(Generator):
     `_gen_unconstrained`/`gen` can be directly implemented.
 
     Attributes:
-        deduplicate: If True (defaults to True), a single instantiation
-            of the model will not return the same point twice. This flag
-            is used in rejection sampling.
         seed: An optional seed value for scrambling.
         init_position: The initial state of the generator. This is the number
             of samples to fast-forward before generating new samples.
             Used to ensure that the re-loaded generator will continue generating
             from the same sequence rather than starting from scratch.
-        generated_points: A set of previously generated points to use
-            for deduplication. These should be provided in the raw transformed
-            space the model operates in.
         fallback_to_sample_polytope: If True, when rejection sampling fails,
             we fall back to the HitAndRunPolytopeSampler.
     """
 
     def __init__(
         self,
-        deduplicate: bool = True,
         seed: int | None = None,
         init_position: int = 0,
         generated_points: npt.NDArray | None = None,
@@ -75,14 +68,12 @@ class RandomGenerator(Generator):
         polytope_sampler_kwargs: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
-        self.deduplicate = deduplicate
         self.seed: int = (
             seed
             if seed is not None
             else assert_is_instance(torch.randint(high=100_000, size=(1,)).item(), int)
         )
         self.init_position = init_position
-        # Used for deduplication.
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
         self.polytope_sampler_kwargs: dict[str, Any] = polytope_sampler_kwargs or {}
         self.attempted_draws: int = 0
@@ -116,7 +107,6 @@ class RandomGenerator(Generator):
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
         rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
-        generated_points: npt.NDArray | None = None,
     ) -> tuple[npt.NDArray, npt.NDArray]:
         """Generate new candidates.
 
@@ -133,8 +123,6 @@ class RandomGenerator(Generator):
                 model.
             rounding_func: A function that rounds an optimization result
                 appropriately (e.g., according to `round-trip` transformations).
-            generated_points: A numpy array of shape `n x d` containing the
-                previously generated points to deduplicate against.
 
         Returns:
             2-element tuple containing
@@ -172,19 +160,17 @@ class RandomGenerator(Generator):
             max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
         try:
             # Always rejection sample, but this only rejects if there are
-            # constraints or actual duplicates and deduplicate is specified.
-            # If rejection sampling fails, fall back to polytope sampling.
+            # constraints. If rejection sampling fails, fall back to polytope
+            # sampling.
             points, attempted_draws = rejection_sample(
                 gen_unconstrained=self._gen_unconstrained,
                 n=n,
                 d=len(search_space_digest.bounds),
                 tunable_feature_indices=tf_indices,
                 linear_constraints=linear_constraints,
-                deduplicate=self.deduplicate,
                 max_draws=max_draws,
                 fixed_features=fixed_features,
                 rounding_func=rounding_func,
-                existing_points=generated_points,
             )
         except SearchSpaceExhausted as e:
             if has_continuous_parameters or self.fallback_to_sample_polytope:
@@ -198,14 +184,6 @@ class RandomGenerator(Generator):
                     f"{self.__class__.__name__}."
                 )
                 # If rejection sampling fails, try polytope sampler.
-                num_generated = (
-                    len(generated_points) if generated_points is not None else 0
-                )
-                interior_point = (  # A feasible point of shape `d x 1`.
-                    torch.from_numpy(generated_points[-1].reshape((-1, 1))).double()
-                    if generated_points is not None
-                    else None
-                )
                 kwargs = {"n_burnin": 100, "n_thinning": 20}
                 kwargs.update(self.polytope_sampler_kwargs)
                 polytope_sampler: HitAndRunPolytopeSampler = HitAndRunPolytopeSampler(
@@ -217,8 +195,8 @@ class RandomGenerator(Generator):
                         fixed_features=fixed_features,
                     ),
                     bounds=self._convert_bounds(bounds=search_space_digest.bounds),
-                    interior_point=interior_point,
-                    seed=self.seed + num_generated,
+                    interior_point=None,
+                    seed=self.seed,
                     **kwargs,
                 )
 
@@ -232,7 +210,7 @@ class RandomGenerator(Generator):
                     # in the polytope sampler, so we don't need to apply them here.
                     return polytope_sampler.draw(n=n).numpy()
 
-                # we call rejection_sample here to reuse all the deduplication
+                # we call rejection_sample here for the constraint checking
                 # logic
                 points, _ = rejection_sample(
                     gen_unconstrained=gen_polytope_sampler,
@@ -240,11 +218,9 @@ class RandomGenerator(Generator):
                     d=len(search_space_digest.bounds),
                     tunable_feature_indices=tf_indices,
                     linear_constraints=linear_constraints,
-                    deduplicate=self.deduplicate,
                     max_draws=max_draws,
                     fixed_features=fixed_features,
                     rounding_func=rounding_func,
-                    existing_points=generated_points,
                 )
             else:
                 raise e

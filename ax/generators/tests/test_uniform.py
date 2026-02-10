@@ -9,7 +9,6 @@
 
 import numpy as np
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.uniform import UniformGenerator
 from ax.utils.common.testutils import TestCase
 
@@ -53,14 +52,9 @@ class UniformGeneratorTest(TestCase):
         generator = UniformGenerator(seed=self.seed)
         ssd = self._create_ssd(n_tunable=0, n_fixed=2)
         n = 3
-        with self.assertRaises(SearchSpaceExhausted):
-            generator.gen(
-                n=3,
-                search_space_digest=ssd,
-                fixed_features={0: 1, 1: 2},
-                rounding_func=lambda x: x,
-            )
-        generator = UniformGenerator(seed=self.seed, deduplicate=False)
+        # With all fixed features, there's only one feasible point, but the generator
+        # will repeat it as many times as requested since there's no deduplication
+        # at the generator level anymore.
         generated_points, _ = generator.gen(
             n=3,
             search_space_digest=ssd,

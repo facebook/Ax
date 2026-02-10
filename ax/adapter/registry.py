@@ -173,6 +173,9 @@ class GeneratorSetup(NamedTuple):
     default_generator_kwargs: Mapping[str, Any] | None = None
     standard_adapter_kwargs: Mapping[str, Any] | None = None
     not_saved_generator_kwargs: Sequence[str] | None = None
+    # Kwargs that were removed from the generator but may still exist in
+    # serialized data. These are silently filtered out before validation.
+    deprecated_generator_kwargs: Sequence[str] | None = None
 
 
 """A mapping of string keys that indicate a generator, to the corresponding
@@ -209,6 +212,8 @@ GENERATOR_KEY_TO_GENERATOR_SETUP: dict[str, GeneratorSetup] = {
         adapter_class=RandomAdapter,
         generator_class=SobolGenerator,
         transforms=Cont_X_trans,
+        # These kwargs were removed but may exist in old serialized data.
+        deprecated_generator_kwargs=["deduplicate"],
     ),
     "Uniform": GeneratorSetup(
         adapter_class=RandomAdapter,
@@ -290,6 +295,11 @@ class GeneratorRegistryBase(Enum):
         generator_class = model_setup_info.generator_class
         adapter_class = model_setup_info.adapter_class
         search_space = experiment.search_space
+
+        # Filter out deprecated kwargs that may exist in old serialized data.
+        if model_setup_info.deprecated_generator_kwargs:
+            for deprecated_key in model_setup_info.deprecated_generator_kwargs:
+                kwargs.pop(deprecated_key, None)
 
         if not silently_filter_kwargs:
             # Check correct kwargs are present

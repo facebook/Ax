@@ -34,7 +34,6 @@ optimization model for subsequent trials).
 def get_sobol(
     search_space: SearchSpace,
     seed: int | None = None,
-    deduplicate: bool = False,
     init_position: int = 0,
     scramble: bool = True,
     fallback_to_sample_polytope: bool = False,
@@ -52,7 +51,6 @@ def get_sobol(
         Generators.SOBOL(
             experiment=Experiment(search_space=search_space),
             seed=seed,
-            deduplicate=deduplicate,
             init_position=init_position,
             scramble=scramble,
             fallback_to_sample_polytope=fallback_to_sample_polytope,

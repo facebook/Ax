@@ -51,7 +51,7 @@ def _make_sobol_step(
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
     seed: int | None = None,
-    should_deduplicate: bool = False,
+    should_deduplicate: bool = True,
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
     return GenerationStep(
@@ -61,7 +61,7 @@ def _make_sobol_step(
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        generator_kwargs={"deduplicate": True, "seed": seed},
+        generator_kwargs={"seed": seed},
         should_deduplicate=should_deduplicate,
         use_all_trials_in_exp=True,
     )
@@ -76,7 +76,7 @@ def _make_botorch_step(
     generator_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
-    should_deduplicate: bool = False,
+    should_deduplicate: bool = True,
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,
     derelativize_with_raw_status_quo: bool = False,
@@ -299,7 +299,7 @@ def choose_generation_strategy_legacy(
     max_parallelism_cap: int | None = None,
     max_parallelism_override: int | None = None,
     optimization_config: OptimizationConfig | None = None,
-    should_deduplicate: bool = False,
+    should_deduplicate: bool = True,
     use_saasbo: bool = False,
     disable_progbar: bool | None = None,
     jit_compile: bool | None = None,

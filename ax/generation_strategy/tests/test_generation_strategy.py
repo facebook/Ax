@@ -360,7 +360,10 @@ class TestGenerationStrategy(TestCase):
         self.registry_setup_dict_patcher.stop()
 
     def _get_sobol_mbm_step_gs(
-        self, num_sobol_trials: int = 5, num_mbm_trials: int = -1
+        self,
+        num_sobol_trials: int = 5,
+        num_mbm_trials: int = -1,
+        should_deduplicate: bool = False,
     ) -> GenerationStrategy:
         return GenerationStrategy(
             name="Sobol+MBM",
@@ -369,12 +372,14 @@ class TestGenerationStrategy(TestCase):
                     generator=Generators.SOBOL,
                     num_trials=num_sobol_trials,
                     generator_kwargs=self.step_generator_kwargs,
+                    should_deduplicate=should_deduplicate,
                 ),
                 GenerationStep(
                     generator=Generators.BOTORCH_MODULAR,
                     num_trials=num_mbm_trials,
                     generator_kwargs=self.step_generator_kwargs,
                     enforce_num_trials=True,
+                    should_deduplicate=should_deduplicate,
                 ),
             ],
         )
@@ -565,7 +570,6 @@ class TestGenerationStrategy(TestCase):
                     generator_kwargs,
                     {
                         "seed": expected_seed,
-                        "deduplicate": True,
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
@@ -800,7 +804,6 @@ class TestGenerationStrategy(TestCase):
                 GenerationStrategyRepeatedPoints: GeneratorSpec(
                     generator_enum=Generators.SOBOL,
                     generator_key_override="Fallback_Sobol",
-                    generator_kwargs={"deduplicate": False},
                 )
             },
         ]:
@@ -828,10 +831,9 @@ class TestGenerationStrategy(TestCase):
                         generator_specs=[
                             GeneratorSpec(
                                 generator_enum=Generators.SOBOL,
-                                generator_kwargs={"deduplicate": False},
                             )
                         ],
-                        # Disable model-level deduplication.
+                        # GNode-level deduplication is on.
                         should_deduplicate=True,
                         fallback_specs=fallback_specs,  # pyre-ignore[6]
                     ),
@@ -844,12 +846,14 @@ class TestGenerationStrategy(TestCase):
             self.assertEqual(len(exp.arms_by_signature), 2)
 
             if fallback_specs is None:
-                # With default fallback model. It tries to deduplicate but the
-                # search space is exhaused and errors out.
-                with self.assertRaisesRegex(
-                    SearchSpaceExhausted, "Rejection sampling error"
-                ):
+                # With default fallback model (SOBOL without deduplication).
+                # The fallback SOBOL generator doesn't deduplicate, so it just
+                # generates a point and logs a warning.
+                with self.assertLogs(GenerationNode.__module__, logging.WARNING) as cm:
                     g = sobol.gen_single_trial(exp)
+                self.assertTrue(
+                    any("gen failed with error" in msg for msg in cm.output)
+                )
             elif len(fallback_specs) == 0:
                 # With no fallback specs.
                 with (
@@ -1550,7 +1554,6 @@ class TestGenerationStrategy(TestCase):
                     g._generator_kwargs,
                     {
                         "seed": expected_seed,
-                        "deduplicate": True,
                         "init_position": i,
                         "scramble": True,
                         "fallback_to_sample_polytope": False,

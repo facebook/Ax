@@ -934,11 +934,7 @@ class TestBenchmark(TestCase):
                 nodes=[
                     GenerationNode(
                         name="Sobol",
-                        generator_specs=[
-                            GeneratorSpec(
-                                Generators.SOBOL, generator_kwargs={"deduplicate": True}
-                            )
-                        ],
+                        generator_specs=[GeneratorSpec(Generators.SOBOL)],
                     )
                 ]
             ),
