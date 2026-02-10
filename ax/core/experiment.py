@@ -1225,6 +1225,15 @@ class Experiment(Base):
 
         return trials_with_data
 
+    @property
+    def default_trials(self) -> set[int]:
+        """Return the indicies for trials of the default type."""
+        return {
+            idx
+            for idx, trial in self.trials.items()
+            if trial.trial_type == self.default_trial_type
+        }
+
     def new_trial(
         self,
         generator_run: GeneratorRun | None = None,
