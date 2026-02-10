@@ -460,9 +460,9 @@ class TrialTest(TestCase):
         # check that trial_type is cloned correctly
         self.assertEqual(new_trial.trial_type, "foo")
 
-        # test clear_trial_type
+        # test clear_trial_type - uses experiment's default_trial_type
         new_trial = self.trial.clone_to(clear_trial_type=True)
-        self.assertIsNone(new_trial.trial_type)
+        self.assertEqual(new_trial.trial_type, new_experiment.default_trial_type)
 
     def test_update_trial_status_on_clone(self) -> None:
         for status in [
