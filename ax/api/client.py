@@ -244,8 +244,9 @@ class Client(WithDBSettingsBase):
                 initialization budget if more trials are needed.
             torch_device: The torch device to use for model fitting. If None, will
                 use the default device.
-            simplify_parameter_changes: Whether to simplify parameter changes in
-                arms generated via Bayesian Optimization by pruning irrelevant
+            simplify_parameter_changes: Whether to use BONSAI
+                [Daulton2026bonsai]_ to simplify parameter changes in arms
+                generated via Bayesian Optimization by pruning irrelevant
                 parameter changes.
         """
         generation_strategy = self._choose_generation_strategy(
@@ -1186,8 +1187,9 @@ class Client(WithDBSettingsBase):
                 initialization budget if more trials are needed.
             torch_device: The torch device to use for model fitting. If None, will
                 use the default device.
-            simplify_parameter_changes: Whether to simplify parameter changes in
-                arms generated via Bayesian Optimization by pruning irrelevant
+            simplify_parameter_changes: Whether to use BONSAI
+                [Daulton2026bonsai]_ to simplify parameter changes in arms
+                generated via Bayesian Optimization by pruning irrelevant
                 parameter changes.
 
 
