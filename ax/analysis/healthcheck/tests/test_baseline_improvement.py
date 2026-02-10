@@ -61,12 +61,12 @@ class TestBaselineImprovementAnalysis(TestCase):
         exp.attach_data(Data(df=pd.DataFrame(rows)))
 
     def test_status_outcomes(self) -> None:
-        """Test PASS/FAIL status based on improvement."""
+        """Test PASS/WARNING status based on improvement."""
         # minimize=True: lower is better
         test_cases = [
             # (baseline_mean, comparison_mean, expected_status, description)
             (100.0, 50.0, HealthcheckStatus.PASS, "improved (lower)"),
-            (50.0, 100.0, HealthcheckStatus.FAIL, "not improved (higher)"),
+            (50.0, 100.0, HealthcheckStatus.WARNING, "not improved (higher)"),
         ]
 
         for baseline_mean, comparison_mean, expected_status, desc in test_cases:
@@ -107,7 +107,7 @@ class TestBaselineImprovementAnalysis(TestCase):
 
     def test_documentation_link(self) -> None:
         """Test documentation_link is appended correctly."""
-        # minimize=True: baseline=50, comparison=100 -> NOT improved (FAIL status)
+        # minimize=True: baseline=50, comparison=100 -> NOT improved (WARNING status)
         self._attach_data(
             {"branin": [(50.0, 0.1), (100.0, 0.1)]}, arm_names=["0_0", "0_1"]
         )
@@ -178,7 +178,7 @@ class TestBaselineImprovementAnalysis(TestCase):
         self.assertEqual(len(card.df), 1)
 
     def test_no_improvement_message_parameter(self) -> None:
-        """Test custom no_improvement_message is displayed on FAIL status."""
+        """Test custom no_improvement_message is displayed on WARNING status."""
         self._attach_data(
             {"branin": [(50.0, 0.1), (100.0, 0.1)]}, arm_names=["0_0", "0_1"]
         )
@@ -192,5 +192,5 @@ class TestBaselineImprovementAnalysis(TestCase):
         )
         card = analysis.compute(experiment=self.experiment)
 
-        self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
+        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
         self.assertIn(custom_message, card.subtitle)
