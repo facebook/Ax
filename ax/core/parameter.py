@@ -14,7 +14,7 @@ from copy import deepcopy
 from enum import Enum
 from logging import Logger
 from math import inf
-from typing import Any, cast, Self, Union
+from typing import Any, cast, Union
 from warnings import warn
 
 import numpy as np
@@ -237,7 +237,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         )
 
     # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
-    def clone(self) -> Self:
+    def clone(self) -> Parameter:
         pass
 
     def disable(self, default_value: TParamValue) -> None:

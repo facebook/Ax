@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any, Self, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import SerializationMixin
@@ -145,7 +145,7 @@ class Runner(Base, SerializationMixin, ABC):
             f"{self.__class__.__name__} does not implement a `stop` method."
         )
 
-    def clone(self) -> Self:
+    def clone(self) -> Runner:
         """Create a copy of this Runner."""
         cls = type(self)
         # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.

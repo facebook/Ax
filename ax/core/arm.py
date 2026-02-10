@@ -9,7 +9,6 @@
 import hashlib
 import json
 from collections.abc import Mapping
-from typing import Self
 
 from ax.core.types import TParameterization, TParamValue
 from ax.utils.common.base import SortableBase
@@ -94,7 +93,7 @@ class Arm(SortableBase):
         parameters_str = json.dumps(parameters, sort_keys=True)
         return hashlib.md5(parameters_str.encode("utf-8")).hexdigest()
 
-    def clone(self, clear_name: bool = False) -> Self:
+    def clone(self, clear_name: bool = False) -> "Arm":
         """Create a copy of this arm.
 
         Args:
@@ -103,7 +102,7 @@ class Arm(SortableBase):
                 Defaults to False.
         """
         clear_name = clear_name or not self.has_name
-        return self.__class__(
+        return Arm(
             parameters=self.parameters.copy(), name=None if clear_name else self.name
         )
 
