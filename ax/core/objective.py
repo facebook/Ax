@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Self
 
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
@@ -73,9 +72,9 @@ class Objective(SortableBase):
         """Get a list of objective metric signatures."""
         return [m.signature for m in self.metrics]
 
-    def clone(self) -> Self:
+    def clone(self) -> Objective:
         """Create a copy of the objective."""
-        return self.__class__(self.metric.clone(), self.minimize)
+        return Objective(self.metric.clone(), self.minimize)
 
     def __repr__(self) -> str:
         return 'Objective(metric_name="{}", minimize={})'.format(
@@ -130,9 +129,9 @@ class MultiObjective(Objective):
         """Get the objectives."""
         return self._objectives
 
-    def clone(self) -> Self:
+    def clone(self) -> MultiObjective:
         """Create a copy of the objective."""
-        return self.__class__(objectives=[o.clone() for o in self.objectives])
+        return MultiObjective(objectives=[o.clone() for o in self.objectives])
 
     def __repr__(self) -> str:
         return f"MultiObjective(objectives={self.objectives})"
@@ -220,9 +219,9 @@ class ScalarizedObjective(Objective):
 
         return " + ".join(parts).replace(" + -", " - ")
 
-    def clone(self) -> Self:
+    def clone(self) -> ScalarizedObjective:
         """Create a copy of the objective."""
-        return self.__class__(
+        return ScalarizedObjective(
             metrics=[m.clone() for m in self.metrics],
             weights=self.weights.copy(),
             minimize=self.minimize,

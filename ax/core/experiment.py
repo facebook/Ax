@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import partial, reduce
-from typing import Any, cast, Self, Union
+from typing import Any, cast, Union
 
 import ax.core.observation as observation
 import pandas as pd
@@ -553,7 +553,7 @@ class Experiment(Base):
     def tracking_metrics(self) -> list[Metric]:
         return list(self._tracking_metrics.values())
 
-    def add_tracking_metric(self, metric: Metric) -> Self:
+    def add_tracking_metric(self, metric: Metric) -> Experiment:
         """Add a new metric to the experiment.
 
         Args:
@@ -576,7 +576,7 @@ class Experiment(Base):
         self._tracking_metrics[metric.name] = metric
         return self
 
-    def add_tracking_metrics(self, metrics: list[Metric]) -> Self:
+    def add_tracking_metrics(self, metrics: list[Metric]) -> Experiment:
         """Add a list of new metrics to the experiment.
 
         If any of the metrics are already defined on the experiment,
@@ -591,7 +591,7 @@ class Experiment(Base):
             self.add_tracking_metric(metric)
         return self
 
-    def update_tracking_metric(self, metric: Metric) -> Self:
+    def update_tracking_metric(self, metric: Metric) -> Experiment:
         """Redefine a metric that already exists on the experiment.
 
         Args:
@@ -603,7 +603,7 @@ class Experiment(Base):
         self._tracking_metrics[metric.name] = metric
         return self
 
-    def remove_tracking_metric(self, metric_name: str) -> Self:
+    def remove_tracking_metric(self, metric_name: str) -> Experiment:
         """Remove a metric that already exists on the experiment.
 
         Args:
