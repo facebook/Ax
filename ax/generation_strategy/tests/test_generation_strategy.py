@@ -25,8 +25,11 @@ from ax.adapter.torch import TorchAdapter
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import (
@@ -61,6 +64,7 @@ from ax.generation_strategy.transition_criterion import (
     MinTrials,
 )
 from ax.generators.random.sobol import SobolGenerator
+from ax.metrics.branin import BraninMetric
 from ax.utils.common.constants import Keys
 from ax.utils.common.equality import same_elements
 from ax.utils.common.mock import mock_patch_method_original
@@ -152,6 +156,108 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
         self.assertIs(
             mock_model_state.call_args_list[-1].kwargs["generator_run"], mixed_gr_1
         )
+
+    def test_gen_with_parameter_constraints(self) -> None:
+        """Test that generation strategy works with ChoiceParameter order constraints.
+
+        This tests the E2E flow of generating trials with numerical ordered
+        ChoiceParameters that have order constraints (e.g., x1 <= x2).
+        """
+
+        # Create search space with numerical ordered ChoiceParameters
+        x1 = ChoiceParameter(
+            name="x1",
+            parameter_type=ParameterType.INT,
+            values=[8, 16, 32, 64],
+            is_ordered=True,
+            log_scale=False,
+        )
+        x2 = ChoiceParameter(
+            name="x2",
+            parameter_type=ParameterType.INT,
+            values=[8, 16, 32, 64],
+            is_ordered=True,
+            log_scale=False,
+        )
+
+        # Add a constraint: x1 <= x2
+        constraint = ParameterConstraint(inequality="x1 <= x2")
+
+        search_space = SearchSpace(
+            parameters=[x1, x2],
+            parameter_constraints=[constraint],
+        )
+
+        # Create experiment with the constrained search space
+        experiment = Experiment(
+            name="test_choice_constraint",
+            search_space=search_space,
+            optimization_config=OptimizationConfig(
+                objective=Objective(
+                    metric=BraninMetric(name="branin", param_names=["x1", "x2"]),
+                    minimize=True,
+                ),
+            ),
+        )
+
+        # Verify that search space contains the parameter constraint
+        self.assertEqual(len(experiment.search_space.parameter_constraints), 1)
+        self.assertEqual(
+            experiment.search_space.parameter_constraints[0].constraint_dict,
+            {"x1": 1.0, "x2": -1.0},
+        )
+
+        # Create generation strategy with Sobol
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    generator=Generators.SOBOL,
+                    num_trials=10,
+                ),
+            ]
+        )
+
+        # Verify constraints are passed to generator during gen()
+        with mock_patch_method_original(
+            f"{SobolGenerator.__module__}.SobolGenerator.gen",
+            SobolGenerator.gen,
+        ) as mock_gen:
+            generator_run = gs.gen_single_trial(experiment=experiment)
+            # Verify linear_constraints were passed to the generator
+            self.assertTrue(mock_gen.called)
+            gen_constraints = mock_gen.call_args.kwargs.get("linear_constraints")
+            self.assertIsNotNone(gen_constraints)
+            self.assertEqual(gen_constraints[0].shape, (1, 2))
+
+            # Verify the search space digest is passed and contains the parameters
+            search_space_digest = mock_gen.call_args.kwargs.get("search_space_digest")
+            self.assertIsNotNone(search_space_digest)
+            self.assertIn("x1", search_space_digest.feature_names)
+            self.assertIn("x2", search_space_digest.feature_names)
+
+            arm = generator_run.arms[0]
+            x1_val = cast(int, arm.parameters["x1"])
+            x2_val = cast(int, arm.parameters["x2"])
+            self.assertLessEqual(x1_val, x2_val)
+
+            trial = experiment.new_trial(generator_run=generator_run)
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+
+        # Generate additional trials to verify E2E constraint satisfaction
+        for i in range(9):
+            generator_run = gs.gen_single_trial(experiment=experiment)
+            arm = generator_run.arms[0]
+            x1_val = cast(int, arm.parameters["x1"])
+            x2_val = cast(int, arm.parameters["x2"])
+            self.assertLessEqual(
+                x1_val,
+                x2_val,
+                f"Constraint x1 <= x2 violated in trial {i + 1}: {x1_val} > {x2_val}",
+            )
+            trial = experiment.new_trial(generator_run=generator_run)
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
 
 
 class TestGenerationStrategy(TestCase):
