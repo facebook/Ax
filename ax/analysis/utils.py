@@ -210,7 +210,7 @@ def prepare_arm_data(
     else:
         if additional_arms is not None:
             raise UserInputError(
-                "Cannot provide additional arms when use_model_predictions=False since"
+                "Cannot provide additional arms when use_model_predictions=False since "
                 "there is no observed raw data for the additional arms that are not "
                 "part of the Experiment."
             )

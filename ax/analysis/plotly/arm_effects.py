@@ -523,7 +523,7 @@ def _get_subtitle(
         f"{'Modeled' if use_model_predictions else 'Observed'} effects on "
         f"{metric_label}"
     )
-    trial_clause = f" for Trial {trial_index}." if trial_index is not None else ""
+    trial_clause = f" for Trial {trial_index}" if trial_index is not None else ""
     first_sentence = f"{first_clause}{trial_clause}."
 
     if use_model_predictions:
