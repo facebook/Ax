@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import torch
 from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.observation import ObservationFeatures
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
@@ -53,13 +54,16 @@ class TestGenerationNode(TestCase):
             generator_gen_kwargs={},
         )
         self.sobol_generation_node = GenerationNode(
-            name="test", generator_specs=[self.sobol_generator_spec]
+            name="test",
+            generator_specs=[self.sobol_generator_spec],
+            suggested_experiment_status=ExperimentStatus.INITIALIZATION,
         )
         self.branin_experiment = get_branin_experiment(with_completed_trial=True)
         self.branin_data = self.branin_experiment.lookup_data()
         self.node_short = GenerationNode(
             name="test",
             generator_specs=[self.sobol_generator_spec],
+            suggested_experiment_status=ExperimentStatus.INITIALIZATION,
             trial_type=Keys.SHORT_RUN,
         )
 
@@ -96,6 +100,30 @@ class TestGenerationNode(TestCase):
         )
         self.assertEqual(node.generator_specs, mbm_specs)
         self.assertIs(node.best_model_selector, model_selector)
+
+    def test_suggested_experiment_status(self) -> None:
+        """Test that suggested_experiment_status is properly set and accessible."""
+        with self.subTest("initialization set"):
+            self.assertEqual(
+                self.sobol_generation_node.suggested_experiment_status,
+                ExperimentStatus.INITIALIZATION,
+            )
+
+        with self.subTest("default None when not provided"):
+            node_without_state = GenerationNode(
+                name="test",
+                generator_specs=[self.sobol_generator_spec],
+            )
+            self.assertIsNone(node_without_state.suggested_experiment_status)
+
+        with self.subTest("__repr__ includes status when set"):
+            repr_str = repr(self.sobol_generation_node)
+            self.assertIn("suggested_experiment_status", repr_str)
+            self.assertIn("INITIALIZATION", repr_str)
+
+        with self.subTest("__repr__ excludes status when None"):
+            repr_str_without = repr(node_without_state)
+            self.assertNotIn("suggested_experiment_status", repr_str_without)
 
     def test_input_constructor_none(self) -> None:
         self.assertEqual(self.sobol_generation_node._input_constructors, {})
@@ -320,6 +348,7 @@ class TestGenerationNode(TestCase):
             generator_specs=[
                 self.mbm_generator_spec,
             ],
+            suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
             transition_criteria=[
                 MinTrials(
                     threshold=5,
@@ -335,7 +364,8 @@ class TestGenerationNode(TestCase):
             "GenerationNode(name='test', "
             "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
             "generator_key_override=None)], "
-            "transition_criteria=[MinTrials(transition_to='next_node')])",
+            "transition_criteria=[MinTrials(transition_to='next_node')], "
+            "suggested_experiment_status=ExperimentStatus.OPTIMIZATION)",
         )
 
     def test_single_fixed_features(self) -> None:
