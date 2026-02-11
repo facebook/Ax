@@ -93,7 +93,7 @@ def compute_regression_probabilities_single_trial(
 
     if len(metric_names) == 0:
         raise ValueError(
-            "No common metrics between the provided data and the size thresholds."
+            "No common metrics between the provided data and the size thresholds. "
             "Need to provide both data and the size thresholds for metrics of interest."
         )
 
@@ -159,7 +159,7 @@ def detect_regressions_single_trial(
 
     if len(metric_names) == 0:
         raise ValueError(
-            "No common metrics between the provided data and the thresholds."
+            "No common metrics between the provided data and the thresholds. "
             "Need to provide both data and the size thresholds for metrics of interest."
         )
 

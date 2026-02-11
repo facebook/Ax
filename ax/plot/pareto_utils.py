@@ -387,7 +387,7 @@ def compute_posterior_pareto_frontier(
         try:
             data = (
                 experiment.trials[trial_index].fetch_data()
-                if trial_index
+                if trial_index is not None
                 else experiment.fetch_data()
             )
         except Exception as e:
