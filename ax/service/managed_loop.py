@@ -232,7 +232,7 @@ class OptimizationLoop:
                 self.run_trial()
             except SearchSpaceExhausted as err:
                 logger.info(
-                    f"Stopped optimization as the search space is exhaused. Message "
+                    f"Stopped optimization as the search space is exhausted. Message "
                     f"from generation strategy: {err}."
                 )
                 return self

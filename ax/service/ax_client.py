@@ -877,7 +877,12 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 num_trials = node.num_trials
             except UserInputError:
                 num_trials = -1
-            parallelism_settings.append((num_trials, max_parallelism or num_trials))
+            parallelism_settings.append(
+                (
+                    num_trials,
+                    max_parallelism if max_parallelism is not None else num_trials,
+                )
+            )
         return parallelism_settings
 
     def get_optimization_trace(
@@ -1044,7 +1049,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         raise ValueError(
             "Could not obtain feature_importances for any metrics "
-            " as a model that can produce feature importances, such as a "
+            "as a model that can produce feature importances, such as a "
             "Gaussian Process, has not yet been trained in the course "
             "of this optimization."
         )
@@ -1684,7 +1689,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         if self._early_stopping_strategy is not None and not support_intermediate_data:
             raise ValueError(
                 "Early stopping is only supported for experiments which allow "
-                " reporting intermediate trial data by setting passing "
+                "reporting intermediate trial data by passing "
                 "`support_intermediate_data=True`."
             )
 
