@@ -365,7 +365,7 @@ def get_standard_plots(
                 logger.debug("Finished global sensitivity analysis.")
             except Exception as e:
                 logger.debug(
-                    f"Failed to compute signed global feature sensitivities: {e}"
+                    f"Failed to compute signed global feature sensitivities: {e}. "
                     "Trying to get unsigned feature sensitivities."
                 )
                 try:
@@ -1121,7 +1121,7 @@ def get_figure_and_callback(
             new_fig = plot_fn(orchestrator)
         except RuntimeError as e:
             logging.warning(
-                f"Plotting function called via callback failed with error {e}."
+                f"Plotting function called via callback failed with error {e}. "
                 "Skipping plot update."
             )
             return
