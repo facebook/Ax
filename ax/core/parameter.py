@@ -423,13 +423,13 @@ class RangeParameter(Parameter):
             ParameterType.FLOAT,
         ):
             raise UserInputError(
-                f"RangeParameter {self.name}type must be int or float."
+                f"RangeParameter {self.name} type must be int or float."
             )
 
         upper = float(upper)
         if lower >= upper:
             raise UserInputError(
-                f"Upper bound of {self.name} must be strictly larger than lower."
+                f"Upper bound of {self.name} must be strictly larger than lower. "
                 f"Got: ({lower}, {upper})."
             )
         width: float = upper - lower
