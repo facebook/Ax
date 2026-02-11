@@ -757,7 +757,7 @@ def _query_historical_experiments_given_parameters(
                 )
             )
             .filter(SQAExperiment.is_test == False)  # noqa E712 `is` won't work for SQA
-            .filter(SQAExperiment.id is not None)
+            .filter(SQAExperiment.id.isnot(None))
             # Experiments with some data
             .join(SQAData, SQAParameter.experiment_id == SQAData.experiment_id)
         )
