@@ -67,18 +67,13 @@ class IntRangeToChoice(Transform):
                 and p.cardinality() <= self.max_choices
             ):
                 values = list(range(int(p.lower), int(p.upper) + 1))
-                target_value = (
-                    None
-                    if p.target_value is None
-                    else next(i for i, v in enumerate(values) if v == p.target_value)
-                )
                 transformed_parameters[p_name] = ChoiceParameter(
                     name=p_name,
                     parameter_type=p.parameter_type,
                     values=values,  # pyre-fixme[6]
                     is_ordered=True,
                     is_fidelity=p.is_fidelity,
-                    target_value=target_value,
+                    target_value=p.target_value,
                 )
             else:
                 transformed_parameters[p.name] = p
