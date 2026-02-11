@@ -41,8 +41,7 @@ class BaselineImprovementAnalysis(Analysis):
 
     Status Logic:
         - PASS: All objectives improved over baseline
-        - WARNING: Some objectives improved over baseline
-        - FAIL: No objectives improved over baseline
+        - WARNING: One or more objectives did not improve over baseline
 
     The healthcheck evaluates improvement by:
         1. Identifying a baseline arm (explicit, status quo, or first trial)
@@ -231,12 +230,11 @@ class BaselineImprovementAnalysis(Analysis):
         num_improved = len(improved)
         num_total = len(comparison_list)
 
-        if num_improved == num_total:
-            status = HealthcheckStatus.PASS
-        elif num_improved > 0:
-            status = HealthcheckStatus.WARNING
-        else:
-            status = HealthcheckStatus.FAIL
+        status = (
+            HealthcheckStatus.PASS
+            if num_improved == num_total
+            else HealthcheckStatus.WARNING
+        )
 
         # Build subtitle
         subtitle = self._build_subtitle(
@@ -244,7 +242,6 @@ class BaselineImprovementAnalysis(Analysis):
             num_total=num_total,
             not_improved=not_improved,
             details=details,
-            status=status,
             baseline_arm_name=baseline_arm_name,
             auto_selected_from_first_arm=auto_selected_from_first_arm,
             baseline_in_design=experiment.search_space.check_membership(
@@ -325,7 +322,6 @@ class BaselineImprovementAnalysis(Analysis):
         num_total: int,
         not_improved: list[str],
         details: list[dict[str, str]],
-        status: HealthcheckStatus,
         baseline_arm_name: str,
         auto_selected_from_first_arm: bool,
         baseline_in_design: bool,
@@ -334,9 +330,9 @@ class BaselineImprovementAnalysis(Analysis):
         parts: list[str] = []
 
         # Status summary
-        if status == HealthcheckStatus.PASS:
+        if num_improved == num_total:
             parts.append(f"All {num_total} objective(s) improved over baseline.")
-        elif status == HealthcheckStatus.WARNING:
+        elif num_improved > 0:
             parts.append(
                 f"{num_improved} out of {num_total} objective(s) "
                 "improved over baseline. The following metrics were not improved: "
