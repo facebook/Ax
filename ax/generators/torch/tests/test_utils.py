@@ -21,6 +21,7 @@ from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.utils import (
     _fix_map_key_to_target,
     _get_shared_rows,
+    _objective_threshold_to_outcome_constraints,
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
@@ -44,7 +45,10 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.analytic import PosteriorMean
-from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.logei import (
+    qLogNoisyExpectedImprovement,
+    qLogProbabilityOfFeasibility,
+)
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
@@ -370,6 +374,233 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 "Only a subset of datasets have noise observations." in str(log)
                 for log in logs
             )
+        )
+
+    def test_objective_threshold_to_outcome_constraints(self) -> None:
+        # Test basic conversion: maximize both objectives.
+        objective_weights = torch.tensor([1.0, -1.0, 0.0])
+        objective_thresholds = torch.tensor([0.5, 1.5, float("nan")])
+        A, b = _objective_threshold_to_outcome_constraints(
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+        )
+        # Two objectives (idx 0 and 1) have nonzero weights and non-NaN thresholds.
+        self.assertEqual(A.shape, (2, 3))
+        self.assertEqual(b.shape, (2, 1))
+        # For idx 0: w=1.0, t=0.5 → A[0, 0]=-1.0, b[0]=-0.5
+        self.assertEqual(A[0, 0].item(), -1.0)
+        self.assertEqual(b[0].item(), -0.5)
+        # For idx 1: w=-1.0, t=1.5 → A[1, 1]=1.0, b[1]=1.5
+        self.assertEqual(A[1, 1].item(), 1.0)
+        self.assertEqual(b[1].item(), 1.5)
+
+        # Test with NaN thresholds: should be skipped.
+        objective_weights = torch.tensor([1.0, 1.0])
+        objective_thresholds = torch.tensor([float("nan"), 2.0])
+        A, b = _objective_threshold_to_outcome_constraints(
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+        )
+        # Only one objective has a non-NaN threshold.
+        self.assertEqual(A.shape, (1, 2))
+        self.assertEqual(A[0, 1].item(), -1.0)
+        self.assertEqual(b[0].item(), -2.0)
+
+    def test_choose_botorch_acqf_class_moo_objective_thresholds(self) -> None:
+        # Create a 2-outcome dataset where no point meets both thresholds.
+        X = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+        Y = torch.tensor([[1.0, 2.0], [3.0, 0.5]])
+        dataset = SupervisedDataset(
+            X=X,
+            Y=Y,
+            feature_names=["a", "b"],
+            outcome_names=["obj1", "obj2"],
+        )
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0.0, 5.0), (0.0, 5.0)],
+        )
+
+        # Thresholds: obj1 >= 2.0 (maximize), obj2 >= 1.5 (maximize).
+        # Point 0: obj1=1.0 < 2.0 → fails. Point 1: obj2=0.5 < 1.5 → fails.
+        # No point meets both thresholds → qLogProbabilityOfFeasibility.
+        self.assertEqual(
+            qLogProbabilityOfFeasibility,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_thresholds=torch.tensor([2.0, 1.5]),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # If a point meets both thresholds → regular MOO acqf.
+        # Point 1 has obj1=3.0 >= 2.0, obj2=0.5. Lower threshold for obj2.
+        self.assertEqual(
+            qLogNoisyExpectedHypervolumeImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_thresholds=torch.tensor([2.0, 0.0]),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # With use_p_feasible=False, should skip feasibility check.
+        self.assertEqual(
+            qLogNoisyExpectedHypervolumeImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_thresholds=torch.tensor([2.0, 1.5]),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+                use_p_feasible=False,
+            ),
+        )
+
+        # With minimization: w=-1, threshold=1.5 means Y should be <= 1.5.
+        # Point 0: obj1=1.0 (good, <=2.0 after flip), obj2=2.0 > 1.5 → fails.
+        # Point 1: obj1=3.0 > 2.0 → fails.
+        self.assertEqual(
+            qLogProbabilityOfFeasibility,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([-1.0, -1.0]),
+                    objective_thresholds=torch.tensor([2.0, 1.5]),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # With all-NaN thresholds, should skip the check.
+        self.assertEqual(
+            qLogNoisyExpectedHypervolumeImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_thresholds=torch.tensor([float("nan"), float("nan")]),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # --- Both outcome constraints and objective thresholds ---
+        # Y = [[1.0, 2.0], [3.0, 0.5]].
+        # Constraint: obj1 <= 2.5 (i.e., 1*Y0 <= 2.5).
+        # Thresholds: obj1 >= 0.5 (maximize), obj2 >= 1.0 (maximize).
+        # Point 0: Y0=1.0<=2.5 ✓, Y0=1.0>=0.5 ✓, Y1=2.0>=1.0 ✓ → feasible.
+        # Should NOT dispatch to qLogProbabilityOfFeasibility.
+        self.assertEqual(
+            qLogNoisyExpectedHypervolumeImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_thresholds=torch.tensor([0.5, 1.0]),
+                    outcome_constraints=(
+                        torch.tensor([[1.0, 0.0]]),
+                        torch.tensor([[2.5]]),
+                    ),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # Both outcome constraints and objective thresholds, no point
+        # satisfies both simultaneously.
+        # Constraint: obj1 <= 2.5.
+        # Thresholds: obj1 >= 2.0 (max), obj2 >= 1.5 (max).
+        # Point 0: Y0=1.0<=2.5 ✓ constraint, but Y0=1.0<2.0 ✗ threshold.
+        # Point 1: Y0=3.0>2.5 ✗ constraint (even though thresholds met by obj1).
+        # No point is both constraint-feasible AND threshold-dominating.
+        self.assertEqual(
+            qLogProbabilityOfFeasibility,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_thresholds=torch.tensor([2.0, 1.5]),
+                    outcome_constraints=(
+                        torch.tensor([[1.0, 0.0]]),
+                        torch.tensor([[2.5]]),
+                    ),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # A point satisfies constraints alone but not thresholds alone.
+        # Without thresholds, the constraint-feasible point would suffice,
+        # but with the combined check, we need both.
+        # Constraint: obj1 <= 1.5.
+        # Point 0: Y0=1.0<=1.5 ✓ constraint. No thresholds → feasible.
+        self.assertEqual(
+            qLogNoisyExpectedImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 0.0]),
+                    outcome_constraints=(
+                        torch.tensor([[1.0, 0.0]]),
+                        torch.tensor([[1.5]]),
+                    ),
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # --- No objective thresholds, no feasible points w.r.t. constraints ---
+        # Y = [[1.0, 2.0], [3.0, 0.5]].
+        # Constraint: obj1 <= 0.5 (i.e., 1*Y0 <= 0.5).
+        # Point 0: Y0=1.0 > 0.5 → fails. Point 1: Y0=3.0 > 0.5 → fails.
+        # No point is feasible → qLogProbabilityOfFeasibility (MOO case).
+        self.assertEqual(
+            qLogProbabilityOfFeasibility,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 1.0]),
+                    outcome_constraints=(
+                        torch.tensor([[1.0, 0.0]]),
+                        torch.tensor([[0.5]]),
+                    ),
+                    is_moo=True,
+                ),
+                datasets=[dataset],
+            ),
+        )
+
+        # Same as above but SOO: no thresholds, no feasible points.
+        # Constraint: obj1 <= 0.5.
+        # Point 0: Y0=1.0 > 0.5 → fails. Point 1: Y0=3.0 > 0.5 → fails.
+        self.assertEqual(
+            qLogProbabilityOfFeasibility,
+            choose_botorch_acqf_class(
+                search_space_digest=ssd,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 0.0]),
+                    outcome_constraints=(
+                        torch.tensor([[1.0, 0.0]]),
+                        torch.tensor([[0.5]]),
+                    ),
+                ),
+                datasets=[dataset],
+            ),
         )
 
     def test_construct_acquisition_and_optimizer_options(self) -> None:

@@ -28,7 +28,10 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, DataRequiredError, SearchSpaceExhausted
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
-from ax.generators.torch.botorch_modular.utils import _fix_map_key_to_target
+from ax.generators.torch.botorch_modular.utils import (
+    _fix_map_key_to_target,
+    _objective_threshold_to_outcome_constraints,
+)
 from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
@@ -370,14 +373,34 @@ class Acquisition(Base):
             X_observed=self.X_observed,
             learned_objective_preference_model=self._learned_objective_preference_model,
         )
+        # Build constraint transforms, combining outcome constraints with
+        # objective threshold-derived constraints when using
+        # qLogProbabilityOfFeasibility for MOO.
+        outcome_constraints = self._outcome_constraints
+        constraint_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
+        if (
+            issubclass(botorch_acqf_class, qLogProbabilityOfFeasibility)
+            and self._objective_thresholds is not None
+        ):
+            threshold_constraints = _objective_threshold_to_outcome_constraints(
+                objective_weights=self._objective_weights,
+                objective_thresholds=self._objective_thresholds,
+            )
+            threshold_transforms = get_outcome_constraint_transforms(
+                outcome_constraints=threshold_constraints
+            )
+            if constraint_transforms is not None and threshold_transforms is not None:
+                constraint_transforms = constraint_transforms + threshold_transforms
+            elif threshold_transforms is not None:
+                constraint_transforms = threshold_transforms
         input_constructor_kwargs = {
             "model": model,
             "X_baseline": self.X_observed,
             "X_pending": self.X_pending,
             "objective_thresholds": self._objective_thresholds,
-            "constraints": get_outcome_constraint_transforms(
-                outcome_constraints=self._outcome_constraints
-            ),
+            "constraints": constraint_transforms,
             "constraints_tuple": self._outcome_constraints,
             "objective": objective,
             "posterior_transform": posterior_transform,
