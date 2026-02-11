@@ -348,6 +348,7 @@ DIAGNOSTIC_FN_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
     TOTAL_RAW_EFFECT: ModelFitMetricDirection.MAXIMIZE,
     CORRELATION_COEFFICIENT: ModelFitMetricDirection.MAXIMIZE,
     RANK_CORRELATION: ModelFitMetricDirection.MAXIMIZE,
+    KENDALL_TAU_RANK_CORRELATION: ModelFitMetricDirection.MAXIMIZE,
     FISHER_EXACT_TEST_P: ModelFitMetricDirection.MINIMIZE,
     LOG_LIKELIHOOD: ModelFitMetricDirection.MAXIMIZE,
     MSE: ModelFitMetricDirection.MINIMIZE,
