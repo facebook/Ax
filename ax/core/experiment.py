@@ -727,7 +727,7 @@ class Experiment(Base):
                 UserInputError(
                     f"Metric class {metric_class} does not contain the requested "
                     "attributes to update. Requested updates to attributes: "
-                    f"{set(attributes_to_update.keys())} but metric class defines"
+                    f"{set(attributes_to_update.keys())} but metric class defines "
                     f"{metric_attributes}."
                 )
             )

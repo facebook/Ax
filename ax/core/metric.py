@@ -165,7 +165,7 @@ class Metric(SortableBase, SerializationMixin):
         return timedelta(0)
 
     @classmethod
-    def is_reconverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
+    def is_recoverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
         """Checks whether the given MetricFetchE is recoverable for this metric class
         in ``orchestrator._fetch_and_process_trials_data_results``.
         """

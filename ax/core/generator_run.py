@@ -343,6 +343,14 @@ class GeneratorRun(SortableBase):
             if self._generator_state_after_gen is not None
             else None
         )
+        generator_run._gen_metadata = (
+            self._gen_metadata.copy() if self._gen_metadata is not None else None
+        )
+        generator_run._candidate_metadata_by_arm_signature = (
+            self._candidate_metadata_by_arm_signature.copy()
+            if self._candidate_metadata_by_arm_signature is not None
+            else None
+        )
         return generator_run
 
     def add_arm(self, arm: Arm, weight: float = 1.0) -> None:
