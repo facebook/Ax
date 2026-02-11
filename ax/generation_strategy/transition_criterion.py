@@ -28,7 +28,7 @@ from ax.utils.common.serialization import serialize_init_args
 DATA_REQUIRED_MSG = (
     "All trials for current node {node_name} have been generated, "
     "but not enough data has been observed to proceed to the next "
-    "Generation node. Try again when more is are available."
+    "Generation node. Try again when more data is available."
 )
 
 
