@@ -54,7 +54,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import MetricIntent
 from ax.utils.common.constants import Keys
 from pyre_extensions import assert_is_instance, none_throws
-from sqlalchemy.orm import defaultload, joinedload, lazyload, noload
+from sqlalchemy.orm import defaultload, joinedload, noload
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -242,10 +242,10 @@ def _get_experiment_sqa(
             .filter_by(name=experiment_name)
             .options(
                 # Delay loading trials to a separate call to `_get_trials_sqa` below
-                noload("trials"),
+                noload(exp_sqa_class.trials),
                 # Also prevent loading AnalysisCards, which can be expensive and is not
                 # necessary to reconstruct the Experiment
-                noload("analysis_cards"),
+                noload(exp_sqa_class.analysis_cards),
                 # Eagerly load target experiment for auxiliary experiment relationships
                 joinedload(exp_sqa_class.auxiliary_experiments).joinedload(
                     auxiliary_experiment_sqa_class.source_experiment,
@@ -254,7 +254,9 @@ def _get_experiment_sqa(
         )
 
         if skip_runners_and_metrics:
-            query = query.options(noload("runners")).options(noload("trials.runner"))
+            query = query.options(noload(exp_sqa_class.runners)).options(
+                noload(exp_sqa_class.trials).noload(trial_sqa_class.runner)
+            )
 
         sqa_experiment = query.one_or_none()
 
@@ -310,7 +312,7 @@ def _get_trials_sqa(
                 query = query.options(*trials_query_options)
 
             if skip_runners_and_metrics:
-                query = query.options(noload("runner"))
+                query = query.options(noload(trial_sqa_class.runner))
 
             sqa_trials.extend(query.all())
 
@@ -608,9 +610,11 @@ def get_generation_strategy_sqa_reduced_state(
         gs_id=gs_id,
         decoder=decoder,
         query_options=[
-            lazyload("generator_runs.parameters"),
-            lazyload("generator_runs.parameter_constraints"),
-            lazyload("generator_runs.metrics"),
+            defaultload(gs_sqa_class.generator_runs).lazyload(gr_sqa_class.parameters),
+            defaultload(gs_sqa_class.generator_runs).lazyload(
+                gr_sqa_class.parameter_constraints
+            ),
+            defaultload(gs_sqa_class.generator_runs).lazyload(gr_sqa_class.metrics),
             defaultload(gs_sqa_class.generator_runs).defer("model_kwargs"),
             defaultload(gs_sqa_class.generator_runs).defer("bridge_kwargs"),
             defaultload(gs_sqa_class.generator_runs).defer("model_state_after_gen"),
@@ -670,9 +674,15 @@ def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
         gs_id=gs_id,
         decoder=decoder,
         query_options=[
-            lazyload("generator_runs.parameters"),
-            lazyload("generator_runs.parameter_constraints"),
-            lazyload("generator_runs.metrics"),
+            defaultload(SQAGenerationStrategy.generator_runs).lazyload(
+                SQAGeneratorRun.parameters
+            ),
+            defaultload(SQAGenerationStrategy.generator_runs).lazyload(
+                SQAGeneratorRun.parameter_constraints
+            ),
+            defaultload(SQAGenerationStrategy.generator_runs).lazyload(
+                SQAGeneratorRun.metrics
+            ),
         ],
     )
 
