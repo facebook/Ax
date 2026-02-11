@@ -520,12 +520,12 @@ def plot_multiple_metrics(
             },
         ],
         xaxis={
-            "title": metric_x + (" (%)" if rel else ""),
+            "title": metric_x + (" (%)" if rel_x else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },
         yaxis={
-            "title": metric_y + (" (%)" if rel else ""),
+            "title": metric_y + (" (%)" if rel_y else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },

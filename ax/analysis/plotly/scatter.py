@@ -525,7 +525,7 @@ def _prepare_figure(
     if "status_quo" in df["arm_name"].values:
         x = df[df["arm_name"] == "status_quo"][f"{x_metric_name}_mean"].iloc[0]
         y = df[df["arm_name"] == "status_quo"][f"{y_metric_name}_mean"].iloc[0]
-        if not np.isnan(x) or not np.isnan(y):
+        if not np.isnan(x) and not np.isnan(y):
             figure.add_shape(
                 type="line",
                 yref="paper",
