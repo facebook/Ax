@@ -466,7 +466,7 @@ def construct_acquisition_and_optimizer_options(
             if len(botorch_acqf_classes_with_options) > 1:
                 warnings.warn(
                     message="botorch_acqf_options are being ignored, due to using "
-                    "MultiAcquisition. Specify options for each acquistion function"
+                    "MultiAcquisition. Specify options for each acquisition function "
                     "via botorch_acqf_classes_with_options.",
                     category=AxWarning,
                     stacklevel=4,

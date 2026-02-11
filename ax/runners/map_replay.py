@@ -41,7 +41,7 @@ class MapDataReplayRunner(Runner):
         # depending on whether or not there is more data available,
         # mark it either RUNNING or COMPLETED.
         for t in trials:
-            if not t.run_metadata.get(STARTED_KEY, "False"):
+            if not t.run_metadata.get(STARTED_KEY, False):
                 result[TrialStatus.CANDIDATE].add(t.index)
             elif not self.replay_metric.has_trial_data(t.index):
                 result[TrialStatus.ABANDONED].add(t.index)

@@ -1350,7 +1350,7 @@ class Client(WithDBSettingsBase):
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-            if "generation_strategy" in snapshot
+            if snapshot.get("generation_strategy") is not None
             else None
         )
 
