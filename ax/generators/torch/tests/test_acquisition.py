@@ -33,6 +33,9 @@ from ax.generators.torch.botorch_modular.optimizer_defaults import (
     MAX_OPT_AGG_SIZE,
 )
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.utils import (
+    _objective_threshold_to_outcome_constraints,
+)
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     get_botorch_objective_and_transform,
@@ -1181,6 +1184,153 @@ class AcquisitionTest(TestCase):
         )
         self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
         self.assertIsNone(acquisition._full_objective_thresholds)
+
+    @mock_botorch_optimize
+    def test_p_feasible_moo(self) -> None:
+        # Test qLogProbabilityOfFeasibility with outcome constraints, no
+        # objective thresholds, and no feasible points. This verifies that
+        # only the outcome constraint transforms are used (no threshold-
+        # derived constraints) and that objective thresholds remain None.
+        moo_training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y.repeat(1, 3),
+                feature_names=self.feature_names,
+                outcome_names=["m1", "m2", "m3"],
+            )
+        ]
+        self.surrogate.fit(
+            datasets=moo_training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        outcome_constraints = (
+            torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
+            torch.tensor([[0.0]], **self.tkwargs),
+        )
+        torch_opt_config = TorchOptConfig(
+            objective_weights=torch.tensor([1.0, 1.0, 0.0], **self.tkwargs),
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=None,
+            is_moo=True,
+        )
+        with self.assertLogs(logger=logger, level="WARNING") as logs:
+            acquisition = Acquisition(
+                surrogate=self.surrogate,
+                search_space_digest=self.search_space_digest,
+                botorch_acqf_class=qLogProbabilityOfFeasibility,
+                torch_opt_config=torch_opt_config,
+            )
+        self.assertTrue(
+            any("Failed to infer objective thresholds." in str(log) for log in logs)
+        )
+        self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
+        self.assertIsNone(acquisition._full_objective_thresholds)
+        # Verify only outcome constraints are used (no threshold-derived ones).
+        oc_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
+        self.assertIsNotNone(oc_transforms)
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        n_constraints = len(acquisition.acqf._constraints)
+        assert oc_transforms is not None
+        self.assertEqual(n_constraints, len(oc_transforms))
+        # Test that when using qLogProbabilityOfFeasibility with MOO
+        # objective thresholds, the threshold-derived constraints are
+        # combined with the outcome constraints.
+        moo_training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y.repeat(1, 3),
+                feature_names=self.feature_names,
+                outcome_names=["m1", "m2", "m3"],
+            )
+        ]
+        self.surrogate.fit(
+            datasets=moo_training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        moo_objective_weights = torch.tensor([1.0, 1.0, 0.0], **self.tkwargs)
+        moo_objective_thresholds = torch.tensor(
+            [0.5, 1.5, float("nan")], **self.tkwargs
+        )
+        outcome_constraints = (
+            torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
+            torch.tensor([[0.5]], **self.tkwargs),
+        )
+
+        oc_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
+        threshold_constraints = _objective_threshold_to_outcome_constraints(
+            objective_weights=moo_objective_weights,
+            objective_thresholds=moo_objective_thresholds,
+        )
+        threshold_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=threshold_constraints
+        )
+        self.assertIsNotNone(oc_transforms)
+        self.assertIsNotNone(threshold_transforms)
+
+        # Case 1: qLogProbabilityOfFeasibility with both outcome constraints
+        # and objective thresholds. Both should be combined.
+        torch_opt_config = TorchOptConfig(
+            objective_weights=moo_objective_weights,
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
+        )
+        acquisition = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            botorch_acqf_class=qLogProbabilityOfFeasibility,
+            torch_opt_config=torch_opt_config,
+        )
+        self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
+        # Verify the number of constraints: 1 from outcome constraints
+        # + 2 from threshold constraints (two objectives with non-NaN thresholds).
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        n_constraints = len(acquisition.acqf._constraints)
+        assert oc_transforms is not None
+        assert threshold_transforms is not None
+        self.assertEqual(n_constraints, len(oc_transforms) + len(threshold_transforms))
+
+        # Case 2: qLogProbabilityOfFeasibility with only objective thresholds
+        # (no outcome constraints). Only threshold-derived constraints.
+        torch_opt_config_no_oc = TorchOptConfig(
+            objective_weights=moo_objective_weights,
+            outcome_constraints=None,
+            objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
+        )
+        acquisition_no_oc = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            botorch_acqf_class=qLogProbabilityOfFeasibility,
+            torch_opt_config=torch_opt_config_no_oc,
+        )
+        self.assertIsInstance(acquisition_no_oc.acqf, qLogProbabilityOfFeasibility)
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        n_constraints_no_oc = len(acquisition_no_oc.acqf._constraints)
+        assert threshold_transforms is not None
+        self.assertEqual(n_constraints_no_oc, len(threshold_transforms))
+
+        # Case 3: With a non-qLogProbabilityOfFeasibility acqf class, the
+        # threshold constraints should NOT be added.
+        torch_opt_config_nehvi = TorchOptConfig(
+            objective_weights=moo_objective_weights,
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
+        )
+        acquisition_nehvi = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
+            torch_opt_config=torch_opt_config_nehvi,
+        )
+        self.assertIsInstance(
+            acquisition_nehvi.acqf, qNoisyExpectedHypervolumeImprovement
+        )
 
     def test_expand_and_set_single_feature_to_target(self) -> None:
         # Test helper function
