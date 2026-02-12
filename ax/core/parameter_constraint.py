@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from ax.core.parameter import Parameter, RangeParameter
+from ax.core.parameter import ChoiceParameter, Parameter, RangeParameter
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.string_utils import unsanitize_name
@@ -127,15 +127,33 @@ def validate_constraint_parameters(parameters: Sequence[Parameter]) -> None:
         raise ValueError("Duplicate parameter in constraint.")
 
     for parameter in parameters:
-        if not isinstance(parameter, RangeParameter):
+        if isinstance(parameter, RangeParameter):
+            # Log parameters require a non-linear transformation, and Ax
+            # models only support linear constraints.
+            if parameter.log_scale:
+                raise ValueError(
+                    "Parameter constraints are not allowed on log scale parameters."
+                )
+        elif isinstance(parameter, ChoiceParameter):
+            if not parameter.is_numeric:
+                raise ValueError(
+                    "Only numerical ChoiceParameters can be used in parameter "
+                    f"constraints. Found {parameter.name} with type "
+                    f"{parameter.parameter_type.name}. "
+                )
+            if not parameter.is_ordered:
+                raise ValueError(
+                    "Only ordered ChoiceParameters can be used in parameter "
+                    f"constraints. Found {parameter.name} with is_ordered=False."
+                )
+            # Log parameters require a non-linear transformation, and Ax
+            # models only support linear constraints.
+            if parameter.log_scale:
+                raise ValueError(
+                    "Parameter constraints are not allowed on log scale parameters."
+                )
+        else:
             raise ValueError(
-                "All parameters in a parameter constraint must be RangeParameters. "
-                f"Found {parameter}"
-            )
-
-        # Log parameters require a non-linear transformation, and Ax
-        # models only support linear constraints.
-        if isinstance(parameter, RangeParameter) and parameter.log_scale is True:
-            raise ValueError(
-                "Parameter constraints not allowed on log scale parameters."
+                "Parameters in constraints must be RangeParameters or numerical "
+                f"ordered ChoiceParameters. Found {parameter}"
             )

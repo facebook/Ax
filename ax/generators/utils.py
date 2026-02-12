@@ -139,6 +139,16 @@ def rejection_sample(
                 # NOTE: This could still fail rounding with a logger warning. But this
                 # should be rare since the point is feasible in the continuous space.
                 point = rounding_func(point)
+                # Re-check constraints after rounding for discrete parameters
+                # (e.g. numerical choice parameters) because rounding can push values
+                # in a direction that violates sum constraints.
+                if linear_constraints is not None:
+                    all_constraints_satisfied, _ = check_param_constraints(
+                        linear_constraints=linear_constraints, point=point
+                    )
+                    if not all_constraints_satisfied:
+                        attempted_draws += 1
+                        continue  # Reject this point, try again
 
             points = np.concatenate([points, point[None, :]], axis=0)
             # Deduplicate: don't add the same point twice.

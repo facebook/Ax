@@ -194,12 +194,20 @@ class SearchSpaceTest(TestCase):
                 parameter_constraints=[ParameterConstraint(inequality="a <= d")],
             )
 
-        # Constraint on choice parameter
+        # Constraint on non-numerical (STRING) choice parameter should fail
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[ParameterConstraint(inequality="a <= e")],
+                parameter_constraints=[ParameterConstraint(inequality="a <= c")],
             )
+
+        # Constraint on numerical ordered choice parameter should now succeed
+        # (e is a FLOAT ChoiceParameter with is_ordered=True)
+        ss_with_choice_constraint = SearchSpace(
+            parameters=self.parameters,
+            parameter_constraints=[ParameterConstraint(inequality="a <= e")],
+        )
+        self.assertEqual(len(ss_with_choice_constraint.parameter_constraints), 1)
 
         # Constraint on logscale parameter
         with self.assertRaises(ValueError):

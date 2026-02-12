@@ -722,18 +722,6 @@ class InstantiationBase:
 
         if any(
             any(
-                isinstance(parameter_map[parameter], ChoiceParameter)
-                for parameter in constraint.constraint_dict
-            )
-            for constraint in typed_parameter_constraints
-        ):
-            raise UnsupportedError(
-                "Constraints on ChoiceParameters are not allowed. Try absorbing "
-                "this constraint into the associated range parameter's bounds."
-            )
-
-        if any(
-            any(
                 isinstance(parameter_map[parameter], FixedParameter)
                 for parameter in constraint.constraint_dict
             )
