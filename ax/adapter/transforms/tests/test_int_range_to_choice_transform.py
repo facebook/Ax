@@ -13,6 +13,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
+from pyre_extensions import assert_is_instance
 
 
 class IntRangeToChoiceTransformTest(TestCase):
@@ -20,7 +21,13 @@ class IntRangeToChoiceTransformTest(TestCase):
         super().setUp()
         self.search_space = SearchSpace(
             parameters=[
-                RangeParameter("a", lower=1, upper=5, parameter_type=ParameterType.INT),
+                RangeParameter(
+                    "a",
+                    lower=1,
+                    upper=5,
+                    parameter_type=ParameterType.INT,
+                    target_value=2,
+                ),
                 ChoiceParameter(
                     "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
                 ),
@@ -43,9 +50,10 @@ class IntRangeToChoiceTransformTest(TestCase):
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
-        self.assertTrue(isinstance(ss2.parameters["a"], ChoiceParameter))
-        # pyre-fixme[16]: `Parameter` has no attribute `values`.
-        self.assertTrue(ss2.parameters["a"].values, [1, 2, 3, 4, 5])
+        new_a = assert_is_instance(ss2.parameters["a"], ChoiceParameter)
+        self.assertTrue(new_a, ChoiceParameter)
+        self.assertTrue(new_a.values, [1, 2, 3, 4, 5])
+        self.assertEqual(new_a.target_value, 2)
 
     def test_num_choices(self) -> None:
         parameters = {

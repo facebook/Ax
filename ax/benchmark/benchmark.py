@@ -698,7 +698,9 @@ def compute_baseline_value_from_sobol(
         n_repeats: Number of times to repeat the five Sobol trials.
     """
     method = get_sobol_benchmark_method()
-    target_fidelity_and_task = {} if target_fidelity_and_task is None else {}
+    target_fidelity_and_task = (
+        {} if target_fidelity_and_task is None else target_fidelity_and_task
+    )
 
     # set up a dummy problem so we can use `benchmark_replication`
     # MOO problems are always higher-is-better because they use hypervolume

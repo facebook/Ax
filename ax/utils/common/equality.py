@@ -104,7 +104,7 @@ def datetime_equals(dt1: datetime | None, dt2: datetime | None) -> bool:
         return True
     if not (dt1 and dt2):
         return False
-    return (dt1 - dt2).total_seconds() < 1.0
+    return abs((dt1 - dt2).total_seconds()) < 1.0
 
 
 def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
@@ -130,8 +130,8 @@ def object_attribute_dicts_equal(
     are the same.
 
 
-    NOTE: Special-cases some Ax object attributes, like "_experiment" or
-    "_model", where full equality is hard to check.
+    NOTE: Special-cases some Ax object attributes, like "_experiment",
+    where full equality is hard to check.
 
     Args:
         one_dict: First object's attribute dict (``obj.__dict__``).
@@ -210,22 +210,6 @@ def object_attribute_dicts_find_unequal_fields(
             equal = one_val is other_val is None or (one_val.db_id == other_val.db_id)
         elif field == "_db_id":
             equal = skip_db_id_check or one_val == other_val
-        elif field == "_model":
-            # TODO[T52643706]: replace with per-`Adapter` method like
-            # `equivalent_models`, to compare models more meaningfully.
-            if not hasattr(one_val, "model") or not hasattr(other_val, "model"):
-                equal = not hasattr(other_val, "model") and not hasattr(
-                    other_val, "model"
-                )
-            else:
-                # If adapters have a `model` attribute, the types of the
-                # values of those attributes should be equal if the model
-                # adapter is the same.
-                equal = (
-                    hasattr(one_val, "model")
-                    and hasattr(other_val, "model")
-                    and isinstance(one_val.model, type(other_val.model))
-                )
         # Do not check the inequality_str for ParameterConstraints, checking the bound
         # and coefficients dict is sufficient.
         elif field == "_inequality_str":

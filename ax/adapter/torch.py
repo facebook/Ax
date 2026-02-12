@@ -693,7 +693,7 @@ class TorchAdapter(Adapter):
             if pe_data.df.empty:
                 raise DataRequiredError(
                     "No data found in the auxiliary preference exploration "
-                    "experiment. Play the preference game first or use another"
+                    "experiment. Play the preference game first or use another "
                     "preference profile with recorded preference data."
                 )
 

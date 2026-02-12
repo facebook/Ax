@@ -465,7 +465,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             self.assertEqual(
                 str(warning.message),
                 "botorch_acqf_options are being ignored, due to using "
-                "MultiAcquisition. Specify options for each acquistion function"
+                "MultiAcquisition. Specify options for each acquisition function "
                 "via botorch_acqf_classes_with_options.",
             )
 

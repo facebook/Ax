@@ -196,7 +196,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         if pending_observations:
             for obs in pending_observations.values():
                 for o in obs:
-                    if o not in pending_parameters:
+                    if o.parameters not in pending_parameters:
                         pending_parameters.append(o.parameters)
         generated_params: list[TParameterization] = []
         for _ in range(n):

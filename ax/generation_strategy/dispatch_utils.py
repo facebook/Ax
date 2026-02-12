@@ -58,7 +58,9 @@ def _make_sobol_step(
         generator=Generators.SOBOL,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
-        min_trials_observed=min_trials_observed or ceil(num_trials / 2),
+        min_trials_observed=(
+            ceil(num_trials / 2) if min_trials_observed is None else min_trials_observed
+        ),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
         generator_kwargs={"deduplicate": True, "seed": seed},
@@ -124,7 +126,9 @@ def _make_botorch_step(
         generator=generator,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
-        min_trials_observed=min_trials_observed or ceil(num_trials / 2),
+        min_trials_observed=(
+            ceil(num_trials / 2) if min_trials_observed is None else min_trials_observed
+        ),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
         generator_kwargs=generator_kwargs,
@@ -432,13 +436,13 @@ def choose_generation_strategy_legacy(
 
     if not force_random_search and suggested_model is not None:
         if not enforce_sequential_optimization and (
-            max_parallelism_override or max_parallelism_cap
+            max_parallelism_override is not None or max_parallelism_cap is not None
         ):
             logger.info(
                 "If `enforce_sequential_optimization` is False, max parallelism is "
                 "not enforced and other max parallelism settings will be ignored."
             )
-        if max_parallelism_override and max_parallelism_cap:
+        if max_parallelism_override is not None and max_parallelism_cap is not None:
             raise ValueError(
                 "If `max_parallelism_override` specified, cannot also apply "
                 "`max_parallelism_cap`."

@@ -445,8 +445,8 @@ class TestCase(fake_filesystem_unittest.TestCase):
         set_a = set(a.keys())
         set_b = set(b.keys())
         key_msg = (
-            "Dict keys differ."
-            f"Keys that are in a but not b: {set_a - set_b}."
+            "Dict keys differ. "
+            f"Keys that are in a but not b: {set_a - set_b}. "
             f"Keys that are in b but not a: {set_b - set_a}."
         )
         self.assertEqual(set_a, set_b, msg=key_msg)

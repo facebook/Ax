@@ -335,7 +335,7 @@ def get_metric_index(data: ObservationData, metric_signature: str) -> int:
     """Get the index of a metric in the ObservationData."""
     try:
         return data.metric_signatures.index(metric_signature)
-    except (IndexError, StopIteration):
+    except ValueError:
         raise ValueError(
             "Relativization cannot be performed because "
             "ObservationData for status quo is missing metrics"
