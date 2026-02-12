@@ -240,9 +240,9 @@ class GenerationStrategy(Base):
         # list of GeneratorRuns for the first (and only) trial.
         if len(grs_for_trials) != 1 or len(grs := grs_for_trials[0]) != 1:
             raise AxError(  # Unexpected state of the GS; raise informatively.
-                "By calling into GenerationStrategy.gen_single_trial(), you are should"
-                " be expecting a single `Trial` with only one `GeneratorRun`. However,"
-                "the underlying GenerationStrategy returned the following list "
+                "By calling into GenerationStrategy.gen_single_trial(), you should "
+                "be expecting a single `Trial` with only one `GeneratorRun`. However, "
+                "the underlying GenerationStrategy returned the following list"
                 f" of `GeneratorRun`-s: {grs_for_trials}."
             )
         return grs[0]
@@ -543,7 +543,7 @@ class GenerationStrategy(Base):
             )
             node_to_gen_from = self.nodes_by_name[node_to_gen_from_name]
             if should_transition:
-                node_to_gen_from._previous_node_name = node_to_gen_from_name
+                node_to_gen_from._previous_node_name = self._curr.name
                 # reset should skip as conditions may have changed, do not reset
                 # until now so node properties can be as up to date as possible
                 node_to_gen_from._should_skip = False
