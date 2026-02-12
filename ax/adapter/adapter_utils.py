@@ -228,7 +228,7 @@ def extract_objective_thresholds(
     # Check that all thresholds correspond to a metric.
     if set(objective_threshold_dict.keys()).difference(set(objective.metric_names)):
         raise ValueError(
-            "Some objective thresholds do not have corresponding metrics."
+            "Some objective thresholds do not have corresponding metrics. "
             f"Got {objective_thresholds=} and {objective=}."
         )
 
@@ -566,12 +566,10 @@ def get_pareto_frontier_and_configs(
                 "`observation_data` will not be used.",
                 stacklevel=2,
             )
-    else:
-        if observation_data is None:
-            raise ValueError(
-                "`observation_data` must not be None when `use_model_predictions` is "
-                "True."
-            )
+    elif observation_data is None:
+        raise ValueError(
+            "`observation_data` must not be None when `use_model_predictions` is False."
+        )
 
     array_to_tensor = adapter._array_to_tensor
     if use_model_predictions:
