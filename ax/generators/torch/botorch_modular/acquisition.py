@@ -573,7 +573,12 @@ class Acquisition(Base):
                     X_avoid=X_observed,
                     **optimizer_options_with_defaults,
                 )
-                return candidates, acqf_values, arm_weights
+                n_candidates = candidates.shape[0]
+                return (
+                    candidates,
+                    acqf_values,
+                    arm_weights[:n_candidates] * n_candidates / n,
+                )
 
             # Else, optimizer is `optimize_acqf_discrete`
             # Enumerate all possible choices
@@ -659,9 +664,6 @@ class Acquisition(Base):
                     num_objectives=len(self.acqf.acqfs),
                     **optimizer_options_with_defaults,
                 )
-                # It is possible that NSGA-II will return less than the requested
-                # number of arms
-                arm_weights = torch.ones(candidates.shape[0], dtype=self.dtype)
             else:
                 raise AxError(
                     "optimize_with_nsgaii requires botorch to be installed with "
@@ -687,7 +689,8 @@ class Acquisition(Base):
                     inequality_constraints=inequality_constraints,
                     fixed_features=fixed_features,
                 )
-        return candidates, acqf_values, arm_weights
+        n_candidates = candidates.shape[0]
+        return candidates, acqf_values, arm_weights[:n_candidates] * n_candidates / n
 
     def evaluate(self, X: Tensor) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.

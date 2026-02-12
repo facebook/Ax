@@ -608,11 +608,74 @@ class AcquisitionTest(TestCase):
             all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
         )
 
+    def test_optimize_discrete_fewer_candidates(self) -> None:
+        """Test that arm_weights and candidates have the same length when
+        optimize_acqf_discrete returns fewer than n candidates."""
+        # Search space with 2x2x2 = 8 total choices.
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(1, 2), (2, 3), (3, 4)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
+        )
+        # Mark 6 of the 8 choices as observed so only 2 remain.
+        all_choices = list(itertools.product(*ssd.discrete_choices.values()))
+        acquisition = self.get_acquisition_function()
+        acquisition.X_observed = torch.tensor(all_choices[:6], **self.tkwargs)
+        acquisition.X_pending = None
+
+        # Request n=5 candidates but only 2 feasible choices remain.
+        with self.assertWarnsRegex(
+            OptimizationWarning,
+            "only.*possible choices remain.",
+        ):
+            candidates, acqf_values, weights = acquisition.optimize(
+                n=5,
+                search_space_digest=ssd,
+                rounding_func=self.rounding_func,
+            )
+        # optimize_acqf_discrete returns only 2 candidates.
+        self.assertEqual(candidates.shape[0], 2)
+        # arm_weights must match the number of candidates, not n.
+        self.assertEqual(weights.shape[0], candidates.shape[0])
+        self.assertEqual(weights.shape[0], acqf_values.shape[0])
+        self.assertTrue(weights.sum().item(), 5)
+
+    def test_optimize_discrete_single_candidate(self) -> None:
+        """Test arm_weights length when only 1 candidate remains in a
+        discrete search space and n > 1."""
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(1, 2), (2, 3), (3, 4)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
+        )
+        # Mark 7 of 8 choices as observed so only 1 remains.
+        all_choices = list(itertools.product(*ssd.discrete_choices.values()))
+        acquisition = self.get_acquisition_function()
+        acquisition.X_observed = torch.tensor(all_choices[:7], **self.tkwargs)
+        acquisition.X_pending = None
+
+        with self.assertWarnsRegex(
+            OptimizationWarning,
+            "only.*possible choices remain.",
+        ):
+            candidates, acqf_values, weights = acquisition.optimize(
+                n=3,
+                search_space_digest=ssd,
+                rounding_func=self.rounding_func,
+            )
+        self.assertEqual(candidates.shape[0], 1)
+        self.assertEqual(weights.shape[0], candidates.shape[0])
+        # The remaining choice is all_choices[7].
+        expected = torch.tensor([all_choices[7]], **self.tkwargs)
+        self.assertTrue(torch.equal(candidates, expected))
+
     # mock `optimize_acqf_discrete_local_search` because it isn't handled by
     # `mock_botorch_optimize`
     @mock.patch(
         f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
-        return_value=(Mock(), Mock()),
+        return_value=(torch.rand(3, 3), torch.rand(3)),
     )
     def test_optimize_acqf_discrete_local_search(
         self,
@@ -722,7 +785,7 @@ class AcquisitionTest(TestCase):
                 ) as mock_optimizer_argparse,
                 mock.patch(
                     f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
-                    return_value=(Mock(), Mock()),
+                    return_value=(torch.rand(3, 3), torch.rand(3)),
                 ),
             ):
                 acquisition.optimize(
@@ -1721,6 +1784,12 @@ class MultiAcquisitionTest(AcquisitionTest):
         pass
 
     def test_optimize_acqf_discrete_too_many_choices(self) -> None:
+        pass
+
+    def test_optimize_discrete_fewer_candidates(self) -> None:
+        pass
+
+    def test_optimize_discrete_single_candidate(self) -> None:
         pass
 
     def test_optimize_mixed(self) -> None:
