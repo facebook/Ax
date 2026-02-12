@@ -201,7 +201,7 @@ def marginal_effects(
     )
     for cov in covariates:
         if len(df[cov].unique()) <= 1:
-            next
+            continue
         df_gb = df.groupby(cov)
         for name, group_df in df_gb:
             group_mean, group_var = inverse_variance_weight(
