@@ -73,8 +73,8 @@ class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         set_rng_seed(0)
-        self.model = get_adapter().generator.surrogate.model
-        self.saas_model = get_adapter(saasbo=True).generator.surrogate.model
+        self.model = get_adapter().botorch_model
+        self.saas_model = get_adapter(saasbo=True).botorch_model
 
     def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -418,7 +418,7 @@ class SensitivityAnalysisTest(TestCase):
                     **sobol_kwargs,
                 )
                 ind_deriv = compute_derivatives_from_model_list(
-                    model_list=[adapter.generator.surrogate.model],
+                    model_list=[adapter.botorch_model],
                     bounds=torch.tensor(adapter.generator.search_space_digest.bounds).T,
                     discrete_features=discrete_features,
                     fixed_features=None,
