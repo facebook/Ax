@@ -49,7 +49,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.preference.preference_utils import get_preference_adapter
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
-from numpy import nan
 from numpy.typing import NDArray
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -646,7 +645,7 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
     name_mask = df["metric_name"] == metric_name
     df_metric_arms_sems = df[name_mask]["sem"]
 
-    return ((df_metric_arms_sems == 0) | df_metric_arms_sems == nan).all()
+    return ((df_metric_arms_sems == 0) | df_metric_arms_sems.isna()).all()
 
 
 def get_values_of_outcomes_single_or_scalarized_objective(

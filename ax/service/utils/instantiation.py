@@ -354,7 +354,7 @@ class InstantiationBase:
         unexpected_keys = set(representation.keys()) - EXPECTED_KEYS_IN_PARAM_REPR
         if unexpected_keys:
             raise ValueError(
-                f"Unexpected keys {unexpected_keys} in parameter representation."
+                f"Unexpected keys {unexpected_keys} in parameter representation. "
                 f"Exhaustive set of expected keys: {EXPECTED_KEYS_IN_PARAM_REPR}."
             )
         name = representation["name"]
@@ -740,7 +740,7 @@ class InstantiationBase:
         logger.debug(f"Created search space: {ss}.")
         if ss.is_hierarchical:
             logger.debug(
-                "Hieararchical structure of the search space: \n"
+                "Hierarchical structure of the search space: \n"
                 f"{ss.hierarchical_structure_str(parameter_names_only=True)}"
             )
 
@@ -1105,7 +1105,7 @@ def _process_monomial(monomial_str: str) -> tuple[float, str]:
             multiplier = 1.0
     else:
         raise ValueError(
-            "Monomial format does not match `multiplier*parameter_name`."
+            "Monomial format does not match `multiplier*parameter_name`. "
             f"Got `{monomial_str}`."
         )
     return multiplier, parameter
