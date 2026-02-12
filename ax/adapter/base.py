@@ -360,19 +360,18 @@ class Adapter:
         experiment_data: ExperimentData,
     ) -> list[bool]:
         """Compute in-design status for each row of ``experiment_data``, after
-        filling missing values if ``FillMissingParameters`` transform is used.
+        filling missing values if ``FillMissingParameters`` transform is used
+        and computing derived parameter values.
         """
-        t = FillMissingParameters(
-            search_space=search_space,
-            config=self._transform_configs.get("FillMissingParameters", None),
-        )
-        experiment_data = t.transform_experiment_data(
+        experiment_data, _ = self._transform_data(
             experiment_data=experiment_data,
+            search_space=search_space,
+            transforms=self._raw_transforms[:1],
+            transform_configs=self._transform_configs,
+            assign_transforms=False,
         )
         # Use vectorized membership check for efficiency.
-        return search_space.check_membership_df(
-            arm_data=experiment_data.arm_data,
-        )
+        return search_space.check_membership_df(arm_data=experiment_data.arm_data)
 
     def _set_model_space(self, arm_data: DataFrame) -> None:
         """Set model space, possibly expanding range parameters to cover data."""

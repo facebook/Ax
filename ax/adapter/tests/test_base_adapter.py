@@ -9,7 +9,7 @@
 import warnings
 from copy import deepcopy
 from random import random
-from typing import Any
+from typing import Any, Callable
 from unittest import mock
 from unittest.mock import Mock
 
@@ -1194,8 +1194,21 @@ class BaseAdapterTest(TestCase):
             ],
         )
 
+        # _compute_in_design also calls _transform_data, so we let the first
+        # call (from _compute_in_design) through and mock only the second
+        # (full pipeline) call.
+        original_transform_data: Callable[..., Any] = Adapter._transform_data
+        call_count = 0
+
+        def _side_effect(self_arg: Any, *args: Any, **kwargs: Any) -> Any:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return original_transform_data(self_arg, *args, **kwargs)
+            return (None, None)
+
         with mock.patch.object(
-            Adapter, "_transform_data", return_value=(None, None)
+            Adapter, "_transform_data", autospec=True, side_effect=_side_effect
         ) as mock_transform:
             adapter_exclude_ood = Adapter(
                 experiment=experiment,
@@ -1213,6 +1226,86 @@ class BaseAdapterTest(TestCase):
 
         expected_in_design = [True, True, False, False]
         self.assertEqual(adapter_exclude_ood.training_in_design, expected_in_design)
+
+    def test_in_design_with_derived_parameter(self) -> None:
+        """Test that in-design computation works correctly with DerivedParameters.
+
+        DerivedParameter values are computed by the Cast transform, so arms that
+        are missing these values or have incorrect values should still be
+        considered in-design as long as the constituent parameters are valid.
+        """
+        # Common search space with a DerivedParameter
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=10.0,
+                ),
+                DerivedParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="2.0 * x + 1.0",
+                ),
+            ]
+        )
+
+        with self.subTest("Arms missing derived parameter values are in-design"):
+            # Parameterizations are missing "y" - Cast should compute it
+            experiment = get_experiment_with_observations(
+                observations=[[1.0], [2.0], [3.0]],
+                search_space=search_space,
+                parameterizations=[
+                    {"x": 1.0},  # missing y
+                    {"x": 5.0},  # missing y
+                    {"x": 10.0},  # missing y
+                ],
+            )
+            adapter = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                expand_model_space=False,
+            )
+            # All arms should be in-design because Cast computes the derived param
+            self.assertEqual(adapter.training_in_design, [True, True, True])
+
+        with self.subTest("Arms with incorrect derived parameter values are in-design"):
+            # Create experiment with observations that have incorrect derived values
+            experiment = get_experiment_with_observations(
+                observations=[[1.0], [2.0]],
+                search_space=search_space,
+                parameterizations=[
+                    {"x": 1.0, "y": 999.0},  # y should be 3.0, not 999.0
+                    {"x": 5.0, "y": 0.0},  # y should be 11.0, not 0.0
+                ],
+            )
+            adapter = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                expand_model_space=False,
+            )
+            # All arms should be in-design because Cast recomputes the derived param
+            self.assertEqual(adapter.training_in_design, [True, True])
+
+        with self.subTest("Arms out-of-design based on constituent parameters"):
+            # Constituent parameter x is out of bounds for some arms
+            experiment = get_experiment_with_observations(
+                observations=[[1.0], [2.0], [3.0]],
+                search_space=search_space,
+                parameterizations=[
+                    {"x": 5.0},  # in-design (0 <= 5 <= 10)
+                    {"x": 15.0},  # out-of-design (x > 10)
+                    {"x": -5.0},  # out-of-design (x < 0)
+                ],
+            )
+            adapter = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                expand_model_space=False,
+            )
+            # First arm is in-design, second and third are out-of-design
+            self.assertEqual(adapter.training_in_design, [True, False, False])
 
     @mock.patch("ax.adapter.base.Adapter._fit", autospec=True)
     def test_untransform_observation_features_derived_parameter_with_digits(

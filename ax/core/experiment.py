@@ -323,15 +323,15 @@ class Experiment(Base):
 
         # Additional checks iff a trial exists
         if len(self.trials) != 0:
-            if any(parameter.backfill_value is None for parameter in parameters):
+            if any(
+                (parameter.backfill_value is None)
+                and not isinstance(parameter, DerivedParameter)
+                for parameter in parameters
+            ):
                 raise UserInputError(
-                    "Must provide backfill values for all new parameters when "
-                    "adding parameters to an experiment with existing trials."
-                )
-            if any(isinstance(parameter, DerivedParameter) for parameter in parameters):
-                raise UserInputError(
-                    "Cannot add derived parameters to an experiment with existing "
-                    "trials."
+                    "Must provide backfill values for all new parameters (except "
+                    "DerivedParameters) when adding parameters to an experiment "
+                    "with existing trials."
                 )
 
         # Validate status quo values
@@ -356,13 +356,13 @@ class Experiment(Base):
                     f"`{extra_status_quo_values}` which is are being added to "
                     "the search space. Ignoring provided status quo values."
                 )
-            mising_status_quo_values = (
+            missing_status_quo_values = (
                 parameter_names - disabled_parameters - status_quo_parameters
             )
-            if mising_status_quo_values:
+            if missing_status_quo_values:
                 raise UserInputError(
                     "No status quo value provided for parameters "
-                    f"`{mising_status_quo_values}` which are being added to "
+                    f"`{missing_status_quo_values}` which are being added to "
                     "the search space."
                 )
             for parameter_name, value in status_quo_values.items():
