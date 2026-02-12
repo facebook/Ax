@@ -174,7 +174,6 @@ class ModelRegistryTest(TestCase):
             (
                 {
                     "seed": None,
-                    "deduplicate": True,
                     "init_position": 0,
                     "scramble": True,
                     "generated_points": None,
@@ -194,7 +193,7 @@ class ModelRegistryTest(TestCase):
         self.assertTrue(
             all(
                 kw in Generators.SOBOL.view_kwargs()[0]
-                for kw in ["seed", "deduplicate", "init_position", "scramble"]
+                for kw in ["seed", "init_position", "scramble"]
             ),
             all(
                 kw in Generators.SOBOL.view_kwargs()[1]

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import dataclasses
 from unittest import mock
 
 import numpy as np
@@ -20,15 +19,10 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.base import RandomGenerator
 from ax.generators.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_data,
-    get_search_space_for_range_values,
-    get_small_discrete_search_space,
-)
+from ax.utils.testing.core_stubs import get_data
 from ax.utils.testing.modeling_stubs import get_experiment_for_value
 
 
@@ -147,22 +141,6 @@ class RandomAdapterTest(TestCase):
         self.assertIsNone(gen_args["linear_constraints"])
         self.assertIsNone(gen_args["fixed_features"])
 
-    def test_deduplicate(self) -> None:
-        exp = Experiment(search_space=get_small_discrete_search_space())
-        sobol = RandomAdapter(
-            experiment=exp,
-            generator=SobolGenerator(deduplicate=True),
-            transforms=Cont_X_trans,
-        )
-        for _ in range(4):  # Search space is {[0, 1], {"red", "panda"}}
-            # Generate & attach trials to the experiment so that the
-            # generated points are used for deduplication.
-            gr = sobol.gen(1)
-            exp.new_trial(generator_run=gr).mark_running(no_runner_required=True)
-            self.assertEqual(len(gr.arms), 1)
-        with self.assertRaises(SearchSpaceExhausted):
-            sobol.gen(1)
-
     def test_search_space_not_expanded(self) -> None:
         data = get_data(num_non_sq_arms=0)
         sq_arm = Arm(name="status_quo", parameters={"x": 10.0, "y": 1.0, "z": 1.0})
@@ -185,124 +163,6 @@ class RandomAdapterTest(TestCase):
         # test that search space is not expanded
         sobol.gen(1)
         self.assertEqual(sobol._model_space, sobol._search_space)
-
-    def test_generated_points(self) -> None:
-        # Checks for generated points argument passed to Generator.gen.
-        # Search space has two range parameters in [0, 5].
-        exp = Experiment(
-            search_space=get_search_space_for_range_values(min=0.0, max=5.0)
-        )
-        ssd = extract_search_space_digest(
-            search_space=exp.search_space,
-            param_names=list(exp.search_space.parameters.keys()),
-        )
-        ssd = dataclasses.replace(ssd, bounds=[(0.0, 1.0), (0.0, 1.0)])
-        generator = SobolGenerator(deduplicate=True)
-        gen_res = generator.gen(n=1, search_space_digest=ssd, rounding_func=lambda x: x)
-        # Using Cont_X_trans, particularly UnitX here to test transform application.
-        adapter = RandomAdapter(
-            experiment=exp, generator=generator, transforms=Cont_X_trans
-        )
-
-        # No pending points or previous trials on the experiment.
-        with mock.patch.object(generator, "gen", return_value=gen_res) as mock_gen:
-            adapter.gen(n=1)
-        self.assertIsNone(mock_gen.call_args.kwargs["generated_points"])
-
-        # Attach two trials to the experiment.
-        exp.new_trial().add_arm(Arm(parameters={"x": 0.0, "y": 0.0})).mark_running(
-            no_runner_required=True
-        )
-        exp.new_trial().add_arm(Arm(parameters={"x": 2.0, "y": 2.0})).mark_running(
-            no_runner_required=True
-        )
-        with mock.patch.object(generator, "gen", return_value=gen_res) as mock_gen:
-            adapter.gen(n=1)
-        self.assertEqual(
-            mock_gen.call_args.kwargs["generated_points"].tolist(),
-            [[0.0, 0.0], [0.4, 0.4]],
-        )
-
-        # Add pending points -- only unique ones should be passed down.
-        pending_observations = {
-            m: [ObservationFeatures(parameters={"x": 3.0, "y": 3.0})]
-            for m in ("m1", "m2")
-        }
-        with mock.patch.object(generator, "gen", return_value=gen_res) as mock_gen:
-            adapter.gen(n=1, pending_observations=pending_observations)
-        self.assertEqual(
-            mock_gen.call_args.kwargs["generated_points"].tolist(),
-            [[0.0, 0.0], [0.4, 0.4], [0.6, 0.6]],
-        )
-
-        # Turn off deduplicate, nothing should be passed down.
-        generator.deduplicate = False
-        with mock.patch.object(generator, "gen", return_value=gen_res) as mock_gen:
-            adapter.gen(n=1, pending_observations=pending_observations)
-        self.assertIsNone(mock_gen.call_args.kwargs["generated_points"])
-
-        # Test filtering out-of-design arms during deduplication
-        # Create experiment with in-design and out-of-design arms
-        exp_with_ood_arms = Experiment(
-            search_space=get_search_space_for_range_values(min=0.0, max=5.0)
-        )
-        in_design_arm = Arm(
-            name="in_design", parameters={"x": 2.0, "y": 3.0}
-        )  # Within [0, 5]
-        out_of_design_arm = Arm(
-            name="out_of_design", parameters={"x": 6.0, "y": 7.0}
-        )  # Outside [0, 5]
-
-        exp_with_ood_arms.new_trial().add_arm(in_design_arm).mark_running(
-            no_runner_required=True
-        )
-        exp_with_ood_arms.new_trial().add_arm(out_of_design_arm).mark_running(
-            no_runner_required=True
-        )
-
-        generator = SobolGenerator(deduplicate=True)
-        adapter_mixed = RandomAdapter(
-            experiment=exp_with_ood_arms,
-            generator=generator,
-            transforms=Cont_X_trans,
-        )
-
-        # Only the in-design arm should be included in generated_points
-        with mock.patch.object(generator, "gen", return_value=gen_res) as mock_gen:
-            adapter_mixed.gen(n=1)
-
-        generated_points = mock_gen.call_args.kwargs["generated_points"]
-        self.assertEqual(len(generated_points), 1)
-
-        # Test case where all arms are out-of-design
-        exp_all_out_of_design = Experiment(
-            search_space=get_search_space_for_range_values(min=0.0, max=5.0)
-        )
-        out_of_design_arm1 = Arm(name="out1", parameters={"x": 6.0, "y": 7.0})
-        out_of_design_arm2 = Arm(name="out2", parameters={"x": -1.0, "y": 8.0})
-
-        exp_all_out_of_design.new_trial().add_arm(out_of_design_arm1).mark_running(
-            no_runner_required=True
-        )
-        exp_all_out_of_design.new_trial().add_arm(out_of_design_arm2).mark_running(
-            no_runner_required=True
-        )
-
-        generator_all_out = SobolGenerator(deduplicate=True)
-        adapter_all_out = RandomAdapter(
-            experiment=exp_all_out_of_design,
-            generator=generator_all_out,
-            transforms=Cont_X_trans,
-        )
-
-        # When all arms are out-of-design, generated_points should be empty
-        with mock.patch.object(
-            generator_all_out, "gen", return_value=gen_res
-        ) as mock_gen:
-            adapter_all_out.gen(n=1)
-
-        generated_points_all_out = mock_gen.call_args.kwargs["generated_points"]
-        self.assertIsNone(generated_points_all_out)
 
     def test_generation_with_all_fixed(self) -> None:
         # Make sure candidate generation succeeds and returns correct parameters

@@ -860,22 +860,24 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(self._get_max_parallelism(sobol_gpei._nodes[1]), 10)
 
     def test_set_should_deduplicate(self) -> None:
+        # Default is now should_deduplicate=True
         sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             use_batch_trials=True,
             num_initialization_trials=3,
-        )
-        self.assertListEqual(
-            [s.should_deduplicate for s in sobol_gpei._nodes], [False] * 2
-        )
-        sobol_gpei = choose_generation_strategy_legacy(
-            search_space=get_branin_search_space(),
-            use_batch_trials=True,
-            num_initialization_trials=3,
-            should_deduplicate=True,
         )
         self.assertListEqual(
             [s.should_deduplicate for s in sobol_gpei._nodes], [True] * 2
+        )
+        # Explicitly set should_deduplicate=False
+        sobol_gpei = choose_generation_strategy_legacy(
+            search_space=get_branin_search_space(),
+            use_batch_trials=True,
+            num_initialization_trials=3,
+            should_deduplicate=False,
+        )
+        self.assertListEqual(
+            [s.should_deduplicate for s in sobol_gpei._nodes], [False] * 2
         )
 
     def test_setting_experiment_attribute(self) -> None:

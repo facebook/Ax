@@ -122,7 +122,6 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     # Required options:
     generator_specs: list[GeneratorSpec]
-    # TODO: Move `should_deduplicate` to `GeneratorSpec` if possible, and make optional
     should_deduplicate: bool
     _name: str
 
@@ -150,7 +149,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         generator_specs: list[GeneratorSpec],
         transition_criteria: Sequence[TransitionCriterion] | None = None,
         best_model_selector: BestModelSelector | None = None,
-        should_deduplicate: bool = False,
+        should_deduplicate: bool = True,
         input_constructors: TInputConstructorsByPurpose | None = None,
         previous_node_name: str | None = None,
         trial_type: str | None = None,
@@ -1014,7 +1013,7 @@ class GenerationStep:
         min_trials_observed: int = 0,
         max_parallelism: int | None = None,
         enforce_num_trials: bool = True,
-        should_deduplicate: bool = False,
+        should_deduplicate: bool = True,
         generator_name: str | None = None,
         use_all_trials_in_exp: bool = False,
         use_update: bool = False,  # DEPRECATED.

@@ -9,7 +9,6 @@
 
 from collections.abc import Mapping, Sequence
 
-import numpy as np
 from ax.adapter.adapter_utils import (
     extract_parameter_constraints,
     extract_search_space_digest,
@@ -93,35 +92,6 @@ class RandomAdapter(Adapter):
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
-        # Extract generated points to deduplicate against.
-        # Exclude out-of-design arms (which can only be manual arms
-        # instead of adapter-generated arms).
-        generated_points = None
-        if self.generator.deduplicate:
-            arms_to_deduplicate = self._experiment.arms_by_signature_for_deduplication
-            generated_obs = [
-                ObservationFeatures.from_arm(arm=arm)
-                for arm in arms_to_deduplicate.values()
-                if self._search_space.check_membership(parameterization=arm.parameters)
-            ]
-            # Transform
-            for t in self.transforms.values():
-                generated_obs = t.transform_observation_features(generated_obs)
-            # Add pending observations -- already transformed.
-            generated_obs.extend(
-                [obs for obs_list in pending_observations.values() for obs in obs_list]
-            )
-            if len(generated_obs) > 0:
-                # Extract generated points array (n x d).
-                generated_points = np.array(
-                    [
-                        [obs.parameters[p] for p in self.parameters]
-                        for obs in generated_obs
-                    ]
-                )
-                # Take unique points only, since there may be duplicates coming
-                # from pending observations for different metrics.
-                generated_points = np.unique(generated_points, axis=0)
 
         # Generate the candidates
         X, w = self.generator.gen(
@@ -131,7 +101,6 @@ class RandomAdapter(Adapter):
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),
-            generated_points=generated_points,
         )
         observation_features = parse_observation_features(X, self.parameters)
         return GenResults(

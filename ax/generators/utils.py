@@ -64,11 +64,9 @@ def rejection_sample(
     d: int,
     tunable_feature_indices: npt.NDArray,
     linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
-    deduplicate: bool = False,
     max_draws: int | None = None,
     fixed_features: dict[int, float] | None = None,
     rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
-    existing_points: npt.NDArray | None = None,
 ) -> tuple[npt.NDArray, int]:
     """Rejection sample in parameter space. Parameter space is typically
     [0, 1] for all tunable parameters.
@@ -87,28 +85,16 @@ def rejection_sample(
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
             A x <= b.
-        deduplicate: If true, reject points that are duplicates of previously
-            generated points. The points are deduplicated after applying the
-            rounding function.
         max_draws: Maximum number of attemped draws before giving up.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value during generation.
         rounding_func: A function that rounds an optimization result
             appropriately (e.g., according to `round-trip` transformations).
-        existing_points: A set of previously generated points to use
-            for deduplication. These should be provided in the parameter
-            space model operates in.
 
     Returns:
         2-element tuple containing the generated points and the number of
         attempted draws.
     """
-    # We need to perform the round trip transformation on our generated point
-    # in order to deduplicate in the original search space.
-    # The transformation is applied above.
-    if deduplicate and rounding_func is None:
-        raise ValueError("Rounding function must be provided for deduplication.")
-
     # Rejection sample with parameter constraints.
     points = np.zeros((0, d))
     attempted_draws = 0
@@ -141,9 +127,6 @@ def rejection_sample(
                 point = rounding_func(point)
 
             points = np.concatenate([points, point[None, :]], axis=0)
-            # Deduplicate: don't add the same point twice.
-            if deduplicate:
-                points = remove_duplicates(points, existing_points)
         attempted_draws += 1
 
     if points.shape[0] < n:
@@ -155,38 +138,6 @@ def rejection_sample(
         )
 
     return (points, attempted_draws)
-
-
-def remove_duplicates(
-    points: npt.NDArray,
-    existing_points: npt.NDArray | None = None,
-) -> npt.NDArray:
-    """Remove any point in points if it is duplicate or contained in existing_points.
-
-    Args:
-        points: Points to remove duplicates from.
-        existing_points: Additional points to check for duplicates.
-
-    Returns:
-        Points with duplicates removed.
-    """
-    if existing_points is None:
-        existing_points = np.empty((0, points.shape[1]))
-
-    unique_points = np.empty((0, points.shape[1]))
-    for point in points:
-        # Check if point has already been added to unique points
-        if np.any(np.all(point == unique_points, axis=1)):
-            continue
-
-        # Check if point is duplicate of existing points
-        if np.any(np.all(point == existing_points, axis=1)):
-            continue
-
-        # Add current point to our collection of unique points
-        unique_points = np.concatenate([unique_points, point[None, :]], axis=0)
-
-    return unique_points
 
 
 def add_fixed_features(
