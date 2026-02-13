@@ -50,6 +50,7 @@ from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.exceptions.errors import BotorchError, InputDataError
+from botorch.generation.sampling import SamplingStrategy
 from botorch.models.model import Model
 from botorch.optim.optimize import (
     optimize_acqf,
@@ -465,6 +466,123 @@ class Acquisition(Base):
         """The objective weights for all outcomes."""
         return self._full_objective_weights
 
+    def select_from_candidate_set(
+        self,
+        n: int,
+        candidate_set: Tensor,
+        sampling_strategy: SamplingStrategy | None = None,
+    ) -> tuple[Tensor, Tensor, Tensor]:
+        """Select n candidates from a discrete set with optional weight allocation.
+
+        This method selects candidates from ``candidate_set`` using either a
+        ``SamplingStrategy`` (e.g., Thompson Sampling with win-counting for weight
+        allocation) or greedy acquisition function optimization.
+
+        ``candidate_set`` is the stable interface for any candidate generation
+        method. Any method that produces candidates (in-sample training data,
+        pathwise TS optimization, user-provided sets, etc.) feeds into this
+        parameter. The selection/weight-allocation logic is agnostic to how
+        candidates were generated.
+
+        Args:
+            n: The number of candidates to select.
+            candidate_set: A ``(num_choices, d)`` tensor of discrete candidate
+                points to select from.
+            sampling_strategy: An optional BoTorch ``SamplingStrategy`` instance
+                (e.g., ``MaxPosteriorSampling`` for Thompson Sampling, or
+                ``BoltzmannSampling`` for acquisition-weighted sampling). When
+                provided, candidates are selected by sampling from ``candidate_set``
+                according to the strategy. When ``num_samples > n``, win-counting
+                mode is used: many posterior samples are drawn, wins are counted
+                per candidate, and the top-n candidates are returned with weights
+                proportional to their win probability (normalized to sum to 1).
+                If not provided, greedy acquisition function selection is used via
+                ``optimize_acqf_discrete``.
+
+        Returns:
+            A three-element tuple containing an ``n x d``-dim tensor of selected
+            candidates, a tensor with the associated acquisition values, and a
+            tensor with the weight for each candidate (normalized to sum to 1
+            for win-counting mode, or uniform for direct/greedy selection).
+
+        Raises:
+            ValueError: If ``candidate_set`` is empty or has fewer points than
+                ``n``.
+        """
+        if candidate_set.shape[0] == 0:
+            raise ValueError(
+                "`candidate_set` is empty. Provide a non-empty set of candidates."
+            )
+        if candidate_set.shape[0] < n:
+            raise ValueError(
+                f"`candidate_set` has {candidate_set.shape[0]} candidates, "
+                f"but {n} were requested. Provide at least {n} candidates."
+            )
+
+        if sampling_strategy is not None:
+            # Check if this is a win-counting strategy (e.g., Thompson Sampling)
+            # or a direct selection strategy (e.g., Boltzmann Sampling).
+            # If num_samples is explicitly set and > n, use win-counting mode.
+            # Otherwise, use direct selection mode.
+            num_samples_attr = getattr(sampling_strategy, "num_samples", None)
+            num_samples: int | None = (
+                int(num_samples_attr) if num_samples_attr is not None else None
+            )
+
+            if num_samples is not None and num_samples > n:
+                # Win-counting mode: sample many times, count wins, return top-n
+                # with weights proportional to win counts (normalized to sum to 1).
+                sampled_candidates = sampling_strategy(
+                    candidate_set.unsqueeze(0), num_samples=num_samples
+                ).squeeze(0)  # (num_samples, d)
+
+                # Count wins for each unique candidate
+                unique_candidates, inverse_indices = torch.unique(
+                    sampled_candidates, dim=0, return_inverse=True
+                )
+                counts = torch.bincount(
+                    inverse_indices, minlength=unique_candidates.shape[0]
+                )
+
+                # Select top-n candidates by win count.
+                # When num_unique < n (fewer unique winners than requested),
+                # we return all unique winners. The caller should handle
+                # candidates.shape[0] <= n, consistent with
+                # optimize_acqf_discrete which may also return fewer than n.
+                num_unique = unique_candidates.shape[0]
+                top_n = min(n, num_unique)
+                top_counts, top_indices = torch.topk(counts, top_n)
+
+                candidates = unique_candidates[top_indices]
+                arm_weights = top_counts.to(dtype=self.dtype, device=self.device)
+                arm_weights = arm_weights / arm_weights.sum()
+            else:
+                # Direct selection mode: sample exactly n candidates with equal
+                # weights. Used for strategies like BoltzmannSampling where
+                # weighting is built into the selection process.
+                sampled_candidates = sampling_strategy(
+                    candidate_set.unsqueeze(0), num_samples=n
+                ).squeeze(0)  # (n, d)
+                candidates = sampled_candidates
+                arm_weights = torch.ones(n, dtype=self.dtype, device=self.device)
+
+            acqf_values = self.evaluate(candidates.unsqueeze(1)).view(-1)
+            return candidates, acqf_values, arm_weights
+
+        # Greedy selection from provided discrete candidate set via acqf.
+        # optimize_acqf_discrete may return fewer than n candidates when
+        # there are fewer feasible choices; arm_weights matches actual count.
+        candidates, acqf_values = optimize_acqf_discrete(
+            acq_function=self.acqf,
+            q=n,
+            choices=candidate_set,
+            unique=True,
+        )
+        arm_weights = torch.ones(
+            candidates.shape[0], dtype=self.dtype, device=self.device
+        )
+        return candidates, acqf_values, arm_weights
+
     def optimize(
         self,
         n: int,
@@ -473,6 +591,8 @@ class Acquisition(Base):
         fixed_features: dict[int, float] | None = None,
         rounding_func: Callable[[Tensor], Tensor] | None = None,
         optimizer_options: dict[str, Any] | None = None,
+        candidate_set: Tensor | None = None,
+        sampling_strategy: SamplingStrategy | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
@@ -498,12 +618,36 @@ class Acquisition(Base):
                 that typically only exist in MBM, such as BoTorch transforms.
                 See the docstring of `TorchOptConfig` for more information on passing
                 down these options while constructing a generation strategy.
+            candidate_set: An optional tensor of shape `(num_choices, d)` containing
+                discrete candidate points to select from instead of optimizing over
+                the search space. When provided, selection is delegated to
+                ``select_from_candidate_set``. This enables in-sample candidate
+                generation when set to the training data (X_observed).
+            sampling_strategy: An optional BoTorch ``SamplingStrategy`` instance
+                (e.g., ``MaxPosteriorSampling`` for Thompson Sampling, or
+                ``BoltzmannSampling`` for acquisition-weighted sampling).
+                Passed to ``select_from_candidate_set`` when ``candidate_set``
+                is provided. Requires ``candidate_set`` to be provided.
 
         Returns:
             A three-element tuple containing an `n x d`-dim tensor of generated
             candidates, a tensor with the associated acquisition values, and a tensor
             with the weight for each candidate.
         """
+        # Dispatch to candidate set selection if candidate_set or
+        # sampling_strategy is provided.
+        if sampling_strategy is not None or candidate_set is not None:
+            if candidate_set is None:
+                raise ValueError(
+                    "`candidate_set` is required when using `sampling_strategy`. "
+                    "Provide the discrete set of candidates to sample from."
+                )
+            return self.select_from_candidate_set(
+                n=n,
+                candidate_set=candidate_set,
+                sampling_strategy=sampling_strategy,
+            )
+
         # Options that would need to be passed in the transformed space are
         # disallowed, since this would be very difficult for an end user to do
         # directly, and someone who uses BoTorch at this level of detail would

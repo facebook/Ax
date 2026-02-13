@@ -674,6 +674,98 @@ class AcquisitionTest(TestCase):
         expected = torch.tensor([all_choices[7]], **self.tkwargs)
         self.assertTrue(torch.equal(candidates, expected))
 
+    def test_select_from_candidate_set(self) -> None:
+        """Test all select_from_candidate_set paths and optimize dispatch."""
+        from botorch.generation.sampling import SamplingStrategy
+
+        acquisition = self.get_acquisition_function()
+
+        with self.subTest("validation_too_few_candidates"):
+            with self.assertRaisesRegex(ValueError, "but 3 were requested"):
+                acquisition.select_from_candidate_set(
+                    n=3,
+                    candidate_set=torch.tensor([[1.0, 2.0, 3.0]], **self.tkwargs),
+                )
+
+        with self.subTest("validation_empty_candidate_set"):
+            with self.assertRaisesRegex(ValueError, "empty"):
+                acquisition.select_from_candidate_set(
+                    n=1,
+                    candidate_set=torch.empty(0, 3, **self.tkwargs),
+                )
+
+        with self.subTest("win_counting_normalized"):
+            candidate_set = torch.tensor(
+                [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]],
+                **self.tkwargs,
+            )
+
+            class _AlternatingWinStrategy(SamplingStrategy):
+                """Candidate 0 wins 75% of the time, candidate 1 wins 25%."""
+
+                num_samples: int = 0
+
+                def forward(self, X: Tensor, num_samples: int = 1) -> Tensor:
+                    n_first = int(num_samples * 0.75)
+                    n_second = num_samples - n_first
+                    first = X[..., 0:1, :].expand(*X.shape[:-2], n_first, X.shape[-1])
+                    second = X[..., 1:2, :].expand(*X.shape[:-2], n_second, X.shape[-1])
+                    return torch.cat([first, second], dim=-2)
+
+            strategy = _AlternatingWinStrategy()
+            strategy.num_samples = 100
+
+            candidates, _, weights = acquisition.select_from_candidate_set(
+                n=2,
+                candidate_set=candidate_set,
+                sampling_strategy=strategy,
+            )
+            self.assertEqual(candidates.shape[0], 2)
+            self.assertAlmostEqual(weights.sum().item(), 1.0, places=4)
+            self.assertAlmostEqual(weights[0].item(), 0.75, places=4)
+            self.assertAlmostEqual(weights[1].item(), 0.25, places=4)
+
+        with self.subTest("direct_selection_without_num_samples"):
+            candidate_set = torch.tensor(
+                [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]],
+                **self.tkwargs,
+            )
+
+            class _DirectStrategy(SamplingStrategy):
+                """Always returns the first n candidates."""
+
+                def forward(self, X: Tensor, num_samples: int = 1) -> Tensor:
+                    return X[..., :num_samples, :]
+
+            candidates, _, weights = acquisition.select_from_candidate_set(
+                n=2,
+                candidate_set=candidate_set,
+                sampling_strategy=_DirectStrategy(),
+            )
+            self.assertEqual(candidates.shape[0], 2)
+            self.assertTrue(torch.all(weights == 1.0))
+            self.assertEqual(weights.shape, (2,))
+
+        with self.subTest("greedy_via_optimize_acqf_discrete"):
+            candidate_set = torch.rand(10, 3, **self.tkwargs)
+            candidates, _, weights = acquisition.select_from_candidate_set(
+                n=1,
+                candidate_set=candidate_set,
+            )
+            self.assertEqual(candidates.shape, (1, 3))
+            self.assertEqual(weights.shape, (1,))
+            self.assertAlmostEqual(weights[0].item(), 1.0, places=6)
+            self.assertTrue((candidate_set == candidates[0]).all(dim=-1).any())
+
+        with self.subTest("optimize_raises_strategy_without_candidate_set"):
+            strategy = Mock(spec=SamplingStrategy)
+            with self.assertRaisesRegex(ValueError, "candidate_set.*required"):
+                acquisition.optimize(
+                    n=1,
+                    search_space_digest=self.search_space_digest,
+                    sampling_strategy=strategy,
+                )
+
     # mock `optimize_acqf_discrete_local_search` because it isn't handled by
     # `mock_botorch_optimize`
     @mock.patch(
@@ -1946,6 +2038,9 @@ class MultiAcquisitionTest(AcquisitionTest):
         pass
 
     def test_optimize_acqf_mixed_alternating(self) -> None:
+        pass
+
+    def test_select_from_candidate_set(self) -> None:
         pass
 
     # Mock so that we can check that arguments are passed correctly.

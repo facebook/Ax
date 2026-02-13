@@ -36,6 +36,8 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.objective import ScalarizedPosteriorTransform
+from botorch.generation.sampling import BoltzmannSampling, MaxPosteriorSampling
 from botorch.models.deterministic import FixedSingleSampleModel
 from botorch.settings import validate_input_scaling
 from botorch.utils.datasets import SupervisedDataset
@@ -43,6 +45,103 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
+
+
+def _build_candidate_generation_options(
+    model_gen_options: dict[str, Any],
+    torch_opt_config: TorchOptConfig,
+    surrogate: Surrogate,
+    acqf: Acquisition,
+) -> tuple[Tensor | None, Any | None]:
+    """Build candidate_set and sampling_strategy for discrete candidate generation.
+
+    This helper function processes model_gen_options to construct:
+    - candidate_set: The discrete set of candidates to select from.
+      Any method that produces candidates (in-sample training data, or future
+      methods like pathwise TS optimization) feeds into this parameter.
+      The selection/weight-allocation logic downstream is agnostic to how
+      candidates were generated.
+    - sampling_strategy: The BoTorch SamplingStrategy to use for selection
+
+    Args:
+        model_gen_options: Dictionary containing candidate generation options:
+            - in_sample: If True, use training data as candidate_set
+            - sampling_strategy_class: Class of SamplingStrategy to instantiate
+            - sampling_strategy_kwargs: kwargs to pass to the strategy
+        torch_opt_config: Configuration containing objective weights
+        surrogate: The surrogate model providing training data
+        acqf: The Acquisition object providing the acquisition function
+
+    Returns:
+        A tuple of (candidate_set, sampling_strategy) where either or both may
+        be None if not configured in model_gen_options.
+
+    Note:
+        When in_sample=True without a sampling_strategy, candidates are selected
+        via optimize_acqf_discrete, which uses sequential greedy selection with
+        X_pending for q > 1. This requires the acquisition function to support
+        X_pending (e.g., qSimpleRegret, qLogNEI). Analytic acquisition functions
+        like PosteriorMean do not support X_pending and will only work for q=1.
+    """
+    candidate_set = None
+    sampling_strategy = None
+
+    # Determine candidate set for in-sample generation
+    if model_gen_options.get("in_sample", False):
+        if surrogate.Xs:
+            candidate_set = surrogate.Xs[0]
+        else:
+            raise ValueError(
+                "in_sample=True requires training data, but no data is available."
+            )
+
+    # Build sampling strategy if requested
+    sampling_strategy_class = model_gen_options.get("sampling_strategy_class")
+    if sampling_strategy_class is not None:
+        strategy_kwargs = dict(model_gen_options.get("sampling_strategy_kwargs", {}))
+        # Extract num_samples to set on strategy instance after construction
+        # This allows acquisition.optimize() to use getattr() to retrieve it
+        num_samples = strategy_kwargs.pop("num_samples", None)
+
+        if issubclass(sampling_strategy_class, MaxPosteriorSampling):
+            # Thompson Sampling: sample from model posterior
+            # For minimization objectives (objective_weights=-1), we need to pass
+            # a posterior_transform that negates the values so MaxPosteriorSampling
+            # correctly finds the arm with lowest predicted value.
+
+            # Get objective weights - for minimization this is -1, maximization is 1
+            objective_weights = torch_opt_config.objective_weights
+            # Only use non-zero weights (actual objectives, not constraints)
+            obj_mask = objective_weights.nonzero().view(-1)
+            posterior_transform = ScalarizedPosteriorTransform(
+                weights=objective_weights[obj_mask]
+            )
+
+            sampling_strategy = sampling_strategy_class(
+                model=surrogate.model,
+                posterior_transform=posterior_transform,
+                **strategy_kwargs,
+            )
+        elif issubclass(sampling_strategy_class, BoltzmannSampling):
+            # Boltzmann Sampling: sample weighted by acquisition values
+            sampling_strategy = sampling_strategy_class(
+                acq_func=acqf.acqf,
+                **strategy_kwargs,
+            )
+        else:
+            # Generic SamplingStrategy - try to instantiate with provided kwargs
+            # User is responsible for providing appropriate kwargs
+            sampling_strategy = sampling_strategy_class(**strategy_kwargs)
+
+        # Set num_samples on the strategy instance if provided.
+        # This is used by select_from_candidate_set() to determine
+        # win-counting vs. direct selection mode. The attribute is ephemeral
+        # (not part of nn.Module state_dict) since the strategy is created
+        # fresh each gen() call and never serialized.
+        if num_samples is not None:
+            sampling_strategy.num_samples = num_samples
+
+    return candidate_set, sampling_strategy
 
 
 class BoTorchGenerator(TorchGenerator, Base):
@@ -281,6 +380,16 @@ class BoTorchGenerator(TorchGenerator, Base):
         acqf = none_throws(self._acquisition)
 
         botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
+
+        # Handle candidate generation via model_gen_options
+        model_gen_options = torch_opt_config.model_gen_options or {}
+        candidate_set, sampling_strategy = _build_candidate_generation_options(
+            model_gen_options=model_gen_options,
+            torch_opt_config=torch_opt_config,
+            surrogate=self.surrogate,
+            acqf=acqf,
+        )
+
         candidates, expected_acquisition_value, weights = acqf.optimize(
             n=n,
             search_space_digest=search_space_digest,
@@ -293,6 +402,8 @@ class BoTorchGenerator(TorchGenerator, Base):
                 opt_options,
                 dict,
             ),
+            candidate_set=candidate_set,
+            sampling_strategy=sampling_strategy,
         )
         gen_metadata = self._get_gen_metadata_from_acqf(
             acqf=acqf,

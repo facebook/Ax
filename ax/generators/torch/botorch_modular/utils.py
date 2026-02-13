@@ -510,6 +510,10 @@ def construct_acquisition_and_optimizer_options(
                     Keys.OPTIMIZER_KWARGS.value,
                     Keys.ACQF_KWARGS.value,
                     Keys.AX_ACQUISITION_KWARGS.value,
+                    # Keys for candidate generation
+                    "in_sample",
+                    "sampling_strategy_class",
+                    "sampling_strategy_kwargs",
                 }
             )
             > 0
