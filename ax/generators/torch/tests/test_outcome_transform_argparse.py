@@ -88,7 +88,7 @@ class OutcomeTransformArgparseTest(TestCase):
             dataset=mt_dataset,
             search_space_digest=ssd,
         )
-        options_b = {"stratification_idx": 2, "default_task_value": 4}
+        options_b = {"stratification_idx": 2}
         outcome_transform_kwargs_b = outcome_transform_argparse(
             StratifiedStandardize,
             dataset=mt_dataset,
@@ -97,27 +97,24 @@ class OutcomeTransformArgparseTest(TestCase):
         )
         expected_options_a = {
             "stratification_idx": 3,
-            "observed_task_values": torch.tensor([0, 1], dtype=torch.long),
             "all_task_values": torch.tensor([0, 1, 2], dtype=torch.long),
-            "default_task_value": 1,
         }
         expected_options_b = {
             "stratification_idx": 2,
-            "observed_task_values": torch.tensor([0, 1], dtype=torch.long),
             "all_task_values": torch.tensor([0, 1, 2], dtype=torch.long),
-            "default_task_value": 4,
         }
         for expected_options, actual_options in zip(
             (expected_options_a, expected_options_b),
             (outcome_transform_kwargs_a, outcome_transform_kwargs_b),
         ):
-            self.assertEqual(len(actual_options), 4)
-            for k in ("stratification_idx", "stratification_idx"):
-                self.assertEqual(actual_options[k], expected_options[k])
-            for k in ("observed_task_values", "all_task_values"):
-                self.assertTrue(
-                    torch.equal(
-                        actual_options[k],
-                        assert_is_instance(expected_options[k], Tensor),
-                    )
+            self.assertEqual(len(actual_options), 2)
+            self.assertEqual(
+                actual_options["stratification_idx"],
+                expected_options["stratification_idx"],
+            )
+            self.assertTrue(
+                torch.equal(
+                    actual_options["all_task_values"],
+                    assert_is_instance(expected_options["all_task_values"], Tensor),
                 )
+            )
