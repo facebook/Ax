@@ -7,7 +7,7 @@
 # pyre-strict
 
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Any, Self
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -96,7 +96,7 @@ class MultiTypeExperiment(Experiment):
             default_data_type=default_data_type,
         )
 
-    def add_trial_type(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
+    def add_trial_type(self, trial_type: str, runner: Runner) -> Self:
         """Add a new trial_type to be supported by this experiment.
 
         Args:
@@ -122,7 +122,7 @@ class MultiTypeExperiment(Experiment):
                 self.default_trial_type
             )
 
-    def update_runner(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
+    def update_runner(self, trial_type: str, runner: Runner) -> Self:
         """Update the default runner for an existing trial_type.
 
         Args:
@@ -141,7 +141,7 @@ class MultiTypeExperiment(Experiment):
         metric: Metric,
         trial_type: str | None = None,
         canonical_name: str | None = None,
-    ) -> "MultiTypeExperiment":
+    ) -> Self:
         """Add a new metric to the experiment.
 
         Args:
@@ -199,18 +199,26 @@ class MultiTypeExperiment(Experiment):
             )
         return self
 
-    # pyre-fixme[14]: `update_tracking_metric` overrides method defined in
-    #  `Experiment` inconsistently.
     def update_tracking_metric(
-        self, metric: Metric, trial_type: str, canonical_name: str | None = None
-    ) -> "MultiTypeExperiment":
+        self,
+        metric: Metric,
+        trial_type: str | None = None,
+        canonical_name: str | None = None,
+    ) -> Self:
         """Update an existing metric on the experiment.
 
         Args:
             metric: The metric to add.
-            trial_type: The trial type for which this metric is used.
+            trial_type: The trial type for which this metric is used. Defaults to
+                the current trial type of the metric (if set), or the default trial
+                type otherwise.
             canonical_name: The default metric for which this metric is a proxy.
         """
+        # Default to the existing trial type if not specified
+        if trial_type is None:
+            trial_type = self._metric_to_trial_type.get(
+                metric.name, self._default_trial_type
+            )
         oc = self.optimization_config
         oc_metrics = oc.metrics if oc else []
         if metric.name in oc_metrics and trial_type != self._default_trial_type:
@@ -223,13 +231,13 @@ class MultiTypeExperiment(Experiment):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
         super().update_tracking_metric(metric)
-        self._metric_to_trial_type[metric.name] = trial_type
+        self._metric_to_trial_type[metric.name] = none_throws(trial_type)
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
 
     @copy_doc(Experiment.remove_tracking_metric)
-    def remove_tracking_metric(self, metric_name: str) -> "MultiTypeExperiment":
+    def remove_tracking_metric(self, metric_name: str) -> Self:
         if metric_name not in self._tracking_metrics:
             raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
 
