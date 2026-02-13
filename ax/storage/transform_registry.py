@@ -26,6 +26,7 @@ from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.adapter.transforms.merge_repeated_measurements import MergeRepeatedMeasurements
 from ax.adapter.transforms.metadata_to_task import MetadataToTask
 from ax.adapter.transforms.metrics_as_task import MetricsAsTask
+from ax.adapter.transforms.objective_as_constraint import ObjectiveAsConstraint
 from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.power_transform_y import PowerTransformY
 from ax.adapter.transforms.relativize import (
@@ -61,6 +62,7 @@ we will return the replacement class.
 """
 TRANSFORM_REGISTRY: set[type[Transform]] = {
     Transform,
+    ObjectiveAsConstraint,
     # ConvertMetricNames, DEPRECATED
     Derelativize,
     FixedToTunable,
