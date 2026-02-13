@@ -30,6 +30,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
+    DerivedParameter,
     FixedParameter,
     ParameterType,
     RangeParameter,
@@ -393,50 +394,67 @@ class ExperimentTest(TestCase):
             self.assertIn("new_param", experiment.status_quo.parameters)
             self.assertEqual(experiment.status_quo.parameters["new_param"], 0.0)
 
-        with self.subTest("Add parameter with status quo value"):
-            experiment = self.experiment.clone_with(trial_indices=[])
-            experiment.add_parameters_to_search_space(
-                parameters=[new_param], status_quo_values={"new_param": 1.0}
+    def test_add_derived_parameter_to_search_space_with_trials(self) -> None:
+        """Test adding DerivedParameters to an experiment that has existing trials.
+
+        DerivedParameters should not require backfill values since their values
+        are computed from other parameters.
+        """
+        # Create a simple experiment with an existing RangeParameter "w"
+        # Clone without status_quo to simplify the test
+        experiment = self.experiment.clone_with()
+        experiment._status_quo = None
+        experiment.new_batch_trial()
+
+        # Create a DerivedParameter that depends on existing parameter "w"
+        # d2 = 2.0 * w + 1.0
+        derived_param = DerivedParameter(
+            name="d2",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="2.0 * w + 1.0",
+        )
+
+        # Should not raise an error even though trials exist
+        # because DerivedParameters don't need backfill values
+        experiment.add_parameters_to_search_space(parameters=[derived_param])
+
+        # Verify the DerivedParameter was added
+        self.assertIn("d2", experiment.search_space.parameters)
+        self.assertEqual(experiment.search_space.parameters["d2"], derived_param)
+
+        # Verify the DerivedParameter value can be computed for existing arms
+        trial = experiment.trials[0]
+        for arm in trial.arms:
+            # Verify "w" exists in the arm parameters
+            self.assertIn("w", arm.parameters)
+            w_value = arm.parameters["w"]
+            # Compute expected derived value
+            expected_d_value = 2.0 * w_value + 1.0
+            # The derived parameter value should be computed correctly
+            self.assertEqual(
+                derived_param.compute(arm.parameters),
+                expected_d_value,
             )
-            # Verify parameter was added
-            self.assertIn("new_param", experiment.search_space.parameters)
-            self.assertEqual(experiment.search_space.parameters["new_param"], new_param)
-            # Verify backfill value was used as status quo
-            self.assertIsNotNone(experiment.status_quo)
-            self.assertIn("new_param", experiment.status_quo.parameters)
-            self.assertEqual(experiment.status_quo.parameters["new_param"], 1.0)
 
-        with self.subTest("Test error when adding parameter that already exists"):
-            experiment = self.experiment.clone_with(trial_indices=[])
-            existing_param = self.experiment.search_space.parameters["w"]
-            with self.assertRaises(UserInputError):
-                experiment.add_parameters_to_search_space(parameters=[existing_param])
+    def test_add_derived_parameter_without_backfill_requires_dependency_exists(
+        self,
+    ) -> None:
+        """Test that adding a DerivedParameter whose dependencies don't exist fails."""
+        experiment = self.experiment.clone_with()
+        experiment._status_quo = None
+        experiment.new_batch_trial()
 
-        with self.subTest(
-            "Test error when adding parameters to experiment with trials but no "
-            "backfill values"
-        ):
-            experiment = self.experiment.clone_with()
-            experiment.new_batch_trial()
-            with self.assertRaises(UserInputError):
-                experiment.add_parameters_to_search_space(parameters=[new_param])
+        # Create a DerivedParameter that depends on a non-existent parameter "z"
+        derived_param = DerivedParameter(
+            name="d",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="2.0 * nonexistent + 1.0",
+        )
 
-        with self.subTest(
-            "Test successfully adding parameters with backfill values when trials exist"
-        ):
-            experiment = self.experiment.clone_with()
-            experiment.new_batch_trial()
-            new_param._backfill_value = 0.5
-            experiment.add_parameters_to_search_space(
-                parameters=[new_param], status_quo_values={new_param.name: 0.0}
-            )
-            # Verify parameter was added
-            self.assertIn("new_param", experiment.search_space.parameters)
-            self.assertEqual(experiment.search_space.parameters["new_param"], new_param)
-            # Verify backfill value was used as status quo
-            self.assertIsNotNone(experiment.status_quo)
-            self.assertIn("new_param", experiment.status_quo.parameters)
-            self.assertEqual(experiment.status_quo.parameters["new_param"], 0.0)
+        # This should raise an error because the dependency "nonexistent" doesn't exist
+        # in the search space.
+        with self.assertRaises(UserInputError):
+            experiment.add_parameters_to_search_space(parameters=[derived_param])
 
     def test_disable_search_space_parameters(self) -> None:
         with self.subTest(

@@ -14,6 +14,7 @@ from typing import cast, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import ObservationFeatures
+from ax.core.parameter import DerivedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.generators.types import TConfig
@@ -61,6 +62,15 @@ class FillMissingParameters(Transform):
         if search_space is not None:
             self._fill_values.update(search_space.backfill_values())
 
+        # Collect derived parameters from search space.
+        self._derived_parameters: dict[str, DerivedParameter] = {}
+        if search_space is not None:
+            self._derived_parameters = {
+                name: p.clone()
+                for name, p in search_space.nontunable_parameters.items()
+                if isinstance(p, DerivedParameter)
+            }
+
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
@@ -81,6 +91,20 @@ class FillMissingParameters(Transform):
         missing_columns = set(self._fill_values) - set(arm_data.columns)
         for col in missing_columns:
             arm_data[col] = self._fill_values[col]
+        # Compute derived parameter values. These are always (re-)computed
+        # to ensure correctness, since they are deterministic functions of
+        # other parameters.
+        if self._derived_parameters:
+            tunable_cols = [
+                c
+                for c in arm_data.columns
+                if c != "metadata" and c not in self._derived_parameters
+            ]
+            for p_name, p in self._derived_parameters.items():
+                arm_data[p_name] = arm_data.apply(
+                    lambda row, p=p: p.compute({col: row[col] for col in tunable_cols}),
+                    axis=1,
+                )
         return ExperimentData(
             arm_data=arm_data,
             observation_data=experiment_data.observation_data,
