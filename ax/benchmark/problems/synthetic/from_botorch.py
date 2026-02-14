@@ -62,6 +62,7 @@ BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("StyblinskiTang", 2): -50.22278471716156,
     ("TensionCompressionString", None): float("inf"),
     ("ThreeHumpCamel", None): 3.7321680621434155,
+    ("TrajectoryPlanning", 30): 5.350095657055234,
     ("WeldedBeamSO", None): float("inf"),
 }
 
