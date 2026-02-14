@@ -86,6 +86,7 @@ from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from botorch.models.model import Model
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from pyre_extensions import none_throws
 from torch import Tensor
@@ -216,6 +217,16 @@ class TorchAdapter(Adapter):
         importances_arr = importances_dict[metric_signature].flatten()
         return dict(zip(self.parameters, importances_arr, strict=True))
 
+    @property
+    def botorch_model(self) -> Model:
+        """Returns the underlying BoTorch model for BoTorchGenerator."""
+        if not isinstance(self.generator, BoTorchGenerator):
+            raise UnsupportedError(
+                "Generator must be a BoTorchGenerator to "
+                f"access botorch_model. Found {type(self.generator)}."
+            )
+        return self.generator.surrogate.model
+
     def infer_objective_thresholds(
         self,
         search_space: SearchSpace | None = None,
@@ -254,7 +265,7 @@ class TorchAdapter(Adapter):
         )
         # Infer objective thresholds.
         if isinstance(self.generator, BoTorchGenerator):
-            model = self.generator.surrogate.model
+            model = self.botorch_model
             Xs = self.generator.surrogate.Xs
         else:
             raise UnsupportedError(
