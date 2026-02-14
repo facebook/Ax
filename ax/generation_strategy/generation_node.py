@@ -517,6 +517,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             )
 
         gr._generation_node_name = self.name
+        gr._suggested_experiment_status = self.suggested_experiment_status
         # TODO: When we start using `trial_type` more commonly, give it a dedicated
         # field on the `GeneratorRun` (or start creating trials from GS directly).
         if self._trial_type is not None:
