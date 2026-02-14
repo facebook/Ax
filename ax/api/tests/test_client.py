@@ -933,7 +933,9 @@ class TestClient(TestCase):
         )
 
         client.get_next_trials(max_trials=1)
-        self.assertFalse(client.should_stop_trial_early(trial_index=0))
+        should_stop, reason = client.should_stop_trial_early(trial_index=0)
+        self.assertFalse(should_stop)
+        self.assertIsNone(reason)
 
     def test_run_trials(self) -> None:
         client = Client()
