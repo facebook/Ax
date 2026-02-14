@@ -31,6 +31,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -2383,6 +2384,7 @@ def get_generator_run() -> GeneratorRun:
         candidate_metadata_by_arm_signature={
             a.signature: {"md_key": f"md_val_{a.signature}"} for a in arms
         },
+        suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
     )
 
 

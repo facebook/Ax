@@ -2539,6 +2539,35 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
 
+    def test_generator_run_suggested_experiment_status(self) -> None:
+        # Test round-trip with a status set.
+        gr = GeneratorRun(
+            arms=[],
+            suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
+        )
+        generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
+        self.assertEqual(
+            generator_run_sqa.suggested_experiment_status,
+            ExperimentStatus.OPTIMIZATION,
+        )
+        decoded_gr = self.decoder.generator_run_from_sqa(
+            generator_run_sqa, False, False
+        )
+        self.assertEqual(
+            decoded_gr.suggested_experiment_status,
+            ExperimentStatus.OPTIMIZATION,
+        )
+
+    def test_generator_run_suggested_experiment_status_none(self) -> None:
+        # Test round-trip with None (default).
+        gr = GeneratorRun(arms=[])
+        generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
+        self.assertIsNone(generator_run_sqa.suggested_experiment_status)
+        decoded_gr = self.decoder.generator_run_from_sqa(
+            generator_run_sqa, False, False
+        )
+        self.assertIsNone(decoded_gr.suggested_experiment_status)
+
     def test_update_generation_strategy_incrementally(self) -> None:
         experiment = get_branin_experiment()
         generation_strategy = choose_generation_strategy(

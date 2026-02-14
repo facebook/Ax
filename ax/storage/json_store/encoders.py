@@ -367,6 +367,7 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> dict[str, Any]:
         "generator_state_after_gen": gr._generator_state_after_gen,
         "candidate_metadata_by_arm_signature": cand_metadata,
         "generation_node_name": gr._generation_node_name,
+        "suggested_experiment_status": gr.suggested_experiment_status,
     }
 
 

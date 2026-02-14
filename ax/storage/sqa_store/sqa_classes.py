@@ -215,6 +215,9 @@ class SQAGeneratorRun(Base):
         JSONEncodedTextDict
     )
     generation_node_name: Column[str | None] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    suggested_experiment_status: Column[ExperimentStatus | None] = Column(
+        IntEnum(ExperimentStatus), nullable=True
+    )
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors
