@@ -24,6 +24,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -49,6 +50,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -2665,6 +2667,47 @@ class TestAxOrchestrator(TestCase):
         # MBM may generate less than the requested batch size.
         self.assertLessEqual(
             len(candidate_trial.arms), none_throws(orchestrator.options.batch_size)
+        )
+
+    def test_generate_candidates_updates_experiment_status(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        node_with_status = GenerationNode(
+            name="test_node",
+            generator_specs=[
+                GeneratorSpec(
+                    generator_enum=Generators.SOBOL,
+                    model_kwargs={},
+                )
+            ],
+            suggested_experiment_status=ExperimentStatus.INITIALIZATION,
+        )
+        gs = GenerationStrategy(nodes=[node_with_status])
+
+        # Create orchestrator with this generation strategy
+        self.branin_experiment.runner = InfinitePollRunner()
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                batch_size=1,
+                trial_type=TrialType.BATCH_TRIAL,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings,
+        )
+
+        # Verify the experiment status is not currently ExperimentStatus.INITIALIZATION
+        self.assertNotEqual(
+            orchestrator.experiment.status, ExperimentStatus.INITIALIZATION
+        )
+
+        # Execute: generate candidates
+        orchestrator.generate_candidates(num_trials=1)
+
+        # Assert: verify experiment status was updated
+        self.assertEqual(
+            orchestrator.experiment.status, ExperimentStatus.INITIALIZATION
         )
 
     def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:

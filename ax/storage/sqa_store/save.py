@@ -46,6 +46,24 @@ from pyre_extensions import assert_is_instance, none_throws
 logger: Logger = get_logger(__name__)
 
 
+def _assert_experiment_saved(experiment: Experiment) -> int:
+    """Assert that an experiment has been saved to the database.
+
+    Args:
+        experiment: The experiment to check.
+
+    Returns:
+        The experiment's database ID.
+
+    Raises:
+        UserInputError: If the experiment has not been saved (db_id is None).
+    """
+    exp_id = experiment.db_id
+    if exp_id is None:
+        raise UserInputError("Experiment must be saved before being updated.")
+    return exp_id
+
+
 def save_experiment(
     experiment: Experiment,
     config: SQAConfig | None = None,
@@ -458,14 +476,11 @@ def update_runner_on_experiment(
 ) -> None:
     runner_sqa_class = encoder.config.class_to_sqa_class[Runner]
 
-    exp_id = experiment.db_id
-    if exp_id is None:
-        raise ValueError("Experiment must be saved before being updated.")
+    exp_id: int = _assert_experiment_saved(experiment)
 
     with session_scope() as session:
         session.query(runner_sqa_class).filter_by(experiment_id=exp_id).delete()
 
-    # pyre-fixme[53]: Captured variable `exp_id` is not annotated.
     # pyre-fixme[3]: Return type must be annotated.
     def add_experiment_id(sqa: SQARunner):
         sqa.experiment_id = exp_id
@@ -486,9 +501,7 @@ def update_outcome_constraint_on_experiment(
 ) -> None:
     oc_sqa_class = encoder.config.class_to_sqa_class[Metric]
 
-    exp_id: int | None = experiment.db_id
-    if exp_id is None:
-        raise UserInputError("Experiment must be saved before being updated.")
+    exp_id: int = _assert_experiment_saved(experiment)
     oc_id = outcome_constraint.db_id
     if oc_id is not None:
         with session_scope() as session:
@@ -519,14 +532,39 @@ def update_properties_on_experiment(
     config = SQAConfig() if config is None else config
     exp_sqa_class = config.class_to_sqa_class[Experiment]
 
-    exp_id = experiment_with_updated_properties.db_id
-    if exp_id is None:
-        raise ValueError("Experiment must be saved before being updated.")
+    exp_id = _assert_experiment_saved(experiment_with_updated_properties)
 
     with session_scope() as session:
         session.query(exp_sqa_class).filter_by(id=exp_id).update(
             {
                 "properties": experiment_with_updated_properties._properties,
+            }
+        )
+
+
+def update_experiment_status(
+    experiment: Experiment,
+    config: SQAConfig | None = None,
+) -> None:
+    """Update experiment status in the database.
+
+    This function provides an efficient way to update only the experiment's status
+    field without re-saving the entire experiment. Use this when you need to persist
+    status changes immediately after calling status transition methods
+    (e.g., mark_initialization(), mark_optimization()).
+
+    Note: save_experiment() already handles status updates, so this function is
+    optional. Use it when you need status-only updates for efficiency.
+    """
+    config = SQAConfig() if config is None else config
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
+
+    exp_id = _assert_experiment_saved(experiment)
+
+    with session_scope() as session:
+        session.query(exp_sqa_class).filter_by(id=exp_id).update(
+            {
+                "status": experiment.status,
             }
         )
 

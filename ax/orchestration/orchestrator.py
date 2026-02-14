@@ -540,6 +540,11 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
         if len(new_trials) > 0:
             new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
+            suggested_status = Experiment.experiment_status_from_generator_runs(
+                new_generator_runs
+            )
+            if suggested_status is not None:
+                self.experiment.status = suggested_status
             self._save_or_update_trials_and_generation_strategy_if_possible(
                 experiment=self.experiment,
                 trials=new_trials + self.experiment.trials_by_status[TrialStatus.STALE],
