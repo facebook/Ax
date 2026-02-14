@@ -58,6 +58,10 @@ class TestGenerationNode(TestCase):
             generator_specs=[self.sobol_generator_spec],
             suggested_experiment_status=ExperimentStatus.INITIALIZATION,
         )
+        self.generation_node_without_exp_status = GenerationNode(
+            name="test",
+            generator_specs=[self.sobol_generator_spec],
+        )
         self.branin_experiment = get_branin_experiment(with_completed_trial=True)
         self.branin_data = self.branin_experiment.lookup_data()
         self.node_short = GenerationNode(
@@ -208,6 +212,31 @@ class TestGenerationNode(TestCase):
             pending_observations={"branin": []},
             fixed_features=None,
         )
+
+    def test_suggested_experiment_status_propagation(self) -> None:
+        """Test that suggested_experiment_status propagates from node to GR."""
+        with self.subTest("with_suggested_experiment_status"):
+            gr = self.sobol_generation_node.gen(
+                experiment=self.branin_experiment,
+                data=self.branin_experiment.lookup_data(),
+                n=1,
+                pending_observations={"branin": []},
+            )
+            self.assertIsNotNone(gr)
+            self.assertEqual(
+                gr.suggested_experiment_status,
+                ExperimentStatus.INITIALIZATION,
+            )
+
+        with self.subTest("without_suggested_experiment_status"):
+            gr_without = self.generation_node_without_exp_status.gen(
+                experiment=self.branin_experiment,
+                data=self.branin_experiment.lookup_data(),
+                n=1,
+                pending_observations={"branin": []},
+            )
+            self.assertIsNotNone(gr_without)
+            self.assertIsNone(gr_without.suggested_experiment_status)
 
     @mock_botorch_optimize
     def test_gen_with_trial_type(self) -> None:
