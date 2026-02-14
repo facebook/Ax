@@ -254,6 +254,44 @@ class Experiment(Base):
         """
         self._status = status
 
+    @staticmethod
+    def experiment_status_from_generator_runs(
+        generator_runs: list[GeneratorRun],
+    ) -> ExperimentStatus | None:
+        """Extract and validate suggested experiment status from generator runs.
+
+        Collects the suggested_experiment_status directly from the GeneratorRun
+        objects, validates that all runs suggest the same status, and returns
+        that status.
+
+        Args:
+            generator_runs: List of generator runs to extract statuses from.
+
+        Returns:
+            The suggested experiment status that all generator runs agree on,
+            or None if no statuses were found or if there are conflicting statuses.
+        """
+        suggested_statuses: set[ExperimentStatus] = set()
+        for gr in generator_runs:
+            if gr.suggested_experiment_status is not None:
+                suggested_statuses.add(gr.suggested_experiment_status)
+
+        if len(suggested_statuses) > 1:
+            # TODO: Consider making this invalid state an actual error once
+            # related development is completed.
+            logger.warning(
+                "Multiple different suggested experiment statuses found: "
+                f"{suggested_statuses}. "
+                "All generator runs used in a single gen() call should suggest the "
+                "same experiment status. Skipping updating experiment status."
+            )
+            return None
+
+        if len(suggested_statuses) == 0:
+            return None
+
+        return suggested_statuses.pop()
+
     @property
     def search_space(self) -> SearchSpace:
         """The search space for this experiment.
