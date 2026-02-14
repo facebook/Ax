@@ -18,6 +18,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data, sort_by_trial_index_and_arm_name
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment_status import ExperimentStatus
+from ax.core.generator_run import GeneratorRun
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -44,6 +45,9 @@ from ax.exceptions.core import (
     UnsupportedError,
     UserInputError,
 )
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.metrics.branin import BraninMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.noisy_function import NoisyFunctionMetric
@@ -1880,6 +1884,76 @@ class ExperimentTest(TestCase):
         """Test the experiment status property getter and setter."""
         self.experiment.status = ExperimentStatus.DRAFT
         self.assertEqual(self.experiment.status, ExperimentStatus.DRAFT)
+
+    def test_experiment_status_from_generator_runs(self) -> None:
+        """Test that experiment status is correctly extracted from generator runs."""
+        sobol_generator_spec = GeneratorSpec(
+            generator_enum=Generators.SOBOL,
+            generator_kwargs={"silently_filter_kwargs": True},
+            generator_gen_kwargs={},
+        )
+
+        with self.subTest("gen returns GRs with correct suggested_experiment_status"):
+            for status in [
+                ExperimentStatus.INITIALIZATION,
+                ExperimentStatus.OPTIMIZATION,
+            ]:
+                with self.subTest(status=status):
+                    exp = get_branin_experiment()
+                    node_with_status = GenerationNode(
+                        name="test_node",
+                        generator_specs=[sobol_generator_spec],
+                        suggested_experiment_status=status,
+                    )
+                    gs = GenerationStrategy(nodes=[node_with_status])
+                    gs.experiment = exp
+
+                    grs = gs.gen(experiment=exp, num_trials=1)
+                    flat_grs = [gr for trial_grs in grs for gr in trial_grs]
+
+                    extracted_status = Experiment.experiment_status_from_generator_runs(
+                        flat_grs
+                    )
+                    self.assertEqual(extracted_status, status)
+
+        with self.subTest("conflicting statuses return None"):
+            gr1 = GeneratorRun(
+                arms=[Arm(name="0_0", parameters={"x1": 0.0, "x2": 0.0})],
+                suggested_experiment_status=ExperimentStatus.INITIALIZATION,
+            )
+            gr2 = GeneratorRun(
+                arms=[Arm(name="0_1", parameters={"x1": 1.0, "x2": 1.0})],
+                suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
+            )
+            mixed_grs = [gr1, gr2]
+
+            result = Experiment.experiment_status_from_generator_runs(mixed_grs)
+            self.assertIsNone(result)
+
+        with self.subTest("multiple trials all carry experiment status"):
+            exp = get_branin_experiment()
+            node_with_status = GenerationNode(
+                name="multi_trial_node",
+                generator_specs=[sobol_generator_spec],
+                suggested_experiment_status=ExperimentStatus.INITIALIZATION,
+            )
+            gs = GenerationStrategy(nodes=[node_with_status])
+            gs.experiment = exp
+
+            grs = gs.gen(experiment=exp, num_trials=3)
+
+            self.assertEqual(len(grs), 3)
+            for gr_list in grs:
+                self.assertEqual(len(gr_list), 1)
+                self.assertEqual(gr_list[0]._generation_node_name, "multi_trial_node")
+                self.assertEqual(
+                    gr_list[0].suggested_experiment_status,
+                    ExperimentStatus.INITIALIZATION,
+                )
+            extracted_status = Experiment.experiment_status_from_generator_runs(
+                [gr for trial_grs in grs for gr in trial_grs]
+            )
+            self.assertEqual(extracted_status, ExperimentStatus.INITIALIZATION)
 
 
 class ExperimentWithMapDataTest(TestCase):
