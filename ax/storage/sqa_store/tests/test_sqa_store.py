@@ -53,6 +53,7 @@ from ax.exceptions.core import (
     ObjectNotFoundError,
     TrialMutationError,
     UnsupportedError,
+    UserInputError,
 )
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
@@ -2688,7 +2689,7 @@ class SQAStoreTest(TestCase):
 
     def test_update_runner(self) -> None:
         experiment = get_branin_experiment()
-        with self.assertRaisesRegex(ValueError, ".* must be saved before"):
+        with self.assertRaisesRegex(UserInputError, ".* must be saved before"):
             update_runner_on_experiment(
                 experiment=experiment,
                 # pyre-fixme[6]: For 2nd param expected `Runner` but got `None`.
