@@ -897,6 +897,7 @@ class Encoder:
                 class_encoder_registry=self.config.json_class_encoder_registry,
             ),
             generation_node_name=generator_run._generation_node_name,
+            suggested_experiment_status=generator_run.suggested_experiment_status,
         )
         return gr_sqa
 

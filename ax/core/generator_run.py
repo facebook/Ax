@@ -18,6 +18,7 @@ from typing import Any
 
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
@@ -100,6 +101,7 @@ class GeneratorRun(SortableBase):
         candidate_metadata_by_arm_signature: None
         | (dict[str, TCandidateMetadata]) = None,
         generation_node_name: str | None = None,
+        suggested_experiment_status: ExperimentStatus | None = None,
     ) -> None:
         """Inits GeneratorRun.
 
@@ -142,6 +144,10 @@ class GeneratorRun(SortableBase):
                 via a generation strategy (in which case this name should reflect the
                 name of the generation node in a generation strategy) or a standalone
                 generation node (in which case this name should be ``-1``).
+            suggested_experiment_status: Optional ``ExperimentStatus`` that indicates
+                what the experiment's status should be once this generator run is
+                added to a trial. This is propagated from the generation node's
+                suggested_experiment_status field and is advisory only.
         """
         self._arm_weight_table: OrderedDict[str, ArmWeight] = OrderedDict()
         if weights is None:
@@ -191,6 +197,7 @@ class GeneratorRun(SortableBase):
                 )
         self._candidate_metadata_by_arm_signature = candidate_metadata_by_arm_signature
         self._generation_node_name = generation_node_name
+        self._suggested_experiment_status = suggested_experiment_status
 
     @property
     def arms(self) -> list[Arm]:
@@ -288,6 +295,11 @@ class GeneratorRun(SortableBase):
         return self._candidate_metadata_by_arm_signature
 
     @property
+    def suggested_experiment_status(self) -> ExperimentStatus | None:
+        """Optional suggested experiment status for this generator run."""
+        return self._suggested_experiment_status
+
+    @property
     def param_df(self) -> pd.DataFrame:
         """
         Constructs a Pandas dataframe with the parameter values for each arm.
@@ -327,6 +339,7 @@ class GeneratorRun(SortableBase):
             generator_state_after_gen=self._generator_state_after_gen,
             candidate_metadata_by_arm_signature=cand_metadata,
             generation_node_name=self._generation_node_name,
+            suggested_experiment_status=self.suggested_experiment_status,
         )
         generator_run._time_created = self._time_created
         generator_run._generator_key = self._generator_key
