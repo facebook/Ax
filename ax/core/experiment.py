@@ -13,6 +13,7 @@ import logging
 import warnings
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
+from copy import deepcopy
 from datetime import datetime
 from functools import partial, reduce
 from typing import Any, cast, Union
@@ -31,6 +32,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_data_rows_favoring_recent, Data
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
@@ -609,6 +611,185 @@ class Experiment(Base):
         thereby necessitating that those attributes be immutable on experiment.
         """
         return self._properties.get(Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False)
+
+    @property
+    def llm_messages(self) -> list[LLMMessage]:
+        """LLM conversation messages stored on this experiment.
+
+        These messages capture the conversation history for LLM-integrated
+        optimization workflows such as LILO (Language-in-the-Loop Optimization)
+        and LLAMBO. They include system prompts, user feedback, and assistant
+        responses that inform candidate generation.
+        """
+        return self._properties.get(Keys.LLM_MESSAGES, [])
+
+    @llm_messages.setter
+    def llm_messages(self, messages: list[LLMMessage]) -> None:
+        self._properties[Keys.LLM_MESSAGES] = messages
+
+    def get_llm_messages_with_experiment_summary(
+        self,
+    ) -> list[LLMMessage]:
+        """Retrieve a copy of LLM messages with an experiment summary appended.
+
+        Returns a deep copy of the stored LLM messages with a user message
+        appended containing a markdown summary of the experiment's search
+        space, optimization config, and observed trial data. This is useful
+        for LLM-based workflows (e.g., LLAMBO, LILO) that condition on both
+        the conversation history and observed trial outcomes.
+
+        The summary always includes experiment metadata (search space and
+        optimization config). Arm parameters and trial results are included
+        when completed, early-stopped, or running trial data exists.
+
+        Returns:
+            A list of ``LLMMessage`` objects suitable for passing to an
+            ``LLMProvider.generate()`` call.
+        """
+        messages = [
+            LLMMessage(role=m.role, content=m.content, metadata=deepcopy(m.metadata))
+            for m in self.llm_messages
+        ]
+
+        experiment_summary = self._format_experiment_summary_for_llm()
+        if experiment_summary:
+            messages.append(LLMMessage(role="user", content=experiment_summary))
+
+        return messages
+
+    def _format_experiment_summary_for_llm(self) -> str:
+        """Format experiment summary as text for inclusion in LLM messages.
+
+        Produces a human-readable markdown summary of the experiment including:
+        - Experiment name
+        - Search space parameter definitions
+        - Optimization configuration (objectives and constraints)
+        - Arm parameterizations (deduplicated), when data is available
+        - Observed trial results with metric values
+          (mean ± 95% CI when SEM is available), when data is available
+
+        The experiment metadata (name, search space, optimization config) is
+        always included. Arm parameters and trial results are appended only
+        when completed, early-stopped, or running trial data exists.
+
+        Returns:
+            A markdown-formatted string summary of the experiment.
+        """
+        sections: list[str] = []
+
+        # Experiment name
+        sections.append(f"## Experiment: {self._name or 'Unnamed'}")
+
+        # Search space parameters
+        param_lines: list[str] = ["### Search Space"]
+        for param in self.search_space.parameters.values():
+            param_lines.append(f"- {param}")
+        if self.search_space.is_hierarchical:
+            ss_str = self.search_space.hierarchical_structure_str(
+                parameter_names_only=True
+            )
+            param_lines.append(
+                "\n**Hierarchical Structure:**\n"
+                "Not all parameters are active at the same time. "
+                "The active parameters depend on the values of other parameters "
+                "as described in the tree below. Each top-level entry is a "
+                "parameter. Indented entries in parentheses, e.g. (0), are "
+                "possible values for that parameter. The parameters listed "
+                "under a value are the ones that become active when the parent "
+                "parameter takes that value. Only provide values for the "
+                f"active parameters.\n{ss_str}"
+            )
+        sections.append("\n".join(param_lines))
+
+        # Optimization config
+        opt_config = self.optimization_config
+        if opt_config is not None:
+            opt_lines: list[str] = ["### Optimization Config"]
+            objective = opt_config.objective
+            if isinstance(objective, MultiObjective):
+                for obj in objective.objectives:
+                    direction = "minimize" if obj.minimize else "maximize"
+                    opt_lines.append(f"- Objective: {direction} `{obj.metric.name}`")
+            else:
+                direction = "minimize" if objective.minimize else "maximize"
+                opt_lines.append(f"- Objective: {direction} `{objective.metric.name}`")
+            for constraint in opt_config.outcome_constraints:
+                op_str = "<=" if constraint.op == ComparisonOp.LEQ else ">="
+                opt_lines.append(
+                    f"- Constraint: `{constraint.metric.name}` "
+                    f"{op_str} {constraint.bound}"
+                )
+            sections.append("\n".join(opt_lines))
+
+        # Trial data
+        data = self.lookup_data()
+        if data.df.empty:
+            return "\n\n".join(sections)
+
+        # Build arm parameters table (deduplicated by arm_name).
+        arm_param_rows: list[dict[str, str]] = []
+        seen_arms: set[str] = set()
+        # Build trial results table.
+        result_rows: list[dict[str, str]] = []
+        has_ci = False
+
+        for trial_index, trial in self.trials.items():
+            if trial.status not in (
+                TrialStatus.COMPLETED,
+                TrialStatus.EARLY_STOPPED,
+                TrialStatus.RUNNING,
+            ):
+                continue
+            trial_data = data.df[data.df["trial_index"] == trial_index]
+            if trial_data.empty:
+                continue
+            for arm_name in trial_data["arm_name"].unique():
+                arm = trial.arms_by_name.get(arm_name)
+                if arm is None:
+                    continue
+                # Deduplicated arm parameters.
+                if arm_name not in seen_arms:
+                    seen_arms.add(arm_name)
+                    arm_param_rows.append(
+                        {
+                            "arm_name": arm_name,
+                            "parameters": str(arm.parameters),
+                        }
+                    )
+                # Metric results for this trial/arm.
+                arm_data = trial_data[trial_data["arm_name"] == arm_name]
+                row: dict[str, str] = {
+                    "trial_index": str(trial_index),
+                    "arm_name": arm_name,
+                    "trial_status": trial.status.name,
+                }
+                for _, metric_row in arm_data.iterrows():
+                    metric_name = metric_row["metric_name"]
+                    mean = metric_row["mean"]
+                    sem = metric_row.get("sem")
+                    if sem is not None and not pd.isna(sem):
+                        ci = 1.96 * sem
+                        row[metric_name] = f"{mean:.4g} ± {ci:.4g}"
+                        has_ci = True
+                    else:
+                        row[metric_name] = str(mean)
+                result_rows.append(row)
+
+        if not result_rows:
+            return "\n\n".join(sections)
+
+        # Arm parameters section.
+        params_df = pd.DataFrame(arm_param_rows)
+        sections.append(f"### Arm Parameters\n\n{params_df.to_markdown(index=False)}")
+
+        # Trial results section.
+        results_df = pd.DataFrame(result_rows)
+        ci_note = "\n\nMetric values with ± denote mean ± 95% CI." if has_ci else ""
+        sections.append(
+            f"### Trial Results{ci_note}\n\n{results_df.to_markdown(index=False)}"
+        )
+
+        return "\n\n".join(sections)
 
     @property
     def tracking_metrics(self) -> list[Metric]:

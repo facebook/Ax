@@ -1676,6 +1676,23 @@ class AcquisitionTest(TestCase):
         self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.2, 0.8]])))
         self.assertTrue(torch.equal(pruned_values, torch.tensor([0.91])))
 
+        # Verify pruning stops when ALL pruned candidates are infeasible.
+        acq.evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0]),  # baseline
+                torch.tensor([1.0]),  # dense val
+            ]
+        )
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=torch.tensor([[0.8, 0.8]]),
+            search_space_digest=search_space_digest,
+            inequality_constraints=[
+                (torch.tensor([0, 1]), torch.tensor([1.0, 1.0]), 1.5)
+            ],
+        )
+        # No pruning: setting either dim to 0.2 gives sum=1.0 < 1.5 (infeasible)
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.8, 0.8]])))
+
     def test_prune_irrelevant_parameters_already_at_target(self) -> None:
         # Test that features already at target point are excluded from pruning
 
