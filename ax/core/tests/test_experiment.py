@@ -19,6 +19,7 @@ from ax.core.data import Data, sort_by_trial_index_and_arm_name
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -73,6 +74,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_data,
     get_experiment_with_map_data_type,
     get_experiment_with_observations,
+    get_hierarchical_search_space,
     get_optimization_config,
     get_optimization_config_no_constraints,
     get_scalarized_outcome_constraint,
@@ -1954,6 +1956,123 @@ class ExperimentTest(TestCase):
                 [gr for trial_grs in grs for gr in trial_grs]
             )
             self.assertEqual(extracted_status, ExperimentStatus.INITIALIZATION)
+
+    def test_get_llm_messages_with_experiment_summary(self) -> None:
+        """Test llm_messages property, setter, append, and
+        get_llm_messages_with_experiment_summary."""
+        # -- Property basics --
+        self.assertEqual(self.experiment.llm_messages, [])
+
+        self.experiment.llm_messages = [
+            LLMMessage(role="system", content="System prompt."),
+        ]
+        self.assertEqual(len(self.experiment.llm_messages), 1)
+        self.assertIn(Keys.LLM_MESSAGES, self.experiment._properties)
+
+        # Use the setter to append messages.
+        msgs = self.experiment.llm_messages
+        msgs.append(LLMMessage(role="user", content="User feedback."))
+        self.experiment.llm_messages = msgs
+        self.assertEqual(len(self.experiment.llm_messages), 2)
+        self.assertEqual(self.experiment.llm_messages[1].content, "User feedback.")
+
+        # -- No messages on a fresh experiment -> only metadata summary --
+        fresh_exp = get_experiment()
+        result = fresh_exp.get_llm_messages_with_experiment_summary()
+        self.assertEqual(len(result), 1)
+        self.assertIn("## Experiment:", result[0].content)
+
+        # -- Deep-copies existing messages (mutation doesn't propagate back) --
+        fresh_exp.llm_messages = [
+            LLMMessage(role="user", content="Original", metadata={"k": "v"}),
+        ]
+        result = fresh_exp.get_llm_messages_with_experiment_summary()
+        self.assertEqual(len(result), 2)
+        result[0].content = "Modified"
+        self.assertEqual(fresh_exp.llm_messages[0].content, "Original")
+
+        # -- With completed trials, summary includes arm params and results --
+        exp = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [3.0, 4.0]],
+        )
+        exp.llm_messages = [LLMMessage(role="user", content="Maximize m1.")]
+        result = exp.get_llm_messages_with_experiment_summary()
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[1].role, "user")
+        summary = result[1].content
+        for section in [
+            "## Experiment:",
+            "### Search Space",
+            "### Optimization Config",
+            "### Arm Parameters",
+            "### Trial Results",
+        ]:
+            self.assertIn(section, summary)
+
+    def test_format_experiment_summary_for_llm(self) -> None:
+        """Test the full structure of the formatted experiment summary."""
+        exp = get_experiment_with_observations(
+            observations=[[1.0, 2.0], [3.0, 4.0]],
+            sems=[[0.1, 0.2], [0.3, 0.4]],
+        )
+        summary = exp._format_experiment_summary_for_llm()
+
+        # -- Experiment header --
+        self.assertIn("## Experiment:", summary)
+
+        # -- Search space --
+        self.assertIn("### Search Space", summary)
+        self.assertIn("RangeParameter", summary)
+
+        # -- Optimization config --
+        self.assertIn("### Optimization Config", summary)
+        self.assertIn("`m1`", summary)
+        self.assertIn("`m2`", summary)
+
+        # -- Arm Parameters table (deduplicated, parameters as dict str) --
+        self.assertIn("### Arm Parameters", summary)
+        self.assertIn("parameters", summary)
+
+        # -- Trial Results table --
+        self.assertIn("### Trial Results", summary)
+        self.assertIn("trial_index", summary)
+        self.assertIn("arm_name", summary)
+        self.assertIn("trial_status", summary)
+        self.assertIn("COMPLETED", summary)
+
+        # 95% CI note is present when SEM is available.
+        self.assertIn("mean ± 95% CI", summary)
+        # Verify actual mean ± CI values (both sides use .4g formatting).
+        self.assertIn("1 ± 0.196", summary)  # m1 trial 0
+        self.assertIn("3 ± 0.588", summary)  # m1 trial 1
+        self.assertIn("2 ± 0.392", summary)  # m2 trial 0
+        self.assertIn("4 ± 0.784", summary)  # m2 trial 1
+
+        # -- No SEM case: no ± and no CI note --
+        exp_no_sem = get_experiment_with_observations(observations=[[5.0, 6.0]])
+        summary_no_sem = exp_no_sem._format_experiment_summary_for_llm()
+        self.assertNotIn("±", summary_no_sem)
+        self.assertNotIn("95% CI", summary_no_sem)
+        self.assertIn("### Trial Results", summary_no_sem)
+
+    def test_format_experiment_summary_for_llm_hierarchical(self) -> None:
+        """Test that hierarchical search space info is included in the summary."""
+        exp = Experiment(
+            name="hss_test",
+            search_space=get_hierarchical_search_space(),
+        )
+        summary = exp._format_experiment_summary_for_llm()
+        self.assertIn("**Hierarchical Structure:**", summary)
+        self.assertIn("Not all parameters are active at the same time", summary)
+        self.assertIn(
+            exp.search_space.hierarchical_structure_str(parameter_names_only=True),
+            summary,
+        )
+
+        # Non-hierarchical experiment should NOT have hierarchical section.
+        exp_flat = get_experiment_with_observations(observations=[[1.0, 2.0]])
+        summary_flat = exp_flat._format_experiment_summary_for_llm()
+        self.assertNotIn("Hierarchical Structure", summary_flat)
 
 
 class ExperimentWithMapDataTest(TestCase):

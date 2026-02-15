@@ -244,8 +244,10 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
             trial.mark_running(no_runner_required=True)
             trial.mark_completed()
 
-        # Generate additional trials to verify E2E constraint satisfaction
-        for i in range(9):
+        # Generate additional trials to verify E2E constraint satisfaction.
+        # Note: with 4 choices and x1 <= x2, there are only 10 valid combos,
+        # so we generate fewer trials to avoid exhausting the search space.
+        for i in range(4):
             generator_run = gs.gen_single_trial(experiment=experiment)
             arm = generator_run.arms[0]
             x1_val = cast(int, arm.parameters["x1"])
