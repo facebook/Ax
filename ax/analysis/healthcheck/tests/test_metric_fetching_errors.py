@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Any, Iterable
+from typing import Any
 
 import pandas as pd
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis

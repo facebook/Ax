@@ -6,7 +6,8 @@
 # pyre-strict
 
 
-from typing import final, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis

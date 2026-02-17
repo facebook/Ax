@@ -7,7 +7,7 @@
 
 from collections.abc import Callable
 from logging import Logger
-from typing import Any, final, Union
+from typing import Any, final
 
 import pandas as pd
 from ax.adapter import Adapter
@@ -130,7 +130,7 @@ class MetricFetchingErrorsAnalysis(Analysis):
         )
 
     @staticmethod
-    def _validate_fields(errors: dict[str, Union[int, str]]) -> bool:
+    def _validate_fields(errors: dict[str, int | str]) -> bool:
         required_fields = {
             "trial_index",
             "metric_name",

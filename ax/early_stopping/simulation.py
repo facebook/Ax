@@ -6,9 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from heapq import nsmallest
-from typing import Iterable
 
 import numpy as np
 import numpy.typing as npt

@@ -7,8 +7,9 @@
 # pyre-strict
 
 import logging
+from collections.abc import Mapping
 from math import ceil
-from typing import Any, cast, Mapping
+from typing import Any, cast
 
 import pandas as pd
 from ax.core.analysis_card import AnalysisCard, AnalysisCardBase

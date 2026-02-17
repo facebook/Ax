@@ -5,8 +5,8 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from logging import Logger
-from typing import Sequence
 
 import numpy as np
 import numpy.typing as npt

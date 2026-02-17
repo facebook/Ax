@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from logging import Logger
-from typing import final, Sequence
+from typing import final
 
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter

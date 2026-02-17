@@ -8,12 +8,12 @@
 
 import warnings
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import cached_property
 from logging import Logger
-from typing import Any, cast, Mapping
+from typing import Any, cast
 
 import torch
 from ax.core.data import MAP_KEY

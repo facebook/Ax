@@ -17,11 +17,11 @@ References
 from __future__ import annotations
 
 import operator
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial, reduce
 from itertools import product
 from logging import Logger
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest

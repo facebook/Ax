@@ -6,9 +6,11 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from collections import defaultdict
 from logging import Logger
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
@@ -46,7 +48,7 @@ class StandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["base_adapter.Adapter"] = None,
+        adapter: base_adapter.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
@@ -111,7 +113,7 @@ class StandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        adapter: Optional["base_adapter.Adapter"] = None,
+        adapter: base_adapter.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         # Handle ScalarizedObjective

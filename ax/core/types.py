@@ -9,31 +9,31 @@
 import enum
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 
 
-TNumeric = Union[float, int]
+TNumeric = float | int
 TParamCounter = defaultdict[int, int]
-TParamValue = Union[None, str, bool, float, int]
+TParamValue = None | str | bool | float | int
 TParameterization = dict[str, TParamValue]
 TParamValueList = list[TParamValue]  # a parameterization without the keys
-TContextStratum = Optional[dict[str, Union[str, float, int]]]
+TContextStratum = dict[str, str | float | int] | None
 
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-TBounds = Optional[tuple[np.ndarray, np.ndarray]]
+TBounds = tuple[np.ndarray, np.ndarray] | None
 TModelMean = dict[str, list[float]]
 TModelCov = dict[str, dict[str, list[float]]]
 TModelPredict = tuple[TModelMean, TModelCov]
 # Model predictions for a single arm:
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
-TModelPredictArm = tuple[dict[str, float], Optional[dict[str, dict[str, float]]]]
+TModelPredictArm = tuple[dict[str, float], dict[str, dict[str, float]] | None]
 
 # pyre-fixme[24]: Generic type `np.floating` expects 1 type parameter.
 # pyre-fixme[24]: Generic type `np.integer` expects 1 type parameter.
-FloatLike = Union[int, float, np.floating, np.integer]
-SingleMetricData = Union[FloatLike, tuple[FloatLike, Optional[FloatLike]]]
+FloatLike = int | float | np.floating | np.integer
+SingleMetricData = FloatLike | tuple[FloatLike, FloatLike | None]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.
 TTrialEvaluation = Mapping[str, SingleMetricData]
 
@@ -45,22 +45,18 @@ TMapTrialEvaluation = Sequence[tuple[float, TTrialEvaluation]]
 # 2) (mean, standard error) and we assume metric name == objective name
 # 3) only the mean, and we assume metric name == objective name and standard error == 0
 
-TEvaluationOutcome = Union[
-    TTrialEvaluation,
-    SingleMetricData,
-    TMapTrialEvaluation,
-]
-TEvaluationFunction = Union[
-    Callable[[TParameterization], TEvaluationOutcome],
-    Callable[[TParameterization, Optional[float]], TEvaluationOutcome],
-]
+TEvaluationOutcome = TTrialEvaluation | SingleMetricData | TMapTrialEvaluation
+TEvaluationFunction = (
+    Callable[[TParameterization], TEvaluationOutcome]
+    | Callable[[TParameterization, float | None], TEvaluationOutcome]
+)
 
 TBucket = list[dict[str, list[str]]]
 
 TGenMetadata = dict[str, Any]
 
 # Model's metadata about a given candidate (or X).
-TCandidateMetadata = Optional[dict[str, Any]]
+TCandidateMetadata = dict[str, Any] | None
 
 
 class ComparisonOp(enum.Enum):

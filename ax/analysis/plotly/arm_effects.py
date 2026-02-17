@@ -5,7 +5,8 @@
 
 # pyre-strict
 
-from typing import final, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter

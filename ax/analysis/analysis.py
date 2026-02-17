@@ -8,8 +8,9 @@
 from __future__ import annotations
 
 import traceback
+from collections.abc import Sequence
 from logging import Logger
-from typing import Protocol, Sequence
+from typing import Protocol
 
 import pandas as pd
 from ax.adapter.base import Adapter
