@@ -813,7 +813,7 @@ class Client(WithDBSettingsBase):
         columns (though empty columns are omitted):
             - trial_index: The trial index of the arm
             - arm_name: The name of the arm
-            - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
+            - trial_status: The status of the trial (e.g. RUNNING, SUCCEEDED, FAILED)
             - failure_reason: The reason for the failure, if applicable
             - generation_node: The name of the ``GenerationNode`` that generated the arm
             - **METADATA: Any metadata associated with the trial, as specified by the

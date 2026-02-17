@@ -778,7 +778,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     @property
     def transition_edges(self) -> dict[str, list[TransitionCriterion]]:
         """Returns a dictionary mapping the next ``GenerationNode`` to the
-        TransitionCriteria that define the transition that that node.
+        TransitionCriteria that define the transition to that node.
 
         Ex: if the transition from the current node to node `x` is defined by
         IsSingleObjective and MinTrials criterion then the return would be

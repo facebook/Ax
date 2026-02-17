@@ -80,7 +80,7 @@ class ObservationFeatures(Base):
         )
 
     def update_features(self, new_features: ObservationFeatures) -> ObservationFeatures:
-        """Updates the existing ObservationFeatures with the fields of the the input.
+        """Updates the existing ObservationFeatures with the fields of the input.
 
         Adds all of the new parameters to the existing parameters and overwrites
         any other fields that are not None on the new input features."""

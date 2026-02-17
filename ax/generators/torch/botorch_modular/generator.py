@@ -159,7 +159,7 @@ class BoTorchGenerator(TorchGenerator, Base):
             this model, auto-selected based on experiment and data
             if not specified.
         acquisition_options: Optional dict of kwargs, passed to
-            the the Ax ``Acquisition`` class.
+            the Ax ``Acquisition`` class.
         botorch_acqf_class: Type of ``AcquisitionFunction`` to be
             used in this model, auto-selected based on experiment
             and data if not specified.

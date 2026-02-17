@@ -147,7 +147,7 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
                     "values": df[metric_name].tolist(),
                 },
             ],
-            # Rotate the labels to allow them to be longer withoutoverlapping
+            # Rotate the labels to allow them to be longer without overlapping
             labelangle=-45,
         )
     )

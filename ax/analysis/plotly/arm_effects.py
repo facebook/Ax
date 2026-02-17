@@ -53,7 +53,7 @@ class ArmEffectsPlot(Analysis):
     the raw data, especially when model fit is good and in high-noise settings.
 
     Each arm is represented by a point on the plot with 95% confidence intervals. The
-    color of the point indicates the status of the arm's trial (e.g. RUNNING, SUCCEDED,
+    color of the point indicates the status of the arm's trial (e.g. RUNNING, SUCCEEDED,
     FAILED). Arms which are likely to violate a constraint (i.e. according to either
     the raw or modeled effects, the probability all constraints are satisfied is < 5%)
     are marked with a red outline. Each arm also has a hover tooltip with additional
