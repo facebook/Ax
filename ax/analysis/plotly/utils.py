@@ -7,7 +7,7 @@
 
 import math
 import re
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import pandas as pd
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE, LIGHT_AX_BLUE
@@ -46,7 +46,7 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
 
 
 # Move the legened to the bottom, and make horizontal
-LEGEND_POSITION: dict[str, Union[float, str]] = {
+LEGEND_POSITION: dict[str, float | str] = {
     "orientation": "h",
     "yanchor": "top",
     "y": -0.2,

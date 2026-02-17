@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Mapping, Sequence
 from logging import Logger
-from typing import Any, final, Mapping, Sequence
+from typing import Any, final
 
 import numpy as np
 import pandas as pd

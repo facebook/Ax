@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import functools
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from dataclasses import dataclass, InitVar
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd

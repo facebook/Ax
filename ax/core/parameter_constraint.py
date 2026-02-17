@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from ax.core.parameter import ChoiceParameter, Parameter, RangeParameter
 from ax.exceptions.core import UserInputError

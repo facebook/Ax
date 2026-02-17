@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from logging import Logger
-from typing import Any, final, Sequence
+from typing import Any, final
 
 import pandas as pd
 from ax.adapter.base import Adapter

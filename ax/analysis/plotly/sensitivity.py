@@ -4,7 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from typing import final, Literal, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import final, Literal
 
 import pandas as pd
 from ax.adapter.base import Adapter

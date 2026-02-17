@@ -7,9 +7,10 @@
 # pyre-strict
 
 import warnings
+from collections.abc import Callable
 from copy import deepcopy
 from random import random
-from typing import Any, Callable
+from typing import Any
 from unittest import mock
 from unittest.mock import Mock
 

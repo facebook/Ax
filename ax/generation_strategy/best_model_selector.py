@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -21,7 +21,7 @@ from ax.utils.common.func_enum import FuncEnum
 from pyre_extensions import none_throws
 
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-ARRAYLIKE = Union[np.ndarray, list[float], list[np.ndarray]]
+ARRAYLIKE = np.ndarray | list[float] | list[np.ndarray]
 
 
 class BestModelSelector(ABC, Base):

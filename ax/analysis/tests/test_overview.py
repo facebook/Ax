@@ -7,7 +7,6 @@
 
 
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -306,7 +305,7 @@ class TestOverview(TestCase):
         self.assertGreaterEqual(len(marginal_effects_cards), 1)
 
         # Check if adapter has predict properly implemented
-        def has_predict_implemented(adapter: Optional[Adapter]) -> bool:
+        def has_predict_implemented(adapter: Adapter | None) -> bool:
             """Check if adapter has predict method properly implemented."""
             if adapter is None or not hasattr(adapter, "predict"):
                 return False

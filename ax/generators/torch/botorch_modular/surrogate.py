@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import inspect
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import torch

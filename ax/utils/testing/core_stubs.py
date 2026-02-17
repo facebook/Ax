@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import itertools
 from collections import OrderedDict
-from collections.abc import Iterable, Mapping, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
 from math import prod
 from pathlib import Path
-from typing import Any, cast, Self, Sequence
+from typing import Any, cast, Self
 
 import numpy as np
 import pandas as pd

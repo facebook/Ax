@@ -16,8 +16,9 @@ References
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from math import log, sqrt
-from typing import Any, Sequence
+from typing import Any
 
 import torch
 from ax.exceptions.core import AxError

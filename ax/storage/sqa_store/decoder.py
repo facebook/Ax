@@ -7,10 +7,11 @@
 # pyre-strict
 
 from collections import defaultdict
+from collections.abc import Callable
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Any, Callable, cast, Union
+from typing import Any, cast, Union
 
 import pandas as pd
 from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
