@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import traceback
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from functools import reduce
 from typing import Any, cast, Generic, NoReturn, TypeVar
@@ -35,15 +35,18 @@ class Result(Generic[T, E], ABC):
     def is_err(self) -> bool:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def ok(self) -> T | None:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def err(self) -> E | None:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def value(self) -> T | E:
         pass
 
