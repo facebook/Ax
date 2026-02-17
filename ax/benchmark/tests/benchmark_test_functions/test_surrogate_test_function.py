@@ -24,6 +24,7 @@ from ax.utils.testing.core_stubs import (
 )
 from botorch.models.deterministic import PosteriorMeanModel
 from botorch.sampling.pathwise.posterior_samplers import MatheronPathModel
+from pyre_extensions import assert_is_instance
 
 
 class TestSurrogateTestFunction(TestCase):
@@ -237,11 +238,11 @@ class TestSurrogateTestFunction(TestCase):
 
         # Access surrogate to trigger wrapping
         surrogate = test_function.surrogate
-        # pyre-ignore[16]: Access base_model through deterministic wrapper
-        wrapped_model = surrogate.generator.surrogate.model
+        # Access base_model through deterministic wrapper
+        wrapped_model = assert_is_instance(surrogate.botorch_model, PosteriorMeanModel)
 
         # Check that exactly one model has weight 1.0 and others have weight 0.0
-        weights = wrapped_model.ensemble_weights
+        weights = assert_is_instance(wrapped_model.ensemble_weights, torch.Tensor)
         self.assertEqual(weights.sum().item(), 1.0)
         self.assertEqual((weights == 1.0).sum().item(), 1)
         self.assertEqual((weights == 0.0).sum().item(), len(weights) - 1)
@@ -262,5 +263,4 @@ class TestSurrogateTestFunction(TestCase):
 
         # Access surrogate to trigger wrapping
         surrogate = test_function.surrogate
-        # pyre-ignore[16]: Access base_model through deterministic wrapper
-        self.assertIsNone(surrogate.generator.surrogate.model.ensemble_weights)
+        self.assertIsNone(surrogate.botorch_model.ensemble_weights)

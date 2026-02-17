@@ -43,6 +43,7 @@ from ax.core.parameter import (
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.model import ModelError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -1390,6 +1391,37 @@ class TorchAdapterTest(TestCase):
             optimization_config=experiment.optimization_config,
         )
         self.assertEqual(len(objective_thresholds), len(experiment.metrics))
+
+    def test_botorch_model_property(self) -> None:
+        experiment = get_branin_experiment(with_completed_trial=True)
+        # Case: Invalid generator.
+        adapter = TorchAdapter(
+            generator=TorchGenerator(),
+            experiment=experiment,
+            transforms=Cont_X_trans,
+        )
+        with self.assertRaisesRegex(UnsupportedError, "BoTorchGenerator"):
+            adapter.botorch_model
+
+        # Case: Model not fitted yet.
+        adapter = TorchAdapter(
+            generator=BoTorchGenerator(),
+            experiment=experiment,
+            transforms=Cont_X_trans,
+            fit_on_init=False,
+        )
+        with self.assertRaisesRegex(ModelError, "has not yet been constructed"):
+            adapter.botorch_model
+
+        # Case: Model fitted.
+        generator = BoTorchGenerator()
+        adapter = TorchAdapter(
+            generator=generator,
+            experiment=experiment,
+            transforms=Cont_X_trans,
+        )
+        self.assertIs(adapter.botorch_model, generator.surrogate.model)
+        self.assertIsInstance(adapter.botorch_model, SingleTaskGP)
 
 
 class AdapterWithPLBOTest(TestCase):
