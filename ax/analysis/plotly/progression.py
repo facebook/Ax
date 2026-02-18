@@ -59,7 +59,7 @@ class ProgressionPlot(Analysis):
             metric_name: The name of the metric to plot. If not specified the objective
                 will be used. Note that the metric cannot be inferred for
                 multi-objective or scalarized-objective experiments.
-            wallclock_time: If True, plot the relative wallclock time instead of the
+            by_wallclock_time: If True, plot the relative wallclock time instead of the
                 progression on the x-axis.
         """
 

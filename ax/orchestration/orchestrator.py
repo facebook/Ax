@@ -946,7 +946,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         while len(self.pending_trials) > 0 and not self.poll_and_process_results():
             if total_seconds_elapsed > MAX_SECONDS_BETWEEN_REPORTS:
                 break  # If maximum wait time reached, check the stopping
-                # criterion again and and re-attempt scheduling more trials.
+                # criterion again and re-attempt scheduling more trials.
 
             if idle_callback is not None:
                 try:

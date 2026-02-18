@@ -37,7 +37,7 @@ def _dict_of_arrays_to_df(
     ["metric_name", "arm_name", "Y_true", "step", and "virtual runtime"].
 
     When the trial produces Data with a "step" column, the returned DataFrame
-    has a "step" column that is is 0, 1, 2, ...., and "virtual runtime" contains
+    has a "step" column that is 0, 1, 2, ...., and "virtual runtime" contains
     cumulative time for each element of the progression. When the trial produces
     Data without a "step" column, the returned DataFrame has a "step" column
     that contains just 0, "virtual runtime" is the total runtime of the trial.

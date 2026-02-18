@@ -119,7 +119,7 @@ class BenchmarkMetricBase(Metric):
             name: Name of the metric.
             lower_is_better: If `True`, lower metric values are considered better.
             observe_noise_sd: If `True`, the standard deviation of the observation
-                noise is included in the `sem` column of the the returned data.
+                noise is included in the `sem` column of the returned data.
                 If `False`, `sem` is set to `None` (meaning that the model will
                 have to infer the noise level).
         """

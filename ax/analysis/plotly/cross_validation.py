@@ -74,8 +74,8 @@ class CrossValidationPlot(Analysis):
     ) -> None:
         """
         Args:
-            metric_names: The name of the metric to plot. If not specified all metrics
-                available on the underyling model will be used.
+            metric_names: The names of the metrics to plot. If not specified all metrics
+                available on the underlying model will be used.
             folds: Number of subsamples to partition observations into. Use -1 for
                 leave-one-out cross validation.
             untransform: Whether to untransform the model predictions before cross
@@ -211,8 +211,8 @@ def compute_cross_validation_adhoc(
     a notebook setting.
 
     Args:
-        metric_names: The name of the metric to plot. If not specified all metrics
-            available on the underyling model will be used.
+        metric_names: The names of the metrics to plot. If not specified all metrics
+            available on the underlying model will be used.
         folds: Number of subsamples to partition observations into. Use -1 for
             leave-one-out cross validation.
         untransform: Whether to untransform the model predictions before cross
