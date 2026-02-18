@@ -11,7 +11,7 @@ from __future__ import annotations
 import inspect
 import logging
 import warnings
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from copy import deepcopy
 from datetime import datetime
@@ -31,7 +31,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_data_rows_favoring_recent, Data
 from ax.core.experiment_status import ExperimentStatus
-from ax.core.generator_run import GeneratorRun
+from ax.core.generator_run import ArmWeight, GeneratorRun
 from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import MultiObjective
@@ -1949,6 +1949,7 @@ class Experiment(Base):
         properties_to_keep: list[str] | None = None,
         trial_indices: list[int] | None = None,
         clear_trial_type: bool = False,
+        filter_arm_params_to_search_space: bool = False,
     ) -> Experiment:
         r"""
         Return a copy of this experiment with some attributes replaced.
@@ -1977,6 +1978,10 @@ class Experiment(Base):
                 clones all trials.
             clear_trial_type: If True, all cloned trials on the cloned experiment have
                 `trial_type` set to `None`.
+            filter_arm_params_to_search_space: If True and a new search_space is
+                provided, filter each cloned arm's parameters to only include
+                parameters present in the new search space. This enables reducing
+                the search space while keeping arm data compatible.
         """
         if properties_to_keep is None:
             properties_to_keep = ["owners"]
@@ -2009,6 +2014,19 @@ class Experiment(Base):
             if (status_quo is None and self.status_quo is not None)
             else status_quo
         )
+        # Filter status_quo params when reducing search space
+        if (
+            filter_arm_params_to_search_space
+            and status_quo is not None
+            and search_space is not None
+        ):
+            filtered_sq_params = {
+                k: v
+                for k, v in status_quo.parameters.items()
+                if k in search_space.parameters
+            }
+            status_quo = Arm(parameters=filtered_sq_params, name=status_quo.name)
+
         description = self.description if description is None else description
         is_test = self.is_test if is_test is None else is_test
 
@@ -2035,6 +2053,10 @@ class Experiment(Base):
             properties=properties,
         )
 
+        params_to_keep: set[str] | None = None
+        if filter_arm_params_to_search_space and search_space is not None:
+            params_to_keep = set(search_space.parameters.keys())
+
         # Clone only the specified trials.
         original_trial_indices = self.trials.keys()
         trial_indices_to_keep = (
@@ -2060,6 +2082,8 @@ class Experiment(Base):
             new_trial = trial.clone_to(
                 cloned_experiment, clear_trial_type=clear_trial_type
             )
+            if params_to_keep is not None:
+                _filter_trial_arm_params(new_trial, params_to_keep)
             new_index = new_trial.index
             old_index_to_new_index[trial_index] = new_index
 
@@ -2397,6 +2421,26 @@ class Experiment(Base):
                     prev_auxiliary_experiment.is_active = False
                     result[purpose].append(prev_auxiliary_experiment)
         return result
+
+
+def _filter_trial_arm_params(
+    trial: Trial | BatchTrial,
+    params_to_keep: set[str],
+) -> None:
+    """Filter arm parameters in-place to only include specified parameters.
+
+    Replaces each arm in every generator run with a new Arm whose parameters
+    contain only the keys present in ``params_to_keep``.
+    """
+    for gr in trial.generator_runs:
+        new_table: OrderedDict[str, ArmWeight] = OrderedDict()
+        for _sig, aw in gr._arm_weight_table.items():
+            filtered = {
+                k: v for k, v in aw.arm.parameters.items() if k in params_to_keep
+            }
+            new_arm = Arm(parameters=filtered, name=aw.arm.name)
+            new_table[new_arm.signature] = ArmWeight(arm=new_arm, weight=aw.weight)
+        gr._arm_weight_table = new_table
 
 
 def add_arm_and_prevent_naming_collision(

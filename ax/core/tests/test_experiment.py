@@ -1454,6 +1454,44 @@ class ExperimentTest(TestCase):
         cloned_experiment = experiment.clone_with(clear_trial_type=True)
         self.assertIsNone(cloned_experiment.trials[0].trial_type)
 
+        # Test cloning with filter_arm_params_to_search_space
+        experiment = get_branin_experiment(
+            with_completed_trial=True,
+        )
+        reduced_search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=-5.0,
+                    upper=10.0,
+                ),
+            ],
+        )
+        cloned_experiment = experiment.clone_with(
+            search_space=reduced_search_space,
+            filter_arm_params_to_search_space=True,
+        )
+        for trial in cloned_experiment.trials.values():
+            for arm in trial.arms:
+                self.assertEqual(set(arm.parameters.keys()), {"x1"})
+                self.assertNotIn("x2", arm.parameters)
+        self.assertEqual(set(cloned_experiment.search_space.parameters.keys()), {"x1"})
+        # Verify data is preserved
+        original_data = experiment.lookup_data()
+        cloned_data = cloned_experiment.lookup_data()
+        self.assertEqual(len(cloned_data.df), len(original_data.df))
+
+        # Verify that filter_arm_params_to_search_space=False preserves all params
+        cloned_no_filter = experiment.clone_with(
+            search_space=reduced_search_space,
+            filter_arm_params_to_search_space=False,
+        )
+        for trial in cloned_no_filter.trials.values():
+            for arm in trial.arms:
+                self.assertIn("x1", arm.parameters)
+                self.assertIn("x2", arm.parameters)
+
         # Test cloning with specific properties to keep
         experiment_w_props = get_branin_experiment()
         experiment_w_props._properties = {
