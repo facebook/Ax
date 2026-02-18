@@ -106,8 +106,9 @@ class WithDBSettingsBase:
         if db_settings and (not DBSettings or not isinstance(db_settings, DBSettings)):
             raise ValueError(
                 "`db_settings` argument should be of type ax.storage.sqa_store."
-                f"(Got: {db_settings} of type {type(db_settings)}. "
-                "structs.DBSettings. To use `DBSettings`, you will need SQLAlchemy "
+                "structs.DBSettings. "
+                f"(Got: {db_settings} of type {type(db_settings)}). "
+                "To use `DBSettings`, you will need SQLAlchemy "
                 "installed in your environment (can be installed through pip)."
             )
         self._db_settings = db_settings or self._get_default_db_settings()
