@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractproperty
+from abc import ABC, abstractmethod
 from collections import ChainMap
 from collections.abc import Callable
 from functools import cached_property
@@ -129,15 +129,18 @@ class RegistryBundleBase(ABC):
     def class_decoder_registry(self) -> dict[str, Callable[[dict[str, Any]], Any]]:
         return self._json_class_decoder_registry
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def sqa_config(self) -> SQAConfig:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def encoder(self) -> Encoder:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def decoder(self) -> Decoder:
         pass
 
