@@ -104,12 +104,7 @@ class SurrogateTestFunction(BenchmarkTestFunction):
     def surrogate(self) -> TorchAdapter:
         if self._surrogate is None:
             self._surrogate = none_throws(self.get_surrogate)()
-        if not isinstance(
-            # pyre-ignore[16]: `ax.generators.torch_base.TorchGenerator` has no
-            # attribute `surrogate`.
-            self._surrogate.generator.surrogate.model,
-            DeterministicModel,
-        ):
+        if not isinstance(self._surrogate.botorch_model, DeterministicModel):
             self.wrap_surrogate_in_deterministic_model()
         return none_throws(self._surrogate)
 
