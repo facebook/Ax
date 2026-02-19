@@ -518,7 +518,8 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         self,
         n: int = 1,
         reduce_state_generator_runs: bool = False,
-    ) -> tuple[list[BaseTrial], list[BaseTrial], Exception | None]:
+        on_generation_error: Callable[[Exception, Experiment], str] | None = None,
+    ) -> tuple[list[BaseTrial], list[BaseTrial], Exception | None, str | None]:
         """Fetch the latest data and generate new candidate trials.
 
         NOTE: We use ``n`` instead of ``num_trials`` because in the future this will
@@ -530,12 +531,18 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 whether to save model state for every generator run (default)
                 or to only save model state on the final generator run of each
                 batch.
+            on_generation_error: Optional callback to execute if an error is
+                encountered during candidate generation. The callback receives
+                the exception and the Ax `Experiment` object and should return
+                a string describing why generation failed (e.g., for logging
+                to specific infrastructur or for custom display purposes).
 
         Returns:
-            A 3-tuple of:
+            A 4-tuple of:
             - List of existing candidate trials to re-deploy (grabbed internally).
             - List of newly generated trials (empty if generation not possible).
             - Exception if generation failed, None otherwise.
+            - Error reason string from the callback, None if no error or no callback.
         """
         # Trigger TTL check to ensure expired trials are marked as stale
         self.experiment.trials
@@ -543,14 +550,20 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         # Grab existing candidate trials that should be re-deployed.
         existing_candidate_trials = self.candidate_trials
 
-        # Adjust n to account for existing candidates.
-        n_new = max(0, n - len(existing_candidate_trials))
-
+        # Generate n new trials (caller is responsible for accounting for existing
+        # candidates if needed).
         new_trials, err = (
-            self._get_next_trials(num_trials=n_new, n=self.options.batch_size)
-            if n_new > 0
+            self._get_next_trials(num_trials=n, n=self.options.batch_size)
+            if n > 0
             else ([], None)
         )
+
+        # If an error occurred and a callback was provided, call it to get the reason.
+        cannot_generate_reason: str | None = None
+        if err is not None and on_generation_error is not None:
+            cannot_generate_reason = on_generation_error(
+                error=err, experiment=self.experiment
+            )
 
         if len(new_trials) > 0:
             new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
@@ -566,7 +579,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 new_generator_runs=new_generator_runs,
                 reduce_state_generator_runs=reduce_state_generator_runs,
             )
-        return existing_candidate_trials, new_trials, err
+        return existing_candidate_trials, new_trials, err, cannot_generate_reason
 
     def run_n_trials(
         self,
@@ -1281,7 +1294,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         # trials as possible, limited by capacity and model requirements.
         self._sleep_if_too_early_to_poll()
         n = self.compute_n_to_generate(max_new_trials=max_new_trials)
-        existing_trials, new_trials, _err = self.generate_candidate_trials(n=n)
+        existing_trials, new_trials, _err, _reason = self.generate_candidate_trials(n=n)
 
         if not existing_trials and not new_trials:
             # Unable to gen. new run due to max parallelism limit or need for data
@@ -1677,7 +1690,8 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
         Returns:
             Number of new trials to generate (0 if no capacity or constraints
-            prevent it).
+            prevent it). This value accounts for existing candidate trials, so
+            the caller should pass this directly to `generate_candidate_trials`.
         """
         # 1. Determine available capacity for running trials.
         capacity = self.runner.poll_available_capacity()
@@ -1708,6 +1722,11 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
         # 3. Apply max_new_trials limit.
         n = min(n, max_new_trials)
+
+        # 4. Account for existing candidate trials that will be reused.
+        # Subtract them so caller generates only the needed new trials.
+        n_existing_candidates = len(self.candidate_trials)
+        n = max(0, n - n_existing_candidates)
 
         return n
 
