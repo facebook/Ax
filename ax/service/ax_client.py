@@ -1628,7 +1628,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         # so if we just set the seed without the context manager, it can have
         # serious negative impact on the performance of the models that employ
         # stochasticity.
-
         fixed_feats = (
             InstantiationBase.make_fixed_observation_features(
                 fixed_features=fixed_features
