@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import copy
 from itertools import product
 
 import numpy as np
@@ -35,12 +36,13 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestUtils(TestCase):
+    @classmethod
     @mock_botorch_optimize
-    def setUp(self) -> None:
-        super().setUp()
+    def setUpClass(cls) -> None:
+        super().setUpClass()
 
-        self.client = Client()
-        self.client.configure_experiment(
+        cls.client = Client()
+        cls.client.configure_experiment(
             name="test_experiment",
             parameters=[
                 RangeParameterConfig(
@@ -55,15 +57,15 @@ class TestUtils(TestCase):
                 ),
             ],
         )
-        self.client.configure_optimization(
+        cls.client.configure_optimization(
             objective="foo",
             outcome_constraints=["bar >= 11", "baz <= 18", "qux >= 1998"],
         )
 
         # Get two trials and fail one, giving us a ragged structure
-        self.client.get_next_trials(max_trials=2)
+        cls.client.get_next_trials(max_trials=2)
         sem = 0.1
-        self.client.complete_trial(
+        cls.client.complete_trial(
             trial_index=0,
             raw_data={
                 "foo": (1.0, sem),
@@ -72,14 +74,14 @@ class TestUtils(TestCase):
                 "qux": (4.0, sem),
             },
         )
-        self.client.mark_trial_failed(trial_index=1)
+        cls.client.mark_trial_failed(trial_index=1)
 
         # Complete 5 trials successfully
         for _ in range(5):
-            for trial_index, parameterization in self.client.get_next_trials(
+            for trial_index, parameterization in cls.client.get_next_trials(
                 max_trials=1
             ).items():
-                self.client.complete_trial(
+                cls.client.complete_trial(
                     trial_index=trial_index,
                     raw_data={
                         "foo": (assert_is_instance(parameterization["x1"], float), sem),
@@ -556,12 +558,13 @@ class TestUtils(TestCase):
 
     def test_prepare_arm_data_out_of_distribution_arm(self) -> None:
         """Test that out-of-distribution arms get model predictions."""
+        # Use a copy to avoid mutating the shared class-level experiment
+        experiment = copy.deepcopy(self.client._experiment)
         # add an arm that is not in the search space
-        trial = self.client._experiment.new_trial()
+        trial = experiment.new_trial()
         trial.add_arm(Arm(name="ood_arm", parameters={"x1": 0.5, "x2": 2.0}))
         trial.mark_running(no_runner_required=True)
-        self.client.complete_trial(
-            trial_index=trial.index,
+        trial.update_trial_data(
             raw_data={
                 "foo": (0.5, 0.1),
                 "bar": (-3.5, 0.1),
@@ -569,12 +572,13 @@ class TestUtils(TestCase):
                 "qux": (4.0, 0.1),
             },
         )
+        trial.mark_completed()
         gen_spec = self.client._generation_strategy._curr.generator_specs[0]
         adapter = gen_spec.generator_enum(
-            experiment=self.client._experiment, **gen_spec.generator_kwargs
+            experiment=experiment, **gen_spec.generator_kwargs
         )
         df = prepare_arm_data(
-            experiment=self.client._experiment,
+            experiment=experiment,
             metric_names=["foo"],
             use_model_predictions=True,
             adapter=adapter,
