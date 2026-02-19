@@ -1,0 +1,147 @@
+---
+title: Quickstart
+sidebar_label: Quickstart
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/quickstart/quickstart.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/quickstart/quickstart.ipynb"
+/>
+
+# Quickstart
+
+Ax is an open-source platform for adaptive experimentation, a technique used to
+efficiently tune parameters in complex systems. This guide will walk through
+installation, core concepts, and basic usage of Ax.
+
+## Installation
+
+We recommend using `pip` to install Ax.
+
+```shell
+pip install ax-platform
+```
+
+## Core concepts
+
+- **Experiment:** A process of iteratively suggesting and evaluating parameters to
+  improve some objective.
+- **Parameter:** A variable that can be adjusted -- a collection of these form the space
+  we are searching over during the optimization.
+- **Objective:** The value being optimized.
+- **Trial:** A set of parameters and the associated objective.
+- **Client:** An object that manages the experiment and provides methods for interacting
+  with it.
+
+```python
+from ax.api.client import Client
+from ax.api.configs import RangeParameterConfig
+
+# 1. Initialize the Client.
+client = Client()
+
+# 2. Configure where Ax will search.
+client.configure_experiment(
+    name="booth_function",
+    parameters=[
+        RangeParameterConfig(
+            name="x1",
+            bounds=(-10.0, 10.0),
+            parameter_type="float",
+        ),
+        RangeParameterConfig(
+            name="x2",
+            bounds=(-10.0, 10.0),
+            parameter_type="float",
+        ),
+    ],
+)
+
+# 3. Configure a metric for Ax to target (see other Tutorials for adding constraints,
+# multiple objectives, tracking metrics etc.)
+client.configure_optimization(objective="-1 * booth")
+
+# 4. Conduct the experiment with 20 trials: get each trial from Ax, evaluate the
+# objective function, and log data back to Ax.
+for _ in range(20):
+    # Use higher value of `max_trials` to run trials in parallel.
+    for trial_index, parameters in client.get_next_trials(max_trials=1).items():
+        client.complete_trial(
+            trial_index=trial_index,
+            raw_data={
+                "booth": (parameters["x1"] + 2 * parameters["x2"] - 7) ** 2
+                + (2 * parameters["x1"] + parameters["x2"] - 5) ** 2
+            },
+        )
+
+# 5. Obtain the best-performing configuration; the true minimum for the booth
+# function is at (1, 3).
+client.get_best_parameterization()
+```
+
+<CellOutput>
+{
+`/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/pyro/ops/stats.py:527: SyntaxWarning: "\g" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\g"? A raw string is also an option.
+  we have :math:ES^{*}(P,Q) \ge ES^{*}(Q,Q) with equality holding if and only if :math:P=Q, i.e.
+[INFO 02-19 18:53:12] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, generator_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')], suggested_experiment_status=ExperimentStatus.INITIALIZATION), GenerationNode(name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, generator_key_override=None)], transition_criteria=[], suggested_experiment_status=ExperimentStatus.OPTIMIZATION)]) chosen based on user input and problem structure.
+[INFO 02-19 18:53:12] ax.api.client: Generated new trial 0 with parameters {'x1': 0.0, 'x2': 0.0} using GenerationNode CenterOfSearchSpace.
+[INFO 02-19 18:53:12] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 02-19 18:53:12] ax.api.client: Generated new trial 1 with parameters {'x1': 8.023218, 'x2': -7.240252} using GenerationNode Sobol.
+[INFO 02-19 18:53:12] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 02-19 18:53:12] ax.api.client: Generated new trial 2 with parameters {'x1': -7.642638, 'x2': 3.720038} using GenerationNode Sobol.
+[INFO 02-19 18:53:12] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 02-19 18:53:13] ax.api.client: Generated new trial 3 with parameters {'x1': -2.140979, 'x2': -4.395374} using GenerationNode Sobol.
+[INFO 02-19 18:53:13] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 02-19 18:53:13] ax.api.client: Generated new trial 4 with parameters {'x1': 2.189503, 'x2': 5.894717} using GenerationNode Sobol.
+[INFO 02-19 18:53:13] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 02-19 18:53:13] ax.api.client: Generated new trial 5 with parameters {'x1': 1.707893, 'x2': 1.77939} using GenerationNode MBM.
+[INFO 02-19 18:53:13] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 02-19 18:53:14] ax.api.client: Generated new trial 6 with parameters {'x1': -0.2452, 'x2': 3.181147} using GenerationNode MBM.
+[INFO 02-19 18:53:14] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 02-19 18:53:14] ax.api.client: Generated new trial 7 with parameters {'x1': 8.890598, 'x2': -0.456609} using GenerationNode MBM.
+[INFO 02-19 18:53:14] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 02-19 18:53:14] ax.api.client: Generated new trial 8 with parameters {'x1': 10.0, 'x2': 6.817002} using GenerationNode MBM.
+[INFO 02-19 18:53:14] ax.api.client: Trial 8 marked COMPLETED.
+[INFO 02-19 18:53:15] ax.api.client: Generated new trial 9 with parameters {'x1': -2.165753, 'x2': 10.0} using GenerationNode MBM.
+[INFO 02-19 18:53:15] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 02-19 18:53:15] ax.api.client: Generated new trial 10 with parameters {'x1': 4.789568, 'x2': -1.599336} using GenerationNode MBM.
+[INFO 02-19 18:53:15] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 02-19 18:53:15] ax.api.client: Generated new trial 11 with parameters {'x1': -0.162535, 'x2': 4.431388} using GenerationNode MBM.
+[INFO 02-19 18:53:15] ax.api.client: Trial 11 marked COMPLETED.
+[INFO 02-19 18:53:16] ax.api.client: Generated new trial 12 with parameters {'x1': 0.895656, 'x2': 3.003941} using GenerationNode MBM.
+[INFO 02-19 18:53:16] ax.api.client: Trial 12 marked COMPLETED.
+[INFO 02-19 18:53:16] ax.api.client: Generated new trial 13 with parameters {'x1': 2.004081, 'x2': 2.009913} using GenerationNode MBM.
+[INFO 02-19 18:53:16] ax.api.client: Trial 13 marked COMPLETED.
+[INFO 02-19 18:53:16] ax.api.client: Generated new trial 14 with parameters {'x1': 0.492402, 'x2': 3.175011} using GenerationNode MBM.
+[INFO 02-19 18:53:16] ax.api.client: Trial 14 marked COMPLETED.
+[INFO 02-19 18:53:17] ax.api.client: Generated new trial 15 with parameters {'x1': 1.098003, 'x2': 2.53873} using GenerationNode MBM.
+[INFO 02-19 18:53:17] ax.api.client: Trial 15 marked COMPLETED.
+[INFO 02-19 18:53:17] ax.api.client: Generated new trial 16 with parameters {'x1': 0.773503, 'x2': 2.802238} using GenerationNode MBM.
+[INFO 02-19 18:53:17] ax.api.client: Trial 16 marked COMPLETED.
+[INFO 02-19 18:53:18] ax.api.client: Generated new trial 17 with parameters {'x1': 0.558989, 'x2': 3.422089} using GenerationNode MBM.
+[INFO 02-19 18:53:18] ax.api.client: Trial 17 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed on the second try, after generating a new set of initial conditions.
+[INFO 02-19 18:53:19] ax.api.client: Generated new trial 18 with parameters {'x1': 1.17636, 'x2': 2.760518} using GenerationNode MBM.
+[INFO 02-19 18:53:19] ax.api.client: Trial 18 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+[INFO 02-19 18:53:20] ax.api.client: Generated new trial 19 with parameters {'x1': 0.727081, 'x2': 3.167024} using GenerationNode MBM.
+[INFO 02-19 18:53:20] ax.api.client: Trial 19 marked COMPLETED.
+({'x1': 0.8956558462171804, 'x2': 3.003940877196796},
+ {'booth': (np.float64(-0.07233473522835254), np.float64(0.6456233387031699))},
+ 12,
+ '12_0')`
+}
+</CellOutput>
+

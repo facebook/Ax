@@ -1,0 +1,541 @@
+---
+title: Using external methods for candidate generation in Ax
+sidebar_label: Using external methods for candidate generation in Ax
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/external_generation_node/external_generation_node.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/external_generation_node/external_generation_node.ipynb"
+/>
+
+# Using external methods for candidate generation in Ax
+
+Out of the box, Ax offers many options for candidate generation, most of which utilize
+Bayesian optimization algorithms built using [BoTorch](https://botorch.org/). Users can
+allow Ax to select which methods from BoTorch will be used for optimization
+automatically (optionally guiding the choice by calling
+[`configure_generation_strategy`](../../recipes/influence-gs-choice)) and can also
+direct Ax to use specific BoTorch components directly via the
+[Modular Botorch framework](../modular_botorch/index.mdx). Users that want to leverage
+Ax for experiment state management and orchestration via the `Client` and other features
+(e.g., early stopping, analyses, storage), while relying on other methods not
+implemented in BoTorch for candidate generation can implement their own
+`ExternalGenerationNode`.
+
+A `GenerationNode` is a building block of a `GenerationStrategy`. They can be combined
+together utilize different methods for generating candidates at different stages of an
+experiment. `ExternalGenerationNode` exposes a lightweight interface to allow the users
+to easily integrate their methods into Ax, and use them as standalone or with other
+`GenerationNode`s in a `GenerationStrategy`.
+
+In this tutorial, we will implement a simple generation node using
+`RandomForestRegressor` from sklearn, and combine it with Sobol (for initialization) to
+optimize the Hartmann6 problem.
+
+NOTE: This generation node using `RandomForestRegressor` is a naive implementation and
+for demonstration purposes only; it is not representative of how more sophisticated
+random forest Bayesian optimization algorithms perform. We do not recommend using this
+strategy as it typically does not perform well compared to Ax's default algorithms due
+to its overly greedy behavior.
+
+```python
+import time
+from typing import Any
+
+import numpy as np
+
+from ax.adapter.registry import Generators
+from ax.api.client import Client
+from ax.api.configs import RangeParameterConfig
+from ax.analysis.plotly.arm_effects import ArmEffectsPlot
+from ax.analysis.summary import Summary
+from ax.core.base_trial import TrialStatus
+from ax.core.data import Data
+from ax.core.experiment import Experiment
+from ax.core.parameter import RangeParameter
+from ax.core.types import TParameterization
+from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+from ax.generation_strategy.generation_node import GenerationNode
+from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import MinTrials
+
+from sklearn.ensemble import RandomForestRegressor
+```
+
+```python
+class RandomForestGenerationNode(ExternalGenerationNode):
+    """A generation node that uses the RandomForestRegressor
+    from sklearn to predict candidate performance and picks the
+    next point as the random sample that has the best prediction.
+
+    To leverage external methods for candidate generation, the user must
+    create a subclass that implements ``update_generator_state`` and
+    ``get_next_candidate`` methods. This can then be provided
+    as a node into a ``GenerationStrategy``, either as standalone or as
+    part of a larger generation strategy with other generation nodes,
+    e.g., with a Sobol node for initialization.
+    """
+
+    def __init__(self, num_samples: int, regressor_options: dict[str, Any]) -> None:
+        """Initialize the generation node.
+
+        Args:
+            regressor_options: Options to pass to the random forest regressor.
+            num_samples: Number of random samples from the search space
+                used during candidate generation. The sample with the best
+                prediction is recommended as the next candidate.
+        """
+        t_init_start = time.monotonic()
+        super().__init__(name="RandomForest")
+        self.num_samples: int = num_samples
+        self.regressor: RandomForestRegressor = RandomForestRegressor(
+            **regressor_options
+        )
+        # We will set these later when updating the state.
+        # Alternatively, we could have required experiment as an input
+        # and extracted them here.
+        self.parameters: list[RangeParameter] | None = None
+        self.minimize: bool | None = None
+        # Recording time spent in initializing the generator. This is
+        # used to compute the time spent in candidate generation.
+        self.fit_time_since_gen: float = time.monotonic() - t_init_start
+
+    def update_generator_state(self, experiment: Experiment, data: Data) -> None:
+        """A method used to update the state of the generator. This includes any
+        models, predictors or any other custom state used by the generation node.
+        This method will be called with the up-to-date experiment and data before
+        ``get_next_candidate`` is called to generate the next trial(s). Note
+        that ``get_next_candidate`` may be called multiple times (to generate
+        multiple candidates) after a call to  ``update_generator_state``.
+
+        For this example, we will train the regressor using the latest data from
+        the experiment.
+
+        Args:
+            experiment: The ``Experiment`` object representing the current state of the
+                experiment. The key properties includes ``trials``, ``search_space``,
+                and ``optimization_config``. The data is provided as a separate arg.
+            data: The data / metrics collected on the experiment so far.
+        """
+        search_space = experiment.search_space
+        parameter_names = list(search_space.parameters.keys())
+        metric_names = list(experiment.optimization_config.metrics.keys())
+        if any(
+            not isinstance(p, RangeParameter) for p in search_space.parameters.values()
+        ):
+            raise NotImplementedError(
+                "This example only supports RangeParameters in the search space."
+            )
+        if search_space.parameter_constraints:
+            raise NotImplementedError(
+                "This example does not support parameter constraints."
+            )
+        if len(metric_names) != 1:
+            raise NotImplementedError(
+                "This example only supports single-objective optimization."
+            )
+        # Get the data for the completed trials.
+        num_completed_trials = len(experiment.trials_by_status[TrialStatus.COMPLETED])
+        x = np.zeros([num_completed_trials, len(parameter_names)])
+        y = np.zeros([num_completed_trials, 1])
+        for t_idx, trial in experiment.trials.items():
+            if trial.status == "COMPLETED":
+                trial_parameters = trial.arm.parameters
+                x[t_idx, :] = np.array([trial_parameters[p] for p in parameter_names])
+                trial_df = data.df[data.df["trial_index"] == t_idx]
+                y[t_idx, 0] = trial_df[trial_df["metric_name"] == metric_names[0]][
+                    "mean"
+                ].item()
+
+        # Train the regressor.
+        self.regressor.fit(x, y)
+        # Update the attributes not set in __init__.
+        self.parameters = search_space.parameters
+        self.minimize = experiment.optimization_config.objective.minimize
+
+    def get_next_candidate(
+        self, pending_parameters: list[TParameterization]
+    ) -> TParameterization:
+        """Get the parameters for the next candidate configuration to evaluate.
+
+        We will draw ``self.num_samples`` random samples from the search space
+        and predict the objective value for each sample. We will then return
+        the sample with the best predicted value.
+
+        Args:
+            pending_parameters: A list of parameters of the candidates pending
+                evaluation. This is often used to avoid generating duplicate candidates.
+                We ignore this here for simplicity.
+
+        Returns:
+            A dictionary mapping parameter names to parameter values for the next
+            candidate suggested by the method.
+        """
+        bounds = np.array([[p.lower, p.upper] for p in self.parameters.values()])
+        unit_samples = np.random.random_sample([self.num_samples, len(bounds)])
+        samples = bounds[:, 0] + (bounds[:, 1] - bounds[:, 0]) * unit_samples
+        # Predict the objective value for each sample.
+        y_pred = self.regressor.predict(samples)
+        # Find the best sample.
+        best_idx = np.argmin(y_pred) if self.minimize else np.argmax(y_pred)
+        best_sample = samples[best_idx, :]
+        # Convert the sample to a parameterization.
+        candidate = {
+            p_name: best_sample[i].item()
+            for i, p_name in enumerate(self.parameters.keys())
+        }
+        return candidate
+```
+
+## Construct the GenerationStrategy
+
+We will use Sobol for the first 25 trials and defer to random forest for the rest.
+
+```python
+generation_strategy = GenerationStrategy(
+    name="Sobol+RandomForest",
+    nodes=[
+        GenerationNode(
+            name="Sobol",
+            generator_specs=[GeneratorSpec(Generators.SOBOL)],
+            transition_criteria=[
+                MinTrials(
+                    # This specifies the maximum number of trials to generate from this node,
+                    # and the next node in the strategy.
+                    threshold=25,
+                    block_transition_if_unmet=True,
+                    transition_to="RandomForest",
+                )
+            ],
+        ),
+        RandomForestGenerationNode(num_samples=128, regressor_options={}),
+    ],
+)
+```
+
+## Run a simple experiment using the `Client`
+
+More details on how to use the `Client` can be found in the following
+[tutorial](../getting_started/index.mdx).
+
+```python
+# Define the Hartmann6 function which we will minimize.
+def hartmann6(x1, x2, x3, x4, x5, x6):
+    alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    A = np.array(
+        [
+            [10, 3, 17, 3.5, 1.7, 8],
+            [0.05, 10, 17, 0.1, 8, 14],
+            [3, 3.5, 1.7, 10, 17, 8],
+            [17, 8, 0.05, 10, 0.1, 14],
+        ]
+    )
+    P = 10**-4 * np.array(
+        [
+            [1312, 1696, 5569, 124, 8283, 5886],
+            [2329, 4135, 8307, 3736, 1004, 9991],
+            [2348, 1451, 3522, 2883, 3047, 6650],
+            [4047, 8828, 8732, 5743, 1091, 381],
+        ]
+    )
+
+    outer = 0.0
+    for i in range(4):
+        inner = 0.0
+        for j, x in enumerate([x1, x2, x3, x4, x5, x6]):
+            inner += A[i, j] * (x - P[i, j]) ** 2
+        outer += alpha[i] * np.exp(-inner)
+    return -outer
+```
+
+Configure the experiment and set is GenerationStrategy to be our Sobol+RandomForest
+strategy defined previously.
+
+```python
+client = Client()
+
+client.configure_experiment(
+    parameters=[
+        RangeParameterConfig(name=f"x{i}", parameter_type="float", bounds=(0, 1))
+        for i in range(1, 7)
+    ]
+)
+client.configure_optimization(objective="-1 * hartmann6")
+
+client.set_generation_strategy(generation_strategy=generation_strategy)
+```
+
+Run the optimization loop as you would conduct any other Ax experiment. Under the hood
+Ax will dispatch to your custom `ExternalGenerationNode` when generating new candidate
+trials.
+
+```python
+for _ in range(50):  # Run 50 rounds of trials (25 Sobol points, 25 with the RandomForest node)
+    trials = client.get_next_trials(max_trials=1)
+
+    for trial_index, parameters in trials.items():
+        x1 = parameters["x1"]
+        x2 = parameters["x2"]
+        x3 = parameters["x3"]
+        x4 = parameters["x4"]
+        x5 = parameters["x5"]
+        x6 = parameters["x6"]
+
+        # Set raw_data as a dictionary with metric names as keys and results as values
+        raw_data = {"hartmann6": hartmann6(x1, x2, x3, x4, x5, x6)}
+
+        # Complete the trial with the result
+        client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+```
+
+<CellOutput>
+{
+`[INFO 02-19 19:00:51] ax.api.client: Generated new trial 0 with parameters {'x1': 0.93573, 'x2': 0.993515, 'x3': 0.062394, 'x4': 0.84233, 'x5': 0.802214, 'x6': 0.338208} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 1 with parameters {'x1': 0.402876, 'x2': 0.177698, 'x3': 0.742511, 'x4': 0.408019, 'x5': 0.498713, 'x6': 0.837056} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 2 with parameters {'x1': 0.199276, 'x2': 0.705974, 'x3': 0.469645, 'x4': 0.697113, 'x5': 0.223585, 'x6': 0.648804} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 3 with parameters {'x1': 0.733111, 'x2': 0.404543, 'x3': 0.788431, 'x4': 0.053298, 'x5': 0.546061, 'x6': 0.151453} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 4 with parameters {'x1': 0.611681, 'x2': 0.589882, 'x3': 0.548448, 'x4': 0.242618, 'x5': 0.629387, 'x6': 0.402098} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 5 with parameters {'x1': 0.079007, 'x2': 0.266237, 'x3': 0.240404, 'x4': 0.507038, 'x5': 0.077789, 'x6': 0.899208} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 6 with parameters {'x1': 0.25038, 'x2': 0.866931, 'x3': 0.982982, 'x4': 0.358568, 'x5': 0.333962, 'x6': 0.587451} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 7 with parameters {'x1': 0.784028, 'x2': 0.057704, 'x3': 0.290169, 'x4': 0.891025, 'x5': 0.904434, 'x6': 0.088848} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 8 with parameters {'x1': 0.87146, 'x2': 0.68487, 'x3': 0.925251, 'x4': 0.598423, 'x5': 0.406329, 'x6': 0.213227} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 8 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 9 with parameters {'x1': 0.342635, 'x2': 0.486225, 'x3': 0.364036, 'x4': 0.151906, 'x5': 0.855275, 'x6': 0.712091} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 10 with parameters {'x1': 0.014035, 'x2': 0.897432, 'x3': 0.60594, 'x4': 0.987875, 'x5': 0.610904, 'x6': 0.773846} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 11 with parameters {'x1': 0.543841, 'x2': 0.213204, 'x3': 0.167768, 'x4': 0.262517, 'x5': 0.18192, 'x6': 0.276479} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 11 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 12 with parameters {'x1': 0.671923, 'x2': 0.773531, 'x3': 0.434621, 'x4': 0.439645, 'x5': 0.016715, 'x6': 0.027056} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 12 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 13 with parameters {'x1': 0.143276, 'x2': 0.082714, 'x3': 0.869864, 'x4': 0.810022, 'x5': 0.713639, 'x6': 0.524181} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 13 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 14 with parameters {'x1': 0.43965, 'x2': 0.550469, 'x3': 0.095718, 'x4': 0.083428, 'x5': 0.938087, 'x6': 0.962432} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 14 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 15 with parameters {'x1': 0.969269, 'x2': 0.37404, 'x3': 0.661816, 'x4': 0.666177, 'x5': 0.260987, 'x6': 0.463813} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 15 marked COMPLETED.
+[INFO 02-19 19:00:51] ax.api.client: Generated new trial 16 with parameters {'x1': 0.938872, 'x2': 0.51751, 'x3': 0.313402, 'x4': 0.341767, 'x5': 0.520944, 'x6': 0.535638} using GenerationNode Sobol.
+[INFO 02-19 19:00:51] ax.api.client: Trial 16 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 17 with parameters {'x1': 0.47252, 'x2': 0.341081, 'x3': 0.882189, 'x4': 0.90892, 'x5': 0.217452, 'x6': 0.038117} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 17 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 18 with parameters {'x1': 0.175143, 'x2': 0.80698, 'x3': 0.156139, 'x4': 0.197893, 'x5': 0.442346, 'x6': 0.474905} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 18 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 19 with parameters {'x1': 0.642468, 'x2': 0.11616, 'x3': 0.586251, 'x4': 0.552614, 'x5': 0.764831, 'x6': 0.973858} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 19 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 20 with parameters {'x1': 0.512738, 'x2': 0.926484, 'x3': 0.826737, 'x4': 0.74513, 'x5': 0.910626, 'x6': 0.724193} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 20 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 21 with parameters {'x1': 0.046572, 'x2': 0.242258, 'x3': 0.383929, 'x4': 0.004179, 'x5': 0.35902, 'x6': 0.225481} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 21 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 22 with parameters {'x1': 0.374223, 'x2': 0.65533, 'x3': 0.642191, 'x4': 0.855832, 'x5': 0.115231, 'x6': 0.288703} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 22 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 23 with parameters {'x1': 0.841368, 'x2': 0.456683, 'x3': 0.084146, 'x4': 0.393658, 'x5': 0.685695, 'x6': 0.785979} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 23 marked COMPLETED.
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 24 with parameters {'x1': 0.753142, 'x2': 0.833972, 'x3': 0.699697, 'x4': 0.101298, 'x5': 0.125067, 'x6': 0.910604} using GenerationNode Sobol.
+[INFO 02-19 19:00:52] ax.api.client: Trial 24 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 25 with parameters {'x1': 0.294638, 'x2': 0.468995, 'x3': 0.362778, 'x4': 0.061355, 'x5': 0.616754, 'x6': 0.222458} using GenerationNode RandomForest.
+[INFO 02-19 19:00:52] ax.api.client: Trial 25 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 26 with parameters {'x1': 0.545738, 'x2': 0.961468, 'x3': 0.608115, 'x4': 0.594414, 'x5': 0.72677, 'x6': 0.40122} using GenerationNode RandomForest.
+[INFO 02-19 19:00:52] ax.api.client: Trial 26 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 27 with parameters {'x1': 0.320528, 'x2': 0.631298, 'x3': 0.086984, 'x4': 0.624487, 'x5': 0.680851, 'x6': 0.45281} using GenerationNode RandomForest.
+[INFO 02-19 19:00:52] ax.api.client: Trial 27 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 28 with parameters {'x1': 0.342396, 'x2': 0.788628, 'x3': 0.375943, 'x4': 0.649368, 'x5': 0.966976, 'x6': 0.349599} using GenerationNode RandomForest.
+[INFO 02-19 19:00:52] ax.api.client: Trial 28 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:52] ax.api.client: Generated new trial 29 with parameters {'x1': 0.265097, 'x2': 0.209879, 'x3': 0.719163, 'x4': 0.944777, 'x5': 0.232384, 'x6': 0.990446} using GenerationNode RandomForest.
+[INFO 02-19 19:00:52] ax.api.client: Trial 29 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 30 with parameters {'x1': 0.303738, 'x2': 0.886219, 'x3': 0.285099, 'x4': 0.255885, 'x5': 0.232942, 'x6': 0.857062} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 30 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 31 with parameters {'x1': 0.94689, 'x2': 0.173079, 'x3': 0.906727, 'x4': 0.384467, 'x5': 0.778478, 'x6': 0.67982} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 31 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 32 with parameters {'x1': 0.535332, 'x2': 0.862968, 'x3': 0.437286, 'x4': 0.981774, 'x5': 0.825972, 'x6': 0.877281} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 32 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 33 with parameters {'x1': 0.936215, 'x2': 0.402414, 'x3': 0.87081, 'x4': 0.395688, 'x5': 0.187752, 'x6': 0.825496} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 33 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 34 with parameters {'x1': 0.933291, 'x2': 0.730686, 'x3': 0.866314, 'x4': 0.68405, 'x5': 0.83591, 'x6': 0.940357} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 34 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 35 with parameters {'x1': 0.112396, 'x2': 0.807628, 'x3': 0.037591, 'x4': 0.754317, 'x5': 0.8273, 'x6': 0.454229} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 35 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 36 with parameters {'x1': 0.196076, 'x2': 0.307557, 'x3': 0.302636, 'x4': 0.018102, 'x5': 0.479487, 'x6': 0.469769} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 36 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 37 with parameters {'x1': 0.347649, 'x2': 0.149602, 'x3': 0.645518, 'x4': 0.85633, 'x5': 0.923613, 'x6': 0.326613} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 37 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:53] ax.api.client: Generated new trial 38 with parameters {'x1': 0.68339, 'x2': 0.074327, 'x3': 0.049069, 'x4': 0.464025, 'x5': 0.657005, 'x6': 0.57807} using GenerationNode RandomForest.
+[INFO 02-19 19:00:53] ax.api.client: Trial 38 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 39 with parameters {'x1': 0.240879, 'x2': 0.679505, 'x3': 0.61095, 'x4': 0.562589, 'x5': 0.813148, 'x6': 0.489995} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 39 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 40 with parameters {'x1': 0.722746, 'x2': 0.238497, 'x3': 0.774353, 'x4': 0.895019, 'x5': 0.517546, 'x6': 0.71913} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 40 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 41 with parameters {'x1': 0.042808, 'x2': 0.743723, 'x3': 0.932389, 'x4': 0.328019, 'x5': 0.328233, 'x6': 0.174039} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 41 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 42 with parameters {'x1': 0.299156, 'x2': 0.858737, 'x3': 0.111609, 'x4': 0.49106, 'x5': 0.359614, 'x6': 0.02376} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 42 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 43 with parameters {'x1': 0.431185, 'x2': 0.033766, 'x3': 0.854271, 'x4': 0.870792, 'x5': 0.326675, 'x6': 0.640922} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 43 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 44 with parameters {'x1': 0.657483, 'x2': 0.594847, 'x3': 0.611649, 'x4': 0.275783, 'x5': 0.284247, 'x6': 0.853916} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 44 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 45 with parameters {'x1': 0.592777, 'x2': 0.449665, 'x3': 0.755099, 'x4': 0.84362, 'x5': 0.35012, 'x6': 0.668315} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 45 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 46 with parameters {'x1': 0.530347, 'x2': 0.603592, 'x3': 0.853457, 'x4': 0.826163, 'x5': 0.343915, 'x6': 0.856664} using GenerationNode RandomForest.
+[INFO 02-19 19:00:54] ax.api.client: Trial 46 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:54] ax.api.client: Generated new trial 47 with parameters {'x1': 0.737953, 'x2': 0.078356, 'x3': 0.029763, 'x4': 0.68886, 'x5': 0.076579, 'x6': 0.667418} using GenerationNode RandomForest.
+[INFO 02-19 19:00:55] ax.api.client: Trial 47 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:55] ax.api.client: Generated new trial 48 with parameters {'x1': 0.353931, 'x2': 0.302558, 'x3': 0.691394, 'x4': 0.107314, 'x5': 0.526779, 'x6': 0.457082} using GenerationNode RandomForest.
+[INFO 02-19 19:00:55] ax.api.client: Trial 48 marked COMPLETED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/sklearn/base.py:1336: DataConversionWarning:
+A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples,), for example using ravel().
+[INFO 02-19 19:00:55] ax.api.client: Generated new trial 49 with parameters {'x1': 0.261939, 'x2': 0.462077, 'x3': 0.560604, 'x4': 0.30227, 'x5': 0.585322, 'x6': 0.757213} using GenerationNode RandomForest.
+[INFO 02-19 19:00:55] ax.api.client: Trial 49 marked COMPLETED.`
+}
+</CellOutput>
+
+View your results by computing Analyses. Not all Analyses implemented by Ax will be
+compatible with an `ExternalGenerationNode` (specifically those which rely on an Ax
+`Adapter` for their input data) though many which rely solely on raw observation will
+work out of the box.
+
+```python
+client.compute_analyses(
+    analyses=[ArmEffectsPlot(metric_name="hartmann6", use_model_predictions=False), Summary()]
+)
+```
+
+**Observed Arm Effects on hartmann6**
+
+Observed effects on hartmann6. This plot visualizes the effects from previously-run arms
+on a specific metric, providing insights into their performance. This plot allows one to
+compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/dddfd86a-b5b4-4c14-be38-092c3b887c66.json')} />
+
+
+**Summary for Experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node   |   hartmann6 |       x1 |       x2 |       x3 |       x4 |       x5 |       x6 |
+|---:|--------------:|-----------:|:---------------|:------------------|------------:|---------:|---------:|---------:|---------:|---------:|---------:|
+|  0 |             0 |        0_0 | COMPLETED      | Sobol             |   -0.003075 | 0.93573  | 0.993515 | 0.062394 | 0.84233  | 0.802214 | 0.338208 |
+|  1 |             1 |        1_0 | COMPLETED      | Sobol             |   -0.959443 | 0.402876 | 0.177698 | 0.742511 | 0.408019 | 0.498713 | 0.837056 |
+|  2 |             2 |        2_0 | COMPLETED      | Sobol             |   -0.212976 | 0.199276 | 0.705974 | 0.469645 | 0.697113 | 0.223585 | 0.648804 |
+|  3 |             3 |        3_0 | COMPLETED      | Sobol             |   -0.027289 | 0.733111 | 0.404543 | 0.788431 | 0.053298 | 0.546061 | 0.151453 |
+|  4 |             4 |        4_0 | COMPLETED      | Sobol             |   -0.159907 | 0.611681 | 0.589882 | 0.548448 | 0.242618 | 0.629387 | 0.402098 |
+|  5 |             5 |        5_0 | COMPLETED      | Sobol             |   -0.447188 | 0.079007 | 0.266237 | 0.240404 | 0.507038 | 0.077789 | 0.899208 |
+|  6 |             6 |        6_0 | COMPLETED      | Sobol             |   -0.249673 | 0.25038  | 0.866931 | 0.982982 | 0.358568 | 0.333962 | 0.587451 |
+|  7 |             7 |        7_0 | COMPLETED      | Sobol             |   -0.000432 | 0.784028 | 0.057704 | 0.290169 | 0.891025 | 0.904434 | 0.088848 |
+|  8 |             8 |        8_0 | COMPLETED      | Sobol             |   -0.048505 | 0.87146  | 0.68487  | 0.925251 | 0.598423 | 0.406329 | 0.213227 |
+|  9 |             9 |        9_0 | COMPLETED      | Sobol             |   -0.217145 | 0.342635 | 0.486225 | 0.364036 | 0.151906 | 0.855275 | 0.712091 |
+| 10 |            10 |       10_0 | COMPLETED      | Sobol             |   -0.007619 | 0.014035 | 0.897432 | 0.60594  | 0.987875 | 0.610904 | 0.773846 |
+| 11 |            11 |       11_0 | COMPLETED      | Sobol             |   -0.493831 | 0.543841 | 0.213204 | 0.167768 | 0.262517 | 0.18192  | 0.276479 |
+| 12 |            12 |       12_0 | COMPLETED      | Sobol             |   -0.715244 | 0.671923 | 0.773531 | 0.434621 | 0.439645 | 0.016715 | 0.027056 |
+| 13 |            13 |       13_0 | COMPLETED      | Sobol             |   -0.025754 | 0.143276 | 0.082714 | 0.869864 | 0.810022 | 0.713639 | 0.524181 |
+| 14 |            14 |       14_0 | COMPLETED      | Sobol             |   -0.002587 | 0.43965  | 0.550469 | 0.095718 | 0.083428 | 0.938087 | 0.962432 |
+| 15 |            15 |       15_0 | COMPLETED      | Sobol             |   -0.081173 | 0.969269 | 0.37404  | 0.661816 | 0.666177 | 0.260987 | 0.463813 |
+| 16 |            16 |       16_0 | COMPLETED      | Sobol             |   -0.160283 | 0.938872 | 0.51751  | 0.313402 | 0.341767 | 0.520944 | 0.535638 |
+| 17 |            17 |       17_0 | COMPLETED      | Sobol             |   -0.093458 | 0.47252  | 0.341081 | 0.882189 | 0.90892  | 0.217452 | 0.038117 |
+| 18 |            18 |       18_0 | COMPLETED      | Sobol             |   -0.332008 | 0.175143 | 0.80698  | 0.156139 | 0.197893 | 0.442346 | 0.474905 |
+| 19 |            19 |       19_0 | COMPLETED      | Sobol             |   -0.023444 | 0.642468 | 0.11616  | 0.586251 | 0.552614 | 0.764831 | 0.973858 |
+| 20 |            20 |       20_0 | COMPLETED      | Sobol             |   -0.004267 | 0.512738 | 0.926484 | 0.826737 | 0.74513  | 0.910626 | 0.724193 |
+| 21 |            21 |       21_0 | COMPLETED      | Sobol             |   -0.367931 | 0.046572 | 0.242258 | 0.383929 | 0.004179 | 0.35902  | 0.225481 |
+| 22 |            22 |       22_0 | COMPLETED      | Sobol             |   -0.401503 | 0.374223 | 0.65533  | 0.642191 | 0.855832 | 0.115231 | 0.288703 |
+| 23 |            23 |       23_0 | COMPLETED      | Sobol             |   -0.042363 | 0.841368 | 0.456683 | 0.084146 | 0.393658 | 0.685695 | 0.785979 |
+| 24 |            24 |       24_0 | COMPLETED      | Sobol             |   -0.186436 | 0.753142 | 0.833972 | 0.699697 | 0.101298 | 0.125067 | 0.910604 |
+| 25 |            25 |       25_0 | COMPLETED      | RandomForest      |   -0.174394 | 0.294638 | 0.468995 | 0.362778 | 0.061355 | 0.616754 | 0.222458 |
+| 26 |            26 |       26_0 | COMPLETED      | RandomForest      |   -0.335569 | 0.545738 | 0.961468 | 0.608115 | 0.594414 | 0.72677  | 0.40122  |
+| 27 |            27 |       27_0 | COMPLETED      | RandomForest      |   -0.165952 | 0.320528 | 0.631298 | 0.086984 | 0.624487 | 0.680851 | 0.45281  |
+| 28 |            28 |       28_0 | COMPLETED      | RandomForest      |   -0.639432 | 0.342396 | 0.788628 | 0.375943 | 0.649368 | 0.966976 | 0.349599 |
+| 29 |            29 |       29_0 | COMPLETED      | RandomForest      |   -0.555802 | 0.265097 | 0.209879 | 0.719163 | 0.944777 | 0.232384 | 0.990446 |
+| 30 |            30 |       30_0 | COMPLETED      | RandomForest      |   -0.301655 | 0.303738 | 0.886219 | 0.285099 | 0.255885 | 0.232942 | 0.857062 |
+| 31 |            31 |       31_0 | COMPLETED      | RandomForest      |   -0.011464 | 0.94689  | 0.173079 | 0.906727 | 0.384467 | 0.778478 | 0.67982  |
+| 32 |            32 |       32_0 | COMPLETED      | RandomForest      |   -0.000869 | 0.535332 | 0.862968 | 0.437286 | 0.981774 | 0.825972 | 0.877281 |
+| 33 |            33 |       33_0 | COMPLETED      | RandomForest      |   -0.899768 | 0.936215 | 0.402414 | 0.87081  | 0.395688 | 0.187752 | 0.825496 |
+| 34 |            34 |       34_0 | COMPLETED      | RandomForest      |   -0.005353 | 0.933291 | 0.730686 | 0.866314 | 0.68405  | 0.83591  | 0.940357 |
+| 35 |            35 |       35_0 | COMPLETED      | RandomForest      |   -0.042808 | 0.112396 | 0.807628 | 0.037591 | 0.754317 | 0.8273   | 0.454229 |
+| 36 |            36 |       36_0 | COMPLETED      | RandomForest      |   -0.792571 | 0.196076 | 0.307557 | 0.302636 | 0.018102 | 0.479487 | 0.469769 |
+| 37 |            37 |       37_0 | COMPLETED      | RandomForest      |   -0.031174 | 0.347649 | 0.149602 | 0.645518 | 0.85633  | 0.923613 | 0.326613 |
+| 38 |            38 |       38_0 | COMPLETED      | RandomForest      |   -0.115877 | 0.68339  | 0.074327 | 0.049069 | 0.464025 | 0.657005 | 0.57807  |
+| 39 |            39 |       39_0 | COMPLETED      | RandomForest      |   -0.207687 | 0.240879 | 0.679505 | 0.61095  | 0.562589 | 0.813148 | 0.489995 |
+| 40 |            40 |       40_0 | COMPLETED      | RandomForest      |   -0.079412 | 0.722746 | 0.238497 | 0.774353 | 0.895019 | 0.517546 | 0.71913  |
+| 41 |            41 |       41_0 | COMPLETED      | RandomForest      |   -0.188873 | 0.042808 | 0.743723 | 0.932389 | 0.328019 | 0.328233 | 0.174039 |
+| 42 |            42 |       42_0 | COMPLETED      | RandomForest      |   -2.37794  | 0.299156 | 0.858737 | 0.111609 | 0.49106  | 0.359614 | 0.02376  |
+| 43 |            43 |       43_0 | COMPLETED      | RandomForest      |   -0.089627 | 0.431185 | 0.033766 | 0.854271 | 0.870792 | 0.326675 | 0.640922 |
+| 44 |            44 |       44_0 | COMPLETED      | RandomForest      |   -0.798916 | 0.657483 | 0.594847 | 0.611649 | 0.275783 | 0.284247 | 0.853916 |
+| 45 |            45 |       45_0 | COMPLETED      | RandomForest      |   -0.190079 | 0.592777 | 0.449665 | 0.755099 | 0.84362  | 0.35012  | 0.668315 |
+| 46 |            46 |       46_0 | COMPLETED      | RandomForest      |   -0.408697 | 0.530347 | 0.603592 | 0.853457 | 0.826163 | 0.343915 | 0.856664 |
+| 47 |            47 |       47_0 | COMPLETED      | RandomForest      |   -0.096122 | 0.737953 | 0.078356 | 0.029763 | 0.68886  | 0.076579 | 0.667418 |
+| 48 |            48 |       48_0 | COMPLETED      | RandomForest      |   -0.789798 | 0.353931 | 0.302558 | 0.691394 | 0.107314 | 0.526779 | 0.457082 |
+| 49 |            49 |       49_0 | COMPLETED      | RandomForest      |   -0.851166 | 0.261939 | 0.462077 | 0.560604 | 0.30227  | 0.585322 | 0.757213 |
+
+
+<CellOutput>
+{
+`[<ax.analysis.plotly.plotly_analysis.PlotlyAnalysisCard at 0x7fd9f77b8c20>,
+ <ax.core.analysis_card.AnalysisCard at 0x7fd9f77b8d70>]`
+}
+</CellOutput>
+

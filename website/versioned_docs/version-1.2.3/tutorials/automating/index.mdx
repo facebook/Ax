@@ -1,0 +1,600 @@
+---
+title: Automating Orchestration
+sidebar_label: Automating Orchestration
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/automating/automating.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/automating/automating.ipynb"
+/>
+
+# Automating Orchestration
+
+Previously, we've demonstrated [using Ax for ask-tell optimization](../getting_started),
+a paradigm in which we "ask" Ax for candidate configurations and "tell" Ax our
+observations. This can be effective in many scenerios, and it can be automated through
+use of flow control statements like `for` and `while` loops. However there are some
+situations where it would be beneficial to allow Ax to orchestrate the entire
+optimization: deploying trials to external systems, polling their status, and reading
+reading their results. This can be common in a number of real world engineering tasks,
+including:
+
+- **Large scale machine learning experiments** running workloads on high-performance
+  computing clusters
+- **A/B tests** conducted using an external experimentation platform
+- **Materials science** optimizations utilizing a self-driving laboratory
+
+Ax's `Client` can orchestrate automated adaptive experiments like this using its method
+`run_trials`. Users create custom classes which implement Ax's `IMetric` and `IRunner`
+protocols to handle data fetching and trial deployment respectively. Then, users simply
+configure their `Client` as they would normally and call `run_trials`; Ax will deploy
+trials, fetch data, generate candidates, and repeat as necessary. Ax can manage complex
+orchestration tasks including launching multiple trials in parallel while still
+respecting a user-defined concurrency limit, and gracefully handling trial failure by
+allowing the experiment to continue even if some trials do not complete successfully or
+data fetching fails.
+
+In this tutorial we will optimize the Hartmann6 function as before, but we will
+configure custom Runners and Metrics to mimic an external execution system. The Runner
+will calculate Hartmann6 with the appropriate parameters, write the result to a file,
+and tell Ax the trial is ready after 5 seconds. The Metric will find the appropriate
+file and report the results back to Ax.
+
+### Learning Objectives
+
+- Learn when it can be appropriate and/or advantageous to run Ax in a closed-loop
+- Configure custom Runners and Metrics, allowing Ax to deploy trials and fetch data
+  automatically
+- Understand tradeoffs between parallelism and optimization performance
+
+### Prerequisites
+
+- Understanding of [adaptive experimentation](../../intro-to-ae.mdx) and
+  [Bayesian optimization](../../intro-to-bo.mdx)
+- Familiarity with
+  [configuring and conducting experiments in Ax](../getting_started/index.mdx)
+
+## Step 1: Import Necessary Modules
+
+First, ensure you have all the necessary imports:
+
+```python
+import os
+import time
+from typing import Any, Mapping
+
+import numpy as np
+from ax.api.client import Client
+from ax.api.configs import RangeParameterConfig
+from ax.api.protocols.metric import IMetric
+from ax.api.protocols.runner import IRunner, TrialStatus
+from ax.api.types import TParameterization
+```
+
+# Step 2: Defining our custom Runner and Metric
+
+As stated before, we will be creating custom Runner and Metric classes to mimic an
+external system. Let's start by defining our Hartmann6 function as before.
+
+```python
+# Hartmann6 function
+def hartmann6(x1, x2, x3, x4, x5, x6):
+    alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    A = np.array([
+        [10, 3, 17, 3.5, 1.7, 8],
+        [0.05, 10, 17, 0.1, 8, 14],
+        [3, 3.5, 1.7, 10, 17, 8],
+        [17, 8, 0.05, 10, 0.1, 14]
+    ])
+    P = 10**-4 * np.array([
+        [1312, 1696, 5569, 124, 8283, 5886],
+        [2329, 4135, 8307, 3736, 1004, 9991],
+        [2348, 1451, 3522, 2883, 3047, 6650],
+        [4047, 8828, 8732, 5743, 1091, 381]
+    ])
+
+    outer = 0.0
+    for i in range(4):
+        inner = 0.0
+        for j, x in enumerate([x1, x2, x3, x4, x5, x6]):
+            inner += A[i, j] * (x - P[i, j])**2
+        outer += alpha[i] * np.exp(-inner)
+    return -outer
+
+hartmann6(0.1, 0.45, 0.8, 0.25, 0.552, 1.0)
+```
+
+<CellOutput>
+{
+`np.float64(-0.4878737485613134)`
+}
+</CellOutput>
+
+Next, we will define the `MockRunner`. The `MockRunner` requires two methods:
+`run_trial` and `poll_trial`.
+
+`run_trial` deploys a trial to the external system with the given parameters. In this
+case, we will simply save a file containing the result of a call to the Hartmann6
+function.
+
+`poll_trial` queries the external system to see if the trial has completed, failed, or
+if it's still running. In this mock example, we will check to see how many seconds have
+elapsed since the `run_trial` was called and only report a trial as completed once 5
+seconds have elapsed.
+
+Runner's may also optionally implement a `stop_trial` method to terminate a trial's
+execution before it has completed. This is necessary for using
+[early stopping](../early_stopping) in closed-loop experimentation, but we will skip
+this for now.
+
+```python
+class MockRunner(IRunner):
+    def run_trial(
+        self, trial_index: int, parameterization: TParameterization
+    ) -> dict[str, Any]:
+        file_name = f"{int(time.time())}.txt"
+
+        x1 = parameterization["x1"]
+        x2 = parameterization["x2"]
+        x3 = parameterization["x3"]
+        x4 = parameterization["x4"]
+        x5 = parameterization["x5"]
+        x6 = parameterization["x6"]
+
+        result = hartmann6(x1, x2, x3, x4, x5, x6)
+
+        with open(file_name, "w") as f:
+            f.write(f"{result}")
+
+        return {"file_name": file_name}
+
+    def poll_trial(
+        self, trial_index: int, trial_metadata: Mapping[str, Any]
+    ) -> TrialStatus:
+        file_name = trial_metadata["file_name"]
+        time_elapsed = time.time() - int(file_name[:4])
+
+        if time_elapsed < 5:
+            return TrialStatus.RUNNING
+
+        return TrialStatus.COMPLETED
+```
+
+It's worthwhile to instantiate your Runner and test it is behaving as expected. Let's
+deploy a mock trial by manually calling `run_trial` and ensuring it creates a file.
+
+```python
+runner = MockRunner()
+
+trial_metadata = runner.run_trial(
+    trial_index=-1,
+    parameterization={
+        "x1": 0.1,
+        "x2": 0.45,
+        "x3": 0.8,
+        "x4": 0.25,
+        "x5": 0.552,
+        "x6": 1.0,
+    },
+)
+
+os.path.exists(trial_metadata["file_name"])
+```
+
+<CellOutput>
+{
+`True`
+}
+</CellOutput>
+
+Now, we will implement the Metric. Metrics only need to implement a `fetch` method,
+which returns a progression value (i.e. a step in a timeseries) and an observation
+value. Note that the observation can either be a simple float or a (mean, SEM) pair if
+the external system can report observed noise.
+
+In this case, we have neither a relevant progression value nor observed noise so we will
+simply read the file and report `(0, value)`.
+
+```python
+class MockMetric(IMetric):
+    def fetch(
+        self,
+        trial_index: int,
+        trial_metadata: Mapping[str, Any],
+    ) -> tuple[int, float | tuple[float, float]]:
+        file_name = trial_metadata["file_name"]
+
+        with open(file_name, 'r') as file:
+            value = float(file.readline())
+            return (0, value)
+```
+
+Again, let's validate the Metric created above by instantiating it and reporting the
+value from the file generated during testing of the Runner.
+
+```python
+# Note: all Metrics must have a name. This will become relevant when attaching metrics to the Client
+hartmann6_metric = MockMetric(name="hartmann6")
+
+hartmann6_metric.fetch(trial_index=-1, trial_metadata=trial_metadata)
+```
+
+<CellOutput>
+{
+`(0, -0.4878737485613134)`
+}
+</CellOutput>
+
+## Step 3: Initialize the Client and Configure the Experiment
+
+Finally, we can initialize the `Client` and configure the experiment as before. This
+will be familiar to readers of the
+[Getting Started with Ax tutorial](../getting_started) -- the only difference is we will
+attach the previously defined Runner and Metric by calling `configure_runner` and
+`configure_metrics` respectively.
+
+Note that when initializing `hartmann6_metric` we set `name=hartmann6`, matching the
+objective we now set in `configure_optimization`. The `configure_metrics` method uses
+this name to ensure that data fetched by this Metric is used correctly during the
+experiment. Be careful to correctly set the name of the Metric to reflect its use as an
+objective or outcome constraint.
+
+```python
+client = Client()
+# Define six float parameters for the Hartmann6 function
+parameters = [
+    RangeParameterConfig(name=f"x{i + 1}", parameter_type="float", bounds=(0, 1))
+    for i in range(6)
+]
+
+client.configure_experiment(
+    parameters=parameters,
+    # The following arguments are only necessary when saving to the DB
+    name="hartmann6_experiment",
+    description="Optimization of the Hartmann6 function",
+    owner="developer",
+)
+client.configure_optimization(objective="-hartmann6")
+```
+
+```python
+client.configure_runner(runner=runner)
+client.configure_metrics(metrics=[hartmann6_metric])
+```
+
+## Step 5: Run trials
+
+Once the `Client` has been configured, we can begin running trials.
+
+Internally, Ax uses a class named `Scheduler` to orchestrate the trial deployment,
+polling, data fetching, and candidate generation.
+
+![Scheduler state machine](assets/img/scheduler_state_machine.png)
+
+The `run_trials` method provides users with control over various orchestration settings
+as well as the total maximum number of trials to evaluate:
+
+- `parallelism` defines the maximum number of trials that may be run at once. If your
+  external system supports multiple evaluations in parallel, increasing this number can
+  significantly decrease experimentation time. However, it is important to note that as
+  parallelism increases, optimiztion performance often decreases. This is because
+  adaptive experimentation methods rely on previously observed data for candidate
+  generation -- the more tirals that have been observed prior to generation of a new
+  candidate, the more accurate Ax's model will be for generation of that candidate.
+- `tolerated_trial_failure_rate` sets the proportion of trials are allowed to fail
+  before Ax raises an Exception. Depending on how expensive a single trial is to
+  evaluate or how unreliable trials are expected to be, the experimenter may want to be
+  notified as soon as a single trial fails or they may not care until more than half the
+  trials are failing. Set this value as is appropriate for your context.
+- `initial_seconds_between_polls` sets the frequency at which the status of a trial is
+  checked and the results are attempted to be fetched. Set this to be low for trials
+  that are expected to complete quickly or high for trials the are expected to take a
+  long time.
+
+```python
+client.run_trials(
+    max_trials=30,
+    parallelism=3,
+    tolerated_trial_failure_rate=0.1,
+    initial_seconds_between_polls=1,
+)
+```
+
+<CellOutput>
+{
+`[INFO 02-19 18:53:48] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, generator_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')], suggested_experiment_status=ExperimentStatus.INITIALIZATION), GenerationNode(name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, generator_key_override=None)], transition_criteria=[], suggested_experiment_status=ExperimentStatus.OPTIMIZATION)]) chosen based on user input and problem structure.
+[INFO 02-19 18:53:48] Orchestrator: Orchestrator requires experiment to have immutable search space and optimization config. Setting property immutable_search_space_and_opt_config to True on experiment.
+[INFO 02-19 18:53:48] Orchestrator: Running trials [0]...
+[INFO 02-19 18:53:49] Orchestrator: Running trials [1]...
+[INFO 02-19 18:53:50] Orchestrator: Running trials [2]...
+[INFO 02-19 18:53:51] Orchestrator: Retrieved COMPLETED trials: 0 - 2.
+[INFO 02-19 18:53:51] Orchestrator: Running trials [3]...
+[INFO 02-19 18:53:53] Orchestrator: Running trials [4]...
+[INFO 02-19 18:53:54] Orchestrator: Running trials [5]...
+[INFO 02-19 18:53:55] Orchestrator: Retrieved COMPLETED trials: 3 - 5.
+[INFO 02-19 18:53:55] Orchestrator: Running trials [6]...
+[INFO 02-19 18:53:57] Orchestrator: Running trials [7]...
+[INFO 02-19 18:53:58] Orchestrator: Running trials [8]...
+[INFO 02-19 18:53:59] Orchestrator: Retrieved COMPLETED trials: 6 - 8.
+[INFO 02-19 18:54:00] Orchestrator: Running trials [9]...
+[INFO 02-19 18:54:01] Orchestrator: Running trials [10]...
+[INFO 02-19 18:54:02] Orchestrator: Running trials [11]...
+[INFO 02-19 18:54:03] Orchestrator: Retrieved COMPLETED trials: 9 - 11.
+[INFO 02-19 18:54:04] Orchestrator: Running trials [12]...
+[INFO 02-19 18:54:05] Orchestrator: Running trials [13]...
+[INFO 02-19 18:54:06] Orchestrator: Running trials [14]...
+[INFO 02-19 18:54:07] Orchestrator: Retrieved COMPLETED trials: 12 - 14.
+[INFO 02-19 18:54:08] Orchestrator: Running trials [15]...
+[INFO 02-19 18:54:09] Orchestrator: Running trials [16]...
+[INFO 02-19 18:54:11] Orchestrator: Running trials [17]...
+[INFO 02-19 18:54:12] Orchestrator: Retrieved COMPLETED trials: 15 - 17.
+[INFO 02-19 18:54:13] Orchestrator: Running trials [18]...
+[INFO 02-19 18:54:14] Orchestrator: Running trials [19]...
+[INFO 02-19 18:54:15] Orchestrator: Running trials [20]...
+[INFO 02-19 18:54:16] Orchestrator: Retrieved COMPLETED trials: 18 - 20.
+[INFO 02-19 18:54:17] Orchestrator: Running trials [21]...
+[INFO 02-19 18:54:18] Orchestrator: Running trials [22]...
+[INFO 02-19 18:54:20] Orchestrator: Running trials [23]...
+[INFO 02-19 18:54:21] Orchestrator: Retrieved COMPLETED trials: 21 - 23.
+[INFO 02-19 18:54:22] Orchestrator: Running trials [24]...
+[INFO 02-19 18:54:24] Orchestrator: Running trials [25]...
+[INFO 02-19 18:54:25] Orchestrator: Running trials [26]...
+[INFO 02-19 18:54:26] Orchestrator: Retrieved COMPLETED trials: 24 - 26.
+[INFO 02-19 18:54:27] Orchestrator: Running trials [27]...
+[INFO 02-19 18:54:28] Orchestrator: Running trials [28]...
+[INFO 02-19 18:54:30] Orchestrator: Running trials [29]...
+[INFO 02-19 18:54:31] Orchestrator: Retrieved COMPLETED trials: 27 - 29.`
+}
+</CellOutput>
+
+## Step 6: Analyze Results
+
+As before, Ax can compute the best parameterization observed and produce a number of
+analyses to help interpret the results of the experiment.
+
+It is also worth noting that the experiment can be resumed at any time using Ax's
+storage functionality. When configured to use a SQL databse, the `Client` saves a
+snapshot of itself at various points throughout the call to `run_trials`, making it
+incredibly easy to continue optimization after an unexpected failure. You can learn more
+about storage in Ax [here](../../recipes/experiment-to-json).
+
+```python
+best_parameters, prediction, index, name = client.get_best_parameterization()
+print("Best Parameters:", best_parameters)
+print("Prediction (mean, variance):", prediction)
+```
+
+<CellOutput>
+{
+`Best Parameters: {'x1': 0.3834419539684001, 'x2': 0.9270519438480797, 'x3': 0.0, 'x4': 0.5635347666117405, 'x5': 0.0, 'x6': 0.04000283942664559}
+Prediction (mean, variance): {'hartmann6': (np.float64(-2.9807363645625635), np.float64(0.0018312459007199652))}`
+}
+</CellOutput>
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Modeled Arm Effects on hartmann6**
+
+Modeled effects on hartmann6. This plot visualizes predictions of the true metric
+changes for each arm based on Ax's model. This is the expected delta you would expect if
+you (re-)ran that arm. This plot helps in anticipating the outcomes and performance of
+arms based on the model's predictions. Note, flat predictions across arms indicate that
+the model predicts that there is no effect, meaning if you were to re-run the
+experiment, the delta you would see would be small and fall within the confidence
+interval indicated in the plot.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/81300efc-911d-4e8e-a078-eb2261a5b2b4.json')} />
+
+
+**Observed Arm Effects on hartmann6**
+
+Observed effects on hartmann6. This plot visualizes the effects from previously-run arms
+on a specific metric, providing insights into their performance. This plot allows one to
+compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/b32a2793-9834-4cb1-a243-7d2f28d61f92.json')} />
+
+
+**Utility Progression**
+
+Shows the best hartmann6 value achieved so far across completed trials (objective is to
+minimize). The x-axis shows trace index, which counts completed or early-stopped trials
+sequentially (1, 2, 3, ...). This differs from trial index, which may have gaps if some
+trials failed or were abandoned. For example, if trials 0, 2, and 5 completed while
+trials 1, 3, and 4 failed, the trace indices would be 1, 2, 3 corresponding to trial
+indices 0, 2, 5. The y-axis shows cumulative best utility. Only improvements are
+plotted, so flat segments indicate trials that didn't surpass the previous best.
+Infeasible trials (violating outcome constraints) don't contribute to the improvements.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/2539621b-f7b6-4b1f-a194-d96b5364b515.json')} />
+
+
+**hartmann6 by progression**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/35210f4e-ac85-47c4-997e-32a1a475fd39.json')} />
+
+
+**hartmann6 by wallclock time**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/31b787f7-26ae-40a1-bfd0-ca9332901be7.json')} />
+
+
+**Best Trial for Experiment**
+
+Displays the trial with the best objective value based on raw observations. This
+reflects actual measured performance during execution. This trial achieved the optimal
+objective value and represents the recommended configuration for your optimization goal.
+Only considering COMPLETED trials.
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node   |   hartmann6 |       x1 |       x2 |      x3 |       x4 |   x5 |       x6 |
+|---:|--------------:|-----------:|:---------------|:------------------|------------:|---------:|---------:|--------:|---------:|-----:|---------:|
+|  0 |            28 |       28_0 | COMPLETED      | MBM               |    -3.12764 | 0.402945 | 0.853415 | 0.44303 | 0.594095 |    0 | 0.025458 |
+
+
+**Summary for hartmann6_experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node     |   hartmann6 |       x1 |       x2 |       x3 |       x4 |       x5 |       x6 |
+|---:|--------------:|-----------:|:---------------|:--------------------|------------:|---------:|---------:|---------:|---------:|---------:|---------:|
+|  0 |             0 |        0_0 | COMPLETED      | CenterOfSearchSpace |   -0.505315 | 0.5      | 0.5      | 0.5      | 0.5      | 0.5      | 0.5      |
+|  1 |             1 |        1_0 | COMPLETED      | Sobol               |   -0.085096 | 0.002884 | 0.283392 | 0.898421 | 0.006816 | 0.870794 | 0.396691 |
+|  2 |             2 |        2_0 | COMPLETED      | Sobol               |   -0.023578 | 0.736747 | 0.660794 | 0.418363 | 0.988986 | 0.268685 | 0.854858 |
+|  3 |             3 |        3_0 | COMPLETED      | Sobol               |   -0.301551 | 0.857592 | 0.127051 | 0.599427 | 0.496204 | 0.139567 | 0.521518 |
+|  4 |             4 |        4_0 | COMPLETED      | Sobol               |   -1.5145   | 0.404979 | 0.754455 | 0.092089 | 0.514034 | 0.725073 | 0.229863 |
+|  5 |             5 |        5_0 | COMPLETED      | MBM                 |   -0.33081  | 0.348251 | 0.653731 | 0.755007 | 0.471379 | 0.546822 | 0.68483  |
+|  6 |             6 |        6_0 | COMPLETED      | MBM                 |   -2.23102  | 0.334523 | 0.982717 | 0        | 0.482879 | 0.852192 | 0.076104 |
+|  7 |             7 |        7_0 | COMPLETED      | MBM                 |   -0.117012 | 0.355835 | 0.276308 | 0        | 0.596927 | 0.851439 | 0.167696 |
+|  8 |             8 |        8_0 | COMPLETED      | MBM                 |   -0.37814  | 0.506693 | 1        | 0        | 0.223555 | 0.473209 | 0.250025 |
+|  9 |             9 |        9_0 | COMPLETED      | MBM                 |   -0.318189 | 0.66355  | 0.995186 | 0        | 0.882541 | 0.881064 | 0        |
+| 10 |            10 |       10_0 | COMPLETED      | MBM                 |   -0.017497 | 0        | 0.987118 | 0        | 0.102806 | 0.876067 | 0        |
+| 11 |            11 |       11_0 | COMPLETED      | MBM                 |   -0.025825 | 0        | 1        | 0        | 1        | 0.849327 | 0        |
+| 12 |            12 |       12_0 | COMPLETED      | MBM                 |   -0.359193 | 0.734813 | 1        | 0        | 0.481147 | 1        | 0        |
+| 13 |            13 |       13_0 | COMPLETED      | MBM                 |   -0.148241 | 0        | 1        | 0        | 0.482327 | 0.71118  | 0        |
+| 14 |            14 |       14_0 | COMPLETED      | MBM                 |   -0.134748 | 0        | 1        | 0        | 0.457841 | 1        | 0        |
+| 15 |            15 |       15_0 | COMPLETED      | MBM                 |   -0.405785 | 0.32241  | 0.911064 | 0.076516 | 1        | 1        | 4.3e-05  |
+| 16 |            16 |       16_0 | COMPLETED      | MBM                 |   -0.049625 | 0.320071 | 0.951932 | 0        | 0        | 0.677872 | 0.261507 |
+| 17 |            17 |       17_0 | COMPLETED      | MBM                 |   -0.10206  | 0.334291 | 0.944301 | 0        | 0        | 0.202268 | 0        |
+| 18 |            18 |       18_0 | COMPLETED      | MBM                 |   -2.29355  | 0.336718 | 1        | 0        | 0.548255 | 1        | 0        |
+| 19 |            19 |       19_0 | COMPLETED      | MBM                 |   -0.87688  | 0.323654 | 1        | 0        | 0.492037 | 0        | 0.302141 |
+| 20 |            20 |       20_0 | COMPLETED      | MBM                 |   -2.0547   | 0.323859 | 1        | 0.137292 | 0.476665 | 1        | 0        |
+| 21 |            21 |       21_0 | COMPLETED      | MBM                 |   -2.31266  | 0.326496 | 1        | 0        | 0.570865 | 0.832576 | 0        |
+| 22 |            22 |       22_0 | COMPLETED      | MBM                 |   -2.11031  | 0.342048 | 1        | 0.159556 | 0.467241 | 1        | 0        |
+| 23 |            23 |       23_0 | COMPLETED      | MBM                 |   -0.918717 | 0.331438 | 1        | 0        | 0.519364 | 1        | 0.291537 |
+| 24 |            24 |       24_0 | COMPLETED      | MBM                 |   -3.00314  | 0.383442 | 0.927052 | 0        | 0.563535 | 0        | 0.040003 |
+| 25 |            25 |       25_0 | COMPLETED      | MBM                 |   -2.74214  | 0.391543 | 1        | 0        | 0.577788 | 0        | 0.051267 |
+| 26 |            26 |       26_0 | COMPLETED      | MBM                 |   -2.7268   | 0.366525 | 0.849598 | 0        | 0.550778 | 1        | 0.022498 |
+| 27 |            27 |       27_0 | COMPLETED      | MBM                 |   -3.00786  | 0.412311 | 0.852071 | 0        | 0.567598 | 0        | 0.006481 |
+| 28 |            28 |       28_0 | COMPLETED      | MBM                 |   -3.12764  | 0.402945 | 0.853415 | 0.44303  | 0.594095 | 0        | 0.025458 |
+| 29 |            29 |       29_0 | COMPLETED      | MBM                 |   -2.82725  | 0.424183 | 0.833496 | 0        | 0.511973 | 0        | 0        |
+
+
+**Sensitivity Analysis for hartmann6**
+
+Understand how each parameter affects hartmann6 according to a second-order sensitivity
+analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/85e3acdc-20db-4a1f-81f7-025593076285.json')} />
+
+
+**hartmann6 vs. x1**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their best
+trial value (Arm 24_0). This visualization helps in understanding the sensitivity and
+impact of changes in the selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/ad7a944a-00d8-4f03-bcf4-4888fe33fd06.json')} />
+
+
+**hartmann6 (Mean) vs. x2, x6**
+
+The contour plot visualizes the predicted outcomes for hartmann6 across a
+two-dimensional parameter space, with other parameters held fixed at their best trial
+value (Arm 24_0). This plot helps in identifying regions of optimal performance and
+understanding how changes in the selected parameters influence the predicted outcomes.
+Contour lines represent levels of constant predicted values, providing insights into the
+gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/4c1f6b1d-5291-4e2b-807a-80c6fd66d87f.json')} />
+
+
+**hartmann6 (Mean) vs. x1, x6**
+
+The contour plot visualizes the predicted outcomes for hartmann6 across a
+two-dimensional parameter space, with other parameters held fixed at their best trial
+value (Arm 24_0). This plot helps in identifying regions of optimal performance and
+understanding how changes in the selected parameters influence the predicted outcomes.
+Contour lines represent levels of constant predicted values, providing insights into the
+gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/78bf5b0d-46fa-4298-b3ef-1c7d3b822f6f.json')} />
+
+
+**Cross Validation for hartmann6**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/2cca7c58-6f07-4218-a9b4-aaf4d41c5929.json')} />
+
+
+**Generation Strategy Graph**
+
+GenerationStrategy: Center+Sobol+MBM:fast
+
+Visualize the structure of a GenerationStrategy as a directed graph. Each node
+represents a GenerationNode in the strategy, and edges represent transitions between
+nodes based on TransitionCriterion. Edge labels show the criterion class names that
+trigger the transition.
+
+
+
+
+|    | node_name           | generators   | transitions                        | is_current   |
+|---:|:--------------------|:-------------|:-----------------------------------|:-------------|
+|  0 | CenterOfSearchSpace | nan          | -> Sobol: AutoTransitionAfterGen   | False        |
+|  1 | Sobol               | Sobol        | -> MBM: MinTrials(5), MinTrials(2) | False        |
+|  2 | MBM                 | BoTorch      | nan                                | True         |
+
+## Conclusion
+
+This tutorial demonstrates how to use Ax's `Client` for closed-loop optimization using
+the Hartmann6 function as an example. This style of optimization is useful in scenarios
+where trials are evaluated on some external system or when experimenters wish to take
+advantage of parallel evaluation, trial failure handling, or simply to manage
+long-running optimization tasks without human intervention. You can define your own
+Runner and Metric classes to communicate with whatever external systems you wish to
+interface with, and control optimization using the `OrchestrationConfig`.
+

@@ -1,0 +1,1387 @@
+---
+title: Trial-level Early Stopping
+sidebar_label: Trial-level Early Stopping
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/early_stopping/early_stopping.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/early_stopping/early_stopping.ipynb"
+/>
+
+# Trial-level early stopping
+
+Trial-level early stopping aims to monitor the results of expensive evaluations with
+timeseries-like data and terminate those that are unlikely to produce promising results
+prior to completing that evaluation. This reduces computational waste, and enables the
+same amount of resources to explore more configurations. Early stopping is useful for
+expensive to evaluate problems where stepwise information is available on the way to the
+final measurement.
+
+Like the [Getting Started tutorial](../getting_started) we'll be minimizing the
+Hartmann6 function, but this time we've modified it to incorporate a new parameter $t$
+which allows the function to produce timeseries-like data where the value returned is
+closer and closer to Hartmann6's true value as $t$ increases. At $t = 100$ the function
+will simply return Hartmann6's unaltered value.
+
+$$
+
+f(x, t) = hartmann6(x) - log_2(t/100)
+
+$$
+
+While the function is synthetic, the workflow captures the intended principles for this
+tutorial and is similar to the process of training typical machine learning models.
+
+## Learning Objectives
+
+- Understand when time-series-like data can be used in an optimization experiment
+- Run a simple optimization experiment with early stopping
+- Configure details of an early stopping strategy
+- Analyze the results of the optimization
+
+## Prerequisites
+
+- Familiarity with Python and basic programming concepts
+- Understanding of [adaptive experimentation](../../intro-to-ae.mdx) and
+  [Bayesian optimization](../../intro-to-bo.mdx)
+- [Getting Started with Ax](../getting_started/index.mdx)
+
+## Step 1: Import Necessary Modules
+
+First, ensure you have all the necessary imports:
+
+```python
+import numpy as np
+from ax.api.client import Client
+from ax.api.configs import  RangeParameterConfig
+```
+
+## Step 2: Initialize the Client
+
+Create an instance of the `Client` to manage the state of your experiment.
+
+```python
+client = Client()
+```
+
+## Step 3: Configure the Experiment
+
+The `Client` instance can be configured with a series of `Config`s that define how the
+experiment will be run.
+
+The Hartmann6 problem is usually evaluated on the hypercube $x_i \in (0, 1)$, so we will
+define six identical `RangeParameterConfig`s with these bounds.
+
+You may specify additional features like parameter constraints to further refine the
+search space and parameter scaling to help navigate parameters with nonuniform effects.
+
+```python
+# Define six float parameters for the Hartmann6 function
+parameters = [
+    RangeParameterConfig(
+        name=f"x{i + 1}", parameter_type="float", bounds=(0, 1)
+    )
+    for i in range(6)
+]
+
+client.configure_experiment(parameters=parameters)
+```
+
+## Step 4: Configure Optimization
+
+Now, we must configure the objective for this optimization, which we do using
+`Client.configure_optimization`. This method expects a string `objective`, an expression
+containing either a single metric to maximize, a linear combination of metrics to
+maximize, or a tuple of multiple metrics to jointly maximize. These expressions are
+parsed using [SymPy](https://www.sympy.org/en/index.html). For example:
+
+- `"score"` would direct Ax to maximize a metric named score
+- `"-loss"` would direct Ax to Ax to minimize a metric named loss
+- `"task_0 + 0.5 * task_1"` would direct Ax to maximize the sum of two task scores,
+  downweighting task_1 by a factor of 0.5
+- `"score, -flops"` would direct Ax to simultaneously maximize score while minimizing
+  flops
+
+See these recipes for more information on configuring
+[objectives](../../recipes/multi-objective-optimization) and
+[outcome constraints](../../recipes/outcome-constraints).
+
+```python
+client.configure_optimization(objective="-hartmann6")
+```
+
+## Step 5: Run Trials with early stopping
+
+Here, we will configure the ask-tell loop.
+
+We begin by defining our Hartmann6 function as written above. Remember, this is just an
+example problem and any Python function can be substituted here.
+
+Then we will iteratively do the following:
+
+- Call `client.get_next_trials` to "ask" Ax for a parameterization to evaluate
+- Evaluate `hartmann6_curve` using those parameters in an inner loop to simulate the
+  generation of timeseries data
+- "Tell" Ax the partial result using `client.attach_data`
+- Query whether the trial should be stopped via `client.should_stop_trial_early`
+- Stop the underperforming trial and report back to Ax that is has been stopped
+
+This loop will run multiple trials to optimize the function.
+
+Ax will configure an EarlyStoppingStrategy when `should_stop_trial_early` is called for
+the first time. By default Ax uses a Percentile early stopping strategy which will
+terminate a trial early if its performance falls below a percentile threshold when
+compared to other trials at the same step. Early stopping can only occur after a minimum
+number of `progressions` to prevent premature early stopping. This validates that both
+enough data is gathered to make a decision and there is a minimum number of completed
+trials with curve data; these completed trials establish a baseline.
+
+```python
+# Hartmann6 function
+def hartmann6(x1, x2, x3, x4, x5, x6):
+    alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    A = np.array(
+        [
+            [10, 3, 17, 3.5, 1.7, 8],
+            [0.05, 10, 17, 0.1, 8, 14],
+            [3, 3.5, 1.7, 10, 17, 8],
+            [17, 8, 0.05, 10, 0.1, 14],
+        ]
+    )
+    P = 10**-4 * np.array(
+        [
+            [1312, 1696, 5569, 124, 8283, 5886],
+            [2329, 4135, 8307, 3736, 1004, 9991],
+            [2348, 1451, 3522, 2883, 3047, 6650],
+            [4047, 8828, 8732, 5743, 1091, 381],
+        ]
+    )
+
+    outer = 0.0
+    for i in range(4):
+        inner = 0.0
+        for j, x in enumerate([x1, x2, x3, x4, x5, x6]):
+            inner += A[i, j] * (x - P[i, j]) ** 2
+        outer += alpha[i] * np.exp(-inner)
+    return -outer
+
+
+# Hartmann6 function with additional t term such that
+# hartmann6(X) == hartmann6_curve(X, t=100)
+def hartmann6_curve(x1, x2, x3, x4, x5, x6, t):
+    return hartmann6(x1, x2, x3, x4, x5, x6) - np.log2(t / 100)
+
+
+(
+    hartmann6(0.1, 0.45, 0.8, 0.25, 0.552, 1.0),
+    hartmann6_curve(0.1, 0.45, 0.8, 0.25, 0.552, 1.0, 100),
+)
+```
+
+<CellOutput>
+{
+`(np.float64(-0.4878737485613134), np.float64(-0.4878737485613134))`
+}
+</CellOutput>
+
+```python
+maximum_progressions = 100  # Observe hartmann6_curve over 100 progressions
+
+for _ in range(30):  # Run 30 rounds of trials
+    trials = client.get_next_trials(max_trials=3)
+    for trial_index, parameters in trials.items():
+        for t in range(1, maximum_progressions + 1):
+            raw_data = {"hartmann6": hartmann6_curve(t=t, **parameters)}
+
+            # On the final reading call complete_trial and break, else call attach_data
+            if t == maximum_progressions:
+                client.complete_trial(
+                    trial_index=trial_index, raw_data=raw_data, progression=t
+                )
+                break
+
+            client.attach_data(
+                trial_index=trial_index, raw_data=raw_data, progression=t
+            )
+
+            # If the trial is underperforming, stop it
+            if client.should_stop_trial_early(trial_index=trial_index):
+                client.mark_trial_early_stopped(trial_index=trial_index)
+                break
+```
+
+<CellOutput>
+{
+`[INFO 02-19 18:54:40] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, generator_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')], suggested_experiment_status=ExperimentStatus.INITIALIZATION), GenerationNode(name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, generator_key_override=None)], transition_criteria=[], suggested_experiment_status=ExperimentStatus.OPTIMIZATION)]) chosen based on user input and problem structure.
+[INFO 02-19 18:54:40] ax.api.client: Generated new trial 0 with parameters {'x1': 0.5, 'x2': 0.5, 'x3': 0.5, 'x4': 0.5, 'x5': 0.5, 'x6': 0.5} using GenerationNode CenterOfSearchSpace.
+[INFO 02-19 18:54:40] ax.api.client: Generated new trial 1 with parameters {'x1': 0.087093, 'x2': 0.642716, 'x3': 0.212615, 'x4': 0.036519, 'x5': 0.287978, 'x6': 0.961783} using GenerationNode Sobol.
+[INFO 02-19 18:54:40] ax.api.client: Generated new trial 2 with parameters {'x1': 0.891071, 'x2': 0.042894, 'x3': 0.57273, 'x4': 0.64619, 'x5': 0.724485, 'x6': 0.427336} using GenerationNode Sobol.
+[INFO 02-19 18:54:44] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 02-19 18:54:47] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 02-19 18:54:51] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 02-19 18:54:51] ax.api.client: Generated new trial 3 with parameters {'x1': 0.661616, 'x2': 0.919112, 'x3': 0.423247, 'x4': 0.358336, 'x5': 0.885311, 'x6': 0.032318} using GenerationNode Sobol.
+[INFO 02-19 18:54:51] ax.api.client: Generated new trial 4 with parameters {'x1': 0.355611, 'x2': 0.2704, 'x3': 0.783852, 'x4': 0.967011, 'x5': 0.071969, 'x6': 0.574577} using GenerationNode Sobol.
+[WARNING 02-19 18:54:51] ax.api.client: 3 trials requested but only 2 could be generated.
+[INFO 02-19 18:54:55] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 02-19 18:54:59] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 02-19 18:55:00] ax.api.client: Generated new trial 5 with parameters {'x1': 0.492013, 'x2': 0.81011, 'x3': 0.4867, 'x4': 0.453562, 'x5': 0.60293, 'x6': 0.331494} using GenerationNode MBM.
+[WARNING 02-19 18:55:00] ax.api.client: 3 trials requested but only 1 could be generated.
+[INFO 02-19 18:55:05] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 02-19 18:55:06] ax.api.client: Generated new trial 6 with parameters {'x1': 0.695466, 'x2': 0.933844, 'x3': 0.579906, 'x4': 0.521747, 'x5': 0.727278, 'x6': 0.631015} using GenerationNode MBM.
+[INFO 02-19 18:55:06] ax.api.client: Generated new trial 7 with parameters {'x1': 0.132973, 'x2': 0.833376, 'x3': 0.465574, 'x4': 0.479244, 'x5': 0.297511, 'x6': 0.106196} using GenerationNode MBM.
+[INFO 02-19 18:55:06] ax.api.client: Generated new trial 8 with parameters {'x1': 0.197468, 'x2': 0.844407, 'x3': 0.282511, 'x4': 0.641537, 'x5': 0.902944, 'x6': 0.393699} using GenerationNode MBM.
+[INFO 02-19 18:55:06] ax.api.client: Trial 6 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3093675192635055]
+- Thresholds: [3.009616067989326]
+- Number of trials: [7]
+- Trial indices: [[0, 3, 5, 4, 1, 6, 2]]
+[INFO 02-19 18:55:06] ax.api.client: Trial 6 marked EARLY_STOPPED.
+[INFO 02-19 18:55:11] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 02-19 18:55:12] ax.api.client: Trial 8 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.080467213942904]
+- Thresholds: [3.009616067989326]
+- Number of trials: [9]
+- Trial indices: [[4, 0, 3, 2, 7, 5, 1, 6, 8]]
+[INFO 02-19 18:55:12] ax.api.client: Trial 8 marked EARLY_STOPPED.
+[INFO 02-19 18:55:13] ax.api.client: Generated new trial 9 with parameters {'x1': 0.247613, 'x2': 1.0, 'x3': 1.0, 'x4': 0.448082, 'x5': 0.0, 'x6': 0.109017} using GenerationNode MBM.
+[INFO 02-19 18:55:13] ax.api.client: Generated new trial 10 with parameters {'x1': 0.605147, 'x2': 1.0, 'x3': 0.0, 'x4': 0.671211, 'x5': 0.0, 'x6': 0.202575} using GenerationNode MBM.
+[INFO 02-19 18:55:13] ax.api.client: Generated new trial 11 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.654023, 'x5': 0.66123, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:18] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 02-19 18:55:23] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 02-19 18:55:24] ax.api.client: Trial 11 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.1639540426020987]
+- Thresholds: [2.913114585587228]
+- Number of trials: [12]
+- Trial indices: [[6, 3, 8, 5, 1, 2, 4, 9, 7, 10, 11, 0]]
+[INFO 02-19 18:55:24] ax.api.client: Trial 11 marked EARLY_STOPPED.
+[INFO 02-19 18:55:25] ax.api.client: Generated new trial 12 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.306248, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:25] ax.api.client: Generated new trial 13 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.450151, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:25] ax.api.client: Generated new trial 14 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:26] ax.api.client: Trial 12 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3185046667232805]
+- Thresholds: [3.009616067989326]
+- Number of trials: [13]
+- Trial indices: [[0, 11, 3, 7, 1, 10, 9, 6, 4, 2, 8, 5, 12]]
+[INFO 02-19 18:55:26] ax.api.client: Trial 12 marked EARLY_STOPPED.
+[INFO 02-19 18:55:26] ax.api.client: Trial 13 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.299491705644638]
+- Thresholds: [3.045041640966115]
+- Number of trials: [14]
+- Trial indices: [[0, 12, 4, 6, 1, 10, 5, 3, 7, 9, 8, 13, 11, 2]]
+[INFO 02-19 18:55:26] ax.api.client: Trial 13 marked EARLY_STOPPED.
+[INFO 02-19 18:55:27] ax.api.client: Trial 14 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3216260961853656]
+- Thresholds: [3.080467213942904]
+- Number of trials: [15]
+- Trial indices: [[12, 13, 0, 11, 4, 10, 5, 1, 9, 3, 8, 14, 2, 7, 6]]
+[INFO 02-19 18:55:27] ax.api.client: Trial 14 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:28] ax.api.client: Generated new trial 15 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:28] ax.api.client: Generated new trial 16 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:28] ax.api.client: Generated new trial 17 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:29] ax.api.client: Trial 15 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3208199456643097]
+- Thresholds: [3.1222106282725015]
+- Number of trials: [16]
+- Trial indices: [[13, 14, 0, 6, 1, 3, 11, 12, 10, 4, 8, 5, 7, 15, 9, 2]]
+[INFO 02-19 18:55:29] ax.api.client: Trial 15 marked EARLY_STOPPED.
+[INFO 02-19 18:55:29] ax.api.client: Trial 16 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3009534184327247]
+- Thresholds: [3.1639540426020987]
+- Number of trials: [17]
+- Trial indices: [[0, 14, 15, 13, 11, 12, 1, 5, 6, 7, 4, 3, 2, 8, 9, 10, 16]]
+[INFO 02-19 18:55:29] ax.api.client: Trial 16 marked EARLY_STOPPED.
+[INFO 02-19 18:55:30] ax.api.client: Trial 17 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.301555467810899]
+- Thresholds: [3.200853592258324]
+- Number of trials: [18]
+- Trial indices: [[0, 15, 16, 14, 12, 13, 11, 1, 3, 9, 7, 6, 8, 2, 10, 4, 5, 17]]
+[INFO 02-19 18:55:30] ax.api.client: Trial 17 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:31] ax.api.client: Generated new trial 18 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:31] ax.api.client: Generated new trial 19 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:31] ax.api.client: Generated new trial 20 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:31] ax.api.client: Trial 18 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.293640659042003]
+- Thresholds: [3.2377531419145495]
+- Number of trials: [19]
+- Trial indices: [[0, 16, 17, 15, 13, 11, 1, 14, 5, 6, 7, 4, 12, 3, 9, 8, 10, 2, 18]]
+[INFO 02-19 18:55:32] ax.api.client: Trial 18 marked EARLY_STOPPED.
+[INFO 02-19 18:55:32] ax.api.client: Trial 19 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.300324681634375]
+- Thresholds: [3.265696900478276]
+- Number of trials: [20]
+- Trial indices: [[0, 6, 16, 3, 15, 12, 13, 14, 11, 10, 8, 9, 5, 7, 1, 4, 18, 17, 2, 19]]
+[INFO 02-19 18:55:32] ax.api.client: Trial 19 marked EARLY_STOPPED.
+[INFO 02-19 18:55:33] ax.api.client: Trial 20 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.315202943497908]
+- Thresholds: [3.293640659042003]
+- Number of trials: [21]
+- Trial indices: [[15, 0, 16, 18, 19, 14, 8, 9, 13, 7, 2, 3, 10, 4, 6, 1, 11, 17, 12, 20, 5]]
+[INFO 02-19 18:55:33] ax.api.client: Trial 20 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:34] ax.api.client: Generated new trial 21 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.200561, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:34] ax.api.client: Generated new trial 22 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.222776, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:34] ax.api.client: Generated new trial 23 with parameters {'x1': 0.0, 'x2': 0.537069, 'x3': 1.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:35] ax.api.client: Trial 21 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.320817296686621]
+- Thresholds: [3.2965661823433203]
+- Number of trials: [22]
+- Trial indices: [[0, 18, 16, 14, 17, 1, 7, 6, 8, 3, 10, 4, 15, 19, 2, 12, 20, 11, 9, 13, 5, 21]]
+[INFO 02-19 18:55:35] ax.api.client: Trial 21 marked EARLY_STOPPED.
+[INFO 02-19 18:55:35] ax.api.client: Trial 22 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3023028722069996]
+- Thresholds: [3.299491705644638]
+- Number of trials: [23]
+- Trial indices: [[0, 7, 20, 21, 19, 1, 15, 4, 9, 10, 5, 8, 6, 17, 18, 16, 22, 2, 3, 13, 11, 12, 14]]
+[INFO 02-19 18:55:35] ax.api.client: Trial 22 marked EARLY_STOPPED.
+[INFO 02-19 18:55:36] ax.api.client: Trial 23 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3182009327602877]
+- Thresholds: [3.2999081936395065]
+- Number of trials: [24]
+- Trial indices: [[0, 8, 4, 22, 20, 7, 18, 1, 11, 6, 3, 12, 15, 13, 14, 19, 16, 5, 17, 2, 10, 23, 21, 9]]
+[INFO 02-19 18:55:36] ax.api.client: Trial 23 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:37] ax.api.client: Generated new trial 24 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.27295, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:37] ax.api.client: Generated new trial 25 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.412729, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:37] ax.api.client: Generated new trial 26 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.657954, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:38] ax.api.client: Trial 24 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3214330901506033]
+- Thresholds: [3.300324681634375]
+- Number of trials: [25]
+- Trial indices: [[21, 15, 3, 14, 13, 5, 12, 10, 7, 2, 18, 16, 9, 17, 8, 6, 11, 0, 19, 20, 1, 22, 23, 4, 24]]
+[INFO 02-19 18:55:38] ax.api.client: Trial 24 marked EARLY_STOPPED.
+[INFO 02-19 18:55:38] ax.api.client: Trial 25 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.308694044809092]
+- Thresholds: [3.30063905003355]
+- Number of trials: [26]
+- Trial indices: [[0, 9, 8, 7, 23, 24, 10, 22, 21, 6, 5, 11, 13, 20, 1, 4, 3, 2, 16, 17, 19, 15, 14, 25, 12, 18]]
+[INFO 02-19 18:55:38] ax.api.client: Trial 25 marked EARLY_STOPPED.
+[INFO 02-19 18:55:39] ax.api.client: Trial 26 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3216546861825633]
+- Thresholds: [3.3009534184327247]
+- Number of trials: [27]
+- Trial indices: [[9, 24, 10, 3, 17, 8, 25, 18, 16, 23, 1, 21, 13, 6, 15, 7, 12, 5, 11, 2, 14, 4, 22, 19, 20, 0, 26]]
+[INFO 02-19 18:55:39] ax.api.client: Trial 26 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:41] ax.api.client: Generated new trial 27 with parameters {'x1': 0.564568, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:41] ax.api.client: Generated new trial 28 with parameters {'x1': 1.0, 'x2': 0.92169, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:41] ax.api.client: Generated new trial 29 with parameters {'x1': 0.566276, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:42] ax.api.client: Trial 27 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [2.88793029343074]
+- Thresholds: [2.630300894316698]
+- Number of trials: [10]
+- Trial indices: [[0, 4, 1, 3, 5, 9, 7, 2, 27, 10]]
+[INFO 02-19 18:55:42] ax.api.client: Trial 27 marked EARLY_STOPPED.
+[INFO 02-19 18:55:42] ax.api.client: Trial 28 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1340829562042853]
+- Thresholds: [2.6791095794351945]
+- Number of trials: [11]
+- Trial indices: [[0, 7, 27, 9, 10, 5, 1, 4, 2, 28, 3]]
+[INFO 02-19 18:55:42] ax.api.client: Trial 28 marked EARLY_STOPPED.
+[INFO 02-19 18:55:43] ax.api.client: Trial 29 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1177318407419863]
+- Thresholds: [2.775611061837293]
+- Number of trials: [12]
+- Trial indices: [[0, 9, 28, 4, 27, 2, 10, 3, 29, 5, 7, 1]]
+[INFO 02-19 18:55:43] ax.api.client: Trial 29 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:44] ax.api.client: Generated new trial 30 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.6421, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:44] ax.api.client: Generated new trial 31 with parameters {'x1': 0.619384, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:44] ax.api.client: Generated new trial 32 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.666525, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:45] ax.api.client: Trial 30 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3154174611246936]
+- Thresholds: [3.300324681634375]
+- Number of trials: [31]
+- Trial indices: [[0, 28, 8, 21, 19, 7, 27, 29, 25, 26, 13, 11, 6, 10, 17, 1, 5, 12, 15, 20, 9, 30, 3, 14, 2, 4, 22, 16, 18, 23, 24]]
+[INFO 02-19 18:55:45] ax.api.client: Trial 30 marked EARLY_STOPPED.
+[INFO 02-19 18:55:46] ax.api.client: Trial 31 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3010735662975423]
+- Thresholds: [3.30063905003355]
+- Number of trials: [32]
+- Trial indices: [[0, 30, 10, 18, 28, 26, 1, 19, 5, 8, 25, 14, 9, 27, 16, 15, 6, 12, 17, 4, 29, 31, 13, 11, 24, 7, 22, 3, 2, 23, 21, 20]]
+[INFO 02-19 18:55:46] ax.api.client: Trial 31 marked EARLY_STOPPED.
+[INFO 02-19 18:55:46] ax.api.client: Trial 32 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.16303317519476]
+- Thresholds: [2.8721125442393913]
+- Number of trials: [13]
+- Trial indices: [[0, 3, 29, 1, 4, 5, 9, 10, 7, 2, 28, 27, 32]]
+[INFO 02-19 18:55:47] ax.api.client: Trial 32 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:49] ax.api.client: Generated new trial 33 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:49] ax.api.client: Generated new trial 34 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.558122} using GenerationNode MBM.
+[INFO 02-19 18:55:49] ax.api.client: Generated new trial 35 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:49] ax.api.client: Trial 33 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321894009494628]
+- Thresholds: [3.30074505868871]
+- Number of trials: [34]
+- Trial indices: [[13, 11, 12, 25, 27, 15, 14, 31, 10, 32, 1, 30, 26, 8, 16, 9, 18, 17, 7, 6, 24, 0, 21, 5, 20, 22, 23, 2, 29, 28, 19, 4, 33, 3]]
+[INFO 02-19 18:55:49] ax.api.client: Trial 33 marked EARLY_STOPPED.
+[INFO 02-19 18:55:50] ax.api.client: Trial 34 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3205410019069634]
+- Thresholds: [3.3009534184327247]
+- Number of trials: [35]
+- Trial indices: [[0, 5, 28, 32, 12, 8, 20, 3, 7, 19, 31, 1, 18, 9, 33, 10, 2, 29, 11, 21, 6, 22, 16, 30, 4, 17, 24, 15, 25, 26, 27, 23, 13, 34, 14]]
+[INFO 02-19 18:55:50] ax.api.client: Trial 34 marked EARLY_STOPPED.
+[INFO 02-19 18:55:51] ax.api.client: Trial 35 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.159138472253009]
+- Thresholds: [2.8800214188350655]
+- Number of trials: [14]
+- Trial indices: [[7, 28, 5, 27, 1, 35, 0, 4, 9, 2, 29, 32, 10, 3]]
+[INFO 02-19 18:55:51] ax.api.client: Trial 35 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:53] ax.api.client: Generated new trial 36 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.605432} using GenerationNode MBM.
+[INFO 02-19 18:55:53] ax.api.client: Generated new trial 37 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.626841, 'x5': 0.0, 'x6': 0.610273} using GenerationNode MBM.
+[INFO 02-19 18:55:53] ax.api.client: Generated new trial 38 with parameters {'x1': 1.0, 'x2': 0.865486, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:55:54] ax.api.client: Trial 36 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3178223207164317]
+- Thresholds: [3.3009534184327247]
+- Number of trials: [37]
+- Trial indices: [[0, 7, 25, 14, 13, 15, 12, 5, 35, 34, 31, 24, 26, 9, 1, 32, 20, 23, 22, 8, 33, 10, 3, 21, 30, 11, 29, 18, 19, 17, 2, 4, 28, 36, 6, 16, 27]]
+[INFO 02-19 18:55:54] ax.api.client: Trial 36 marked EARLY_STOPPED.
+[INFO 02-19 18:55:54] ax.api.client: Trial 37 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.318066204513442]
+- Thresholds: [3.3010134923651338]
+- Number of trials: [38]
+- Trial indices: [[9, 33, 0, 21, 23, 18, 31, 25, 1, 29, 3, 30, 35, 17, 24, 5, 34, 11, 20, 36, 19, 13, 16, 14, 4, 2, 26, 7, 10, 12, 15, 27, 28, 37, 32, 22, 6, 8]]
+[INFO 02-19 18:55:54] ax.api.client: Trial 37 marked EARLY_STOPPED.
+[INFO 02-19 18:55:55] ax.api.client: Trial 38 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.32154110389563]
+- Thresholds: [3.3010735662975423]
+- Number of trials: [39]
+- Trial indices: [[0, 36, 33, 5, 4, 34, 6, 32, 31, 9, 1, 3, 7, 30, 10, 29, 28, 26, 24, 12, 11, 25, 22, 13, 27, 8, 19, 16, 15, 17, 14, 23, 20, 21, 18, 2, 35, 38, 37]]
+[INFO 02-19 18:55:55] ax.api.client: Trial 38 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:55:57] ax.api.client: Generated new trial 39 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:57] ax.api.client: Generated new trial 40 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.233846, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:57] ax.api.client: Generated new trial 41 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.535433, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:55:57] ax.api.client: Trial 39 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.0579951885797723]
+- Thresholds: [2.88793029343074]
+- Number of trials: [15]
+- Trial indices: [[35, 5, 4, 7, 9, 32, 10, 28, 2, 29, 27, 1, 39, 0, 3]]
+[INFO 02-19 18:55:57] ax.api.client: Trial 39 marked EARLY_STOPPED.
+[INFO 02-19 18:55:58] ax.api.client: Trial 40 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1545846263585764]
+- Thresholds: [2.972962741005256]
+- Number of trials: [16]
+- Trial indices: [[0, 35, 5, 4, 32, 7, 29, 27, 1, 3, 28, 9, 2, 10, 39, 40]]
+[INFO 02-19 18:55:58] ax.api.client: Trial 40 marked EARLY_STOPPED.
+[INFO 02-19 18:55:59] ax.api.client: Trial 41 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1582091775640113]
+- Thresholds: [3.0579951885797723]
+- Number of trials: [17]
+- Trial indices: [[0, 39, 7, 5, 9, 1, 35, 32, 29, 28, 27, 3, 10, 40, 4, 41, 2]]
+[INFO 02-19 18:55:59] ax.api.client: Trial 41 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:01] ax.api.client: Generated new trial 42 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.286775} using GenerationNode MBM.
+[INFO 02-19 18:56:01] ax.api.client: Generated new trial 43 with parameters {'x1': 0.654888, 'x2': 1.0, 'x3': 1.0, 'x4': 0.155818, 'x5': 0.0, 'x6': 0.79579} using GenerationNode MBM.
+[INFO 02-19 18:56:01] ax.api.client: Generated new trial 44 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.370645} using GenerationNode MBM.
+[INFO 02-19 18:56:02] ax.api.client: Trial 42 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3212405745568794]
+- Thresholds: [3.3009534184327247]
+- Number of trials: [43]
+- Trial indices: [[40, 42, 37, 39, 6, 7, 4, 5, 13, 11, 12, 14, 38, 10, 8, 9, 20, 21, 1, 35, 24, 26, 23, 22, 36, 34, 19, 17, 3, 15, 18, 16, 27, 30, 28, 32, 33, 31, 0, 41, 25, 29, 2]]
+[INFO 02-19 18:56:02] ax.api.client: Trial 42 marked EARLY_STOPPED.
+[INFO 02-19 18:56:03] ax.api.client: Trial 43 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1621246129458767]
+- Thresholds: [3.0791224033721933]
+- Number of trials: [18]
+- Trial indices: [[0, 39, 41, 4, 35, 7, 1, 32, 10, 29, 3, 28, 40, 9, 2, 27, 43, 5]]
+[INFO 02-19 18:56:03] ax.api.client: Trial 43 marked EARLY_STOPPED.
+[INFO 02-19 18:56:03] ax.api.client: Trial 44 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3215941739697783]
+- Thresholds: [3.3009534184327247]
+- Number of trials: [45]
+- Trial indices: [[0, 43, 5, 7, 42, 41, 18, 10, 38, 3, 4, 37, 20, 19, 36, 1, 16, 25, 8, 22, 30, 9, 15, 31, 13, 23, 34, 21, 35, 33, 6, 11, 32, 14, 27, 28, 44, 40, 39, 12, 17, 2, 24, 26, 29]]
+[INFO 02-19 18:56:03] ax.api.client: Trial 44 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed on the second try, after generating a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:05] ax.api.client: Generated new trial 45 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.146874, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:56:05] ax.api.client: Generated new trial 46 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.18201} using GenerationNode MBM.
+[INFO 02-19 18:56:05] ax.api.client: Generated new trial 47 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.780454, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:56:06] ax.api.client: Trial 45 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321514176371334]
+- Thresholds: [3.3010134923651338]
+- Number of trials: [46]
+- Trial indices: [[0, 7, 19, 42, 40, 41, 21, 20, 1, 5, 8, 39, 10, 38, 9, 37, 3, 36, 34, 11, 33, 35, 13, 22, 24, 32, 30, 31, 12, 23, 17, 26, 29, 18, 15, 4, 28, 27, 14, 25, 2, 43, 44, 16, 6, 45]]
+[INFO 02-19 18:56:06] ax.api.client: Trial 45 marked EARLY_STOPPED.
+[INFO 02-19 18:56:07] ax.api.client: Trial 46 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321076671691137]
+- Thresholds: [3.3010735662975423]
+- Number of trials: [47]
+- Trial indices: [[0, 42, 41, 6, 21, 7, 20, 40, 38, 1, 22, 3, 8, 10, 9, 39, 12, 11, 35, 36, 32, 23, 34, 18, 5, 37, 31, 30, 33, 14, 25, 17, 29, 15, 16, 4, 27, 24, 19, 26, 13, 2, 43, 28, 45, 46, 44]]
+[INFO 02-19 18:56:07] ax.api.client: Trial 46 marked EARLY_STOPPED.
+[INFO 02-19 18:56:08] ax.api.client: Trial 47 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3174840080989894]
+- Thresholds: [3.3013145170542204]
+- Number of trials: [48]
+- Trial indices: [[42, 6, 22, 23, 20, 17, 41, 43, 21, 19, 40, 9, 1, 8, 24, 39, 25, 11, 12, 36, 29, 35, 37, 27, 16, 38, 4, 18, 10, 5, 3, 26, 32, 2, 46, 0, 45, 47, 7, 44, 15, 13, 30, 14, 33, 34, 31, 28]]
+[INFO 02-19 18:56:08] ax.api.client: Trial 47 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:09] ax.api.client: Generated new trial 48 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.397501, 'x5': 0.0, 'x6': 0.299039} using GenerationNode MBM.
+[INFO 02-19 18:56:09] ax.api.client: Generated new trial 49 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.144192, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:56:09] ax.api.client: Generated new trial 50 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.454777, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:56:10] ax.api.client: Trial 48 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3187210407454932]
+- Thresholds: [3.301555467810899]
+- Number of trials: [49]
+- Trial indices: [[0, 21, 46, 4, 47, 17, 7, 28, 27, 26, 42, 44, 3, 30, 22, 1, 16, 40, 41, 15, 20, 25, 8, 6, 31, 23, 13, 33, 10, 39, 9, 29, 14, 37, 11, 38, 34, 18, 32, 24, 2, 35, 12, 36, 45, 43, 5, 19, 48]]
+[INFO 02-19 18:56:10] ax.api.client: Trial 48 marked EARLY_STOPPED.
+[INFO 02-19 18:56:11] ax.api.client: Trial 49 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3207658392139505]
+- Thresholds: [3.3019291700089495]
+- Number of trials: [50]
+- Trial indices: [[0, 49, 24, 25, 28, 19, 8, 46, 3, 27, 45, 42, 41, 1, 7, 43, 31, 29, 30, 10, 12, 32, 6, 33, 40, 16, 34, 11, 22, 4, 21, 20, 14, 38, 17, 18, 39, 23, 13, 26, 2, 5, 15, 36, 44, 48, 35, 37, 9, 47]]
+[INFO 02-19 18:56:11] ax.api.client: Trial 49 marked EARLY_STOPPED.
+[INFO 02-19 18:56:12] ax.api.client: Trial 50 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.315959898228151]
+- Thresholds: [3.3023028722069996]
+- Number of trials: [51]
+- Trial indices: [[0, 23, 45, 20, 18, 44, 46, 49, 19, 43, 1, 28, 4, 8, 24, 42, 38, 41, 39, 26, 37, 40, 31, 33, 32, 25, 6, 3, 7, 30, 10, 13, 2, 34, 12, 15, 17, 16, 35, 14, 9, 5, 36, 11, 47, 48, 22, 50, 29, 27, 21]]
+[INFO 02-19 18:56:12] ax.api.client: Trial 50 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:15] ax.api.client: Generated new trial 51 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.30111, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:15] ax.api.client: Generated new trial 52 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.15544, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:15] ax.api.client: Generated new trial 53 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.386532, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:16] ax.api.client: Trial 51 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1616087482895345]
+- Thresholds: [3.100249618164615]
+- Number of trials: [19]
+- Trial indices: [[0, 9, 28, 29, 10, 1, 4, 43, 35, 7, 32, 3, 40, 5, 41, 39, 51, 2, 27]]
+[INFO 02-19 18:56:16] ax.api.client: Trial 51 marked EARLY_STOPPED.
+[INFO 02-19 18:56:17] ax.api.client: Trial 52 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1619628322796864]
+- Thresholds: [3.108990729453301]
+- Number of trials: [20]
+- Trial indices: [[29, 32, 27, 28, 4, 1, 35, 5, 7, 3, 39, 41, 43, 2, 40, 51, 10, 9, 0, 52]]
+[INFO 02-19 18:56:17] ax.api.client: Trial 52 marked EARLY_STOPPED.
+[INFO 02-19 18:56:18] ax.api.client: Trial 53 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1551214049378955]
+- Thresholds: [3.1177318407419863]
+- Number of trials: [21]
+- Trial indices: [[0, 35, 3, 51, 32, 10, 9, 39, 1, 40, 4, 41, 7, 29, 2, 27, 53, 52, 43, 28, 5]]
+[INFO 02-19 18:56:18] ax.api.client: Trial 53 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed on the second try, after generating a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:21] ax.api.client: Generated new trial 54 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.229186, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:21] ax.api.client: Generated new trial 55 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.294691, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:56:21] ax.api.client: Generated new trial 56 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:22] ax.api.client: Trial 54 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.161695765303609]
+- Thresholds: [3.125907398473136]
+- Number of trials: [22]
+- Trial indices: [[0, 52, 10, 35, 3, 32, 9, 39, 41, 29, 7, 5, 4, 1, 40, 43, 27, 54, 53, 51, 2, 28]]
+[INFO 02-19 18:56:22] ax.api.client: Trial 54 marked EARLY_STOPPED.
+[INFO 02-19 18:56:23] ax.api.client: Trial 55 should be stopped early: Trial objective values at progressions in [12.00, 12.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [12.0]
+- Underperforms: [True]
+- Trial objective values: [2.9790102019032068]
+- Thresholds: [2.5047700122328393]
+- Number of trials: [10]
+- Trial indices: [[0, 55, 5, 10, 3, 7, 9, 2, 4, 1]]
+[INFO 02-19 18:56:23] ax.api.client: Trial 55 marked EARLY_STOPPED.
+[INFO 02-19 18:56:24] ax.api.client: Trial 56 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.320960284839637]
+- Thresholds: [3.3010735662975423]
+- Number of trials: [57]
+- Trial indices: [[0, 12, 55, 5, 30, 33, 27, 29, 32, 26, 37, 35, 54, 53, 31, 34, 6, 25, 22, 50, 21, 41, 39, 23, 36, 40, 24, 38, 13, 11, 7, 4, 52, 17, 18, 15, 45, 46, 2, 19, 14, 48, 47, 49, 10, 28, 16, 56, 20, 44, 8, 42, 1, 43, 51, 3, 9]]
+[INFO 02-19 18:56:24] ax.api.client: Trial 56 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:26] ax.api.client: Generated new trial 57 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:56:26] ax.api.client: Generated new trial 58 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:26] ax.api.client: Generated new trial 59 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.63813, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:27] ax.api.client: Trial 57 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.318355664138188]
+- Thresholds: [3.3013145170542204]
+- Number of trials: [58]
+- Trial indices: [[0, 38, 4, 54, 42, 11, 16, 12, 17, 39, 51, 1, 53, 3, 44, 28, 30, 6, 15, 37, 18, 36, 41, 5, 45, 10, 26, 21, 43, 52, 19, 31, 22, 20, 50, 7, 8, 33, 48, 27, 40, 29, 49, 35, 24, 25, 34, 32, 9, 56, 57, 13, 14, 47, 55, 23, 46, 2]]
+[INFO 02-19 18:56:27] ax.api.client: Trial 57 marked EARLY_STOPPED.
+[INFO 02-19 18:56:28] ax.api.client: Trial 58 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3218416554509522]
+- Thresholds: [3.301555467810899]
+- Number of trials: [59]
+- Trial indices: [[43, 14, 57, 41, 5, 15, 37, 17, 55, 16, 53, 35, 3, 33, 45, 44, 7, 30, 6, 31, 1, 39, 20, 19, 21, 32, 48, 47, 18, 54, 46, 34, 49, 2, 4, 51, 9, 25, 26, 13, 0, 58, 24, 50, 11, 12, 56, 42, 23, 10, 8, 28, 27, 52, 40, 29, 38, 22, 36]]
+[INFO 02-19 18:56:28] ax.api.client: Trial 58 marked EARLY_STOPPED.
+[INFO 02-19 18:56:29] ax.api.client: Trial 59 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1603622467997057]
+- Thresholds: [3.125907398473136]
+- Number of trials: [24]
+- Trial indices: [[0, 7, 54, 9, 55, 53, 51, 1, 10, 52, 5, 4, 39, 40, 2, 28, 59, 35, 32, 41, 3, 27, 29, 43]]
+[INFO 02-19 18:56:29] ax.api.client: Trial 59 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:33] ax.api.client: Generated new trial 60 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.531452, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:56:33] ax.api.client: Generated new trial 61 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.573561, 'x5': 1.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:33] ax.api.client: Generated new trial 62 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.548264, 'x5': 0.0, 'x6': 1.0} using GenerationNode MBM.
+[INFO 02-19 18:56:34] ax.api.client: Trial 60 should be stopped early: Trial objective values at progressions in [12.00, 12.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [12.0]
+- Underperforms: [True]
+- Trial objective values: [2.8885021143480016]
+- Thresholds: [2.5535786973513357]
+- Number of trials: [11]
+- Trial indices: [[0, 55, 3, 9, 10, 1, 5, 60, 7, 4, 2]]
+[INFO 02-19 18:56:34] ax.api.client: Trial 60 marked EARLY_STOPPED.
+[INFO 02-19 18:56:35] ax.api.client: Trial 61 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321578607124943]
+- Thresholds: [3.3013145170542204]
+- Number of trials: [62]
+- Trial indices: [[0, 56, 6, 57, 55, 53, 7, 1, 8, 9, 49, 10, 50, 51, 52, 54, 38, 45, 43, 41, 13, 40, 15, 14, 11, 42, 44, 12, 48, 46, 47, 3, 20, 27, 26, 28, 19, 24, 21, 25, 60, 61, 4, 5, 59, 58, 22, 23, 37, 18, 32, 2, 31, 29, 30, 33, 17, 35, 34, 36, 16, 39]]
+[INFO 02-19 18:56:35] ax.api.client: Trial 61 marked EARLY_STOPPED.
+[INFO 02-19 18:56:36] ax.api.client: Trial 62 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1624712738379763]
+- Thresholds: [3.125907398473136]
+- Number of trials: [26]
+- Trial indices: [[0, 59, 60, 7, 5, 9, 10, 4, 29, 27, 3, 28, 55, 53, 32, 35, 40, 2, 39, 43, 41, 54, 52, 51, 1, 62]]
+[INFO 02-19 18:56:36] ax.api.client: Trial 62 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:39] ax.api.client: Generated new trial 63 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.124485, 'x5': 0.0, 'x6': 0.452802} using GenerationNode MBM.
+[INFO 02-19 18:56:39] ax.api.client: Generated new trial 64 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.194152, 'x5': 0.0, 'x6': 0.383995} using GenerationNode MBM.
+[INFO 02-19 18:56:39] ax.api.client: Generated new trial 65 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.487109} using GenerationNode MBM.
+[INFO 02-19 18:56:40] ax.api.client: Trial 63 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.307901791833029]
+- Thresholds: [3.3013145170542204]
+- Number of trials: [64]
+- Trial indices: [[8, 61, 24, 5, 59, 58, 22, 20, 27, 25, 1, 55, 26, 9, 57, 23, 28, 53, 12, 4, 29, 49, 19, 51, 11, 13, 10, 30, 56, 54, 21, 18, 52, 37, 3, 14, 43, 39, 41, 44, 6, 0, 62, 60, 63, 16, 40, 42, 7, 46, 15, 17, 38, 45, 36, 47, 35, 32, 2, 48, 31, 34, 33, 50]]
+[INFO 02-19 18:56:40] ax.api.client: Trial 63 marked EARLY_STOPPED.
+[INFO 02-19 18:56:41] ax.api.client: Trial 64 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3195430393247074]
+- Thresholds: [3.301555467810899]
+- Number of trials: [65]
+- Trial indices: [[0, 62, 58, 22, 19, 35, 36, 39, 20, 1, 56, 16, 38, 21, 40, 33, 9, 57, 55, 10, 8, 23, 12, 42, 34, 4, 3, 53, 18, 25, 13, 15, 5, 24, 52, 50, 28, 54, 43, 30, 26, 32, 51, 41, 37, 61, 63, 59, 46, 29, 44, 14, 11, 48, 60, 31, 6, 2, 47, 27, 49, 17, 45, 7, 64]]
+[INFO 02-19 18:56:41] ax.api.client: Trial 64 marked EARLY_STOPPED.
+[INFO 02-19 18:56:42] ax.api.client: Trial 65 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.313177621288543]
+- Thresholds: [3.3019291700089495]
+- Number of trials: [66]
+- Trial indices: [[0, 65, 61, 59, 16, 41, 38, 21, 57, 24, 42, 6, 40, 37, 43, 4, 3, 15, 11, 34, 26, 35, 25, 14, 18, 1, 17, 44, 58, 36, 10, 64, 32, 29, 5, 53, 50, 2, 52, 28, 23, 20, 63, 39, 60, 22, 30, 55, 12, 48, 7, 33, 8, 31, 13, 19, 27, 49, 9, 54, 46, 56, 45, 47, 51, 62]]
+[INFO 02-19 18:56:42] ax.api.client: Trial 65 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:44] ax.api.client: Generated new trial 66 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.263307, 'x5': 0.0, 'x6': 0.300269} using GenerationNode MBM.
+[INFO 02-19 18:56:44] ax.api.client: Generated new trial 67 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.131055, 'x5': 1.0, 'x6': 0.404673} using GenerationNode MBM.
+[INFO 02-19 18:56:44] ax.api.client: Generated new trial 68 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.210695} using GenerationNode MBM.
+[INFO 02-19 18:56:45] ax.api.client: Trial 66 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.151419769328826]
+- Thresholds: [3.1340829562042853]
+- Number of trials: [27]
+- Trial indices: [[0, 66, 62, 43, 60, 1, 5, 7, 27, 59, 41, 3, 40, 29, 53, 32, 4, 52, 54, 28, 51, 2, 55, 9, 35, 39, 10]]
+[INFO 02-19 18:56:45] ax.api.client: Trial 66 marked EARLY_STOPPED.
+[INFO 02-19 18:56:46] ax.api.client: Trial 67 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.315813959154155]
+- Thresholds: [3.3019291700089495]
+- Number of trials: [68]
+- Trial indices: [[6, 62, 63, 11, 27, 20, 3, 47, 21, 51, 49, 19, 46, 44, 52, 50, 31, 12, 61, 32, 4, 41, 18, 45, 42, 16, 17, 43, 10, 8, 9, 2, 30, 1, 59, 34, 25, 22, 53, 54, 23, 40, 57, 55, 5, 38, 39, 36, 56, 26, 33, 60, 28, 35, 15, 58, 37, 13, 14, 24, 0, 64, 7, 29, 48, 66, 65, 67]]
+[INFO 02-19 18:56:46] ax.api.client: Trial 67 marked EARLY_STOPPED.
+[INFO 02-19 18:56:47] ax.api.client: Trial 68 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3155820159485736]
+- Thresholds: [3.3023028722069996]
+- Number of trials: [69]
+- Trial indices: [[66, 0, 13, 12, 16, 18, 11, 14, 17, 21, 20, 10, 65, 19, 67, 15, 64, 62, 27, 29, 32, 7, 30, 28, 25, 26, 8, 9, 23, 24, 22, 63, 60, 46, 43, 47, 45, 3, 48, 49, 53, 54, 56, 55, 51, 52, 61, 50, 5, 39, 41, 37, 44, 4, 40, 42, 33, 34, 38, 36, 31, 35, 6, 1, 57, 58, 59, 68, 2]]
+[INFO 02-19 18:56:47] ax.api.client: Trial 68 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+[INFO 02-19 18:56:49] ax.api.client: Generated new trial 69 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.156818} using GenerationNode MBM.
+[INFO 02-19 18:56:49] ax.api.client: Generated new trial 70 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.193715, 'x5': 0.0, 'x6': 0.160719} using GenerationNode MBM.
+[INFO 02-19 18:56:49] ax.api.client: Generated new trial 71 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.423073} using GenerationNode MBM.
+[INFO 02-19 18:56:50] ax.api.client: Trial 69 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3214932051414667]
+- Thresholds: [3.3051023320200144]
+- Number of trials: [70]
+- Trial indices: [[0, 67, 64, 35, 18, 9, 46, 16, 28, 17, 45, 7, 4, 30, 48, 29, 51, 24, 10, 27, 41, 42, 15, 5, 44, 65, 1, 43, 49, 47, 26, 50, 63, 8, 11, 37, 60, 34, 62, 59, 12, 32, 38, 58, 20, 40, 22, 21, 33, 54, 23, 14, 57, 55, 39, 61, 56, 13, 52, 31, 3, 6, 53, 25, 66, 36, 19, 69, 68, 2]]
+[INFO 02-19 18:56:50] ax.api.client: Trial 69 marked EARLY_STOPPED.
+[INFO 02-19 18:56:51] ax.api.client: Trial 70 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3201245999126976]
+- Thresholds: [3.307901791833029]
+- Number of trials: [71]
+- Trial indices: [[70, 41, 37, 8, 66, 65, 67, 22, 9, 33, 64, 1, 42, 40, 39, 35, 49, 50, 19, 45, 15, 6, 14, 16, 32, 52, 34, 18, 17, 20, 4, 51, 47, 48, 54, 61, 63, 7, 53, 30, 3, 62, 69, 11, 12, 38, 44, 57, 27, 24, 56, 58, 26, 55, 2, 5, 46, 60, 13, 36, 59, 10, 31, 29, 28, 25, 43, 21, 23, 68, 0]]
+[INFO 02-19 18:56:51] ax.api.client: Trial 70 marked EARLY_STOPPED.
+[INFO 02-19 18:56:52] ax.api.client: Trial 71 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3205888494921822]
+- Thresholds: [3.3082979183210606]
+- Number of trials: [72]
+- Trial indices: [[69, 26, 50, 27, 52, 49, 51, 5, 48, 45, 46, 53, 25, 47, 68, 70, 55, 4, 42, 67, 40, 9, 44, 1, 24, 7, 43, 6, 56, 54, 23, 66, 34, 10, 17, 13, 31, 35, 33, 15, 62, 2, 14, 12, 16, 65, 11, 32, 37, 21, 19, 18, 38, 36, 60, 39, 3, 57, 59, 20, 8, 22, 41, 58, 28, 0, 71, 30, 29, 61, 64, 63]]
+[INFO 02-19 18:56:52] ax.api.client: Trial 71 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed on the second try, after generating a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:53] ax.api.client: Generated new trial 72 with parameters {'x1': 0.658779, 'x2': 1.0, 'x3': 1.0, 'x4': 0.112906, 'x5': 0.0, 'x6': 0.234552} using GenerationNode MBM.
+[INFO 02-19 18:56:53] ax.api.client: Generated new trial 73 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.230167} using GenerationNode MBM.
+[INFO 02-19 18:56:53] ax.api.client: Generated new trial 74 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.260428, 'x5': 0.0, 'x6': 0.225611} using GenerationNode MBM.
+[INFO 02-19 18:56:55] ax.api.client: Trial 72 should be stopped early: Trial objective values at progressions in [12.00, 12.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [12.0]
+- Underperforms: [True]
+- Trial objective values: [2.9903863952092635]
+- Thresholds: [2.6500801797534344]
+- Number of trials: [12]
+- Trial indices: [[0, 72, 3, 7, 1, 60, 5, 4, 2, 10, 55, 9]]
+[INFO 02-19 18:56:55] ax.api.client: Trial 72 marked EARLY_STOPPED.
+[INFO 02-19 18:56:56] ax.api.client: Trial 73 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3213807811483727]
+- Thresholds: [3.3082979183210606]
+- Number of trials: [74]
+- Trial indices: [[73, 44, 70, 54, 52, 18, 27, 28, 62, 63, 3, 25, 26, 59, 64, 41, 43, 31, 49, 8, 61, 53, 68, 69, 20, 16, 32, 60, 4, 30, 11, 12, 34, 51, 24, 17, 1, 19, 42, 33, 22, 23, 2, 47, 58, 13, 56, 67, 65, 66, 46, 10, 38, 15, 57, 55, 50, 14, 48, 45, 35, 21, 36, 37, 5, 0, 6, 7, 72, 9, 29, 40, 71, 39]]
+[INFO 02-19 18:56:56] ax.api.client: Trial 73 marked EARLY_STOPPED.
+[INFO 02-19 18:56:57] ax.api.client: Trial 74 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3194846628789705]
+- Thresholds: [3.308694044809092]
+- Number of trials: [75]
+- Trial indices: [[74, 46, 58, 72, 6, 57, 59, 30, 33, 60, 7, 18, 45, 73, 5, 56, 55, 8, 4, 1, 16, 62, 64, 17, 71, 27, 28, 54, 34, 19, 26, 35, 61, 13, 65, 69, 10, 66, 52, 12, 20, 40, 21, 22, 41, 42, 39, 67, 23, 9, 14, 3, 25, 51, 24, 44, 63, 43, 38, 37, 15, 53, 36, 50, 70, 48, 0, 2, 31, 32, 29, 47, 68, 11, 49]]
+[INFO 02-19 18:56:57] ax.api.client: Trial 74 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), NumericalWarning('A not p.d., added jitter of 1.0e-08 to the diagonal')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed on the second try, after generating a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:56:59] ax.api.client: Generated new trial 75 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.113336, 'x5': 0.0, 'x6': 0.257755} using GenerationNode MBM.
+[INFO 02-19 18:56:59] ax.api.client: Generated new trial 76 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.078222} using GenerationNode MBM.
+[INFO 02-19 18:56:59] ax.api.client: Generated new trial 77 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.071163, 'x5': 0.0, 'x6': 0.123923} using GenerationNode MBM.
+[INFO 02-19 18:57:00] ax.api.client: Trial 75 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3207052348216557]
+- Thresholds: [3.3090307820362987]
+- Number of trials: [76]
+- Trial indices: [[49, 47, 62, 12, 0, 11, 13, 19, 1, 16, 65, 74, 73, 48, 15, 14, 53, 4, 6, 63, 21, 66, 46, 45, 60, 5, 64, 61, 18, 72, 17, 20, 29, 56, 39, 32, 31, 67, 30, 10, 70, 38, 33, 35, 40, 34, 55, 3, 28, 25, 41, 43, 68, 54, 8, 59, 42, 52, 27, 26, 23, 44, 22, 24, 57, 69, 75, 2, 51, 7, 58, 50, 71, 9, 37, 36]]
+[INFO 02-19 18:57:00] ax.api.client: Trial 75 marked EARLY_STOPPED.
+[INFO 02-19 18:57:01] ax.api.client: Trial 76 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321565422395467]
+- Thresholds: [3.3093675192635055]
+- Number of trials: [77]
+- Trial indices: [[0, 4, 75, 30, 39, 9, 8, 68, 40, 6, 65, 67, 69, 74, 71, 25, 24, 22, 42, 43, 35, 20, 13, 12, 10, 66, 1, 63, 3, 41, 26, 18, 48, 49, 38, 47, 29, 56, 57, 59, 58, 16, 53, 54, 19, 50, 21, 52, 27, 36, 23, 51, 14, 15, 61, 60, 31, 11, 62, 64, 44, 33, 46, 45, 37, 34, 55, 70, 76, 32, 73, 72, 7, 28, 17, 2, 5]]
+[INFO 02-19 18:57:01] ax.api.client: Trial 76 marked EARLY_STOPPED.
+[INFO 02-19 18:57:02] ax.api.client: Trial 77 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321187662067313]
+- Thresholds: [3.3112725702760244]
+- Number of trials: [78]
+- Trial indices: [[0, 6, 7, 71, 20, 18, 69, 75, 67, 68, 4, 1, 66, 65, 19, 16, 64, 23, 21, 22, 62, 63, 54, 58, 24, 25, 59, 60, 9, 26, 10, 61, 29, 27, 28, 56, 57, 55, 3, 53, 52, 50, 8, 43, 44, 45, 34, 33, 11, 14, 46, 12, 35, 17, 2, 32, 13, 15, 48, 47, 51, 49, 31, 30, 38, 39, 36, 37, 41, 74, 40, 42, 72, 73, 5, 70, 76, 77]]
+[INFO 02-19 18:57:02] ax.api.client: Trial 77 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .'), OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:57:04] ax.api.client: Generated new trial 78 with parameters {'x1': 0.571203, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.426599} using GenerationNode MBM.
+[INFO 02-19 18:57:04] ax.api.client: Generated new trial 79 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.350319} using GenerationNode MBM.
+[INFO 02-19 18:57:04] ax.api.client: Generated new trial 80 with parameters {'x1': 0.769318, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:57:05] ax.api.client: Trial 78 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.171443108159135]
+- Thresholds: [3.1340829562042853]
+- Number of trials: [29]
+- Trial indices: [[0, 78, 72, 7, 51, 9, 4, 52, 3, 43, 41, 53, 54, 55, 40, 1, 28, 39, 59, 60, 2, 35, 5, 62, 32, 27, 66, 29, 10]]
+[INFO 02-19 18:57:05] ax.api.client: Trial 78 marked EARLY_STOPPED.
+[INFO 02-19 18:57:06] ax.api.client: Trial 79 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321004798031079]
+- Thresholds: [3.3112725702760244]
+- Number of trials: [80]
+- Trial indices: [[0, 77, 78, 75, 28, 32, 76, 29, 31, 33, 27, 5, 71, 72, 73, 30, 35, 68, 17, 69, 25, 4, 40, 26, 39, 12, 38, 37, 15, 1, 70, 34, 41, 36, 7, 6, 3, 48, 50, 64, 51, 52, 20, 23, 53, 10, 62, 13, 55, 16, 65, 63, 14, 49, 47, 45, 42, 43, 46, 24, 67, 44, 66, 18, 11, 58, 9, 59, 8, 79, 74, 21, 54, 22, 57, 19, 2, 56, 61, 60]]
+[INFO 02-19 18:57:06] ax.api.client: Trial 79 marked EARLY_STOPPED.
+[INFO 02-19 18:57:07] ax.api.client: Trial 80 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.1734874110114775]
+- Thresholds: [3.142751362766556]
+- Number of trials: [30]
+- Trial indices: [[0, 10, 39, 32, 72, 9, 78, 40, 1, 43, 3, 41, 35, 27, 28, 51, 59, 60, 54, 52, 29, 62, 4, 66, 5, 7, 53, 2, 55, 80]]
+[INFO 02-19 18:57:07] ax.api.client: Trial 80 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+[INFO 02-19 18:57:08] ax.api.client: Generated new trial 81 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.080821, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:57:08] ax.api.client: Generated new trial 82 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.236654, 'x5': 0.0, 'x6': 0.523061} using GenerationNode MBM.
+[INFO 02-19 18:57:08] ax.api.client: Generated new trial 83 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.365319, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:57:09] ax.api.client: Trial 81 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321257435618912]
+- Thresholds: [3.3120842780249777]
+- Number of trials: [82]
+- Trial indices: [[78, 12, 75, 73, 45, 42, 41, 44, 70, 13, 6, 1, 72, 74, 11, 7, 38, 46, 40, 22, 23, 20, 65, 67, 18, 16, 69, 68, 15, 14, 17, 71, 21, 66, 19, 64, 48, 47, 3, 49, 57, 55, 31, 30, 56, 29, 36, 27, 37, 39, 35, 4, 58, 26, 2, 28, 59, 60, 61, 63, 25, 24, 5, 62, 54, 53, 52, 32, 34, 51, 33, 50, 10, 76, 81, 0, 77, 43, 9, 8, 79, 80]]
+[INFO 02-19 18:57:09] ax.api.client: Trial 81 marked EARLY_STOPPED.
+[INFO 02-19 18:57:10] ax.api.client: Trial 82 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.317598732532589]
+- Thresholds: [3.313177621288543]
+- Number of trials: [83]
+- Trial indices: [[80, 10, 0, 76, 74, 50, 48, 32, 49, 35, 75, 73, 13, 11, 30, 20, 1, 69, 71, 33, 72, 31, 67, 27, 52, 12, 68, 70, 19, 51, 7, 6, 36, 34, 66, 16, 14, 5, 22, 47, 53, 8, 56, 40, 41, 17, 45, 55, 39, 62, 60, 54, 4, 46, 25, 64, 18, 15, 63, 2, 37, 38, 65, 21, 61, 44, 42, 59, 57, 24, 23, 26, 58, 79, 82, 9, 43, 28, 3, 78, 77, 29, 81]]
+[INFO 02-19 18:57:11] ax.api.client: Trial 82 marked EARLY_STOPPED.
+[INFO 02-19 18:57:12] ax.api.client: Trial 83 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.317435042657867]
+- Thresholds: [3.3139987446345747]
+- Number of trials: [84]
+- Trial indices: [[81, 78, 79, 48, 25, 23, 50, 51, 49, 47, 44, 53, 4, 21, 46, 54, 52, 45, 24, 29, 30, 77, 43, 22, 56, 57, 55, 5, 9, 58, 59, 42, 3, 27, 1, 75, 14, 60, 20, 10, 41, 38, 61, 62, 18, 19, 40, 65, 63, 39, 26, 32, 33, 76, 73, 37, 6, 16, 64, 68, 66, 36, 17, 15, 74, 13, 69, 2, 67, 35, 28, 8, 71, 34, 72, 70, 7, 12, 11, 31, 0, 82, 80, 83]]
+[INFO 02-19 18:57:12] ax.api.client: Trial 83 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/linear_operator/utils/cholesky.py:40: NumericalWarning:
+A not p.d., added jitter of 1.0e-08 to the diagonal
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:795: RuntimeWarning:
+Optimization failed in gen_candidates_scipy with the following warning(s):
+[OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+[INFO 02-19 18:57:13] ax.api.client: Generated new trial 84 with parameters {'x1': 0.770766, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.221907} using GenerationNode MBM.
+[INFO 02-19 18:57:13] ax.api.client: Generated new trial 85 with parameters {'x1': 0.668516, 'x2': 1.0, 'x3': 1.0, 'x4': 0.307684, 'x5': 0.0, 'x6': 0.29098} using GenerationNode MBM.
+[INFO 02-19 18:57:13] ax.api.client: Generated new trial 86 with parameters {'x1': 0.262019, 'x2': 1.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 02-19 18:57:14] ax.api.client: Trial 84 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [3.176762081997864]
+- Thresholds: [3.151419769328826]
+- Number of trials: [31]
+- Trial indices: [[0, 28, 9, 78, 55, 1, 32, 53, 35, 4, 54, 7, 72, 60, 52, 66, 59, 51, 10, 43, 2, 41, 40, 39, 62, 5, 3, 27, 29, 80, 84]]
+[INFO 02-19 18:57:14] ax.api.client: Trial 84 marked EARLY_STOPPED.
+[INFO 02-19 18:57:15] ax.api.client: Trial 85 should be stopped early: Trial objective values at progressions in [12.00, 12.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [12.0]
+- Underperforms: [True]
+- Trial objective values: [2.8786332174718785]
+- Thresholds: [2.7465816621555326]
+- Number of trials: [13]
+- Trial indices: [[0, 55, 3, 7, 60, 1, 10, 9, 2, 72, 5, 4, 85]]
+[INFO 02-19 18:57:16] ax.api.client: Trial 85 marked EARLY_STOPPED.
+[INFO 02-19 18:57:17] ax.api.client: Trial 86 should be stopped early: Trial objective values at progressions in [12.00, 12.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [12.0]
+- Underperforms: [True]
+- Trial objective values: [2.9852340455396322]
+- Thresholds: [2.8126074398137053]
+- Number of trials: [14]
+- Trial indices: [[0, 86, 5, 1, 3, 10, 72, 7, 55, 9, 85, 60, 4, 2]]
+[INFO 02-19 18:57:17] ax.api.client: Trial 86 marked EARLY_STOPPED.`
+}
+</CellOutput>
+
+## Step 6: Analyze Results
+
+After running trials, you can analyze the results. Most commonly this means extracting
+the parameterization from the best performing trial you conducted.
+
+```python
+best_parameters, prediction, index, name = client.get_best_parameterization()
+print("Best Parameters:", best_parameters)
+print("Prediction (mean, variance):", prediction)
+```
+
+<CellOutput>
+{
+`Best Parameters: {'x1': 0.24761284392879407, 'x2': 1.0, 'x3': 1.0, 'x4': 0.4480822392568297, 'x5': 0.0, 'x6': 0.10901722871520406}
+Prediction (mean, variance): {'hartmann6': (np.float64(-1.4948878582493461), np.float64(0.0001464925116802936))}`
+}
+</CellOutput>
+
+## Step 7: Compute Analyses
+
+Ax can also produce a number of analyses to help interpret the results of the experiment
+via `client.compute_analyses`. Users can manually select which analyses to run, or can
+allow Ax to select which would be most relevant. In this case Ax selects the following:
+
+- **Arm Effects Plots** show the metric value for each
+  [arm](https://ax.dev/docs/next/glossary#arm) on the experiment. Ax produces one plot
+  using values from its internal surrogate model (this can be helpful for seeing the
+  true effect of an arm when evaluations are noisy) and another using the raw metric
+  values as observed.
+- **Summary** lists all trials generated along with their parameterizations,
+  observations, and miscellaneous metadata
+- **Sensitivity Analysis Plot** shows which parameters have the largest affect on the
+  objective using
+  [Sobol Indicies](https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis)
+- **Slice Plot** shows how the model predicts a single parameter effects the objective
+  along with a confidence interval
+- **Contour Plot** shows how the model predicts a pair of parameters effects the
+  objective as a 2D surface
+- **Cross Validation** helps to visualize how well the surrogate model is able to
+  predict out of sample points
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Modeled Arm Effects on hartmann6**
+
+Modeled effects on hartmann6. This plot visualizes predictions of the true metric
+changes for each arm based on Ax's model. This is the expected delta you would expect if
+you (re-)ran that arm. This plot helps in anticipating the outcomes and performance of
+arms based on the model's predictions. Note, flat predictions across arms indicate that
+the model predicts that there is no effect, meaning if you were to re-run the
+experiment, the delta you would see would be small and fall within the confidence
+interval indicated in the plot.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/b411cb3c-d2e6-4659-a2ee-6f30986b1426.json')} />
+
+
+**Observed Arm Effects on hartmann6**
+
+Observed effects on hartmann6. This plot visualizes the effects from previously-run arms
+on a specific metric, providing insights into their performance. This plot allows one to
+compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/941cce5d-3e4d-4ea2-bb58-8cb4fd3192f5.json')} />
+
+
+**Utility Progression**
+
+Shows the best hartmann6 value achieved so far across completed trials (objective is to
+minimize). The x-axis shows trace index, which counts completed or early-stopped trials
+sequentially (1, 2, 3, ...). This differs from trial index, which may have gaps if some
+trials failed or were abandoned. For example, if trials 0, 2, and 5 completed while
+trials 1, 3, and 4 failed, the trace indices would be 1, 2, 3 corresponding to trial
+indices 0, 2, 5. The y-axis shows cumulative best utility. Only improvements are
+plotted, so flat segments indicate trials that didn't surpass the previous best.
+Infeasible trials (violating outcome constraints) don't contribute to the improvements.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/87000398-3f24-4778-ab35-3ae240bbe5b5.json')} />
+
+
+**hartmann6 by progression**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/db56e769-825e-4bb7-9f07-495a0f9c94e1.json')} />
+
+
+**hartmann6 by wallclock time**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/caf2f522-2f42-4b18-a1c9-b873b9e82cd0.json')} />
+
+
+**Best Trial for Experiment**
+
+Displays the trial with the best objective value based on raw observations. This
+reflects actual measured performance during execution. This trial achieved the optimal
+objective value and represents the recommended configuration for your optimization goal.
+Only considering COMPLETED trials.
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node   |   hartmann6 |       x1 |   x2 |   x3 |       x4 |   x5 |       x6 |
+|---:|--------------:|-----------:|:---------------|:------------------|------------:|---------:|-----:|-----:|---------:|-----:|---------:|
+|  0 |             9 |        9_0 | COMPLETED      | MBM               |    -1.49652 | 0.247613 |    1 |    1 | 0.448082 |    0 | 0.109017 |
+
+
+**Summary for Experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|     | trial_index   | arm_name   | trial_status   | generation_node     | hartmann6   | x1       | x2       | x3       | x4       | x5       | x6       |
+|:----|:--------------|:-----------|:---------------|:--------------------|:------------|:---------|:---------|:---------|:---------|:---------|:---------|
+| 0   | 0             | 0_0        | COMPLETED      | CenterOfSearchSpace | -0.505315   | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 |
+| 1   | 1             | 1_0        | COMPLETED      | Sobol               | -0.312312   | 0.087093 | 0.642716 | 0.212615 | 0.036519 | 0.287978 | 0.961783 |
+| 2   | 2             | 2_0        | COMPLETED      | Sobol               | -0.007108   | 0.891071 | 0.042894 | 0.572730 | 0.646190 | 0.724485 | 0.427336 |
+| 3   | 3             | 3_0        | COMPLETED      | Sobol               | -0.602932   | 0.661616 | 0.919112 | 0.423247 | 0.358336 | 0.885311 | 0.032318 |
+| 4   | 4             | 4_0        | COMPLETED      | Sobol               | -0.084175   | 0.355611 | 0.270400 | 0.783852 | 0.967011 | 0.071969 | 0.574577 |
+| ... | ...           | ...        | ...            | ...                 | ...         | ...      | ...      | ...      | ...      | ...      | ...      |
+| 82  | 82            | 82_0       | EARLY_STOPPED  | MBM                 | 3.317599    | 1.000000 | 1.000000 | 1.000000 | 0.236654 | 0.000000 | 0.523061 |
+| 83  | 83            | 83_0       | EARLY_STOPPED  | MBM                 | 3.317435    | 1.000000 | 1.000000 | 1.000000 | 0.365319 | 0.000000 | 0.000000 |
+| 84  | 84            | 84_0       | EARLY_STOPPED  | MBM                 | 3.176762    | 0.770766 | 1.000000 | 1.000000 | 0.000000 | 0.000000 | 0.221907 |
+| 85  | 85            | 85_0       | EARLY_STOPPED  | MBM                 | 2.878633    | 0.668516 | 1.000000 | 1.000000 | 0.307684 | 0.000000 | 0.290980 |
+| 86  | 86            | 86_0       | EARLY_STOPPED  | MBM                 | 2.985234    | 0.262019 | 1.000000 | 1.000000 | 0.000000 | 0.000000 | 0.000000 |
+
+
+**Sensitivity Analysis for hartmann6**
+
+Understand how each parameter affects hartmann6 according to a second-order sensitivity
+analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/72c45b74-5905-43f0-a001-2fd531452c19.json')} />
+
+
+**hartmann6 vs. x2**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their best
+trial value (Arm 9_0). This visualization helps in understanding the sensitivity and
+impact of changes in the selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/a2838dcd-817a-4d4a-b6a2-21dfe278b997.json')} />
+
+
+**hartmann6 vs. x4**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their best
+trial value (Arm 9_0). This visualization helps in understanding the sensitivity and
+impact of changes in the selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/15f9de54-bd2f-4d29-a2d1-d1bb0f4257a7.json')} />
+
+
+**hartmann6 vs. x5**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their best
+trial value (Arm 9_0). This visualization helps in understanding the sensitivity and
+impact of changes in the selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/52e68a7f-56d5-49fc-a7a3-c923f1e0d5a8.json')} />
+
+
+**Cross Validation for hartmann6**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/afa3c299-da43-4dbe-939d-9c5bc1517027.json')} />
+
+
+**Generation Strategy Graph**
+
+GenerationStrategy: Center+Sobol+MBM:fast
+
+Visualize the structure of a GenerationStrategy as a directed graph. Each node
+represents a GenerationNode in the strategy, and edges represent transitions between
+nodes based on TransitionCriterion. Edge labels show the criterion class names that
+trigger the transition.
+
+
+
+
+|    | node_name           | generators   | transitions                        | is_current   |
+|---:|:--------------------|:-------------|:-----------------------------------|:-------------|
+|  0 | CenterOfSearchSpace | nan          | -> Sobol: AutoTransitionAfterGen   | False        |
+|  1 | Sobol               | Sobol        | -> MBM: MinTrials(5), MinTrials(2) | False        |
+|  2 | MBM                 | BoTorch      | nan                                | True         |
+
+## Conclusion
+
+This tutorial demonstates Ax's early stopping capabilities, which utilize
+timeseries-like data to monitor the results of expensive evaluations and terminate those
+that are unlikely to produce promising results, freeing up resources to explore more
+configurations. This can be used in a number of applications, and is especially useful
+in machine learning contexts.
+
