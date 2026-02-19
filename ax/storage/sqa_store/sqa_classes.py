@@ -165,8 +165,8 @@ class SQAMetric(Base):
 class SQAArm(Base):
     __tablename__: str = "arm_v2"
 
-    generator_run_id: Column[int] = Column(
-        Integer, ForeignKey("generator_run_v2.id"), nullable=False
+    generator_run_id: Column[int | None] = Column(
+        Integer, ForeignKey("generator_run_v2.id")
     )
     id: Column[int] = Column(Integer, primary_key=True)
     name: Column[str | None] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
