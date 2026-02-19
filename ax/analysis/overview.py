@@ -24,6 +24,7 @@ from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsA
 from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
+from ax.analysis.healthcheck.transfer_learning_analysis import TransferLearningAnalysis
 from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.analysis.trials import AllTrialsAnalysis
@@ -114,6 +115,7 @@ class OverviewAnalysis(Analysis):
         options: OrchestratorOptions | None = None,
         tier_metadata: dict[str, Any] | None = None,
         model_fit_threshold: float | None = None,
+        sqa_config: Any = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -124,6 +126,7 @@ class OverviewAnalysis(Analysis):
         self.options = options
         self.tier_metadata = tier_metadata
         self.model_fit_threshold = model_fit_threshold
+        self.sqa_config = sqa_config
 
     @override
     def validate_applicable_state(
@@ -229,6 +232,7 @@ class OverviewAnalysis(Analysis):
             if not has_batch_trials
             else None,
             BaselineImprovementAnalysis() if not has_batch_trials else None,
+            TransferLearningAnalysis(config=self.sqa_config),
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials
