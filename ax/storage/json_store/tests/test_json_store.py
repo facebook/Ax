@@ -10,7 +10,6 @@ import dataclasses
 import json
 import os
 import tempfile
-import warnings
 from collections import OrderedDict
 from functools import partial
 from math import nan
@@ -35,7 +34,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
@@ -45,20 +44,23 @@ from ax.core.optimization_config import (
     PreferenceOptimizationConfig,
 )
 from ax.core.parameter import ChoiceParameter, ParameterType
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning, UnsupportedError
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
-from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
-    _DEPRECATED_MODEL_TO_REPLACEMENT,
+    _DEPRECATED_GENERATOR_TO_REPLACEMENT,
+    _raise_on_legacy_callable_refs,
     data_from_json,
     generation_node_from_json,
     generation_strategy_from_json,
+    generator_spec_from_json,
     object_from_json,
 )
 from ax.storage.json_store.decoders import (
@@ -83,6 +85,7 @@ from ax.storage.json_store.registry import (
 )
 from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
+from ax.storage.utils import EXPECT_RELATIVIZED_OUTCOMES, PREFERENCE_PROFILE_NAME
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -275,16 +278,8 @@ TEST_CASES = [
     (
         "GenerationStrategy",
         partial(
-            get_generation_strategy, with_experiment=True, with_completion_criteria=3
-        ),
-    ),
-    (
-        "GenerationStrategy",
-        partial(
             get_generation_strategy,
             with_experiment=True,
-            with_generation_nodes=True,
-            with_callable_model_kwarg=False,
         ),
     ),
     (
@@ -332,6 +327,17 @@ TEST_CASES = [
         partial(sobol_gpei_generation_node_gs, with_is_SOO_transition=True),
     ),
     ("GeneratorRun", get_generator_run),
+    (
+        "GeneratorSpec",
+        partial(
+            GeneratorSpec,
+            generator_enum=Generators.BOTORCH_MODULAR,
+            generator_kwargs={"some_kwarg": "some_value"},
+            generator_gen_kwargs={"n": 5},
+            cv_kwargs={"untransform": False},
+            generator_key_override="custom_generator_key",
+        ),
+    ),
     ("Hartmann6Metric", get_hartmann_metric),
     (
         "HeterogeneousMTGP",
@@ -343,6 +349,14 @@ TEST_CASES = [
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
+    (
+        "LLMMessage",
+        lambda: LLMMessage(
+            role="assistant",
+            content="Hello!",
+            metadata={"finish_reason": "stop", "usage": {"total_tokens": 10}},
+        ),
+    ),
     ("MapData", get_map_data),
     ("MapMetric", partial(get_map_metric, name="test")),
     ("Metric", get_metric),
@@ -484,20 +498,19 @@ class JSONStoreTest(TestCase):
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-
-            if class_ == "SimpleExperiment":
-                # Evaluation functions will be different, so need to do
-                # this so equality test passes
-                with self.assertRaises(RuntimeError):
-                    converted_object.evaluation_function(parameterization={})
-
-                original_object.evaluation_function = None
-                converted_object.evaluation_function = None
             if class_ == "BenchmarkMethod":
-                # Some fields of the reloaded GS are not expected to be set (both will
-                # be set during next model fitting call), so we unset them on the
-                # original GS as well.
+                # Some `GenerationStrategy` fields are not persisted in storage;
+                # it's ok for them to not be there in the reloaded object.
                 original_object.generation_strategy._unset_non_persistent_state_fields()
+            if class_ == "GenerationStep":
+                # _step_index is non-persistent state, unset on original to match
+                # the decoded object which will have _step_index=None.
+                original_object._step_index = None
+                # Transition_to is set during decode for backwards
+                # compatibility. Update original to match decoded.
+                for tc in original_object.transition_criteria:
+                    if tc.transition_to is None:
+                        tc._transition_to = original_object.name
             if isinstance(original_object, torch.nn.Module):
                 self.assertIsInstance(
                     converted_object,
@@ -506,26 +519,15 @@ class JSONStoreTest(TestCase):
                 )
                 original_object = original_object.state_dict()
                 converted_object = converted_object.state_dict()
-            if isinstance(original_object, GenerationStrategy):
-                original_object._unset_non_persistent_state_fields()
-                # for the test, completion criterion are set post init
-                # and therefore do not become transition criterion, unset
-                # for this specific test only
-                if "with_completion_criteria" in fake_func.keywords:
-                    for step in original_object._steps:
-                        step._transition_criteria = []
-                    for step in converted_object._steps:
-                        step._transition_criteria = []
-                    # also unset the `transition_to` field for the same reason
-                    for criterion in converted_object._steps[0].completion_criteria:
-                        if criterion.criterion_class == "MinimumPreferenceOccurances":
-                            criterion._transition_to = None
 
             try:
                 self.assertEqual(
                     original_object,
                     converted_object,
-                    msg=f"Error encoding/decoding {class_}.",
+                    msg=(
+                        f"Error encoding/decoding {class_}. Original object: "
+                        f"{original_object}, decoded object: {converted_object}"
+                    ),
                 )
             except RuntimeError as e:
                 if "Tensor with more than one value" in str(e):
@@ -617,17 +619,17 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertGreater(len(new_generation_strategy._steps), 0)
-        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+        self.assertGreater(len(new_generation_strategy._nodes), 0)
+        self.assertIsInstance(
+            new_generation_strategy._nodes[0].generator_spec.generator_enum, Generators
+        )
         # Model has not yet been initialized on this GS since it hasn't generated
         # anything yet.
         self.assertIsNone(new_generation_strategy.adapter)
 
         # Check that we can encode and decode the generation strategy after
-        # it has generated some generator runs. Since we now need to `gen`,
-        # we remove the fake callable kwarg we added, since model does not
-        # expect it.
-        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
+        # it has generated some generator runs.
+        generation_strategy = get_generation_strategy()
         gr = generation_strategy.gen_single_trial(experiment)
         gs_json = object_to_json(
             generation_strategy,
@@ -644,7 +646,9 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+        self.assertIsInstance(
+            new_generation_strategy._nodes[0].generator_spec.generator_enum, Generators
+        )
 
         # Check that we can encode and decode the generation strategy after
         # it has generated some trials and been updated with some data.
@@ -667,7 +671,9 @@ class JSONStoreTest(TestCase):
         # well.
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
-        self.assertIsInstance(new_generation_strategy._steps[0].generator, Generators)
+        self.assertIsInstance(
+            new_generation_strategy._nodes[0].generator_spec.generator_enum, Generators
+        )
 
     def test_decode_map_data_backward_compatible(self) -> None:
         with self.subTest("Multiple map keys"):
@@ -687,23 +693,13 @@ class JSONStoreTest(TestCase):
                 ],
                 "__type": "MapData",
             }
-            with warnings.catch_warnings(record=True) as warning_list:
-                map_data = object_from_json(
-                    data_with_two_map_keys_json,
-                    decoder_registry=CORE_DECODER_REGISTRY,
-                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-                )
-            self.assertIn(
-                "Received multiple map keys. All except ", str(warning_list[0].message)
+            map_data = object_from_json(
+                data_with_two_map_keys_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            self.assertIn("will be renamed to step", str(warning_list[1].message))
-
-            # The "timestamp" map key will be silently dropped, and "epoch" will
-            # be renamed to MAP_KEY
-            self.assertIn(MAP_KEY, map_data.full_df.columns)
-            # Either 'epoch' or 'timestamps' could have been kept
-            progression = map_data.full_df[MAP_KEY].tolist()
-            self.assertTrue(progression == [0.0, 1.0] or progression == [3.0, 4.0])
+            self.assertEqual(len(map_data.full_df), 2)
+            self.assertIsInstance(map_data, Data)
 
         with self.subTest("Single map key"):
             data_json = {
@@ -718,19 +714,13 @@ class JSONStoreTest(TestCase):
                 "map_key_infos": [{"key": "epoch", "default_value": nan}],
                 "__type": "MapData",
             }
-            with warnings.catch_warnings(record=True) as warning_list:
-                map_data = object_from_json(
-                    data_json,
-                    decoder_registry=CORE_DECODER_REGISTRY,
-                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-                )
-            self.assertIn(
-                f"epoch will be renamed to {MAP_KEY}", str(warning_list[0].message)
+            map_data = object_from_json(
+                data_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            self.assertIn(MAP_KEY, map_data.full_df.columns)
-            self.assertEqual(map_data.full_df[MAP_KEY].tolist(), [0.0, 1.0])
-            # No warning about multiple map keys
-            self.assertFalse(any("Received multiple" in str(w) for w in warning_list))
+            self.assertEqual(len(map_data.full_df), 2)
+            self.assertIsInstance(map_data, Data)
 
         with self.subTest("No map key"):
             data_json = {
@@ -749,15 +739,14 @@ class JSONStoreTest(TestCase):
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            self.assertIsInstance(map_data, MapData)
-            self.assertEqual(len(map_data.df), 0)
+            self.assertIsInstance(map_data, Data)
+            self.assertEqual(len(map_data.full_df), 0)
 
     def test_decode_data_backward_compatible(self) -> None:
         empty_df_json = {
             "__type": "DataFrame",
             "value": (
-                '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{}'
-                ',"sem":{}}'
+                '{"metric_name":{},"arm_name":{},"trial_index":{},"mean":{},"sem":{}}'
             ),
         }
         with self.subTest("Description is None"):
@@ -954,27 +943,6 @@ class JSONStoreTest(TestCase):
         ):
             class_from_json({"index": 0, "class": "unknown_path"})
 
-    def test_unregistered_model_not_supported_in_nodes(self) -> None:
-        """Support for callables within model kwargs on GeneratorSpecs stored on
-        GenerationNodes is currently not supported. This is supported for
-        GenerationSteps due to legacy compatibility.
-        """
-        with self.assertRaisesRegex(
-            JSONEncodeError,
-            "is not registered with a corresponding encoder",
-        ):
-            gs = get_generation_strategy(
-                with_experiment=True,
-                with_generation_nodes=True,
-                with_callable_model_kwarg=True,
-                with_completion_criteria=0,
-            )
-            object_to_json(
-                gs,
-                encoder_registry=CORE_ENCODER_REGISTRY,
-                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
-            )
-
     def test_BadStateDict(self) -> None:
         interval = get_interval()
         expected_json = botorch_component_to_dict(interval)
@@ -1000,6 +968,80 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(decoded, ObservationFeatures)
         self.assertEqual(decoded.parameters, {"x1": 0.0})
         self.assertEqual(decoded.trial_index, 0)
+
+    def test_parameter_constraint_backwards_compatibility(self) -> None:
+        # Experiment JSON which includes a legacy-encoded parameter constraint.
+        json = {
+            "__type": "Experiment",
+            "name": "booth_function",
+            "description": None,
+            "experiment_type": None,
+            "search_space": {
+                "__type": "SearchSpace",
+                "parameters": [
+                    {
+                        "__type": "RangeParameter",
+                        "name": "x1",
+                        "parameter_type": {"__type": "ParameterType", "name": "FLOAT"},
+                        "lower": -10.0,
+                        "upper": 10.0,
+                        "log_scale": False,
+                        "logit_scale": False,
+                        "digits": None,
+                        "is_fidelity": False,
+                        "target_value": None,
+                    },
+                    {
+                        "__type": "RangeParameter",
+                        "name": "x2",
+                        "parameter_type": {"__type": "ParameterType", "name": "FLOAT"},
+                        "lower": -10.0,
+                        "upper": 10.0,
+                        "log_scale": False,
+                        "logit_scale": False,
+                        "digits": None,
+                        "is_fidelity": False,
+                        "target_value": None,
+                    },
+                ],
+                "parameter_constraints": [
+                    {
+                        "__type": "ParameterConstraint",
+                        "constraint_dict": {"x1": -1.0},
+                        "bound": -10.0,
+                    },
+                    {
+                        "__type": "OrderConstraint",
+                        "lower_name": "x1",
+                        "upper_name": "x2",
+                    },
+                ],
+            },
+            "optimization_config": None,
+            "tracking_metrics": [],
+            "runner": None,
+            "status_quo": None,
+            "time_created": {
+                "__type": "datetime",
+                "value": "2025-12-15 12:12:20.479774",
+            },
+            "trials": {},
+            "is_test": False,
+            "data_by_trial": {},
+            "properties": {"owners": [None]},
+            "_trial_type_to_runner": {None: None},
+            "default_data_type": {"__type": "DataType", "name": "MAP_DATA"},
+        }
+        decoded = object_from_json(object_json=json)
+
+        self.assertEqual(
+            decoded.search_space.parameter_constraints[0],
+            ParameterConstraint("x1 >= 10"),
+        )
+        self.assertEqual(
+            decoded.search_space.parameter_constraints[1],
+            ParameterConstraint("x1 <= x2"),
+        )
 
     def test_objective_backwards_compatibility(self) -> None:
         # Test that we can load an objective that has conflicting
@@ -1036,14 +1078,17 @@ class JSONStoreTest(TestCase):
                 "fit_abandoned": True,
                 "fit_only_completed_map_metrics": True,
             },
-            "model_gen_kwargs": {},
+            "model_gen_kwargs": {"dummy": 5.0},
             "index": -1,
             "should_deduplicate": False,
         }
-        generation_step = object_from_json(json)
-        self.assertIsInstance(generation_step, GenerationStep)
-        self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
-        self.assertEqual(generation_step.generator, Generators.BOTORCH_MODULAR)
+        gnode = object_from_json(json)
+        self.assertIsInstance(gnode, GenerationNode)
+        self.assertEqual(gnode.generator_spec.generator_kwargs, {"other_kwarg": 5})
+        self.assertEqual(
+            gnode.generator_spec.generator_enum, Generators.BOTORCH_MODULAR
+        )
+        self.assertEqual(gnode.generator_spec.generator_gen_kwargs, {"dummy": 5.0})
 
     def test_generator_run_backwards_compatibility(self) -> None:
         # Test that we can load a generator run with deprecated kwargs.
@@ -1090,19 +1135,18 @@ class JSONStoreTest(TestCase):
             "gen_metadata": {
                 "model_fit_quality": None,
             },
-            "model_state_after_gen": None,
-            "generation_step_index": None,
+            "model_state_after_gen": {"dummy": 5.0},
             "candidate_metadata_by_arm_signature": None,
             "generation_node_name": None,
         }
         generator_run = object_from_json(json)
         self.assertIsInstance(generator_run, GeneratorRun)
         self.assertEqual(
-            generator_run._model_kwargs,
+            generator_run._generator_kwargs,
             {"deduplicate": False, "seed": None},
         )
         self.assertEqual(
-            generator_run._bridge_kwargs,
+            generator_run._adapter_kwargs,
             {
                 "transforms": {},
                 "transform_configs": None,
@@ -1111,6 +1155,8 @@ class JSONStoreTest(TestCase):
                 "fit_on_init": True,
             },
         )
+        self.assertEqual(generator_run._generator_key, "Sobol")
+        self.assertEqual(generator_run._generator_state_after_gen, {"dummy": 5.0})
 
     def test_generation_node_backwards_compatibility(self) -> None:
         # Checks that deprecated input constructors are discarded gracefully.
@@ -1126,7 +1172,7 @@ class JSONStoreTest(TestCase):
                                 "__type": "Type[Transform]",
                                 "index_in_registry": 6,
                                 "transform_type": (
-                                    "<class 'ax.adapter.transforms" ".one_hot.OneHot'>"
+                                    "<class 'ax.adapter.transforms.one_hot.OneHot'>"
                                 ),
                             },
                             {
@@ -1143,6 +1189,9 @@ class JSONStoreTest(TestCase):
                             "optimizer_kwargs": {"num_restarts": 10},
                             "acquisition_function_kwargs": {},
                         }
+                    },
+                    "model_cv_kwargs": {
+                        "test_cv_kwarg": True,
                     },
                 }
             ],
@@ -1182,9 +1231,19 @@ class JSONStoreTest(TestCase):
         self.assertEqual(len(node.input_constructors), 2)
         # Check that transforms got correctly deserialized.
         self.assertEqual(
-            node.generator_specs[0].model_kwargs["transforms"],
+            node.generator_specs[0].generator_kwargs["transforms"],
             [OneHot, Log],
         )
+        self.assertEqual(
+            node.generator_specs[0].generator_gen_kwargs,
+            {
+                "model_gen_options": {
+                    "optimizer_kwargs": {"num_restarts": 10},
+                    "acquisition_function_kwargs": {},
+                }
+            },
+        )
+        self.assertEqual(node.generator_specs[0].cv_kwargs, {"test_cv_kwarg": True})
 
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.
@@ -1268,6 +1327,8 @@ class JSONStoreTest(TestCase):
         new_object = get_surrogate_generation_step()
         # Converted object is a generation step without a strategy associated with it;
         # unset the generation strategy of the new object too, to match.
+        # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
+        #  Step.__new__` actually returns a `GenerationNode`.
         new_object._generation_strategy = None
         self.assertEqual(converted_object, new_object)
 
@@ -1479,6 +1540,46 @@ class JSONStoreTest(TestCase):
             deserialized_config.pruning_target_parameterization,
         )
 
+    def test_preference_optimization_config_expect_relativized_outcomes_roundtrip(
+        self,
+    ) -> None:
+        test_profile_name = "test_profile_name"
+        for expect_relativized_outcomes in (True, False):
+            with self.subTest(f"{expect_relativized_outcomes=}"):
+                pref_opt_config = PreferenceOptimizationConfig(
+                    objective=get_multi_objective(),
+                    preference_profile_name=test_profile_name,
+                    expect_relativized_outcomes=expect_relativized_outcomes,
+                )
+
+                json_data = object_to_json(
+                    pref_opt_config,
+                    encoder_registry=CORE_ENCODER_REGISTRY,
+                    class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+                )
+
+                # Verify expect_relativized_outcomes is in the JSON
+                self.assertEqual(json_data[PREFERENCE_PROFILE_NAME], test_profile_name)
+                self.assertEqual(
+                    json_data[EXPECT_RELATIVIZED_OUTCOMES], expect_relativized_outcomes
+                )
+
+                # Simulate full serialization round-trip
+                json_str = json.dumps(json_data)
+                json_data = json.loads(json_str)
+
+                deserialized_config = object_from_json(
+                    json_data,
+                    decoder_registry=CORE_DECODER_REGISTRY,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+
+                self.assertEqual(pref_opt_config, deserialized_config)
+                self.assertEqual(
+                    deserialized_config.expect_relativized_outcomes,
+                    expect_relativized_outcomes,
+                )
+
     def test_optimization_config_with_none_pruning_target_json_roundtrip(self) -> None:
         # Test that OptimizationConfig with
         # pruning_target_parameterization=None is handled correctly
@@ -1591,6 +1692,187 @@ class JSONStoreTest(TestCase):
         ):
             choice_parameter_to_dict(choice_parameter)
 
+    def test_choice_parameter_backward_compatibility_sort_values(self) -> None:
+        """Test that numeric ordered parameters with sort_values=False can be loaded."""
+        # Setup: JSON with numeric ordered parameter with sort_values=False
+        # (as would be stored by old versions before validation was added)
+        parameter_json = {
+            "__type": "ChoiceParameter",
+            "name": "x",
+            "parameter_type": {"__type": "ParameterType", "name": "INT"},
+            "values": [1, 2, 3],
+            "is_ordered": True,
+            "is_task": False,
+            "is_fidelity": False,
+            "target_value": None,
+            "sort_values": False,  # Invalid for numeric ordered parameters
+            "log_scale": None,
+            "dependents": None,
+        }
+
+        # Execute: Load parameter from JSON and verify warning is logged
+        with self.assertLogs("ax.storage.json_store.decoders", level="WARNING") as cm:
+            loaded_parameter = object_from_json(
+                parameter_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Assert: Parameter loads successfully with sort_values=True
+        self.assertIsInstance(loaded_parameter, ChoiceParameter)
+        self.assertEqual(loaded_parameter.name, "x")
+        self.assertEqual(loaded_parameter.parameter_type, ParameterType.INT)
+        self.assertTrue(loaded_parameter.is_ordered)
+        self.assertTrue(loaded_parameter.sort_values)  # Overridden to True
+        self.assertEqual(loaded_parameter.values, [1, 2, 3])
+
+        # Assert: Warning was logged about the override
+        self.assertTrue(
+            any(
+                "sort_values=False" in warning and "backward compatibility" in warning
+                for warning in cm.output
+            )
+        )
+
+    def test_arm_parameter_values_cast_to_parameter_type(self) -> None:
+        """Test that arm parameter values are cast to the appropriate type on load."""
+        from ax.core.arm import Arm
+        from ax.core.experiment import Experiment
+        from ax.core.parameter import RangeParameter
+        from ax.core.search_space import SearchSpace
+        from ax.storage.json_store.encoder import object_to_json
+
+        # Create an experiment with INT parameters
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    lower=0,
+                    upper=10,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+
+        experiment = Experiment(
+            name="test_experiment",
+            search_space=search_space,
+            status_quo=Arm(parameters={"x": 5, "y": 0.5}, name="status_quo"),
+        )
+
+        # Add a trial with an arm
+        trial = experiment.new_trial()
+        trial.add_arm(Arm(parameters={"x": 3, "y": 0.3}))
+
+        # Encode the experiment to JSON
+        experiment_json = object_to_json(
+            experiment,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+
+        # Manually modify the JSON to simulate float values for INT parameters
+        # (as could happen when loading from external sources)
+        for arm_json in experiment_json["trials"][0]["generator_run"]["arms"]:
+            arm_json["parameters"]["x"] = 3.0  # float instead of int
+        experiment_json["status_quo"]["parameters"]["x"] = 5.0  # float instead of int
+
+        # Decode the experiment from JSON
+        loaded_experiment = object_from_json(
+            experiment_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        # Check that arm parameter values are cast to the correct type
+        loaded_arm = list(loaded_experiment.trials[0].arms)[0]
+        self.assertEqual(loaded_arm.parameters["x"], 3)
+        self.assertIs(type(loaded_arm.parameters["x"]), int)
+        self.assertEqual(loaded_arm.parameters["y"], 0.3)
+        self.assertIs(type(loaded_arm.parameters["y"]), float)
+
+        # Check that status_quo parameter values are cast to the correct type
+        status_quo = loaded_experiment.status_quo
+        self.assertIsNotNone(status_quo)
+        self.assertEqual(status_quo.parameters["x"], 5)
+        self.assertIs(type(status_quo.parameters["x"]), int)
+        self.assertEqual(status_quo.parameters["y"], 0.5)
+        self.assertIs(type(status_quo.parameters["y"]), float)
+
+    def test_cast_parameter_value_all_types(self) -> None:
+        """Test _cast_parameter_value handles all parameter types correctly."""
+        from ax.storage.json_store.decoders import _cast_parameter_value
+
+        # Test INT casting
+        self.assertEqual(_cast_parameter_value(3.0, ParameterType.INT), 3)
+        self.assertIs(type(_cast_parameter_value(3.0, ParameterType.INT)), int)
+        self.assertEqual(_cast_parameter_value(3, ParameterType.INT), 3)
+        self.assertIs(type(_cast_parameter_value(3, ParameterType.INT)), int)
+
+        # Test FLOAT casting
+        self.assertEqual(_cast_parameter_value(3, ParameterType.FLOAT), 3.0)
+        self.assertIs(type(_cast_parameter_value(3, ParameterType.FLOAT)), float)
+        self.assertEqual(_cast_parameter_value(3.5, ParameterType.FLOAT), 3.5)
+        self.assertIs(type(_cast_parameter_value(3.5, ParameterType.FLOAT)), float)
+
+        # Test BOOL casting
+        self.assertEqual(_cast_parameter_value(1, ParameterType.BOOL), True)
+        self.assertIs(type(_cast_parameter_value(1, ParameterType.BOOL)), bool)
+        self.assertEqual(_cast_parameter_value(0, ParameterType.BOOL), False)
+        self.assertIs(type(_cast_parameter_value(0, ParameterType.BOOL)), bool)
+        self.assertEqual(_cast_parameter_value(True, ParameterType.BOOL), True)
+        self.assertIs(type(_cast_parameter_value(True, ParameterType.BOOL)), bool)
+
+        # Test STRING casting
+        self.assertEqual(_cast_parameter_value("test", ParameterType.STRING), "test")
+        self.assertIs(type(_cast_parameter_value("test", ParameterType.STRING)), str)
+        self.assertEqual(_cast_parameter_value(123, ParameterType.STRING), "123")
+        self.assertIs(type(_cast_parameter_value(123, ParameterType.STRING)), str)
+
+        # Test None handling
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.INT))
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.FLOAT))
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.BOOL))
+        self.assertIsNone(_cast_parameter_value(None, ParameterType.STRING))
+
+    def test_cast_arm_parameters_skips_unknown_params(self) -> None:
+        """Test that _cast_arm_parameters skips parameters not in search space."""
+        from ax.core.arm import Arm
+        from ax.core.parameter import RangeParameter
+        from ax.core.search_space import SearchSpace
+        from ax.storage.json_store.decoder import _cast_arm_parameters
+
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    lower=0,
+                    upper=10,
+                ),
+            ]
+        )
+
+        # Create an arm with a parameter that's not in the search space
+        arm = Arm(parameters={"x": 3.0, "unknown_param": "some_value"})
+
+        # Cast should work without error and only cast known parameters
+        _cast_arm_parameters(arm, search_space)
+
+        # x should be cast to int
+        self.assertEqual(arm.parameters["x"], 3)
+        self.assertIs(type(arm.parameters["x"]), int)
+
+        # unknown_param should remain unchanged
+        self.assertEqual(arm.parameters["unknown_param"], "some_value")
+        self.assertIs(type(arm.parameters["unknown_param"]), str)
+
     def test_surrogate_spec_backwards_compatibility(self) -> None:
         # This is an invalid example that has both deprecated args
         # and model config specified. Deprecated args will be ignored.
@@ -1683,7 +1965,7 @@ class JSONStoreTest(TestCase):
     def test_model_registry_backwards_compatibility(self) -> None:
         # Check that deprecated model registry entries can be loaded.
         # Check for models with listed replacements.
-        for name, replacement in _DEPRECATED_MODEL_TO_REPLACEMENT.items():
+        for name, replacement in _DEPRECATED_GENERATOR_TO_REPLACEMENT.items():
             with self.assertLogs(logger="ax", level="ERROR"):
                 from_json = object_from_json({"__type": "Generators", "name": name})
             self.assertEqual(from_json, Generators[replacement])
@@ -1705,7 +1987,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(opt_config, decoded_opt_config)
 
     def test_data_by_trial_backward_compatible(self) -> None:
-        ts0, ts1, ts2 = 2, 3, 4
+        ts0, ts1 = 2, 3
         data_as_dict = {
             "trial_index": 0,
             "arm_name": "0_0",
@@ -1777,14 +2059,13 @@ class JSONStoreTest(TestCase):
             }
             decoded = data_from_json(data_by_trial_json=data_by_trial_json)
 
-            self.assertEqual(set(decoded.keys()), {0})
-            self.assertEqual(set(decoded[0].keys()), {ts2})
-            df = decoded[0][ts2].full_df
+            self.assertEqual(decoded.trial_indices, {0})
+            df = decoded.full_df
             # b is present even though it wasn't in the most recent fetch
             self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
             # We have the old mean of b and the new mean of a
             self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
-            self.assertEqual(len(decoded[0]), 1)
+            self.assertEqual((df["trial_index"] == 0).sum(), 2)
 
         with self.subTest("One past fetch"):
             # Encodes this:
@@ -1807,19 +2088,20 @@ class JSONStoreTest(TestCase):
                 }
             }
             decoded = data_from_json(data_by_trial_json=data_by_trial_json)
-            self.assertEqual(set(decoded.keys()), {0})
+            self.assertEqual(decoded.trial_indices, {0})
 
         with self.subTest("Empty data"):
             data_by_trial_json = {0: OrderedDict()}
             decoded = data_from_json(data_by_trial_json=data_by_trial_json)
-            self.assertEqual(len(decoded), 0)
+            self.assertIsInstance(decoded, Data)
+            self.assertEqual(len(decoded.full_df), 0)
 
     def test_experiment_data_by_trial_bc(self) -> None:
         """
         An integration test showing that an experiment that has been serialized
         with a `_data_by_trial` attribute deserializes correctly.
         """
-        ts0, ts1, ts2 = 2, 3, 4
+        ts0, ts1 = 2, 3
         data_as_dict = {
             "trial_index": 0,
             "arm_name": "0_0",
@@ -1982,14 +2264,53 @@ class JSONStoreTest(TestCase):
                 }
             },
             "properties": {},
+            "_trial_type_to_runner": {None: None},
             "default_data_type": {"__type": "DataType", "name": "DATA"},
         }
-        decoded = object_from_json(object_json=experiment_json)
-        self.assertEqual(set(decoded._data_by_trial.keys()), {0})
-        self.assertEqual(set(decoded._data_by_trial[0].keys()), {ts2})
-        df = decoded._data_by_trial[0][ts2].full_df
+        decoded_experiment = object_from_json(object_json=experiment_json)
+        decoded_data = decoded_experiment.data
+        self.assertEqual(set(decoded_data.trial_indices), {0})
+        df = decoded_data.full_df
         # b is present even though it wasn't in the most recent fetch
         self.assertEqual(set(df["metric_name"].to_numpy()), {"a", "b"})
         # We have the old mean of b and the new mean of a
         self.assertEqual(set(df["mean"].to_numpy()), {ts1, new_mean})
-        self.assertEqual(len(decoded._data_by_trial[0]), 1)
+        self.assertEqual((df["trial_index"] == 0).sum(), 2)
+
+    def test_raise_on_legacy_callable_refs(self) -> None:
+        """Test that _raise_on_legacy_callable_refs raises on legacy callable refs."""
+        kwarg_dict = {
+            "normal_key": "normal_value",
+            "legacy_callable": {"is_callable_as_path": True, "path": "some.path"},
+            "nested_dict": {"key": "value"},
+        }
+        with self.assertRaisesRegex(
+            JSONDecodeError,
+            "Legacy callable reference 'legacy_callable' cannot be decoded",
+        ):
+            _raise_on_legacy_callable_refs(kwarg_dict)
+
+    def test_raise_on_legacy_callable_refs_preserves_non_callables(self) -> None:
+        """Test that _raise_on_legacy_callable_refs preserves non-callable refs."""
+        kwarg_dict = {
+            "normal_key": "normal_value",
+            "nested_dict": {"key": "value"},
+        }
+        result = _raise_on_legacy_callable_refs(kwarg_dict)
+        self.assertEqual(result, kwarg_dict)
+
+    def test_generator_spec_from_json_raises_on_legacy_callables(self) -> None:
+        """Test generator_spec_from_json raises on legacy callable refs in kwargs."""
+        generator_spec_json = {
+            "generator_enum": {"__type": "Generators", "name": "SOBOL"},
+            "generator_kwargs": {
+                "seed": 42,
+                "legacy_fn": {"is_callable_as_path": True, "path": "some.fn"},
+            },
+            "generator_gen_kwargs": {},
+        }
+        with self.assertRaisesRegex(
+            JSONDecodeError,
+            "Legacy callable reference 'legacy_fn' cannot be decoded",
+        ):
+            generator_spec_from_json(generator_spec_json)

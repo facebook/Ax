@@ -8,7 +8,8 @@
 
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod, abstractproperty
+import math
+from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from enum import Enum
 from logging import Logger
@@ -16,13 +17,16 @@ from math import inf
 from typing import Any, cast, Union
 from warnings import warn
 
+import numpy as np
+import numpy.typing as npt
 from ax.core.types import TNumeric, TParameterization, TParamValue
 from ax.exceptions.core import AxParameterWarning, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-
 from ax.utils.common.string_utils import sanitize_name, unsanitize_name
+from pandas import DataFrame as PandasDataFrame
 from pyre_extensions import assert_is_instance, none_throws
+from scipy.special import expit, logit
 from sympy.core.add import Add
 from sympy.core.mul import Mul
 from sympy.core.numbers import Float, Integer
@@ -122,6 +126,22 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         """
 
     @abstractmethod
+    def validate_array(
+        self,
+        values: npt.NDArray,
+    ) -> npt.NDArray:
+        """Vectorized validation for a NumPy array of values.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of values to validate.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+
+    @abstractmethod
     def cardinality(self) -> float:
         pass
 
@@ -140,6 +160,37 @@ class Parameter(SortableBase, metaclass=ABCMeta):
             # ints are floats
             type(value) is int and self.python_type is float
         )
+
+    def is_compatible_with(self, other: Parameter) -> bool:
+        """Check whether parameters are compatible.
+
+        Two parameters are compatible if they have the same parameter type and
+        domain type. Additional checks are performed based on the domain type.
+
+        Args:
+            other: Another Ax parameter object to compare against.
+
+        Returns:
+            Whether the parameters are compatible or not.
+        """
+        if self.parameter_type != other.parameter_type:
+            return False
+        return self._is_domain_compatible(other)
+
+    @abstractmethod
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility.
+
+        This method is called after verifying that parameter types match.
+        Subclasses should implement domain-specific compatibility checks.
+
+        Args:
+            other: Another Ax parameter object to compare against.
+
+        Returns:
+            Whether the parameters are domain-compatible or not.
+        """
+        pass
 
     @property
     def is_numeric(self) -> bool:
@@ -232,7 +283,8 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
         return ret_val
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def domain_repr(self) -> str:
         """Returns a string representation of the domain."""
         pass
@@ -372,13 +424,13 @@ class RangeParameter(Parameter):
             ParameterType.FLOAT,
         ):
             raise UserInputError(
-                f"RangeParameter {self.name}type must be int or float."
+                f"RangeParameter {self.name} type must be int or float."
             )
 
         upper = float(upper)
         if lower >= upper:
             raise UserInputError(
-                f"Upper bound of {self.name} must be strictly larger than lower."
+                f"Upper bound of {self.name} must be strictly larger than lower. "
                 f"Got: ({lower}, {upper})."
             )
         width: float = upper - lower
@@ -447,7 +499,7 @@ class RangeParameter(Parameter):
 
     @property
     def log_scale(self) -> bool:
-        """Whether the parameter's random values should be sampled from log space."""
+        """Whether the parameter's values should be sampled from log space."""
         return self._log_scale
 
     @property
@@ -559,6 +611,27 @@ class RangeParameter(Parameter):
 
         return True
 
+    def validate_array(
+        self,
+        values: npt.NDArray,
+        tol: float = EPS,
+    ) -> npt.NDArray:
+        """Vectorized validation for RangeParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+        NaN values are considered invalid, consistent with the validate() method.
+
+        Args:
+            values: A NumPy array of values to validate.
+            tol: Absolute tolerance for floating point comparisons.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        # Vectorized bounds check with tolerance
+        # NaN comparisons naturally return False, so NaN values are invalid
+        return (values >= self.lower - tol) & (values <= self.upper + tol)
+
     def is_valid_type(self, value: TParamValue) -> bool:
         """Same as default except allows floats whose value is an int
         for Int parameters.
@@ -605,6 +678,14 @@ class RangeParameter(Parameter):
         """List of boolean attributes that can be set on this parameter."""
         return super().available_flags + ["log_scale", "logit_scale"]
 
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for RangeParameter.
+
+        Two RangeParameters are compatible if they are both RangeParameters.
+        The bounds do not need to overlap.
+        """
+        return isinstance(other, RangeParameter)
+
     @property
     def domain_repr(self) -> str:
         """Returns a string representation of the domain."""
@@ -628,7 +709,10 @@ class ChoiceParameter(Parameter):
             task parameter.
         sort_values: Whether to sort ``values`` before encoding.
             Defaults to False if ``parameter_type`` is STRING, else
-            True.
+            True. Note: Numeric ordered parameters (int or float with
+            ``is_ordered=True``) must have ``sort_values=True``.
+        log_scale: Whether to sample choice values from log space. Only valid
+            for numerical (int or float) parameters with all positive values.
         dependents: Optional mapping for parameters in hierarchical search
             spaces; format is { value -> list of dependent parameter names }.
         bypass_cardinality_check: Whether to bypass the cardinality check
@@ -650,6 +734,7 @@ class ChoiceParameter(Parameter):
         is_fidelity: bool = False,
         target_value: TParamValue = None,
         sort_values: bool | None = None,
+        log_scale: bool | None = None,
         dependents: dict[TParamValue, list[str]] | None = None,
         bypass_cardinality_check: bool = False,
         backfill_value: TParamValue = None,
@@ -716,9 +801,44 @@ class ChoiceParameter(Parameter):
             if sort_values is not None
             else self._get_default_sort_values_and_warn()
         )
+        # Validate that numeric ordered parameters have sort_values=True
+        if self._is_ordered and parameter_type.is_numeric and not self._sort_values:
+            raise UserInputError(
+                f"Numeric ordered choice parameters must have sort_values=True. "
+                f"Parameter {name} is ordered with type {parameter_type.name} but "
+                f"has sort_values=False."
+            )
         if self.sort_values:
             values = cast(list[TParamValue], sorted([none_throws(v) for v in values]))
         self._values: list[TParamValue] = self._cast_values(values)
+
+        # Auto-detect log_scale if not explicitly set
+        if log_scale is None:
+            log_scale = self._get_default_log_scale(
+                values=self._values, parameter_type=parameter_type
+            )
+
+        # Validate log_scale constraints
+        if log_scale:
+            if not parameter_type.is_numeric:
+                raise UserInputError(
+                    f"log_scale is only supported for numerical parameters. "
+                    f"Parameter {name} has type {parameter_type.name}."
+                )
+            # Check that all values are positive
+            for value in self._values:
+                if float(value) <= 0:
+                    raise UserInputError(
+                        f"log_scale requires all values to be positive. "
+                        f"Parameter {name} has value {value} which is <= 0."
+                    )
+            # Check that parameter is ordered -- doesn't make sense for categoricals.
+            if not self._is_ordered:
+                raise UserInputError(
+                    f"log_scale is only supported for ordered parameters. "
+                    f"Parameter {name} has is_ordered=False."
+                )
+        self._log_scale: bool = log_scale
 
         if dependents:
             for value in dependents:
@@ -753,15 +873,79 @@ class ChoiceParameter(Parameter):
 
     def _get_default_sort_values_and_warn(self) -> bool:
         default_bool = self._parameter_type != ParameterType.STRING
-        warn(
-            f'`sort_values` is not specified for `ChoiceParameter` "{self._name}". '
-            f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
-            f"{self.parameter_type.name}. To override this behavior (or avoid this "
-            f"warning), specify `sort_values` during `ChoiceParameter` construction.",
-            AxParameterWarning,
-            stacklevel=3,
-        )
+        # Don't warn for numeric ordered parameters since we enforce sort_values=True
+        if not (self._is_ordered and self._parameter_type.is_numeric):
+            warn(
+                f'`sort_values` is not specified for `ChoiceParameter` "{self._name}". '
+                f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
+                f"{self.parameter_type.name}. To override this behavior (or avoid this "
+                "warning), specify `sort_values` during `ChoiceParameter` "
+                "construction.",
+                AxParameterWarning,
+                stacklevel=3,
+            )
         return default_bool
+
+    def _get_default_log_scale(
+        self, values: list[TParamValue], parameter_type: ParameterType
+    ) -> bool:
+        """Get the default value for log_scale.
+
+        Returns True if all values are positive and any of the following
+        heuristics is satisfied:
+        1. Exponential spacing (generalized): Values follow the pattern c * base^p
+           where c is a constant, base is inferred from the data, and p are integers
+           (possibly with some skipped). This handles:
+           - Equal ratios: [2, 4, 8, 16] = [2^1, 2^2, 2^3, 2^4]
+           - Skipped powers: [64, 128, 512] = [2^6, 2^7, 2^9]
+           - Constant factor: [10, 20, 40, 80] = 10 * [2^0, 2^1, 2^2, 2^3]
+           - Any base: [3, 9, 27] = [3^1, 3^2, 3^3]
+        2. Spans orders of magnitude: Values span at least 2 orders of magnitude
+           (e.g., 0.01 to 1.0 or 1 to 100). This also captures cases where
+           max/min >= 100.
+
+        Args:
+            values: List of parameter values to check.
+            parameter_type: The parameter type.
+
+        Returns:
+            True if values should be modeled in log-scale, False otherwise.
+        """
+        if not parameter_type.is_numeric or not self._is_ordered:
+            # Only numeric types & ordered parameters can have log-scale.
+            return False
+        if len(values) < 3:
+            # Need at least 3 values to detect a pattern.
+            return False
+        vals = [float(v) for v in values]  # refine type.
+        if any(v <= 0.0 for v in vals):
+            # All values must be positive.
+            return False
+
+        # Heuristic 1: Generalized exponential spacing
+        # Infer the base from the ratio of first two values, then check if all
+        # values follow the pattern c * base^p for some constant c and integer powers p.
+        # If values are of the form c * base^p, then log_base(v) = log_base(c) + p.
+        # The fractional parts of log_base(v) should all be approximately equal.
+        inferred_base = vals[1] / vals[0]
+        log_vals = [math.log(val) / math.log(inferred_base) for val in vals]
+        fractional_parts = [log_val - round(log_val) for log_val in log_vals]
+
+        # Check if all fractional parts are approximately equal
+        first_frac = fractional_parts[0]
+        # Allow 0.1 tolerance in the fractional part
+        if all(abs(frac - first_frac) < 0.1 for frac in fractional_parts):
+            return True
+
+        # Heuristic 2: Spans orders of magnitude
+        # Check if values span at least 2 orders of magnitude.
+        log_min = math.floor(math.log10(vals[0]))
+        log_max = math.floor(math.log10(vals[-1]))
+        orders_spanned = log_max - log_min
+        if orders_spanned >= 2:
+            return True
+
+        return False
 
     def cardinality(self) -> float:
         return len(self.values)
@@ -781,6 +965,11 @@ class ChoiceParameter(Parameter):
     @property
     def values(self) -> list[TParamValue]:
         return self._values
+
+    @property
+    def log_scale(self) -> bool:
+        """Whether the parameter's values should be sampled from log space."""
+        return self._log_scale
 
     def set_values(self, values: list[TParamValue]) -> ChoiceParameter:
         """Set the list of allowed values for parameter.
@@ -827,6 +1016,24 @@ class ChoiceParameter(Parameter):
             )
         return is_valid
 
+    def validate_array(
+        self,
+        values: npt.NDArray,
+    ) -> npt.NDArray:
+        """Vectorized validation for ChoiceParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of values to validate.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        # np.isin works with any dtype including strings
+        # None values naturally return False since None isn't in self._values
+        return np.isin(values, np.array(self._values, dtype=object))
+
     @property
     def dependents(self) -> dict[TParamValue, list[str]]:
         if not self.is_hierarchical:
@@ -852,6 +1059,7 @@ class ChoiceParameter(Parameter):
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
             sort_values=self._sort_values,
+            log_scale=self._log_scale,
             dependents=deepcopy(self._dependents),
             bypass_cardinality_check=self._bypass_cardinality_check,
             backfill_value=self._backfill_value,
@@ -874,7 +1082,17 @@ class ChoiceParameter(Parameter):
             "is_hierarchical",
             "is_task",
             "sort_values",
+            "log_scale",
         ]
+
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for ChoiceParameter.
+
+        Two ChoiceParameters are compatible if they have the same set of values.
+        """
+        if not isinstance(other, ChoiceParameter):
+            return False
+        return set(self.values) == set(other.values)
 
     @property
     def domain_repr(self) -> str:
@@ -932,7 +1150,7 @@ class FixedParameter(Parameter):
             self.cast(default_value) if default_value is not None else None
         )
         # NOTE: We don't need to check that dependent parameters actually exist as
-        # that is done in `HierarchicalSearchSpace` constructor.
+        # that is done in `SearchSpace` constructor.
         if dependents:
             if len(dependents) > 1 or next(iter(dependents.keys())) != self.value:
                 raise UserInputError(
@@ -972,6 +1190,24 @@ class FixedParameter(Parameter):
             )
         return is_valid
 
+    def validate_array(
+        self,
+        values: npt.NDArray,
+    ) -> npt.NDArray:
+        """Vectorized validation for FixedParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of values to validate.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        # Vectorized equality check
+        # None values naturally return False since None != self._value
+        return np.asarray(values == self._value)
+
     @property
     def dependents(self) -> dict[TParamValue, list[str]]:
         if not self.is_hierarchical:
@@ -1005,6 +1241,15 @@ class FixedParameter(Parameter):
         """List of boolean attributes that can be set on this parameter."""
         return super().available_flags + ["is_hierarchical"]
 
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for FixedParameter.
+
+        Two FixedParameters are compatible if they have the same value.
+        """
+        if not isinstance(other, FixedParameter):
+            return False
+        return self.value == other.value
+
     @property
     def domain_repr(self) -> str:
         """Returns a string representation of the domain."""
@@ -1012,6 +1257,44 @@ class FixedParameter(Parameter):
             return f"value='{self._value}'"
         else:
             return f"value={self._value}"
+
+
+def get_dummy_value_for_parameter(param: Parameter) -> TParamValue:
+    """Calculate the dummy value for a parameter (middle of domain).
+
+    This is used when flattening hierarchical search spaces or filling in
+    missing parameter values. The dummy value represents a "neutral" or
+    "middle" value in the parameter's domain.
+
+    Args:
+        param: Parameter to calculate dummy value for.
+
+    Returns:
+        The middle of the parameter domain as the dummy value for the parameter.
+    """
+
+    if isinstance(param, FixedParameter):
+        return param.value
+    elif isinstance(param, ChoiceParameter):
+        return param.values[len(param.values) // 2]
+    elif isinstance(param, RangeParameter):
+        lower, upper = float(param.lower), float(param.upper)
+        if param.log_scale:
+            log_lower, log_upper = math.log10(lower), math.log10(upper)
+            log_mid = (log_upper + log_lower) / 2.0
+            val = math.pow(10, log_mid)
+        elif param.logit_scale:
+            logit_lower, logit_upper = logit(lower).item(), logit(upper).item()
+            logit_mid = (logit_upper + logit_lower) / 2.0
+            val = expit(logit_mid).item()
+        else:
+            val = (upper + lower) / 2.0
+        if param.parameter_type is ParameterType.INT:
+            # This makes the distribution uniform after casting to int.
+            val += 0.5
+        return param.cast(val)
+    else:
+        raise NotImplementedError(f"Unhandled parameter type on parameter {param}.")
 
 
 class DerivedParameter(Parameter):
@@ -1043,7 +1326,8 @@ class DerivedParameter(Parameter):
         Args:
             name: Name of the parameter.
             parameter_type: Enum indicating the type of parameter value. Expects
-                "float", or "int". "bool" and "str" are not supported.
+                "float", or "int". "bool" and "str" are supported only for simple
+                copies (expression_str must be a single parameter name).
             expression_str: A string expression of the derived parameter definition.
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
@@ -1054,17 +1338,14 @@ class DerivedParameter(Parameter):
             raise UnsupportedError(
                 "Derived parameters do not support specifying a target value."
             )
-        elif parameter_type not in (ParameterType.FLOAT, ParameterType.INT):
-            raise UserInputError(
-                "Derived parameters must be of type float or int, but got "
-                f"{parameter_type}."
-            )
 
-        self.set_expression_str(expression_str=expression_str)
         self._name = name
-        self._parameter_type = parameter_type
+        self._parameter_type = parameter_type  # Set first so validation works
         self._is_fidelity = is_fidelity
         self._target_value = target_value
+
+        # Parse expression and validate type constraint (reuses set_expression_str)
+        self.set_expression_str(expression_str)
 
     def _parse_expression_str(self, expression_str: str) -> None:
         """Parse the expression str into parameter names and coefficients.
@@ -1080,6 +1361,8 @@ class DerivedParameter(Parameter):
         elif not isinstance(expression, (Add, Mul, Symbol)):
             raise UnsupportedError("Only linear expressions are currently supported.")
         coefficient_dict = expression.as_coefficients_dict()
+        # NOTE: the constant/intercept term is always stored with the integer 1 as its
+        # key, representing the "unit monomial" (x^0 = 1).
         self._intercept = float(coefficient_dict.pop(1, 0.0))
         parameter_names_to_weights = {}
         for name, coef in coefficient_dict.items():
@@ -1093,6 +1376,9 @@ class DerivedParameter(Parameter):
     @property
     def domain_repr(self) -> str:
         """Returns a string representation of the derived parameter."""
+        if self._is_simple_copy:
+            return f"value={self.source_parameter_name}"
+
         terms = [
             f"{weight} * {name}"
             for name, weight in self._parameter_names_to_weights.items()
@@ -1109,9 +1395,39 @@ class DerivedParameter(Parameter):
     def expression_str(self) -> str:
         return self._expression_str
 
+    @property
+    def _is_simple_copy(self) -> bool:
+        """Check if this derived parameter is a simple copy of another parameter.
+
+        A simple copy means the expression has exactly one source parameter with
+        coefficient 1.0 and no intercept (i.e., `derived_param = source_param`).
+        """
+        return (
+            len(self._parameter_names_to_weights) == 1
+            and self._intercept == 0.0
+            and list(self._parameter_names_to_weights.values())[0] == 1.0
+        )
+
+    @property
+    def source_parameter_name(self) -> str | None:
+        """Return the source parameter name if this is a simple copy, else None."""
+        if self._is_simple_copy:
+            return list(self._parameter_names_to_weights.keys())[0]
+        return None
+
     def set_expression_str(self, expression_str: str) -> None:
         self._expression_str = expression_str
+        # Parse expression first to determine if it's a simple copy
         self._parse_expression_str(expression_str=expression_str)
+        # Re-validate: BOOL and STRING only allowed for simple copies
+        if self._parameter_type not in (ParameterType.FLOAT, ParameterType.INT):
+            if not self._is_simple_copy:
+                raise UserInputError(
+                    f"Derived parameters of type {self._parameter_type.name} must be "
+                    "simple copies (expression_str must be a single parameter name "
+                    "with no arithmetic). For expressions with arithmetic, use FLOAT "
+                    "or INT."
+                )
 
     @property
     def intercept(self) -> float:
@@ -1133,6 +1449,13 @@ class DerivedParameter(Parameter):
         Returns:
             The value of the derived parameter.
         """
+        if self._is_simple_copy:
+            # Direct copy - works for all parameter types
+            source_name = self.source_parameter_name
+            value = parameters[none_throws(source_name)]
+            return self.cast(value)
+
+        # Arithmetic expression - only for numeric types
         return self.cast(
             self._intercept
             + sum(
@@ -1170,19 +1493,87 @@ class DerivedParameter(Parameter):
                 )
             return False
         expected_value = self.compute(parameters=parameters)
-        is_valid = (
-            abs(
-                assert_is_instance(expected_value, TNumeric)
-                - assert_is_instance(value, TNumeric)
+
+        # For numeric types, use epsilon comparison; for others, use equality
+        if self._parameter_type in (ParameterType.FLOAT, ParameterType.INT):
+            is_valid = (
+                abs(
+                    assert_is_instance(expected_value, TNumeric)
+                    - assert_is_instance(value, TNumeric)
+                )
+                < EPS
             )
-            < EPS
-        )
+        else:
+            # BOOL and STRING use exact equality
+            is_valid = expected_value == value
+
         if raises and not is_valid:
             raise UserInputError(
                 f"Value {value} is not equal to the expected derived"
                 f" value: {expected_value}."
             )
         return is_valid
+
+    def compute_array(self, df: PandasDataFrame) -> npt.NDArray:
+        """Compute the derived parameter value for all rows in a DataFrame.
+
+        Args:
+            df: A DataFrame containing the constituent parameter columns.
+
+        Returns:
+            A NumPy array with the computed derived values. Rows with NaN values
+            for any constituent parameter will have NaN as the computed value.
+            For non-numeric types (BOOL, STRING), returns an object array.
+        """
+        if self._is_simple_copy:
+            source_name = none_throws(self.source_parameter_name)
+            if source_name in df.columns:
+                # Return as object array for non-numeric types
+                if self._parameter_type in (ParameterType.BOOL, ParameterType.STRING):
+                    return df[source_name].to_numpy()
+                return df[source_name].to_numpy(dtype=np.float64, na_value=np.nan)
+            # Missing column
+            if self._parameter_type in (ParameterType.FLOAT, ParameterType.INT):
+                return np.full(len(df), np.nan, dtype=np.float64)
+            return np.full(len(df), None, dtype=object)
+
+        # Arithmetic expression - only for numeric types
+        computed = np.full(len(df), self._intercept, dtype=np.float64)
+        for p_name, weight in self._parameter_names_to_weights.items():
+            if p_name in df.columns:
+                # Let NaN propagate naturally through arithmetic
+                col_values = df[p_name].to_numpy(dtype=np.float64, na_value=np.nan)
+                computed = computed + col_values * weight
+            else:
+                # Missing column = NaN for all rows
+                computed = np.full(len(df), np.nan, dtype=np.float64)
+        return computed
+
+    def validate_array(
+        self,
+        values: npt.NDArray,
+        df: PandasDataFrame | None = None,
+    ) -> npt.NDArray:
+        """Vectorized validation for DerivedParameter.
+
+        Returns a boolean array indicating whether each value is valid.
+
+        Args:
+            values: A NumPy array of derived parameter values to validate.
+            df: The full DataFrame containing constituent parameter columns.
+
+        Returns:
+            A boolean NumPy array with True for valid values.
+        """
+        if df is None:
+            return np.full(len(values), False, dtype=bool)
+        computed = self.compute_array(df)
+
+        if self._parameter_type in (ParameterType.FLOAT, ParameterType.INT):
+            return np.abs(values - computed) < EPS
+        else:
+            # For BOOL and STRING, use equality
+            return values == computed
 
     def clone(self) -> DerivedParameter:
         return DerivedParameter(
@@ -1192,6 +1583,10 @@ class DerivedParameter(Parameter):
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
         )
+
+    def _is_domain_compatible(self, other: Parameter) -> bool:
+        """Check domain-specific compatibility for DerivedParameter."""
+        return False
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()

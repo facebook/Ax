@@ -20,6 +20,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
@@ -57,10 +58,12 @@ def _make_sobol_step(
         generator=Generators.SOBOL,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
-        min_trials_observed=min_trials_observed or ceil(num_trials / 2),
+        min_trials_observed=(
+            ceil(num_trials / 2) if min_trials_observed is None else min_trials_observed
+        ),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        model_kwargs={"deduplicate": True, "seed": seed},
+        generator_kwargs={"deduplicate": True, "seed": seed},
         should_deduplicate=should_deduplicate,
         use_all_trials_in_exp=True,
     )
@@ -72,7 +75,7 @@ def _make_botorch_step(
     enforce_num_trials: bool = True,
     max_parallelism: int | None = None,
     generator: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
-    model_kwargs: dict[str, Any] | None = None,
+    generator_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
     | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     should_deduplicate: bool = False,
@@ -83,25 +86,25 @@ def _make_botorch_step(
     use_input_warping: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
-    model_kwargs = model_kwargs.copy() if model_kwargs is not None else {}
-    # NOTE: This is a private function that's only called by `model_kwargs`
-    # from `choose_generation_strategy_legacy`. Those `model_kwargs` do not include
+    generator_kwargs = generator_kwargs.copy() if generator_kwargs is not None else {}
+    # NOTE: This is a private function that's only called by `generator_kwargs`
+    # from `choose_generation_strategy_legacy`. Those `generator_kwargs` do not include
     # transform configs, so we don't need to worry about overriding them here.
     # Asserting that it's not included just to be extra safe.
-    assert "transform_configs" not in model_kwargs
-    model_kwargs["transform_configs"] = get_derelativize_config(
+    assert "transform_configs" not in generator_kwargs
+    generator_kwargs["transform_configs"] = get_derelativize_config(
         derelativize_with_raw_status_quo=derelativize_with_raw_status_quo
     )
     if winsorization_config is not None:
         # Make sure Winsorize is in the dict.
-        model_kwargs["transform_configs"].setdefault("Winsorize", {})
+        generator_kwargs["transform_configs"].setdefault("Winsorize", {})
         # Add manually specified winsorization config.
-        model_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
+        generator_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
             winsorization_config
         )
 
     if use_saasbo and (generator is Generators.BOTORCH_MODULAR):
-        model_kwargs["surrogate_spec"] = SurrogateSpec(
+        generator_kwargs["surrogate_spec"] = SurrogateSpec(
             model_configs=[
                 ModelConfig(
                     botorch_model_class=SaasFullyBayesianSingleTaskGP,
@@ -123,10 +126,12 @@ def _make_botorch_step(
         generator=generator,
         num_trials=num_trials,
         # NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.
-        min_trials_observed=min_trials_observed or ceil(num_trials / 2),
+        min_trials_observed=(
+            ceil(num_trials / 2) if min_trials_observed is None else min_trials_observed
+        ),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        model_kwargs=model_kwargs,
+        generator_kwargs=generator_kwargs,
         should_deduplicate=should_deduplicate,
     )
 
@@ -261,7 +266,7 @@ def _suggest_gp_model(
 def calculate_num_initialization_trials(
     num_tunable_parameters: int,
     num_trials: int | None,
-    use_batch_trials: bool,
+    use_batch_trials: bool = False,
 ) -> int:
     """
     Applies rules from high to low priority
@@ -383,7 +388,7 @@ def choose_generation_strategy_legacy(
             unique arms.
         use_saasbo: Whether to use SAAS prior for any GPEI generation steps.
         disable_progbar: Whether GP model should produce a progress bar. If not
-            ``None``, its value gets added to ``model_kwargs`` during
+            ``None``, its value gets added to ``generator_kwargs`` during
             ``generation_strategy`` construction. Defaults to ``True`` for SAASBO, else
             ``None``. Progress bars are currently only available for SAASBO, so if
             ``disable_probar is not None`` for a different model type, it will be
@@ -398,9 +403,9 @@ def choose_generation_strategy_legacy(
             step and automatic selection will be skipped.
         use_input_warping: Whether to use input warping in the model. This is only
             supported in conjunction with use_saasbo=True.
-        simplify_parameter_changes: Whether to simplify parameter changes in
-            arms generated via Bayesian Optimization by pruning irrelevant
-            parameter changes.
+        simplify_parameter_changes: Whether to use BONSAI [Daulton2026bonsai]_ to
+            simplify parameter changes in arms generated via Bayesian Optimization
+            by pruning irrelevant parameter changes.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
@@ -431,13 +436,13 @@ def choose_generation_strategy_legacy(
 
     if not force_random_search and suggested_model is not None:
         if not enforce_sequential_optimization and (
-            max_parallelism_override or max_parallelism_cap
+            max_parallelism_override is not None or max_parallelism_cap is not None
         ):
             logger.info(
                 "If `enforce_sequential_optimization` is False, max parallelism is "
                 "not enforced and other max parallelism settings will be ignored."
             )
-        if max_parallelism_override and max_parallelism_cap:
+        if max_parallelism_override is not None and max_parallelism_cap is not None:
             raise ValueError(
                 "If `max_parallelism_override` specified, cannot also apply "
                 "`max_parallelism_cap`."
@@ -465,7 +470,7 @@ def choose_generation_strategy_legacy(
             logger.debug(
                 f"calculated num_initialization_trials={num_initialization_trials}"
             )
-        steps = []
+        nodes = []
         # `disable_progbar` and jit_compile defaults and overrides
         model_is_saasbo = use_saasbo and (suggested_model is Generators.BOTORCH_MODULAR)
         if disable_progbar is not None and not model_is_saasbo:
@@ -481,9 +486,9 @@ def choose_generation_strategy_legacy(
             )
             jit_compile = None
 
-        model_kwargs: dict[str, Any] = {"torch_device": torch_device}
-        if suggested_model is Generators.BOTORCH_MODULAR:
-            model_kwargs["acquisition_options"] = {
+        generator_kwargs: dict[str, Any] = {"torch_device": torch_device}
+        if suggested_model.generator_class is BoTorchGenerator:
+            generator_kwargs["acquisition_options"] = {
                 "prune_irrelevant_parameters": simplify_parameter_changes
             }
 
@@ -492,7 +497,7 @@ def choose_generation_strategy_legacy(
             # Note: With `use_all_trials_in_exp=True`, the Sobol step will automatically
             # account for any existing trials in the experiment, so we can use the total
             # number of initialization trials directly.
-            steps.append(
+            nodes.append(
                 _make_sobol_step(
                     num_trials=num_initialization_trials,
                     min_trials_observed=min_sobol_trials_observed,
@@ -502,13 +507,13 @@ def choose_generation_strategy_legacy(
                     should_deduplicate=should_deduplicate,
                 )
             )
-        steps.append(
+        nodes.append(
             _make_botorch_step(
                 generator=suggested_model,
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 max_parallelism=bo_parallelism,
-                model_kwargs=model_kwargs,
+                generator_kwargs=generator_kwargs,
                 should_deduplicate=should_deduplicate,
                 disable_progbar=disable_progbar,
                 jit_compile=jit_compile,
@@ -517,17 +522,17 @@ def choose_generation_strategy_legacy(
             ),
         )
         # set name for GS
-        bo_step = steps[-1]
-        surrogate_spec = bo_step.model_kwargs.get("surrogate_spec")
+        bo_step = nodes[-1]
+        surrogate_spec = bo_step.generator_spec.generator_kwargs.get("surrogate_spec")
         name = None
         if (
-            bo_step.generator is Generators.BOTORCH_MODULAR
+            bo_step.generator_spec.generator_enum is Generators.BOTORCH_MODULAR
             and surrogate_spec is not None
             and (model_config := surrogate_spec.model_configs[0]).botorch_model_class
             == SaasFullyBayesianSingleTaskGP
         ):
             name = f"Sobol+{model_config.name}"
-        gs = GenerationStrategy(steps=steps, name=name)
+        gs = GenerationStrategy(nodes=nodes, name=name)
         logger.info(
             f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
             f" {num_initialization_trials} will take longer to generate due"

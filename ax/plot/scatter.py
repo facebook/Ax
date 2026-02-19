@@ -10,7 +10,6 @@ import numbers
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Sequence
-
 from logging import Logger
 from typing import Any
 
@@ -521,12 +520,12 @@ def plot_multiple_metrics(
             },
         ],
         xaxis={
-            "title": metric_x + (" (%)" if rel else ""),
+            "title": metric_x + (" (%)" if rel_x else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },
         yaxis={
-            "title": metric_y + (" (%)" if rel else ""),
+            "title": metric_y + (" (%)" if rel_y else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },
@@ -1732,7 +1731,7 @@ def tile_observations(
     if data is None:
         data = experiment.fetch_data()
     if arm_names is not None:
-        data = Data(data.df[data.df["arm_name"].isin(arm_names)])
+        data = Data(df=data.df[data.df["arm_name"].isin(arm_names)])
     m_ts = Generators.THOMPSON(
         data=data,
         search_space=experiment.search_space,

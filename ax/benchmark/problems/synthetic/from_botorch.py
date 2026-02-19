@@ -20,6 +20,7 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
+from ax.benchmark.noise import GaussianNoise
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -61,6 +62,7 @@ BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
     ("StyblinskiTang", 2): -50.22278471716156,
     ("TensionCompressionString", None): float("inf"),
     ("ThreeHumpCamel", None): 3.7321680621434155,
+    ("TrajectoryPlanning", 30): 5.350095657055234,
     ("WeldedBeamSO", None): float("inf"),
 }
 
@@ -90,7 +92,7 @@ def create_problem_from_botorch(
     *,
     test_problem_class: type[BaseTestProblem] | str,
     test_problem_kwargs: dict[str, Any],
-    noise_std: float | list[float] = 0.0,
+    noise_std: float | dict[str, float] = 0.0,
     num_trials: int,
     baseline_value: float | None = None,
     name: str | None = None,
@@ -127,8 +129,8 @@ def create_problem_from_botorch(
             `test_problem_class`. This should *not* include `noise_std` or
             `negate`, since these are handled through Ax benchmarking (as the
             `noise_std` and `lower_is_better` arguments to `BenchmarkProblem`).
-        noise_std: Standard deviation of synthetic noise added to outcomes. If a
-            float, the same noise level is used for all objectives.
+        noise_std: Dict of standard deviations of synthetic Gaussian noise added
+            to outcomes. If a float, the same noise level is used for all objectives.
         lower_is_better: Whether this is a minimization problem. For MOO, this
             applies to all objectives.
         num_trials: Simply the `num_trials` of the `BenchmarkProblem` created.
@@ -271,7 +273,7 @@ def create_problem_from_botorch(
         search_space=search_space,
         optimization_config=optimization_config,
         test_function=test_function,
-        noise_std=noise_std,
+        noise=GaussianNoise(noise_std=noise_std),
         num_trials=num_trials,
         optimal_value=assert_is_instance(optimal_value, float),
         baseline_value=baseline_value,

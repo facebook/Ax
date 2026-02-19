@@ -11,7 +11,7 @@ import time
 from collections.abc import Sequence
 from logging import INFO, Logger
 
-from ax.analysis.analysis_card import AnalysisCardBase
+from ax.core.analysis_card import AnalysisCardBase
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -59,13 +59,13 @@ try:  # We don't require SQLAlchemy by default.
         _load_generation_strategy_by_experiment_name,
         get_generation_strategy_id,
     )
-
     from ax.storage.sqa_store.save import (
         _save_experiment,
         _save_generation_strategy,
         _save_or_update_trials,
         _update_generation_strategy,
         save_analysis_card,
+        update_experiment_status,
         update_properties_on_experiment,
         update_runner_on_experiment,
     )
@@ -326,6 +326,11 @@ class WithDBSettingsBase:
             new_generator_runs=new_generator_runs,
             reduce_state_generator_runs=reduce_state_generator_runs,
         )
+        if experiment.status is not None and self.db_settings_set:
+            update_experiment_status(
+                experiment=experiment,
+                config=self.db_settings.encoder.config,
+            )
         return
 
     # No retries needed, covered in `self._save_or_update_trials_in_db_if_possible`

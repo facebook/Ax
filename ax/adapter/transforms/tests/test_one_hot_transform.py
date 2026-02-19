@@ -9,12 +9,18 @@
 from copy import deepcopy
 
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.data_utils import _use_object_dtype_for_strings, extract_experiment_data
 from ax.adapter.transforms.one_hot import OH_PARAM_INFIX, OneHot
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
@@ -46,9 +52,7 @@ class OneHotTransformTest(TestCase):
                     is_ordered=True,
                 ),
             ],
-            parameter_constraints=[
-                ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="-0.5*x + a <= 0.5")],
         )
         self.t = OneHot(search_space=self.search_space)
         self.t2 = OneHot(
@@ -60,9 +64,9 @@ class OneHotTransformTest(TestCase):
             parameters={
                 "x": 2.2,
                 "a": 2,
-                "b" + OH_PARAM_INFIX + "_0": 0,
-                "b" + OH_PARAM_INFIX + "_1": 1,
-                "b" + OH_PARAM_INFIX + "_2": 0,
+                "b" + OH_PARAM_INFIX + "0": 0,
+                "b" + OH_PARAM_INFIX + "1": 1,
+                "b" + OH_PARAM_INFIX + "2": 0,
                 "c": False,
                 "d": 10.0,
             }
@@ -90,9 +94,9 @@ class OneHotTransformTest(TestCase):
             ObservationFeatures(
                 parameters={
                     "x": 2.2,
-                    "b" + OH_PARAM_INFIX + "_0": 0,
-                    "b" + OH_PARAM_INFIX + "_1": 1,
-                    "b" + OH_PARAM_INFIX + "_2": 0,
+                    "b" + OH_PARAM_INFIX + "0": 0,
+                    "b" + OH_PARAM_INFIX + "1": 1,
+                    "b" + OH_PARAM_INFIX + "2": 0,
                 }
             ),
         )
@@ -115,11 +119,11 @@ class OneHotTransformTest(TestCase):
         self.assertEqual(ss2.parameters["x"].parameter_type, ParameterType.FLOAT)
         self.assertEqual(ss2.parameters["a"].parameter_type, ParameterType.INT)
         self.assertEqual(
-            ss2.parameters["b" + OH_PARAM_INFIX + "_0"].parameter_type,
+            ss2.parameters["b" + OH_PARAM_INFIX + "0"].parameter_type,
             ParameterType.FLOAT,
         )
         self.assertEqual(
-            ss2.parameters["b" + OH_PARAM_INFIX + "_1"].parameter_type,
+            ss2.parameters["b" + OH_PARAM_INFIX + "1"].parameter_type,
             ParameterType.FLOAT,
         )
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.BOOL)
@@ -127,9 +131,9 @@ class OneHotTransformTest(TestCase):
 
         # Parameter range fixed to [0,1].
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.
-        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "_0"].lower, 0.0)
+        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "0"].lower, 0.0)
         # pyre-fixme[16]: `Parameter` has no attribute `upper`.
-        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "_1"].upper, 1.0)
+        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "1"].upper, 1.0)
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.BOOL)
 
         # Ensure we error if we try to transform a fidelity parameter
@@ -179,8 +183,8 @@ class OneHotTransformTest(TestCase):
         tf_ss = self.t.transform_search_space(small_ss)
         expected_params = {
             "x",
-            "b" + OH_PARAM_INFIX + "_0",
-            "b" + OH_PARAM_INFIX + "_2",
+            "b" + OH_PARAM_INFIX + "0",
+            "b" + OH_PARAM_INFIX + "2",
         }
         self.assertEqual(set(tf_ss.parameters.keys()), expected_params)
 
@@ -189,15 +193,15 @@ class OneHotTransformTest(TestCase):
             ObservationFeatures(
                 parameters={
                     "x": 0.5,
-                    "b" + OH_PARAM_INFIX + "_0": 0.0,
-                    "b" + OH_PARAM_INFIX + "_2": 0.5,
+                    "b" + OH_PARAM_INFIX + "0": 0.0,
+                    "b" + OH_PARAM_INFIX + "2": 0.5,
                 }
             ),
             ObservationFeatures(
                 parameters={
                     "x": 0.5,
-                    "b" + OH_PARAM_INFIX + "_0": 0.3,
-                    "b" + OH_PARAM_INFIX + "_2": 0.1,
+                    "b" + OH_PARAM_INFIX + "0": 0.3,
+                    "b" + OH_PARAM_INFIX + "2": 0.1,
                 }
             ),
         ]
@@ -213,8 +217,8 @@ class OneHotTransformTest(TestCase):
             ObservationFeatures(
                 parameters={
                     "x": 0.5,
-                    "b" + OH_PARAM_INFIX + "_0": 0.0,
-                    "b" + OH_PARAM_INFIX + "_2": 0.0,
+                    "b" + OH_PARAM_INFIX + "0": 0.0,
+                    "b" + OH_PARAM_INFIX + "2": 0.0,
                 }
             )
             for i in range(10)
@@ -222,6 +226,7 @@ class OneHotTransformTest(TestCase):
         untf_obs = self.t.untransform_observation_features(obs_ft)
         self.assertFalse(any(obs.parameters.get("b") == "b" for obs in untf_obs))
 
+    @_use_object_dtype_for_strings
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
             {"x": 2.2, "a": 2, "b": "b", "c": False, "d": 10.0},
@@ -242,9 +247,9 @@ class OneHotTransformTest(TestCase):
         # Check that only "b" has been transformed and column names are as expected.
         base_columns = ["x", "a", "c", "d", "metadata"]
         transformed_columns = [
-            "b" + OH_PARAM_INFIX + "_0",
-            "b" + OH_PARAM_INFIX + "_1",
-            "b" + OH_PARAM_INFIX + "_2",
+            "b" + OH_PARAM_INFIX + "0",
+            "b" + OH_PARAM_INFIX + "1",
+            "b" + OH_PARAM_INFIX + "2",
         ]
         self.assertEqual(
             set(transformed_data.arm_data),
@@ -273,3 +278,94 @@ class OneHotTransformTest(TestCase):
         assert_frame_equal(
             transformed_data.arm_data[transformed_columns], expected_columns
         )
+
+    def test_with_hierarchical_search_space(self) -> None:
+        # Case 1: Transforming hierarchical parameter is not supported.
+        ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
+                    is_ordered=False,
+                    dependents={"a": ["y"]},
+                ),
+                ChoiceParameter(
+                    name="y",
+                    parameter_type=ParameterType.STRING,
+                    values=["d", "e", "f"],
+                    is_ordered=False,
+                ),
+            ]
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError, "would encode .* which is a hierarchical"
+        ):
+            OneHot(search_space=ss)
+
+        # Case 2: Depedents of hierarchical parameter are transformed
+        # and the dependents are updated.
+        ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
+                    is_ordered=True,  # Ordered, so it won't be OH-encoded
+                    dependents={"a": ["y", "z"]},
+                ),
+                ChoiceParameter(
+                    name="y",
+                    parameter_type=ParameterType.STRING,
+                    values=["d", "e", "f"],
+                    is_ordered=False,
+                ),
+                RangeParameter(
+                    name="z",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                FixedParameter(
+                    name="w",
+                    parameter_type=ParameterType.STRING,
+                    value="w",
+                    dependents={"w": ["t"]},
+                ),
+                ChoiceParameter(
+                    name="t",
+                    parameter_type=ParameterType.STRING,
+                    values=["s", "r", "q"],
+                    is_ordered=True,
+                ),
+            ]
+        )
+        t = OneHot(search_space=ss)
+        ss2 = t.transform_search_space(ss.clone())
+
+        # y should be transformed to y_OH_PARAM_0, y_OH_PARAM_1, y_OH_PARAM_2
+        expected_params = {
+            "x",
+            "y" + OH_PARAM_INFIX + "0",
+            "y" + OH_PARAM_INFIX + "1",
+            "y" + OH_PARAM_INFIX + "2",
+            "z",
+            "w",
+            "t",
+        }
+        self.assertEqual(set(ss2.parameters.keys()), expected_params)
+
+        # x should have updated dependents
+        self.assertEqual(
+            ss2.parameters["x"].dependents,
+            {
+                "a": [
+                    "y" + OH_PARAM_INFIX + "0",
+                    "y" + OH_PARAM_INFIX + "1",
+                    "y" + OH_PARAM_INFIX + "2",
+                    "z",
+                ]
+            },
+        )
+        # w should keep original dependents
+        self.assertEqual(ss2.parameters["w"].dependents, {"w": ["t"]})

@@ -33,7 +33,7 @@ See _[Shields2021] for details.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -48,11 +48,9 @@ from ax.utils.common.result import Err, Ok
 from pyre_extensions import none_throws
 
 
-class ChemistryProblemType(Enum):
-    # pyre-fixme[35]: Target cannot be annotated.
-    SUZUKI: str = "suzuki"
-    # pyre-fixme[35]: Target cannot be annotated.
-    DIRECT_ARYLATION: str = "direct_arylation"
+class ChemistryProblemType(StrEnum):
+    SUZUKI = "suzuki"
+    DIRECT_ARYLATION = "direct_arylation"
 
 
 @dataclass(frozen=True)

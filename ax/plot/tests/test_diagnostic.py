@@ -25,7 +25,7 @@ class DiagnosticTest(TestCase):
         super().setUp()
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
-        self.model = Generators.BOTORCH_MODULAR(
+        self.adapter = Generators.BOTORCH_MODULAR(
             # Adapter kwargs
             experiment=exp,
             data=exp.fetch_data(),
@@ -33,7 +33,7 @@ class DiagnosticTest(TestCase):
 
     def test_cross_validation(self) -> None:
         for autoset_axis_limits in [False, True]:
-            cv = cross_validate(self.model)
+            cv = cross_validate(adapter=self.adapter)
             # Assert that each type of plot can be constructed successfully
             label_dict = {"branin": "BrAnIn"}
             plot = interact_cross_validation_plotly(

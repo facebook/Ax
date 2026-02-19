@@ -200,6 +200,25 @@ class ScalarizedObjective(Objective):
         """Get the metrics and weights."""
         return zip(self.metrics, self.weights)
 
+    @property
+    def expression(self) -> str:
+        """
+        Get a human-readable mathematical expression of the scalarized objective.
+
+        Returns a string representation showing the weighted combination of metrics,
+        e.g., "m1 + 2.0*m3" or "accuracy - 0.5*latency".
+        """
+        parts = []
+        for metric, weight in self.metric_weights:
+            if weight == 1.0:
+                parts.append(metric.name)
+            elif weight == -1.0:
+                parts.append(f"-{metric.name}")
+            else:
+                parts.append(f"{weight}*{metric.name}")
+
+        return " + ".join(parts).replace(" + -", " - ")
+
     def clone(self) -> ScalarizedObjective:
         """Create a copy of the objective."""
         return ScalarizedObjective(

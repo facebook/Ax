@@ -7,7 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -32,14 +32,14 @@ from pyre_extensions import none_throws
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 SlicePredictions = tuple[
     PlotData,
-    list[dict[str, Union[str, float]]],
+    list[dict[str, str | float]],
     list[float],
     np.ndarray,
     np.ndarray,
     str,
     str,
     bool,
-    dict[str, Optional[Union[str, bool, float, int]]],
+    dict[str, str | bool | float | int | None],
     np.ndarray,
     bool,
 ]

@@ -8,7 +8,6 @@
 
 import numpy as np
 import pandas as pd
-
 from ax.analysis.healthcheck.search_space_analysis import (
     search_space_boundary_proportions,
     SearchSpaceAnalysis,
@@ -97,10 +96,7 @@ class TestSearchSpaceAnalysis(TestCase):
                 ),
             ],
             parameter_constraints=[
-                ParameterConstraint(
-                    constraint_dict={"float_range_1": 1.0, "float_range_2": 1.0},
-                    bound=4.0,
-                )
+                ParameterConstraint(inequality="float_range_1 + float_range_2 <= 4")
             ],
         )
 

@@ -39,6 +39,24 @@ from ax.adapter.base import Adapter, DataLoaderConfig, gen_arms, GenResults
 from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.cast import Cast
+from ax.adapter.transforms.choice_encode import (
+    ChoiceToNumericChoice,
+    OrderedChoiceToIntegerRange,
+)
+from ax.adapter.transforms.derelativize import Derelativize
+from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
+from ax.adapter.transforms.int_range_to_choice import IntRangeToChoice
+from ax.adapter.transforms.log import Log
+from ax.adapter.transforms.relativize import (
+    RelativizeWithConstantControl,
+    SelectiveRelativizeWithConstantControl,
+)
+from ax.adapter.transforms.remove_fixed import RemoveFixed
+from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
+from ax.adapter.transforms.task_encode import TaskChoiceToIntTaskChoice
+from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
+from ax.adapter.transforms.trial_as_task import TrialAsTask
+from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
@@ -68,6 +86,7 @@ from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from botorch.models.model import Model
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from pyre_extensions import none_throws
 from torch import Tensor
@@ -75,6 +94,36 @@ from torch import Tensor
 logger: Logger = get_logger(__name__)
 
 FIT_MODEL_ERROR = "Generator must be fit before {action}."
+
+# Transforms allowed for Bayesian Optimization with Preference Exploration.
+# These transforms do not modify Y's tensor shape, order, or scale (except
+# Relativize which is explicitly expected when using relativized outcomes).
+# Any transform that modifies outcome values in ways that break preference
+# model assumptions should NOT be in this set.
+# Note: Y-transforms like StandardizeY, Winsorize, BilogY are NOT allowed
+# as they modify outcome scale/distribution in ways incompatible with
+# preference learning.
+BOPE_ALLOWED_TRANSFORMS: set[type[Transform]] = {
+    # Parameter only transforms
+    Cast,
+    ChoiceToNumericChoice,
+    OrderedChoiceToIntegerRange,
+    FillMissingParameters,
+    IntRangeToChoice,
+    Log,
+    RemoveFixed,
+    SearchSpaceToChoice,
+    TaskChoiceToIntTaskChoice,
+    TrialAsTask,
+    UnitX,
+    # Outcome transforms
+    Derelativize,  # Doesn't modify outcome values
+    TransformToNewSQ,  # Doesn't distort outcome scales
+    # not allowing Relativize here as it doesn't guarantee
+    # the untransformed SEM is always valid
+    RelativizeWithConstantControl,  # Outcome transfom for BOPE
+    SelectiveRelativizeWithConstantControl,  # Conditional transform for BOPE
+}
 
 
 class TorchAdapter(Adapter):
@@ -168,6 +217,16 @@ class TorchAdapter(Adapter):
         importances_arr = importances_dict[metric_signature].flatten()
         return dict(zip(self.parameters, importances_arr, strict=True))
 
+    @property
+    def botorch_model(self) -> Model:
+        """Returns the underlying BoTorch model for BoTorchGenerator."""
+        if not isinstance(self.generator, BoTorchGenerator):
+            raise UnsupportedError(
+                "Generator must be a BoTorchGenerator to "
+                f"access botorch_model. Found {type(self.generator)}."
+            )
+        return self.generator.surrogate.model
+
     def infer_objective_thresholds(
         self,
         search_space: SearchSpace | None = None,
@@ -206,7 +265,7 @@ class TorchAdapter(Adapter):
         )
         # Infer objective thresholds.
         if isinstance(self.generator, BoTorchGenerator):
-            model = self.generator.surrogate.model
+            model = self.botorch_model
             Xs = self.generator.surrogate.Xs
         else:
             raise UnsupportedError(
@@ -645,7 +704,7 @@ class TorchAdapter(Adapter):
             if pe_data.df.empty:
                 raise DataRequiredError(
                     "No data found in the auxiliary preference exploration "
-                    "experiment. Play the preference game first or use another"
+                    "experiment. Play the preference game first or use another "
                     "preference profile with recorded preference data."
                 )
 
@@ -732,9 +791,10 @@ class TorchAdapter(Adapter):
         if update_outcomes_and_parameters:
             self.outcomes = ordered_outcomes
         else:
-            assert (
-                ordered_outcomes == self.outcomes
-            ), f"Unexpected ordering of outcomes: {ordered_outcomes} != {self.outcomes}"
+            assert ordered_outcomes == self.outcomes, (
+                f"Unexpected ordering of outcomes: {ordered_outcomes} != "
+                f"{self.outcomes}"
+            )
         return datasets, candidate_metadata, search_space_digest
 
     def _fit(
@@ -790,6 +850,10 @@ class TorchAdapter(Adapter):
                 "Consider updating `experiment.optimization_config` and refit "
                 "the model before proceeding with gen."
             )
+
+        # Validate preference learning configuration
+        if isinstance(optimization_config, PreferenceOptimizationConfig):
+            self._validate_preference_config(optimization_config)
 
         augmented_model_gen_options = {
             **self._default_model_gen_options,
@@ -1075,6 +1139,100 @@ class TorchAdapter(Adapter):
             )
 
         return thresholds
+
+    def _validate_preference_config(
+        self, optimization_config: PreferenceOptimizationConfig
+    ) -> None:
+        """Validate BOPE configuration."""
+        pe_aux_exp = self._experiment.find_auxiliary_experiment_by_name(
+            purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+            auxiliary_experiment_name=optimization_config.preference_profile_name,
+            raise_if_not_found=True,
+        )
+        if pe_aux_exp is None or not pe_aux_exp.experiment.trials:
+            raise DataRequiredError(
+                f"Preference profile '{optimization_config.preference_profile_name}' "
+                "has no data. Play the preference game first or use another "
+                "preference profile with recorded preference data."
+            )
+
+        transform_classes = {type(transform) for transform in self.transforms.values()}
+
+        # not checking Relativize here as it doesn't guarantee
+        # the untransformed SEM is always valid
+        has_relativize = RelativizeWithConstantControl in transform_classes
+        expects_relativized = optimization_config.expect_relativized_outcomes
+
+        if expects_relativized and not has_relativize:
+            raise UnsupportedError(
+                "Preference model expects outcomes in relative scale "
+                "(expect_relativized_outcomes=True), but no Relativize "
+                "transform found in pipeline."
+            )
+        elif not expects_relativized and has_relativize:
+            raise UnsupportedError(
+                "Relativize transform found in pipeline, but preference model "
+                "expects outcomes in absolute scale "
+                "(expect_relativized_outcomes=False)."
+            )
+
+        disallowed_transforms = transform_classes - BOPE_ALLOWED_TRANSFORMS
+        if disallowed_transforms:
+            disallowed_names = {t.__name__ for t in disallowed_transforms}
+            allowed_names = {t.__name__ for t in BOPE_ALLOWED_TRANSFORMS}
+            raise UnsupportedError(
+                f"Transforms {disallowed_names} are not allowed with BOPE. "
+                f"Allowed transforms: {allowed_names}"
+            )
+
+        self._validate_preference_metric_ordering(
+            pe_aux_exp=pe_aux_exp,
+            optimization_config=optimization_config,
+        )
+
+    def _validate_preference_metric_ordering(
+        self,
+        pe_aux_exp: Any,
+        optimization_config: PreferenceOptimizationConfig,
+    ) -> None:
+        """Validate metric ordering between outcome and preference models."""
+        preference_model_input_order = list(
+            pe_aux_exp.experiment.search_space.parameters.keys()
+        )
+
+        pref_opt_metrics = [m.name for m in optimization_config.objective.metrics]
+
+        # Get outcome order from the fitted surrogate. We must use surrogate.outcomes
+        # which excludes auxiliary datasets (e.g., pairwise preference queries).
+        # BOPE only supports BoTorchGenerator (MBM models).
+        if not isinstance(self.generator, BoTorchGenerator):
+            raise UnsupportedError(
+                "Preference optimization requires a BoTorchGenerator. "
+                f"Got {type(self.generator).__name__}."
+            )
+        outcome_model_output_order = self.generator.surrogate.outcomes
+
+        outcome_model_pref_metrics = [
+            m for m in outcome_model_output_order if m in pref_opt_metrics
+        ]
+
+        if set(pref_opt_metrics) != set(outcome_model_pref_metrics):
+            missing = set(pref_opt_metrics) - set(outcome_model_pref_metrics)
+            extra = set(outcome_model_pref_metrics) - set(pref_opt_metrics)
+            raise UserInputError(
+                f"Preference optimization metrics mismatch:\n"
+                f"  Missing from outcome model: {missing}\n"
+                f"  Extra in outcome model: {extra}\n"
+                "Ensure all metrics in PreferenceOptimizationConfig.objective "
+                "are present in the main experiment and fit in the outcome model."
+            )
+
+        if preference_model_input_order != outcome_model_pref_metrics:
+            raise UserInputError(
+                "Metric ordering mismatch (will optimize wrong objectives!):\n"
+                f"  Preference model expects: {preference_model_input_order}\n"
+                f"  Outcome model produces:   {outcome_model_pref_metrics}"
+            )
 
 
 def validate_transformed_optimization_config(

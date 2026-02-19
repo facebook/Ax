@@ -27,10 +27,9 @@ from ax.adapter.cross_validation import (
 )
 from ax.adapter.random import RandomAdapter
 from ax.adapter.torch import TorchAdapter
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -71,7 +70,7 @@ from pandas.core.frame import DataFrame
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
-    from ax.service.orchestrator import Orchestrator
+    from ax.orchestration.orchestrator import Orchestrator
 
 
 logger: Logger = get_logger(__name__)
@@ -92,8 +91,8 @@ UNPREDICTABLE_METRICS_MESSAGE = (
 )
 
 
-def _get_cross_validation_plots(model: Adapter) -> list[go.Figure]:
-    cv = cross_validate(model=model)
+def _get_cross_validation_plots(adapter: Adapter) -> list[go.Figure]:
+    cv = cross_validate(adapter=adapter)
     return [
         interact_cross_validation_plotly(
             cv_results=cv, caption=CROSS_VALIDATION_CAPTION
@@ -366,7 +365,7 @@ def get_standard_plots(
                 logger.debug("Finished global sensitivity analysis.")
             except Exception as e:
                 logger.debug(
-                    f"Failed to compute signed global feature sensitivities: {e}"
+                    f"Failed to compute signed global feature sensitivities: {e}. "
                     "Trying to get unsigned feature sensitivities."
                 )
                 try:
@@ -407,7 +406,7 @@ def get_standard_plots(
 
         try:
             logger.debug("Starting cross validation plot.")
-            output_plot_list.extend(_get_cross_validation_plots(model=model))
+            output_plot_list.extend(_get_cross_validation_plots(adapter=model))
             logger.debug("Finished cross validation plot.")
         except Exception as e:
             logger.exception(f"Cross-validation plot failed with error: {e}")
@@ -455,7 +454,7 @@ def get_standard_plots(
                     _get_curve_plot_dropdown(
                         experiment=experiment,
                         map_metrics=map_metrics,
-                        data=data,  # pyre-ignore
+                        data=data,
                         early_stopping_strategy=early_stopping_strategy,
                         by_walltime=by_walltime,
                         limit_points_per_plot=limit_points_per_plot,
@@ -492,7 +491,7 @@ def _transform_progression_to_walltime(
 def _get_curve_plot_dropdown(
     experiment: Experiment,
     map_metrics: Iterable[MapMetric],
-    data: MapData,
+    data: Data,
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     by_walltime: bool = False,
     limit_points_per_plot: int | None = None,
@@ -503,13 +502,14 @@ def _get_curve_plot_dropdown(
         experiment: The experiment to generate plots for.
         map_metrics: The list of metrics to generate plots for. Each metric
             will be one entry in the dropdown.
-        data: The map data used to generate the plots.
+        data: The data used to generate the plots. It must have a "step"
+            (MAP_KEY) column.
         early_stopping_strategy: An instance of ``BaseEarlyStoppingStrategy``. This
             is used to check which metrics are being used for early stopping.
         by_walltime: If true, the x-axis will be walltime. If false, the x-axis is
             the progression of the trials (trials are 'stacked').
         limit_points_per_plot: Limit the total number of data points used per plot
-            (i.e., per metric). This is passed down to `MapData.subsample(...)` to
+            (i.e., per metric). This is passed down to `Data.subsample(...)` to
             subsample the data. Useful for keeping the plots of manageable size.
     """
     early_stopping_metrics = get_early_stopping_metrics(
@@ -532,8 +532,8 @@ def _get_curve_plot_dropdown(
             if limit_points_per_plot is None
             else data.subsample(limit_rows_per_metric=limit_points_per_plot)
         )
-        map_df = subsampled_data.map_df
-        metric_df = map_df[map_df["metric_name"] == m.name]
+        full_df = subsampled_data.full_df
+        metric_df = full_df[full_df["metric_name"] == m.name]
         xs, ys, legend_labels, plot_stopping_markers = [], [], [], []
         is_early_stopping_metric = m.name in early_stopping_metrics
         for trial_idx, df_g in metric_df.groupby("trial_index"):
@@ -630,9 +630,9 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
         return trial_generation_property
 
     generation_methods = {
-        none_throws(generator_run._model_key)
+        none_throws(generator_run._generator_key)
         for generator_run in trial.generator_runs
-        if generator_run._model_key is not None
+        if generator_run._generator_key is not None
     }
 
     # add "Manual" if any generator_runs are manual
@@ -871,16 +871,12 @@ def exp_to_df(
         df=arms_df, trials_dict=trial_to_status, column_name="trial_status"
     )
 
-    # Add trial reason for failed or abandoned trials
+    # Add trial status reason for failed, abandoned, or early stopped trials
     trial_to_reason = {
         index: (
-            f"{trial.failed_reason[:15]}..."
-            if trial.status.is_failed and trial.failed_reason is not None
-            else (
-                f"{trial.abandoned_reason[:15]}..."
-                if trial.status.is_abandoned and trial.abandoned_reason is not None
-                else None
-            )
+            f"{trial.status_reason[:15]}..."
+            if trial.status_reason is not None
+            else None
         )
         for index, trial in trials
     }
@@ -1125,7 +1121,7 @@ def get_figure_and_callback(
             new_fig = plot_fn(orchestrator)
         except RuntimeError as e:
             logging.warning(
-                f"Plotting function called via callback failed with error {e}."
+                f"Plotting function called via callback failed with error {e}. "
                 "Skipping plot update."
             )
             return
@@ -1169,7 +1165,7 @@ def _format_comparison_string(
     )
 
 
-def _construct_comparison_message(
+def construct_comparison_message(
     objective_name: str,
     objective_minimize: bool,
     baseline_arm_name: str,
@@ -1178,6 +1174,23 @@ def _construct_comparison_message(
     comparison_value: float,
     digits: int | None = None,
 ) -> str | None:
+    """Construct a message comparing a comparison arm to a baseline arm.
+
+    Args:
+        objective_name: Name of the objective metric being compared.
+        objective_minimize: Whether the objective is being minimized.
+        baseline_arm_name: Name of the baseline arm.
+        baseline_value: Value of the objective metric for the baseline arm.
+        comparison_arm_name: Name of the arm being compared to baseline.
+        comparison_value: Value of the objective metric for the comparison arm.
+        digits: Number of decimal places to display. Defaults to 2 if not
+            provided.
+
+    Returns:
+        A formatted message string describing the percent improvement if the
+        comparison arm beats the baseline, or None if no improvement was found
+        or the baseline value is zero.
+    """
     if baseline_value == 0:
         logger.debug(
             "compare_to_baseline: baseline has value of 0"
@@ -1338,6 +1351,15 @@ def maybe_extract_baseline_comparison_values(
         for objective in multi_objective.objectives:
             name = objective.metric.name
             minimize = objective.minimize
+
+            # Check if metric column exists in both comparison and baseline dataframes
+            if (
+                name not in comparison_arm_df.columns
+                or name not in baseline_rows.columns
+            ):
+                logger.debug(f"compare_to_baseline: metric '{name}' not found in data.")
+                return None
+
             opt_index = (
                 comparison_arm_df[name].idxmin()
                 if minimize
@@ -1358,6 +1380,17 @@ def maybe_extract_baseline_comparison_values(
         return result_list if result_list else None
 
     objective_name = optimization_config.objective.metric.name
+
+    # Check if metric column exists in both comparison and baseline dataframes
+    if (
+        objective_name not in comparison_arm_df.columns
+        or objective_name not in baseline_rows.columns
+    ):
+        logger.debug(
+            f"compare_to_baseline: metric '{objective_name}' not found in data."
+        )
+        return None
+
     baseline_value = baseline_rows.iloc[0][objective_name]
     comparison_row = comparison_arm_df.iloc[0]
 
@@ -1387,7 +1420,7 @@ def compare_to_baseline_impl(
         )
 
     for _, result_tuple in enumerate(comparison_list):
-        comparison_message = _construct_comparison_message(*result_tuple)
+        comparison_message = construct_comparison_message(*result_tuple)
         if comparison_message:
             result_message = (
                 result_message

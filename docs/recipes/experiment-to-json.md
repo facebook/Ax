@@ -14,7 +14,7 @@ share experiment data with others.
 
 ## Steps
 
-In this recipe, we plan to save a a snapshot of an Ax Client to JSON, reload the
+In this recipe, we plan to save a snapshot of an Ax Client to JSON, reload the
 client from the JSON file, and validate its contents.
 
 - **Saving to JSON**

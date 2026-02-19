@@ -13,22 +13,22 @@ from unittest.mock import patch
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.utils.with_db_settings_base import (
-    try_load_generation_strategy,
-    WithDBSettingsBase,
-)
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.load import (
     _load_experiment,
     _load_generation_strategy_by_experiment_name,
 )
-from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
+from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS, SQA_COL_TO_GR_ATTR
 from ax.storage.sqa_store.save import (
     _save_experiment,
     _save_generation_strategy,
     _save_or_update_trials,
 )
 from ax.storage.sqa_store.structs import DBSettings
+from ax.storage.sqa_store.with_db_settings_base import (
+    try_load_generation_strategy,
+    WithDBSettingsBase,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import DEFAULT_USER, get_experiment, get_generator_run
 from ax.utils.testing.modeling_stubs import get_generation_strategy
@@ -67,7 +67,7 @@ class TestWithDBSettingsBase(TestCase):
     def get_random_generation_strategy(self) -> GenerationStrategy:
         """Get an GenerationStrategy instance with random name."""
 
-        generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
+        generation_strategy = get_generation_strategy()
         gs_name = "".join(random.choice(string.ascii_letters) for i in range(8))
         generation_strategy._name = gs_name
         return generation_strategy
@@ -317,12 +317,14 @@ class TestWithDBSettingsBase(TestCase):
 
         # Only the last trial's generator run should have large model attributes
         for idx, trial in loaded_experiment.trials.items():
-            for key in [f"_{attr.key}" for attr in GR_LARGE_MODEL_ATTRS]:
+            for attr in GR_LARGE_MODEL_ATTRS:
+                # Map SQA column name to Python attribute name
+                python_attr_name = f"_{SQA_COL_TO_GR_ATTR[attr.key]}"
                 if idx < len(loaded_experiment.trials) - 1:
                     # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run`.
-                    self.assertIsNone(getattr(trial.generator_run, key))
+                    self.assertIsNone(getattr(trial.generator_run, python_attr_name))
                 else:
-                    self.assertIsNotNone(getattr(trial.generator_run, key))
+                    self.assertIsNotNone(getattr(trial.generator_run, python_attr_name))
 
         loaded_generation_strategy = _load_generation_strategy_by_experiment_name(
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
@@ -330,11 +332,13 @@ class TestWithDBSettingsBase(TestCase):
 
         # Only the last generator run should have large model attributes
         for idx, gr in enumerate(loaded_generation_strategy._generator_runs):
-            for key in [f"_{attr.key}" for attr in GR_LARGE_MODEL_ATTRS]:
+            for attr in GR_LARGE_MODEL_ATTRS:
+                # Map SQA column name to Python attribute name
+                python_attr_name = f"_{SQA_COL_TO_GR_ATTR[attr.key]}"
                 if idx < len(loaded_generation_strategy._generator_runs) - 1:
-                    self.assertIsNone(getattr(gr, key))
+                    self.assertIsNone(getattr(gr, python_attr_name))
                 else:
-                    self.assertIsNotNone(getattr(gr, key))
+                    self.assertIsNotNone(getattr(gr, python_attr_name))
 
     def test_update_experiment_properties_in_db(self) -> None:
         experiment, _ = self.init_experiment_and_generation_strategy(
@@ -358,7 +362,7 @@ class TestWithDBSettingsBase(TestCase):
         )
         # test logging with no experiment/gs saved
         with self.assertLogs(
-            logger="ax.service.utils.with_db_settings_base", level=logging.DEBUG
+            logger="ax.storage.sqa_store.with_db_settings_base", level=logging.DEBUG
         ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,
@@ -380,7 +384,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertTrue(exp_saved)
         self.assertTrue(gs_saved)
         with self.assertLogs(
-            logger="ax.service.utils.with_db_settings_base", level=logging.DEBUG
+            logger="ax.storage.sqa_store.with_db_settings_base", level=logging.DEBUG
         ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,

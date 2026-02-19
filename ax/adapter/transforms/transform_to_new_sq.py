@@ -67,26 +67,16 @@ class TransformToNewSQ(BaseRelativize):
             adapter=adapter,
             config=config,
         )
-        self._status_quo_name: str = none_throws(none_throws(adapter).status_quo_name)
 
-        target_trial_index = None
-
-        if config is not None:
-            target_trial_index = config.get("target_trial_index", None)
-
+        target_trial_index = self.config.get("target_trial_index", None)
         if (
             target_trial_index is None
             and adapter is not None
             and adapter._experiment is not None
         ):
-            target_trial_index = get_target_trial_index(experiment=adapter._experiment)
-            trials_indices_with_sq_data = self.status_quo_data_by_trial.keys()
-            if target_trial_index not in trials_indices_with_sq_data:
-                target_trial_index = max(trials_indices_with_sq_data)
-                logger.warning(
-                    "No status quo data for target trial. Failing back to "
-                    f"{target_trial_index}."
-                )
+            target_trial_index = get_target_trial_index(
+                experiment=none_throws(adapter)._experiment
+            )
 
         if target_trial_index is not None:
             self.default_trial_idx: int = assert_is_instance(
@@ -181,7 +171,7 @@ class TransformToNewSQ(BaseRelativize):
         observation_data = observation_data[
             (
                 observation_data.index.get_level_values("arm_name")
-                != self._status_quo_name
+                != self.status_quo_name
             )
             | (
                 observation_data.index.get_level_values("trial_index")
@@ -190,7 +180,7 @@ class TransformToNewSQ(BaseRelativize):
         ]
         arm_data = experiment_data.arm_data
         arm_data = arm_data[
-            (arm_data.index.get_level_values("arm_name") != self._status_quo_name)
+            (arm_data.index.get_level_values("arm_name") != self.status_quo_name)
             | (arm_data.index.get_level_values("trial_index") == self.default_trial_idx)
         ]
         return ExperimentData(
@@ -230,7 +220,7 @@ class TransformToNewSQ(BaseRelativize):
             for obs in rel_observations
             # drop SQ observations
             if (
-                obs.arm_name != self._status_quo_name
+                obs.arm_name != self.status_quo_name
                 or obs.features.trial_index == self.default_trial_idx
             )
         ]

@@ -14,6 +14,7 @@ from typing import Any
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.types import TParameterization
@@ -23,8 +24,6 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import TransitionCriterion
 
 
-# TODO[drfreund]: Introduce a `GenerationNodeInterface` to
-# make inheritance/overriding of `GenNode` methods cleaner.
 class ExternalGenerationNode(GenerationNode, ABC):
     """A generation node intended to be used with non-Ax methods for
     candidate generation.
@@ -50,6 +49,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
     def __init__(
         self,
         name: str,
+        suggested_experiment_status: ExperimentStatus | None = None,
         should_deduplicate: bool = True,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
     ) -> None:
@@ -61,6 +61,8 @@ class ExternalGenerationNode(GenerationNode, ABC):
 
         Args:
             name: Name of the generation node.
+            suggested_experiment_status: Optional suggested experiment status for this
+                node. Defaults to None if not specified.
             should_deduplicate: Whether to deduplicate the generated points against
                 the existing trials on the experiment. If True, the duplicate points
                 will be discarded and re-generated up to 5 times, after which a
@@ -75,6 +77,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         super().__init__(
             name=name,
             generator_specs=[],
+            suggested_experiment_status=suggested_experiment_status,
             best_model_selector=None,
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
@@ -158,7 +161,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         data: Data | None = None,
         n: int | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        **model_gen_kwargs: Any,
+        **generator_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Generate new candidates for evaluation.
 
@@ -173,9 +176,9 @@ class ExternalGenerationNode(GenerationNode, ABC):
             pending_observations: A map from metric signature to pending
                 observations for that metric, used by some methods to avoid
                 re-suggesting candidates that are currently being evaluated.
-            model_gen_kwargs: Keyword arguments, passed through to
+            generator_gen_kwargs: Keyword arguments, passed through to
                 ``GeneratorSpec.gen``; these override any pre-specified in
-                ``GeneratorSpec.model_gen_kwargs``.
+                ``GeneratorSpec.generator_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
@@ -187,7 +190,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
                 data=data,
                 n=n,
                 pending_observations=pending_observations,
-                **model_gen_kwargs,
+                **generator_gen_kwargs,
             )
             # Unset self._generator_spec_to_gen_from before returning.
             self._generator_spec_to_gen_from = None
@@ -198,7 +201,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         if pending_observations:
             for obs in pending_observations.values():
                 for o in obs:
-                    if o not in pending_parameters:
+                    if o.parameters not in pending_parameters:
                         pending_parameters.append(o.parameters)
         generated_params: list[TParameterization] = []
         for _ in range(n):
@@ -212,7 +215,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
             arms=[Arm(parameters=params) for params in generated_params],
             fit_time=self.fit_time_since_gen,
             gen_time=time.monotonic() - t_gen_start,
-            model_key=self.name,
+            generator_key=self.name,
         )
         # TODO: This shares the same bug as Adapter.gen. In both cases, after
         # deduplication, the generator run will record fit_time as 0.

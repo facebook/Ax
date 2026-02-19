@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import itertools
 from collections import OrderedDict
-from collections.abc import Iterable, Mapping, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from datetime import datetime, timedelta
 from functools import partial
 from logging import Logger
 from math import prod
 from pathlib import Path
-from typing import Any, cast, Sequence
+from typing import Any, cast, Self
 
 import numpy as np
 import pandas as pd
@@ -29,10 +29,10 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
-from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -54,11 +54,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -92,9 +88,10 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
+    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MinTrials,
-    TrialBasedCriterion,
+    TransitionCriterion,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
@@ -134,7 +131,6 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 from pyre_extensions import assert_is_instance, none_throws
-from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
 
@@ -177,16 +173,16 @@ def get_experiment_with_map_data_type() -> Experiment:
         description="test description",
         tracking_metrics=[MapMetric(name="tracking")],
         is_test=True,
-        default_data_type=DataType.MAP_DATA,
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
     return experiment
 
 
-def get_trial_based_criterion() -> list[TrialBasedCriterion]:
+def get_trial_based_criterion() -> list[TransitionCriterion]:
     return [
         MinTrials(
             threshold=3,
+            transition_to="next_node",
             only_in_statuses=[TrialStatus.RUNNING, TrialStatus.COMPLETED],
             not_in_statuses=None,
         ),
@@ -196,6 +192,10 @@ def get_trial_based_criterion() -> list[TrialBasedCriterion]:
             not_in_statuses=[
                 TrialStatus.RUNNING,
             ],
+            transition_to="Sobol",
+        ),
+        AutoTransitionAfterGen(
+            transition_to="next_node",
         ),
     ]
 
@@ -280,7 +280,6 @@ def get_experiment_with_custom_runner_and_metric(
             ),
         )
         trial = experiment.new_trial(generator_run=sobol_run)
-        trial.runner = experiment.runner
         trial.mark_running()
         data = Data.from_multiple_data(
             get_data(
@@ -438,6 +437,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     has_objective_thresholds: bool = False,
     bounds: list[float] | None = None,
     with_choice_parameter: bool = False,
+    with_outcome_constraint: bool = False,
 ) -> Experiment:
     """Returns an experiment with the search space including parameters
 
@@ -455,6 +455,8 @@ def get_branin_experiment_with_timestamp_map_metric(
             bounds determines the precise objective thresholds.
         with_choice_parameter: Whether to include a choice parameter.
             If true, `x2` will be a ChoiceParameter.
+        with_outcome_constraint: If True, adds an outcome constraint with an additional
+            non-map Branin metric.
 
 
     Returns:
@@ -467,6 +469,16 @@ def get_branin_experiment_with_timestamp_map_metric(
         decay_function_name=decay_function_name,
     )
     experiment_name = "branin_with_timestamp_map_metric"
+    if with_outcome_constraint:
+        outcome_constraints = [
+            OutcomeConstraint(
+                metric=BraninMetric(name="branin_constraint", param_names=["x1", "x2"]),
+                op=ComparisonOp.LEQ,
+                bound=100.0,
+            )
+        ]
+    else:
+        outcome_constraints = None
     if multi_objective:
         experiment_name = "multi_objective_" + experiment_name
         num_objectives = 2
@@ -499,6 +511,7 @@ def get_branin_experiment_with_timestamp_map_metric(
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(objectives=objectives),
             objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
         )
 
     else:  # single objective case
@@ -506,7 +519,8 @@ def get_branin_experiment_with_timestamp_map_metric(
             objective=Objective(
                 metric=local_get_map_metric(name="branin_map"),
                 minimize=True,
-            )
+            ),
+            outcome_constraints=outcome_constraints,
         )
 
         if map_tracking_metric:
@@ -526,7 +540,6 @@ def get_branin_experiment_with_timestamp_map_metric(
         optimization_config=optimization_config,
         tracking_metrics=cast(list[Metric], tracking_metrics),
         runner=SyntheticRunner(),
-        default_data_type=DataType.MAP_DATA,
     )
     exp._properties = {"owners": [DEFAULT_USER]}
 
@@ -755,7 +768,7 @@ def get_status_quo_branin(
     if with_derived_parameter:
         params["derived"] = 0.0
     if status_quo_unknown_parameters:
-        params = {k: None for k in params}
+        params = dict.fromkeys(params)
 
     return Arm(name="status_quo", parameters=params)
 
@@ -912,9 +925,9 @@ def get_hierarchical_search_space_experiment(
 
     Args:
         num_observations: The number of trials in the experiment.
-        use_map_data: Whether to use `MapData` or `Data` when constructing the
-            experiment. This flag is for testing the transform `MapKeyToFloat`, which
-            is applied to the search space only if the experiment has map data.
+        use_map_data: Whether data has a column "step." This flag is for testing
+            the transform `MapKeyToFloat`, which is applied to the search space
+            only if the experiment's data has a "step" column.
 
     Returns:
         An experiment with a hierarchical search space and some optional observations.
@@ -956,9 +969,7 @@ def get_hierarchical_search_space_experiment(
                 for j, o in enumerate(outcomes)
             ]
         )
-        data = MapData(df=df) if use_map_data else Data(df=df)
-
-        experiment.attach_data(data)
+        experiment.attach_data(data=Data(df=df))
         trial.mark_completed()
 
     return experiment
@@ -1565,9 +1576,7 @@ def get_branin_search_space(
         )
 
     if with_parameter_constraint:
-        constraints = [
-            ParameterConstraint(constraint_dict={"x1": 1, "x2": 1}, bound=15.0)
-        ]
+        constraints = [ParameterConstraint(inequality="x1 <= 15")]
     else:
         constraints = None
 
@@ -1735,9 +1744,8 @@ def get_batch_trial(
     batch.add_arms_and_weights(arms=arms, weights=weights)
     if abandon_arm:
         batch.mark_arm_abandoned(batch.arms[2].name, "abandoned reason")
-    batch.runner = SyntheticRunner()
+    experiment.runner = SyntheticRunner()
     batch.should_add_status_quo_arm = True
-    batch._generation_step_index = 0
     return batch
 
 
@@ -1746,8 +1754,7 @@ def get_trial() -> Trial:
     trial = experiment.new_trial(ttl_seconds=72)
     arm = get_arms_from_dict(get_arm_weights1())[0]
     trial.add_arm(arm)
-    trial.runner = SyntheticRunner()
-    trial._generation_step_index = 0
+    experiment.runner = SyntheticRunner()
     trial.update_run_metadata({"workflow_run_id": [12345]})
     return trial
 
@@ -1809,6 +1816,16 @@ class TestTrial(BaseTrial):
             The trial instance.
         """
         return self
+
+
+def get_non_failed_arm_names(experiment: Experiment) -> set[str]:
+    """Get the names of all arms from non-failed trials."""
+    return {
+        arm.name
+        for trial in experiment.trials.values()
+        if trial.status != TrialStatus.FAILED
+        for arm in trial.arms
+    }
 
 
 ##############################
@@ -1891,7 +1908,6 @@ def get_hierarchical_choice_parameter(parameter_type: ParameterType) -> ChoicePa
         parameter_type=parameter_type,
         values=values,  # pyre-ignore [6]
         is_ordered=True,
-        sort_values=False,
         dependents={values[0]: ["y"], values[1]: ["z"]},
     )
 
@@ -1959,28 +1975,28 @@ def get_num_boost_rounds_parameter() -> RangeParameter:
 ##############################
 
 
-def get_order_constraint() -> OrderConstraint:
+def get_order_constraint() -> ParameterConstraint:
     w = get_range_parameter()
     x = get_range_parameter2()
-    return OrderConstraint(lower_parameter=x, upper_parameter=w)
+    return ParameterConstraint(inequality=f"{x.name} <= {w.name}")
 
 
 def get_parameter_constraint(
     param_x: str = "x", param_y: str = "w"
 ) -> ParameterConstraint:
-    return ParameterConstraint(constraint_dict={param_x: 1.0, param_y: -1.0}, bound=1.0)
+    return ParameterConstraint(inequality=f"{param_x} - {param_y} <= 1")
 
 
-def get_sum_constraint1() -> SumConstraint:
+def get_sum_constraint1() -> ParameterConstraint:
     w = get_range_parameter()
     x = get_range_parameter2()
-    return SumConstraint(parameters=[x, w], is_upper_bound=False, bound=10.0)
+    return ParameterConstraint(inequality=f"{x.name} + {w.name} >= 10")
 
 
-def get_sum_constraint2() -> SumConstraint:
+def get_sum_constraint2() -> ParameterConstraint:
     w = get_range_parameter()
     x = get_range_parameter2()
-    return SumConstraint(parameters=[x, w], is_upper_bound=True, bound=10.0)
+    return ParameterConstraint(inequality=f"{x.name} + {w.name} <= 10")
 
 
 ##############################
@@ -2362,13 +2378,13 @@ def get_generator_run() -> GeneratorRun:
         best_arm_predictions=(arms[0], arm_predictions[arms[0].signature]),
         fit_time=10.0,
         gen_time=5.0,
-        model_key="Sobol",
-        model_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
-        bridge_kwargs={"transforms": Cont_X_trans},
-        generation_step_index=0,
+        generator_key="Sobol",
+        generator_kwargs={"scramble": False, "torch_device": torch.device("cpu")},
+        adapter_kwargs={"transforms": Cont_X_trans},
         candidate_metadata_by_arm_signature={
             a.signature: {"md_key": f"md_val_{a.signature}"} for a in arms
         },
+        suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
     )
 
 
@@ -2463,7 +2479,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
     )
 
 
-def get_map_data(trial_index: int = 0) -> MapData:
+def get_map_data(trial_index: int = 0) -> Data:
     evaluations = {
         "status_quo": [
             (1, {"ax_test_metric": (1.0, 0.5)}),
@@ -2484,17 +2500,13 @@ def get_map_data(trial_index: int = 0) -> MapData:
             (4, {"ax_test_metric": (1.0, 0.5)}),
         ],
     }
-    return assert_is_instance(
-        raw_evaluations_to_data(
-            raw_data=evaluations,
-            trial_index=trial_index,
-            metric_name_to_signature={
-                "ax_test_metric": "ax_test_metric",
-                "epoch": "epoch",
-            },
-            data_type=DataType.MAP_DATA,
-        ),
-        MapData,
+    return raw_evaluations_to_data(
+        raw_data=evaluations,
+        trial_index=trial_index,
+        metric_name_to_signature={
+            "ax_test_metric": "ax_test_metric",
+            "epoch": "epoch",
+        },
     )
 
 
@@ -2573,7 +2585,7 @@ def get_branin_data_batch(
         for i in range(len(means))
         for metric in metrics
     ]
-    return Data(pd.DataFrame.from_records(records))
+    return Data(df=pd.DataFrame.from_records(records))
 
 
 def get_branin_data_multi_objective(
@@ -2607,7 +2619,6 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
         percentile_threshold=0.25,
         min_progression=0.2,
         min_curves=10,
-        trial_indices_to_ignore=[0, 1, 2],
         normalize_progressions=True,
     )
 
@@ -2620,7 +2631,6 @@ def get_percentile_early_stopping_strategy_with_non_objective_metric_signature()
         percentile_threshold=0.25,
         min_progression=0.2,
         min_curves=10,
-        trial_indices_to_ignore=[0, 1, 2],
         normalize_progressions=True,
     )
 
@@ -2629,7 +2639,6 @@ def get_threshold_early_stopping_strategy() -> ThresholdEarlyStoppingStrategy:
     return ThresholdEarlyStoppingStrategy(
         metric_threshold=0.1,
         min_progression=0.2,
-        trial_indices_to_ignore=[0, 1, 2],
         normalize_progressions=True,
     )
 
@@ -2650,6 +2659,7 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(self, early_stop_trials: dict[int, str | None] | None = None) -> None:
+        super().__init__()
         self.early_stop_trials: dict[int, str | None] = early_stop_trials or {}
 
     def _is_harmful(
@@ -2946,7 +2956,7 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
     """
     # Set up the node-based generation strategy for testing.
     # TODO: @mgarrard make this more realistic of an actual online gs
-    step_model_kwargs = {"silently_filter_kwargs": True}
+    step_generator_kwargs = {"silently_filter_kwargs": True}
     sobol_criterion = [
         MinTrials(
             threshold=1,
@@ -2968,13 +2978,13 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
     ]
     sobol_generator_spec = GeneratorSpec(
         generator_enum=Generators.SOBOL,
-        model_kwargs=step_model_kwargs,
-        model_gen_kwargs={},
+        generator_kwargs=step_generator_kwargs,
+        generator_gen_kwargs={},
     )
     mbm_generator_spec = GeneratorSpec(
         generator_enum=Generators.BOTORCH_MODULAR,
-        model_kwargs=step_model_kwargs,
-        model_gen_kwargs={},
+        generator_kwargs=step_generator_kwargs,
+        generator_gen_kwargs={},
     )
     sobol_node = GenerationNode(
         name="sobol_node",

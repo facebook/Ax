@@ -7,13 +7,13 @@
 
 import math
 import re
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import pandas as pd
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE, LIGHT_AX_BLUE
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
-from ax.core.trial_status import TrialStatus
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UnsupportedError
 from plotly import express as px
 
@@ -46,7 +46,7 @@ BEST_LINE_SETTINGS: dict[str, str | dict[str, str] | bool] = {
 
 
 # Move the legened to the bottom, and make horizontal
-LEGEND_POSITION: dict[str, Union[float, str]] = {
+LEGEND_POSITION: dict[str, float | str] = {
     "orientation": "h",
     "yanchor": "top",
     "y": -0.2,
@@ -208,8 +208,7 @@ def select_metric(experiment: Experiment) -> str:
     objective = experiment.optimization_config.objective
     if isinstance(objective, MultiObjective):
         raise UnsupportedError(
-            "Cannot infer metric to plot from MultiObjective, please "
-            "specify a metric"
+            "Cannot infer metric to plot from MultiObjective, please specify a metric"
         )
     if isinstance(objective, ScalarizedObjective):
         raise UnsupportedError(
@@ -217,3 +216,19 @@ def select_metric(experiment: Experiment) -> str:
             "specify a metric"
         )
     return experiment.optimization_config.objective.metric.name
+
+
+def get_trial_statuses_with_fallback(
+    trial_statuses: Sequence[TrialStatus] | None, trial_index: int | None
+) -> list[TrialStatus] | None:
+    """Get the default trial statuses to plot.
+
+    By default, include all trials except those that are abandoned, stale, or failed.
+    If trial_index is provided, then we only filter based on trial_index,
+    and therefore this function returns None.
+    """
+    if trial_index is not None:
+        return None
+    elif trial_statuses is not None:
+        return [*trial_statuses]
+    return [*DEFAULT_ANALYSIS_STATUSES]

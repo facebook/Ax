@@ -25,6 +25,8 @@ class TestRegressionDetection(TestCase):
         experiment = get_branin_experiment_with_multi_objective(
             with_batch=True, with_status_quo=True
         )
+        # Put trials in running status so their data can be extracted.
+        experiment.trials[0].run()
 
         df0 = pd.DataFrame(
             {
@@ -73,7 +75,7 @@ class TestRegressionDetection(TestCase):
         sobol_run = sobol_generator.gen(n=3)
         experiment.new_batch_trial(
             generator_runs=[sobol_run], should_add_status_quo_arm=True
-        )
+        ).run()
 
         df1 = pd.DataFrame(
             {

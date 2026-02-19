@@ -160,14 +160,17 @@ class TestInstantiationtUtils(TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            r"All parameters in a parameter constraint must be RangeParameters\.",
+            r"Only ordered ChoiceParameters can be used in parameter constraints",
         ):
             InstantiationBase.constraint_from_str(
                 "x1 + x2 <= 3",
                 {
                     "x1": x1,
                     "x2": ChoiceParameter(
-                        name="x2", parameter_type=ParameterType.FLOAT, values=[0, 1, 2]
+                        name="x2",
+                        parameter_type=ParameterType.FLOAT,
+                        values=[0.0, 1.0, 2.0],
+                        is_ordered=False,
                     ),
                 },
             )

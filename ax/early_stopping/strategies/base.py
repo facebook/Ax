@@ -10,21 +10,32 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from logging import Logger
+from typing import cast
 
 import pandas as pd
+from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
-from ax.early_stopping.utils import _interval_boundary, estimate_early_stopping_savings
+from ax.early_stopping.utils import (
+    _interval_boundary,
+    align_partial_results,
+    estimate_early_stopping_savings,
+)
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
+
+
+# Kwargs removed from early stopping strategies that should be discarded for
+# backwards compatibility when loading old strategies.
+REMOVED_EARLY_STOPPING_STRATEGY_KWARGS: set[str] = {"trial_indices_to_ignore"}
 
 
 class BaseEarlyStoppingStrategy(ABC, Base):
@@ -37,9 +48,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
-        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         interval: float | None = None,
+        check_safe: bool = False,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
 
@@ -56,14 +67,16 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            trial_indices_to_ignore: Trial indices that should not be early stopped.
-            normalize_progressions: Normalizes the progression column of the MapData df
-                by dividing by the max. If the values were originally in [0, `prog_max`]
-                (as we would expect), the transformed values will be in [0, 1]. Useful
-                for inferring the max progression and allows `min_progression` to be
-                specified in the transformed space. IMPORTANT: Typically, `min_curves`
-                should be > 0 to ensure that at least one trial has completed and that
-                we have a reliable approximation for `prog_max`.
+            normalize_progressions: If True, normalizes the progression values
+                for each metric to the [0, 1] range using the observed minimum and
+                maximum progression values for that metric. This transformation maps
+                the original progression range [`min_prog`, `max_prog`] to [0, 1]
+                via (x - min_prog) / (max_prog - min_prog). Useful when progression
+                values have arbitrary scales or when you want to specify
+                `min_progression` and `max_progression` in a normalized [0, 1]
+                space. Note: At least one trial should have completed (i.e.,
+                `min_curves` > 0) to ensure reliable estimates of the progression
+                range.
             interval: If specified, throttles early-stopping checks by only
                 evaluating trials when they cross interval boundaries. Boundaries are
                 defined at `min_progression + k * interval` for k = 0, 1, 2, etc.
@@ -75,6 +88,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 eligible on first check. If checked again at progression 18, it's not
                 eligible (both in interval [10, 20)). Once it reaches progression 21,
                 it's eligible again (crossed into interval [20, 30)).
+            check_safe: If True, applies the relevant safety checks to gate
+                early-stopping when it is likely to be harmful. If False (default),
+                bypasses the safety check and directly applies early-stopping decisions.
         """
         # Validate interval
         if interval is not None and not interval > 0:
@@ -98,9 +114,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.min_progression = min_progression
         self.max_progression = max_progression
         self.min_curves = min_curves
-        self.trial_indices_to_ignore = trial_indices_to_ignore
         self.normalize_progressions = normalize_progressions
         self.interval = interval
+        self.check_safe = check_safe
         # Track the last progression value where each trial was checked
         self._last_check_progressions: dict[int, float] = {}
 
@@ -170,19 +186,18 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Returns:
             A dictionary mapping trial indices that should be early stopped to
             (optional) messages with the associated reason. Returns an empty
-            dictionary if early stopping would be harmful.
+            dictionary if early stopping would be harmful (when safety check is
+            enabled).
         """
-        return (
-            self._should_stop_trials_early(
-                trial_indices=trial_indices,
-                experiment=experiment,
-                current_node=current_node,
-            )
-            if not self._is_harmful(
-                trial_indices=trial_indices,
-                experiment=experiment,
-            )
-            else {}
+        if self.check_safe and self._is_harmful(
+            trial_indices=trial_indices,
+            experiment=experiment,
+        ):
+            return {}
+        return self._should_stop_trials_early(
+            trial_indices=trial_indices,
+            experiment=experiment,
+            current_node=current_node,
         )
 
     def estimate_early_stopping_savings(self, experiment: Experiment) -> float:
@@ -198,15 +213,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             0.11 estimated savings indicates we would expect the experiment to have used
             11% more resources without early stopping present)
         """
-        if experiment.default_data_constructor is not MapData:
-            return 0
+        if not experiment.lookup_data().has_step_column:
+            return 0.0
 
         return estimate_early_stopping_savings(experiment=experiment)
 
-    def _check_validity_and_get_data(
+    def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
-    ) -> MapData | None:
-        """Validity checks and returns the `MapData` used for early stopping that
+    ) -> Data | None:
+        """Looks up and validates the `Data` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
@@ -225,34 +240,32 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 )
                 return None
 
-        if not isinstance(data, MapData):
+        if not data.has_step_column:
             logger.info(
-                f"{self.__class__.__name__} expects MapData, but the "
-                f"data attached to experiment is of type {type(data)}. "
-                "Not stopping any trials."
+                f"{self.__class__.__name__} expects the data attached to the "
+                f"to have a column '{MAP_KEY}' (representing progression), but "
+                "it does not. Not stopping any trials."
             )
             return None
 
-        data = assert_is_instance(data, MapData)
-        map_df = data.map_df
-        # keep only relevant metrics
-        map_df = map_df[map_df["metric_signature"].isin(metric_signatures)].copy()
-        if self.normalize_progressions:
-            values = map_df[MAP_KEY].astype(float)
-            map_df[MAP_KEY] = values / values.abs().max()
-        return MapData(df=map_df)
+        full_df = data.full_df
+        full_df = full_df[full_df["metric_signature"].isin(metric_signatures)]
 
-    @staticmethod
-    def _log_and_return_trial_ignored(
-        logger: logging.Logger, trial_index: int
-    ) -> tuple[bool, str]:
-        """Helper function for logging/constructing a reason when a trial
-        should be ignored."""
-        logger.info(
-            f"Trial {trial_index} should be ignored and not considered "
-            "for early stopping."
-        )
-        return False, "Specified as a trial to be ignored for early stopping."
+        # Drop rows with NaN values in MAP_KEY column to prevent issues in
+        # align_partial_results which uses MAP_KEY as the pivot index
+        nan_mask = full_df[MAP_KEY].isna()
+        if nan_mask.any():
+            num_nan_rows = nan_mask.sum()
+            nan_trial_indices = full_df.loc[nan_mask, "trial_index"].unique().tolist()
+            logger.warning(
+                f"Dropped {num_nan_rows} row(s) with NaN values in the progression "
+                f"column ('{MAP_KEY}') for trial(s) {nan_trial_indices}."
+            )
+            full_df = full_df[~nan_mask]
+
+        if self.normalize_progressions:
+            full_df = _maybe_normalize_map_key(df=full_df)
+        return Data(df=full_df)
 
     @staticmethod
     def _log_and_return_no_data(
@@ -364,11 +377,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     ) -> tuple[bool, str | None]:
         """Perform a series of default checks for a specific trial `trial_index` and
         determines whether it is eligible for further stopping logic:
-            1. Check for ignored indices based on `self.trial_indices_to_ignore`
-            2. Check that `df` contains data for the trial `trial_index`
-            3. Check that the trial has reached `self.min_progression`
-            4. Check that the trial hasn't surpassed `self.max_progression`
-            5. Check that the trial has progressed sufficiently since the last
+            1. Check that `df` contains data for the trial `trial_index`
+            2. Check that the trial has reached `self.min_progression`
+            3. Check that the trial hasn't surpassed `self.max_progression`
+            4. Check that the trial has progressed sufficiently since the last
                early-stopping decision (based on `self.interval`)
         Returns two elements: a boolean indicating if all checks are passed and a
         str indicating the reason that early stopping is not applied (None if all
@@ -389,15 +401,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             A tuple of two elements: a boolean indicating if the trial is eligible and
                 an optional string indicating any reason for ineligiblity.
         """
-        # check for ignored indices
-        if (
-            self.trial_indices_to_ignore is not None
-            and trial_index in self.trial_indices_to_ignore
-        ):
-            return self._log_and_return_trial_ignored(
-                logger=logger, trial_index=trial_index
-            )
-
         # Check eligibility of each metric.
         for metric_signature, metric_df in df.groupby("metric_signature"):
             # check for no data
@@ -473,8 +476,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """
         min_progression = 0.0 if self.min_progression is None else self.min_progression
         interval = none_throws(self.interval)
-        curr_interval_boundary = _interval_boundary(
-            curr_progression, min_progression=min_progression, interval=interval
+        curr_interval_boundary = cast(
+            float,
+            _interval_boundary(
+                progression=curr_progression,
+                min_progression=min_progression,
+                interval=interval,
+            ),
         )
         # We've crossed a boundary if the last check was before the current boundary
         return prev_progression < curr_interval_boundary
@@ -538,10 +546,47 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         return directions
 
+    def _prepare_aligned_data(
+        self, experiment: Experiment, metric_signatures: list[str]
+    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+        """Get raw experiment data and align it for early stopping evaluation.
+
+        Args:
+            experiment: Experiment that contains the trials and other contextual data.
+            metric_signatures: List of metric signatures to include in the aligned data.
+
+        Returns:
+            A tuple of (long_df, multilevel_wide_df) where:
+            - long_df: The raw Data-style dataframe (long format) before
+                interpolation
+            - multilevel_wide_df: Hierarchical wide dataframe (indexed by progression)
+              with first level ["mean", "sem"] and second level metric signatures
+            Returns None if data cannot be retrieved or aligned.
+        """
+        data = self._lookup_and_validate_data(
+            experiment=experiment, metric_signatures=metric_signatures
+        )
+        if data is None:
+            return None
+
+        try:
+            multilevel_wide_df = align_partial_results(
+                df=(long_df := data.full_df),
+                metrics=metric_signatures,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Encountered exception while aligning data: {e}. "
+                "Cannot proceed with early stopping."
+            )
+            return None
+
+        return long_df, multilevel_wide_df
+
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     """A base class for model based early stopping strategies. Includes
-    a helper function for processing MapData into arrays."""
+    a helper function for processing Data into arrays."""
 
     def __init__(
         self,
@@ -549,10 +594,10 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_progression: float | None = None,
         max_progression: float | None = None,
         min_curves: int | None = None,
-        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
         min_progression_modeling: float | None = None,
         interval: float | None = None,
+        check_safe: bool = False,
     ) -> None:
         """A ModelBasedEarlyStoppingStrategy class.
 
@@ -569,14 +614,16 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            trial_indices_to_ignore: Trial indices that should not be early stopped.
-            normalize_progressions: Normalizes the progression column of the MapData df
-                by dividing by the max. If the values were originally in [0, `prog_max`]
-                (as we would expect), the transformed values will be in [0, 1]. Useful
-                for inferring the max progression and allows `min_progression` to be
-                specified in the transformed space. IMPORTANT: Typically, `min_curves`
-                should be > 0 to ensure that at least one trial has completed and that
-                we have a reliable approximation for `prog_max`.
+            normalize_progressions: If True, normalizes the progression values
+                for each metric to the [0, 1] range using the observed minimum and
+                maximum progression values for that metric. This transformation maps
+                the original progression range [`min_prog`, `max_prog`] to [0, 1]
+                via (x - min_prog) / (max_prog - min_prog). Useful when progression
+                values have arbitrary scales or when you want to specify
+                `min_progression` and `max_progression` in a normalized [0, 1]
+                space. Note: At least one trial should have completed (i.e.,
+                `min_curves` > 0) to ensure reliable estimates of the progression
+                range.
             min_progression_modeling: If set, this will exclude progressions that are
                 below this threshold from being used or modeling. Useful when early data
                 is not reliable or excessively noisy.
@@ -597,32 +644,32 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
-            trial_indices_to_ignore=trial_indices_to_ignore,
             normalize_progressions=normalize_progressions,
             interval=interval,
+            check_safe=check_safe,
         )
         self.min_progression_modeling = min_progression_modeling
 
-    def _check_validity_and_get_data(
+    def _lookup_and_validate_data(
         self, experiment: Experiment, metric_signatures: list[str]
-    ) -> MapData | None:
-        """Validity checks and returns the `MapData` used for early stopping that
+    ) -> Data | None:
+        """Looks up and validates the `Data` used for early stopping that
         is associated with `metric_signatures`. This function also handles normalizing
         progressions.
         """
-        map_data = super()._check_validity_and_get_data(
+        map_data = super()._lookup_and_validate_data(
             experiment=experiment, metric_signatures=metric_signatures
         )
         if map_data is not None and self.min_progression_modeling is not None:
-            map_df = map_data.map_df
-            map_df = map_df[map_df[MAP_KEY] >= self.min_progression_modeling]
-            map_data = MapData(df=map_df)
+            full_df = map_data.full_df
+            full_df = full_df[full_df[MAP_KEY] >= self.min_progression_modeling]
+            map_data = Data(df=full_df)
         return map_data
 
     def get_training_data(
         self,
         experiment: Experiment,
-        map_data: MapData,
+        map_data: Data,
         max_training_size: int | None = None,
         outcomes: Sequence[str] | None = None,
         parameters: list[str] | None = None,

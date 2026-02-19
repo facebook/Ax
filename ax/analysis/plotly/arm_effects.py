@@ -5,17 +5,17 @@
 
 # pyre-strict
 
-from typing import final, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
     get_arm_tooltip,
+    get_trial_statuses_with_fallback,
     get_trial_trace_name,
     LEGEND_BASE_OFFSET,
     LEGEND_POSITION,
@@ -34,8 +34,9 @@ from ax.analysis.utils import (
     validate_experiment,
     validate_experiment_has_trials,
 )
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.arm import Arm
-from ax.core.base_trial import sort_by_trial_index_and_arm_name
+from ax.core.data import sort_by_trial_index_and_arm_name
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -52,7 +53,7 @@ class ArmEffectsPlot(Analysis):
     the raw data, especially when model fit is good and in high-noise settings.
 
     Each arm is represented by a point on the plot with 95% confidence intervals. The
-    color of the point indicates the status of the arm's trial (e.g. RUNNING, SUCCEDED,
+    color of the point indicates the status of the arm's trial (e.g. RUNNING, SUCCEEDED,
     FAILED). Arms which are likely to violate a constraint (i.e. according to either
     the raw or modeled effects, the probability all constraints are satisfied is < 5%)
     are marked with a red outline. Each arm also has a hover tooltip with additional
@@ -89,6 +90,8 @@ class ArmEffectsPlot(Analysis):
                 quo arm. If multiple status quo arms are present, relativize each arm
                 against the status quo arm from the same trial.
             trial_index: If present, only use arms from the trial with the given index.
+            trial_statuses: If present, only use arms from trials with the given
+                statuses. By default, exclude STALE, ABANDONED, and FAILED trials.
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
@@ -99,16 +102,11 @@ class ArmEffectsPlot(Analysis):
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-
-        # By default, include all trials except those that are abandoned or stale.
-        if trial_statuses is not None:
-            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
-        elif self.trial_index is not None:
-            self.trial_statuses: list[TrialStatus] | None = None
-        else:
-            self.trial_statuses: list[TrialStatus] | None = [
-                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
-            ]
+        self.trial_statuses: list[TrialStatus] | None = (
+            get_trial_statuses_with_fallback(
+                trial_statuses=trial_statuses, trial_index=trial_index
+            )
+        )
         self.additional_arms = additional_arms
         self.label = label
 
@@ -197,15 +195,25 @@ class ArmEffectsPlot(Analysis):
             else truncate_label(label=self.metric_name)
         )
 
+        status_quo_str = (
+            experiment.status_quo.name
+            if experiment.status_quo is not None
+            else "status quo"
+        )
+
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{'Modeled' if self.use_model_predictions else 'Observed'} "
-                f"{'Relativized ' if self.relativize else ''}Arm "
-                f"Effects on {metric_label}"
+                ("Modeled " if self.use_model_predictions else "Observed ")
+                + f"Arm Effects on {metric_label}"
                 + (
                     f" for trial {self.trial_index}"
                     if self.trial_index is not None
+                    else ""
+                )
+                + (
+                    f' relative to "{status_quo_str}"'
+                    if self.relativize and experiment.status_quo is not None
                     else ""
                 )
             ),
@@ -219,7 +227,7 @@ class ArmEffectsPlot(Analysis):
                     "trial_index",
                     "trial_status",
                     "arm_name",
-                    "fail_reason",
+                    "status_reason",
                     "generation_node",
                     f"{self.metric_name}_mean",
                     f"{self.metric_name}_sem",
@@ -348,6 +356,10 @@ def _prepare_figure(
         # Skip trials with no valid data points as they will not end up in the plot
         if xy_df.empty:
             continue
+        if is_relative and status_quo_arm_name is not None:
+            # Exclude status quo arms from relativized plots, since arms are relative
+            # with respect to the status quo.
+            xy_df = xy_df[xy_df["arm_name"] != status_quo_arm_name]
 
         arm_order = arm_order + xy_df["x_key_order"].to_list()
         arm_label = arm_label + xy_df["arm_name"].to_list()
@@ -512,7 +524,7 @@ def _get_subtitle(
         f"{'Modeled' if use_model_predictions else 'Observed'} effects on "
         f"{metric_label}"
     )
-    trial_clause = f" for Trial {trial_index}." if trial_index is not None else ""
+    trial_clause = f" for Trial {trial_index}" if trial_index is not None else ""
     first_sentence = f"{first_clause}{trial_clause}."
 
     if use_model_predictions:

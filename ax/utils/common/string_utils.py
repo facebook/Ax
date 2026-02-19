@@ -8,12 +8,39 @@
 
 import re
 
+import sympy
+
 DOT_PLACEHOLDER = "__dot__"
 SLASH_PLACEHOLDER = "__slash__"
 COLON_PLACEHOLDER = "__colon__"
 PIPE_PLACEHOLDER = "__pipe__"
 TILDE_PLACEHOLDER = "__tilde__"
 _forbidden_re: re.Pattern[str] = re.compile(r"[\;\[\'\\]")
+
+SYMPY_GLOBALS: set[str] = set(dir(sympy))
+
+
+def _check_sympy_conflicts(expression: str) -> None:
+    """
+    Check if the expression contains identifiers that conflict with sympy's global dict.
+
+    Raises ValueError if a conflict is detected.
+    """
+    # Extract all Python identifiers from the expression
+    # This regex matches valid Python identifiers
+    identifier_pattern = r"\b([a-zA-Z_][a-zA-Z0-9_()]*)\b"
+    identifiers = set(re.findall(identifier_pattern, expression))
+
+    # Check for conflicts
+    conflicts = identifiers & SYMPY_GLOBALS
+
+    if conflicts:
+        conflicts_list = ", ".join(sorted(conflicts))
+        raise ValueError(
+            f"Expression '{expression}' contains identifiers that conflict with "
+            f"sympy's built-in names: {conflicts_list}. "
+            f"Please rename these variables to avoid conflicts."
+        )
 
 
 def sanitize_name(s: str) -> str:
@@ -61,6 +88,8 @@ def sanitize_name(s: str) -> str:
         rf"{TILDE_PLACEHOLDER}\1",
         sans_pipe,
     )
+    # Check for conflicts with sympy's global dictionary
+    _check_sympy_conflicts(sans_tilde)
 
     return sans_tilde
 

@@ -13,8 +13,8 @@ import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from logging import Logger
-from random import choice, uniform
 
+import numpy as np
 import pandas as pd
 from ax import core
 from ax.core.arm import Arm
@@ -22,15 +22,15 @@ from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
     FixedParameter,
+    get_dummy_value_for_parameter,
     Parameter,
     ParameterType,
     RangeParameter,
     TParamValue,
 )
 from ax.core.parameter_constraint import (
-    OrderConstraint,
     ParameterConstraint,
-    SumConstraint,
+    validate_constraint_parameters,
 )
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
@@ -38,6 +38,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
+from scipy.optimize import linprog
 from scipy.special import expit, logit
 
 
@@ -192,22 +193,14 @@ class SearchSpace(Base):
         # Validate that all parameters in constraints are in search
         # space already.
         self._validate_parameter_constraints(parameter_constraints)
-        # Set the parameter on the constraint to be the parameter by
-        # the matching name among the search space's parameters, so we
-        # are not keeping two copies of the same parameter.
-        for constraint in parameter_constraints:
-            if isinstance(constraint, OrderConstraint):
-                constraint._lower_parameter = self.parameters[
-                    constraint._lower_parameter.name
-                ]
-                constraint._upper_parameter = self.parameters[
-                    constraint._upper_parameter.name
-                ]
-            elif isinstance(constraint, SumConstraint):
-                for idx, parameter in enumerate(constraint.parameters):
-                    constraint.parameters[idx] = self.parameters[parameter.name]
-
         self._parameter_constraints: list[ParameterConstraint] = parameter_constraints
+
+        for constraint in self.parameter_constraints:
+            validate_constraint_parameters(
+                parameters=[
+                    self._parameters[name] for name in constraint.constraint_dict.keys()
+                ]
+            )
 
     def add_parameters(
         self,
@@ -429,6 +422,111 @@ class SearchSpace(Base):
 
         return True
 
+    def check_membership_df(
+        self,
+        arm_data: pd.DataFrame,
+        check_all_parameters_present: bool = True,
+    ) -> list[bool]:
+        """Vectorized membership check for a DataFrame of parameterizations.
+
+        This method efficiently checks whether each row in the DataFrame belongs
+        in the search space, using vectorized operations instead of iterating
+        through rows one at a time.
+
+        Checks that the given parameter values have the same name/type as
+        search space parameters, are contained in the search space domain,
+        and satisfy the parameter constraints.
+
+        Args:
+            arm_data: DataFrame with one column per parameter. May contain a
+                "metadata" column which will be ignored. Rows with NaN values
+                for a parameter are treated as not having that parameter.
+            check_all_parameters_present: Ensure that parameterization specifies
+                values for all parameters as expected by the search space.
+
+        Returns:
+            A list of booleans indicating whether each row is in-design.
+        """
+        # Get DataFrame columns excluding metadata
+        df_cols = {col for col in arm_data.columns if col != "metadata"}
+        ss_params = set(self.parameters.keys())
+
+        # Check all parameters present (for non-hierarchical search spaces)
+        # This must happen BEFORE filtering to detect extra columns
+        if check_all_parameters_present and not self.is_hierarchical:
+            if df_cols != ss_params:
+                # All rows are out of design if parameters don't match
+                return [False] * len(arm_data)
+
+        # Filter to only parameter columns that exist in search space.
+        # This is needed for check_all_parameters_present=False where some
+        # search space params may be missing from the DataFrame.
+        param_cols = [col for col in arm_data.columns if col in ss_params]
+        df = arm_data[param_cols]
+
+        # Initialize result as all True
+        in_design = pd.Series(True, index=df.index)
+
+        if len(df) == 0:
+            return in_design.tolist()
+
+        # Validate each parameter using vectorized operations
+        for name, param in self.parameters.items():
+            if name not in df.columns:
+                continue
+            # Convert to NumPy array, handling pd.NA appropriately
+            col = df[name]
+            if param.is_numeric:
+                values = col.to_numpy(dtype=float, na_value=np.nan)
+            else:
+                values = col.where(pd.notna(col), None).to_numpy()
+            # DerivedParameter needs the full DataFrame to compute expected values
+            if isinstance(param, DerivedParameter):
+                valid = param.validate_array(values, df=df)
+            else:
+                valid = param.validate_array(values)
+            # For hierarchical search spaces, null values for inactive parameters
+            # are valid (handled by hierarchical validation logic below)
+            if self.is_hierarchical:
+                is_null = col.isna().to_numpy()
+                valid = valid | is_null
+            in_design &= pd.Series(valid, index=df.index)
+
+        # Check parameter constraints (linear inequalities) vectorized
+        for constraint in self._parameter_constraints:
+            weighted_sum = pd.Series(0.0, index=df.index)
+            for param_name, weight in constraint.constraint_dict.items():
+                if param_name not in df.columns:
+                    # Missing column = invalid, set to NaN so comparison fails
+                    weighted_sum = pd.Series(np.nan, index=df.index)
+                    break
+                # NaN values propagate if exists, causing comparison to return False
+                weighted_sum = weighted_sum + df[param_name] * weight
+            in_design &= weighted_sum <= constraint.bound + 1e-8
+
+        # Handle hierarchical search space structure
+        if self.is_hierarchical:
+            # Use vectorized apply for hierarchical validation
+            def _check_hierarchical_row(row: pd.Series) -> bool:
+                params: dict[str, TParamValue] = {
+                    str(k): v for k, v in row.items() if pd.notna(v)
+                }
+                try:
+                    cast_params = set(
+                        self._cast_parameterization(
+                            parameters=params,
+                            check_all_parameters_present=check_all_parameters_present,
+                        ).keys()
+                    )
+                    return cast_params == set(params.keys())
+                except RuntimeError:
+                    return False
+
+            hierarchical_valid = df.apply(_check_hierarchical_row, axis=1)
+            in_design &= hierarchical_valid
+
+        return in_design.tolist()
+
     def check_types(
         self,
         parameterization: TParameterization,
@@ -469,6 +567,57 @@ class SearchSpace(Base):
                 return False
 
         return True
+
+    def get_overlapping_parameters(
+        self, other: SearchSpace, raise_error: bool = False
+    ) -> list[str]:
+        """Get the list of compatible overlapping parameters between this search
+        space and another.
+
+        Two parameters are considered overlapping if they have the same name and
+        are compatible (same parameter type and domain type, and for fixed and
+        choice parameters, the same values).
+
+        Args:
+            other: Another SearchSpace object to compare against.
+            raise_error: Whether to raise an error if there are incompatible
+                non-range parameters with the same name.
+
+        Returns:
+            A list of parameter names that are present and compatible in both
+            search spaces. Returns an empty list if there are incompatible
+            fixed or choice parameters (since such search spaces cannot be
+            meaningfully compared).
+        """
+        common_param_names = set(self.parameters.keys()) & set(other.parameters.keys())
+
+        common_param_compatibility = {
+            param_name: self.parameters[param_name].is_compatible_with(
+                other.parameters[param_name]
+            )
+            for param_name in common_param_names
+        }
+
+        incompatible_params = {
+            param_name
+            for param_name in common_param_names
+            if not common_param_compatibility[param_name]
+            and not isinstance(other.parameters[param_name], RangeParameter)
+        }
+
+        if len(incompatible_params) > 0:
+            if raise_error:
+                raise UserInputError(
+                    "Search spaces are incompatible because the following "
+                    f"parameters have different values: {incompatible_params}."
+                )
+            return []
+
+        return [
+            param_name
+            for param_name in common_param_names
+            if common_param_compatibility[param_name]
+        ]
 
     def cast_arm(self, arm: Arm) -> Arm:
         """Cast parameterization of given arm to the types in this SearchSpace.
@@ -532,35 +681,148 @@ class SearchSpace(Base):
             parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
         )
 
+    def compute_naive_center(self) -> TParameterization:
+        """Compute the naive center of the search space.
+
+        For range parameters, the center is the midpoint of the range. If the
+        parameter is log-scale, then the center point will correspond to the
+        mid-point in log-scale. If the parameter is logit-scale, then the center
+        point will correspond to the mid-point in logit-scale.
+        For choice parameters, the center point is determined as the value
+        that is at the middle of the values list.
+        For both choice and integer range parameters, ties are broken in
+        favor of the larger value / index. For example, a binary parameter with
+        values [0, 1] will be sampled as 1.
+        Fixed parameters are returned at their only allowed value.
+
+        Returns:
+            A parameterization with the center values for each parameter.
+        """
+        parameters = {}
+        derived_params = []
+        for name, p in self.parameters.items():
+            if isinstance(p, RangeParameter):
+                if p.logit_scale:
+                    center = expit((logit(p.lower) + logit(p.upper)) / 2.0)
+                elif p.log_scale:
+                    center = 10 ** ((math.log10(p.lower) + math.log10(p.upper)) / 2.0)
+                else:
+                    center = (float(p.lower) + float(p.upper)) / 2.0
+                parameters[name] = p.cast(center)
+            elif isinstance(p, ChoiceParameter):
+                parameters[name] = p.values[int(len(p.values) / 2)]
+            elif isinstance(p, FixedParameter):
+                parameters[name] = p.value
+            elif isinstance(p, DerivedParameter):
+                derived_params.append(p)
+            else:
+                raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
+        for p in derived_params:
+            parameters[p.name] = p.compute(parameters=parameters)
+        if self.is_hierarchical:
+            parameters = self._cast_parameterization(parameters=parameters)
+        return parameters
+
+    def compute_chebyshev_center(self) -> dict[str, float] | None:
+        """Compute the Chebyshev center of the constraint polytope.
+
+        The Chebyshev center is the center of the largest inscribed ball in the
+        feasible region defined by the parameter constraints. This is computed
+        by solving a linear program. It is most limited by the tightest constraint.
+
+        For a polytope defined by a @ x <= b, the Chebyshev center (x_c, r) is
+        the solution to:
+            maximize r, where r is the radius of the inscribed ball
+            subject to: a_i^T x + r ||a_i||_2 <= b_i for all i
+
+        Note: this only considers natural (non-log, non-logit) range parameters.
+        Other parameter types are handled naively via compute_naive_center.
+
+        Returns:
+            A dictionary mapping parameter names to values at the Chebyshev center,
+            or None if the problem is infeasible.
+        """
+        # Only consider non-log, non-logit range parameters
+        natural_range_params = {
+            name: param
+            for name, param in self.range_parameters.items()
+            if not param.log_scale and not param.logit_scale
+        }
+
+        if not natural_range_params:
+            return {}
+
+        constraint_matrix = []
+        bound_vector = []
+        param_names = list(natural_range_params.keys())
+        num_params = len(natural_range_params)
+        param_name_to_idx = {name: idx for idx, name in enumerate(param_names)}
+
+        # Add parameter constraints
+        for constraint in self.parameter_constraints:
+            row = np.zeros(num_params)
+            for param_name, weight in constraint.constraint_dict.items():
+                if param_name in param_name_to_idx:
+                    row[param_name_to_idx[param_name]] = weight
+
+            constraint_matrix.append(row)
+            bound_vector.append(constraint.bound)
+
+        # Add parameter bounds
+        for name, idx in param_name_to_idx.items():
+            param = natural_range_params[name]
+            # lower bound: -x_i <= -lower_i
+            row_lower = np.zeros(num_params)
+            row_lower[idx] = -1.0
+            constraint_matrix.append(row_lower)
+            bound_vector.append(-float(param.lower))
+
+            # upper bound: x_i <= upper_i
+            row_upper = np.zeros(num_params)
+            row_upper[idx] = 1.0
+            constraint_matrix.append(row_upper)
+            bound_vector.append(float(param.upper))
+
+        constraint_matrix = np.array(constraint_matrix)
+        bound_vector = np.array(bound_vector)
+
+        # Compute norm for each vector in constraint matrix
+        row_norms = np.linalg.norm(constraint_matrix, axis=1)
+        augmented_constraint_matrix = np.column_stack([constraint_matrix, row_norms])
+
+        # Set objective vector which maximizes r (minimize -r == maximize r)
+        radius_objective_vector = np.zeros(num_params + 1)
+        radius_objective_vector[-1] = -1.0
+        result = linprog(
+            c=radius_objective_vector,
+            A_ub=augmented_constraint_matrix,
+            b_ub=bound_vector,
+            bounds=[(None, None)] * num_params + [(0, None)],  # no bounds except r >= 0
+        )
+
+        if not result.success or result.x is None:
+            return None
+
+        center_values = result.x[:num_params]  # remove r
+        center_dict = {
+            name: float(center_values[param_name_to_idx[name]]) for name in param_names
+        }
+        return center_dict
+
     def _validate_parameter_constraints(
         self, parameter_constraints: list[ParameterConstraint]
     ) -> None:
         for constraint in parameter_constraints:
-            if isinstance(constraint, OrderConstraint) or isinstance(
-                constraint, SumConstraint
-            ):
-                for parameter in constraint.parameters:
-                    if parameter.name not in self._parameters.keys():
-                        raise ValueError(
-                            f"`{parameter.name}` does not exist in search space."
-                        )
-                    if parameter != self._parameters[parameter.name]:
-                        raise ValueError(
-                            f"Parameter constraint's definition of '{parameter.name}' "
-                            "does not match the SearchSpace's definition"
-                        )
-            else:
-                for parameter_name in constraint.constraint_dict.keys():
-                    p = self._parameters.get(parameter_name)
-                    if p is None:
-                        raise ValueError(
-                            f"`{parameter_name}` does not exist in search space."
-                        )
-                    elif isinstance(p, DerivedParameter):
-                        raise ValueError(
-                            "Parameter constraints cannot be used with derived "
-                            "parameters."
-                        )
+            for parameter_name in constraint.constraint_dict.keys():
+                p = self._parameters.get(parameter_name)
+                if p is None:
+                    raise ValueError(
+                        f"`{parameter_name}` does not exist in search space."
+                    )
+                elif isinstance(p, DerivedParameter):
+                    raise ValueError(
+                        "Parameter constraints cannot be used with derived parameters."
+                    )
 
     def _validate_hierarchical_structure(self) -> None:
         """Validate the structure of this hierarchical search space, ensuring that all
@@ -634,6 +896,12 @@ class SearchSpace(Base):
 
     def _validate_derived_parameter(self, parameter: DerivedParameter) -> None:
         is_int = parameter.parameter_type == ParameterType.INT
+        is_simple_copy = parameter._is_simple_copy
+        derived_is_numeric = parameter.parameter_type in (
+            ParameterType.INT,
+            ParameterType.FLOAT,
+        )
+
         for p_name in parameter.parameter_names_to_weights.keys():
             p = self._parameters.get(p_name)
             if p is None:
@@ -641,17 +909,36 @@ class SearchSpace(Base):
                     f"Parameter {p_name} is not in the search space, but is used in a "
                     "derived parameter."
                 )
-            if not p.is_numeric:
+
+            # For arithmetic expressions, source must be numeric
+            if not is_simple_copy and not p.is_numeric:
                 raise ValueError(
                     f"Parameter {p_name} is not a float or int, but is used in a "
-                    "derived parameter."
+                    "derived parameter whose expression is not a simple copy."
                 )
-            elif is_int and p.parameter_type == ParameterType.FLOAT:
+
+            # For simple copies, validate type compatibility
+            # Valid: exact type match OR both numeric (int can promote to float)
+            if is_simple_copy:
+                types_compatible = parameter.parameter_type == p.parameter_type or (
+                    derived_is_numeric and p.is_numeric
+                )
+                if not types_compatible:
+                    raise ValueError(
+                        f"Parameter {p_name} has type {p.parameter_type.name}, but the "
+                        f"derived parameter has type {parameter.parameter_type.name}. "
+                        "Simple copy derived parameters must have the same type as "
+                        "their source parameter."
+                    )
+
+            # Float source cannot be used with Int derived parameter
+            if is_int and p.parameter_type == ParameterType.FLOAT:
                 raise ValueError(
                     f"Parameter {p_name} is a float, but is used in a derived "
                     "parameter with int type."
                 )
-            elif isinstance(p, DerivedParameter):
+
+            if isinstance(p, DerivedParameter):
                 raise ValueError(
                     "Parameter cannot be derived from another derived parameter."
                 )
@@ -803,7 +1090,6 @@ class SearchSpace(Base):
         self,
         observation_features: core.observation.ObservationFeatures,
         inject_dummy_values_to_complete_flat_parameterization: bool = False,
-        use_random_dummy_values: bool = False,
     ) -> core.observation.ObservationFeatures:
         """Flatten observation features that were previously cast to the hierarchical
         structure of the given search space; return the newly flattened observation
@@ -819,9 +1105,6 @@ class SearchSpace(Base):
                 This will be used to complete the parameterization after re-injecting
                 the parameters that are recorded in the metadata (for parameters
                 that were generated by Ax).
-            use_random_dummy_values: Whether to use random values for missing
-                parameters. If False, we set the values to the middle of
-                the corresponding parameter domain range.
         """
         obs_feats = observation_features
         has_full_parameterization = Keys.FULL_PARAMETERIZATION in (
@@ -842,16 +1125,9 @@ class SearchSpace(Base):
         if len(obs_feats.parameters) < len(self.parameters):
             if inject_dummy_values_to_complete_flat_parameterization:
                 # Inject dummy values for parameters missing from the parameterization.
-                dummy_values_to_inject = (
-                    self._gen_dummy_values_to_complete_flat_parameterization(
-                        observation_features=obs_feats,
-                        use_random_dummy_values=use_random_dummy_values,
-                    )
-                )
-                obs_feats.parameters = {
-                    **dummy_values_to_inject,
-                    **obs_feats.parameters,
-                }
+                for p_name, p in self.parameters.items():
+                    if p_name not in obs_feats.parameters:
+                        obs_feats.parameters[p_name] = get_dummy_value_for_parameter(p)
             else:
                 # The parameterization is still incomplete.
                 warnings.warn(
@@ -863,6 +1139,43 @@ class SearchSpace(Base):
                     stacklevel=2,
                 )
         return obs_feats
+
+    def get_disabled_parameter_fixed_features(
+        self,
+        fixed_features_to_overlay_on: core.observation.ObservationFeatures
+        | None = None,
+    ) -> core.observation.ObservationFeatures | None:
+        """Get the fixed features that should be used to disable parameters in the
+        search space. This is used to ensure that parameters that are not part of the
+        search space are not used in the model.
+
+        Args:
+            fixed_features_to_overlay_on: Fixed features to overlay the disabled
+                parameter fixed features on top of. This is useful when we want to
+                disable some parameters but still have some fixed features that are
+                not part of the search space.
+
+        Returns:
+            ``ObservationFeatures`` with disabled parameters set to their default
+            values, or ``None`` if there are no disabled parameters and no
+            ``fixed_features_to_overlay_on`` was provided.
+        """
+        disabled_parameters_parameterization = {
+            n: p.default_value for n, p in self.parameters.items() if p.is_disabled
+        }
+        if not fixed_features_to_overlay_on:
+            if not disabled_parameters_parameterization:
+                return None
+            return core.observation.ObservationFeatures(
+                parameters=disabled_parameters_parameterization
+            )
+
+        return fixed_features_to_overlay_on.clone(
+            replace_parameters={
+                **disabled_parameters_parameterization,
+                **fixed_features_to_overlay_on.parameters,
+            }
+        )
 
     def _cast_parameterization(
         self,
@@ -933,47 +1246,6 @@ class SearchSpace(Base):
 
         return {k: v for k, v in parameters.items() if k in all_applicable_parameters}
 
-    def _gen_dummy_values_to_complete_flat_parameterization(
-        self,
-        observation_features: core.observation.ObservationFeatures,
-        use_random_dummy_values: bool,
-    ) -> dict[str, TParamValue]:
-        dummy_values_to_inject = {}
-        for param_name, param in self.parameters.items():
-            if param_name in observation_features.parameters:
-                continue
-            if isinstance(param, FixedParameter):
-                dummy_values_to_inject[param_name] = param.value
-            elif isinstance(param, ChoiceParameter):
-                if use_random_dummy_values:
-                    dummy_value = choice(param.values)
-                else:
-                    dummy_value = param.values[len(param.values) // 2]
-                dummy_values_to_inject[param_name] = dummy_value
-            elif isinstance(param, RangeParameter):
-                lower, upper = float(param.lower), float(param.upper)
-                if use_random_dummy_values:
-                    val = uniform(lower, upper)
-                elif param.log_scale:
-                    log_lower, log_upper = math.log10(lower), math.log10(upper)
-                    log_mid = (log_upper + log_lower) / 2.0
-                    val = math.pow(10, log_mid)
-                elif param.logit_scale:
-                    logit_lower, logit_upper = logit(lower).item(), logit(upper).item()
-                    logit_mid = (logit_upper + logit_lower) / 2.0
-                    val = expit(logit_mid).item()
-                else:
-                    val = (upper + lower) / 2.0
-                if param.parameter_type is ParameterType.INT:
-                    # This makes the distribution uniform after casting to int.
-                    val += 0.5
-                dummy_values_to_inject[param_name] = param.cast(val)
-            else:
-                raise NotImplementedError(
-                    f"Unhandled parameter type on parameter {param}."
-                )
-        return dummy_values_to_inject
-
 
 class HierarchicalSearchSpace(SearchSpace):
     """
@@ -1035,9 +1307,8 @@ class SearchSpaceDigest:
     task_features: list[int] = field(default_factory=list)
     fidelity_features: list[int] = field(default_factory=list)
     target_values: dict[int, int | float] = field(default_factory=dict)
-    # NOTE: We restrict that hierarchical parameters have to be either categorical or
-    # discrete.
-    hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
+    # NOTE: Hierarchical parameters must be discrete.
+    hierarchical_dependencies: dict[int, dict[int | float, list[int]]] | None = None
 
 
 def _disjoint_union(set1: set[str], set2: set[str]) -> set[str]:

@@ -18,7 +18,7 @@ class BenchmarkTestFunction(ABC):
     """
     The basic Ax class for generating deterministic data to benchmark against.
 
-    (Noise - if desired - is added by the runner.)
+    (Noise - if desired - is added by the runner using a `Noise` object.)
 
     Args:
         outcome_names: Names of the outcomes.

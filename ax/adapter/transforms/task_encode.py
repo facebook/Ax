@@ -6,22 +6,19 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
 
-from ax.adapter.data_utils import ExperimentData
-from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
-from ax.adapter.transforms.utils import construct_new_search_space
-from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
-from ax.core.search_space import SearchSpace
-from ax.core.types import TParamValue
-from ax.generators.types import TConfig
+from typing import TYPE_CHECKING
+
+from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
+from ax.core.parameter import ChoiceParameter, Parameter
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
 
 
-class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
+class TaskChoiceToIntTaskChoice(ChoiceToNumericChoice):
     """Convert task ChoiceParameters to integer-valued ChoiceParameters.
 
     Parameters will be transformed to an integer ChoiceParameter with
@@ -33,74 +30,16 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
     Transform is done in-place.
     """
 
-    def __init__(
-        self,
-        search_space: SearchSpace,
-        experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
-        config: TConfig | None = None,
-    ) -> None:
-        assert (
-            search_space is not None
-        ), "TaskChoiceToIntTaskChoice requires search space"
-        super().__init__(
-            search_space=search_space,
-            experiment_data=experiment_data,
-            adapter=adapter,
-            config=config,
-        )
-        # Identify parameters that should be transformed
-        self.encoded_parameters: dict[str, dict[TParamValue, int]] = {}
-        self.target_values: dict[str, int] = {}
-        for p in search_space.parameters.values():
-            if isinstance(p, ChoiceParameter) and p.is_task:
-                if p.is_fidelity:
-                    raise ValueError(
-                        f"Task parameter {p.name} cannot simultaneously be "
-                        "a fidelity parameter."
-                    )
-                self.encoded_parameters[p.name] = {
-                    original_value: transformed_value
-                    for transformed_value, original_value in enumerate(p.values)
-                }
-                self.target_values[p.name] = self.encoded_parameters[p.name][
-                    p.target_value
-                ]
-        self.encoded_parameters_inverse: dict[str, dict[int, TParamValue]] = {
-            p_name: {
-                transformed_value: original_value
-                for original_value, transformed_value in transforms.items()
-            }
-            for p_name, transforms in self.encoded_parameters.items()
-        }
-
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: dict[str, Parameter] = {}
-        for p_name, p in search_space.parameters.items():
-            if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
-                if p.is_fidelity:
-                    raise ValueError(
-                        f"Cannot choice-encode fidelity parameter {p_name}."
-                    )
-                # Choice(|K|) => Choice(0, K-1, is_task=True)
-                transformed_parameters[p_name] = ChoiceParameter(
-                    name=p_name,
-                    parameter_type=ParameterType.INT,
-                    values=list(range(len(p.values))),
-                    is_ordered=p.is_ordered,
-                    is_task=True,
-                    sort_values=True,
-                    target_value=self.target_values[p_name],
+    def _should_encode(self, p: Parameter) -> bool:
+        """Check if a parameter should be encoded.
+        Encodes task choice parameters.
+        Raises an error if the task parameter is also a fidelity parameter.
+        """
+        if isinstance(p, ChoiceParameter) and p.is_task:
+            if p.is_fidelity:
+                raise ValueError(
+                    f"Task parameter {p.name} cannot simultaneously be "
+                    "a fidelity parameter."
                 )
-            else:
-                transformed_parameters[p.name] = p
-        return construct_new_search_space(
-            search_space=search_space,
-            parameters=list(transformed_parameters.values()),
-            parameter_constraints=[
-                pc.clone_with_transformed_parameters(
-                    transformed_parameters=transformed_parameters
-                )
-                for pc in search_space.parameter_constraints
-            ],
-        )
+            return True
+        return False

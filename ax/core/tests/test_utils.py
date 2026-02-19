@@ -7,6 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import numpy as np
@@ -14,7 +15,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.evaluations_to_data import DataType, raw_evaluations_to_data
+from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -43,6 +44,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
+    get_branin_data_batch,
     get_branin_experiment,
     get_experiment,
     get_hierarchical_search_space_experiment,
@@ -178,6 +180,10 @@ class UtilsTest(TestCase):
                 )
             ],
         )
+        self.batch_experiment = get_branin_experiment(with_completed_trial=False)
+        self.batch_experiment.status_quo = Arm(
+            name="status_quo", parameters={"x1": 0.0, "x2": 0.0}
+        )
 
     def test_get_missing_metrics_by_name(self) -> None:
         expected = {"a": {("0_1", 1)}, "b": {("0_2", 1)}}
@@ -234,7 +240,6 @@ class UtilsTest(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -273,7 +278,6 @@ class UtilsTest(TestCase):
                         "m2": "m2",
                         "tracking": "tracking",
                     },
-                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -304,7 +308,6 @@ class UtilsTest(TestCase):
                         "m2": "m2",
                         "tracking": "tracking",
                     },
-                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -357,11 +360,11 @@ class UtilsTest(TestCase):
         self.assertEqual(trial.status, TrialStatus.FAILED)
 
         # Check that the failure reason contains information about missing metrics
-        self.assertIsNotNone(trial.failed_reason)
+        self.assertIsNotNone(trial.status_reason)
 
         self.assertTrue(
-            "missing" in trial.failed_reason,
-            f"Expected 'missing' in failure reason, but got: {trial.failed_reason}",
+            "missing" in trial.status_reason,
+            f"Expected 'missing' in failure reason, but got: {trial.status_reason}",
         )
 
         with self.subTest("Test with no opt config"):
@@ -397,7 +400,6 @@ class UtilsTest(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -417,7 +419,6 @@ class UtilsTest(TestCase):
                 {self.trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             with patch.object(
@@ -427,7 +428,6 @@ class UtilsTest(TestCase):
                     {other_trial.arm.name: {"m2": (1, 0), "tracking": (1, 0)}},
                     trial_index=other_trial.index,
                     metric_name_to_signature={"m2": "m2", "tracking": "tracking"},
-                    data_type=DataType.DATA,
                 ),
             ):
                 pending = get_pending_observation_features(self.experiment)
@@ -502,7 +502,6 @@ class UtilsTest(TestCase):
                 {self.hss_trial.arm.name: {"m2": (1, 0)}},
                 trial_index=self.hss_trial.index,
                 metric_name_to_signature={"m2": "m2"},
-                data_type=DataType.DATA,
             ),
         ):
             self.assertEqual(
@@ -534,7 +533,6 @@ class UtilsTest(TestCase):
                     },
                     trial_index=hss_batch_trial.index,
                     metric_name_to_signature={"m1": "m1", "m2": "m2"},
-                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -567,7 +565,6 @@ class UtilsTest(TestCase):
                     },
                     trial_index=hss_batch_trial.index,
                     metric_name_to_signature={"m1": "m1", "m2": "m2"},
-                    data_type=DataType.DATA,
                 ),
             ),
         ):
@@ -729,9 +726,12 @@ class UtilsTest(TestCase):
         exp_with_many_trials_and_batch.new_batch_trial().add_arm(self.arm)
 
         m = extract_pending_observations.__module__
-        with patch(f"{m}.get_pending_observation_features") as mock_pending, patch(
-            f"{m}.get_pending_observation_features_based_on_trial_status"
-        ) as mock_pending_ts:
+        with (
+            patch(f"{m}.get_pending_observation_features") as mock_pending,
+            patch(
+                f"{m}.get_pending_observation_features_based_on_trial_status"
+            ) as mock_pending_ts,
+        ):
             # Check the typical case: few trials, we can use regular `get_pending...`.
             extract_pending_observations(experiment=self.experiment)
             mock_pending.assert_called_once_with(
@@ -778,8 +778,93 @@ class UtilsTest(TestCase):
         self.assertIsNone(get_target_trial_index(experiment=experiment))
         # Add data to SQ.
         trial = experiment.new_trial().add_arm(experiment.status_quo)
+        trial.mark_running(no_runner_required=True)
         experiment.attach_data(get_branin_data(trials=[trial]))
         self.assertEqual(get_target_trial_index(experiment=experiment), trial.index)
+
+    def test_get_target_trial_index_stale_trial_filtering(self) -> None:
+        trials = []
+        for days_ago in [15, 5]:  # old trial (stale), new trial (recent)
+            trial = self.batch_experiment.new_batch_trial().add_arm(
+                self.batch_experiment.status_quo
+            )
+            trial.mark_completed(unsafe=True)
+            trial._time_completed = datetime.now() - timedelta(days=days_ago)
+            self.batch_experiment.attach_data(get_branin_data_batch(batch=trial))
+            trials.append(trial)
+
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment),
+            trials[1].index,  # newer trial
+        )
+
+    def test_get_target_trial_index_all_stale_fallback(self) -> None:
+        trial = self.batch_experiment.new_batch_trial().add_arm(
+            self.batch_experiment.status_quo
+        )
+        trial.mark_completed(unsafe=True)
+        trial._time_completed = datetime.now() - timedelta(days=15)  # stale
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=trial))
+
+        # fallback to stale trial over none
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment), trial.index
+        )
+
+    def test_get_target_trial_index_longrun_to_shortrun_fallback(self) -> None:
+        # long run without data
+        long_run_trial = self.batch_experiment.new_batch_trial(
+            trial_type=Keys.LONG_RUN
+        ).add_arm(self.batch_experiment.status_quo)
+        long_run_trial.mark_running(no_runner_required=True)
+
+        # short run with data
+        short_run_trial = self.batch_experiment.new_batch_trial().add_arm(
+            self.batch_experiment.status_quo
+        )
+        short_run_trial.mark_running(no_runner_required=True)
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=short_run_trial))
+
+        # ahould fallback to short-run trial since long-run has no SQ data
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment),
+            short_run_trial.index,
+        )
+
+        # once long-run trial has data, should return long-run trial
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=long_run_trial))
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment),
+            long_run_trial.index,
+        )
+
+    def test_get_target_trial_index_opt_config_metric_filtering(self) -> None:
+        # add tracking metric, opt config is already branin
+        self.batch_experiment.add_tracking_metric(Metric(name="test_metric"))
+
+        # trial with opt config data only
+        trial = (
+            self.batch_experiment.new_batch_trial()
+            .add_arm(self.batch_experiment.status_quo)
+            .mark_running(no_runner_required=True)
+        )
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=trial))
+
+        # default should pass because we'll have opt config data
+        self.assertEqual(
+            get_target_trial_index(
+                experiment=self.batch_experiment, require_data_for_all_metrics=False
+            ),
+            trial.index,
+        )
+
+        # when require_data_for_all_metrics=True, should return None
+        # because there are no trials with data for all metrics
+        self.assertIsNone(
+            get_target_trial_index(
+                experiment=self.batch_experiment, require_data_for_all_metrics=True
+            )
+        )
 
     def test_batch_trial_only_decorator(self) -> None:
         # Create a mock function to decorate
@@ -831,3 +916,40 @@ class UtilsTest(TestCase):
                     )
                 )
             )
+
+    def test_get_target_trial_index_only_selects_completed_trials(self) -> None:
+        # should return None since the only trial with data is failed
+        failed_trial = (
+            self.batch_experiment.new_batch_trial()
+            .add_arm(self.batch_experiment.status_quo)
+            .mark_running(no_runner_required=True)
+        )
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=failed_trial))
+        failed_trial.mark_failed()
+        self.assertIsNone(get_target_trial_index(experiment=self.batch_experiment))
+
+        # should return the completed trial, not the failed one
+        completed_trial = (
+            self.batch_experiment.new_batch_trial()
+            .add_arm(self.batch_experiment.status_quo)
+            .mark_running(no_runner_required=True)
+        )
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=completed_trial))
+        completed_trial.mark_completed(unsafe=True)
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment),
+            completed_trial.index,
+        )
+
+        # should return the completed trial, not the failed or abandoned ones
+        abandoned_trial = (
+            self.batch_experiment.new_batch_trial()
+            .add_arm(self.batch_experiment.status_quo)
+            .mark_running(no_runner_required=True)
+        )
+        self.batch_experiment.attach_data(get_branin_data_batch(batch=abandoned_trial))
+        abandoned_trial.mark_abandoned()
+        self.assertEqual(
+            get_target_trial_index(experiment=self.batch_experiment),
+            completed_trial.index,
+        )

@@ -9,7 +9,7 @@
 from copy import deepcopy
 
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.data_utils import _use_object_dtype_for_strings, extract_experiment_data
 from ax.adapter.transforms.choice_encode import (
     ChoiceToNumericChoice,
     OrderedChoiceToIntegerRange,
@@ -24,6 +24,7 @@ from ax.core.parameter import (
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
@@ -53,7 +54,6 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                     parameter_type=ParameterType.FLOAT,
                     values=[10.0, 100.0, 1000.0],
                     is_ordered=True,
-                    sort_values=False,
                 ),
                 ChoiceParameter(
                     "d",
@@ -69,9 +69,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                     sort_values=False,
                 ),
             ],
-            parameter_constraints=[
-                ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="-0.5*x + a <= 0.5")],
         )
         self.t = self.t_class(search_space=self.search_space)
         input_params: TParameterization = {
@@ -128,9 +126,10 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                 self.assertEqual(
                     transformed_param.is_ordered, original_param.is_ordered
                 )
+                # Transformed param is numeric, so it is sorted if it is ordered.
                 self.assertEqual(
                     transformed_param.sort_values,
-                    original_param.sort_values,
+                    transformed_param.is_ordered or original_param.sort_values,
                 )
                 if self.t_class == ChoiceToNumericChoice:
                     self.assertEqual(
@@ -190,7 +189,6 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                         values=[0, 1, 2],
                         is_ordered=True,
                         is_fidelity=True,
-                        sort_values=False,
                         target_value=2,
                     )
                 ]
@@ -198,6 +196,9 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         )
 
     def test_hss_dependents_are_preserved(self) -> None:
+        """For ChoiceToNumericChoice, checks that the dependents are preserved.
+        For OrderedChoiceToIntegerRange, checks that an informative error is raised.
+        """
         # x0
         # ├── x1
         # └── x2
@@ -233,6 +234,14 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
                 ),
             ]
         )
+        if self.t_class is OrderedChoiceToIntegerRange:
+            with self.assertRaisesRegex(
+                UnsupportedError, "would encode .* which is a hierarchical"
+            ):
+                self.t_class(search_space=hss)
+            return
+
+        # Check for correct transform behavior with ChoiceToNumericChoice.
         hss = self.t_class(search_space=hss).transform_search_space(hss)
 
         # x0 should be untouched because it's a fixed parameter.
@@ -249,6 +258,7 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         self.assertEqual(hss.parameters["x2"].parameter_type, ParameterType.INT)
         self.assertEqual(hss.parameters["x2"].dependents, {0: [], 1: ["x3"]})
 
+    @_use_object_dtype_for_strings
     def test_transform_experiment_data(self) -> None:
         parameterizations = [
             {"x": 2.2, "a": 2, "b": 10.0, "c": 10.0, "d": "r", "e": "q"},
@@ -410,9 +420,3 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTes
         t_ss = self.t.transform_search_space(ss)
         self.assertEqual(t_ss.parameters["b"].lower, 1)
         self.assertEqual(t_ss.parameters["b"].upper, 2)
-
-    def test_hss_dependents_are_preserved(self) -> None:
-        """
-        Skip the HSS test. `OrderedChoiceToIntegerRange` cannot support hierarchical
-        search spaces, because range parameters cannot have dependents.
-        """

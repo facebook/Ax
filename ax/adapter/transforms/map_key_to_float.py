@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from logging import Logger
 from math import isnan
 from typing import Any, TYPE_CHECKING
@@ -16,7 +15,7 @@ from typing import Any, TYPE_CHECKING
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.metadata_to_parameter import MetadataToParameterMixin
-from ax.core.map_data import MAP_KEY
+from ax.core.data import MAP_KEY
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -68,13 +67,12 @@ class MapKeyToFloat(MetadataToParameterMixin, Transform):
             adapter=adapter,
             config=config,
         )
-        config = config or {}
         # pyre-fixme[9]: Incompatible variable type [9]: parameters is declared
         # to have type `Dict[str, Dict[str, typing.Any]]` but is used as type
         # `Union[None, Dict[int, typing.Any], Dict[str, typing.Any], List[int],
         # List[str], OptimizationConfig, WinsorizationConfig,
         # AcquisitionFunction, float, int, str]`.
-        parameters: dict[str, dict[str, Any]] = deepcopy(config.get("parameters", {}))
+        parameters: dict[str, dict[str, Any]] = self.config.get("parameters", {})
         is_map_data = (
             # Note: experiment_data can't be None because
             # `requires_data_for_initialization` is True; if it is None, there
@@ -84,10 +82,10 @@ class MapKeyToFloat(MetadataToParameterMixin, Transform):
         )
 
         # Check if config contains unsupported config options.
-        if set(config.keys()).difference({"parameters"}):
+        if set(self.config.keys()).difference({"parameters"}):
             raise UserInputError(
                 "MapKeyToFloat only supports the `parameters` key in the config. "
-                f"Got {config=}."
+                f"Got {self.config=}."
             )
         # Check if any disallowed parameters were provided.
         # The only parameter allowed is "step" (MAP_KEY)

@@ -108,6 +108,11 @@ def set_target_trial(
         An ``ObservationFeatures`` object that defines the target trial for the next
         node.
     """
+    if (fixed_features := gs_gen_call_kwargs.get("fixed_features")) is not None:
+        # If fixed features are non-null, they were specified by the user and we should
+        # treat them as an override.
+        return fixed_features
+
     target_trial_idx = get_target_trial_index(experiment=experiment)
     if target_trial_idx is None:
         raise AxGenerationException(
@@ -138,8 +143,8 @@ def consume_all_n(
     single sobol node.
 
     Note: If no `n` is provided to the ``GenerationStrategy`` gen call, we will use
-    the default number of arms for the next node, defined as a constant `DEFAULT_N`
-    in the ``GenerationStrategy`` file.
+    the default number of arms for the next node, pulled from experiment properties
+    or hardcoded to 10 by this input constructor. TODO[drfreund]: Eliminate hardcoding.
 
     Args:
         previous_node: The previous node in the ``GenerationStrategy``. This is the node
@@ -171,8 +176,8 @@ def repeat_arm_n(
     the next trial.
 
     Note: If no `n` is provided to the ``GenerationStrategy`` gen call, we will use
-    the default number of arms for the next node, defined as a constant `DEFAULT_N`
-    in the ``GenerationStrategy`` file.
+    the default number of arms for the next node, pulled from experiment properties
+    or hardcoded to 10 by this input constructor. TODO[drfreund]: Eliminate hardcoding.
 
     Args:
         previous_node: The previous node in the ``GenerationStrategy``. This is the node
@@ -212,8 +217,8 @@ def remaining_n(
     """Generate the remaining number of arms requested for this trial in gs.gen().
 
     Note: If no `n` is provided to the ``GenerationStrategy`` gen call, we will use
-    the default number of arms for the next node, defined as a constant `DEFAULT_N`
-    in the ``GenerationStrategy`` file.
+    the default number of arms for the next node, pulled from experiment properties
+    or hardcoded to 10 by this input constructor. TODO[drfreund]: Eliminate hardcoding.
 
     Args:
         previous_node: The previous node in the ``GenerationStrategy``. This is the node
@@ -252,29 +257,26 @@ def _get_default_n(experiment: Experiment, next_node: GenerationNode) -> int:
         The default number of arms to generate from the next node, used if no n is
         provided to the ``GenerationStrategy``'s gen call.
     """
-    # If the generator spec contains `n` use that value first
-    if next_node.generator_spec_to_gen_from.model_gen_kwargs.get("n") is not None:
-        return next_node.generator_spec_to_gen_from.model_gen_kwargs["n"]
+    # If the generator spec contains `n` use that value first.
+    # TODO [drfreund, mgarrard]: Consider disallowing `n` in `gen_spec...kwargs`:
+    # it should probably never be hardcoded there. This would enforce that `n`
+    # is always passed down through the generation strategy at runtime.
+    if next_node.generator_spec_to_gen_from.generator_gen_kwargs.get("n") is not None:
+        return next_node.generator_spec_to_gen_from.generator_gen_kwargs["n"]
 
-    n_for_this_trial = None
-    total_concurrent_arms = experiment._properties.get(
-        Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value
-    )
-
-    # If total_concurrent_arms is set, we will use that in conjunction with the trial
-    # type to determine the number of arms to generate from this node
-    if total_concurrent_arms is not None:
-        if next_node._trial_type == Keys.SHORT_RUN:
-            n_for_this_trial = floor(0.5 * total_concurrent_arms)
-        elif next_node._trial_type == Keys.LONG_RUN:
-            n_for_this_trial = ceil(0.5 * total_concurrent_arms)
-        else:
-            n_for_this_trial = total_concurrent_arms
-
-    return (
-        n_for_this_trial
-        if n_for_this_trial is not None
+    if (
+        exp_n := experiment._properties.get(Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value)
+    ) is None:
         # GS default n is 1, but these input constructors are used for nodes that
         # should generate more than 1 arm per trial, default to 10
-        else next_node.generation_strategy.DEFAULT_N * 10
-    )
+        return 10
+
+    # If exp_n is set, we will use that in conjunction with the trial
+    # type to determine the number of arms to generate from this node
+    # TODO #2 [drfreund, mgarrard]: Instead of this, short- and long-run nodes should
+    # just have different input constructors (`half_n_floor` and `half_n_ceil`).
+    if next_node._trial_type == Keys.SHORT_RUN:
+        return floor(0.5 * exp_n)
+    if next_node._trial_type == Keys.LONG_RUN:
+        return ceil(0.5 * exp_n)
+    return exp_n

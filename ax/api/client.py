@@ -8,12 +8,11 @@
 import json
 from collections.abc import Iterable, Sequence
 from logging import Logger
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import numpy as np
 import pandas as pd
 from ax.analysis.analysis import Analysis, display_cards
-from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.summary import Summary
 from ax.api.configs import (
@@ -30,6 +29,8 @@ from ax.api.utils.instantiation.from_string import optimization_config_from_stri
 from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.storage import db_settings_from_storage_config
 from ax.api.utils.structs import ExperimentStruct, GenerationStrategyDispatchStruct
+from ax.core.analysis_card import AnalysisCardBase
+from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -38,16 +39,14 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus  # Used as a return type
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
 )
 from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import Orchestrator, OrchestratorOptions
+from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -59,11 +58,10 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
 )
+from ax.storage.sqa_store.with_db_settings_base import WithDBSettingsBase
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
-
 from pyre_extensions import assert_is_instance, none_throws
-from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
@@ -147,6 +145,7 @@ class Client(WithDBSettingsBase):
         self,
         objective: str,
         outcome_constraints: Sequence[str] | None = None,
+        pruning_target_parameterization: TParameterization | None = None,
     ) -> None:
         """
         Configures the goals of the optimization by setting the ``OptimizationConfig``.
@@ -166,15 +165,42 @@ class Client(WithDBSettingsBase):
                 Ex: "qps >= 0.95 * baseline" will constrain such that the QPS is at
                 least 95% of the baseline arm's QPS.
                 Note that scalarized outcome constraints cannot be relative.
+            pruning_target_parameterization: Parameterization containing the target
+                values for irrelevant parameters. The target values are used to prune
+                irrelevant parameters from candidates generated via Bayesian
+                optimization: when Ax considers arms to suggest for the next trial,
+                it will seek to have the proposed arms differ from the target arm as
+                little as possible, without a loss in optimization performance. If
+                not specified and a status_quo is set on the experiment, it will be
+                used as the pruning target. Must be a valid member of the search
+                space.
 
 
         Saves to database on completion if ``storage_config`` is present.
         """
+        # Validate and convert the pruning_target_parameterization to an Arm if
+        # provided
+        pruning_target_arm: Arm | None = None
+        if pruning_target_parameterization is not None:
+            self._experiment.search_space.validate_membership(
+                # pyre-fixme[6]: Core Ax TParameterization is dict not Mapping
+                parameters=pruning_target_parameterization
+            )
+            pruning_target_arm = Arm(
+                parameters=pruning_target_parameterization, name="pruning_target"
+            )
+
         old_metrics = self._experiment.metrics
-        self._experiment.optimization_config = optimization_config_from_string(
+        optimization_config = optimization_config_from_string(
             objective_str=objective,
             outcome_constraint_strs=outcome_constraints,
         )
+        # Set the pruning_target_parameterization on the optimization config if
+        # provided
+        if pruning_target_arm is not None:
+            optimization_config.pruning_target_parameterization = pruning_target_arm
+
+        self._experiment.optimization_config = optimization_config
         self._set_metrics(metrics=list(old_metrics.values()))
         self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
@@ -218,8 +244,9 @@ class Client(WithDBSettingsBase):
                 initialization budget if more trials are needed.
             torch_device: The torch device to use for model fitting. If None, will
                 use the default device.
-            simplify_parameter_changes: Whether to simplify parameter changes in
-                arms generated via Bayesian Optimization by pruning irrelevant
+            simplify_parameter_changes: Whether to use BONSAI
+                [Daulton2026bonsai]_ to simplify parameter changes in arms
+                generated via Bayesian Optimization by pruning irrelevant
                 parameter changes.
         """
         generation_strategy = self._choose_generation_strategy(
@@ -253,6 +280,33 @@ class Client(WithDBSettingsBase):
         that metric was not already present.
         """
         self._set_metrics(metrics=metrics)
+
+    def configure_tracking_metrics(self, metric_names: Sequence[str]) -> None:
+        """
+        Add tracking metrics to the ``Experiment`` by name.
+
+        Tracking metrics are metrics that are recorded during the experiment but
+        are not used as part of the ``OptimizationConfig`` (i.e., they are not
+        objectives or outcome constraints). Use this method to declare metrics
+        that you want to track alongside your optimization objectives.
+
+        If any of the metrics are already defined on the experiment, they will be
+        skipped with a warning.
+
+        Args:
+            metric_names: Names of metrics to be added as tracking metrics.
+
+        Saves to database on completion if ``storage_config`` is present.
+        """
+        for metric_name in metric_names:
+            if metric_name in self._experiment.metrics:
+                logger.warning(
+                    f"Metric {metric_name} already exists on experiment, skipping."
+                )
+                continue
+            self._experiment.add_tracking_metric(metric=Metric(name=metric_name))
+
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     # -------------------- Section 1.2: Set (not API) -------------------------------
     def set_experiment(self, experiment: Experiment) -> None:
@@ -386,11 +440,6 @@ class Client(WithDBSettingsBase):
         with with_rng_seed(seed=self._random_seed):
             grs_for_trials = self._generation_strategy_or_choose().gen(
                 experiment=self._experiment,
-                pending_observations=(
-                    get_pending_observation_features_based_on_trial_status(
-                        experiment=self._experiment
-                    )
-                ),
                 n=1,
                 fixed_features=(
                     # pyre-fixme[6]: Type narrowing broken because core Ax
@@ -764,7 +813,7 @@ class Client(WithDBSettingsBase):
         columns (though empty columns are omitted):
             - trial_index: The trial index of the arm
             - arm_name: The name of the arm
-            - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
+            - trial_status: The status of the trial (e.g. RUNNING, SUCCEEDED, FAILED)
             - failure_reason: The reason for the failure, if applicable
             - generation_node: The name of the ``GenerationNode`` that generated the arm
             - **METADATA: Any metadata associated with the trial, as specified by the
@@ -1138,8 +1187,9 @@ class Client(WithDBSettingsBase):
                 initialization budget if more trials are needed.
             torch_device: The torch device to use for model fitting. If None, will
                 use the default device.
-            simplify_parameter_changes: Whether to simplify parameter changes in
-                arms generated via Bayesian Optimization by pruning irrelevant
+            simplify_parameter_changes: Whether to use BONSAI
+                [Daulton2026bonsai]_ to simplify parameter changes in arms
+                generated via Bayesian Optimization by pruning irrelevant
                 parameter changes.
 
 

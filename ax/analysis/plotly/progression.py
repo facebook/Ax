@@ -11,19 +11,28 @@ import numpy as np
 import plotly.express as px
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
+from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.utils import select_metric
 from ax.analysis.utils import validate_experiment
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-
 from plotly import graph_objects as go
-from pyre_extensions import assert_is_instance, none_throws, override
+from pyre_extensions import none_throws, override
+
+PROGRESSION_CARDGROUP_TITLE = "Learning Curves: Metric progression over trials"
+PROGRESSION_CARDGROUP_SUBTITLE = (
+    "These plots show curve metrics (learning curves) that track the evolution of "
+    "each metric over the course of the trial. The plots display how metrics "
+    "change during trial execution, both by progression (e.g., epochs or steps) "
+    "and by wallclock time. This is useful for monitoring optimization progress and "
+    "informing early stopping decisions."
+)
 
 
 @final
@@ -50,7 +59,7 @@ class ProgressionPlot(Analysis):
             metric_name: The name of the metric to plot. If not specified the objective
                 will be used. Note that the metric cannot be inferred for
                 multi-objective or scalarized-objective experiments.
-            wallclock_time: If True, plot the relative wallclock time instead of the
+            by_wallclock_time: If True, plot the relative wallclock time instead of the
                 progression on the x-axis.
         """
 
@@ -65,7 +74,8 @@ class ProgressionPlot(Analysis):
         adapter: Adapter | None = None,
     ) -> str | None:
         """
-        ProgressionPlot requires an Experiment with MapData.
+        ProgressionPlot requires an Experiment with data that has a "step"
+        column with valid (non-NaN) values.
         """
         if (
             experiment_invalid_reason := validate_experiment(
@@ -77,8 +87,22 @@ class ProgressionPlot(Analysis):
             return experiment_invalid_reason
 
         data = none_throws(experiment).lookup_data()
-        if not isinstance(data, MapData):
-            return "Requires MapData."
+        if not data.has_step_column:
+            return "Requires data to have a column 'step.'"
+
+        # Check if the step column has any valid (non-NaN) values
+        metric_name = self._metric_name or select_metric(
+            experiment=none_throws(experiment)
+        )
+        df = none_throws(experiment).lookup_data().full_df
+        metric_df = df[df["metric_name"] == metric_name]
+
+        if metric_df.empty:
+            return f"No data found for metric '{metric_name}'."
+
+        # Check if all step values are NaN
+        if metric_df[MAP_KEY].isna().all():
+            return f"All progression values for metric '{metric_name}' are NaN."
 
     @override
     def compute(
@@ -88,14 +112,14 @@ class ProgressionPlot(Analysis):
         adapter: Adapter | None = None,
     ) -> PlotlyAnalysisCard:
         experiment = none_throws(experiment)
-        data = assert_is_instance(experiment.lookup_data(), MapData)
+        data = experiment.lookup_data()
 
         metric_name = self._metric_name or select_metric(experiment=experiment)
 
         # Collect the data necessary to plot each progression curve.
-        map_df = data.map_df
-        df = map_df.loc[
-            map_df["metric_name"] == metric_name,
+        full_df = data.full_df
+        df = full_df.loc[
+            full_df["metric_name"] == metric_name,
             ["trial_index", "arm_name", "mean", MAP_KEY],
         ].rename(columns={MAP_KEY: "progression", "mean": metric_name})
 
@@ -139,7 +163,14 @@ class ProgressionPlot(Analysis):
         else:
             x_axis_name = "progression"
 
-        fig = px.line(df, x=x_axis_name, y=metric_name, color="arm_name")
+        fig = px.line(
+            df,
+            x=x_axis_name,
+            y=metric_name,
+            color="arm_name",
+            markers=True,
+            color_discrete_sequence=BOTORCH_COLOR_SCALE,
+        )
 
         # Add a marker for each terminal point on early stopped trials.
         if len(terminal_points) > 0:
@@ -205,8 +236,8 @@ def _calculate_wallclock_timeseries(
         for idx, trial in experiment.trials.items()
     }
 
-    data = assert_is_instance(experiment.lookup_data(), MapData)
-    df = data.map_df[data.map_df["metric_name"] == metric_name]
+    data = experiment.lookup_data()
+    df = data.full_df[data.full_df["metric_name"] == metric_name]
 
     return {
         trial_index: dict(

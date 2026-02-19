@@ -31,8 +31,7 @@ class MetadataToParameterMixin:
     This Mixin has utilities for converting metadata from observation features
     into a parameter.
 
-    Transform is mostly done in-place. For hierarchical search spaces, this transform
-    returns a clone of the search space.
+    Transform is done in-place.
     """
 
     _parameter_list: list[Parameter] = []

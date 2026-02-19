@@ -8,8 +8,6 @@
 
 import dataclasses
 import warnings
-from random import choice
-from unittest import mock
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -22,11 +20,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
@@ -91,9 +85,7 @@ class SearchSpaceTest(TestCase):
         self.ss1 = SearchSpace(parameters=self.parameters)
         self.ss2 = SearchSpace(
             parameters=self.parameters,
-            parameter_constraints=[
-                OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="a <= b")],
         )
         self.ss1_repr = (
             "SearchSpace("
@@ -121,16 +113,14 @@ class SearchSpaceTest(TestCase):
             "values=[0.0, 0.1, 0.2, 0.5], is_ordered=True, sort_values=True), "
             "RangeParameter(name='f', parameter_type=INT, range=[2, 10], "
             "log_scale=True), DerivedParameter(name='h', parameter_type=FLOAT, "
-            "value=2.0 * a + 1.0)], parameter_constraints=[OrderConstraint(a "
-            "<= b)])"
+            "value=2.0 * a + 1.0)], parameter_constraints=[ParameterConstraint(1.0*a "
+            "+ -1.0*b <= 0.0)])"
         )
 
     def test_Eq(self) -> None:
         ss2 = SearchSpace(
             parameters=self.parameters,
-            parameter_constraints=[
-                OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="a <= b")],
         )
         self.assertEqual(self.ss2, ss2)
         self.assertNotEqual(self.ss1, self.ss2)
@@ -160,9 +150,7 @@ class SearchSpaceTest(TestCase):
         self.assertEqual(str(self.ss1), self.ss1_repr)
 
     def test_Setter(self) -> None:
-        new_c = SumConstraint(
-            parameters=[self.a, self.b], is_upper_bound=True, bound=10
-        )
+        new_c = ParameterConstraint(inequality="a + b <= 10")
         self.ss2.add_parameter_constraints([new_c])
         self.assertEqual(len(self.ss2.parameter_constraints), 2)
 
@@ -189,56 +177,43 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.g)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= g")],
             )
 
         # Vanilla Constraint on non-existent parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    ParameterConstraint(constraint_dict={"g": 1}, bound=0)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="g <= 0")],
             )
 
         # Constraint on non-numeric parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.d)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= d")],
             )
 
-        # Constraint on choice parameter
+        # Constraint on non-numerical (STRING) choice parameter should fail
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.e)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= c")],
             )
+
+        # Constraint on numerical ordered choice parameter should now succeed
+        # (e is a FLOAT ChoiceParameter with is_ordered=True)
+        ss_with_choice_constraint = SearchSpace(
+            parameters=self.parameters,
+            parameter_constraints=[ParameterConstraint(inequality="a <= e")],
+        )
+        self.assertEqual(len(ss_with_choice_constraint.parameter_constraints), 1)
 
         # Constraint on logscale parameter
         with self.assertRaises(ValueError):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=self.a, upper_parameter=self.f)
-                ],
-            )
-
-        # Constraint on mismatched parameter
-        with self.assertRaises(ValueError):
-            wrong_a = self.a.clone()
-            wrong_a.update_range(upper=10)
-            SearchSpace(
-                parameters=self.parameters,
-                parameter_constraints=[
-                    OrderConstraint(lower_parameter=wrong_a, upper_parameter=self.b)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="a <= f")],
             )
 
         # Invalid DerivedParameter
@@ -256,9 +231,7 @@ class SearchSpaceTest(TestCase):
         ):
             SearchSpace(
                 parameters=self.parameters,
-                parameter_constraints=[
-                    ParameterConstraint(constraint_dict={"h": 1}, bound=0)
-                ],
+                parameter_constraints=[ParameterConstraint(inequality="h <= 0")],
             )
 
     def test_BadSetter(self) -> None:
@@ -330,6 +303,89 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss2.check_membership(p_dict, raise_error=True)
 
+    def test_check_membership_df(self) -> None:
+        """Test vectorized membership check on DataFrames."""
+        # Create test DataFrame with valid and invalid rows
+        test_data = pd.DataFrame(
+            {
+                "a": [1.0, 20.0, 3.0, 1.0, 1.0],  # Row 1 OOD (20 > 5.5)
+                "b": [5, 5, 5, 5, 5],
+                "c": ["foo", "bar", "invalid", "foo", "foo"],  # Row 2 OOD ("invalid")
+                "d": [True, True, True, False, True],  # Row 3 OOD (False != True)
+                "e": [0.2, 0.1, 0.0, 0.0, 0.3],  # Row 4 OOD (0.3 not in values)
+                "f": [5, 5, 5, 5, 5],
+                "h": [3.0, 41.0, 7.0, 3.0, 3.0],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2"), (3, "arm3"), (4, "arm4")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        result = self.ss1.check_membership_df(test_data)
+        expected = [True, False, False, False, False]  # Only row 0 is valid
+        self.assertEqual(result, expected)
+
+        # Test with parameter constraints (ss2 has constraint a <= b)
+        test_data_constrained = pd.DataFrame(
+            {
+                "a": [1.0, 3.0, 5.0],
+                "b": [5, 5, 4],  # Row 2 violates constraint (5 > 4)
+                "c": ["foo", "bar", "baz"],
+                "d": [True, True, True],
+                "e": [0.0, 0.1, 0.2],
+                "f": [5, 5, 5],
+                "h": [3.0, 7.0, 11.0],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        result_constrained = self.ss2.check_membership_df(test_data_constrained)
+        expected_constrained = [True, True, False]
+        self.assertEqual(result_constrained, expected_constrained)
+
+        # Test with NaN values (missing parameters)
+        test_data_with_nan = pd.DataFrame(
+            {
+                "a": [1.0, pd.NA, 3.0],
+                "b": [5, 5, 5],
+                "c": ["foo", "bar", "baz"],
+                "d": [True, True, True],
+                "e": [0.0, 0.1, 0.2],
+                "f": [5, 5, 5],
+                "h": [3.0, pd.NA, 7.0],
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        # With check_all_parameters_present=False, only column presence is skipped.
+        # Null values are still invalid (consistent with check_membership behavior).
+        result_with_nan = self.ss1.check_membership_df(
+            test_data_with_nan, check_all_parameters_present=False
+        )
+        expected_with_nan = [True, False, True]
+        self.assertEqual(result_with_nan, expected_with_nan)
+
+        # Test with empty DataFrame
+        empty_df = pd.DataFrame(
+            columns=["a", "b", "c", "d", "e", "f", "h"],
+            index=pd.MultiIndex.from_tuples([], names=["trial_index", "arm_name"]),
+        )
+        result_empty = self.ss1.check_membership_df(empty_df)
+        self.assertEqual(len(result_empty), 0)
+
+        # Test with metadata column (should be ignored)
+        test_data_with_metadata = test_data.copy()
+        test_data_with_metadata["metadata"] = [{"key": "value"}] * len(test_data)
+        result_with_metadata = self.ss1.check_membership_df(test_data_with_metadata)
+        self.assertEqual(result, result_with_metadata)
+
     def test_CheckTypes(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
@@ -381,9 +437,7 @@ class SearchSpaceTest(TestCase):
         c = ChoiceParameter("c", ParameterType.INT, [2, 3])
         ss = SearchSpace(
             parameters=[a, b, c],
-            parameter_constraints=[
-                OrderConstraint(lower_parameter=a, upper_parameter=b)
-            ],
+            parameter_constraints=[ParameterConstraint(inequality="a <= b")],
         )
         ss_copy = ss.clone()
         self.assertEqual(len(ss_copy.parameters), len(ss_copy.parameters))
@@ -532,18 +586,55 @@ class SearchSpaceTest(TestCase):
         ):
             self.ss1._validate_derived_parameter(parameter=self.invalid_derived_param)
 
-        # test with non-numeric param
+        # test with non-numeric param used in arithmetic expression
         derived_param = DerivedParameter(
-            name="z", parameter_type=ParameterType.FLOAT, expression_str="c"
+            name="z", parameter_type=ParameterType.FLOAT, expression_str="2.0 * c"
         )
         with self.assertRaisesRegex(
             ValueError,
             "Parameter c is not a float or int, but is used in a derived parameter.",
         ):
             self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test simple copy type incompatibility: numeric derived from non-numeric source
+        # tests the unified type compatibility rule: types must match OR both numeric
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.FLOAT, expression_str="c"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter c has type STRING, but the derived parameter has type FLOAT. "
+            "Simple copy derived parameters must have the same type as their source "
+            "parameter.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test simple copy type incompatibility: non-numeric derived from numeric source
+        # same validation rule as above, different type combination
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.STRING, expression_str="a"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter a has type FLOAT, but the derived parameter has type STRING. "
+            "Simple copy derived parameters must have the same type as their source "
+            "parameter.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
         # test int derived param with float constituent param
         derived_param = DerivedParameter(
             name="z", parameter_type=ParameterType.INT, expression_str="a"
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Parameter a is a float, but is used in a derived parameter with int type.",
+        ):
+            self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test int derived param with float constituent param (arithmetic expression)
+        derived_param = DerivedParameter(
+            name="z", parameter_type=ParameterType.INT, expression_str="2.0 * a"
         )
         with self.assertRaisesRegex(
             ValueError,
@@ -574,6 +665,132 @@ class SearchSpaceTest(TestCase):
             "to add an fixed value to a derived parameter.",
         ):
             self.ss1._validate_derived_parameter(parameter=derived_param)
+
+        # test simple copy of STRING parameter - should succeed
+        string_derived_param = DerivedParameter(
+            name="derived_c", parameter_type=ParameterType.STRING, expression_str="c"
+        )
+        # This should NOT raise - it's a valid simple copy
+        self.ss1._validate_derived_parameter(parameter=string_derived_param)
+
+        # test simple copy of BOOL parameter - should succeed
+        # Add a non-fixed BOOL parameter to the search space
+        bool_choice_param = ChoiceParameter(
+            name="bool_choice", parameter_type=ParameterType.BOOL, values=[True, False]
+        )
+        self.ss1.add_parameter(bool_choice_param)
+        bool_derived_param = DerivedParameter(
+            name="derived_bool",
+            parameter_type=ParameterType.BOOL,
+            expression_str="bool_choice",
+        )
+        # This should NOT raise - it's a valid simple copy
+        self.ss1._validate_derived_parameter(parameter=bool_derived_param)
+
+        # test simple copy INT to FLOAT promotion - should succeed
+        # INT can be promoted to FLOAT (e.g., 3 -> 3.0)
+        int_to_float_derived_param = DerivedParameter(
+            name="derived_f_as_float",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="f",  # f is an INT parameter
+        )
+        # This should NOT raise - INT can be promoted to FLOAT
+        self.ss1._validate_derived_parameter(parameter=int_to_float_derived_param)
+
+    def test_get_overlapping_parameters(self) -> None:
+        with self.subTest("full_overlap"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            fixed_param_1 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1, fixed_param_1])
+
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            fixed_param_2 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2, fixed_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(sorted(result), ["x", "y"])
+
+        with self.subTest("partial_overlap"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            range_param_2 = RangeParameter(
+                name="y",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1, range_param_2])
+
+            range_param_3 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_3])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, ["x"])
+
+        with self.subTest("no_overlap_different_params"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1])
+
+            range_param_2 = RangeParameter(
+                name="y",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, [])
+
+        with self.subTest("no_overlap_incompatible_fixed_params"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_1 = SearchSpace(parameters=[fixed_param_1])
+
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="bar",
+            )
+            search_space_2 = SearchSpace(parameters=[fixed_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, [])
 
 
 class SearchSpaceDigestTest(TestCase):
@@ -704,6 +921,28 @@ class HierarchicalSearchSpaceTest(TestCase):
                 "num_boost_rounds": 12,
             }
         )
+
+    def test_check_membership_df(self) -> None:
+        """Test vectorized membership check on hierarchical search spaces."""
+        # Create a DataFrame with valid and invalid rows for HSS
+        test_data = pd.DataFrame(
+            {
+                "model": ["Linear", "XGBoost", "Linear", "XGBoost"],
+                "learning_rate": [0.01, None, 0.01, 0.05],  # Row 3 invalid (has lr)
+                "l2_reg_weight": [0.0001, None, 0.0001, None],  # Row 3 invalid
+                "num_boost_rounds": [None, 15, None, 15],  # Row 2 valid (XGBoost)
+            },
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1"), (2, "arm2"), (3, "arm3")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+
+        result = self.hss_1.check_membership_df(
+            test_data, check_all_parameters_present=False
+        )
+        expected = [True, True, True, False]
+        self.assertEqual(result, expected)
 
     def test_init(self) -> None:
         self.assertEqual(
@@ -914,76 +1153,73 @@ class HierarchicalSearchSpaceTest(TestCase):
             any("Cannot flatten observation features" in str(w.message) for w in ws)
         )
 
-    @mock.patch(f"{SearchSpace.__module__}.uniform", return_value=0.6)
-    def test_flatten_observation_features_inject_dummy_parameter_values_with_random(
-        self, mock_uniform: mock.MagicMock
+    def test_flatten_observation_features_inject_dummy_parameter_values(
+        self,
     ) -> None:
-        # Case 1: Linear arm
+        """Test that dummy values are injected correctly using middle values.
+
+        Tests various parameter types:
+        - Int-Range parameters
+        - Float-Range parameters
+        - Choice parameters (bool and string)
+        - Fixed parameters
+        - Log-scale Range parameters
+        - Logit-scale Range parameters
+        """
+        # Case 1: Linear arm - test int range dummy values
         hss_obs_feats = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast)
         hss_obs_feats_flattened = self.hss_1.flatten_observation_features(
-            observation_features=hss_obs_feats, use_random_dummy_values=True
+            observation_features=hss_obs_feats
         )
-        mock_uniform.assert_not_called()
         self.assertNotIn("num_boost_rounds", hss_obs_feats_flattened.parameters)
         flattened_with_dummies = self.hss_1.flatten_observation_features(
             observation_features=hss_obs_feats,
             inject_dummy_values_to_complete_flat_parameterization=True,
-            use_random_dummy_values=True,
         ).parameters
-        mock_uniform.assert_called()
-        self.assertIn("num_boost_rounds", flattened_with_dummies)
+        # Should use middle value for int range: (10 + 20) / 2 + 0.5 = 15.5, floor = 15
         self.assertEqual(
             flattened_with_dummies["num_boost_rounds"],
-            1,  # int(0.6 + 0.5) = floor(0.6 + 0.5) = 1
+            15,
         )
         self.assertIsInstance(  # Ensure we coerced parameter type correctly, too.
             flattened_with_dummies["num_boost_rounds"],
             int,
         )
 
-        # Case 2: XGBoost arm
-        mock_uniform.reset_mock()
+        # Case 2: XGBoost arm - test float range dummy values
         hss_obs_feats = ObservationFeatures.from_arm(arm=self.hss_1_arm_2_cast)
         hss_obs_feats_flattened = self.hss_1.flatten_observation_features(
-            observation_features=hss_obs_feats, use_random_dummy_values=True
+            observation_features=hss_obs_feats
         )
-        mock_uniform.assert_not_called()
         self.assertNotIn("learning_rate", hss_obs_feats_flattened.parameters)
         self.assertNotIn("l2_reg_weight", hss_obs_feats_flattened.parameters)
         flattened_with_dummies = (
             self.hss_1.flatten_observation_features(
                 observation_features=hss_obs_feats,
                 inject_dummy_values_to_complete_flat_parameterization=True,
-                use_random_dummy_values=True,
             )
         ).parameters
-        mock_uniform.assert_called()
-        self.assertIn("learning_rate", flattened_with_dummies)
-        self.assertIn("l2_reg_weight", flattened_with_dummies)
+        # Should use middle values for float ranges
         self.assertEqual(
             flattened_with_dummies["learning_rate"],
-            mock_uniform.return_value,
+            0.0505,  # (0.001 + 0.1) / 2
         )
         self.assertEqual(
             flattened_with_dummies["l2_reg_weight"],
-            mock_uniform.return_value,
+            0.000505,  # (0.00001 + 0.001) / 2
         )
 
         # Case 3: test setting of choice parameters
-        with mock.patch(
-            f"{SearchSpace.__module__}.choice", wraps=choice
-        ) as mock_choice:
-            flattened_only_dummies = self.hss_2.flatten_observation_features(
-                observation_features=ObservationFeatures(
-                    parameters={"num_boost_rounds": 12}
-                ),
-                inject_dummy_values_to_complete_flat_parameterization=True,
-                use_random_dummy_values=True,
-            ).parameters
-            self.assertEqual(
-                mock_choice.call_args_list,
-                [mock.call([False, True]), mock.call(["Linear", "XGBoost"])],
-            )
+        flattened_only_dummies = self.hss_2.flatten_observation_features(
+            observation_features=ObservationFeatures(
+                parameters={"num_boost_rounds": 12}
+            ),
+            inject_dummy_values_to_complete_flat_parameterization=True,
+        ).parameters
+        # Should use middle index: bool has 2 values, index 1 = True
+        self.assertEqual(flattened_only_dummies["use_linear"], True)
+        # String choice has 2 values ["Linear", "XGBoost"], index 1 = "XGBoost"
+        self.assertEqual(flattened_only_dummies["model"], "XGBoost")
         self.assertEqual(
             set(flattened_only_dummies.keys()), set(self.hss_2.parameters.keys())
         )
@@ -992,39 +1228,25 @@ class HierarchicalSearchSpaceTest(TestCase):
         flattened_only_dummies = self.hss_with_fixed.flatten_observation_features(
             observation_features=ObservationFeatures(parameters={"use_linear": True}),
             inject_dummy_values_to_complete_flat_parameterization=True,
-            use_random_dummy_values=True,
         ).parameters
         self.assertEqual(
             set(flattened_only_dummies.keys()),
             set(self.hss_with_fixed.parameters.keys()),
         )
 
-    def test_flatten_observation_features_inject_dummy_parameter_values_non_random(
-        self,
-    ) -> None:
-        """Check behavior with different parameter cases:
-        Choice, Int-Range, Log-Range & Logit-Range.
-
-        HSS2 has enough parameters that we can modify to test all cases.
-        - `use_linear` is bool-Choice
-        - `model` is string-Choice
-        - `learning_rate` is Range, can be made log-scale
-        - `l2_reg_weight` is Range, can be made logit-scale
-        - `num_boost_rounds` is Int-Range.
-        """
+        # Case 5: test log-scale and logit-scale ranges
+        # Modify hss_2 parameters to test log and logit scale
         assert_is_instance(
             self.hss_2.parameters["learning_rate"], RangeParameter
         )._log_scale = True
         assert_is_instance(
             self.hss_2.parameters["l2_reg_weight"], RangeParameter
         )._logit_scale = True
-        # This has no other parameters on it, so they should all be set to
-        # middle value in their respective domains.
+
         obs_ft = ObservationFeatures(parameters={"use_linear": False})
         flat_obs_ft = self.hss_2.flatten_observation_features(
             observation_features=obs_ft,
             inject_dummy_values_to_complete_flat_parameterization=True,
-            use_random_dummy_values=False,
         )
         expected_parameters = {
             "use_linear": False,

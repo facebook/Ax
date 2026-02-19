@@ -11,11 +11,9 @@ import numpy as np
 import numpy.typing as npt
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.registry import rel_EB_ashr_trans
-
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation_utils import observations_from_data
-
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.discrete.eb_ashr import EBAshr
 from pyre_extensions import assert_is_instance
@@ -95,7 +93,7 @@ def compute_regression_probabilities_single_trial(
 
     if len(metric_names) == 0:
         raise ValueError(
-            "No common metrics between the provided data and the size thresholds."
+            "No common metrics between the provided data and the size thresholds. "
             "Need to provide both data and the size thresholds for metrics of interest."
         )
 
@@ -125,10 +123,7 @@ def compute_regression_probabilities_single_trial(
         objective_weights=np.zeros(len(metric_names)), outcome_constraints=(A, b)
     )
 
-    observations = observations_from_data(
-        experiment=experiment,
-        data=target_data,
-    )
+    observations = observations_from_data(experiment=experiment, data=target_data)
 
     arm_names = [obs.arm_name for obs in observations]
 
@@ -164,7 +159,7 @@ def detect_regressions_single_trial(
 
     if len(metric_names) == 0:
         raise ValueError(
-            "No common metrics between the provided data and the thresholds."
+            "No common metrics between the provided data and the thresholds. "
             "Need to provide both data and the size thresholds for metrics of interest."
         )
 

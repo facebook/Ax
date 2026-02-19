@@ -8,7 +8,6 @@
 
 import numpy as np
 import pandas as pd
-
 from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
 from ax.core.data import Data
 from ax.utils.common.testutils import TestCase
@@ -20,6 +19,8 @@ class TestRegressionAnalysis(TestCase):
         experiment = get_branin_experiment_with_multi_objective(
             with_batch=True, with_status_quo=True
         )
+        # Put trials in running status so their data can be extracted.
+        experiment.trials[0].run()
 
         df = pd.DataFrame(
             {

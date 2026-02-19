@@ -15,19 +15,20 @@ parameterizations and the metric observations (from a Data object).
 
 from __future__ import annotations
 
+import functools
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from dataclasses import dataclass, InitVar
 from typing import Any
 
 import numpy as np
-from ax.core.data import Data
+import pandas as pd
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
-from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
+from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.constants import Keys
@@ -46,8 +47,8 @@ class DataLoaderConfig:
         fit_only_completed_map_metrics: Whether to fit a model to map metrics only when
             the trial is completed. This is useful for applications like modeling
             partially completed learning curves in AutoML.
-        latest_rows_per_group: If specified and data is an instance of MapData, uses
-            MapData.latest() with `latest_rows_per_group` to retrieve the most recent
+        latest_rows_per_group: If specified and data has `has_step_column=True`, uses
+            Data.latest() with `latest_rows_per_group` to retrieve the most recent
             rows for each group. Useful in cases where learning curves are frequently
             updated, preventing an excessive number of Observation objects.
         limit_rows_per_metric: Subsample the map data so that the total number of
@@ -90,7 +91,7 @@ class DataLoaderConfig:
         """
         if self.fit_abandoned:
             return set(TrialStatus)
-        return NON_ABANDONED_STATUSES
+        return set(STATUSES_EXPECTING_DATA)
 
     @property
     def statuses_to_fit_map_metric(self) -> set[TrialStatus]:
@@ -153,8 +154,8 @@ class ExperimentData:
         0           0_0       0.1  1.0 NaN NaN
         1           1_0       0.2  2.0 NaN NaN
 
-    Example with map data:
-        >>> experiment = Experiment(...)  # An experiment with MapData.
+    Example with Data that has a "step" column:
+        >>> experiment = Experiment(...)
         >>> experiment_data = extract_experiment_data(
         ...     experiment=experiment,
         ...     data_loader_config=DataLoaderConfig(
@@ -170,7 +171,7 @@ class ExperimentData:
         >>> print(experiment_data.observation_data)
                                             mean               sem
         metric_signature                        branin branin_map branin branin_map
-        trial_index arm_name timestamp
+        trial_index arm_name step
         0           0_0      0.0        55.602113  55.602113    0.0        0.0
                              1.0              NaN  55.602113    NaN        0.0
                              2.0              NaN  55.602113    NaN        0.0
@@ -291,10 +292,14 @@ class ExperimentData:
                     none_throws(obs_ft.metadata)[data_rows.index.name] = idx
                 obs_data = ObservationData(
                     metric_signatures=metric_signatures,
-                    means=row_df["mean"][metric_signatures].to_numpy().reshape(-1),
+                    means=row_df["mean"][metric_signatures]
+                    .to_numpy(copy=True)
+                    .reshape(-1),
                     covariance=np.diag(
                         np.square(
-                            row_df["sem"][metric_signatures].to_numpy().reshape(-1)
+                            row_df["sem"][metric_signatures]
+                            .to_numpy(copy=True)
+                            .reshape(-1)
                         )
                     ),
                 )
@@ -348,6 +353,32 @@ def extract_experiment_data(
     return ExperimentData(arm_data=arm_data, observation_data=observation_data)
 
 
+def _use_object_dtype_for_strings(
+    func: Callable[..., Any],
+) -> Callable[..., Any]:
+    """Decorator to disable pandas 3.0 StringDtype inference.
+
+    This ensures string columns like arm_name keep object dtype to match
+    Data.COLUMN_DATA_TYPES. See: https://pandas.pydata.org/docs/whatsnew/v3.0.0.html
+
+    On older pandas versions that don't have the future.infer_string option,
+    this decorator is a no-op since the StringDtype inference doesn't exist.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Check if the future.infer_string option exists (pandas 3.0+)
+        if hasattr(pd.options, "future") and hasattr(pd.options.future, "infer_string"):
+            with pd.option_context("future.infer_string", False):
+                return func(*args, **kwargs)
+        else:
+            # Older pandas version - no StringDtype inference to disable
+            return func(*args, **kwargs)
+
+    return wrapper
+
+
+@_use_object_dtype_for_strings
 def _extract_arm_data(experiment: Experiment) -> DataFrame:
     """Extract a dataframe containing the trial index, arm name,
     parameterizations, and metadata from the given experiment.
@@ -380,6 +411,7 @@ def _extract_arm_data(experiment: Experiment) -> DataFrame:
     return df
 
 
+@_use_object_dtype_for_strings
 def _extract_observation_data(
     experiment: Experiment,
     data_loader_config: DataLoaderConfig,
@@ -403,7 +435,7 @@ def _extract_observation_data(
         retrived with ``("metadata", "start_time")``.
     """
     data = data if data is not None else experiment.lookup_data()
-    if isinstance(data, MapData):
+    if data.has_step_column:
         if data_loader_config.latest_rows_per_group is not None:
             data = data.latest(
                 rows_per_group=data_loader_config.latest_rows_per_group,
@@ -455,7 +487,7 @@ def _extract_observation_data(
 
     # Identify potential metadata columns.
     index_cols = ["trial_index", "arm_name"]
-    if isinstance(data, MapData):
+    if data.has_step_column:
         index_cols.append(MAP_KEY)
 
     standard_columns = set(index_cols).union(

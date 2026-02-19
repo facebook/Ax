@@ -6,7 +6,9 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
@@ -35,7 +37,7 @@ class UnitX(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "UnitX requires search space"
@@ -96,8 +98,14 @@ class UnitX(Transform):
                     bound -= w * l
                 else:
                     constraint_dict[p_name] = w
+
+            expr = " + ".join(
+                f"{coeff} * {param}" for param, coeff in constraint_dict.items()
+            )
             new_constraints.append(
-                ParameterConstraint(constraint_dict=constraint_dict, bound=bound)
+                ParameterConstraint(
+                    inequality=f"{expr} <= {bound}",
+                )
             )
         search_space.set_parameter_constraints(new_constraints)
         return search_space

@@ -9,7 +9,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import pandas as pd
-
 from ax.utils.testing.backend_simulator import BackendSimulator
 
 
@@ -24,7 +23,7 @@ class BenchmarkTrialMetadata:
             always present in this df even if noise levels are unobserved;
             ``BenchmarkMetric`` and ``BenchmarkMapMetric`` hide that data if it
             should not be observed, and ``BenchmarkMapMetric``s drop data from
-            time periods that that are not observed based on the (simulated)
+            time periods that are not observed based on the (simulated)
             trial progression.
         backend_simulator: Optionally, the backend simulator that is tracking
             the trial's status.

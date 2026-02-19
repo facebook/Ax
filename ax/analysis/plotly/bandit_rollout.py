@@ -17,7 +17,6 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.utils import STALE_FAIL_REASON
-
 from ax.analysis.utils import validate_experiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -111,8 +110,8 @@ class BanditRollout(Analysis):
             # Exclude failed trials that failed due to staleness
             if (
                 batch_trial.status == TrialStatus.FAILED
-                and batch_trial.failed_reason is not None
-                and batch_trial.failed_reason == STALE_FAIL_REASON
+                and batch_trial.status_reason is not None
+                and batch_trial.status_reason == STALE_FAIL_REASON
             ):
                 continue
             for arm, weight in batch_trial.arm_weights.items():

@@ -9,7 +9,7 @@ authors = [{name = "Meta Platforms, Inc."}]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["Experimentation", "Optimization"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -20,7 +20,7 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "botorch[pymoo]>=0.16.1,<0.16.2dev9999",
+    "botorch[pymoo]>=0.17.0,<0.17.1dev9999",
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
@@ -31,6 +31,7 @@ dependencies = [
     "pyre-extensions",
     "sympy",
     "markdown",
+    "graphviz",
 ]
 
 [project.optional-dependencies]
@@ -58,7 +59,7 @@ notebook = [
 unittest_minimal = [
     # For tensorboard unit tests (min req: numpy 2.0 compatibility).
     "tensorboard>=2.18.0",
-    "torchx",  # For torchx unit tests.
+    "torchx>=0.2.0",  # For torchx unit tests
     # Required for building RayTune tutorial notebook and
     # deserializing data for benchmark suites.
     "pyarrow",

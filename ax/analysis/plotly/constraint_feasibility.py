@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from logging import Logger
-from typing import Any, final, Sequence
+from typing import Any, final
 
 import pandas as pd
 from ax.adapter.base import Adapter
@@ -46,6 +47,7 @@ class ConstraintFeasibilityPlot(Analysis):
 
     The DataFrame computed will contain one row per arm and the following columns:
         - trial_index: The trial index during which the arm was run
+        - arm_name: The name of the arm
         - trial_status: The status of the trial
         - generation_node: The name of the GenerationNode that generated the arm
         - overall p(feasible): The joint probability that the arm satisfies
@@ -182,7 +184,7 @@ class ConstraintFeasibilityPlot(Analysis):
         )
 
         # Add p_feasible columns to df
-        output_columns = ["trial_index", "trial_status", "generation_node"]
+        output_columns = ["trial_index", "arm_name", "trial_status", "generation_node"]
         output_df = arm_data.loc[:, output_columns].copy()
         output_df["overall p(feasible)"] = arm_data["p_feasible_mean"]
         p_feasible_columns = [

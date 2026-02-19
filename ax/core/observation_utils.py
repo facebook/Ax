@@ -15,8 +15,7 @@ import ax.core.experiment as experiment
 import numpy as np
 import pandas as pd
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import Data, MAP_KEY
 from ax.core.map_metric import MapMetric
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import NON_ABANDONED_STATUSES, TrialStatus
@@ -123,8 +122,8 @@ def _observations_from_dataframe(
                 features=ObservationFeatures(**obs_kwargs),
                 data=ObservationData(
                     metric_signatures=d["metric_signature"].tolist(),
-                    means=d["mean"].values,
-                    covariance=np.diag(d["sem"].values ** 2),
+                    means=d["mean"].to_numpy(copy=True),
+                    covariance=np.diag(d["sem"].to_numpy(copy=True) ** 2),
                 ),
                 arm_name=arm_name,
             )
@@ -201,15 +200,15 @@ def get_feature_cols(data: Data) -> list[str]:
     """Get the columns used to identify and group observations from a Data object.
 
     Args:
-        data: the Data object from which to extract the feature columns.
-            If the Data object is an instance of MapData, the map_keys will be
-            included in the feature columns.
+        data: the Data object from which to extract the feature columns. If Data
+            has a "step" (MAP_KEY) column, it will be included in the feature
+            columns.
 
     Returns:
         A list of column names to be used to group observations.
     """
     feature_cols = OBS_COLS.intersection(data.full_df.columns)
-    if isinstance(data, MapData):
+    if data.has_step_column:
         feature_cols.add(MAP_KEY)
 
     for column in TIME_COLS:
@@ -227,17 +226,11 @@ def get_feature_cols(data: Data) -> list[str]:
 
 
 def observations_from_data(
-    experiment: experiment.Experiment,
-    data: Data,
-    statuses_to_include: set[TrialStatus] | None = None,
-    statuses_to_include_map_metric: set[TrialStatus] | None = None,
-    latest_rows_per_group: int | None = None,
-    limit_rows_per_metric: int | None = None,
-    limit_rows_per_group: int | None = None,
+    experiment: experiment.Experiment, data: Data
 ) -> list[Observation]:
-    """Convert Data (or MapData) to observations.
+    """Convert Data to observations.
 
-    Converts a Data (or MapData) object to a list of Observation objects.
+    Converts a Data object to a list of Observation objects.
     Pulls arm parameters from from experiment. Overrides fidelity parameters
     in the arm with those found in the Data object.
 
@@ -245,55 +238,18 @@ def observations_from_data(
 
     Args:
         experiment: Experiment with arm parameters.
-        data: Data (or MapData) of observations.
-        statuses_to_include: data from non-MapMetrics will only be included for trials
-            with statuses in this set. Defaults to all statuses except abandoned.
-        statuses_to_include_map_metric: data from MapMetrics will only be included for
-            trials with statuses in this set. Defaults to all statuses except abandoned.
-        latest_rows_per_group: If specified and data is an instance of MapData,
-            uses MapData.latest() with `rows_per_group=latest_rows_per_group` to
-            retrieve the most recent rows for each group. Useful in cases where
-            learning curves are frequently updated, preventing an excessive
-            number of Observation objects. Overrides `limit_rows_per_metric`
-            and `limit_rows_per_group`.
-        limit_rows_per_metric: If specified and data is an instance of MapData,
-            uses MapData.subsample() with `limit_rows_per_metric` on the
-            map_key (``MAP_KEY``) to subsample the MapData. Useful for
-            managing the number of Observation objects when learning curves are
-            frequently updated. Ignored if `latest_rows_per_group` is specified.
-        limit_rows_per_group: If specified and data is an instance of MapData,
-            uses MapData.subsample() with `limit_rows_per_group` on the
-            map_key (``MAP_KEY``) to subsample the MapData. Ignored if
-            `latest_rows_per_group` is specified.
+        data: Data.
 
     Returns:
         List of Observation objects.
     """
-    if statuses_to_include is None:
-        statuses_to_include = NON_ABANDONED_STATUSES
-    if statuses_to_include_map_metric is None:
-        statuses_to_include_map_metric = NON_ABANDONED_STATUSES
-    if isinstance(data, MapData):
-        if latest_rows_per_group is not None:
-            data = data.latest(rows_per_group=latest_rows_per_group)
-        elif limit_rows_per_metric is not None or limit_rows_per_group is not None:
-            data = data.subsample(
-                limit_rows_per_metric=limit_rows_per_metric,
-                limit_rows_per_group=limit_rows_per_group,
-                include_first_last=True,
-            )
-        is_map_data = True
-        df = data.map_df
-    else:
-        is_map_data = False
-        df = data.df
     return _observations_from_dataframe(
         experiment=experiment,
-        df=df,
+        df=data.full_df,
         cols=get_feature_cols(data=data),
-        is_map_data=is_map_data,
-        statuses_to_include=statuses_to_include,
-        statuses_to_include_map_metric=statuses_to_include_map_metric,
+        is_map_data=data.has_step_column,
+        statuses_to_include=NON_ABANDONED_STATUSES,
+        statuses_to_include_map_metric=NON_ABANDONED_STATUSES,
     )
 
 

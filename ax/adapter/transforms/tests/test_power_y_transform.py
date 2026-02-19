@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from math import isnan
 
 import numpy as np
 from ax.adapter.base import DataLoaderConfig
@@ -20,7 +19,7 @@ from ax.adapter.transforms.power_transform_y import (
     PowerTransformY,
 )
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation_utils import observations_from_data
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -107,7 +106,7 @@ class PowerTransformYTest(TestCase):
         # Make sure we got the boundary right
         left = pt.inverse_transform(np.array(bounds[1] - 0.01, ndmin=2))
         right = pt.inverse_transform(np.array(bounds[1] + 0.01, ndmin=2))
-        self.assertTrue(isnan(right) and not isnan(left))
+        self.assertTrue(np.isnan(right) and not np.isnan(left))
         # 0 <= lambda <= 2: im(f) = R
         pt.lambdas_.fill(1.0)
         bounds = _compute_inverse_bounds({"m2": pt})["m2"]
@@ -119,7 +118,7 @@ class PowerTransformYTest(TestCase):
         # Make sure we got the boundary right
         left = pt.inverse_transform(np.array(bounds[0] - 0.01, ndmin=2))
         right = pt.inverse_transform(np.array(bounds[0] + 0.01, ndmin=2))
-        self.assertTrue(not isnan(right) and isnan(left))
+        self.assertTrue(not np.isnan(right) and np.isnan(left))
 
     def test_transform_and_untransform_one_metric(self) -> None:
         pt = PowerTransformY(
@@ -282,6 +281,13 @@ class PowerTransformYTest(TestCase):
             "that are part of a ScalarizedOutcomeConstraint.",
             str(cm.exception),
         )
+        # Support for scalarized objective isn't implemented
+        scalarized_objective = ScalarizedObjective(
+            metrics=[m1, m3], weights=[1.0, 2.0], minimize=False
+        )
+        oc = OptimizationConfig(objective=scalarized_objective, outcome_constraints=[])
+        with self.assertRaisesRegex(NotImplementedError, "ScalarizedObjective"):
+            tf.transform_optimization_config(oc, None, None)
 
     def test_with_experiment_data(self) -> None:
         experiment_data = extract_experiment_data(

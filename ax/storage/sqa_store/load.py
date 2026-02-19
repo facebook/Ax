@@ -6,19 +6,34 @@
 
 # pyre-strict
 
+import logging
+from collections.abc import Mapping
 from math import ceil
 from typing import Any, cast
 
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardBase
-
-from ax.core.auxiliary import AuxiliaryExperiment
-
+import pandas as pd
+from ax.core.analysis_card import AnalysisCard, AnalysisCardBase
+from ax.core.auxiliary import (
+    AuxiliaryExperiment,
+    AuxiliaryExperimentMetadata,
+    AuxiliaryExperimentPurpose,
+    TransferLearningMetadata,
+)
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.exceptions.core import ExperimentNotFoundError, ObjectNotFoundError
+from ax.exceptions.core import (
+    ExperimentNotFoundError,
+    MisconfiguredExperiment,
+    ObjectNotFoundError,
+)
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+
+# necessary to import this file so SQLAlchemy knows about the event listeners
+# see https://fburl.com/8mn7yjt2
+from ax.storage.sqa_store import validation as _validation_listeners  # noqa: F401
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.reduced_state import (
@@ -28,18 +43,22 @@ from ax.storage.sqa_store.reduced_state import (
 from ax.storage.sqa_store.sqa_classes import (
     SQAAnalysisCard,
     SQAAuxiliaryExperiment,
+    SQAData,
     SQAExperiment,
     SQAGenerationStrategy,
     SQAGeneratorRun,
     SQAMetric,
+    SQAParameter,
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import MetricIntent
 from ax.utils.common.constants import Keys
 from pyre_extensions import assert_is_instance, none_throws
-from sqlalchemy.orm import defaultload, joinedload, lazyload, noload
+from sqlalchemy.orm import defaultload, joinedload, noload
 from sqlalchemy.orm.exc import DetachedInstanceError
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 # ---------------------------- Loading `Experiment`. ---------------------------
@@ -224,10 +243,10 @@ def _get_experiment_sqa(
             .filter_by(name=experiment_name)
             .options(
                 # Delay loading trials to a separate call to `_get_trials_sqa` below
-                noload("trials"),
+                noload(exp_sqa_class.trials),
                 # Also prevent loading AnalysisCards, which can be expensive and is not
                 # necessary to reconstruct the Experiment
-                noload("analysis_cards"),
+                noload(exp_sqa_class.analysis_cards),
                 # Eagerly load target experiment for auxiliary experiment relationships
                 joinedload(exp_sqa_class.auxiliary_experiments).joinedload(
                     auxiliary_experiment_sqa_class.source_experiment,
@@ -236,7 +255,9 @@ def _get_experiment_sqa(
         )
 
         if skip_runners_and_metrics:
-            query = query.options(noload("runners")).options(noload("trials.runner"))
+            query = query.options(noload(exp_sqa_class.runners)).options(
+                noload(exp_sqa_class.trials).noload(trial_sqa_class.runner)
+            )
 
         sqa_experiment = query.one_or_none()
 
@@ -292,7 +313,7 @@ def _get_trials_sqa(
                 query = query.options(*trials_query_options)
 
             if skip_runners_and_metrics:
-                query = query.options(noload("runner"))
+                query = query.options(noload(trial_sqa_class.runner))
 
             sqa_trials.extend(query.all())
 
@@ -306,10 +327,12 @@ def _set_sqa_metric_to_base_type(
     the metric class from the DB.
     """
     sqa_metric.metric_type = base_metric_type_int
-    # Handle composite metrics (multi-objective, scalarized objectives, and
-    # scalarized outcome constraints) that are not directly attached to the experiment
+    # Handle composite metrics (multi-objective, preference objective,
+    # scalarized objectives, and scalarized outcome constraints) that are not
+    # directly attached to the experiment
     composite_metric_intents = {
         MetricIntent.MULTI_OBJECTIVE,
+        MetricIntent.PREFERENCE_OBJECTIVE,
         MetricIntent.SCALARIZED_OBJECTIVE,
         MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT,
     }
@@ -523,21 +546,32 @@ def _load_generation_strategy_by_id(
 def get_generation_strategy_id(experiment_name: str, decoder: Decoder) -> int | None:
     """Get DB ID of the generation strategy, associated with the experiment
     with the given name if its in DB, return None otherwise.
+
+    If multiple generation strategies are associated with the experiment,
+    returns the latest one (highest DB ID).
     """
     exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
     gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
     with session_scope() as session:
-        sqa_gs_id = (
+        sqa_gs_ids = (
             session.query(gs_sqa_class.id)  # pyre-ignore[16]
             .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
             # pyre-fixme[16]: `SQABase` has no attribute `name`.
             .filter(exp_sqa_class.name == experiment_name)
-            .one_or_none()
+            .order_by(gs_sqa_class.id.desc())
+            .all()
         )
 
-    if sqa_gs_id is None:
+    if not sqa_gs_ids:
         return None
-    return sqa_gs_id[0]
+
+    if len(sqa_gs_ids) > 1:
+        logger.warning(
+            f"Found {len(sqa_gs_ids)} generation strategies for experiment "
+            f"{experiment_name}. Loading the latest one (id={sqa_gs_ids[0][0]})."
+        )
+
+    return sqa_gs_ids[0][0]
 
 
 def get_generation_strategy_sqa(
@@ -577,9 +611,11 @@ def get_generation_strategy_sqa_reduced_state(
         gs_id=gs_id,
         decoder=decoder,
         query_options=[
-            lazyload("generator_runs.parameters"),
-            lazyload("generator_runs.parameter_constraints"),
-            lazyload("generator_runs.metrics"),
+            defaultload(gs_sqa_class.generator_runs).lazyload(gr_sqa_class.parameters),
+            defaultload(gs_sqa_class.generator_runs).lazyload(
+                gr_sqa_class.parameter_constraints
+            ),
+            defaultload(gs_sqa_class.generator_runs).lazyload(gr_sqa_class.metrics),
             defaultload(gs_sqa_class.generator_runs).defer("model_kwargs"),
             defaultload(gs_sqa_class.generator_runs).defer("bridge_kwargs"),
             defaultload(gs_sqa_class.generator_runs).defer("model_state_after_gen"),
@@ -639,9 +675,15 @@ def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
         gs_id=gs_id,
         decoder=decoder,
         query_options=[
-            lazyload("generator_runs.parameters"),
-            lazyload("generator_runs.parameter_constraints"),
-            lazyload("generator_runs.metrics"),
+            defaultload(SQAGenerationStrategy.generator_runs).lazyload(
+                SQAGeneratorRun.parameters
+            ),
+            defaultload(SQAGenerationStrategy.generator_runs).lazyload(
+                SQAGeneratorRun.parameter_constraints
+            ),
+            defaultload(SQAGenerationStrategy.generator_runs).lazyload(
+                SQAGeneratorRun.metrics
+            ),
         ],
     )
 
@@ -687,3 +729,168 @@ def load_analysis_cards_by_experiment_name(
         decoder.analysis_card_from_sqa(analysis_card_sqa=analysis_card_sqa)
         for analysis_card_sqa in analysis_cards_sqa
     ]
+
+
+def _query_historical_experiments_given_parameters(
+    parameter_names: list[str],
+    experiment_types: list[str],
+    config: SQAConfig | None = None,
+) -> dict[str, SearchSpace | None]:
+    r"""
+    Find historical experiments of given types tuning any of the given
+        parameter names.
+
+    Args:
+        parameter_names: List of parameter names.
+        experiment_types: List of experiment types.
+
+    Returns: Dictionary mapping experiment names to their filtered SearchSpace objects
+        containing only the parameters that are also present in the target experiment.
+    """
+    from ax.storage.sqa_store.encoder import Encoder
+
+    config = SQAConfig() if config is None else config
+    decoder = Decoder(config=config)
+    encoder = Encoder(config=config)
+
+    with session_scope() as session:
+        # Query both parameters and experiment names
+        parameters_query = (
+            session.query(SQAParameter, SQAExperiment.name)
+            .filter(SQAParameter.name.in_(parameter_names))
+            .join(SQAExperiment, SQAParameter.experiment_id == SQAExperiment.id)
+            .filter(
+                SQAExperiment.experiment_type.in_(
+                    [
+                        encoder.get_enum_value(t, config.experiment_type_enum)
+                        for t in experiment_types
+                    ]
+                )
+            )
+            .filter(SQAExperiment.is_test == False)  # noqa E712 `is` won't work for SQA
+            .filter(SQAExperiment.id is not None)
+            # Experiments with some data
+            .join(SQAData, SQAParameter.experiment_id == SQAData.experiment_id)
+        )
+
+        query_results = parameters_query.all()
+
+        # Group parameters by experiment name
+        experiments_params: dict[str, list[SQAParameter]] = {}
+        for sqa_param, exp_name in query_results:
+            if exp_name not in experiments_params:
+                experiments_params[exp_name] = []
+
+            experiments_params[exp_name].append(sqa_param)
+
+        return {
+            exp_name: decoder.search_space_from_sqa(
+                parameters_sqa=parameters_sqa,
+                # Parameter constraints don't matter for search space compatibility
+                parameter_constraints_sqa=[],
+            )
+            for exp_name, parameters_sqa in experiments_params.items()
+        }
+
+
+def identify_transferable_experiments(
+    search_space: SearchSpace,
+    experiment_types: list[str],
+    overlap_threshold: float = 0.0,
+    max_num_exps: int = 10,
+    config: SQAConfig | None = None,
+) -> Mapping[str, TransferLearningMetadata]:
+    r"""
+    Find all transferable historical experiments of given types having at least the
+    given proportion of overlapping parameters with the provided search space.
+
+    Args:
+        search_space: Search space to compare with historical experiments.
+        experiment_types: List of experiment types to search for.
+        overlap_threshold: Proportion of parameters that must be overlapping.
+        max_num_exps: Max number of transferable experiments to return
+            with highest prop overlap.
+        config: SQAConfig to use for the query. Defaults to None (use default config).
+
+    Returns: A dictionary mapping experiment names to overlapping parameter names
+    """
+
+    experiments_search_spaces = _query_historical_experiments_given_parameters(
+        parameter_names=list(search_space.parameters.keys()),
+        experiment_types=experiment_types,
+        config=config,
+    )
+    if len(experiments_search_spaces) == 0:
+        return {}
+
+    # Calculate overlap for each experiment
+    results = []
+    for exp_name, exp_search_space in experiments_search_spaces.items():
+        if not exp_search_space:
+            continue
+        overlap_params = exp_search_space.get_overlapping_parameters(search_space)
+        prop_overlap = len(overlap_params) / len(search_space.parameters)
+        if prop_overlap >= overlap_threshold:
+            results.append(
+                {
+                    "experiment_name": exp_name,
+                    "overlap_params": overlap_params,
+                    "prop_overlap": prop_overlap,
+                }
+            )
+
+    # Convert to DataFrame for sorting and filtering
+    df = pd.DataFrame(results)
+    if df.empty:
+        return {}
+    df = df.sort_values(by="prop_overlap", ascending=False)
+
+    if max_num_exps is not None:
+        df = df.head(max_num_exps)
+
+    # Convert to dictionary mapping experiment_name to TransferLearningMetadata
+    return {
+        row["experiment_name"]: TransferLearningMetadata(
+            overlap_parameters=row["overlap_params"]
+        )
+        for _, row in df.iterrows()
+    }
+
+
+def load_candidate_source_auxiliary_experiments(
+    target_experiment: Experiment,
+    purpose: AuxiliaryExperimentPurpose,
+    config: SQAConfig | None = None,
+) -> Mapping[str, AuxiliaryExperimentMetadata]:
+    """Load candidate source auxiliary experiments for a target experiment.
+
+    Args:
+        target_experiment: The target experiment to find auxiliary experiments for.
+        purpose: The purpose of the auxiliary experiments.
+
+    Returns:
+        A mapping of experiment names to their auxiliary experiment metadata.
+    """
+    match purpose:
+        case AuxiliaryExperimentPurpose.TRANSFERABLE_EXPERIMENT:
+            experiment_type = target_experiment.experiment_type
+            if experiment_type is None:
+                raise MisconfiguredExperiment(
+                    "Cannot identify transferable experiments because the target "
+                    "experiment does not have an experiment type."
+                )
+            transferable_experiments = identify_transferable_experiments(
+                search_space=target_experiment.search_space,
+                experiment_types=[experiment_type],
+                config=config,
+            )
+            return {
+                experiment: metadata
+                for experiment, metadata in transferable_experiments.items()
+                if experiment != target_experiment.name
+            }
+        case _:
+            raise NotImplementedError(
+                "Loading candidate source auxiliary experiments for purpose "
+                f"{purpose} is not yet implemented."
+            )

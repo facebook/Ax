@@ -12,14 +12,18 @@ from copy import deepcopy
 import numpy as np
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
 from ax.adapter.transforms.log import Log
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
+from ax.utils.testing.mock import mock_botorch_optimize
 from pandas.testing import assert_frame_equal, assert_series_equal
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class LogTransformTest(TestCase):
@@ -184,4 +188,136 @@ class LogTransformTest(TestCase):
         # Check that observation data is unchanged.
         assert_frame_equal(
             transformed_data.observation_data, experiment_data.observation_data
+        )
+
+    def test_log_scale_choice_parameter(self) -> None:
+        """Test log-scale ChoiceParameter support"""
+        # Search space with log-scale ChoiceParameter
+        search_space = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "z",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[1.0, 10.0, 100.0, 1000.0],
+                    log_scale=True,
+                ),
+                ChoiceParameter(
+                    "w",
+                    parameter_type=ParameterType.INT,
+                    values=[2, 4, 8, 16, 32],
+                    log_scale=True,
+                    is_fidelity=True,
+                    target_value=32,
+                    dependents={4: ["t"]},
+                ),
+                ChoiceParameter(
+                    "t",
+                    parameter_type=ParameterType.INT,
+                    values=[1, 2, 3],
+                ),
+            ]
+        )
+        t = Log(search_space=search_space)
+
+        # Test that log-scale choice parameters are identified
+        self.assertEqual(
+            t.transform_parameters,
+            {"z": ParameterType.FLOAT, "w": ParameterType.INT},
+        )
+        self.assertEqual(
+            t.original_values, {"z": [1.0, 10.0, 100.0, 1000.0], "w": [2, 4, 8, 16, 32]}
+        )
+
+        # Test observation features transformation
+        observation_features = [ObservationFeatures(parameters={"z": 100.0, "w": 8})]
+        obs_ft2 = deepcopy(observation_features)
+        obs_ft2 = t.transform_observation_features(obs_ft2)
+        self.assertEqual(
+            obs_ft2,
+            [
+                ObservationFeatures(
+                    parameters={
+                        "z": math.log10(100.0),
+                        "w": math.log10(8),
+                    }
+                )
+            ],
+        )
+
+        # Test untransformation - should get exact match for the original values.
+        obs_ft2 = t.untransform_observation_features(obs_ft2)
+        self.assertEqual(obs_ft2, observation_features)
+        self.assertTrue(isinstance(obs_ft2[0].parameters["w"], int))
+
+        # Test search space transformation
+        ss2 = deepcopy(search_space)
+        ss2 = t.transform_search_space(ss2)
+
+        # Test float log-scale choice parameter transformation
+        param_z = assert_is_instance(ss2.parameters["z"], ChoiceParameter)
+        self.assertEqual(param_z.parameter_type, ParameterType.FLOAT)
+        expected_values_z = [math.log10(v) for v in [1.0, 10.0, 100.0, 1000.0]]
+        self.assertEqual(param_z.values, expected_values_z)
+        self.assertFalse(param_z.log_scale)
+
+        # Test int log-scale choice parameter transformation
+        param_w = assert_is_instance(ss2.parameters["w"], ChoiceParameter)
+        self.assertEqual(param_w.parameter_type, ParameterType.FLOAT)
+        expected_values_w = [math.log10(v) for v in [2, 4, 8, 16, 32]]
+        self.assertEqual(param_w.values, expected_values_w)
+        self.assertFalse(param_w.log_scale)
+        self.assertTrue(param_w.is_fidelity)
+        self.assertEqual(param_w.target_value, math.log10(32))
+        self.assertEqual(param_w.dependents, {math.log10(4): ["t"]})
+
+        # Verify that `t` is not transformed.
+        self.assertEqual(ss2.parameters["t"], search_space.parameters["t"])
+
+    @mock_botorch_optimize
+    def test_log_scale_choice_with_adapter(self) -> None:
+        search_space = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "z",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[1.0, 10.0, 100.0, 1000.0],
+                ),
+                ChoiceParameter(
+                    "w",
+                    parameter_type=ParameterType.INT,
+                    values=[2, 4, 8, 16, 32],
+                ),
+            ]
+        )
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0]], search_space=search_space
+        )
+        generator = BoTorchGenerator()
+        adapter = TorchAdapter(
+            experiment=experiment,
+            generator=generator,
+            transforms=[ChoiceToNumericChoice, Log],
+        )
+        gr = adapter.gen(n=1)
+        self.assertEqual(len(gr.arms), 1)
+        # Check the SSD to see if the parameters are log-transformed correctly.
+        ssd = none_throws(generator.surrogate._last_search_space_digest)
+        self.assertEqual(ssd.feature_names, ["z", "w"])
+        self.assertEqual(
+            ssd.discrete_choices,
+            {
+                0: [
+                    math.log10(1.0),
+                    math.log10(10.0),
+                    math.log10(100.0),
+                    math.log10(1000.0),
+                ],
+                1: [
+                    math.log10(2),
+                    math.log10(4),
+                    math.log10(8),
+                    math.log10(16),
+                    math.log10(32),
+                ],
+            },
         )

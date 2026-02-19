@@ -16,6 +16,7 @@ from ax.api.utils.generation_strategy_dispatch import choose_generation_strategy
 from ax.api.utils.structs import GenerationStrategyDispatchStruct
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.exceptions.core import UserInputError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.dispatch_utils import get_derelativize_config
 from ax.generation_strategy.transition_criterion import MinTrials
@@ -27,7 +28,9 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.utils import run_trials_with_gs
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -60,7 +63,7 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(len(sobol_node.generator_specs), 1)
                 sobol_spec = sobol_node.generator_specs[0]
                 self.assertEqual(sobol_spec.generator_enum, Generators.SOBOL)
-                self.assertEqual(sobol_spec.model_kwargs, {"seed": None})
+                self.assertEqual(sobol_spec.generator_kwargs, {"seed": None})
                 self.assertEqual(sobol_node._transition_criteria, [])
                 # Make sure it generates.
                 run_trials_with_gs(
@@ -91,7 +94,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(len(sobol_node.generator_specs), 1)
         sobol_spec = sobol_node.generator_specs[0]
         self.assertEqual(sobol_spec.generator_enum, Generators.SOBOL)
-        self.assertEqual(sobol_spec.model_kwargs, {"seed": 0})
+        self.assertEqual(sobol_spec.generator_kwargs, {"seed": 0})
         expected_tc = [
             MinTrials(
                 threshold=2,
@@ -99,6 +102,7 @@ class TestDispatchUtils(TestCase):
                 block_gen_if_met=False,
                 block_transition_if_unmet=True,
                 use_all_trials_in_exp=False,
+                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             ),
             MinTrials(
                 threshold=4,
@@ -119,7 +123,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
         expected_ss = SurrogateSpec(model_configs=[ModelConfig(name="MBM defaults")])
         self.assertEqual(
-            mbm_spec.model_kwargs,
+            mbm_spec.generator_kwargs,
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
@@ -136,14 +140,14 @@ class TestDispatchUtils(TestCase):
         for trial in experiment.trials.values():
             none_throws(
                 assert_is_instance(trial, Trial).generator_run
-            )._model_key = "Manual"
+            )._generator_key = "Manual"
         # Generate 5 trials and make sure they're from the correct nodes.
         run_trials_with_gs(experiment=experiment, gs=gs, num_trials=5)
         self.assertEqual(len(experiment.trials), 7)
         for trial in experiment.trials.values():
             model_key = none_throws(
                 assert_is_instance(trial, Trial).generator_run
-            )._model_key
+            )._generator_key
             if trial.index < 2:
                 self.assertEqual(model_key, "Manual")
             elif trial.index == 2:
@@ -187,7 +191,7 @@ class TestDispatchUtils(TestCase):
             ]
         )
         self.assertEqual(
-            mbm_spec.model_kwargs,
+            mbm_spec.generator_kwargs,
             {
                 "surrogate_spec": expected_ss,
                 "torch_device": torch.device("cpu"),
@@ -249,6 +253,172 @@ class TestDispatchUtils(TestCase):
             mbm_node = gs._nodes[2]
             mbm_spec = mbm_node.generator_specs[0]
             self.assertEqual(
-                mbm_spec.model_kwargs["acquisition_options"],
+                mbm_spec.generator_kwargs["acquisition_options"],
                 {"prune_irrelevant_parameters": simplify},
             )
+
+    def test_choose_gs_custom_with_model_config(self) -> None:
+        """Test that custom method works with a provided ModelConfig."""
+        custom_model_config = ModelConfig(
+            botorch_model_class=EnsembleMapSaasSingleTaskGP,
+            name="MAPSAAS",
+        )
+        struct = GenerationStrategyDispatchStruct(
+            method="custom",
+            initialization_budget=3,
+            initialize_with_center=False,
+            torch_device="cpu",
+        )
+        gs = choose_generation_strategy(struct=struct, model_config=custom_model_config)
+        self.assertEqual(len(gs._nodes), 2)
+        self.assertEqual(gs.name, "Sobol+MBM:MAPSAAS")
+
+        # Check the MBM node uses the custom model config.
+        mbm_node = gs._nodes[1]
+        self.assertEqual(len(mbm_node.generator_specs), 1)
+        mbm_spec = mbm_node.generator_specs[0]
+        self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
+        expected_ss = SurrogateSpec(model_configs=[custom_model_config])
+        self.assertEqual(
+            mbm_spec.generator_kwargs["surrogate_spec"],
+            expected_ss,
+        )
+        self.assertEqual(
+            mbm_spec.generator_kwargs["torch_device"],
+            torch.device("cpu"),
+        )
+
+    def test_choose_gs_custom_without_name(self) -> None:
+        """Test that custom method works with unnamed ModelConfig."""
+        custom_model_config = ModelConfig(
+            botorch_model_class=SaasFullyBayesianSingleTaskGP,
+            # No name provided.
+        )
+        struct = GenerationStrategyDispatchStruct(
+            method="custom",
+            initialization_budget=3,
+            initialize_with_center=False,
+        )
+        gs = choose_generation_strategy(struct=struct, model_config=custom_model_config)
+        # Should use "custom_config" as the default name.
+        self.assertEqual(gs.name, "Sobol+MBM:custom_config")
+
+    def test_choose_gs_custom_model_config_validation(self) -> None:
+        """Test validation of model_config and custom method pairing."""
+        # Test that custom method raises an error when model_config is not provided.
+        struct = GenerationStrategyDispatchStruct(method="custom")
+        with self.assertRaisesRegex(
+            UserInputError,
+            "model_config must be provided when method='custom'.",
+        ):
+            choose_generation_strategy(struct=struct)
+
+        # Test that providing model_config without custom method raises an error.
+        custom_model_config = ModelConfig(name="SomeConfig")
+        struct = GenerationStrategyDispatchStruct(method="fast")
+        with self.assertRaisesRegex(
+            UserInputError,
+            "model_config should only be provided when method='custom'. "
+            "Got method='fast'.",
+        ):
+            choose_generation_strategy(struct=struct, model_config=custom_model_config)
+
+    def test_choose_gs_with_custom_botorch_acqf_class(self) -> None:
+        """Test that custom botorch_acqf_class is properly passed to generator kwargs
+        and appended to the node name. Tests both fast and custom methods.
+        """
+        for method, model_config, expected_name in [
+            ("fast", None, "Sobol+MBM:fast+qLogNoisyExpectedImprovement"),
+            (
+                "custom",
+                ModelConfig(
+                    botorch_model_class=EnsembleMapSaasSingleTaskGP,
+                    name="MAPSAAS",
+                ),
+                "Sobol+MBM:MAPSAAS+qLogNoisyExpectedImprovement",
+            ),
+        ]:
+            with self.subTest(method=method):
+                struct = GenerationStrategyDispatchStruct(
+                    method=method,  # pyre-ignore [6]
+                    initialization_budget=3,
+                    initialize_with_center=False,
+                )
+                gs = choose_generation_strategy(
+                    struct=struct,
+                    model_config=model_config,
+                    botorch_acqf_class=qLogNoisyExpectedImprovement,
+                )
+                # Check that the name includes the acquisition function class name.
+                self.assertEqual(gs.name, expected_name)
+
+                # Check that MBM node generator kwargs include the botorch_acqf_class.
+                mbm_node = gs._nodes[1]
+                self.assertEqual(len(mbm_node.generator_specs), 1)
+                mbm_spec = mbm_node.generator_specs[0]
+                self.assertEqual(mbm_spec.generator_enum, Generators.BOTORCH_MODULAR)
+                self.assertEqual(
+                    mbm_spec.generator_kwargs["botorch_acqf_class"],
+                    qLogNoisyExpectedImprovement,
+                )
+                # Check surrogate spec uses expected model config.
+                expected_model_config = (
+                    model_config
+                    if model_config is not None
+                    else ModelConfig(name="MBM defaults")
+                )
+                expected_ss = SurrogateSpec(model_configs=[expected_model_config])
+                self.assertEqual(
+                    mbm_spec.generator_kwargs["surrogate_spec"], expected_ss
+                )
+
+    def test_abandoned_and_failed_trials_excluded_from_initialization_budget(
+        self,
+    ) -> None:
+        """Test that FAILED and ABANDONED trials don't count toward init budget."""
+        struct = GenerationStrategyDispatchStruct(
+            method="fast",
+            initialization_budget=5,
+            allow_exceeding_initialization_budget=False,
+        )
+        gs = choose_generation_strategy(struct=struct)
+
+        # Verify the first MinTrials criterion excludes FAILED and ABANDONED
+        sobol_node = gs._nodes[1]  # Node 0 is Center
+        first_tc = assert_is_instance(sobol_node._transition_criteria[0], MinTrials)
+        self.assertEqual(
+            first_tc.not_in_statuses, [TrialStatus.FAILED, TrialStatus.ABANDONED]
+        )
+        self.assertEqual(first_tc.threshold, 5)
+        self.assertTrue(first_tc.block_gen_if_met)
+
+        # Test the actual behavior: Generate 5 trials, mark 3 as ABANDONED,
+        # verify that Sobol can still generate more trials
+        experiment = get_branin_experiment()
+        gs.experiment = experiment
+
+        # Generate 5 initial trials
+        for _ in range(5):
+            gr = gs.gen_single_trial(experiment)
+            trial = experiment.new_trial(generator_run=gr)
+            trial.mark_running(no_runner_required=True)
+
+            # Mark trials 2, 3, 4 as ABANDONED
+            if trial.index in [2, 3, 4]:
+                trial.mark_abandoned()
+            else:
+                trial.mark_completed()
+
+        # Check we have 2 COMPLETED and 3 ABANDONED
+        self.assertEqual(
+            len(experiment.trial_indices_by_status[TrialStatus.COMPLETED]), 2
+        )
+        self.assertEqual(
+            len(experiment.trial_indices_by_status[TrialStatus.ABANDONED]), 3
+        )
+
+        # Should still be able to generate from Sobol since only 2 "valid" trials exist
+        gr = gs.gen_single_trial(experiment)
+        self.assertIsNotNone(gr)
+        # Verify it's from Sobol
+        self.assertEqual(gr._generator_key, "Sobol")

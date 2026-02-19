@@ -5,30 +5,37 @@
 
 # pyre-strict
 
-from typing import final
+from typing import Any, final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis, ErrorAnalysisCard
-from ax.analysis.analysis_card import AnalysisCardGroup
 from ax.analysis.diagnostics import DiagnosticAnalysis
+from ax.analysis.healthcheck.baseline_improvement import BaselineImprovementAnalysis
 from ax.analysis.healthcheck.can_generate_candidates import (
     CanGenerateCandidatesAnalysis,
 )
+from ax.analysis.healthcheck.complexity_rating import ComplexityRatingAnalysis
 from ax.analysis.healthcheck.constraints_feasibility import (
     ConstraintsFeasibilityAnalysis,
 )
+from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
+from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.analysis.trials import AllTrialsAnalysis
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCardGroup
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.service.orchestrator import OrchestratorOptions
 from pyre_extensions import override
 
 
@@ -67,19 +74,30 @@ class OverviewAnalysis(Analysis):
                 * Modeled ScatterPlots for objectives versus objectives and objectives
                     versus constraints
                 * ParallelCoordinatesPlot for objectives
+                * BanditRollout
+                * UtilityProgressionAnalysis
+                * ProgressionPlots
+                * BestTrials
                 * Summary
             * Insights
                 * Sensitivity Plots
                 * Slice Plots
                 * Contour Plots
+                * OutcomeConstraintsAnalysis
+                * MarginalEffectsPlot
+                * TopSurfacesAnalysis
             * Diagnostic
                 * CrossValidationPlots
             * Health Checks
                 * MetricFetchingErrorsAnalysis
+                * EarlyStoppingAnalysis
                 * CanGenerateCandidatesAnalysis
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
                 * ShouldGenerateCandidates
+                * ComplexityRatingAnalysis
+                * PredictableMetricsAnalysis
+                * BaselineImprovementAnalysis
             * Trial-Level Analyses
                 * Trial 0
                     * ArmEffectsPlot
@@ -93,6 +111,9 @@ class OverviewAnalysis(Analysis):
         can_generate_days_till_fail: int | None = None,
         should_generate: bool | None = None,
         should_generate_reason: str | None = None,
+        options: OrchestratorOptions | None = None,
+        tier_metadata: dict[str, Any] | None = None,
+        model_fit_threshold: float | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -100,6 +121,9 @@ class OverviewAnalysis(Analysis):
         self.can_generate_days_till_fail = can_generate_days_till_fail
         self.should_generate = should_generate
         self.should_generate_reason = should_generate_reason
+        self.options = options
+        self.tier_metadata = tier_metadata
+        self.model_fit_threshold = model_fit_threshold
 
     @override
     def validate_applicable_state(
@@ -152,8 +176,29 @@ class OverviewAnalysis(Analysis):
             trial_statuses=[TrialStatus.CANDIDATE]
         )
 
+        # Check if the experiment has data with a "step" column and MapMetrics
+        # (required for early stopping)
+        has_map_data = experiment.lookup_data().has_step_column
+        has_map_metrics = any(
+            isinstance(m, MapMetric) for m in experiment.metrics.values()
+        )
+
+        # Check if the experiment has BatchTrials
+        has_batch_trials = any(
+            isinstance(trial, BatchTrial) for trial in experiment.trials.values()
+        )
+
         health_check_analyses = [
             MetricFetchingErrorsAnalysis(),
+            (
+                EarlyStoppingAnalysis(
+                    early_stopping_strategy=(
+                        self.options.early_stopping_strategy if self.options else None
+                    ),
+                )
+                if has_map_data and has_map_metrics
+                else None
+            ),
             CanGenerateCandidatesAnalysis(
                 can_generate_candidates=self.can_generate,
                 reason=self.can_generate_reason,
@@ -163,7 +208,27 @@ class OverviewAnalysis(Analysis):
             and self.can_generate_reason is not None
             and self.can_generate_days_till_fail is not None
             else None,
+            (
+                ComplexityRatingAnalysis(
+                    options=self.options,
+                    tier_metadata=self.tier_metadata,
+                )
+                if self.options is not None
+                else None
+            )
+            if not has_batch_trials
+            else None,
             ConstraintsFeasibilityAnalysis(),
+            (
+                PredictableMetricsAnalysis()
+                if self.model_fit_threshold is None
+                else PredictableMetricsAnalysis(
+                    model_fit_threshold=self.model_fit_threshold
+                )
+            )
+            if not has_batch_trials
+            else None,
+            BaselineImprovementAnalysis() if not has_batch_trials else None,
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials

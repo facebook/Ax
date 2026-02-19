@@ -35,7 +35,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TBounds, TCandidateMetadata
@@ -128,7 +128,7 @@ def extract_search_space_digest(
     task_features: list[int] = []
     fidelity_features: list[int] = []
     target_values: dict[int, int | float] = {}
-    hierarchical_dependencies: dict[int, dict[int, list[int]]] | None = None
+    hierarchical_dependencies: dict[int, dict[int | float, list[int]]] | None = None
 
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
@@ -169,16 +169,8 @@ def extract_search_space_digest(
 
         for p_name, p in search_space.parameters.items():
             if p.is_hierarchical:
-                for parent_value in p.dependents.keys():
-                    if not isinstance(parent_value, int):
-                        raise ValueError(
-                            f"{parent_value=} must be an integer. Received"
-                            f"{type(parent_value)} instead."
-                        )
-
-                # pyre-ignore [6]: We already checked that `parent_value` is int.
                 hierarchical_dependencies[param_names.index(p_name)] = {
-                    parent_value: [
+                    assert_is_instance_of_tuple(parent_value, (int, float)): [
                         param_names.index(activated_param)
                         for activated_param in activated_params
                     ]
@@ -236,7 +228,7 @@ def extract_objective_thresholds(
     # Check that all thresholds correspond to a metric.
     if set(objective_threshold_dict.keys()).difference(set(objective.metric_names)):
         raise ValueError(
-            "Some objective thresholds do not have corresponding metrics."
+            "Some objective thresholds do not have corresponding metrics. "
             f"Got {objective_thresholds=} and {objective=}."
         )
 
@@ -574,12 +566,10 @@ def get_pareto_frontier_and_configs(
                 "`observation_data` will not be used.",
                 stacklevel=2,
             )
-    else:
-        if observation_data is None:
-            raise ValueError(
-                "`observation_data` must not be None when `use_model_predictions` is "
-                "True."
-            )
+    elif observation_data is None:
+        raise ValueError(
+            "`observation_data` must not be None when `use_model_predictions` is False."
+        )
 
     array_to_tensor = adapter._array_to_tensor
     if use_model_predictions:
@@ -1321,3 +1311,56 @@ def _consolidate_comparisons(X: Tensor, Y: Tensor) -> tuple[Tensor, Tensor]:
 
     X, Y, _ = consolidate_duplicates(X, Y)
     return X, Y
+
+
+def is_unordered_choice(
+    p: Parameter, min_choices: int | None = None, max_choices: int | None = None
+) -> bool:
+    """Returns whether a parameter is an unordered choice (categorical) parameter.
+
+    You can also specify `min_choices` and `max_choices` to restrict how many
+    possible values the parameter can take on.
+
+    Args:
+        p: Parameter.
+        min_choices: The minimum number of possible values for the parameter.
+        max_choices: The maximum number of possible values for the parameter.
+
+    Returns:
+        A boolean indicating whether p is an unordered choice parameter or not.
+    """
+    if min_choices is not None and min_choices < 0:
+        raise UserInputError("`min_choices` must be a non-negative integer.")
+    if max_choices is not None and max_choices < 0:
+        raise UserInputError("`max_choices` must be a non-negative integer.")
+    if (
+        min_choices is not None
+        and max_choices is not None
+        and min_choices > max_choices
+    ):
+        raise UserInputError("`min_choices` cannot be larger than `max_choices`.")
+    return (
+        isinstance(p, ChoiceParameter)
+        and not p.is_ordered
+        and (min_choices is None or min_choices <= len(p.values))
+        and (max_choices is None or max_choices >= len(p.values))
+    )
+
+
+def can_map_to_binary(p: Parameter) -> bool:
+    """Returns whether a parameter can be transformed to a binary parameter.
+
+    Any choice/range parameters with exactly two values can be transformed to a
+    binary parameter.
+
+    Args:
+        p: Parameter.
+
+    Returns
+        A boolean indicating whether p can be transformed to a binary parameter.
+    """
+    return (isinstance(p, ChoiceParameter) and len(p.values) == 2) or (
+        isinstance(p, RangeParameter)
+        and p.parameter_type == ParameterType.INT
+        and p.lower == p.upper - 1
+    )

@@ -17,6 +17,25 @@ from torch import Tensor
 from xgboost import XGBRegressor
 
 
+def load_xgb_regressor(path: str) -> XGBRegressor:
+    """Load an XGBRegressor model from a file.
+
+    This function sets `_estimator_type` before calling `load_model()` to
+    ensure compatibility with scikit-learn >= 1.8.0, which changed how
+    `_estimator_type` is inherited from `RegressorMixin`.
+
+    Args:
+        path: Path to the saved XGBoost model file.
+
+    Returns:
+        The loaded XGBRegressor model.
+    """
+    model = XGBRegressor()
+    model._estimator_type = "regressor"
+    model.load_model(path)
+    return model
+
+
 @dataclass(kw_only=True)
 class HierarchicalSearchSpaceSurrogate(BenchmarkTestFunction):
     lst_active_param_names: list[list[str]]

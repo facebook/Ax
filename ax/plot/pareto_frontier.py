@@ -641,7 +641,7 @@ def interact_multiple_pareto_frontier(
             lists of Pareto frontier computation results to plot for comparison.
             Each list of ParetoFrontierResults contains a list of the results of
             the same pareto frontier but under different pairs of metrics.
-            Different List[ParetoFrontierResults] must contain the the same pairs
+            Different List[ParetoFrontierResults] must contain the same pairs
             of metrics for this function to work.
         CI_level (float, optional): The confidence level, i.e. 0.95 (95%)
         show_parameterization_on_hover (bool, optional): If True, show the

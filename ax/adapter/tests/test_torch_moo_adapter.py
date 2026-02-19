@@ -437,9 +437,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         fixed_features = ObservationFeatures(parameters={"x1": 0.0})
         search_space = exp.search_space.clone()
-        param_constraints = [
-            ParameterConstraint(constraint_dict={"x1": 1.0}, bound=10.0)
-        ]
+        param_constraints = [ParameterConstraint(inequality="x1 <= 10")]
         search_space.add_parameter_constraints(param_constraints)
         oc = none_throws(exp.optimization_config).clone()
         oc.objective._objectives[0].minimize = True
@@ -642,15 +640,18 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             torch_device=torch.device("cuda" if cuda else "cpu"),
         )
         self.assertIn("Cast", adapter.transforms)
-        with patch.object(
-            adapter,
-            "_untransform_objective_thresholds",
-            wraps=adapter._untransform_objective_thresholds,
-        ) as mock_untransform, patch.object(
-            adapter.transforms["Cast"],
-            "untransform_observation_features",
-            wraps=adapter.transforms["Cast"].untransform_observation_features,
-        ) as wrapped_cast:
+        with (
+            patch.object(
+                adapter,
+                "_untransform_objective_thresholds",
+                wraps=adapter._untransform_objective_thresholds,
+            ) as mock_untransform,
+            patch.object(
+                adapter.transforms["Cast"],
+                "untransform_observation_features",
+                wraps=adapter.transforms["Cast"].untransform_observation_features,
+            ) as wrapped_cast,
+        ):
             obj_thresholds = adapter.infer_objective_thresholds(
                 search_space=exp.search_space,
                 optimization_config=exp.optimization_config,

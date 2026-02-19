@@ -21,7 +21,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment, get_factorial_exp
 
 
 class TestAdapterFactorySingleObjective(TestCase):
-    def test_model_kwargs(self) -> None:
+    def test_generator_kwargs(self) -> None:
         """Tests that model kwargs are passed correctly."""
         exp = get_branin_experiment()
         sobol = get_sobol(

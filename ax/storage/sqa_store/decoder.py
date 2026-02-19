@@ -6,23 +6,24 @@
 
 # pyre-strict
 
-import json
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
+from collections.abc import Callable
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Any, Callable, cast, Union
+from typing import Any, cast, Union
 
 import pandas as pd
-from ax.analysis.analysis_card import (
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
+from ax.core.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
     AnalysisCardGroup,
     ErrorAnalysisCard,
 )
-from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
-from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial
@@ -36,6 +37,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
@@ -49,18 +51,15 @@ from ax.core.parameter import (
     Parameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.storage.json_store.decoder import _DEPRECATED_MODEL_KWARGS, object_from_json
+from ax.storage.json_store.decoder import _DEPRECATED_GENERATOR_KWARGS, object_from_json
+from ax.storage.json_store.decoders import _cast_parameter_value
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -78,7 +77,13 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import are_relationships_loaded
-from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import (
+    data_by_trial_to_data,
+    DomainType,
+    EXPECT_RELATIVIZED_OUTCOMES,
+    MetricIntent,
+    PREFERENCE_PROFILE_NAME,
+)
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pandas import read_json
@@ -86,6 +91,24 @@ from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 logger: Logger = get_logger(__name__)
+
+
+def _cast_arm_parameters(arm: Arm, search_space: SearchSpace) -> None:
+    """Cast arm parameter values to the appropriate Python type.
+
+    This is necessary because SQA may deserialize values as different types
+    (e.g., ints as floats). This function modifies the arm in place.
+
+    Args:
+        arm: The arm whose parameter values should be cast.
+        search_space: The search space containing parameter type information.
+    """
+    for param_name, param_value in arm._parameters.items():
+        if param_name in search_space.parameters:
+            parameter = search_space.parameters[param_name]
+            arm._parameters[param_name] = _cast_parameter_value(
+                param_value, parameter.parameter_type
+            )
 
 
 class Decoder:
@@ -224,11 +247,8 @@ class Decoder:
             runner = self.runner_from_sqa(runner_sqa=experiment_sqa.runners[0])
         else:
             raise ValueError(
-                "Multiple runners on experiment "
-                "only supported for MultiTypeExperiment."
+                "Multiple runners on experiment only supported for MultiTypeExperiment."
             )
-
-        default_data_type = experiment_sqa.default_data_type
 
         auxiliary_experiments_by_purpose = (
             (
@@ -251,7 +271,6 @@ class Decoder:
             status_quo=status_quo,
             is_test=experiment_sqa.is_test,
             properties=properties,
-            default_data_type=default_data_type,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
         )
 
@@ -299,11 +318,8 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
-            trial_type_to_runner.update(
-                {t_type: None for t_type in trial_types_with_metrics}
-            )
+            trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
-        default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
@@ -313,7 +329,6 @@ class Decoder:
             optimization_config=opt_config,
             status_quo=status_quo,
             properties=properties,
-            default_data_type=default_data_type,
         )
         # pyre-ignore Imcompatible attribute type [8]: attribute _trial_type_to_runner
         # has type Dict[str, Optional[Runner]] but is used as type
@@ -366,15 +381,17 @@ class Decoder:
         for data_sqa in experiment_sqa.data:
             trial_index = data_sqa.trial_index
             timestamp = data_sqa.time_created
-            # TODO: Use metrics-like Data type field in Data instead.
-            default_data_constructor = experiment.default_data_constructor
             data_by_trial[trial_index][timestamp] = self.data_from_sqa(
-                data_sqa=data_sqa, data_constructor=default_data_constructor
+                data_sqa=data_sqa
             )
-        data_by_trial = {
-            trial_index: OrderedDict(sorted(data_by_timestamp.items()))
-            for trial_index, data_by_timestamp in data_by_trial.items()
+        experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
+
+        trial_type_to_runner = {
+            sqa_runner.trial_type: self.runner_from_sqa(sqa_runner)
+            for sqa_runner in experiment_sqa.runners
         }
+        if len(trial_type_to_runner) == 0:
+            trial_type_to_runner = {None: None}
 
         experiment._trials = {trial.index: trial for trial in trials}
         experiment._arms_by_name = {}
@@ -382,15 +399,26 @@ class Decoder:
             if trial.ttl_seconds is not None:
                 experiment._trials_have_ttl = True
             for arm in trial.arms:
+                # Cast arm parameter values to the appropriate type based on the
+                # search space parameter types. This is necessary because SQA may
+                # deserialize values as different types (e.g., ints as floats).
+                _cast_arm_parameters(arm, experiment.search_space)
                 experiment._register_arm(arm)
         if experiment.status_quo is not None:
             sq = none_throws(experiment.status_quo)
+            # Cast status_quo arm parameter values as well.
+            _cast_arm_parameters(sq, experiment.search_space)
             experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
+        experiment._status = experiment_sqa.status
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
-        experiment._data_by_trial = dict(data_by_trial)
+        # `_trial_type_to_runner` is set in _init_mt_experiment_from_sqa
+        if subclass != "MultiTypeExperiment":
+            experiment._trial_type_to_runner = cast(
+                dict[str | None, Runner | None], trial_type_to_runner
+            )
         experiment.db_id = experiment_sqa.id
         return experiment
 
@@ -440,6 +468,7 @@ class Decoder:
                 target_value=target_value,
                 is_ordered=parameter_sqa.is_ordered,
                 is_task=bool(parameter_sqa.is_task),
+                log_scale=parameter_sqa.log_scale,
                 dependents=parameter_sqa.dependents,
                 backfill_value=parameter_sqa.backfill_value,
                 default_value=parameter_sqa.default_value,
@@ -480,56 +509,19 @@ class Decoder:
         parameters: list[Parameter],
     ) -> ParameterConstraint:
         """Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""
-        parameter_map = {p.name: p for p in parameters}
-        if parameter_constraint_sqa.type == ParameterConstraintType.ORDER:
-            lower_name = None
-            upper_name = None
-            for k, v in parameter_constraint_sqa.constraint_dict.items():
-                if v == 1:
-                    lower_name = k
-                elif v == -1:
-                    upper_name = k
-            if not lower_name or not upper_name:
-                raise SQADecodeError(
-                    "Cannot decode SQAParameterConstraint because `lower_name` or "
-                    "`upper_name` was not found."
-                )
-            lower_parameter = parameter_map[lower_name]
-            upper_parameter = parameter_map[upper_name]
-            constraint = OrderConstraint(
-                lower_parameter=lower_parameter, upper_parameter=upper_parameter
+        if len(parameter_constraint_sqa.constraint_dict) == 0:
+            raise SQADecodeError(
+                "ParameterConstraint must have at least one parameter in its "
+                f"constraint_dict; found 0 on {parameter_constraint_sqa.id}."
             )
-        elif parameter_constraint_sqa.type == ParameterConstraintType.SUM:
-            # This operation is potentially very inefficient.
-            # It is O(#constrained_parameters * #total_parameters)
-            parameter_names = list(parameter_constraint_sqa.constraint_dict.keys())
-            constraint_parameters = [
-                next(
-                    search_space_param
-                    for search_space_param in parameters
-                    if search_space_param.name == c_p_name
-                )
-                for c_p_name in parameter_names
-            ]
-            a_values = list(parameter_constraint_sqa.constraint_dict.values())
-            if len(a_values) == 0:
-                raise SQADecodeError(
-                    "Cannot decode SQAParameterConstraint because `constraint_dict` "
-                    "is empty."
-                )
-            a = a_values[0]
-            is_upper_bound = a == 1
-            bound = float(parameter_constraint_sqa.bound) * a
-            constraint = SumConstraint(
-                parameters=constraint_parameters,
-                is_upper_bound=is_upper_bound,
-                bound=bound,
-            )
-        else:
-            constraint = ParameterConstraint(
-                constraint_dict=dict(parameter_constraint_sqa.constraint_dict),
-                bound=float(parameter_constraint_sqa.bound),
-            )
+
+        expr = " + ".join(
+            f"{coeff} * {param}"
+            for param, coeff in parameter_constraint_sqa.constraint_dict.items()
+        )
+        constraint = ParameterConstraint(
+            inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
+        )
 
         constraint.db_id = parameter_constraint_sqa.id
         return constraint
@@ -556,14 +548,9 @@ class Decoder:
         if len(parameters) == 0:
             return None
 
-        if any(p.is_hierarchical for p in parameters):
-            return SearchSpace(
-                parameters=parameters, parameter_constraints=parameter_constraints
-            )
-        else:
-            return SearchSpace(
-                parameters=parameters, parameter_constraints=parameter_constraints
-            )
+        return SearchSpace(
+            parameters=parameters, parameter_constraints=parameter_constraints
+        )
 
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
@@ -578,8 +565,16 @@ class Decoder:
             return self._objective_from_sqa(metric=metric, metric_sqa=metric_sqa)
         elif (
             metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE
-        ):  # metric_sqa is a parent whose children are individual
+            # metric_sqa is a parent whose children are individual
             # metrics in MultiObjective
+            or metric_sqa.intent == MetricIntent.PREFERENCE_OBJECTIVE
+            # PREFERENCE_OBJECTIVE stores a MultiObjective, similar to
+            # MULTI_OBJECTIVE. The config-level properties
+            # (preference_profile_name, expect_relativized_outcomes) are stored
+            # in the parent metric's properties field and are extracted in
+            # opt_config_and_tracking_metrics_from_sqa to create the full
+            # PreferenceOptimizationConfig.
+        ):
             return self._multi_objective_from_sqa(parent_metric_sqa=metric_sqa)
         elif (
             metric_sqa.intent == MetricIntent.SCALARIZED_OBJECTIVE
@@ -607,14 +602,19 @@ class Decoder:
     def opt_config_and_tracking_metrics_from_sqa(
         self, metrics_sqa: list[SQAMetric], pruning_target_parameterization: Arm | None
     ) -> tuple[OptimizationConfig | None, list[Metric]]:
-        """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
+        """Convert a list of SQLAlchemy Metrics to Ax OptimizationConfig
         and tracking metrics.
         """
         objective = None
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
+        preference_objective_sqa = None
+
         for metric_sqa in metrics_sqa:
+            if metric_sqa.intent == MetricIntent.PREFERENCE_OBJECTIVE:
+                preference_objective_sqa = metric_sqa
+
             metric = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(metric, Objective):
                 objective = metric
@@ -628,7 +628,22 @@ class Decoder:
         if objective is None:
             return None, tracking_metrics
 
-        if objective_thresholds or type(objective) is MultiObjective:
+        if preference_objective_sqa is not None:
+            if objective_thresholds:
+                raise SQADecodeError(
+                    "PreferenceOptimizationConfig cannot have objective thresholds."
+                )
+            properties = preference_objective_sqa.properties or {}
+            optimization_config = PreferenceOptimizationConfig(
+                objective=assert_is_instance(objective, MultiObjective),
+                preference_profile_name=properties.get(PREFERENCE_PROFILE_NAME, ""),
+                expect_relativized_outcomes=properties.get(
+                    EXPECT_RELATIVIZED_OUTCOMES, False
+                ),
+                outcome_constraints=outcome_constraints,
+                pruning_target_parameterization=pruning_target_parameterization,
+            )
+        elif objective_thresholds or type(objective) is MultiObjective:
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=assert_is_instance(
                     objective, Union[MultiObjective, ScalarizedObjective]
@@ -756,8 +771,8 @@ class Decoder:
             #  `Optional[typing.Tuple[Union[typing.Dict[str, List[float]],
             #  typing.Dict[str, typing.Dict[str, List[float]]]], ...]]`.
             model_predictions=model_predictions,
-            model_key=generator_run_sqa.model_key,
-            model_kwargs=(
+            generator_key=generator_run_sqa.model_key,
+            generator_kwargs=(
                 None
                 if reduced_state
                 else object_from_json(
@@ -766,7 +781,7 @@ class Decoder:
                     class_decoder_registry=self.config.json_class_decoder_registry,
                 )
             ),
-            bridge_kwargs=(
+            adapter_kwargs=(
                 None
                 if reduced_state
                 else object_from_json(
@@ -784,7 +799,7 @@ class Decoder:
                     class_decoder_registry=self.config.json_class_decoder_registry,
                 )
             ),
-            model_state_after_gen=(
+            generator_state_after_gen=(
                 None
                 if reduced_state
                 else object_from_json(
@@ -793,26 +808,26 @@ class Decoder:
                     class_decoder_registry=self.config.json_class_decoder_registry,
                 )
             ),
-            generation_step_index=generator_run_sqa.generation_step_index,
             candidate_metadata_by_arm_signature=object_from_json(
                 generator_run_sqa.candidate_metadata_by_arm_signature,
                 decoder_registry=self.config.json_decoder_registry,
                 class_decoder_registry=self.config.json_class_decoder_registry,
             ),
             generation_node_name=generator_run_sqa.generation_node_name,
+            suggested_experiment_status=generator_run_sqa.suggested_experiment_status,
         )
-        # Remove deprecated kwargs from model kwargs & adapter kwargs.
-        if generator_run._model_kwargs is not None:
-            generator_run._model_kwargs = {
+        # Remove deprecated kwargs from generator kwargs & adapter kwargs.
+        if generator_run._generator_kwargs is not None:
+            generator_run._generator_kwargs = {
                 k: v
-                for k, v in generator_run._model_kwargs.items()
-                if k not in _DEPRECATED_MODEL_KWARGS
+                for k, v in generator_run._generator_kwargs.items()
+                if k not in _DEPRECATED_GENERATOR_KWARGS
             }
-        if generator_run._bridge_kwargs is not None:
-            generator_run._bridge_kwargs = {
+        if generator_run._adapter_kwargs is not None:
+            generator_run._adapter_kwargs = {
                 k: v
-                for k, v in generator_run._bridge_kwargs.items()
-                if k not in _DEPRECATED_MODEL_KWARGS
+                for k, v in generator_run._adapter_kwargs.items()
+                if k not in _DEPRECATED_GENERATOR_KWARGS
             }
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(
@@ -829,38 +844,32 @@ class Decoder:
         reduced_state: bool = False,
     ) -> GenerationStrategy:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
-        steps = object_from_json(
-            gs_sqa.steps,
-            decoder_registry=self.config.json_decoder_registry,
-            class_decoder_registry=self.config.json_class_decoder_registry,
-        )
-        nodes = object_from_json(
-            gs_sqa.nodes,
-            decoder_registry=self.config.json_decoder_registry,
-            class_decoder_registry=self.config.json_class_decoder_registry,
-        )
-
-        # GenerationStrategies can ony be initialized with either steps or nodes.
-        # Determine which to use to initialize this GenerationStrategy.
-        if len(steps) > 0:
-            gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
-            if gs_sqa.curr_index is None:
-                raise SQADecodeError(
-                    "Current index must be specified for "
-                    "step-based Generation Strategies."
-                )
-            gs._curr = gs._steps[gs_sqa.curr_index]
+        if len(gs_sqa.generator_runs) and experiment is None:
+            raise SQADecodeError(
+                "Cannot decode a generation strategy with a non-zero number of "
+                "generator runs without an experiment."
+            )
+        # Backward compat: use steps if nodes is None or empty
+        if not gs_sqa.nodes:
+            nodes = object_from_json(
+                gs_sqa.steps,
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
+            )
         else:
-            gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
-            curr_node_name = gs_sqa.curr_node_name
-            for node in gs._nodes:
-                if node.name == curr_node_name:
-                    gs._curr = node
-                    break
+            nodes = object_from_json(
+                gs_sqa.nodes,
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
+            )
+        gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
+        curr_node_name = gs_sqa.curr_node_name
+        for node in gs._nodes:
+            if node.name == curr_node_name:
+                gs._curr = node
+                break
         immutable_ss_and_oc = (
-            experiment.immutable_search_space_and_opt_config
-            if experiment is not None
-            else False
+            experiment.immutable_search_space_and_opt_config if experiment else False
         )
 
         gs._generator_runs = [
@@ -907,16 +916,7 @@ class Decoder:
                     )
                 )
         gs._experiment = experiment
-
-        if len(gs._generator_runs) > 0:
-            # Generation strategy had an initialized model.
-            if experiment is None:
-                raise SQADecodeError(
-                    "Cannot decode a generation strategy with a non-zero number of "
-                    "generator runs without an experiment."
-                )
         gs.db_id = gs_sqa.id
-
         return gs
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
@@ -1011,8 +1011,7 @@ class Decoder:
         trial._time_completed = trial_sqa.time_completed
         trial._time_staged = trial_sqa.time_staged
         trial._time_run_started = trial_sqa.time_run_started
-        trial._abandoned_reason = trial_sqa.abandoned_reason
-        trial._failed_reason = trial_sqa.failed_reason
+        trial._status_reason = trial_sqa.abandoned_reason or trial_sqa.failed_reason
         # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
         #  `Optional[Dict[str, Any]]`.
         # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
@@ -1030,42 +1029,23 @@ class Decoder:
             else None
         )
         trial._num_arms_created = trial_sqa.num_arms_created
-        trial._runner = (
-            self.runner_from_sqa(
-                trial_sqa.runner,
-            )
-            if trial_sqa.runner
-            else None
-        )
-        trial._generation_step_index = trial_sqa.generation_step_index
         trial._properties = dict(trial_sqa.properties or {})
         trial.db_id = trial_sqa.id
         return trial
 
-    def data_from_sqa(
-        self,
-        data_sqa: SQAData,
-        data_constructor: type[Data] = Data,
-    ) -> Data:
-        """Convert SQLAlchemy Data to AE Data."""
-        # TODO: extract data type from SQAData after DataRegistry added.
-        kwargs = data_constructor.deserialize_init_args(
-            args=dict(
-                json.loads(data_sqa.structure_metadata_json)
-                if data_sqa.structure_metadata_json
-                else {}
-            )
-        )
-
+    def data_from_sqa(self, data_sqa: SQAData) -> Data:
+        """Convert SQLAlchemy Data to Ax Data."""
         # Override df from deserialize_init_args with `data_json`.
         # NOTE: Need dtype=False, otherwise infers arm_names like
         # "4_1" should be int 41.
-        kwargs["df"] = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
-        if "metric_signature" not in kwargs["df"].columns:
-            kwargs["df"]["metric_signature"] = kwargs["df"]["metric_name"]
+        df = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
+        # Ensure trial_index is int (dtype=False can leave it as string)
+        if "trial_index" in df.columns:
+            df["trial_index"] = df["trial_index"].astype(int)
+        if "metric_signature" not in df.columns:
+            df["metric_signature"] = df["metric_name"]
 
-        dat = data_constructor(**kwargs)
-
+        dat = Data(df=df)
         dat.db_id = data_sqa.id
         return dat
 
@@ -1111,7 +1091,7 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1120,7 +1100,7 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1129,7 +1109,7 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1138,7 +1118,16 @@ class Decoder:
                 name=analysis_card_sqa.name,
                 title=title,
                 subtitle=subtitle,
-                df=read_json(analysis_card_sqa.dataframe_json),
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
+        if blob_annotation == "graphviz":
+            return GraphvizAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
             )
@@ -1146,7 +1135,7 @@ class Decoder:
             name=analysis_card_sqa.name,
             title=title,
             subtitle=subtitle,
-            df=read_json(analysis_card_sqa.dataframe_json),
+            df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
             blob=blob,
             timestamp=analysis_card_sqa.timestamp,
         )
@@ -1319,8 +1308,7 @@ class Decoder:
     ) -> ObjectiveThreshold:
         if metric_sqa.bound is None:
             raise SQADecodeError(
-                "Cannot decode SQAMetric to ObjectiveThreshold because "
-                "bound is None."
+                "Cannot decode SQAMetric to ObjectiveThreshold because bound is None."
             )
 
         if metric_sqa.relative is None:

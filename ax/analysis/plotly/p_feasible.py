@@ -6,10 +6,10 @@
 # pyre-strict
 
 import re
-from typing import final, Sequence
+from collections.abc import Sequence
+from typing import final
 
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.arm_effects import (
     _prepare_figure as _arm_effects_prepare_figure,

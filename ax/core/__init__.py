@@ -12,6 +12,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage, LLMProvider
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
@@ -31,11 +32,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -50,6 +47,8 @@ __all__ = [
     "Experiment",
     "FixedParameter",
     "GeneratorRun",
+    "LLMMessage",
+    "LLMProvider",
     "Metric",
     "MultiObjective",
     "MultiObjectiveOptimizationConfig",
@@ -57,7 +56,6 @@ __all__ = [
     "ObjectiveThreshold",
     "ObservationFeatures",
     "OptimizationConfig",
-    "OrderConstraint",
     "OutcomeConstraint",
     "Parameter",
     "ParameterConstraint",
@@ -66,6 +64,5 @@ __all__ = [
     "Runner",
     "SearchSpace",
     "SimpleExperiment",
-    "SumConstraint",
     "Trial",
 ]

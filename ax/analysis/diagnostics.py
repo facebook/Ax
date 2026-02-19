@@ -9,9 +9,10 @@ from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardGroup
+from ax.analysis.graphviz.generation_strategy_graph import GenerationStrategyGraph
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -75,8 +76,20 @@ class DiagnosticAnalysis(Analysis):
             else []
         )
 
+        generation_strategy_graph = (
+            [
+                GenerationStrategyGraph().compute_or_error_card(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                    adapter=adapter,
+                )
+            ]
+            if generation_strategy is not None
+            else []
+        )
+
         return self._create_analysis_card_group(
             title=DIAGNOSTICS_CARDGROUP_TITLE,
             subtitle=DIAGNOSTICS_CARDGROUP_SUBTITLE,
-            children=[*cross_validation_plots],
+            children=[*cross_validation_plots, *generation_strategy_graph],
         )

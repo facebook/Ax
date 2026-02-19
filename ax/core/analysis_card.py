@@ -8,14 +8,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Sequence
+from typing import Any
 
 import pandas as pd
 from ax.utils.common.base import SortableBase
 from ax.utils.tutorials.environment import is_running_in_papermill
 from IPython.display import display, HTML, Markdown
-
 from plotly.offline import get_plotlyjs
 
 # Simple HTML template for rendering a card with a title, subtitle, and body with

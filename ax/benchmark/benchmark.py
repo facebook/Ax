@@ -39,8 +39,8 @@ from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.arm import Arm
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -52,7 +52,7 @@ from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import Orchestrator
+from ax.orchestration.orchestrator import Orchestrator
 from ax.service.utils.best_point import (
     _prepare_data_for_trace,
     derelativize_opt_config,
@@ -63,7 +63,6 @@ from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
 from ax.utils.common.logger import DEFAULT_LOG_LEVEL, get_logger
 from ax.utils.common.random import with_rng_seed
 from ax.utils.testing.backend_simulator import BackendSimulator
-
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
@@ -148,7 +147,7 @@ def get_benchmark_runner(
 
     return BenchmarkRunner(
         test_function=problem.test_function,
-        noise_std=problem.noise_std,
+        noise=problem.noise,
         step_runtime_function=problem.step_runtime_function,
         max_concurrency=max_concurrency,
         force_use_simulated_backend=force_use_simulated_backend,
@@ -190,7 +189,9 @@ def get_oracle_experiment_from_params(
         optimization_config=problem.optimization_config,
     )
 
-    runner = BenchmarkRunner(test_function=problem.test_function, noise_std=0.0)
+    # The test function produces ground-truth values; noise is handled by
+    # BenchmarkRunner's Noise object (default is noiseless GaussianNoise).
+    runner = BenchmarkRunner(test_function=problem.test_function)
 
     # Silence INFO logs from ax.core.experiment that state "Attached custom
     # parameterizations"
@@ -793,7 +794,7 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
     Args:
         experiment: An experiment produced by `benchmark_replication`; it must
             have `BenchmarkTrialMetadata` (as produced by `BenchmarkRunner`) for
-            each trial, and its data must be `MapData`.
+            each trial, and its data must have a "step" column.
     """
     optimization_config = none_throws(experiment.optimization_config)
 
@@ -807,10 +808,10 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
         )
 
     objective_name = optimization_config.objective.metric.name
-    data = assert_is_instance(experiment.lookup_data(), MapData)
-    map_df = data.map_df
+    data = experiment.lookup_data()
+    full_df = data.full_df
 
-    # Has timestamps; needs to be merged with map_df because it contains
+    # Has timestamps; needs to be merged with full_df because it contains
     # data on epochs that didn't actually run due to early stopping, and we need
     # to know which actually ran
     def _get_df(trial: Trial) -> pd.DataFrame:
@@ -837,8 +838,8 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
     )[["trial_index", MAP_KEY, "time"]]
 
     df = (
-        map_df.loc[
-            map_df["metric_name"] == objective_name,
+        full_df.loc[
+            full_df["metric_name"] == objective_name,
             ["trial_index", "arm_name", "mean", MAP_KEY],
         ]
         .merge(with_timestamps, how="left")

@@ -86,8 +86,9 @@ class BenchmarkResult(Base):
             updated whenever a trial completes, so, like the `oracle_trace` and
             `inference_trace`, it can have fewer elements than the number of
             trials if multiple trials complete at the same time. Trials that do
-            not produce `MapData` have a cost of 1, and trials that produce
-            `MapData` have a cost equal to the length of the `MapData`.
+            not produce Data with a "step" column have a cost of 1, and trials
+            that produce Data with a "step" column have a cost equal to the
+            number of steps in the Data.
         fit_time: Total time spent fitting models.
         gen_time: Total time spent generating candidates.
         experiment: If not ``None``, the Ax experiment associated with the

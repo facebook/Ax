@@ -6,12 +6,51 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.plotly.utils import get_arm_tooltip, trial_index_to_color
-from ax.core.trial_status import TrialStatus
+from ax.analysis.plotly.utils import (
+    get_arm_tooltip,
+    get_trial_statuses_with_fallback,
+    trial_index_to_color,
+)
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.utils.common.testutils import TestCase
+from pyre_extensions import none_throws
 
 
 class TestUtils(TestCase):
+    def test_get_trial_statuses_with_fallback_with_explicit_statuses(self) -> None:
+        # When trial_statuses is explicitly provided, it should be returned as-is
+        explicit_statuses = [TrialStatus.COMPLETED, TrialStatus.RUNNING]
+        result = get_trial_statuses_with_fallback(
+            trial_statuses=explicit_statuses, trial_index=None
+        )
+        self.assertEqual(result, explicit_statuses)
+
+    def test_get_trial_statuses_with_fallback_with_trial_index(self) -> None:
+        # When trial_index is provided (and trial_statuses is None),
+        # should return None to allow filtering by trial_index instead
+        result = get_trial_statuses_with_fallback(trial_statuses=None, trial_index=0)
+        self.assertIsNone(result)
+
+    def test_get_trial_statuses_with_fallback_default(self) -> None:
+        # When neither trial_statuses nor trial_index is provided,
+        # should return all statuses except ABANDONED, STALE, and FAILED
+        result = none_throws(
+            get_trial_statuses_with_fallback(trial_statuses=None, trial_index=None)
+        )
+
+        self.assertEqual(set(result), DEFAULT_ANALYSIS_STATUSES)
+        self.assertNotIn(TrialStatus.ABANDONED, result)
+        self.assertNotIn(TrialStatus.STALE, result)
+        self.assertNotIn(TrialStatus.FAILED, result)
+
+    def test_get_trial_statuses_with_fallback_explicit_takes_precedence(self) -> None:
+        # When both trial_statuses and trial_index are provided,
+        # trial_statuses should take precedence
+        result = get_trial_statuses_with_fallback(
+            trial_statuses=[TrialStatus.FAILED], trial_index=5
+        )
+        self.assertIsNone(result)
+
     def test_trial_index_to_color(self) -> None:
         trials_list = [0, 1, 11]
         test_df = pd.DataFrame(

@@ -9,6 +9,8 @@
 from math import isinf
 from typing import cast
 
+import numpy as np
+import pandas as pd
 from ax.core.parameter import (
     _get_parameter_type,
     ChoiceParameter,
@@ -234,6 +236,37 @@ class RangeParameterTest(TestCase):
             },
         )
 
+    def test_is_compatible_with(self) -> None:
+        with self.subTest("compatible_same_name_and_type"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            self.assertTrue(range_param_1.is_compatible_with(range_param_2))
+
+        with self.subTest("incompatible_different_type"):
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                lower=0,
+                upper=10,
+            )
+            self.assertFalse(range_param_1.is_compatible_with(range_param_2))
+
 
 class ChoiceParameterTest(TestCase):
     def setUp(self) -> None:
@@ -273,11 +306,12 @@ class ChoiceParameterTest(TestCase):
         self.param4 = ChoiceParameter(
             name="x",
             parameter_type=ParameterType.INT,
-            values=[1, 2],
+            values=[1, 2, 4],
+            log_scale=True,
         )
         self.param4_repr = (
             "ChoiceParameter(name='x', parameter_type=INT, "
-            "values=[1, 2], is_ordered=True, sort_values=True)"
+            "values=[1, 2, 4], is_ordered=True, sort_values=True, log_scale=True)"
         )
 
     def test_BadCreations(self) -> None:
@@ -294,6 +328,18 @@ class ChoiceParameterTest(TestCase):
                 parameter_type=ParameterType.STRING,
                 values=["foo", "foo2"],
                 is_task=True,
+            )
+        # Test that numeric ordered parameters must have sort_values=True
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Numeric ordered choice parameters must have sort_values=True",
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                values=[1, 2, 3],
+                is_ordered=True,
+                sort_values=False,
             )
 
     def test_Eq(self) -> None:
@@ -479,6 +525,7 @@ class ChoiceParameterTest(TestCase):
             "is_hierarchical",
             "is_task",
             "sort_values",
+            "log_scale",
         ]
         self.assertListEqual(self.param1.available_flags, choice_flags)
         self.assertListEqual(self.param2.available_flags, choice_flags)
@@ -489,7 +536,7 @@ class ChoiceParameterTest(TestCase):
         self.assertEqual(self.param1.domain_repr, "values=['foo', 'bar', 'baz']")
         self.assertEqual(self.param2.domain_repr, "values=['foo', 'bar', 'baz']")
         self.assertEqual(self.param3.domain_repr, "values=['foo', 'bar']")
-        self.assertEqual(self.param4.domain_repr, "values=[1, 2]")
+        self.assertEqual(self.param4.domain_repr, "values=[1, 2, 4]")
 
     def test_summary_dict(self) -> None:
         self.assertDictEqual(
@@ -529,9 +576,9 @@ class ChoiceParameterTest(TestCase):
             {
                 "name": "x",
                 "type": "Choice",
-                "domain": "values=[1, 2]",
+                "domain": "values=[1, 2, 4]",
                 "parameter_type": "int",
-                "flags": "ordered, sorted",
+                "flags": "ordered, sorted, log_scale",
             },
         )
 
@@ -577,9 +624,177 @@ class ChoiceParameterTest(TestCase):
                     name="x",
                     parameter_type=parameter_type,
                     values=values,  # pyre-ignore
-                    sort_values=False,
                 )
                 self.assertEqual(p._is_ordered, True)
+
+    def test_log_scale(self) -> None:
+        # Test explicit log_scale values
+        for log_scale, expected in ((True, True), (False, False), (None, True)):
+            param = ChoiceParameter(
+                name="learning_rate",
+                parameter_type=ParameterType.FLOAT,
+                values=[0.001, 0.01, 0.1, 1.0],
+                log_scale=log_scale,
+            )
+            self.assertEqual(param.log_scale, expected)
+
+        # Heuristic 1: Exponential spacing
+        # Example 1: Equal ratios - [2, 4, 8, 16] = [2^1, 2^2, 2^3, 2^4]
+        param_equal_ratios = ChoiceParameter(
+            name="batch_size",
+            parameter_type=ParameterType.INT,
+            values=[2, 4, 8, 16],
+        )
+        self.assertTrue(param_equal_ratios.log_scale)
+
+        # Example 2: Skipped powers - [64, 128, 512] = [2^6, 2^7, 2^9]
+        param_skipped_powers = ChoiceParameter(
+            name="embedding_dim",
+            parameter_type=ParameterType.INT,
+            values=[64, 128, 512],
+        )
+        self.assertTrue(param_skipped_powers.log_scale)
+
+        # Example 3: Constant factor - [10, 20, 40, 80] = 10 * [2^0, 2^1, 2^2, 2^3]
+        param_constant_factor = ChoiceParameter(
+            name="learning_rate_scaled",
+            parameter_type=ParameterType.INT,
+            values=[10, 20, 40, 80],
+        )
+        self.assertTrue(param_constant_factor.log_scale)
+
+        # Example 4: Different base - [3, 9, 27] = [3^1, 3^2, 3^3]
+        param_any_base = ChoiceParameter(
+            name="num_filters",
+            parameter_type=ParameterType.INT,
+            values=[3, 9, 27],
+        )
+        self.assertTrue(param_any_base.log_scale)
+
+        # Approximate scaling. Similar to powers of 3 but not exact.
+        param_approximate = ChoiceParameter(
+            name="num_filters",
+            parameter_type=ParameterType.INT,
+            values=[3, 9, 26, 80],
+        )
+        self.assertTrue(param_approximate.log_scale)
+
+        # Heuristic 2: Spans orders of magnitude
+        param_two_orders = ChoiceParameter(
+            name="step_size",
+            parameter_type=ParameterType.FLOAT,
+            values=[0.01, 0.2, 0.5, 1.0],
+        )
+        self.assertTrue(param_two_orders.log_scale)
+
+        param_irregular = ChoiceParameter(
+            name="num_samples",
+            parameter_type=ParameterType.INT,
+            values=[5, 10, 50, 100, 500],
+        )
+        self.assertTrue(param_irregular.log_scale)
+
+        # Negative cases
+        # Linear spacing
+        param_linear = ChoiceParameter(
+            name="num_layers",
+            parameter_type=ParameterType.INT,
+            values=[1, 2, 3, 4, 5],
+        )
+        self.assertFalse(param_linear.log_scale)
+
+        # String values
+        param_string = ChoiceParameter(
+            name="optimizer",
+            parameter_type=ParameterType.STRING,
+            values=["adam", "sgd", "rmsprop"],
+        )
+        self.assertFalse(param_string.log_scale)
+
+        # Too few values (need at least 3)
+        param_few = ChoiceParameter(
+            name="mode",
+            parameter_type=ParameterType.INT,
+            values=[2, 4],
+        )
+        self.assertFalse(param_few.log_scale)
+
+        # Negative values
+        param_negative = ChoiceParameter(
+            name="temperature",
+            parameter_type=ParameterType.FLOAT,
+            values=[-1.0, 0.0, 1.0, 2.0],
+        )
+        self.assertFalse(param_negative.log_scale)
+
+        # Categorical.
+        param_categorical = ChoiceParameter(
+            name="temperature",
+            parameter_type=ParameterType.FLOAT,
+            values=[2, 4, 8, 16],
+            is_ordered=False,
+        )
+        self.assertFalse(param_categorical.log_scale)
+
+    def test_log_scale_validation_errors(self) -> None:
+        """Test that log_scale=True raises appropriate errors for invalid inputs."""
+        # Negative values
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale requires all values to be positive"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                values=[-1.0, 1.0, 10.0],
+                log_scale=True,
+            )
+
+        # Zero values
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale requires all values to be positive"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                values=[0.0, 1.0, 10.0],
+                log_scale=True,
+            )
+
+        # Non-numerical type
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale is only supported for numerical parameters"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b", "c"],
+                log_scale=True,
+            )
+
+        # Unordered parameter (log_scale requires ordered)
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale is only supported for ordered parameters"
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                values=[1, 2, 4],
+                is_ordered=False,
+                log_scale=True,
+            )
+
+    def test_is_compatible_with(self) -> None:
+        choice_param_1 = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["foo", "bar"],
+        )
+        choice_param_2 = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["foo", "bar"],
+        )
+        self.assertTrue(choice_param_1.is_compatible_with(choice_param_2))
 
 
 class FixedParameterTest(TestCase):
@@ -711,6 +926,55 @@ class FixedParameterTest(TestCase):
             },
         )
 
+    def test_is_compatible_with(self) -> None:
+        with self.subTest("compatible_string_same_value"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
+
+        with self.subTest("compatible_int_same_value"):
+            fixed_param_1 = FixedParameter(
+                name="x", parameter_type=ParameterType.INT, value=1
+            )
+            fixed_param_2 = FixedParameter(
+                name="x", parameter_type=ParameterType.INT, value=1
+            )
+            self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
+
+        with self.subTest("compatible_bool_same_value"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.BOOL,
+                value=True,
+            )
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.BOOL,
+                value=True,
+            )
+            self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
+
+        with self.subTest("incompatible_different_value"):
+            fixed_param_1 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            fixed_param_2 = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                value="bar",
+            )
+            self.assertFalse(fixed_param_1.is_compatible_with(fixed_param_2))
+
 
 class DerivedParameterTest(TestCase):
     def setUp(self) -> None:
@@ -759,8 +1023,8 @@ class DerivedParameterTest(TestCase):
         for parameter_type in (ParameterType.BOOL, ParameterType.STRING):
             with self.assertRaisesRegex(
                 UserInputError,
-                "Derived parameters must be of type float or int, but got "
-                f"{parameter_type}.",
+                f"Derived parameters of type {parameter_type.name} must be simple "
+                "copies",
             ):
                 DerivedParameter(
                     name="x",
@@ -769,8 +1033,7 @@ class DerivedParameterTest(TestCase):
                 )
         with self.assertRaisesRegex(
             UserInputError,
-            "Derived parameters must have at least one parameter in "
-            "`expression_str`.",
+            "Derived parameters must have at least one parameter in `expression_str`.",
         ):
             DerivedParameter(
                 name="x",
@@ -853,8 +1116,7 @@ class DerivedParameterTest(TestCase):
         self.assertEqual(self.param1.parameter_names_to_weights, {"c": 5.0})
         with self.assertRaisesRegex(
             UserInputError,
-            "Derived parameters must have at least one parameter in "
-            "`expression_str`.",
+            "Derived parameters must have at least one parameter in `expression_str`.",
         ):
             self.param1.set_expression_str(expression_str="1.0")
 
@@ -910,6 +1172,132 @@ class DerivedParameterTest(TestCase):
             "cardinality for an integer DerivedParameter is not supported.",
         ):
             self.param2.cardinality()
+
+    def test_simple_copy(self) -> None:
+        """Test simple copy functionality for all parameter types including BOOL, and
+        STRING.
+        """
+        # Test 1: Simple copy detection - _is_simple_copy returns True for single param
+        dp_float = DerivedParameter(
+            name="derived_x",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="x",
+        )
+        self.assertTrue(dp_float._is_simple_copy)
+        self.assertEqual(dp_float.source_parameter_name, "x")
+
+        # Test 2: _is_simple_copy returns False for expressions with coefficients != 1
+        dp_scaled = DerivedParameter(
+            name="derived_scaled",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="2 * x",
+        )
+        self.assertFalse(dp_scaled._is_simple_copy)
+        self.assertIsNone(dp_scaled.source_parameter_name)
+
+        # Test 3: _is_simple_copy returns False for expressions with intercepts
+        dp_offset = DerivedParameter(
+            name="derived_offset",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="x + 1",
+        )
+        self.assertFalse(dp_offset._is_simple_copy)
+
+        # Test 4: _is_simple_copy returns False for multi-param expressions
+        dp_multi = DerivedParameter(
+            name="derived_multi",
+            parameter_type=ParameterType.FLOAT,
+            expression_str="x + y",
+        )
+        self.assertFalse(dp_multi._is_simple_copy)
+
+        # Test 5: BOOL derived parameter - compute and validate
+        dp_bool = DerivedParameter(
+            name="derived_bool",
+            parameter_type=ParameterType.BOOL,
+            expression_str="flag",
+        )
+        self.assertTrue(dp_bool._is_simple_copy)
+        self.assertEqual(dp_bool.compute({"flag": True}), True)
+        self.assertEqual(dp_bool.compute({"flag": False}), False)
+        self.assertTrue(dp_bool.validate(True, parameters={"flag": True}))
+        self.assertTrue(dp_bool.validate(False, parameters={"flag": False}))
+        self.assertFalse(dp_bool.validate(True, parameters={"flag": False}))
+
+        # Test 6: STRING derived parameter - compute and validate
+        dp_string = DerivedParameter(
+            name="derived_string",
+            parameter_type=ParameterType.STRING,
+            expression_str="category",
+        )
+        self.assertTrue(dp_string._is_simple_copy)
+        self.assertEqual(dp_string.compute({"category": "foo"}), "foo")
+        self.assertEqual(dp_string.compute({"category": "bar"}), "bar")
+        self.assertTrue(dp_string.validate("foo", parameters={"category": "foo"}))
+        self.assertFalse(dp_string.validate("foo", parameters={"category": "bar"}))
+
+        # Test 7: domain_repr for simple copy
+        self.assertEqual(dp_bool.domain_repr, "value=flag")
+        self.assertEqual(dp_string.domain_repr, "value=category")
+
+        # Test 8: Error case - BOOL with non-simple expression
+        with self.assertRaisesRegex(UserInputError, "simple copies"):
+            DerivedParameter(
+                name="bad_bool",
+                parameter_type=ParameterType.BOOL,
+                expression_str="2 * flag",
+            )
+
+        # Test 9: Error case - STRING with non-simple expression
+        with self.assertRaisesRegex(UserInputError, "simple copies"):
+            DerivedParameter(
+                name="bad_string",
+                parameter_type=ParameterType.STRING,
+                expression_str="cat + 1",
+            )
+
+        # Test 10: compute_array and validate_array for BOOL
+        df = pd.DataFrame(
+            {
+                "flag": [True, False, True],
+                "other": [False, False, False],
+            }
+        )
+        computed_bool = dp_bool.compute_array(df)
+        self.assertTrue(np.array_equal(computed_bool, np.array([True, False, True])))
+        self.assertTrue(
+            np.array_equal(
+                dp_bool.validate_array(np.array([True, False, True]), df),
+                np.array([True, True, True]),
+            )
+        )
+
+        # Test 11: compute_array and validate_array for STRING
+        df_str = pd.DataFrame({"category": ["foo", "bar", "baz"]})
+        computed_str = dp_string.compute_array(df_str)
+        self.assertTrue(np.array_equal(computed_str, np.array(["foo", "bar", "baz"])))
+
+        # Test 12: compute_array for numeric (FLOAT) simple copy with column present
+        # (Covers line 1533: return df[source_name].to_numpy(dtype=np.float64, ...))
+        df_float = pd.DataFrame({"x": [1.0, 2.0, 3.0]})
+        np.testing.assert_array_equal(
+            dp_float.compute_array(df_float), np.array([1.0, 2.0, 3.0])
+        )
+
+        # Test 13: compute_array for simple copy with missing column
+        # (Covers lines 1535-1537)
+        df_missing = pd.DataFrame({"other": [1.0, 2.0]})
+        self.assertTrue(np.all(np.isnan(dp_float.compute_array(df_missing))))  # numeric
+        self.assertTrue(
+            np.all(pd.isna(dp_bool.compute_array(df_missing)))
+        )  # non-numeric
+
+        # Test 14: validate_array with df=None
+        # (Covers line 1568)
+        np.testing.assert_array_equal(
+            dp_float.validate_array(np.array([1.0, 2.0]), df=None),
+            np.array([False, False]),
+        )
 
 
 class ParameterEqualityTest(TestCase):

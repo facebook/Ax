@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from logging import Logger
-from typing import final, Sequence
+from typing import final
 
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
@@ -16,6 +17,7 @@ from ax.analysis.plotly.plotly_analysis import (
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.scatter import _prepare_figure as _prepare_figure_scatter
+from ax.analysis.plotly.utils import get_trial_statuses_with_fallback
 from ax.analysis.utils import (
     extract_relevant_adapter,
     prepare_arm_data,
@@ -25,6 +27,7 @@ from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
@@ -65,7 +68,9 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
         relativize: bool = False,
         additional_arms: Sequence[Arm] | None = None,
         label: str | None = None,
-        num_points_to_generate: int = 100,
+        num_points_to_generate: int = 10,
+        trial_index: int | None = None,
+        trial_statuses: Sequence[TrialStatus] | None = None,
     ) -> None:
         """
         Args:
@@ -76,14 +81,28 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
             label: A label to use in the plot in place of the metric name.
+            trial_index: If present, only use arms from the trial with the given index.
+            trial_statuses: If present, only use arms from trials with the given
+                statuses. By default, exclude STALE, ABANDONED, and FAILED trials.
             num_points_to_generate: The number of points to generate on the frontier.
                 Ideally this should be sufficiently large to provide a frontier with
                 reasonably good coverage.
         """
         self.relativize = relativize
-        self.additional_arms = additional_arms
+        # store original additional_arms so can add newly generated frontier arms to
+        # additional_arms, but have `compute` remain idempotent.
+        self._additional_arms: list[Arm] = (
+            [] if additional_arms is None else [*additional_arms]
+        )
+        self.additional_arms: list[Arm] = self._additional_arms
         self.label = label
         self.num_points_to_generate = num_points_to_generate
+        self.trial_statuses: list[TrialStatus] | None = (
+            get_trial_statuses_with_fallback(
+                trial_statuses=trial_statuses, trial_index=trial_index
+            )
+        )
+        self.trial_index = trial_index
 
     @override
     def validate_applicable_state(
@@ -184,9 +203,9 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             Arm(name=f"frontier_{i}", parameters=arm.parameters)
             for i, arm in enumerate(frontier_gr.arms)
         ]
-
-        if self.additional_arms is not None:
-            arms += self.additional_arms
+        # concatenate self._additional_arms and arms, so that `compute`
+        # remains idempotent
+        self.additional_arms = self._additional_arms + arms
 
         optimization_config = none_throws(experiment.optimization_config)
 
@@ -196,7 +215,9 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             adapter=relevant_adapter,
             use_model_predictions=True,
             relativize=self.relativize,
-            additional_arms=arms,
+            additional_arms=self.additional_arms,
+            trial_index=self.trial_index,
+            trial_statuses=self.trial_statuses,
         )
 
         objective_name = optimization_config.objective.metric.name

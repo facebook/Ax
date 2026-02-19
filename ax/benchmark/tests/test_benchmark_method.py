@@ -18,8 +18,12 @@ class TestBenchmarkMethod(TestCase):
         self.assertEqual(method.name, "Sobol10")
 
         # test that `fit_tracking_metrics` has been correctly set to False
-        for step in method.generation_strategy._steps:
-            self.assertFalse(none_throws(step.model_kwargs).get("fit_tracking_metrics"))
+        for step in method.generation_strategy._nodes:
+            self.assertFalse(
+                none_throws(step.generator_specs[0].generator_kwargs).get(
+                    "fit_tracking_metrics"
+                )
+            )
 
         method = BenchmarkMethod(generation_strategy=gs)
         self.assertEqual(method.name, method.generation_strategy.name)
@@ -28,7 +32,7 @@ class TestBenchmarkMethod(TestCase):
         method = BenchmarkMethod(name="Sobol10", generation_strategy=gs)
         for node in method.generation_strategy._nodes:
             self.assertFalse(
-                none_throws(node.generator_spec_to_gen_from.model_kwargs).get(
+                none_throws(node.generator_spec_to_gen_from.generator_kwargs).get(
                     "fit_tracking_metrics"
                 )
             )

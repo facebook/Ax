@@ -10,7 +10,12 @@ from itertools import product
 import numpy as np
 import pandas as pd
 from ax.analysis.plotly.utils import STALE_FAIL_REASON, truncate_label
-from ax.analysis.utils import _relativize_df_with_sq, prepare_arm_data
+from ax.analysis.utils import (
+    _get_scalarized_constraint_mean_and_sem,
+    _prepare_p_feasible,
+    _relativize_df_with_sq,
+    prepare_arm_data,
+)
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
@@ -18,7 +23,9 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import relativize_dataframe
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus  # noqa
+from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
@@ -147,7 +154,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -194,7 +201,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -225,7 +232,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -246,23 +253,31 @@ class TestUtils(TestCase):
         # Check that all SEMs have the correct value
         self.assertTrue((only_trial_0_df["foo_sem"] == 0.1).all())
 
-        only_completed_trials_df = prepare_arm_data(
-            experiment=self.client._experiment,
-            metric_names=["foo", "bar"],
-            use_model_predictions=False,
-            trial_statuses=[TrialStatus.COMPLETED],
-        )
+    def test_prepare_arm_data_raw_trial_statuses(self) -> None:
+        """Test that trial_statuses filter works correctly for raw data."""
+        for trial_statuses in (
+            [TrialStatus.COMPLETED],
+            [TrialStatus.COMPLETED, TrialStatus.FAILED],
+        ):
+            with self.subTest(trial_statuses=trial_statuses):
+                df = prepare_arm_data(
+                    experiment=self.client._experiment,
+                    metric_names=["foo", "bar"],
+                    use_model_predictions=False,
+                    trial_statuses=trial_statuses,
+                )
 
-        # Check that we have two rows per arm and that each arm appears only once
-        self.assertEqual(
-            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
-        )
+                # Check that all trials in df have the expected status
+                for _, row in df.iterrows():
+                    self.assertIn(TrialStatus[row["trial_status"]], trial_statuses)
 
-        # Check that all means are not NaN
-        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
-
-        # Check that all SEMs have the correct value
-        self.assertTrue((only_completed_trials_df["foo_sem"] == 0.1).all())
+                # Check that the number of rows matches expected count
+                expected_count = sum(
+                    1
+                    for trial in self.client._experiment.trials.values()
+                    if trial.status in trial_statuses
+                )
+                self.assertEqual(len(df), expected_count)
 
     def test_prepare_arm_data_use_model_predictions_with_abandoned_arms(self) -> None:
         search_space = self.client._experiment.search_space.clone()
@@ -326,7 +341,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -370,7 +385,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -403,7 +418,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -442,7 +457,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -485,7 +500,7 @@ class TestUtils(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -505,25 +520,42 @@ class TestUtils(TestCase):
         self.assertFalse(with_additional_arms_df["bar_mean"].isna().any())
         self.assertFalse(with_additional_arms_df["bar_sem"].isna().any())
 
-        only_completed_trials_df = prepare_arm_data(
-            experiment=self.client._experiment,
-            metric_names=["foo", "bar"],
-            use_model_predictions=True,
-            adapter=self.client._generation_strategy.adapter,
-            trial_statuses=[TrialStatus.COMPLETED],
-        )
+    def test_prepare_arm_data_model_predictions_trial_statuses(self) -> None:
+        """Test that trial_statuses filter works correctly with model predictions."""
+        for trial_statuses in (
+            [TrialStatus.COMPLETED],
+            [TrialStatus.FAILED],
+            [TrialStatus.COMPLETED, TrialStatus.FAILED],
+        ):
+            with self.subTest(trial_statuses=trial_statuses):
+                df = prepare_arm_data(
+                    experiment=self.client._experiment,
+                    metric_names=["foo", "bar"],
+                    use_model_predictions=True,
+                    adapter=self.client._generation_strategy.adapter,
+                    trial_statuses=trial_statuses,
+                )
 
-        # Check that we have two rows per arm and that each arm appears only once
-        self.assertEqual(
-            len(only_completed_trials_df), len(self.client._experiment.arms_by_name) - 1
-        )
+                # Check that all trials in df have the expected status
+                for _, row in df.iterrows():
+                    self.assertIn(TrialStatus[row["trial_status"]], trial_statuses)
 
-        # Check that all means are not NaN
-        self.assertFalse(only_completed_trials_df["foo_mean"].isna().any())
+                # Check that the number of rows matches expected count
+                expected_count = sum(
+                    1
+                    for trial in self.client._experiment.trials.values()
+                    if trial.status in trial_statuses
+                )
+                self.assertEqual(len(df), expected_count)
 
-        # Check that all SEMs are not NaN
-        self.assertFalse(only_completed_trials_df["foo_sem"].isna().any())
+                # Check that all means and SEMs are not NaN for completed trials
+                if TrialStatus.COMPLETED in trial_statuses:
+                    completed_df = df[df["trial_status"] == "COMPLETED"]
+                    self.assertFalse(completed_df["foo_mean"].isna().any())
+                    self.assertFalse(completed_df["foo_sem"].isna().any())
 
+    def test_prepare_arm_data_out_of_distribution_arm(self) -> None:
+        """Test that out-of-distribution arms get model predictions."""
         # add an arm that is not in the search space
         trial = self.client._experiment.new_trial()
         trial.add_arm(Arm(name="ood_arm", parameters={"x1": 0.5, "x2": 2.0}))
@@ -539,7 +571,7 @@ class TestUtils(TestCase):
         )
         gen_spec = self.client._generation_strategy._curr.generator_specs[0]
         adapter = gen_spec.generator_enum(
-            experiment=self.client._experiment, **gen_spec.model_kwargs
+            experiment=self.client._experiment, **gen_spec.generator_kwargs
         )
         df = prepare_arm_data(
             experiment=self.client._experiment,
@@ -553,7 +585,7 @@ class TestUtils(TestCase):
         self.assertFalse(np.isnan(ood_df.foo_sem.iloc[0]))
 
     def test_prepare_arm_data_includes_failure_reasons(self) -> None:
-        """Test that the fail_reason column is properly populated."""
+        """Test that the status_reason column is properly populated."""
         client = Client()
         client.configure_experiment(
             name="test_failure_reasons",
@@ -575,16 +607,16 @@ class TestUtils(TestCase):
             use_model_predictions=False,
         )
 
-        # Verify fail_reason column is populated correctly
-        self.assertIn("fail_reason", df.columns)
+        # Verify status_reason column is populated correctly
+        self.assertIn("status_reason", df.columns)
         self.assertTrue(
-            pd.isna(df[df["trial_index"] == 0]["fail_reason"].iloc[0])
+            pd.isna(df[df["trial_index"] == 0]["status_reason"].iloc[0])
         )  # Success: no reason
         self.assertEqual(
-            df[df["trial_index"] == 1]["fail_reason"].iloc[0], "Regular failure"
+            df[df["trial_index"] == 1]["status_reason"].iloc[0], "Regular failure"
         )  # Regular failure
         self.assertEqual(
-            df[df["trial_index"] == 2]["fail_reason"].iloc[0], STALE_FAIL_REASON
+            df[df["trial_index"] == 2]["status_reason"].iloc[0], STALE_FAIL_REASON
         )  # Stale failure
 
     def test_relativize_df_with_sq(self) -> None:
@@ -600,7 +632,9 @@ class TestUtils(TestCase):
         )
 
         rel_df = _relativize_df_with_sq(
-            df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
+            df=df,
+            status_quo_df=df[df["arm_name"] == "status_quo"],
+            status_quo_name="status_quo",
         )
 
         np.testing.assert_almost_equal(
@@ -608,7 +642,9 @@ class TestUtils(TestCase):
         )  # status quo
         np.testing.assert_almost_equal(rel_df.loc[1, "foo_mean"], 0.2, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[2, "foo_mean"], 0.5, decimal=1)
-        np.testing.assert_almost_equal(rel_df.loc[0, "foo_sem"], 0.1, decimal=1)
+        np.testing.assert_almost_equal(
+            rel_df.loc[0, "foo_sem"], 0.0, decimal=1
+        )  # status quo sem should be 0
         np.testing.assert_almost_equal(rel_df.loc[1, "foo_sem"], 0.2, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_mean"], 0.1, decimal=1)
         np.testing.assert_almost_equal(rel_df.loc[1, "bar_sem"], 0.2, decimal=1)
@@ -626,7 +662,9 @@ class TestUtils(TestCase):
         )
 
         rel_df = _relativize_df_with_sq(
-            df=df, status_quo_df=df[df["arm_name"] == "status_quo"]
+            df=df,
+            status_quo_df=df[df["arm_name"] == "status_quo"],
+            status_quo_name="status_quo",
         )
 
         np.testing.assert_almost_equal(
@@ -655,6 +693,21 @@ class TestUtils(TestCase):
                 "foo_mean"
             ].iloc[0],
             0.5,
+            decimal=1,
+        )
+        # Verify that status quo sem is 0 for both trials
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 0) & (rel_df["arm_name"] == "status_quo")][
+                "foo_sem"
+            ].iloc[0],
+            0.0,
+            decimal=1,
+        )
+        np.testing.assert_almost_equal(
+            rel_df[(rel_df["trial_index"] == 1) & (rel_df["arm_name"] == "status_quo")][
+                "foo_sem"
+            ].iloc[0],
+            0.0,
             decimal=1,
         )
 
@@ -819,3 +872,58 @@ class TestUtils(TestCase):
                             trial_index=trial_index,
                             additional_arms=additional_arms,
                         )
+
+    def test_scalarized_constraints(self) -> None:
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0],
+                "arm_name": ["arm1", "arm2"],
+                "m1_mean": [5.0, 15.0],
+                "m1_sem": [1.0, 1.0],
+                "m2_mean": [5.0, 15.0],
+                "m2_sem": [1.0, 1.0],
+                "regular_mean": [8.0, 12.0],
+                "regular_sem": [0.5, 0.5],
+            }
+        )
+
+        scalarized_constraint = ScalarizedOutcomeConstraint(
+            metrics=[Metric(name="m1"), Metric(name="m2")],
+            weights=[1.0, 1.0],
+            op=ComparisonOp.LEQ,
+            bound=25.0,
+            relative=False,
+        )
+
+        # Helper math: mean = w1*m1 + w2*m2, SEM = sqrt(w1^2*s1^2 + w2^2*s2^2)
+        mean, sem = _get_scalarized_constraint_mean_and_sem(df, scalarized_constraint)
+        np.testing.assert_array_almost_equal(mean, [10.0, 30.0])
+        np.testing.assert_array_almost_equal(sem, [np.sqrt(2), np.sqrt(2)])
+
+        # Missing metric returns NaN mean and zero SEM
+        missing_constraint = ScalarizedOutcomeConstraint(
+            metrics=[Metric(name="m1"), Metric(name="missing")],
+            weights=[1.0, 1.0],
+            op=ComparisonOp.LEQ,
+            bound=10.0,
+        )
+        mean, sem = _get_scalarized_constraint_mean_and_sem(df, missing_constraint)
+        self.assertTrue(np.all(np.isnan(mean)))
+        np.testing.assert_array_equal(sem, np.zeros(2))
+
+        # p_feasible with mixed regular + scalarized constraints
+        regular_constraint = OutcomeConstraint(
+            metric=Metric(name="regular"),
+            op=ComparisonOp.LEQ,
+            bound=10.0,
+            relative=False,
+        )
+        p_feasible = _prepare_p_feasible(
+            df=df,
+            status_quo_df=None,
+            outcome_constraints=[regular_constraint, scalarized_constraint],
+        )
+        self.assertFalse(p_feasible.isna().any())
+        # arm1 (regular=8, scalarized=10) more feasible than
+        # arm2 (regular=12, scalarized=30)
+        self.assertGreater(p_feasible.iloc[0], p_feasible.iloc[1])

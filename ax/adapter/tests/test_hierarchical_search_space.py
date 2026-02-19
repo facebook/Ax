@@ -12,7 +12,6 @@ from random import random
 
 from ax.adapter.cross_validation import cross_validate
 from ax.adapter.registry import Generators
-
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
@@ -23,7 +22,6 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.metrics.noisy_function import GenericNoisyFunctionMetric
@@ -219,7 +217,7 @@ class TestHierarchicalSearchSpace(TestCase):
                     )
                 ]
             )
-        cv_res = cross_validate(model=mbm)
+        cv_res = cross_validate(adapter=mbm)
         self.assertEqual(len(cv_res), len(experiment.trials))
 
     def test_with_non_hierarchical_hss(self) -> None:

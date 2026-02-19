@@ -64,17 +64,17 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         )
         wrapped_extract_ssd.assert_called_once()
 
-    def test_model_key(self) -> None:
+    def test_generator_key(self) -> None:
         ms = GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR)
-        self.assertEqual(ms.model_key, "BoTorch")
+        self.assertEqual(ms.generator_key, "BoTorch")
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_key_override="MBM with defaults",
+            generator_key_override="MBM with defaults",
         )
-        self.assertEqual(ms.model_key, "MBM with defaults")
+        self.assertEqual(ms.generator_key, "MBM with defaults")
         ms.fit(experiment=self.experiment, data=self.data)
         gr = ms.gen(n=1)
-        self.assertEqual(gr._model_key, "MBM with defaults")
+        self.assertEqual(gr._generator_key, "MBM with defaults")
 
     @patch(f"{GeneratorSpec.__module__}.compute_diagnostics")
     @patch(
@@ -88,14 +88,14 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         fake_mb._process_and_transform_data = MagicMock(return_value=(None, None))
         mock_enum.return_value = fake_mb
         ms = GeneratorSpec(
-            generator_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+            generator_enum=mock_enum, cv_kwargs={"test_key": "test-value"}
         )
         ms.fit(
             experiment=self.experiment,
             data=self.experiment.trials[0].fetch_data(),
         )
         cv_results, cv_diagnostics = ms.cross_validate()
-        mock_cv.assert_called_with(model=fake_mb, test_key="test-value")
+        mock_cv.assert_called_with(adapter=fake_mb, test_key="test-value")
         mock_diagnostics.assert_called_with(["fake-cv-result"])
 
         self.assertIsNotNone(cv_results)
@@ -125,7 +125,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
 
             self.assertIsNotNone(cv_results)
             self.assertIsNotNone(cv_diagnostics)
-            mock_cv.assert_called_with(model=fake_mb, test_key="test-value")
+            mock_cv.assert_called_with(adapter=fake_mb, test_key="test-value")
             mock_diagnostics.assert_called_with(["fake-cv-result"])
 
         with self.subTest("pass in optional kwargs"):
@@ -134,11 +134,11 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
             # Cache is not empty, but CV will be called since there are new kwargs.
             assert ms._cv_results is not None
 
-            cv_results, cv_diagnostics = ms.cross_validate(model_cv_kwargs={"test": 1})
+            cv_results, cv_diagnostics = ms.cross_validate(cv_kwargs={"test": 1})
 
             self.assertIsNotNone(cv_results)
             self.assertIsNotNone(cv_diagnostics)
-            mock_cv.assert_called_with(model=fake_mb, test_key="test-value", test=1)
+            mock_cv.assert_called_with(adapter=fake_mb, test_key="test-value", test=1)
             self.assertEqual(ms._last_cv_kwargs, {"test": 1, "test_key": "test-value"})
 
     @patch(f"{GeneratorSpec.__module__}.compute_diagnostics")
@@ -151,7 +151,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         mock_enum = Mock()
         mock_enum.return_value = "fake-adapter"
         ms = GeneratorSpec(
-            generator_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"}
+            generator_enum=mock_enum, cv_kwargs={"test_key": "test-value"}
         )
         ms.fit(
             experiment=self.experiment,
@@ -165,7 +165,7 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         self.assertIsNone(cv_results)
         self.assertIsNone(cv_diagnostics)
 
-        mock_cv.assert_called_with(model="fake-adapter", test_key="test-value")
+        mock_cv.assert_called_with(adapter="fake-adapter", test_key="test-value")
         mock_diagnostics.assert_not_called()
 
     def test_fixed_features(self) -> None:
@@ -174,21 +174,21 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
         new_features = ObservationFeatures(parameters={"a": 1.0})
         ms.fixed_features = new_features
         self.assertEqual(ms.fixed_features, new_features)
-        self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
+        self.assertEqual(ms.generator_gen_kwargs["fixed_features"], new_features)
 
     def test_spec_string_representation(self) -> None:
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={"test_model_kwargs": 1},
-            model_gen_kwargs={"test_gen_kwargs": 1},
-            model_cv_kwargs={"test_cv_kwargs": 1},
+            generator_kwargs={"test_generator_kwargs": 1},
+            generator_gen_kwargs={"test_gen_kwargs": 1},
+            cv_kwargs={"test_cv_kwargs": 1},
         )
-        ms.model_key_override = "test_model_key_override"
+        ms.generator_key_override = "test_model_key_override"
 
         repr_str = repr(ms)
 
         self.assertNotIn("\n", repr_str)
-        self.assertIn("test_model_kwargs", repr_str)
+        self.assertIn("test_generator_kwargs", repr_str)
         self.assertIn("test_gen_kwargs", repr_str)
         self.assertIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)
@@ -196,16 +196,67 @@ class GeneratorSpecTest(BaseGeneratorSpecTest):
     def test_brief_rep(self) -> None:
         ms = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={"test_model_kwargs": 1},
-            model_gen_kwargs={"test_gen_kwargs": 1},
-            model_cv_kwargs={"test_cv_kwargs": 1},
+            generator_kwargs={"test_generator_kwargs": 1},
+            generator_gen_kwargs={"test_gen_kwargs": 1},
+            cv_kwargs={"test_cv_kwargs": 1},
         )
-        ms.model_key_override = "test_model_key_override"
+        ms.generator_key_override = "test_model_key_override"
 
         repr_str = ms._brief_repr()
 
         self.assertNotIn("\n", repr_str)
-        self.assertNotIn("test_model_kwargs", repr_str)
+        self.assertNotIn("test_generator_kwargs", repr_str)
         self.assertNotIn("test_gen_kwargs", repr_str)
         self.assertNotIn("test_cv_kwargs", repr_str)
         self.assertIn("test_model_key_override", repr_str)
+
+    def test_backwards_compatibility_deprecated_kwargs(self) -> None:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ms = GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_kwargs={"seed": 123},
+                model_gen_kwargs={"n": 5},
+                model_cv_kwargs={"test": "value"},
+            )
+        # Should get three warnings
+        self.assertEqual(len(w), 3)
+        self.assertIn("model_kwargs", str(w[0].message))
+        self.assertIn("model_gen_kwargs", str(w[1].message))
+        self.assertIn("model_cv_kwargs", str(w[2].message))
+
+        # Verify all values were transferred correctly
+        self.assertEqual(ms.generator_kwargs, {"seed": 123})
+        self.assertEqual(ms.generator_gen_kwargs, {"n": 5})
+        self.assertEqual(ms.cv_kwargs, {"test": "value"})
+
+    def test_backwards_compatibility_conflicts(self) -> None:
+        """Test that using both old and new kwargs raises an error."""
+        with self.assertRaisesRegex(
+            UserInputError, "Cannot specify both `model_kwargs` and `generator_kwargs`"
+        ):
+            GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_kwargs={"seed": 123},
+                generator_kwargs={"seed": 456},
+            )
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Cannot specify both `model_gen_kwargs` and `generator_gen_kwargs`",
+        ):
+            GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_gen_kwargs={"n": 5},
+                generator_gen_kwargs={"n": 10},
+            )
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Cannot specify both `model_cv_kwargs` and `cv_kwargs`",
+        ):
+            GeneratorSpec(
+                generator_enum=Generators.SOBOL,
+                model_cv_kwargs={"test": "value"},
+                cv_kwargs={"test": "other"},
+            )

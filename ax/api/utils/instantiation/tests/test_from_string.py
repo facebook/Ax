@@ -8,7 +8,6 @@ from ax.api.utils.instantiation.from_string import (
     optimization_config_from_string,
     parse_objective,
     parse_outcome_constraint,
-    parse_parameter_constraint,
 )
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -22,7 +21,6 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter_constraint import ParameterConstraint
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -94,46 +92,6 @@ class TestFromString(TestCase):
                         relative=False,
                     )
                 ],
-            ),
-        )
-
-    def test_parse_parameter_constraint(self) -> None:
-        constraint = parse_parameter_constraint(constraint_str="x1 + x2 <= 1")
-        self.assertEqual(
-            constraint,
-            ParameterConstraint(constraint_dict={"x1": 1, "x2": 1}, bound=1.0),
-        )
-
-        with_coefficients = parse_parameter_constraint(
-            constraint_str="2 * x1 + 3 * x2 <= 1"
-        )
-        self.assertEqual(
-            with_coefficients,
-            ParameterConstraint(constraint_dict={"x1": 2, "x2": 3}, bound=1.0),
-        )
-
-        flipped_sign = parse_parameter_constraint(constraint_str="x1 + x2 >= 1")
-        self.assertEqual(
-            flipped_sign,
-            ParameterConstraint(constraint_dict={"x1": -1, "x2": -1}, bound=-1.0),
-        )
-
-        weird = parse_parameter_constraint(constraint_str="x1 + x2 <= 1.5 * x3 + 2")
-        self.assertEqual(
-            weird,
-            ParameterConstraint(
-                constraint_dict={"x1": 1, "x2": 1, "x3": -1.5}, bound=2.0
-            ),
-        )
-
-        with self.assertRaisesRegex(UserInputError, "Only linear"):
-            parse_parameter_constraint(constraint_str="x1 * x2 <= 1")
-        # test with sanitization
-        constraint = parse_parameter_constraint(constraint_str="foo.bar + foo.baz <= 1")
-        self.assertEqual(
-            constraint,
-            ParameterConstraint(
-                constraint_dict={"foo.bar": 1, "foo.baz": 1}, bound=1.0
             ),
         )
 

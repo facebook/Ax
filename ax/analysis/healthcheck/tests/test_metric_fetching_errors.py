@@ -5,18 +5,17 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Any, Iterable
+from typing import Any
 
 import pandas as pd
-
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
-
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.service.orchestrator import Orchestrator, OrchestratorOptions
+from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -37,7 +36,7 @@ TEST_DATA = Data(
 )
 
 
-class TestMetricWithException(Metric):
+class MockMetricWithException(Metric):
     @classmethod
     def is_available_while_running(cls) -> bool:
         return True
@@ -62,7 +61,7 @@ class TestMetricWithException(Metric):
         }
 
 
-class TestMetricNoException(Metric):
+class MockMetricNoException(Metric):
     @classmethod
     def is_available_while_running(cls) -> bool:
         return True
@@ -80,7 +79,7 @@ class TestMetricNoException(Metric):
         }
 
 
-class TestMetricSuccess(Metric):
+class MockMetricSuccess(Metric):
     @classmethod
     def is_available_while_running(cls) -> bool:
         return True
@@ -116,7 +115,7 @@ class TestMetricFetchingErrors(TestCase):
         exp = get_branin_experiment(with_batch=True)
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
+        exp.add_tracking_metric(MockMetricWithException(name="test_metric"))
         # AND GIVEN that experiment has tried to fetch data through the orchestrator
         orchestrator = Orchestrator(
             experiment=exp,
@@ -175,7 +174,7 @@ class TestMetricFetchingErrors(TestCase):
         exp = get_branin_experiment(with_batch=True)
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(TestMetricNoException(name="test_metric"))
+        exp.add_tracking_metric(MockMetricNoException(name="test_metric"))
         # AND GIVEN that experiment has tried to fetch data through the orchestrator
         orchestrator = Orchestrator(
             experiment=exp,
@@ -228,8 +227,8 @@ class TestMetricFetchingErrors(TestCase):
         exp = get_branin_experiment(with_batch=True)
         # it won't fetch an already completed trial
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(TestMetricWithException(name="test_metric1"))
-        exp.add_tracking_metric(TestMetricWithException(name="test_metric2"))
+        exp.add_tracking_metric(MockMetricWithException(name="test_metric1"))
+        exp.add_tracking_metric(MockMetricWithException(name="test_metric2"))
         # AND GIVEN that experiment has tried to fetch data through the orchestrator
         orchestrator = Orchestrator(
             experiment=exp,
@@ -253,7 +252,7 @@ class TestMetricFetchingErrors(TestCase):
         # This tests that an error in exp._metric_fetching_errors is updated
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
+        exp.add_tracking_metric(MockMetricWithException(name="test_metric"))
 
         orchestrator = Orchestrator(
             experiment=exp,
@@ -277,7 +276,7 @@ class TestMetricFetchingErrors(TestCase):
         # on a successful fetch
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
-        exp.add_tracking_metric(TestMetricWithException(name="test_metric"))
+        exp.add_tracking_metric(MockMetricWithException(name="test_metric"))
 
         orchestrator = Orchestrator(
             experiment=exp,
@@ -291,7 +290,7 @@ class TestMetricFetchingErrors(TestCase):
 
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
         exp.remove_tracking_metric("test_metric")
-        exp.add_tracking_metric(TestMetricSuccess(name="test_metric"))
+        exp.add_tracking_metric(MockMetricSuccess(name="test_metric"))
         orchestrator.poll_and_process_results()
 
         self.assertEqual(len(exp._metric_fetching_errors), 0)

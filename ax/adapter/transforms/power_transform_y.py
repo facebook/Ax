@@ -15,6 +15,7 @@ import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import match_ci_width
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -79,11 +80,9 @@ class PowerTransformY(Transform):
             config=config,
         )
         # pyre-fixme[9]: Can't annotate config["metrics"] properly.
-        metric_signatures: list[str] | None = (
-            config.get("metrics", None) if config else None
-        )
-        self.clip_mean: bool = (
-            assert_is_instance(config.get("clip_mean", True), bool) if config else True
+        metric_signatures: list[str] | None = self.config.get("metrics", None)
+        self.clip_mean: bool = assert_is_instance(
+            self.config.get("clip_mean", True), bool
         )
         means_df = none_throws(experiment_data).observation_data["mean"]
         # Dropping NaNs here since the DF will have NaN for missing values.
@@ -109,12 +108,14 @@ class PowerTransformY(Transform):
             for i, m in enumerate(obsd.metric_signatures):
                 if m in self.metric_signatures:
                     transform = self.power_transforms[m].transform
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width(
+                    mean, cov = match_ci_width(
                         mean=obsd.means[i],
                         sem=None,
                         variance=obsd.covariance[i, i],
                         transform=lambda y, t=transform: t(np.array(y, ndmin=2)),
                     )
+                    obsd.means[i] = mean.item()
+                    obsd.covariance[i, i] = cov.item()
         return observation_data
 
     def _untransform_observation_data(
@@ -131,7 +132,7 @@ class PowerTransformY(Transform):
                         raise ValueError(
                             "Can't untransform mean outside the bounds without clipping"
                         )
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width(
+                    mean, cov = match_ci_width(
                         mean=obsd.means[i],
                         sem=None,
                         variance=obsd.covariance[i, i],
@@ -139,6 +140,8 @@ class PowerTransformY(Transform):
                         lower_bound=l + 1e-3,
                         upper_bound=u - 1e-3,
                     )
+                    obsd.means[i] = mean.item()
+                    obsd.covariance[i, i] = cov.item()
         return observation_data
 
     def transform_optimization_config(
@@ -147,6 +150,21 @@ class PowerTransformY(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
+        if isinstance(optimization_config.objective, ScalarizedObjective):
+            objective_metric_signatures = [
+                metric.signature for metric in optimization_config.objective.metrics
+            ]
+            intersection = set(objective_metric_signatures) & set(
+                self.metric_signatures
+            )
+            if intersection:
+                raise NotImplementedError(
+                    "PowerTransformY cannot be used for metric(s) "
+                    f"{intersection} that are part of a ScalarizedObjective. "
+                    "The power transform is a non-linear transformation and cannot "
+                    "preserve the linear scalarization of the objective."
+                )
+
         for c in optimization_config.all_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
                 c_metric_signatures = [metric.signature for metric in c.metrics]

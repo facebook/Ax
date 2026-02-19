@@ -9,7 +9,6 @@ from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-
 from ax.analysis.healthcheck.healthcheck_analysis import (
     create_healthcheck_analysis_card,
     HealthcheckAnalysisCard,
@@ -31,6 +30,8 @@ class TestOfNoEffectAnalysis(Analysis):
     and it is based on the Welch's test for testing whether the means across
     groups are identical assuming unequal variances across groups.
     """
+
+    __test__ = False  # Not a pytest test class (statistical "Test of No Effect")
 
     def __init__(self, no_effect_alpha: float = 0.05) -> None:
         r"""

@@ -11,6 +11,7 @@ import torch
 from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_problem import get_continuous_search_space
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
+from ax.benchmark.noise import GaussianNoise
 from ax.benchmark.problems.synthetic.from_botorch import (
     _get_name,
     create_problem_from_botorch,
@@ -23,7 +24,6 @@ from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-
 from botorch.test_functions.base import ConstrainedBaseTestProblem
 from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import (
@@ -131,7 +131,7 @@ class TestFromBoTorch(TestCase):
     def _test_constrained_from_botorch(
         self,
         observe_noise_sd: bool,
-        noise_std: float | list[float],
+        noise_std: float | dict[str, float],
         test_problem_class: type[ConstrainedBaseTestProblem],
     ) -> None:
         ax_problem = create_problem_from_botorch(
@@ -146,7 +146,9 @@ class TestFromBoTorch(TestCase):
         botorch_problem = assert_is_instance(
             test_problem.botorch_problem, ConstrainedBaseTestProblem
         )
-        self.assertEqual(ax_problem.noise_std, noise_std)
+        self.assertEqual(
+            assert_is_instance(ax_problem.noise, GaussianNoise).noise_std, noise_std
+        )
         opt_config = ax_problem.optimization_config
         outcome_constraints = opt_config.outcome_constraints
         self.assertEqual(
@@ -175,7 +177,15 @@ class TestFromBoTorch(TestCase):
     def test_constrained_soo_from_botorch(self) -> None:
         for observe_noise_sd, noise_std in product(
             [False, True],
-            [0.0, 0.1, [0.1, 0.3, 0.4]],
+            [
+                0.0,
+                0.1,
+                {
+                    "ConstrainedGramacy": 0.1,
+                    "constraint_slack_0": 0.3,
+                    "constraint_slack_1": 0.4,
+                },
+            ],
         ):
             with self.subTest(observe_noise_sd=observe_noise_sd, noise_std=noise_std):
                 self._test_constrained_from_botorch(

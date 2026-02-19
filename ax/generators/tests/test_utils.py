@@ -7,14 +7,17 @@
 # pyre-strict
 
 from itertools import product
+from typing import Any
 from unittest.mock import MagicMock
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.utils import (
     best_observed_point,
     enumerate_discrete_combinations,
     mk_discrete_choices,
+    rejection_sample,
     remove_duplicates,
 )
 from ax.utils.common.testutils import TestCase
@@ -201,3 +204,84 @@ class UtilsTest(TestCase):
                 {1: 2, 2: 4},
             ],
         )
+
+    def test_rejection_sample(self) -> None:
+        """Test rejection sampling with constraints."""
+        # --- Post-rounding constraint enforcement ---
+        with self.subTest("post_rounding_constraint_check"):
+            # Constraint: x0 + x1 <= 1.5
+            # We'll mock gen_unconstrained to return points that:
+            # 1. (0.6, 0.6): sum=1.2 satisfies, but rounds to (1,1): sum=2 violates
+            # 2. (0.4, 0.4): sum=0.8 satisfies, rounds to (0,0): sum=0 satisfies
+            call_count = 0
+            values_to_return: list[npt.NDArray[np.floating[Any]]] = [
+                np.array([[0.6, 0.6]]),
+                np.array([[0.4, 0.4]]),
+            ]
+
+            def mock_gen_unconstrained(
+                n: int,
+                d: int,
+                tunable_feature_indices: npt.NDArray[np.intp],
+                fixed_features: dict[int, float] | None,
+            ) -> npt.NDArray[np.floating[Any]]:
+                nonlocal call_count
+                result = values_to_return[min(call_count, len(values_to_return) - 1)]
+                call_count += 1
+                return result
+
+            def rounding_func(
+                point: npt.NDArray[np.floating[Any]],
+            ) -> npt.NDArray[np.floating[Any]]:
+                return np.round(point)
+
+            linear_constraints = (
+                np.array([[1.0, 1.0]]),  # A
+                np.array([[1.5]]),  # b: x0 + x1 <= 1.5
+            )
+
+            points, attempted = rejection_sample(
+                gen_unconstrained=mock_gen_unconstrained,
+                n=1,
+                d=2,
+                tunable_feature_indices=np.array([0, 1]),
+                linear_constraints=linear_constraints,
+                rounding_func=rounding_func,
+            )
+
+            # Should have attempted 2 draws: first was rejected after rounding
+            self.assertEqual(attempted, 2)
+            self.assertEqual(len(points), 1)
+            # The returned point should be (0, 0) - rounded version of (0.4, 0.4)
+            self.assertTrue(np.array_equal(points[0], np.array([0.0, 0.0])))
+
+        # --- Basic rejection sampling without rounding ---
+        with self.subTest("basic_without_rounding"):
+            rng: np.random.Generator = np.random.default_rng(123)
+
+            def gen_unconstrained_basic(
+                n: int,
+                d: int,
+                tunable_feature_indices: npt.NDArray[np.intp],
+                fixed_features: dict[int, float] | None,
+                rng: np.random.Generator = rng,
+            ) -> npt.NDArray[np.float64]:
+                return rng.uniform(0, 1, size=(n, d))
+
+            # Simple constraint: x0 <= 0.5
+            basic_constraints = (
+                np.array([[1.0, 0.0]]),  # A
+                np.array([[0.5]]),  # b
+            )
+
+            points, attempted = rejection_sample(
+                gen_unconstrained=gen_unconstrained_basic,
+                n=10,
+                d=2,
+                tunable_feature_indices=np.array([0, 1]),
+                linear_constraints=basic_constraints,
+            )
+
+            self.assertEqual(len(points), 10)
+            for point in points:
+                self.assertLessEqual(point[0], 0.5)

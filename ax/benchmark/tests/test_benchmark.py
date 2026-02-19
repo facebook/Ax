@@ -68,9 +68,7 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
 )
-
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.objective import MultiObjective
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
@@ -85,7 +83,6 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import get_logger
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
@@ -96,7 +93,6 @@ from botorch.acquisition.multi_objective.logei import (
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
-
 from botorch.test_functions.synthetic import Branin, PressureVessel
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -151,7 +147,7 @@ class TestBenchmark(TestCase):
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     batch_size=batch_size,
-                    model_gen_kwargs={
+                    generator_gen_kwargs={
                         "model_gen_options": {
                             "optimizer_kwargs": {"sequential": sequential}
                         }
@@ -342,11 +338,12 @@ class TestBenchmark(TestCase):
         expected_start_times = {
             "All complete at different times": [0, 0, 1, 3],
             "Trials complete immediately": [0, 0, 1, 1],
-            # Without MapData, completing after 0 seconds (second case) has the
-            # same effect as completing after 1 second (third case), because a
-            # new trial can't start until the next time increment.
-            # With MapData, trials complete at the same times as without
-            # MapData, but an extra step accrues in the third case.
+            # Without Data with `has_step_column=True`, completing after 0
+            # seconds (second case) has the same effect as completing after 1
+            # second (third case), because a new trial can't start until the
+            # next time increment.
+            # With Data with `has_step_column=True`, trials complete at the same
+            # times as without, but an extra step accrues in the third case.
             "Trials complete at same time": [0, 0, 1, 1],
             "Complete out of order": [0, 0, 1, 2],
         }
@@ -469,9 +466,9 @@ class TestBenchmark(TestCase):
                     msg=case_name,
                 )
                 if map_data:
-                    data = assert_is_instance(experiment.lookup_data(), MapData)
+                    data = experiment.lookup_data()
                     self.assertEqual(len(data.df), 4, msg=case_name)
-                    self.assertEqual(len(data.map_df), 4, msg=case_name)
+                    self.assertEqual(len(data.full_df), 4, msg=case_name)
 
                 # Check trial start and end times
                 start_of_time = datetime.fromtimestamp(0)
@@ -526,9 +523,11 @@ class TestBenchmark(TestCase):
                 none_throws(runner.simulated_backend_runner).simulator._verbose_logging
             )
 
-        with self.subTest("Logs not produced by default"), self.assertNoLogs(
-            level=logging.INFO, logger=logger
-        ), self.assertNoLogs(logger=logger):
+        with (
+            self.subTest("Logs not produced by default"),
+            self.assertNoLogs(level=logging.INFO, logger=logger),
+            self.assertNoLogs(logger=logger),
+        ):
             run_optimization_with_orchestrator(
                 problem=problem,
                 method=method,
@@ -574,14 +573,14 @@ class TestBenchmark(TestCase):
         experiment = self.run_optimization_with_orchestrator(
             problem=problem, method=method, seed=0
         )
-        data = assert_is_instance(experiment.lookup_data(), MapData)
+        data = experiment.lookup_data()
         expected_n_steps = {
             0: progression_length_if_not_stopped,
             # stopping after step=2, so 3 steps (0, 1, 2) have passed
             **{i: min_progression + 1 for i in range(1, 4)},
         }
 
-        grouped = data.map_df.groupby("trial_index")
+        grouped = data.full_df.groupby("trial_index")
         self.assertEqual(
             dict(grouped["step"].count()),
             expected_n_steps,
@@ -648,8 +647,8 @@ class TestBenchmark(TestCase):
                 for trial_index, sim_trial in trials.items()
             }
             self.assertEqual(start_times, expected_start_times)
-            map_df = assert_is_instance(experiment.lookup_data(), MapData).map_df
-            max_run = map_df.groupby("trial_index")["step"].max().to_dict()
+            full_df = experiment.lookup_data().full_df
+            max_run = full_df.groupby("trial_index")["step"].max().to_dict()
             self.assertEqual(max_run, {0: 4, 1: 2, 2: 2, 3: 2})
 
     def test_replication_variable_runtime(self) -> None:
@@ -910,7 +909,7 @@ class TestBenchmark(TestCase):
         # Each replication will have a different number of trials
 
         start = monotonic()
-        with self.assertLogs("ax.service.orchestrator", level="ERROR") as cm:
+        with self.assertLogs("ax.orchestration.orchestrator", level="ERROR") as cm:
             result = benchmark_one_method_problem(
                 problem=problem,
                 method=method,
@@ -937,7 +936,7 @@ class TestBenchmark(TestCase):
                         name="Sobol",
                         generator_specs=[
                             GeneratorSpec(
-                                Generators.SOBOL, model_kwargs={"deduplicate": True}
+                                Generators.SOBOL, generator_kwargs={"deduplicate": True}
                             )
                         ],
                     )
@@ -1105,7 +1104,7 @@ class TestBenchmark(TestCase):
             )
             self.assertEqual(result, 0)
 
-        with self.subTest("SOO, MapData"):
+        with self.subTest("SOO, Data with has_step_column=True"):
             map_test_function = IdentityTestFunction(n_steps=2)
             map_opt_config = get_soo_opt_config(
                 outcome_names=test_function.outcome_names, use_map_metric=True
@@ -1235,10 +1234,8 @@ class TestBenchmark(TestCase):
             optimal_value=problem.optimal_value,
             baseline_value=problem.baseline_value,
         )
-        map_df = assert_is_instance(
-            none_throws(result.experiment).lookup_data(), MapData
-        ).map_df
-        self.assertEqual(len(map_df), len(transformed.optimization_trace))
+        full_df = none_throws(result.experiment).lookup_data().full_df
+        self.assertEqual(len(full_df), len(transformed.optimization_trace))
         self.assertEqual(
             list(transformed.optimization_trace),
             [0.0, 0.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0],
@@ -1267,8 +1264,11 @@ class TestBenchmark(TestCase):
             optimization_config=moo_config,
         )
 
-        with self.subTest("MOO not supported"), self.assertRaisesRegex(
-            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        with (
+            self.subTest("MOO not supported"),
+            self.assertRaisesRegex(
+                NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+            ),
         ):
             get_best_parameters(experiment=experiment, generation_strategy=gs)
 

@@ -8,11 +8,9 @@
 from __future__ import annotations
 
 import traceback
-
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from functools import reduce
-
 from typing import Any, cast, Generic, NoReturn, TypeVar
 
 
@@ -37,15 +35,18 @@ class Result(Generic[T, E], ABC):
     def is_err(self) -> bool:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def ok(self) -> T | None:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def err(self) -> E | None:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def value(self) -> T | E:
         pass
 
@@ -93,7 +94,7 @@ class Result(Generic[T, E], ABC):
         """
         Returns the contained Ok value.
 
-        Because this function may raise an UnwrapError, its use is generally
+        Because this function may raise a RuntimeError, its use is generally
         discouraged. Instead, prefer to handle the Err case explicitly, or call
         unwrap_or, unwrap_or_else, or unwrap_or_default.
         """
@@ -105,7 +106,7 @@ class Result(Generic[T, E], ABC):
         """
         Returns the contained Err value.
 
-        Because this function may raise an UnwrapError, its use is generally
+        Because this function may raise a RuntimeError, its use is generally
         discouraged. Instead, prefer to handle the Err case explicitly, or call
         unwrap_or, unwrap_or_else, or unwrap_or_default.
         """
@@ -180,7 +181,7 @@ class Ok(Generic[T, E], Result[T, E]):
         return self._value
 
     def unwrap_err(self) -> NoReturn:
-        raise UnwrapError(f"Tried to unwrap_err {self}.")
+        raise RuntimeError(f"Tried to unwrap_err {self}.")
 
     def unwrap_or(self, default: U) -> T:
         return self._value
@@ -237,7 +238,7 @@ class Err(Generic[T, E], Result[T, E]):
         return default_op()
 
     def unwrap(self) -> NoReturn:
-        raise UnwrapError(f"Tried to unwrap {self}.")
+        raise RuntimeError(f"Tried to unwrap {self}.")
 
     def unwrap_err(self) -> E:
         return self._value
@@ -249,17 +250,6 @@ class Err(Generic[T, E], Result[T, E]):
 
     def unwrap_or_else(self, op: Callable[[E], T]) -> T:
         return op(self._value)
-
-
-class UnwrapError(Exception):
-    """
-    Exception that indicates something has gone wrong in an unwrap call.
-
-    This should not happen in real world use and indicates a user has improperly
-    or unsafely used the Result abstraction.
-    """
-
-    pass
 
 
 class ExceptionE:

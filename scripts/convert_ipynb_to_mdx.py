@@ -12,7 +12,6 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
-from typing import Union
 
 import mdformat
 import nbformat
@@ -695,7 +694,7 @@ def handle_tqdm(
 
 CELL_OUTPUTS_TO_PROCESS = dict[
     str,
-    list[dict[str, Union[int, str, NotebookNode]]],
+    list[dict[str, int | str | NotebookNode]],
 ]
 
 

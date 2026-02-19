@@ -159,7 +159,7 @@ class TestTopSurfacesAnalysis(TestCase):
         # Other cards should be slices or contours.
         self.assertIn("bar vs.", with_surfaces[1].title)
         self.assertIn("bar vs.", with_surfaces[2].title)
-        self.assertIn("bar vs.", with_surfaces[3].title)
+        self.assertIn("bar (Mean) vs.", with_surfaces[3].title)
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")

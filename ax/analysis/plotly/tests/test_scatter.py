@@ -14,9 +14,14 @@ from ax.analysis.plotly.scatter import compute_scatter_adhoc, ScatterPlot
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from ax.utils.testing.core_stubs import (
+    get_non_failed_arm_names,
+    get_offline_experiments,
+    get_online_experiments,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 from pyre_extensions import assert_is_instance, none_throws
@@ -66,6 +71,27 @@ class TestScatterPlot(TestCase):
                     },
                 )
 
+    def test_trial_statuses_behavior(self) -> None:
+        # When neither trial_statuses nor trial_index is provided,
+        # should use default statuses (excluding ABANDONED, STALE, and FAILED)
+        analysis = ScatterPlot(x_metric_name="foo", y_metric_name="bar")
+        self.assertEqual(
+            set(none_throws(analysis.trial_statuses)),
+            DEFAULT_ANALYSIS_STATUSES,
+        )
+
+        # When trial_statuses is explicitly provided, it should be used
+        explicit_statuses = [TrialStatus.COMPLETED, TrialStatus.RUNNING]
+        analysis = ScatterPlot(
+            x_metric_name="foo", y_metric_name="bar", trial_statuses=explicit_statuses
+        )
+        self.assertEqual(analysis.trial_statuses, explicit_statuses)
+
+        # When trial_index is provided (and trial_statuses is None),
+        # trial_statuses should be None to allow filtering by trial_index
+        analysis = ScatterPlot(x_metric_name="foo", y_metric_name="bar", trial_index=0)
+        self.assertIsNone(analysis.trial_statuses)
+
     def test_validation(self) -> None:
         with self.assertRaisesRegex(
             UserInputError, "Requested metrics .* are not present in the experiment."
@@ -101,7 +127,7 @@ class TestScatterPlot(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -113,14 +139,36 @@ class TestScatterPlot(TestCase):
         )
         self.assertIsNotNone(card.blob)
 
-        # Check that we have one row per arm and that each arm appears only once
-        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-        for arm_name in self.client._experiment.arms_by_name:
+        # Check that we have one row per arm from non-failed trials and that each
+        # arm appears only once
+        non_failed_arms = get_non_failed_arm_names(self.client._experiment)
+        self.assertEqual(len(card.df), len(non_failed_arms))
+        for arm_name in non_failed_arms:
             self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are NaN
         self.assertTrue(card.df["foo_sem"].isna().all())
         self.assertTrue(card.df["bar_sem"].isna().all())
+
+    def test_show_pareto_frontier(self) -> None:
+        analysis = ScatterPlot(
+            x_metric_name="foo",
+            y_metric_name="bar",
+            show_pareto_frontier=True,
+            use_model_predictions=False,
+        )
+        card = analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+        fig_data = json.loads(none_throws(card.blob))
+        pareto_traces = [
+            trace
+            for trace in fig_data.get("data", [])
+            if trace.get("name") == "Pareto Frontier"
+        ]
+        self.assertEqual(len(pareto_traces), 1)
+        self.assertTrue(pareto_traces[0].get("showlegend"))
 
     def test_compute_with_modeled(self) -> None:
         default_analysis = ScatterPlot(
@@ -138,7 +186,7 @@ class TestScatterPlot(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "p_feasible_mean",
                 "p_feasible_sem",
@@ -151,9 +199,11 @@ class TestScatterPlot(TestCase):
 
         self.assertIsNotNone(card.blob)
 
-        # Check that we have one row per arm and that each arm appears only once
-        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-        for arm_name in self.client._experiment.arms_by_name:
+        # Check that we have one row per arm from non-failed trials and that each
+        # arm appears only once
+        non_failed_arms = get_non_failed_arm_names(self.client._experiment)
+        self.assertEqual(len(card.df), len(non_failed_arms))
+        for arm_name in non_failed_arms:
             self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are not NaN

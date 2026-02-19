@@ -15,26 +15,25 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
-import pandas as pd
 from ax.adapter.data_utils import (
     DataLoaderConfig,
     ExperimentData,
     extract_experiment_data,
 )
+from ax.adapter.observation_utils import unwrap_observation_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.cast import Cast
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.core.arm import Arm
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
-from ax.core.map_data import MAP_KEY
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
+from ax.core.types import TCandidateMetadata, TModelPredict
 from ax.core.utils import get_target_trial_index, has_map_metrics
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
@@ -180,9 +179,9 @@ class Adapter:
         self._status_quo: Observation | None = None
         self._status_quo_name: str | None = None
         self.transforms: MutableMapping[str, Transform] = OrderedDict()
-        self._model_key: str | None = None
-        self._model_kwargs: dict[str, Any] | None = None
-        self._bridge_kwargs: dict[str, Any] | None = None
+        self._generator_key: str | None = None
+        self._generator_kwargs: dict[str, Any] | None = None
+        self._adapter_kwargs: dict[str, Any] | None = None
         self._fit_tracking_metrics = fit_tracking_metrics
         self.outcomes: list[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
@@ -361,28 +360,18 @@ class Adapter:
         experiment_data: ExperimentData,
     ) -> list[bool]:
         """Compute in-design status for each row of ``experiment_data``, after
-        filling missing values if ``FillMissingParameters`` transform is used.
+        filling missing values if ``FillMissingParameters`` transform is used
+        and computing derived parameter values.
         """
-        t = FillMissingParameters(
-            search_space=search_space,
-            config=self._transform_configs.get("FillMissingParameters", None),
-        )
-        experiment_data = t.transform_experiment_data(
+        experiment_data, _ = self._transform_data(
             experiment_data=experiment_data,
+            search_space=search_space,
+            transforms=self._raw_transforms[:1],
+            transform_configs=self._transform_configs,
+            assign_transforms=False,
         )
-        # TODO [T230585235]: Implement more efficient membership checks.
-        return [
-            search_space.check_membership(
-                parameterization={k: v for k, v in params.items() if not pd.isnull(v)}
-            )
-            for params in experiment_data.arm_data.drop(
-                # Ignoring errors which can be raised by missing metadata column
-                # when the data is empty.
-                columns=["metadata"],
-                inplace=False,
-                errors="ignore",
-            ).to_dict(orient="records")
-        ]
+        # Use vectorized membership check for efficiency.
+        return search_space.check_membership_df(arm_data=experiment_data.arm_data)
 
     def _set_model_space(self, arm_data: DataFrame) -> None:
         """Set model space, possibly expanding range parameters to cover data."""
@@ -915,11 +904,11 @@ class Adapter:
             ),
             fit_time=self.fit_time_since_gen,
             gen_time=time.monotonic() - t_gen_start,
-            model_key=self._model_key,
-            model_kwargs=self._model_kwargs,
-            bridge_kwargs=self._bridge_kwargs,
+            generator_key=self._generator_key,
+            generator_kwargs=self._generator_kwargs,
+            adapter_kwargs=self._adapter_kwargs,
             gen_metadata=gen_metadata,
-            model_state_after_gen=self._get_serialized_model_state(),
+            generator_state_after_gen=self._get_serialized_model_state(),
             candidate_metadata_by_arm_signature=candidate_metadata,
         )
         if len(generator_run.arms) < n:
@@ -1036,18 +1025,18 @@ class Adapter:
 
     def _set_kwargs_to_save(
         self,
-        model_key: str,
-        model_kwargs: dict[str, Any],
-        bridge_kwargs: dict[str, Any],
+        generator_key: str,
+        generator_kwargs: dict[str, Any],
+        adapter_kwargs: dict[str, Any],
     ) -> None:
-        """Set properties used to save the model that created a given generator
+        """Set properties used to save the generator that created a given generator
         run, on the `GeneratorRun` object. Each generator run produced by the
-        `gen` method of this adapter will have the model key and kwargs
+        `gen` method of this adapter will have the generator key and kwargs
         fields set as provided in arguments to this function.
         """
-        self._model_key = model_key
-        self._model_kwargs = model_kwargs
-        self._bridge_kwargs = bridge_kwargs
+        self._generator_key = generator_key
+        self._generator_kwargs = generator_kwargs
+        self._adapter_kwargs = adapter_kwargs
 
     def _get_serialized_model_state(self) -> dict[str, Any]:
         """Obtains the state of the underlying generator (if using a stateful one)
@@ -1137,28 +1126,6 @@ class Adapter:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(generator={self.generator})"
-
-
-def unwrap_observation_data(observation_data: list[ObservationData]) -> TModelPredict:
-    """Converts observation data to the format for model prediction outputs.
-    That format assumes each observation data has the same set of metrics.
-    """
-    metrics = set(observation_data[0].metric_signatures)
-    f: TModelMean = {metric: [] for metric in metrics}
-    cov: TModelCov = {m1: {m2: [] for m2 in metrics} for m1 in metrics}
-    for od in observation_data:
-        if set(od.metric_signatures) != metrics:
-            raise ValueError(
-                "Each ObservationData should use same set of metrics. "
-                "Expected {exp}, got {got}.".format(
-                    exp=metrics, got=set(od.metric_signatures)
-                )
-            )
-        for i, m1 in enumerate(od.metric_signatures):
-            f[m1].append(od.means[i])
-            for j, m2 in enumerate(od.metric_signatures):
-                cov[m1][m2].append(od.covariance[i, j])
-    return f, cov
 
 
 def gen_arms(

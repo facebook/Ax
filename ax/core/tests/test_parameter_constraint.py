@@ -6,40 +6,71 @@
 
 # pyre-strict
 
-from ax.core.parameter import (
-    ChoiceParameter,
-    FixedParameter,
-    ParameterType,
-    RangeParameter,
-)
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import (
-    ComparisonOp,
-    OrderConstraint,
     ParameterConstraint,
-    SumConstraint,
+    validate_constraint_parameters,
 )
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
 class ParameterConstraintTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.constraint = ParameterConstraint(
-            constraint_dict={"x": 2.0, "y": -3.0}, bound=6.0
-        )
+        self.constraint = ParameterConstraint(inequality="2 * x - 3 * y <= 6.0")
         self.constraint_repr = "ParameterConstraint(2.0*x + -3.0*y <= 6.0)"
+
+    def test_constraint_dict_and_bounds(self) -> None:
+        constraint = ParameterConstraint(inequality="x1 + x2 <= 1")
+
+        self.assertEqual(
+            constraint.constraint_dict,
+            {"x1": 1, "x2": 1},
+        )
+        self.assertEqual(constraint.bound, 1.0)
+
+        with_coefficients = ParameterConstraint(inequality="2 * x1 + 3 * x2 <= 1")
+        self.assertEqual(
+            with_coefficients.constraint_dict,
+            {"x1": 2, "x2": 3},
+        )
+        self.assertEqual(with_coefficients.bound, 1.0)
+
+        flipped_sign = ParameterConstraint(inequality="x1 + x2 >= 1")
+        self.assertEqual(
+            flipped_sign.constraint_dict,
+            {"x1": -1, "x2": -1},
+        )
+        self.assertEqual(flipped_sign.bound, -1.0)
+
+        weird = ParameterConstraint(inequality="x1 + x2 <= 1.5 * x3 + 2")
+        self.assertEqual(
+            weird.constraint_dict,
+            {"x1": 1, "x2": 1, "x3": -1.5},
+        )
+        self.assertEqual(weird.bound, 2.0)
+
+        with self.assertRaisesRegex(UserInputError, "Only linear"):
+            ParameterConstraint(inequality="x1 * x2 <= 1")
+
+        # test with sanitization
+        constraint = ParameterConstraint(inequality="foo.bar + foo.baz <= 1")
+        self.assertEqual(
+            constraint.constraint_dict,
+            {"foo.bar": 1, "foo.baz": 1},
+        )
+        self.assertEqual(constraint.bound, 1.0)
 
     def test_Eq(self) -> None:
         constraint1 = ParameterConstraint(
-            constraint_dict={"x": 2.0, "y": -3.0}, bound=6.0
+            inequality="2 * x - 3 * y <= 6.0",
         )
-        constraint2 = ParameterConstraint(
-            constraint_dict={"y": -3.0, "x": 2.0}, bound=6.0
-        )
+        constraint2 = ParameterConstraint(inequality="2 * x - 3 * y <= 6.0")
         self.assertEqual(constraint1, constraint2)
 
         constraint3 = ParameterConstraint(
-            constraint_dict={"x": 2.0, "y": -5.0}, bound=6.0
+            inequality="2 * x - 5 * y <= 6.0",
         )
         self.assertNotEqual(constraint1, constraint3)
 
@@ -89,130 +120,130 @@ class ParameterConstraintTest(TestCase):
 
     def test_Sortable(self) -> None:
         constraint1 = ParameterConstraint(
-            constraint_dict={"x": 2.0, "y": -3.0}, bound=1.0
+            inequality="2 * x - 3 * y <= 1.0",
         )
         constraint2 = ParameterConstraint(
-            constraint_dict={"y": -3.0, "x": 2.0}, bound=6.0
+            inequality="2 * x - 3 * y <= 6.0",
         )
         self.assertTrue(constraint1 < constraint2)
 
 
-class OrderConstraintTest(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.x = RangeParameter("x", ParameterType.INT, lower=0, upper=1)
-        self.y = RangeParameter("y", ParameterType.INT, lower=0, upper=1)
-        self.constraint = OrderConstraint(
-            lower_parameter=self.x, upper_parameter=self.y
-        )
-        self.constraint_repr = "OrderConstraint(x <= y)"
+class ValidateConstraintParametersTest(TestCase):
+    def test_validate_constraint_parameters(self) -> None:
+        """Test validation of parameters used in constraints."""
+        # --- Allowed parameter types ---
+        allowed_cases = [
+            (
+                "range_parameter",
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=10.0,
+                ),
+            ),
+            (
+                "numerical_ordered_int_choice",
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    values=[8, 16, 32],
+                    is_ordered=True,
+                    log_scale=False,
+                ),
+            ),
+            (
+                "numerical_ordered_float_choice",
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[0.1, 0.5, 1.0],
+                    is_ordered=True,
+                ),
+            ),
+        ]
 
-    def test_Properties(self) -> None:
-        self.assertEqual(self.constraint.lower_parameter.name, "x")
-        self.assertEqual(self.constraint.upper_parameter.name, "y")
+        for name, param in allowed_cases:
+            with self.subTest(name=name):
+                # Should not raise
+                validate_constraint_parameters(parameters=[param])
 
-    def test_Repr(self) -> None:
-        self.assertEqual(str(self.constraint), self.constraint_repr)
+        # --- Rejected parameter types ---
+        rejected_cases = [
+            (
+                "range_log_scale",
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.1,
+                    upper=10.0,
+                    log_scale=True,
+                ),
+                "log scale",
+            ),
+            (
+                "non_numerical_choice",
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
+                    is_ordered=True,
+                ),
+                "numerical ChoiceParameters",
+            ),
+            (
+                "unordered_choice",
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    values=[8, 16, 32],
+                    is_ordered=False,
+                ),
+                "ordered ChoiceParameters",
+            ),
+            (
+                "choice_log_scale",
+                ChoiceParameter(
+                    name="x",
+                    parameter_type=ParameterType.INT,
+                    values=[1, 10, 100, 1000],
+                    is_ordered=True,
+                    log_scale=True,
+                ),
+                "log scale",
+            ),
+        ]
 
-    def test_Validate(self) -> None:
-        self.assertTrue(self.constraint.check({"x": 0, "y": 1}))
-        self.assertTrue(self.constraint.check({"x": 1, "y": 1}))
-        self.assertFalse(self.constraint.check({"x": 1, "y": 0}))
+        for name, param, expected_error in rejected_cases:
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, expected_error):
+                    validate_constraint_parameters(parameters=[param])
 
-    def test_Clone(self) -> None:
-        constraint_clone = self.constraint.clone()
-        self.assertEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-        constraint_clone._lower_parameter = self.y
-        self.assertNotEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-    def test_CloneWithTransformedParameters(self) -> None:
-        constraint_clone = self.constraint.clone_with_transformed_parameters(
-            transformed_parameters={p.name: p for p in self.constraint.parameters}
-        )
-        self.assertEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-        constraint_clone._lower_parameter = self.y
-        self.assertNotEqual(
-            self.constraint.lower_parameter, constraint_clone.lower_parameter
-        )
-
-    def test_InvalidSetup(self) -> None:
-        z = FixedParameter("z", ParameterType.INT, 0)
-        with self.assertRaises(ValueError):
-            self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
-
-        z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
-        with self.assertRaises(ValueError):
-            self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
-
-
-class SumConstraintTest(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.x = RangeParameter("x", ParameterType.INT, lower=-5, upper=5)
-        self.y = RangeParameter("y", ParameterType.INT, lower=-5, upper=5)
-        self.constraint1 = SumConstraint(
-            parameters=[self.x, self.y], is_upper_bound=True, bound=5
-        )
-        self.constraint2 = SumConstraint(
-            parameters=[self.x, self.y], is_upper_bound=False, bound=-5
-        )
-
-        self.constraint_repr1 = "SumConstraint(x + y <= 5.0)"
-        self.constraint_repr2 = "SumConstraint(x + y >= -5.0)"
-
-    def test_BadConstruct(self) -> None:
-        with self.assertRaises(ValueError):
-            SumConstraint(parameters=[self.x, self.x], is_upper_bound=False, bound=-5.0)
-        z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
-        with self.assertRaises(ValueError):
-            # pyre-fixme[16]: `SumConstraintTest` has no attribute `constraint`.
-            self.constraint = SumConstraint(
-                parameters=[self.x, z], is_upper_bound=False, bound=-5.0
+        # --- Mixed parameter types ---
+        with self.subTest(name="mixed_range_and_choice"):
+            range_param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=10.0,
             )
+            choice_param = ChoiceParameter(
+                name="y",
+                parameter_type=ParameterType.INT,
+                values=[8, 16, 32],
+                is_ordered=True,
+                log_scale=False,
+            )
+            # Should not raise
+            validate_constraint_parameters(parameters=[range_param, choice_param])
 
-    def test_Properties(self) -> None:
-        self.assertEqual(self.constraint1.op, ComparisonOp.LEQ)
-        self.assertTrue(self.constraint1._is_upper_bound)
-
-        self.assertEqual(self.constraint2.op, ComparisonOp.GEQ)
-        self.assertFalse(self.constraint2._is_upper_bound)
-
-    def test_Repr(self) -> None:
-        self.assertEqual(str(self.constraint1), self.constraint_repr1)
-        self.assertEqual(str(self.constraint2), self.constraint_repr2)
-
-    def test_Validate(self) -> None:
-        self.assertTrue(self.constraint1.check({"x": 1, "y": 4}))
-        self.assertTrue(self.constraint1.check({"x": 4, "y": 1}))
-        self.assertFalse(self.constraint1.check({"x": 1, "y": 5}))
-
-        self.assertTrue(self.constraint2.check({"x": -4, "y": -1}))
-        self.assertTrue(self.constraint2.check({"x": -1, "y": -4}))
-        self.assertFalse(self.constraint2.check({"x": -5, "y": -1}))
-
-    def test_Clone(self) -> None:
-        constraint_clone = self.constraint1.clone()
-        self.assertEqual(self.constraint1.bound, constraint_clone.bound)
-
-        constraint_clone._bound = 7.0
-        self.assertNotEqual(self.constraint1.bound, constraint_clone.bound)
-
-        constraint_clone_2 = self.constraint2.clone()
-        self.assertEqual(self.constraint2.bound, constraint_clone_2.bound)
-
-    def test_CloneWithTransformedParameters(self) -> None:
-        constraint_clone = self.constraint1.clone_with_transformed_parameters(
-            transformed_parameters={p.name: p for p in self.constraint1.parameters}
-        )
-        self.assertEqual(self.constraint1.bound, constraint_clone.bound)
-
-        constraint_clone._bound = 7.0
-        self.assertNotEqual(self.constraint1.bound, constraint_clone.bound)
+        # --- Duplicate parameters ---
+        with self.subTest(name="duplicate_parameters"):
+            param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=10.0,
+            )
+            with self.assertRaisesRegex(ValueError, "Duplicate"):
+                validate_constraint_parameters(parameters=[param, param])

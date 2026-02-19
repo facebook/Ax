@@ -16,6 +16,7 @@ import pandas as pd
 from ax.core.base_trial import (
     BaseTrial,
     MANUAL_GENERATION_METHOD_STR,
+    MAX_ABANDONED_REASON_LENGTH,
     TrialStatus,
     UNKNOWN_GENERATION_METHOD_STR,
 )
@@ -160,21 +161,35 @@ class TrialTest(TestCase):
             )
 
     def test_abandonment(self) -> None:
-        self.assertFalse(self.trial.status.is_abandoned)
-        self.trial.mark_abandoned(reason="testing")
-        self.assertTrue(self.trial.status.is_abandoned)
-        self.assertFalse(self.trial.status.is_failed)
-        self.assertTrue(self.trial.did_not_complete)
+        # Reason longer than max length should be truncated with "..."
+        long_reason = "x" * (MAX_ABANDONED_REASON_LENGTH + 100)
+        reason_truncation_dict = {
+            # Short reason is not truncated
+            "testing": "testing",
+            # Long reason is truncated with ellipsis
+            long_reason: long_reason[:MAX_ABANDONED_REASON_LENGTH] + "...",
+            # None is unchanged
+            None: None,
+        }
+        for reason, stored_reason in reason_truncation_dict.items():
+            trial = self.experiment.new_trial()
+            trial.add_arm(self.arm)
+            self.assertFalse(trial.status.is_abandoned)
+            trial.mark_abandoned(reason=reason)
+            self.assertTrue(trial.status.is_abandoned)
+            self.assertFalse(trial.status.is_failed)
+            self.assertTrue(trial.did_not_complete)
+            self.assertEqual(trial.status_reason, stored_reason)
 
     def test_failed(self) -> None:
         fail_reason = "testing"
-        self.trial.runner = SyntheticRunner()
+        self.trial.experiment.runner = SyntheticRunner()
         self.trial.run()
         self.trial.mark_failed(reason=fail_reason)
 
         self.assertTrue(self.trial.status.is_failed)
         self.assertTrue(self.trial.did_not_complete)
-        self.assertEqual(self.trial.failed_reason, fail_reason)
+        self.assertEqual(self.trial.status_reason, fail_reason)
 
     def test_staleness(self) -> None:
         # Test that only candidate trials can be marked as stale
@@ -196,7 +211,7 @@ class TrialTest(TestCase):
             self.trial.mark_stale()
 
     def test_trial_run_does_not_overwrite_existing_metadata(self) -> None:
-        self.trial.runner = SyntheticRunner(dummy_metadata="y")
+        self.trial.experiment.runner = SyntheticRunner(dummy_metadata="y")
         self.trial.update_run_metadata({"orig_metadata": "x"})
         self.trial.run()
         self.assertDictEqual(
@@ -244,11 +259,9 @@ class TrialTest(TestCase):
                 self.assertTrue(self.trial.status == status)
 
                 if status == TrialStatus.ABANDONED:
-                    self.assertEqual(self.trial.abandoned_reason, "test_reason_abandon")
-                    self.assertIsNone(self.trial.failed_reason)
+                    self.assertEqual(self.trial.status_reason, "test_reason_abandon")
                 elif status == TrialStatus.FAILED:
-                    self.assertEqual(self.trial.failed_reason, "test_reason_failed")
-                    self.assertIsNone(self.trial.abandoned_reason)
+                    self.assertEqual(self.trial.status_reason, "test_reason_failed")
 
                 if status != TrialStatus.RUNNING:
                     self.assertTrue(self.trial.status.is_terminal)
@@ -286,7 +299,7 @@ class TrialTest(TestCase):
             (TrialStatus.COMPLETED, TrialStatus.ABANDONED, TrialStatus.EARLY_STOPPED),
         ):
             self.setUp()
-            self.trial._runner = DummyStopRunner()
+            self.experiment.runner = DummyStopRunner()
             self.trial.mark_running()
             self.assertEqual(self.trial.status, TrialStatus.RUNNING)
             self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
@@ -379,14 +392,14 @@ class TrialTest(TestCase):
         self.assertEqual(1.0, data[(arm_name, "m1")]["mean"])
         self.assertEqual(2.0, data[(arm_name, "m2")]["mean"])
 
-        # Try to attach MapData.
-        with self.assertRaisesRegex(
-            UserInputError,
-            "The format of the `raw_data` is not compatible with `Data`. ",
-        ):
+        with self.subTest("Attach map data"):
             self.trial.update_trial_data(raw_data=[(0, {"m1": 1.0})])
+            data = self.trial.lookup_data()
+            self.assertIsInstance(data, Data)
+            self.assertTrue(data.has_step_column)
 
-        # Try to attach Data to a MapData experiment.
+        # Try to data with has_step_column=False to an experiment with metrics
+        # that produce data with a "step" column
         map_experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=2, num_complete=1
         )
@@ -409,13 +422,14 @@ class TrialTest(TestCase):
         ):
             map_trial.update_trial_data(raw_data=[(0, {"m2": 1.0})])
 
-        with self.assertRaisesRegex(
-            UserInputError,
-            "The format of the `raw_data` is not compatible with `MapData`. ",
-        ):
+        with self.subTest("Add data without 'step' to trial with step data"):
             map_trial.update_trial_data(raw_data={"m1": 1.0})
+            data = map_trial.lookup_data()
+            self.assertIsInstance(data, Data)
+            self.assertTrue(data.has_step_column)
+            self.assertEqual(map_trial.lookup_data().df["step"].isnull().sum(), 1)
 
-        # Error if the MapData inputs are not formatted correctly.
+        # Error if the inputs are not formatted correctly.
         with self.assertRaisesRegex(
             UserInputError,
             "Raw data does not conform to the expected structure.",
@@ -461,7 +475,7 @@ class TrialTest(TestCase):
             TrialStatus.ABANDONED,
             TrialStatus.STALE,
         ]:
-            self.trial._failed_reason = self.trial._abandoned_reason = None
+            self.trial._status_reason = None
             if status != TrialStatus.CANDIDATE:
                 self.trial.mark_as(
                     status=status, unsafe=True, no_runner_required=True, reason="test"
@@ -471,6 +485,7 @@ class TrialTest(TestCase):
             test_trial._index = self.trial.index
             test_trial._time_created = self.trial._time_created
             test_trial._time_staged = self.trial._time_staged
+            test_trial._time_run_started = self.trial._time_run_started
             self.assertEqual(self.trial, test_trial)
 
     def test_mark_complete_custom_date(self) -> None:

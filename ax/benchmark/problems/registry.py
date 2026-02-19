@@ -25,6 +25,7 @@ from ax.benchmark.problems.synthetic.from_botorch import create_problem_from_bot
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from botorch.test_functions import synthetic
 from botorch.test_functions.multi_objective import BraninCurrin
+from botorch.test_functions.synthetic import TrajectoryPlanning
 
 
 @dataclass
@@ -75,6 +76,16 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
             "test_problem_kwargs": {},
             "num_trials": 30,
             "observe_noise_sd": False,
+        },
+    ),
+    "branin50": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.Branin,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+            "observe_noise_sd": False,
+            "n_dummy_dimensions": 48,
         },
     ),
     "branin_currin": BenchmarkProblemRegistryEntry(
@@ -134,6 +145,16 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
             "n_dummy_dimensions": 24,
         },
     ),
+    "hartmann50": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": synthetic.Hartmann,
+            "test_problem_kwargs": {"dim": 6},
+            "num_trials": 50,
+            "observe_noise_sd": False,
+            "n_dummy_dimensions": 44,
+        },
+    ),
     "jenatton": BenchmarkProblemRegistryEntry(
         factory_fn=get_jenatton_benchmark_problem,
         factory_kwargs={"num_trials": 50, "observe_noise_sd": False},
@@ -180,6 +201,15 @@ BENCHMARK_PROBLEM_REGISTRY: dict[str, BenchmarkProblemRegistryEntry] = {
             "test_problem_class": synthetic.ThreeHumpCamel,
             "test_problem_kwargs": {},
             "num_trials": 30,
+            "observe_noise_sd": False,
+        },
+    ),
+    "trajectory_planning_30": BenchmarkProblemRegistryEntry(
+        factory_fn=create_problem_from_botorch,
+        factory_kwargs={
+            "test_problem_class": TrajectoryPlanning,
+            "test_problem_kwargs": {"dim": 30},
+            "num_trials": 50,
             "observe_noise_sd": False,
         },
     ),

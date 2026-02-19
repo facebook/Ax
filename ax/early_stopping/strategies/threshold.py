@@ -10,8 +10,8 @@ from collections.abc import Iterable
 from logging import Logger
 
 import pandas as pd
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
@@ -31,8 +31,8 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_progression: float | None = 10,
         max_progression: float | None = None,
         min_curves: int | None = 5,
-        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
+        check_safe: bool = False,
     ) -> None:
         """Construct a ThresholdEarlyStoppingStrategy instance.
 
@@ -52,22 +52,24 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            trial_indices_to_ignore: Trial indices that should not be early-stopped.
-            normalize_progressions: Normalizes the progression column of the MapData df
+            normalize_progressions: Normalizes the progression column of the Data df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
                 for inferring the max progression and allows `min_progression` to be
                 specified in the transformed space. IMPORTANT: Typically, `min_curves`
                 should be > 0 to ensure that at least one trial has completed and that
                 we have a reliable approximation for `prog_max`.
+            check_safe: If True, applies the relevant safety checks to gate
+                early-stopping when it is likely to be harmful. If False (default),
+                bypasses the safety check and directly applies early-stopping decisions.
         """
         super().__init__(
             metric_signatures=metric_signatures,
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
-            trial_indices_to_ignore=trial_indices_to_ignore,
             normalize_progressions=normalize_progressions,
+            check_safe=check_safe,
         )
         self.metric_threshold = metric_threshold
 
@@ -110,14 +112,14 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
         )
-        data = self._check_validity_and_get_data(
+        data = self._lookup_and_validate_data(
             experiment=experiment, metric_signatures=[metric_signature]
         )
         if data is None:
             # don't stop any trials if we don't get data back
             return {}
 
-        df = data.map_df
+        df = data.full_df
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do
         # early stopping at all and return {}
@@ -176,7 +178,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_last_prog = df_trial[MAP_KEY].max()
         data_last_prog = df_trial[df_trial[MAP_KEY] == trial_last_prog]["mean"].iloc[0]
         logger.info(
-            "Early stopping objective at last progression is:\n" f"{data_last_prog}."
+            f"Early stopping objective at last progression is:\n{data_last_prog}."
         )
         should_early_stop = (
             data_last_prog > self.metric_threshold

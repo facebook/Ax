@@ -6,16 +6,23 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.utils import ClosestLookupDict, construct_new_search_space
+from ax.adapter.transforms.utils import (
+    construct_new_search_space,
+    HSS_ERROR_MSG_TEMPLATE,
+)
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generators.types import TConfig
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -46,28 +53,41 @@ class ChoiceToNumericChoice(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
-        assert search_space is not None, "ChoiceToNumericChoice requires search space"
+        if search_space is None:
+            raise UserInputError(f"{self.__class__.__name__} requires search space.")
         super().__init__(
             search_space=search_space,
             experiment_data=experiment_data,
             adapter=adapter,
             config=config,
         )
-        # Identify parameters that should be transformed
-        self.encoded_parameters: dict[str, dict[TParamValue, TParamValue]] = {}
-        self.encoded_parameters_inverse: dict[str, ClosestLookupDict] = {}
-        for p in search_space.parameters.values():
-            if isinstance(p, ChoiceParameter) and not p.is_numeric and not p.is_task:
-                transformed_values = list(range(len(p.values)))
-                self.encoded_parameters[p.name] = dict(
-                    zip(p.values, transformed_values)
+        # Identify parameters that should be transformed.
+        self.encoded_parameters: dict[str, dict[TParamValue, int]] = {
+            p.name: {
+                original_value: transformed_value
+                for transformed_value, original_value in enumerate(
+                    assert_is_instance(p, ChoiceParameter).values
                 )
-                self.encoded_parameters_inverse[p.name] = ClosestLookupDict(
-                    zip(transformed_values, p.values)
-                )
+            }
+            for p in search_space.parameters.values()
+            if self._should_encode(p=p)
+        }
+        self.encoded_parameters_inverse: dict[str, dict[int, TParamValue]] = {
+            p_name: {
+                transformed_value: original_value
+                for original_value, transformed_value in transforms.items()
+            }
+            for p_name, transforms in self.encoded_parameters.items()
+        }
+
+    def _should_encode(self, p: Parameter) -> bool:
+        """Check if a parameter should be encoded.
+        Encodes non-numeric choice parameters that are not task parameters.
+        """
+        return isinstance(p, ChoiceParameter) and not p.is_numeric and not p.is_task
 
     def transform_observation_features(
         self, observation_features: list[ObservationFeatures]
@@ -107,8 +127,10 @@ class ChoiceToNumericChoice(Transform):
                     target_value=encoding[p.target_value]
                     if p.target_value is not None
                     else None,
-                    sort_values=p.sort_values,
-                    dependents=dependents,
+                    # Retain the original sort_values if the parameter is not ordered.
+                    # Ordered numeric parameters are always sorted.
+                    sort_values=p.sort_values if not p.is_ordered else True,
+                    dependents=dependents,  # pyre-ignore[6]
                 )
             else:
                 transformed_parameters[p.name] = p
@@ -129,9 +151,9 @@ class ChoiceToNumericChoice(Transform):
         for obsf in observation_features:
             for p_name, reverse_transform in self.encoded_parameters_inverse.items():
                 if p_name in obsf.parameters:
-                    # pyre: pval is declared to have type `int` but is used as
-                    # pyre-fixme[9]: type `Union[bool, float, str]`.
-                    pval: int = obsf.parameters[p_name]
+                    # Rounding & casting to int in case a floating point value was
+                    # generated. This can happen since generation uses float tensors.
+                    pval = int(round(obsf.parameters[p_name]))  # pyre-ignore [6]
                     if pval in reverse_transform:
                         obsf.parameters[p_name] = reverse_transform[pval]
         return observation_features
@@ -163,34 +185,18 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
     Transform is done in-place.
     """
 
-    def __init__(
-        self,
-        search_space: SearchSpace,
-        experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
-        config: TConfig | None = None,
-    ) -> None:
-        super().__init__(
-            search_space=search_space,
-            experiment_data=experiment_data,
-            adapter=adapter,
-            config=config,
+    def _should_encode(self, p: Parameter) -> bool:
+        """Check if a parameter should be encoded.
+        Encodes ordered choice parameters that are not task parameters.
+        """
+        should_encode = (
+            isinstance(p, ChoiceParameter) and p.is_ordered and not p.is_task
         )
-        # Identify parameters that should be transformed
-        self.encoded_parameters: dict[str, dict[TParamValue, int]] = {}
-        for p in search_space.parameters.values():
-            if isinstance(p, ChoiceParameter) and p.is_ordered and not p.is_task:
-                self.encoded_parameters[p.name] = {
-                    original_value: transformed_value
-                    for transformed_value, original_value in enumerate(p.values)
-                }
-        self.encoded_parameters_inverse: dict[str, dict[int, TParamValue]] = {
-            p_name: {
-                transformed_value: original_value
-                for original_value, transformed_value in transforms.items()
-            }
-            for p_name, transforms in self.encoded_parameters.items()
-        }
+        if should_encode and p.is_hierarchical:
+            raise UnsupportedError(
+                HSS_ERROR_MSG_TEMPLATE.format(name=self.__class__.__name__, p=p)
+            )
+        return should_encode
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: dict[str, Parameter] = {}

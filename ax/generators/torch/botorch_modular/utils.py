@@ -8,15 +8,15 @@
 
 import warnings
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import cached_property
 from logging import Logger
-from typing import Any, cast, Mapping
+from typing import Any, cast
 
 import torch
-from ax.core.map_data import MAP_KEY
+from ax.core.data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchOptConfig
@@ -63,6 +63,7 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
+MIN_NUM_OBJECTIVES_PAREGO = 5
 logger: Logger = get_logger(__name__)
 
 
@@ -350,6 +351,44 @@ def choose_model_class(
     return model_class
 
 
+def _objective_threshold_to_outcome_constraints(
+    objective_weights: Tensor,
+    objective_thresholds: Tensor,
+) -> tuple[Tensor, Tensor]:
+    """Convert objective thresholds to outcome constraint format ``(A, b)``.
+
+    For each objective ``i`` with nonzero weight ``w_i`` and non-NaN threshold
+    ``t_i``, the constraint is ``w_i * Y_i >= w_i * t_i``, which is equivalent
+    to ``-w_i * Y_i <= -w_i * t_i`` in the standard ``A f(x) <= b`` format.
+
+    Args:
+        objective_weights: A ``m``-dim tensor of objective weights.
+        objective_thresholds: A ``m``-dim tensor of objective thresholds.
+
+    Returns:
+        A tuple ``(A, b)`` of outcome constraint tensors.
+    """
+    obj_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
+    # Filter to objectives with non-NaN thresholds. Objective threhsolds
+    # can contain NaNs if there objective thresholds were inferred, but
+    # there are no feasible points. In that case,
+    # qLogProbabilityOfFeasibility is used.
+    obj_idcs = obj_idcs[~objective_thresholds[obj_idcs].isnan()]
+    m = objective_weights.shape[0]
+    k = len(obj_idcs)
+    A = torch.zeros(
+        k, m, dtype=objective_weights.dtype, device=objective_weights.device
+    )
+    b = torch.zeros(
+        k, 1, dtype=objective_weights.dtype, device=objective_weights.device
+    )
+    for i, idx in enumerate(obj_idcs):
+        w = objective_weights[idx]
+        A[i, idx] = -w
+        b[i] = -w * objective_thresholds[idx]
+    return A, b
+
+
 def choose_botorch_acqf_class(
     search_space_digest: SearchSpaceDigest,
     torch_opt_config: TorchOptConfig,
@@ -367,8 +406,9 @@ def choose_botorch_acqf_class(
 
     Returns:
         A BoTorch `AcquisitionFunction` class. The current logic chooses between:
-            - `qLogProbabilityOfFeasibility` if there are outcome constraints and
-                no feasible point has been found.
+            - `qLogProbabilityOfFeasibility` if no observed point simultaneously
+                satisfies all outcome constraints (if any) and dominates all
+                objective thresholds (if any, for MOO).
             - `qLogNoisyExpectedImprovement` for single-objective optimization.
             - `qLogNoisyExpectedHypervolumeImprovement` for multi-objective
                 optimization with <= 4 objectives.
@@ -376,36 +416,66 @@ def choose_botorch_acqf_class(
                 to prevent slow optimization.
     """
 
-    # Check if the training data is feasible.
-    if (
-        use_p_feasible
-        and torch_opt_config.outcome_constraints is not None
-        and datasets is not None
-    ):
-        con_tfs = (
-            get_outcome_constraint_transforms(torch_opt_config.outcome_constraints)
-            or []
+    if use_p_feasible and datasets is not None:
+        has_outcome_constraints = torch_opt_config.outcome_constraints is not None
+        has_objective_thresholds = (
+            torch_opt_config.is_moo
+            and torch_opt_config.objective_thresholds is not None
         )
-        # NOTE: `convert_to_block_design` will drop points that are only observed by
-        # some of the metrics which is natural as we are using observed values to
-        # determine feasibility.
-        dataset = convert_to_block_design(
-            datasets=datasets,
-            force=True,
-            fixed_features=torch_opt_config.fixed_features,
-            fix_map_key_to_target=True,
-        )[0]
-        con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
-        feas_point_found = (con_observed <= 0).all(dim=-1).any().item()
 
-        if not feas_point_found:
-            acqf_class = qLogProbabilityOfFeasibility
-            logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
-            return acqf_class
+        if has_outcome_constraints or has_objective_thresholds:
+            # NOTE: `convert_to_block_design` will drop points that are only
+            # observed by some of the metrics which is natural as we are using
+            # observed values to determine feasibility.
+            dataset = convert_to_block_design(
+                datasets=datasets,
+                force=True,
+                fixed_features=torch_opt_config.fixed_features,
+                fix_map_key_to_target=True,
+            )[0]
+            # Start with all points considered feasible.
+            is_feasible = torch.ones(
+                dataset.Y.shape[0], dtype=torch.bool, device=dataset.Y.device
+            )
+
+            # Check feasibility w.r.t. outcome constraints.
+            if has_outcome_constraints:
+                con_tfs = (
+                    get_outcome_constraint_transforms(
+                        torch_opt_config.outcome_constraints
+                    )
+                    or []
+                )
+                con_observed = torch.stack([con(dataset.Y) for con in con_tfs], dim=-1)
+                is_feasible = is_feasible & (con_observed <= 0).all(dim=-1)
+
+            # Check domination w.r.t. objective thresholds.
+            if has_objective_thresholds:
+                obj_weights = torch_opt_config.objective_weights
+                obj_thresholds = none_throws(torch_opt_config.objective_thresholds)
+                obj_idcs = obj_weights.nonzero(as_tuple=False).view(-1)
+                non_nan_mask = ~obj_thresholds[obj_idcs].isnan()
+                if non_nan_mask.any():
+                    # Check: w_i * Y_i >= w_i * t_i for all objectives i.
+                    weighted_Y = dataset.Y[:, obj_idcs] * obj_weights[obj_idcs]
+                    weighted_t = obj_thresholds[obj_idcs] * obj_weights[obj_idcs]
+                    is_feasible = is_feasible & (
+                        (weighted_Y[:, non_nan_mask] >= weighted_t[non_nan_mask]).all(
+                            dim=-1
+                        )
+                    )
+
+            if not is_feasible.any().item():
+                acqf_class = qLogProbabilityOfFeasibility
+                logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
+                return acqf_class
 
     if torch_opt_config.is_moo and not torch_opt_config.use_learned_objective:
         # For MOO problems with > 4 objectives, use ParEGO to prevent slow optimization.
-        if torch_opt_config.objective_weights.count_nonzero() > 4:
+        if (
+            torch_opt_config.objective_weights.count_nonzero()
+            >= MIN_NUM_OBJECTIVES_PAREGO
+        ):
             acqf_class = qLogNParEGO
         else:
             acqf_class = qLogNoisyExpectedHypervolumeImprovement
@@ -440,6 +510,10 @@ def construct_acquisition_and_optimizer_options(
                     Keys.OPTIMIZER_KWARGS.value,
                     Keys.ACQF_KWARGS.value,
                     Keys.AX_ACQUISITION_KWARGS.value,
+                    # Keys for candidate generation
+                    "in_sample",
+                    "sampling_strategy_class",
+                    "sampling_strategy_kwargs",
                 }
             )
             > 0

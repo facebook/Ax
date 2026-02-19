@@ -4,13 +4,13 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from typing import final, Literal, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import final, Literal
 
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_INCREASES
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import (
@@ -21,6 +21,7 @@ from ax.analysis.plotly.utils import (
     truncate_label,
 )
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
@@ -65,6 +66,7 @@ class SensitivityAnalysisPlot(Analysis):
         order: Literal["first", "second", "total"] = "total",
         top_k: int | None = 6,
         labels: Mapping[str, str] | None = None,
+        exclude_map_key: bool = True,
     ) -> None:
         """
         Args:
@@ -75,11 +77,16 @@ class SensitivityAnalysisPlot(Analysis):
             top_k: Optional limit on the number of parameters to show in the plot.
             labels: A mapping from metric names to labels to use in the plot. If a label
                 is not provided for a metric, the metric name will be used.
+            exclude_map_key: If True (default), the "step" feature will be excluded
+                from sensitivity analysis by fixing it at the maximum step value. This
+                makes the sensitivity analysis more interpretable for users who care
+                about the effect of parameters on final performance.
         """
         self.metric_name = metric_name
         self.order = order
         self.top_k = top_k
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
+        self.exclude_map_key = exclude_map_key
 
     @override
     def validate_applicable_state(
@@ -136,6 +143,7 @@ class SensitivityAnalysisPlot(Analysis):
             adapter=relevant_adapter,
             metric_name=metric_name,
             order=self.order,
+            exclude_map_key=self.exclude_map_key,
         )
 
         # If a human readable metric name is provided, use it
@@ -167,6 +175,7 @@ def compute_sensitivity_adhoc(
     labels: Mapping[str, str] | None = None,
     order: Literal["first", "second", "total"] = "total",
     top_k: int | None = None,
+    exclude_map_key: bool = True,
 ) -> AnalysisCardGroup:
     """
     Compute SensitivityAnalysis cards for the given experiment and either Adapter or
@@ -185,6 +194,8 @@ def compute_sensitivity_adhoc(
         top_k: Optional limit on the number of parameters to show in the plot.
         labels: A mapping from metric names to labels to use in the plot. If a label
             is not provided for a metric, the metric name will be used.
+        exclude_map_key: If True (default), the "step" feature will be excluded
+            from sensitivity analysis by fixing it at the maximum step value.
     """
     analyis_cards = [
         SensitivityAnalysisPlot(
@@ -192,6 +203,7 @@ def compute_sensitivity_adhoc(
             order=order,
             top_k=top_k,
             labels=labels,
+            exclude_map_key=exclude_map_key,
         ).compute_or_error_card(adapter=adapter)
         for metric_name in (
             metric_names if metric_names is not None else adapter.outcomes
@@ -210,11 +222,13 @@ def _prepare_data(
     adapter: TorchAdapter,
     metric_name: str,
     order: Literal["first", "second", "total"],
+    exclude_map_key: bool = True,
 ) -> pd.DataFrame:
     sensitivities = ax_parameter_sens(
         adapter=adapter,
         metrics=[metric_name],
         order=order,
+        exclude_map_key=exclude_map_key,
     )
 
     return pd.DataFrame.from_records(

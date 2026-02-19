@@ -23,7 +23,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.orchestrator import Orchestrator
+from ax.orchestration.orchestrator import Orchestrator
 from ax.service.utils.orchestrator_options import OrchestratorOptions
 from ax.service.utils.report_utils import (
     _find_sigfigs,
@@ -33,10 +33,12 @@ from ax.service.utils.report_utils import (
     _get_objective_trace_plot,
     _get_objective_v_param_plots,
     _objective_vs_true_objective_scatter,
+    construct_comparison_message,
     exp_to_df,
     Experiment,
     FEASIBLE_COL_NAME,
     get_standard_plots,
+    maybe_extract_baseline_comparison_values,
     plot_feature_importance_by_feature_plotly,
     warn_if_unpredictable_metrics,
 )
@@ -267,9 +269,10 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 2)
 
         # an experiment with more results than arms raises an error
-        with patch.object(
-            Experiment, "lookup_data", lambda self: mock_results
-        ), self.assertRaisesRegex(ValueError, "inconsistent experimental state"):
+        with (
+            patch.object(Experiment, "lookup_data", lambda self: mock_results),
+            self.assertRaisesRegex(ValueError, "inconsistent experimental state"),
+        ):
             exp_to_df(exp=get_branin_experiment())
 
         # custom added trial has a generation_method of Manual
@@ -285,9 +288,13 @@ class ReportUtilsTest(TestCase):
             observations=observations,
             constrained=True,
         )
-        with patch(
-            f"{exp_to_df.__module__}.is_row_feasible", side_effect=KeyError(DUMMY_MSG)
-        ), self.assertLogs(logger="ax", level=WARN) as log:
+        with (
+            patch(
+                f"{exp_to_df.__module__}.is_row_feasible",
+                side_effect=KeyError(DUMMY_MSG),
+            ),
+            self.assertLogs(logger="ax", level=WARN) as log,
+        ):
             exp_to_df(exp)
             self.assertIn(
                 f"Feasibility calculation failed with error: '{DUMMY_MSG}'",
@@ -407,11 +414,14 @@ class ReportUtilsTest(TestCase):
                 experiment=exp,
                 model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             )
-            self.assertIn(
-                "Pareto plotting not supported for experiments with relative objective "
-                "thresholds.",
-                log.output[0],
+            self.assertTrue(
+                any(
+                    "Pareto plotting not supported for experiments with relative "
+                    "objective thresholds." in msg
+                    for msg in log.output
+                )
             )
+
             for metric_suffix in ("a", "b"):
                 expected_msg = (
                     "Created contour plots for metric branin_"
@@ -667,3 +677,54 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(_find_sigfigs(50.0, 50.0001), 4)
         self.assertEqual(_find_sigfigs(0.04390, 0.03947), 3)
         self.assertEqual(_find_sigfigs(49.1, 50.00001, 2), 2)
+
+    def test_construct_comparison_message_zero_baseline(self) -> None:
+        """Test construct_comparison_message returns None when baseline is 0."""
+        result = construct_comparison_message(
+            objective_name="metric",
+            objective_minimize=True,
+            baseline_arm_name="baseline",
+            baseline_value=0.0,
+            comparison_arm_name="comparison",
+            comparison_value=10.0,
+        )
+        self.assertIsNone(result)
+
+    def test_maybe_extract_baseline_comparison_values_metric_missing_soo(
+        self,
+    ) -> None:
+        """Test returns None when metric column missing for single-objective."""
+        exp = get_branin_experiment(with_batch=True)
+        exp.trials[0].run()
+        exp.fetch_data()
+        arm_names = list(exp.arms_by_name.keys())
+
+        # Use a different metric name in optimization config that doesn't exist in data
+        exp._optimization_config.objective._metric = Metric(name="nonexistent_metric")
+
+        result = maybe_extract_baseline_comparison_values(
+            experiment=exp,
+            optimization_config=exp.optimization_config,
+            comparison_arm_names=[arm_names[1]],
+            baseline_arm_name=arm_names[0],
+        )
+        self.assertIsNone(result)
+
+    def test_maybe_extract_baseline_comparison_values_metric_missing_moo(self) -> None:
+        """Test returns None when metric column missing for multi-objective."""
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.trials[0].run()
+        exp.fetch_data()
+        arm_names = list(exp.arms_by_name.keys())
+
+        # Replace one objective metric with a nonexistent one
+        moo = none_throws(exp.optimization_config).objective
+        moo.objectives[0]._metric = Metric(name="nonexistent_metric")
+
+        result = maybe_extract_baseline_comparison_values(
+            experiment=exp,
+            optimization_config=exp.optimization_config,
+            comparison_arm_names=[arm_names[1]],
+            baseline_arm_name=arm_names[0],
+        )
+        self.assertIsNone(result)

@@ -6,22 +6,32 @@
 
 # pyre-strict
 
+"""
+References
+
+.. [Daulton2026bonsai]
+    S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy. BONSAI: Bayesian
+    Optimization with Natural Simplicity and Interpretability. ArXiv, 2026.
+"""
+
 from __future__ import annotations
 
-import math
 import operator
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial, reduce
 from itertools import product
 from logging import Logger
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, DataRequiredError, SearchSpaceExhausted
 from ax.generators.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
-from ax.generators.torch.botorch_modular.utils import _fix_map_key_to_target
+from ax.generators.torch.botorch_modular.utils import (
+    _fix_map_key_to_target,
+    _objective_threshold_to_outcome_constraints,
+)
 from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
@@ -36,9 +46,11 @@ from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.exceptions.errors import BotorchError, InputDataError
+from botorch.generation.sampling import SamplingStrategy
 from botorch.models.model import Model
 from botorch.optim.optimize import (
     optimize_acqf,
@@ -46,7 +58,12 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete_local_search,
     optimize_acqf_mixed,
 )
-from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
+from botorch.optim.optimize_mixed import (
+    MAX_CARDINALITY_FOR_LOCAL_SEARCH,
+    MAX_CHOICES_ENUMERATE,
+    optimize_acqf_mixed_alternating,
+    should_use_mixed_alternating_optimizer,
+)
 from botorch.optim.parameter_constraints import evaluate_feasibility
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from pyre_extensions import none_throws
@@ -54,18 +71,12 @@ from torch import Tensor
 
 try:
     from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
+
 except ImportError:
     optimize_with_nsgaii = None
 
 
 logger: Logger = get_logger(__name__)
-
-
-# For fully discrete search spaces.
-MAX_CHOICES_ENUMERATE = 10_000
-MAX_CARDINALITY_FOR_LOCAL_SEARCH = 100
-# For mixed search spaces.
-ALTERNATING_OPTIMIZER_THRESHOLD = 10
 
 
 def determine_optimizer(
@@ -117,17 +128,12 @@ def determine_optimizer(
             else:
                 optimizer = "optimize_acqf_discrete"
         else:
-            n_combos = math.prod([len(v) for v in discrete_choices.values()])
-            # If there are less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations of
-            # discrete choices, we will use `optimize_acqf_mixed`, which enumerates all
-            # discrete combinations and optimizes the continuous features with discrete
-            # features being fixed. Otherwise, we will use
-            # `optimize_acqf_mixed_alternating`, which alternates between
-            # continuous and discrete optimization steps.
-            if n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD:
-                optimizer = "optimize_acqf_mixed"
-            else:
+            # For mixed (not fully discrete) search spaces, use the shared utility
+            # from BoTorch to determine whether to use mixed alternating optimizer.
+            if should_use_mixed_alternating_optimizer(discrete_dims=discrete_choices):
                 optimizer = "optimize_acqf_mixed_alternating"
+            else:
+                optimizer = "optimize_acqf_mixed"
     return optimizer
 
 
@@ -368,14 +374,34 @@ class Acquisition(Base):
             X_observed=self.X_observed,
             learned_objective_preference_model=self._learned_objective_preference_model,
         )
+        # Build constraint transforms, combining outcome constraints with
+        # objective threshold-derived constraints when using
+        # qLogProbabilityOfFeasibility for MOO.
+        outcome_constraints = self._outcome_constraints
+        constraint_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
+        if (
+            issubclass(botorch_acqf_class, qLogProbabilityOfFeasibility)
+            and self._objective_thresholds is not None
+        ):
+            threshold_constraints = _objective_threshold_to_outcome_constraints(
+                objective_weights=self._objective_weights,
+                objective_thresholds=self._objective_thresholds,
+            )
+            threshold_transforms = get_outcome_constraint_transforms(
+                outcome_constraints=threshold_constraints
+            )
+            if constraint_transforms is not None and threshold_transforms is not None:
+                constraint_transforms = constraint_transforms + threshold_transforms
+            elif threshold_transforms is not None:
+                constraint_transforms = threshold_transforms
         input_constructor_kwargs = {
             "model": model,
             "X_baseline": self.X_observed,
             "X_pending": self.X_pending,
             "objective_thresholds": self._objective_thresholds,
-            "constraints": get_outcome_constraint_transforms(
-                outcome_constraints=self._outcome_constraints
-            ),
+            "constraints": constraint_transforms,
             "constraints_tuple": self._outcome_constraints,
             "objective": objective,
             "posterior_transform": posterior_transform,
@@ -440,6 +466,123 @@ class Acquisition(Base):
         """The objective weights for all outcomes."""
         return self._full_objective_weights
 
+    def select_from_candidate_set(
+        self,
+        n: int,
+        candidate_set: Tensor,
+        sampling_strategy: SamplingStrategy | None = None,
+    ) -> tuple[Tensor, Tensor, Tensor]:
+        """Select n candidates from a discrete set with optional weight allocation.
+
+        This method selects candidates from ``candidate_set`` using either a
+        ``SamplingStrategy`` (e.g., Thompson Sampling with win-counting for weight
+        allocation) or greedy acquisition function optimization.
+
+        ``candidate_set`` is the stable interface for any candidate generation
+        method. Any method that produces candidates (in-sample training data,
+        pathwise TS optimization, user-provided sets, etc.) feeds into this
+        parameter. The selection/weight-allocation logic is agnostic to how
+        candidates were generated.
+
+        Args:
+            n: The number of candidates to select.
+            candidate_set: A ``(num_choices, d)`` tensor of discrete candidate
+                points to select from.
+            sampling_strategy: An optional BoTorch ``SamplingStrategy`` instance
+                (e.g., ``MaxPosteriorSampling`` for Thompson Sampling, or
+                ``BoltzmannSampling`` for acquisition-weighted sampling). When
+                provided, candidates are selected by sampling from ``candidate_set``
+                according to the strategy. When ``num_samples > n``, win-counting
+                mode is used: many posterior samples are drawn, wins are counted
+                per candidate, and the top-n candidates are returned with weights
+                proportional to their win probability (normalized to sum to 1).
+                If not provided, greedy acquisition function selection is used via
+                ``optimize_acqf_discrete``.
+
+        Returns:
+            A three-element tuple containing an ``n x d``-dim tensor of selected
+            candidates, a tensor with the associated acquisition values, and a
+            tensor with the weight for each candidate (normalized to sum to 1
+            for win-counting mode, or uniform for direct/greedy selection).
+
+        Raises:
+            ValueError: If ``candidate_set`` is empty or has fewer points than
+                ``n``.
+        """
+        if candidate_set.shape[0] == 0:
+            raise ValueError(
+                "`candidate_set` is empty. Provide a non-empty set of candidates."
+            )
+        if candidate_set.shape[0] < n:
+            raise ValueError(
+                f"`candidate_set` has {candidate_set.shape[0]} candidates, "
+                f"but {n} were requested. Provide at least {n} candidates."
+            )
+
+        if sampling_strategy is not None:
+            # Check if this is a win-counting strategy (e.g., Thompson Sampling)
+            # or a direct selection strategy (e.g., Boltzmann Sampling).
+            # If num_samples is explicitly set and > n, use win-counting mode.
+            # Otherwise, use direct selection mode.
+            num_samples_attr = getattr(sampling_strategy, "num_samples", None)
+            num_samples: int | None = (
+                int(num_samples_attr) if num_samples_attr is not None else None
+            )
+
+            if num_samples is not None and num_samples > n:
+                # Win-counting mode: sample many times, count wins, return top-n
+                # with weights proportional to win counts (normalized to sum to 1).
+                sampled_candidates = sampling_strategy(
+                    candidate_set.unsqueeze(0), num_samples=num_samples
+                ).squeeze(0)  # (num_samples, d)
+
+                # Count wins for each unique candidate
+                unique_candidates, inverse_indices = torch.unique(
+                    sampled_candidates, dim=0, return_inverse=True
+                )
+                counts = torch.bincount(
+                    inverse_indices, minlength=unique_candidates.shape[0]
+                )
+
+                # Select top-n candidates by win count.
+                # When num_unique < n (fewer unique winners than requested),
+                # we return all unique winners. The caller should handle
+                # candidates.shape[0] <= n, consistent with
+                # optimize_acqf_discrete which may also return fewer than n.
+                num_unique = unique_candidates.shape[0]
+                top_n = min(n, num_unique)
+                top_counts, top_indices = torch.topk(counts, top_n)
+
+                candidates = unique_candidates[top_indices]
+                arm_weights = top_counts.to(dtype=self.dtype, device=self.device)
+                arm_weights = arm_weights / arm_weights.sum()
+            else:
+                # Direct selection mode: sample exactly n candidates with equal
+                # weights. Used for strategies like BoltzmannSampling where
+                # weighting is built into the selection process.
+                sampled_candidates = sampling_strategy(
+                    candidate_set.unsqueeze(0), num_samples=n
+                ).squeeze(0)  # (n, d)
+                candidates = sampled_candidates
+                arm_weights = torch.ones(n, dtype=self.dtype, device=self.device)
+
+            acqf_values = self.evaluate(candidates.unsqueeze(1)).view(-1)
+            return candidates, acqf_values, arm_weights
+
+        # Greedy selection from provided discrete candidate set via acqf.
+        # optimize_acqf_discrete may return fewer than n candidates when
+        # there are fewer feasible choices; arm_weights matches actual count.
+        candidates, acqf_values = optimize_acqf_discrete(
+            acq_function=self.acqf,
+            q=n,
+            choices=candidate_set,
+            unique=True,
+        )
+        arm_weights = torch.ones(
+            candidates.shape[0], dtype=self.dtype, device=self.device
+        )
+        return candidates, acqf_values, arm_weights
+
     def optimize(
         self,
         n: int,
@@ -448,6 +591,8 @@ class Acquisition(Base):
         fixed_features: dict[int, float] | None = None,
         rounding_func: Callable[[Tensor], Tensor] | None = None,
         optimizer_options: dict[str, Any] | None = None,
+        candidate_set: Tensor | None = None,
+        sampling_strategy: SamplingStrategy | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
@@ -473,12 +618,36 @@ class Acquisition(Base):
                 that typically only exist in MBM, such as BoTorch transforms.
                 See the docstring of `TorchOptConfig` for more information on passing
                 down these options while constructing a generation strategy.
+            candidate_set: An optional tensor of shape `(num_choices, d)` containing
+                discrete candidate points to select from instead of optimizing over
+                the search space. When provided, selection is delegated to
+                ``select_from_candidate_set``. This enables in-sample candidate
+                generation when set to the training data (X_observed).
+            sampling_strategy: An optional BoTorch ``SamplingStrategy`` instance
+                (e.g., ``MaxPosteriorSampling`` for Thompson Sampling, or
+                ``BoltzmannSampling`` for acquisition-weighted sampling).
+                Passed to ``select_from_candidate_set`` when ``candidate_set``
+                is provided. Requires ``candidate_set`` to be provided.
 
         Returns:
             A three-element tuple containing an `n x d`-dim tensor of generated
             candidates, a tensor with the associated acquisition values, and a tensor
             with the weight for each candidate.
         """
+        # Dispatch to candidate set selection if candidate_set or
+        # sampling_strategy is provided.
+        if sampling_strategy is not None or candidate_set is not None:
+            if candidate_set is None:
+                raise ValueError(
+                    "`candidate_set` is required when using `sampling_strategy`. "
+                    "Provide the discrete set of candidates to sample from."
+                )
+            return self.select_from_candidate_set(
+                n=n,
+                candidate_set=candidate_set,
+                sampling_strategy=sampling_strategy,
+            )
+
         # Options that would need to be passed in the transformed space are
         # disallowed, since this would be very difficult for an end user to do
         # directly, and someone who uses BoTorch at this level of detail would
@@ -571,7 +740,12 @@ class Acquisition(Base):
                     X_avoid=X_observed,
                     **optimizer_options_with_defaults,
                 )
-                return candidates, acqf_values, arm_weights
+                n_candidates = candidates.shape[0]
+                return (
+                    candidates,
+                    acqf_values,
+                    arm_weights[:n_candidates] * n_candidates / n,
+                )
 
             # Else, optimizer is `optimize_acqf_discrete`
             # Enumerate all possible choices
@@ -657,9 +831,6 @@ class Acquisition(Base):
                     num_objectives=len(self.acqf.acqfs),
                     **optimizer_options_with_defaults,
                 )
-                # It is possible that NSGA-II will return less than the requested
-                # number of arms
-                arm_weights = torch.ones(candidates.shape[0], dtype=self.dtype)
             else:
                 raise AxError(
                     "optimize_with_nsgaii requires botorch to be installed with "
@@ -670,7 +841,9 @@ class Acquisition(Base):
                 f"Unknown optimizer: {optimizer}. This code should be unreachable."
             )
         # prune irrelevant parameters post-hoc
-        if self.options.get("prune_irrelevant_parameters", False):
+        if self.options.get("prune_irrelevant_parameters", False) and not isinstance(
+            self.acqf, qLogProbabilityOfFeasibility
+        ):
             if self._pruning_target_point is None:
                 logger.info(
                     "Must specify pruning_target_point to prune irrelevant "
@@ -683,7 +856,8 @@ class Acquisition(Base):
                     inequality_constraints=inequality_constraints,
                     fixed_features=fixed_features,
                 )
-        return candidates, acqf_values, arm_weights
+        n_candidates = candidates.shape[0]
+        return candidates, acqf_values, arm_weights[:n_candidates] * n_candidates / n
 
     def evaluate(self, X: Tensor) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.
@@ -786,7 +960,9 @@ class Acquisition(Base):
         inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         fixed_features: dict[int, float] | None = None,
     ) -> tuple[Tensor, Tensor]:
-        r"""Prune irrelevant parameters from the candidates.
+        r"""Prune irrelevant parameters from the candidates using BONSAI.
+
+        See [Daulton2026bonsai]_ for details.
 
         The method involves first optimizing the AF without any notion of irrelevance.
         Then, the irrelevant parameters are pruned via a sequential greedy algorithm
@@ -827,7 +1003,7 @@ class Acquisition(Base):
             self._pruning_target_point,
             message="Must specify pruning_target_point to prune irrelevant parameters",
         )
-        irrelevance_pruning_rtol = self.options.get("irrelevance_pruning_rtol", 0.1)
+        irrelevance_pruning_rtol = self.options.get("irrelevance_pruning_rtol", 0.2)
         initial_X_pending = self.X_pending
         pruned_af_vals = []
         excluded_indices = set(search_space_digest.fidelity_features)

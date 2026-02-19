@@ -12,8 +12,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from ax.core.evaluations_to_data import DataType
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.parameter import ParameterType
-
 from ax.core.trial_status import TrialStatus
 from ax.core.types import (
     ComparisonOp,
@@ -37,7 +38,7 @@ from ax.storage.sqa_store.json import (
 )
 from ax.storage.sqa_store.sqa_enum import IntEnum, StringEnum
 from ax.storage.sqa_store.timestamp import IntTimestamp
-from ax.storage.utils import DataType, DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -210,11 +211,13 @@ class SQAGeneratorRun(Base):
     generation_strategy_id: Column[int | None] = Column(
         Integer, ForeignKey("generation_strategy.id")
     )
-    generation_step_index: Column[int | None] = Column(Integer)
     candidate_metadata_by_arm_signature: Column[dict[str, Any] | None] = Column(
         JSONEncodedTextDict
     )
     generation_node_name: Column[str | None] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    suggested_experiment_status: Column[ExperimentStatus | None] = Column(
+        IntEnum(ExperimentStatus), nullable=True
+    )
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors
@@ -314,7 +317,6 @@ class SQATrial(Base):
     time_staged: Column[datetime | None] = Column(IntTimestamp)
     time_run_started: Column[datetime | None] = Column(IntTimestamp)
     trial_type: Column[str | None] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    generation_step_index: Column[int | None] = Column(Integer)
     properties: Column[dict[str, Any] | None] = Column(JSONEncodedTextDict, default={})
 
     # relationships
@@ -377,6 +379,9 @@ class SQAExperiment(Base):
         JSONEncodedTextDict
     )
     time_created: Column[datetime] = Column(IntTimestamp, nullable=False)
+    status: Column[ExperimentStatus | None] = Column(
+        IntEnum(ExperimentStatus), nullable=True
+    )
     default_trial_type: Column[str | None] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     default_data_type: Column[DataType] = Column(IntEnum(DataType), nullable=True)
     # pyre-fixme[8]: Incompatible attribute type [8]: Attribute

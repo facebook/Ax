@@ -49,15 +49,15 @@ jobs:
       # `uv pip ...` requires venv by default. This skips that requirement.
       UV_SYSTEM_PYTHON: 1
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
     - name: Install uv
       uses: astral-sh/setup-uv@v5
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
-        python-version: "3.12"
+        python-version: "3.14"
     - name: Install dependencies
       env:
         ALLOW_LATEST_GPYTORCH_LINOP: true
@@ -78,7 +78,7 @@ jobs:
       run: |
         python -m build --sdist --wheel
     - name: Deploy to Test PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # release/v1.13
       with:
         repository-url: https://test.pypi.org/legacy/
         skip-existing: true

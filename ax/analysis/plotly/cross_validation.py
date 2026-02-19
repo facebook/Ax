@@ -6,17 +6,18 @@
 # pyre-strict
 
 
-from typing import final, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate, CVResult
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardBase
 from ax.analysis.plotly.color_constants import AX_BLUE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import get_scatter_point_color, Z_SCORE_95_CI
 from ax.analysis.utils import extract_relevant_adapter, validate_adapter_can_predict
+from ax.core.analysis_card import AnalysisCardBase
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go
@@ -73,8 +74,8 @@ class CrossValidationPlot(Analysis):
     ) -> None:
         """
         Args:
-            metric_names: The name of the metric to plot. If not specified all metrics
-                available on the underyling model will be used.
+            metric_names: The names of the metrics to plot. If not specified all metrics
+                available on the underlying model will be used.
             folds: Number of subsamples to partition observations into. Use -1 for
                 leave-one-out cross validation.
             untransform: Whether to untransform the model predictions before cross
@@ -132,7 +133,7 @@ class CrossValidationPlot(Analysis):
 
         cards = []
         cv_results = cross_validate(
-            model=relevant_adapter, folds=self.folds, untransform=self.untransform
+            adapter=relevant_adapter, folds=self.folds, untransform=self.untransform
         )
         relevant_adapter_metric_names = [
             relevant_adapter._experiment.signature_to_metric[signature].name
@@ -210,8 +211,8 @@ def compute_cross_validation_adhoc(
     a notebook setting.
 
     Args:
-        metric_names: The name of the metric to plot. If not specified all metrics
-            available on the underyling model will be used.
+        metric_names: The names of the metrics to plot. If not specified all metrics
+            available on the underlying model will be used.
         folds: Number of subsamples to partition observations into. Use -1 for
             leave-one-out cross validation.
         untransform: Whether to untransform the model predictions before cross

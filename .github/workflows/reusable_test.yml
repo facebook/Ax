@@ -25,17 +25,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.11", "3.14"]
       fail-fast: false
     env:
       # `uv pip ...` requires venv by default. This skips that requirement.
       UV_SYSTEM_PYTHON: 1
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Install uv
       uses: astral-sh/setup-uv@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -65,10 +65,10 @@ jobs:
       name: Tests and coverage
       run: |
         pytest -ra --cov=ax
-    - if: ${{ !inputs.minimal_dependencies && matrix.python-version == 3.10 }}
+    - if: ${{ !inputs.minimal_dependencies && matrix.python-version == 3.11 }}
       # Only upload codecov once per workflow.
       name: Upload coverage
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         # This will sometimes fail because of
         # https://github.com/codecov/codecov-action/issues/1580

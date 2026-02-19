@@ -602,6 +602,8 @@ class BoTorchGeneratorTest(TestCase):
             fixed_features=self.fixed_features,
             rounding_func=None,
             optimizer_options=self.optimizer_options,
+            candidate_set=None,
+            sampling_strategy=None,
         )
         # make sure ACQF_KWARGS are passed properly
         self.assertEqual(none_throws(model._acquisition).acqf._eta, 3.0)
@@ -619,6 +621,123 @@ class BoTorchGeneratorTest(TestCase):
                 torch_opt_config=self.torch_opt_config,
             )
             self.assertTrue(torch.isfinite(gen_results.points).all())
+
+    def test_build_candidate_generation_options(self) -> None:
+        """Test _build_candidate_generation_options across all code paths."""
+        from ax.generators.torch.botorch_modular.generator import (
+            _build_candidate_generation_options,
+        )
+        from botorch.generation.sampling import BoltzmannSampling, MaxPosteriorSampling
+
+        mock_acqf = Mock()
+        mock_acqf.acqf = Mock()
+
+        with self.subTest("no_options_returns_none"):
+            candidate_set, sampling_strategy = _build_candidate_generation_options(
+                model_gen_options={},
+                torch_opt_config=self.torch_opt_config,
+                surrogate=Mock(),
+                acqf=mock_acqf,
+            )
+            self.assertIsNone(candidate_set)
+            self.assertIsNone(sampling_strategy)
+
+        with self.subTest("in_sample_no_data_raises"):
+            mock_surrogate = Mock()
+            mock_surrogate.Xs = []
+            with self.assertRaisesRegex(ValueError, "no data is available"):
+                _build_candidate_generation_options(
+                    model_gen_options={"in_sample": True},
+                    torch_opt_config=self.torch_opt_config,
+                    surrogate=mock_surrogate,
+                    acqf=mock_acqf,
+                )
+
+        train_X = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+        mock_surrogate = Mock()
+        mock_surrogate.Xs = [train_X]
+        mock_surrogate.model = Mock()
+
+        with self.subTest("in_sample_only"):
+            candidate_set, sampling_strategy = _build_candidate_generation_options(
+                model_gen_options={"in_sample": True},
+                torch_opt_config=self.torch_opt_config,
+                surrogate=mock_surrogate,
+                acqf=mock_acqf,
+            )
+            self.assertIsNotNone(candidate_set)
+            self.assertTrue(torch.equal(candidate_set, train_X))
+            self.assertIsNone(sampling_strategy)
+
+        with self.subTest("max_posterior_sampling"):
+            candidate_set, sampling_strategy = _build_candidate_generation_options(
+                model_gen_options={
+                    "in_sample": True,
+                    "sampling_strategy_class": MaxPosteriorSampling,
+                    "sampling_strategy_kwargs": {"num_samples": 100},
+                },
+                torch_opt_config=self.torch_opt_config,
+                surrogate=mock_surrogate,
+                acqf=mock_acqf,
+            )
+            self.assertIsNotNone(candidate_set)
+            self.assertTrue(torch.equal(candidate_set, train_X))
+            self.assertIsInstance(sampling_strategy, MaxPosteriorSampling)
+            self.assertEqual(sampling_strategy.num_samples, 100)
+
+        with self.subTest("boltzmann_sampling"):
+            candidate_set, sampling_strategy = _build_candidate_generation_options(
+                model_gen_options={
+                    "sampling_strategy_class": BoltzmannSampling,
+                    "sampling_strategy_kwargs": {"eta": 1.0},
+                },
+                torch_opt_config=self.torch_opt_config,
+                surrogate=mock_surrogate,
+                acqf=mock_acqf,
+            )
+            self.assertIsNone(candidate_set)
+            self.assertIsInstance(sampling_strategy, BoltzmannSampling)
+
+        with self.subTest("generic_strategy"):
+
+            class _CustomStrategy:
+                def __init__(self, temperature: float = 1.0) -> None:
+                    self.temperature = temperature
+
+            candidate_set, sampling_strategy = _build_candidate_generation_options(
+                model_gen_options={
+                    "sampling_strategy_class": _CustomStrategy,
+                    "sampling_strategy_kwargs": {"temperature": 2.0},
+                },
+                torch_opt_config=self.torch_opt_config,
+                surrogate=mock_surrogate,
+                acqf=mock_acqf,
+            )
+            self.assertIsNone(candidate_set)
+            self.assertIsInstance(sampling_strategy, _CustomStrategy)
+            self.assertEqual(sampling_strategy.temperature, 2.0)
+
+        with self.subTest("no_mutation_of_input_dict"):
+
+            class _DummyStrategy:
+                def __init__(self, **kwargs: object) -> None:
+                    pass
+
+            model_gen_options = {
+                "in_sample": True,
+                "sampling_strategy_class": _DummyStrategy,
+                "sampling_strategy_kwargs": {"num_samples": 50},
+            }
+            _build_candidate_generation_options(
+                model_gen_options=model_gen_options,
+                torch_opt_config=self.torch_opt_config,
+                surrogate=mock_surrogate,
+                acqf=mock_acqf,
+            )
+            self.assertEqual(
+                model_gen_options["sampling_strategy_kwargs"],
+                {"num_samples": 50},
+            )
 
     def test_gen_SingleTaskGP(self) -> None:
         self._test_gen(

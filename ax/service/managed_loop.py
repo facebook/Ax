@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import inspect
 import logging
+import warnings
 from collections.abc import Iterable
 
 # Manual import to avoid strange error, see Diff for details.
 import ax.generation_strategy.generation_node_input_constructors  # noqa
 from ax.adapter.base import Adapter
-
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
@@ -28,7 +28,6 @@ from ax.core.types import (
     TModelPredictArm,
     TParameterization,
 )
-from ax.core.utils import get_pending_observation_features
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
@@ -166,9 +165,6 @@ class OptimizationLoop:
             return self.experiment.new_trial(
                 generator_run=self.generation_strategy.gen_single_trial(
                     experiment=self.experiment,
-                    pending_observations=get_pending_observation_features(
-                        experiment=self.experiment
-                    ),
                 )
             )
         elif self.arms_per_trial > 1:
@@ -219,7 +215,6 @@ class OptimizationLoop:
                 for arm, weight in self._get_weights_by_arm(trial)
             },
             trial_index=self.current_trial,
-            data_type=self.experiment.default_data_type,
             metric_name_to_signature=metric_name_to_signature,
         )
 
@@ -237,7 +232,7 @@ class OptimizationLoop:
                 self.run_trial()
             except SearchSpaceExhausted as err:
                 logger.info(
-                    f"Stopped optimization as the search space is exhaused. Message "
+                    f"Stopped optimization as the search space is exhausted. Message "
                     f"from generation strategy: {err}."
                 )
                 return self
@@ -282,6 +277,12 @@ def optimize(
     generation_strategy: GenerationStrategy | None = None,
 ) -> tuple[TParameterization, TModelPredictArm | None, Experiment, Adapter | None]:
     """Construct and run a full optimization loop."""
+    warnings.warn(
+        "optimize is deprecated and will be removed in Ax 1.3. Please use "
+        "Client from ax.api.client instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     loop = OptimizationLoop.with_evaluation_function(
         parameters=parameters,
         objective_name=objective_name,

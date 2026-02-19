@@ -8,13 +8,14 @@
 
 from collections.abc import Callable, Iterable
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from logging import Logger
 from typing import Any, NamedTuple
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -37,6 +38,7 @@ TArmTrial = tuple[str, int]
 
 # Threshold for switching to pending points extraction based on trial status.
 MANY_TRIALS_IN_EXPERIMENT = 100
+OLD_TRIAL_THRESHOLD_DAYS = 10
 
 # --------------------------- Data integrity utils. ---------------------------
 
@@ -490,16 +492,19 @@ def extend_pending_observations(
 # -------------------- Get target trial utils. ---------------------
 
 
-def get_target_trial_index(experiment: Experiment) -> int | None:
+def get_target_trial_index(
+    experiment: Experiment,
+    require_data_for_all_metrics: bool = False,
+) -> int | None:
     """Get the index of the target trial in the ``Experiment``.
 
-    Find the target trial, among the trials with data for status quo arm, giving
-    priority in the following order:
-        1. a running long-run trial. Note if there is a running long-run trial on the
-            experiment without data, or if there is no data on the experiment, then
-            this will return None.
-        2. Most recent trial expecting data with running trials be considered the most
-            recent.
+    Find the target trial, among the trials with data for status quo arm and
+    required metrics, giving priority in the following order:
+        1. A running long-run trial. If the long-run trial
+           doesn't have data for sq + required metrics, fallback to short-run.
+        2. Longest running trial with data that is still currently running.
+        3. Longest running completed trial with data, excluding trials
+           completed over 10 days ago as they are likely stale.
 
     In the event of any ties, the tie breaking order is:
         a. longest running trial by duration
@@ -508,64 +513,121 @@ def get_target_trial_index(experiment: Experiment) -> int | None:
 
     Args:
         experiment: The experiment associated with this ``GenerationStrategy``.
+        require_data_for_all_metrics: If True, filter to trials with data for
+            ALL metrics on the experiment (including tracking). If False,
+            filter to trials with data for all optimization config metrics only.
+            Typically, this is True for plotting, and false for other purposes
 
     Returns:
-        The index of the target trial in the ``Experiment``.
+        The index of the target trial in the ``Experiment``, or None if no
+        valid trial is found.
     """
-    # TODO: @mgarrard improve logic to include trial_obsolete_threshold that
-    # takes into account the age of the trial, and consider more heavily weighting
-    # long run trials.
     df = experiment.lookup_data().df
     status_quo = experiment.status_quo
     if df.empty or status_quo is None:
         return None
-    # Filter to only trials with data for status quo arm.
-    df = df[df["arm_name"] == status_quo.name]
-    trial_indices_with_data = set(df.trial_index.unique())
-    # only consider running trials with data
+
+    # trial indices that have data for required metrics
+    trial_indices_with_required_metrics = get_trial_indices_with_required_metrics(
+        experiment=experiment,
+        df=df,
+        require_data_for_all_metrics=require_data_for_all_metrics,
+    )
+
+    # trial indices that have data for status quo arm
+    sq_df = df[df["arm_name"] == status_quo.name]
+    trial_indices_with_sq_data = set(sq_df.trial_index.unique())
+
+    # trials with both SQ data and required metrics
+    valid_trial_indices = (
+        trial_indices_with_sq_data & trial_indices_with_required_metrics
+    )
+
+    # only consider running trials with valid data
     running_trials = [
         trial
         for trial in experiment.trials_by_status[TrialStatus.RUNNING]
-        if trial.index in trial_indices_with_data
+        if trial.index in valid_trial_indices
     ]
     sorted_running_trials = _sort_trials(trials=running_trials, trials_are_running=True)
+
     # Priority 1: Any running long-run trial
     has_running_long_run_trial = any(
         trial.trial_type == Keys.LONG_RUN
         for trial in experiment.trials_by_status[TrialStatus.RUNNING]
     )
     if has_running_long_run_trial:
-        # This returns a running long-run trial with data or None
-        # if there are running long-run trials on the experiment, but
-        # no data for that trial
-        return next(
-            (
-                trial.index
-                for trial in sorted_running_trials
-                if trial.trial_type == Keys.LONG_RUN
-            ),
-            None,
-        )
+        # try to find a long-run trial on the experiment, if multiple exist, it will
+        # return the one with longest duration
+        for trial in sorted_running_trials:
+            if trial.trial_type == Keys.LONG_RUN:
+                return trial.index
 
     # Priority 2: longest running currently running trial with data
     if len(sorted_running_trials) > 0:
         return sorted_running_trials[0].index
 
-    # Priortiy 3: the longest running trial with data, discounting running trials
-    # as we handled those above
-    non_running_trial_indices_with_data = trial_indices_with_data - {
-        t.index for t in running_trials
-    }
-    non_running_trials_with_data = [
-        experiment.trials[i] for i in non_running_trial_indices_with_data
+    # Priority 3: select from non-running trials with data, excluding:
+    # - trials that were failed/abandoned/early stopped, likely indicating a problem
+    # with the trial and therefore should not be selected as the target trial
+    # - old trials completed > 10 days ago (unless all are old)
+    valid_completed_trials = [
+        experiment.trials[idx]
+        for idx in valid_trial_indices
+        if experiment.trials[idx].status == TrialStatus.COMPLETED
     ]
-    sorted_non_running_trials_with_data = _sort_trials(
-        trials=non_running_trials_with_data, trials_are_running=False
-    )
-    if len(sorted_non_running_trials_with_data) > 0:
-        return sorted_non_running_trials_with_data[0].index
+
+    old_threshold = datetime.now() - timedelta(days=OLD_TRIAL_THRESHOLD_DAYS)
+    non_old_trials = [
+        trial
+        for trial in valid_completed_trials
+        if trial.time_completed is None or trial.time_completed >= old_threshold
+    ]
+    if non_old_trials:
+        return _sort_trials(trials=non_old_trials, trials_are_running=False)[0].index
+    elif valid_completed_trials:
+        return _sort_trials(trials=valid_completed_trials, trials_are_running=False)[
+            0
+        ].index
 
     return None
+
+
+def get_trial_indices_with_required_metrics(
+    experiment: Experiment,
+    df: "pd.DataFrame",
+    require_data_for_all_metrics: bool,
+) -> set[int]:
+    """Return trial indicies in an experiment which have data for required metrics
+
+    Args:
+        experiment: an Ax experiment
+        df: experiment data to search through
+        require_data_for_all_metrics: If True, require data for all metrics
+            on the experiment. If False, only require data for optimization
+            config metrics.
+
+    Returns:
+        Set of trial indices with data for required metrics.
+    """
+    if require_data_for_all_metrics:
+        required_metrics = set(experiment.metrics.keys())
+    else:
+        if experiment.optimization_config is None:
+            # if there is no optimization config set, any trial with data
+            # is valid
+            return set(df.trial_index.unique())
+        required_metrics = set(experiment.optimization_config.metrics.keys())
+
+    # Find trials that have data for all required metrics
+    valid_trial_indices = set()
+    for trial_idx in set(df.trial_index.unique()):
+        trial_df = df[df.trial_index == trial_idx]
+        metrics_in_trial = set(trial_df.metric_name.unique())
+        if required_metrics.issubset(metrics_in_trial):
+            valid_trial_indices.add(trial_idx)
+
+    return valid_trial_indices
 
 
 def _sort_trials(

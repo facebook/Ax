@@ -8,11 +8,9 @@
 from typing import final
 
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard
-
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy

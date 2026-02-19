@@ -15,7 +15,6 @@ from ax.api.utils.instantiation.from_config import (
 )
 from ax.api.utils.instantiation.from_struct import experiment_from_struct
 from ax.api.utils.structs import ExperimentStruct
-from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.parameter import (
     ChoiceParameter,
@@ -109,7 +108,34 @@ class TestFromConfig(TestCase):
                     100.0,
                 ],
                 is_ordered=True,
-                sort_values=False,
+            ),
+        )
+
+        fractional_step_size_config = RangeParameterConfig(
+            name="fractional_step_size_param",
+            parameter_type="float",
+            bounds=(0, 1),
+            step_size=0.1,
+        )
+        self.assertEqual(
+            parameter_from_config(config=fractional_step_size_config),
+            ChoiceParameter(
+                name="fractional_step_size_param",
+                parameter_type=CoreParameterType.FLOAT,
+                values=[
+                    0.0,
+                    0.1,
+                    0.2,
+                    0.3,
+                    0.4,
+                    0.5,
+                    0.6,
+                    0.7,
+                    0.8,
+                    0.9,
+                    1.0,
+                ],
+                is_ordered=True,
             ),
         )
 
@@ -251,7 +277,7 @@ class TestFromConfig(TestCase):
                     ],
                     parameter_constraints=[
                         ParameterConstraint(
-                            constraint_dict={"int_param": 1, "float_param": -1}, bound=0
+                            inequality="int_param <= float_param",
                         )
                     ],
                 ),
@@ -259,7 +285,6 @@ class TestFromConfig(TestCase):
                 description="test description",
                 experiment_type="TEST",
                 properties={"owners": ["miles"]},
-                default_data_type=DataType.MAP_DATA,
             ),
         )
 
@@ -313,14 +338,13 @@ class TestFromConfig(TestCase):
                     ],
                     parameter_constraints=[
                         ParameterConstraint(
-                            constraint_dict={"int_param": 1, "float_param": -1}, bound=0
+                            inequality="int_param <= float_param",
                         )
                     ],
                 ),
                 name="test_experiment",
                 description="test description",
                 properties={"owners": ["miles"]},
-                default_data_type=DataType.MAP_DATA,
             ),
         )
 

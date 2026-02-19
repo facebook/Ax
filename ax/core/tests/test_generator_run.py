@@ -7,6 +7,7 @@
 # pyre-strict
 
 from ax.core.arm import Arm
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -48,6 +49,10 @@ class GeneratorRunTest(TestCase):
             search_space=self.search_space,
             model_predictions=self.model_predictions,
         )
+        self.run_with_suggested_status = GeneratorRun(
+            arms=self.arms,
+            suggested_experiment_status=ExperimentStatus.INITIALIZATION,
+        )
 
     def test_Init(self) -> None:
         self.assertEqual(
@@ -75,9 +80,9 @@ class GeneratorRunTest(TestCase):
             )
 
         with self.assertRaises(ValueError):
-            GeneratorRun(arms=self.arms, model_kwargs={"a": 1})
+            GeneratorRun(arms=self.arms, generator_kwargs={"a": 1})
         with self.assertRaises(ValueError):
-            GeneratorRun(arms=self.arms, model_key="b", bridge_kwargs={"a": 1})
+            GeneratorRun(arms=self.arms, generator_key="b", adapter_kwargs={"a": 1})
 
         # Check that an error will be raised if cand. metadata contains an arm
         # signature that doesn't match any arms in generator run.
@@ -184,3 +189,18 @@ class GeneratorRunTest(TestCase):
             weights=self.weights,
         )
         self.assertTrue(generator_run1 < generator_run2)
+
+    def test_SuggestedExperimentStatus(self) -> None:
+        self.assertEqual(
+            self.run_with_suggested_status.suggested_experiment_status,
+            ExperimentStatus.INITIALIZATION,
+        )
+
+    def test_SuggestedExperimentStatusDefaultNone(self) -> None:
+        self.assertIsNone(self.unweighted_run.suggested_experiment_status)
+
+    def test_ClonePreservesSuggestedExperimentStatus(self) -> None:
+        cloned = self.run_with_suggested_status.clone()
+        self.assertEqual(
+            cloned.suggested_experiment_status, ExperimentStatus.INITIALIZATION
+        )

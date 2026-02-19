@@ -85,8 +85,7 @@ def mock_botorch_optimize_context_manager(
 
         mock_nsgaii = es.enter_context(
             mock.patch(
-                "ax.generators.torch.botorch_modular.acquisition."
-                "optimize_with_nsgaii",
+                "ax.generators.torch.botorch_modular.acquisition.optimize_with_nsgaii",
                 wraps=minimal_optimize_with_nsgaii,
             )
         )

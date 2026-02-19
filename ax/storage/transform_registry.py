@@ -26,9 +26,14 @@ from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.adapter.transforms.merge_repeated_measurements import MergeRepeatedMeasurements
 from ax.adapter.transforms.metadata_to_task import MetadataToTask
 from ax.adapter.transforms.metrics_as_task import MetricsAsTask
+from ax.adapter.transforms.objective_as_constraint import ObjectiveAsConstraint
 from ax.adapter.transforms.one_hot import OneHot
 from ax.adapter.transforms.power_transform_y import PowerTransformY
-from ax.adapter.transforms.relativize import Relativize, RelativizeWithConstantControl
+from ax.adapter.transforms.relativize import (
+    Relativize,
+    RelativizeWithConstantControl,
+    SelectiveRelativizeWithConstantControl,
+)
 from ax.adapter.transforms.remove_fixed import RemoveFixed
 from ax.adapter.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.adapter.transforms.standardize_y import StandardizeY
@@ -57,6 +62,7 @@ we will return the replacement class.
 """
 TRANSFORM_REGISTRY: set[type[Transform]] = {
     Transform,
+    ObjectiveAsConstraint,
     # ConvertMetricNames, DEPRECATED
     Derelativize,
     FixedToTunable,
@@ -90,6 +96,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     LogY,
     Relativize,
     RelativizeWithConstantControl,
+    SelectiveRelativizeWithConstantControl,
     MergeRepeatedMeasurements,
     TimeAsFeature,
     TransformToNewSQ,

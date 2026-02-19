@@ -13,10 +13,12 @@ from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_a
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.arm import Arm
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
+    get_non_failed_arm_names,
     get_offline_experiments,
     get_online_experiments,
 )
@@ -72,6 +74,25 @@ class TestArmEffectsPlot(TestCase):
                     },
                 )
 
+    def test_trial_statuses_behavior(self) -> None:
+        # When neither trial_statuses nor trial_index is provided,
+        # should use default statuses (excluding ABANDONED, STALE, and FAILED)
+        analysis = ArmEffectsPlot(metric_name="foo")
+        self.assertEqual(
+            set(none_throws(analysis.trial_statuses)),
+            DEFAULT_ANALYSIS_STATUSES,
+        )
+
+        # When trial_statuses is explicitly provided, it should be used
+        explicit_statuses = [TrialStatus.COMPLETED, TrialStatus.RUNNING]
+        analysis = ArmEffectsPlot(metric_name="foo", trial_statuses=explicit_statuses)
+        self.assertEqual(analysis.trial_statuses, explicit_statuses)
+
+        # When trial_index is provided (and trial_statuses is None),
+        # trial_statuses should be None to allow filtering by trial_index
+        analysis = ArmEffectsPlot(metric_name="foo", trial_index=0)
+        self.assertIsNone(analysis.trial_statuses)
+
     def test_validation(self) -> None:
         with self.assertRaisesRegex(
             UserInputError, "Requested metrics .* are not present in the experiment."
@@ -104,16 +125,18 @@ class TestArmEffectsPlot(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
             },
         )
 
-        # Check that we have one row per arm and that each arm appears only once
-        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-        for arm_name in self.client._experiment.arms_by_name:
+        # Check that we have one row per arm from non-failed trials and that each
+        # arm appears only once
+        non_failed_arms = get_non_failed_arm_names(self.client._experiment)
+        self.assertEqual(len(card.df), len(non_failed_arms))
+        for arm_name in non_failed_arms:
             self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are NaN
@@ -133,16 +156,18 @@ class TestArmEffectsPlot(TestCase):
                 "trial_index",
                 "arm_name",
                 "trial_status",
-                "fail_reason",
+                "status_reason",
                 "generation_node",
                 "foo_mean",
                 "foo_sem",
             },
         )
 
-        # Check that we have one row per arm and that each arm appears only once
-        self.assertEqual(len(card.df), len(self.client._experiment.arms_by_name))
-        for arm_name in self.client._experiment.arms_by_name:
+        # Check that we have one row per arm from non-failed trials and that each
+        # arm appears only once
+        non_failed_arms = get_non_failed_arm_names(self.client._experiment)
+        self.assertEqual(len(card.df), len(non_failed_arms))
+        for arm_name in non_failed_arms:
             self.assertEqual((card.df["arm_name"] == arm_name).sum(), 1)
 
         # Check that all SEMs are not NaN
@@ -318,7 +343,7 @@ class TestArmEffectsPlotRel(TestCase):
                         "trial_index",
                         "arm_name",
                         "trial_status",
-                        "fail_reason",
+                        "status_reason",
                         "generation_node",
                         "branin_mean",
                         "branin_sem",
@@ -337,3 +362,10 @@ class TestArmEffectsPlotRel(TestCase):
 
                     self.assertFalse(card.df["branin_mean"].isna().any())
                     self.assertFalse(card.df["branin_sem"].isna().any())
+
+                    # The title should include status quo name when relativize is True
+                    expected_prefix = "Modeled" if use_model_predictions else "Observed"
+                    expected_suffix = 'relative to "status_quo"'
+                    self.assertIn(expected_prefix, card.title)
+                    self.assertIn("Arm Effects on branin", card.title)
+                    self.assertIn(expected_suffix, card.title)

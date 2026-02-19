@@ -8,12 +8,10 @@
 
 import os
 from collections.abc import Callable, Sequence
-
 from logging import Logger
 from typing import Any, cast, Type
 
-from ax.analysis.analysis_card import AnalysisCardBase
-
+from ax.core.analysis_card import AnalysisCardBase
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -25,6 +23,10 @@ from ax.core.trial import Trial
 from ax.exceptions.core import AxError, TrialMutationError, UserInputError
 from ax.exceptions.storage import SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+
+# necessary to import this file so SQLAlchemy knows about the event listeners
+# see https://fburl.com/8mn7yjt2
+from ax.storage.sqa_store import validation as _validation_listeners  # noqa: F401
 from ax.storage.sqa_store.db import session_scope, SQABase
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -42,6 +44,24 @@ from ax.utils.common.logger import get_logger
 from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
+
+
+def _assert_experiment_saved(experiment: Experiment) -> int:
+    """Assert that an experiment has been saved to the database.
+
+    Args:
+        experiment: The experiment to check.
+
+    Returns:
+        The experiment's database ID.
+
+    Raises:
+        UserInputError: If the experiment has not been saved (db_id is None).
+    """
+    exp_id = experiment.db_id
+    if exp_id is None:
+        raise UserInputError("Experiment must be saved before being updated.")
+    return exp_id
 
 
 def save_experiment(
@@ -113,13 +133,11 @@ def save_generation_strategy(
     Returns:
         The ID of the saved generation strategy.
     """
-    # Start up SQA encoder.
-    config = SQAConfig() if config is None else config
-    encoder = Encoder(config=config)
-    decoder = Decoder(config=config)
-
+    config = config or SQAConfig()
     return _save_generation_strategy(
-        generation_strategy=generation_strategy, encoder=encoder, decoder=decoder
+        generation_strategy=generation_strategy,
+        encoder=Encoder(config=config),
+        decoder=Decoder(config=config),
     )
 
 
@@ -288,21 +306,20 @@ def save_or_update_data_for_trials(
     def add_experiment_id(sqa: SQAData) -> None:
         sqa.experiment_id = experiment.db_id
 
-    datas, data_encode_args, datas_to_keep, trial_idcs = [], [], [], []
+    datas, data_encode_args, trial_idcs = [], [], []
     data_sqa_class: type[SQAData] = cast(
         type[SQAData], encoder.config.class_to_sqa_class[Data]
     )
     for trial in trials:
         trial_idcs.append(trial.index)
-        trial_datas = experiment._data_by_trial.get(trial.index, {})
-        for ts, data in trial_datas.items():
-            if data.db_id is None:
-                # This is data we have not saved before; we should add it to the
-                # database. Previously saved data for this experiment can be removed.
-                datas.append(data)
-                data_encode_args.append({"trial_index": trial.index, "timestamp": ts})
-            else:
-                datas_to_keep.append(data.db_id)
+        # NOTE: Even if identical data for this trial already exists in the
+        # database, we will generally already have lost its db_id in the process
+        # of merging each trial's Data into one Experiment-level Data, so we
+        # must save it again, replacing the previously saved data for that
+        # trial.
+        data = experiment.lookup_data(trial_indices={trial.index})
+        datas.append(data)
+        data_encode_args.append({"trial_index": trial.index, "timestamp": 0})
 
         # For trials, for which we saved new data, we can first remove previously
         # saved data if it's no longer on the experiment.
@@ -311,19 +328,14 @@ def save_or_update_data_for_trials(
                 experiment_id=experiment.db_id
             ).filter(data_sqa_class.trial_index.isnot(None)).filter(
                 data_sqa_class.trial_index.in_(trial_idcs)
-                # pyre-fixme [16]: sqlalchemy.sql.schema.Column` has no attribute
-                # `not_in`.
-            ).filter(data_sqa_class.id.not_in(datas_to_keep)).delete()
+            ).delete()
 
     _bulk_merge_into_session(
         objs=datas,
         encode_func=encoder.data_to_sqa,
         decode_func=decoder.data_from_sqa,
         encode_args_list=data_encode_args,
-        decode_args_list=[
-            {"data_constructor": experiment.default_data_constructor}
-            for _ in range(len(datas))
-        ],
+        decode_args_list=[],
         modify_sqa=add_experiment_id,
         batch_size=batch_size,
     )
@@ -419,17 +431,12 @@ def _update_generation_strategy(
             "should be saved before generation strategy."
         )
 
-    curr_index = (
-        None
-        if generation_strategy.is_node_based
-        else generation_strategy.current_step_index
-    )
     # there is always a node name
     curr_node_name = generation_strategy.current_node_name
     with session_scope() as session:
         session.query(gs_sqa_class).filter_by(id=gs_id).update(
             {
-                "curr_index": curr_index,
+                "curr_index": None,  # Storage of `GenerationStep`-s is deprecated.
                 "experiment_id": experiment_id,
                 "curr_node_name": curr_node_name,
             }
@@ -469,14 +476,11 @@ def update_runner_on_experiment(
 ) -> None:
     runner_sqa_class = encoder.config.class_to_sqa_class[Runner]
 
-    exp_id = experiment.db_id
-    if exp_id is None:
-        raise ValueError("Experiment must be saved before being updated.")
+    exp_id: int = _assert_experiment_saved(experiment)
 
     with session_scope() as session:
         session.query(runner_sqa_class).filter_by(experiment_id=exp_id).delete()
 
-    # pyre-fixme[53]: Captured variable `exp_id` is not annotated.
     # pyre-fixme[3]: Return type must be annotated.
     def add_experiment_id(sqa: SQARunner):
         sqa.experiment_id = exp_id
@@ -497,9 +501,7 @@ def update_outcome_constraint_on_experiment(
 ) -> None:
     oc_sqa_class = encoder.config.class_to_sqa_class[Metric]
 
-    exp_id: int | None = experiment.db_id
-    if exp_id is None:
-        raise UserInputError("Experiment must be saved before being updated.")
+    exp_id: int = _assert_experiment_saved(experiment)
     oc_id = outcome_constraint.db_id
     if oc_id is not None:
         with session_scope() as session:
@@ -530,14 +532,39 @@ def update_properties_on_experiment(
     config = SQAConfig() if config is None else config
     exp_sqa_class = config.class_to_sqa_class[Experiment]
 
-    exp_id = experiment_with_updated_properties.db_id
-    if exp_id is None:
-        raise ValueError("Experiment must be saved before being updated.")
+    exp_id = _assert_experiment_saved(experiment_with_updated_properties)
 
     with session_scope() as session:
         session.query(exp_sqa_class).filter_by(id=exp_id).update(
             {
                 "properties": experiment_with_updated_properties._properties,
+            }
+        )
+
+
+def update_experiment_status(
+    experiment: Experiment,
+    config: SQAConfig | None = None,
+) -> None:
+    """Update experiment status in the database.
+
+    This function provides an efficient way to update only the experiment's status
+    field without re-saving the entire experiment. Use this when you need to persist
+    status changes immediately after calling status transition methods
+    (e.g., mark_initialization(), mark_optimization()).
+
+    Note: save_experiment() already handles status updates, so this function is
+    optional. Use it when you need status-only updates for efficiency.
+    """
+    config = SQAConfig() if config is None else config
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
+
+    exp_id = _assert_experiment_saved(experiment)
+
+    with session_scope() as session:
+        session.query(exp_sqa_class).filter_by(id=exp_id).update(
+            {
+                "status": experiment.status,
             }
         )
 

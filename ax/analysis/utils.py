@@ -5,11 +5,11 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from logging import Logger
-from typing import Sequence
 
 import numpy as np
-
+import numpy.typing as npt
 import pandas as pd
 import torch
 from ax.adapter.base import Adapter
@@ -171,7 +171,10 @@ def prepare_arm_data(
     # Compute the trial index of the target trial both to pass as a fixed feature
     # during prediction if using model predictions, and to relativize against the
     # status quo arm from the target trial if relativizing.
-    target_trial_index = get_target_trial_index(experiment=experiment)
+    target_trial_index = get_target_trial_index(
+        experiment=experiment,
+        require_data_for_all_metrics=True,
+    )
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
@@ -207,7 +210,7 @@ def prepare_arm_data(
     else:
         if additional_arms is not None:
             raise UserInputError(
-                "Cannot provide additional arms when use_model_predictions=False since"
+                "Cannot provide additional arms when use_model_predictions=False since "
                 "there is no observed raw data for the additional arms that are not "
                 "part of the Experiment."
             )
@@ -253,10 +256,10 @@ def prepare_arm_data(
         if trial_index != -1
         else "Additional Arm"
     )
-    df["fail_reason"] = df["trial_index"].apply(
-        lambda trial_index: experiment.trials[trial_index].failed_reason
+    df["status_reason"] = df["trial_index"].apply(
+        lambda trial_index: experiment.trials[trial_index].status_reason
         if trial_index != -1
-        and experiment.trials[trial_index].failed_reason is not None
+        and experiment.trials[trial_index].status_reason is not None
         else None
     )
 
@@ -538,6 +541,54 @@ def _extract_generation_node_name(trial: BaseTrial, arm: Arm) -> str:
     return Keys.UNKNOWN_GENERATION_NODE.value
 
 
+def _get_scalarized_constraint_mean_and_sem(
+    df: pd.DataFrame,
+    constraint: ScalarizedOutcomeConstraint,
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+    """
+    Compute the combined mean and SEM for a ScalarizedOutcomeConstraint.
+
+    For independent random variables:
+      combined_mean = sum(weight_i * mean_i)
+      combined_sem  = sqrt(sum((weight_i * sem_i)^2))
+
+    Args:
+        df: DataFrame with "{metric_name}_mean" and "{metric_name}_sem" columns.
+        constraint: The ScalarizedOutcomeConstraint.
+
+    Returns:
+        Tuple of (combined_mean, combined_sem) as numpy arrays.
+        If any component metric is missing, mean is NaN and sem is 0.
+    """
+    n_rows = len(df)
+    combined_mean = np.zeros(n_rows)
+    combined_var = np.zeros(n_rows)
+    all_metrics_present = True
+
+    for metric, weight in constraint.metric_weights:
+        mean_col = f"{metric.name}_mean"
+        sem_col = f"{metric.name}_sem"
+
+        if mean_col in df.columns:
+            combined_mean += weight * df[mean_col].values
+        else:
+            all_metrics_present = False
+            break
+
+        if sem_col in df.columns:
+            metric_sem = df[sem_col].fillna(0).values
+        else:
+            metric_sem = np.zeros(n_rows)
+
+        combined_var += (weight**2) * (metric_sem**2)
+
+    if not all_metrics_present:
+        # Match existing pattern: mean=NaN, sem=0 for missing data
+        return np.full(n_rows, np.nan), np.zeros(n_rows)
+
+    return combined_mean, np.sqrt(combined_var)
+
+
 def _prepare_p_feasible(
     df: pd.DataFrame,
     status_quo_df: pd.DataFrame | None,
@@ -569,34 +620,27 @@ def _prepare_p_feasible(
         return pd.Series(np.ones(len(df)))
 
     # If an arm is missing data for a metric leave the mean as NaN.
-    oc_names = []
-    for oc in outcome_constraints:
-        if isinstance(oc, ScalarizedOutcomeConstraint):
-            # take the str representation of the scalarized outcome constraint
-            oc_names.append(str(oc))
-        else:
-            oc_names.append(oc.metric.name)
-
-    assert len(oc_names) == len(outcome_constraints)
-
     means = []
     sigmas = []
-    for i, oc_name in enumerate(oc_names):
-        df_constraint = none_throws(rel_df if outcome_constraints[i].relative else df)
-        # TODO[T235432214]: currently we are leaving the mean as NaN if the constraint
-        # is on ScalarizedOutcomeConstraint but we should be able to calculate it by
-        # setting the mean to be weights * individual metrics and sem to be
-        # sqrt(sum((weights * individual_sems)^2)), assuming independence.
-        if f"{oc_name}_mean" in df_constraint.columns:
-            means.append(df_constraint[f"{oc_name}_mean"].tolist())
+    for oc in outcome_constraints:
+        df_constraint = none_throws(rel_df if oc.relative else df)
 
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            mean, sem = _get_scalarized_constraint_mean_and_sem(df_constraint, oc)
+            means.append(mean.tolist())
+            sigmas.append(sem.tolist())
         else:
-            means.append(np.nan * np.ones(len(df_constraint)))
-        sigmas.append(
-            (df_constraint[f"{oc_name}_sem"].fillna(0)).tolist()
-            if f"{oc_name}_sem" in df_constraint.columns
-            else [0] * len(df)
-        )
+            metric_name = oc.metric.name
+            if f"{metric_name}_mean" in df_constraint.columns:
+                means.append(df_constraint[f"{metric_name}_mean"].tolist())
+            else:
+                means.append([float("nan")] * len(df_constraint))
+
+            sigmas.append(
+                (df_constraint[f"{metric_name}_sem"].fillna(0)).tolist()
+                if f"{metric_name}_sem" in df_constraint.columns
+                else [0] * len(df)
+            )
 
     con_lower_inds = [
         i
@@ -663,28 +707,27 @@ def _prepare_p_feasible_per_constraint(
     if len(outcome_constraints) == 0:
         return pd.DataFrame(index=df.index)
 
-    oc_names = []
-    for oc in outcome_constraints:
-        if isinstance(oc, ScalarizedOutcomeConstraint):
-            oc_names.append(str(oc))
-        else:
-            oc_names.append(oc.metric.name)
-
     result_df = pd.DataFrame(index=df.index)
     # Compute probability for each constraint individually
-    for oc_name, oc in zip(oc_names, outcome_constraints):
+    for oc in outcome_constraints:
         df_constraint = none_throws(rel_df if oc.relative else df)
 
-        # Get mean and sigma for this constraint
-        if f"{oc_name}_mean" in df_constraint.columns:
-            mean = df_constraint[f"{oc_name}_mean"].values
+        if isinstance(oc, ScalarizedOutcomeConstraint):
+            mean, sigma = _get_scalarized_constraint_mean_and_sem(df_constraint, oc)
+            oc_display_name = str(oc)
         else:
-            mean = np.nan * np.ones(len(df_constraint))
+            metric_name = oc.metric.name
+            oc_display_name = metric_name
 
-        if f"{oc_name}_sem" in df_constraint.columns:
-            sigma = df_constraint[f"{oc_name}_sem"].fillna(0).values
-        else:
-            sigma = np.zeros(len(df))
+            if f"{metric_name}_mean" in df_constraint.columns:
+                mean = df_constraint[f"{metric_name}_mean"].values
+            else:
+                mean = np.full(len(df_constraint), np.nan)
+
+            if f"{metric_name}_sem" in df_constraint.columns:
+                sigma = df_constraint[f"{metric_name}_sem"].fillna(0).values
+            else:
+                sigma = np.zeros(len(df))
 
         # Convert to torch tensors (shape: [n_arms, 1])
         mean_tensor = torch.tensor(mean, dtype=torch.double).unsqueeze(-1)
@@ -704,7 +747,7 @@ def _prepare_p_feasible_per_constraint(
 
         # Convert back to numpy and store in result dataframe
         prob = log_prob.exp().squeeze().numpy()
-        result_df[f"p_feasible_{oc_name}"] = prob
+        result_df[f"p_feasible_{oc_display_name}"] = prob
 
     return result_df
 
@@ -712,6 +755,7 @@ def _prepare_p_feasible_per_constraint(
 def _relativize_df_with_sq(
     df: pd.DataFrame,
     status_quo_df: pd.DataFrame,
+    status_quo_name: str | None = None,
     as_percent: bool = False,
 ) -> pd.DataFrame:
     """
@@ -723,6 +767,8 @@ def _relativize_df_with_sq(
             column identifying the trial and a column identifying the status quo
             arm for each trial.
         status_quo_df: DataFrame containing the status quo data for each trial.
+        status_quo_name: Name of the status quo arm. If provided, the status quo
+            arm's mean will be set to exactly 0 and sem to 0 after relativization.
 
     Returns:
         A DataFrame with the same structure as the input, but with 'METRIC_NAME_mean'
@@ -751,6 +797,15 @@ def _relativize_df_with_sq(
             rel_df.loc[rel_df["trial_index"] == trial_idx, mean_col] = y_rel
             rel_df.loc[rel_df["trial_index"] == trial_idx, sem_col] = y_se_rel
 
+    # Set status quo arm's mean to exactly 0 and sem to 0
+    if status_quo_name is not None:
+        status_quo_mask = rel_df["arm_name"] == status_quo_name
+        for metric_name in metric_names:
+            mean_col = f"{metric_name}_mean"
+            sem_col = f"{metric_name}_sem"
+            rel_df.loc[status_quo_mask, mean_col] = 0.0
+            rel_df.loc[status_quo_mask, sem_col] = 0.0
+
     return rel_df
 
 
@@ -774,8 +829,7 @@ def _get_sq_arm_name(experiment: Experiment) -> str:
 
     if experiment.status_quo.name is None:
         raise UserInputError(
-            "Cannot relativize data without a named status quo arm on the "
-            "experiment."
+            "Cannot relativize data without a named status quo arm on the experiment."
         )
 
     return experiment.status_quo.name
@@ -832,7 +886,10 @@ def relativize_data(
             trial_statuses=trial_statuses,
             target_trial_index=target_trial_index,
         )
-    return _relativize_df_with_sq(df=df, status_quo_df=status_quo_df)
+    status_quo_name = _get_sq_arm_name(experiment=experiment)
+    return _relativize_df_with_sq(
+        df=df, status_quo_df=status_quo_df, status_quo_name=status_quo_name
+    )
 
 
 def _get_status_quo_df(
@@ -900,8 +957,7 @@ def _get_status_quo_df(
                 row = df[status_quo_mask].iloc[0]
             else:
                 raise UserInputError(
-                    "Failed to relativize, no status quo arm found in the "
-                    "experiment."
+                    "Failed to relativize, no status quo arm found in the experiment."
                 )
 
             row["trial_index"] = trial_idx

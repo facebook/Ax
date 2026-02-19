@@ -10,16 +10,15 @@ from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import METRIC_CONTINUOUS_COLOR_SCALE
-
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
     PlotlyAnalysisCard,
 )
 from ax.analysis.plotly.surface.utils import (
     get_features_for_slice_or_contour,
+    get_fixed_values_for_slice_or_contour,
     get_parameter_values,
     is_axis_log_scale,
 )
@@ -31,7 +30,7 @@ from ax.analysis.utils import (
     validate_experiment,
 )
 from ax.core.experiment import Experiment
-from ax.core.parameter import DerivedParameter
+from ax.core.parameter import DerivedParameter, TParamValue
 from ax.core.trial_status import STATUSES_EXPECTING_DATA
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UserInputError
@@ -45,7 +44,8 @@ CONTOUR_CARDGROUP_SUBTITLE = (
     "These plots show the relationship between a metric and two parameters. They "
     "show the predicted values of the metric (indicated by color) as a function of "
     "the two parameters on the x- and y-axes while keeping all other parameters "
-    "fixed at their status_quo value (or mean value if status_quo is unavailable). "
+    "fixed at their status_quo value (if available), best trial value, or the "
+    "center of the search space."
 )
 
 
@@ -53,13 +53,16 @@ CONTOUR_CARDGROUP_SUBTITLE = (
 class ContourPlot(Analysis):
     """
     Plot a 2D surface of the surrogate model's predicted outcomes for a given pair of
-    parameters, where all other parameters are held fixed at their status-quo value or
-    mean if no status quo is available.
+    parameters, where all other parameters are held fixed at their status_quo value
+    (if available and within the search space), otherwise at their values from the best
+    trial (for single-objective optimization), or at the center of the search space if
+    neither is available.
 
     The DataFrame computed will contain the following columns:
         - PARAMETER_NAME: The value of the x parameter specified
         - PARAMETER_NAME: The value of the y parameter specified
-        - METRIC_NAME: The predected mean of the metric specified
+        - METRIC_NAME_mean: The predicted mean of the metric specified
+        - METRIC_NAME_sem: The predicted standard error of the metric specified
         - sampled: Whether the parameter values were sampled in at least one trial
     """
 
@@ -70,6 +73,7 @@ class ContourPlot(Analysis):
         metric_name: str | None = None,
         display_sampled: bool = True,
         relativize: bool = False,
+        display: str = "mean",
     ) -> None:
         """
         Args:
@@ -79,12 +83,16 @@ class ContourPlot(Analysis):
             display_sampled: If True, plot "x"s at x coordinates which have been
                 sampled in at least one trial.
             relativize: If True, relativize the metric values to the status quo.
+            display: What to display in the contour plot. Options are:
+                - "mean": Display the predicted mean (default)
+                - "sem": Display the predicted standard error of the mean
         """
         self.x_parameter_name = x_parameter_name
         self.y_parameter_name = y_parameter_name
         self.metric_name = metric_name
         self._display_sampled = display_sampled
         self.relativize = relativize
+        self.display = display
 
     @override
     def validate_applicable_state(
@@ -130,6 +138,10 @@ class ContourPlot(Analysis):
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ContourPlot requires an Experiment")
+        if self.display not in ("mean", "sem"):
+            raise UserInputError(
+                f"display must be 'mean' or 'sem', got '{self.display}'"
+            )
         for name in (self.x_parameter_name, self.y_parameter_name):
             if isinstance(experiment.search_space.parameters[name], DerivedParameter):
                 raise UserInputError(
@@ -144,6 +156,12 @@ class ContourPlot(Analysis):
 
         metric_name = self.metric_name or select_metric(experiment=experiment)
 
+        # Get fixed parameter values and description
+        fixed_values, fixed_values_description = get_fixed_values_for_slice_or_contour(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+        )
+
         df = _prepare_data(
             experiment=experiment,
             model=relevant_adapter,
@@ -151,6 +169,7 @@ class ContourPlot(Analysis):
             y_parameter_name=self.y_parameter_name,
             metric_name=metric_name,
             relativize=self.relativize,
+            fixed_values=fixed_values,
         )
 
         fig = _prepare_plot(
@@ -166,24 +185,25 @@ class ContourPlot(Analysis):
             ),
             display_sampled=self._display_sampled,
             is_relative=self.relativize,
+            display=self.display,
         )
 
+        display_label = "Mean" if self.display == "mean" else "Standard Error"
         return create_plotly_analysis_card(
             name=self.__class__.__name__,
             title=(
-                f"{metric_name} vs. "
+                f"{metric_name} ({display_label}) vs. "
                 f"{self.x_parameter_name}, {self.y_parameter_name}"
             ),
             subtitle=(
                 "The contour plot visualizes the predicted outcomes "
                 f"for {metric_name} across a two-dimensional parameter space, "
-                "with other parameters held fixed at their status_quo value "
-                "(or mean value if status_quo is unavailable). This plot helps "
-                "in identifying regions of optimal performance and understanding "
-                "how changes in the selected parameters influence the predicted "
-                "outcomes. Contour lines represent levels of constant predicted "
-                "values, providing insights into the gradient and potential optima "
-                "within the parameter space."
+                f"with other parameters held fixed at {fixed_values_description}. "
+                "This plot helps in identifying regions of optimal performance and "
+                "understanding how changes in the selected parameters influence the "
+                "predicted outcomes. Contour lines represent levels of constant "
+                "predicted values, providing insights into the gradient and potential "
+                "optima within the parameter space."
             ),
             df=df,
             fig=fig,
@@ -205,7 +225,8 @@ def compute_contour_adhoc(
     a notebook setting.
 
     Args:
-        parameter_name: The name of the parameter to plot on the x-axis.
+        x_parameter_name: The name of the parameter to plot on the x-axis.
+        y_parameter_name: The name of the parameter to plot on the y-axis.
         experiment: The experiment to source data from.
         generation_strategy: Optional. The generation strategy to extract the adapter
             from.
@@ -237,6 +258,7 @@ def _prepare_data(
     y_parameter_name: str,
     metric_name: str,
     relativize: bool,
+    fixed_values: dict[str, TParamValue],
 ) -> pd.DataFrame:
     trials = experiment.extract_relevant_trials(trial_statuses=STATUSES_EXPECTING_DATA)
     sampled = [
@@ -269,14 +291,15 @@ def _prepare_data(
     ys = [*[sample["y_parameter_name"] for sample in sampled], *unsampled_ys]
 
     # Construct observation features for each parameter value previously chosen by
-    # fixing all other parameters to their status-quo value or mean.
-    features = features = [
+    # fixing all other parameters to values from get_fixed_values_for_slice_or_contour.
+    features = [
         get_features_for_slice_or_contour(
             parameters={
                 x_parameter_name: x,
                 y_parameter_name: y,
             },
             search_space=experiment.search_space,
+            fixed_values=fixed_values,
         )
         for x in xs
         for y in ys
@@ -313,7 +336,12 @@ def _prepare_data(
     )
 
     if relativize:
-        target_trial_index = none_throws(get_target_trial_index(experiment=experiment))
+        target_trial_index = none_throws(
+            get_target_trial_index(
+                experiment=experiment,
+                require_data_for_all_metrics=True,
+            )
+        )
         df = relativize_data(
             experiment=experiment,
             df=df,
@@ -336,11 +364,15 @@ def _prepare_plot(
     log_y: bool,
     display_sampled: bool,
     is_relative: bool,
+    display: str = "mean",
 ) -> go.Figure:
+    # Choose which column to display based on display parameter
+    value_column = f"{metric_name}_mean" if display == "mean" else f"{metric_name}_sem"
+
     z_grid = df.pivot_table(
         index=y_parameter_name,
         columns=x_parameter_name,
-        values=f"{metric_name}_mean",
+        values=value_column,
         # aggfunc is required to gracefully handle duplicate values
         aggfunc="mean",
     )

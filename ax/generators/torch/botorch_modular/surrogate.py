@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import inspect
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import torch
@@ -103,7 +103,7 @@ MODEL_SELECTION_METRIC_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
 
 def _extract_model_kwargs(
     search_space_digest: SearchSpaceDigest, botorch_model_class: type[Model]
-) -> dict[str, list[int] | dict[int, dict[int, list[int]]] | int]:
+) -> dict[str, list[int] | dict[int, dict[int | float, list[int]]] | int]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
     method of a BoTorch `Model` class.
@@ -121,8 +121,7 @@ def _extract_model_kwargs(
     task_features = search_space_digest.task_features
     if len(fidelity_features) > 0 and len(task_features) > 0:
         raise NotImplementedError(
-            "Multi-Fidelity GP models with task_features are "
-            "currently not supported."
+            "Multi-Fidelity GP models with task_features are currently not supported."
         )
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
@@ -137,7 +136,7 @@ def _extract_model_kwargs(
         # signature before erroring out.
         raise ModelFittingError("Cannot fit MultiTaskGP without task feature.")
 
-    kwargs: dict[str, list[int] | dict[int, dict[int, list[int]]] | int] = {}
+    kwargs: dict[str, list[int] | dict[int, dict[int | float, list[int]]] | int] = {}
     if len(search_space_digest.categorical_features) > 0:
         kwargs["categorical_features"] = search_space_digest.categorical_features
     if len(fidelity_features) > 0:
@@ -477,7 +476,7 @@ class Surrogate(Base):
         self._model_name_to_model: dict[str, dict[str, Model]] = {}
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}" f" surrogate_spec={self.surrogate_spec}>"
+        return f"<{self.__class__.__name__} surrogate_spec={self.surrogate_spec}>"
 
     @property
     def model(self) -> Model:

@@ -21,7 +21,7 @@ from ax.adapter.transforms.map_key_to_float import MapKeyToFloat
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.api.utils.generation_strategy_dispatch import _get_sobol_node
-from ax.core.map_data import MAP_KEY, MapData
+from ax.core.data import Data, MAP_KEY
 from ax.core.observation import ObservationFeatures
 from ax.core.observation_utils import observations_from_data
 from ax.core.parameter import ParameterType, RangeParameter
@@ -68,7 +68,7 @@ class ClientTest(TestCase):
         )
         generator_spec = GeneratorSpec(
             generator_enum=Generators.BOTORCH_MODULAR,
-            model_kwargs={
+            generator_kwargs={
                 "surrogate_spec": surrogate_spec,
                 "botorch_acqf_class": qLogExpectedImprovement,
                 "transforms": MBM_X_trans + Y_trans,
@@ -200,7 +200,7 @@ class ClientTest(TestCase):
         self.assertListEqual(dataset.feature_names, ["width", "height"])
 
         # Check that cross validation works.
-        cross_validate(model=adapter)
+        cross_validate(adapter=adapter)
 
     def _test_early_stopping(self, complete_with_progression: bool) -> None:
         self._simulate(
@@ -247,7 +247,7 @@ class ClientTest(TestCase):
         self.assertEqual(int(candidate_metadata["step"]), 1.0)
 
         # Check that cross validation works.
-        cross_validate(model=adapter)
+        cross_validate(adapter=adapter)
 
     def test_no_early_stopping_with_progression(self) -> None:
         self._test_no_early_stopping(with_progression=True)
@@ -270,7 +270,6 @@ class MapKeyToFloatTransformTest(TestCase):
         self.observations = observations_from_data(
             experiment=self.experiment,
             data=self.experiment.fetch_data(),
-            latest_rows_per_group=None,
         )
         self.experiment_data = extract_experiment_data(
             experiment=self.experiment,
@@ -480,13 +479,13 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(obs.metadata, {"dummy": 1.0})
 
     def test_constant_progression(self) -> None:
-        data_df = self.experiment.lookup_data().true_df
+        data_df = self.experiment.lookup_data().full_df
         for constant in (23, np.nan):
             with self.subTest(msg=f"{constant=}"):
                 experiment_data = extract_experiment_data(
                     experiment=self.experiment,
                     data_loader_config=DataLoaderConfig(),
-                    data=MapData(df=data_df.assign(step=constant)),
+                    data=Data(df=data_df.assign(step=constant)),
                 )
                 observations = experiment_data.convert_to_list_of_observations()
                 t = MapKeyToFloat(experiment_data=experiment_data, adapter=self.adapter)
@@ -542,9 +541,10 @@ class MapKeyToFloatTransformTest(TestCase):
         )
 
     def test_transform_experiment_data(self) -> None:
-        # First, set up a case with no NaNs.
-        data = self.experiment.lookup_data()
-        data.map_df["step"] = data.map_df["step"].fillna(0)
+        # First, set up a case with no NaNs in the provided data (there are NaNs
+        # in experiment.data).
+        data = Data(df=self.experiment.lookup_data().full_df.copy())
+        data.full_df["step"] = data.full_df["step"].fillna(0)
         experiment_data = extract_experiment_data(
             experiment=self.experiment,
             data=data,

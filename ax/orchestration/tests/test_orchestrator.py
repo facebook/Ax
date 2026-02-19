@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import timedelta
 from math import ceil
 from tempfile import NamedTemporaryFile
@@ -19,15 +19,13 @@ from unittest.mock import call, Mock, patch
 import pandas as pd
 from ax.adapter.cross_validation import compute_model_fit_metrics_from_adapter
 from ax.adapter.registry import Generators, MBM_MTGP_trans
-from ax.analysis.analysis_card import AnalysisCard
-from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
@@ -52,9 +50,11 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
+from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
-from ax.service.orchestrator import (
+from ax.orchestration.orchestrator import (
     FailureRateExceededError,
     get_fitted_adapter,
     MessageOutput,
@@ -63,25 +63,26 @@ from ax.service.orchestrator import (
     OrchestratorInternalError,
     StatusQuoInfeasibleError,
 )
-from ax.service.tests.orchestrator_test_utils import (
+from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
+from ax.orchestration.tests.orchestrator_test_utils import (
     BrokenRunnerRuntimeError,
     BrokenRunnerValueError,
     DUMMY_EXCEPTION,
     InfinitePollRunner,
+    MockOrchestrator,
     NoReportResultsRunner,
     RunnerToAllowMultipleMapMetricFetches,
     RunnerWithAllFailedTrials,
+    RunnerWithAllPollsFailing,
     RunnerWithEarlyStoppingStrategy,
     RunnerWithFailedAndAbandonedTrials,
+    RunnerWithFailingPollTrialStatus,
     RunnerWithFrequentFailedTrials,
     SyntheticRunnerWithPredictableStatusPolling,
     SyntheticRunnerWithSingleRunningTrial,
     SyntheticRunnerWithStatusPolling,
     TEST_MEAN,
-    TestOrchestrator,
 )
-from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
-from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY
@@ -92,6 +93,7 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
+from ax.storage.sqa_store.with_db_settings_base import WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import AX_ROOT_LOGGER_NAME
 from ax.utils.common.testutils import TestCase
@@ -114,7 +116,6 @@ from ax.utils.testing.core_stubs import (
     get_sobol,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
-from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -136,7 +137,7 @@ class TestAxOrchestrator(TestCase):
             dict[str, list[ObservationFeatures]] | None,
         ],
     ] = (
-        f"{Orchestrator.__module__}."
+        f"{get_pending_observation_features_based_on_trial_status.__module__}."
         + "get_pending_observation_features_based_on_trial_status",
         get_pending_observation_features_based_on_trial_status,
     )
@@ -151,10 +152,21 @@ class TestAxOrchestrator(TestCase):
         extract_pending_observations,
     )
     ALWAYS_USE_DB = False
+    # After D80128678, choose_generation_strategy_legacy returns node-based GS.
     EXPECTED_orchestrator_REPR: str = (
         "Orchestrator(experiment=Experiment(branin_test_experiment), "
-        "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
-        "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
+        "generation_strategy=GenerationStrategy("
+        "name='GenerationStep_0_Sobol+GenerationStep_1_BoTorch', "
+        "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
+        "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
+        "generator_key_override=None)], "
+        "transition_criteria=[MinTrials(transition_to='GenerationStep_1_BoTorch'), "
+        "MinTrials(transition_to='GenerationStep_1_BoTorch')]), "
+        "GenerationNode(name='GenerationStep_1_BoTorch', "
+        "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
+        "generator_key_override=None)], "
+        "transition_criteria=[MaxGenerationParallelism("
+        "transition_to='GenerationStep_1_BoTorch')])]), "
         "options=OrchestratorOptions(max_pending_trials=10, "
         "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
         "total_trials=0, tolerated_trial_failure_rate=0.2, "
@@ -366,10 +378,13 @@ class TestAxOrchestrator(TestCase):
 
     def test_validate_early_stopping_strategy(self) -> None:
         branin_gs = self.sobol_MBM_GS
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertRaises(ValueError):
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertRaises(ValueError),
+        ):
             Orchestrator(
                 experiment=self.branin_experiment,
                 generation_strategy=branin_gs,
@@ -426,17 +441,7 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        with patch(
-            # Record calls to function, but still execute it.
-            self.PENDING_FEATURES_EXTRACTOR[0],
-            side_effect=self.PENDING_FEATURES_EXTRACTOR[1],
-        ) as mock_get_pending:
-            orchestrator.run_all_trials()
-            # Check that we got pending feat. at least 8 times (1 for each new trial and
-            # maybe more for cases where we tried to generate trials but ran into limit
-            # on parallel., as polling trial statuses is randomized in Orchestrator),
-            # so some trials might not yet have come back.
-            self.assertGreaterEqual(len(mock_get_pending.call_args_list), 8)
+        orchestrator.run_all_trials()
         self.assertTrue(  # Make sure all trials got to complete.
             all(
                 t.completed_successfully
@@ -532,13 +537,11 @@ class TestAxOrchestrator(TestCase):
         trial = self.branin_experiment.new_trial(generator_run=sobol_run)
         trial.mark_running(no_runner_required=True)
         trial.mark_completed()
-        trial0 = self.branin_experiment.trials[0]
-        trial0.assign_runner()
+        _ = self.branin_experiment.trials[0]
         sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
         sobol_run = sobol_generator.gen(n=15)
         trial1 = self.branin_experiment.new_batch_trial()
         trial1.add_generator_run(sobol_run)
-        trial1.assign_runner()
         trial1.mark_running()
         if all_completed_trials:
             trial1.mark_completed()
@@ -555,15 +558,18 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        with patch.object(
-            Orchestrator,
-            "poll_and_process_results",
-            wraps=orchestrator.poll_and_process_results,
-        ) as mock_poll_and_process_results, patch.object(
-            Orchestrator,
-            "run_trials_and_yield_results",
-            wraps=orchestrator.run_trials_and_yield_results,
-        ) as mock_run_trials_and_yield_results:
+        with (
+            patch.object(
+                Orchestrator,
+                "poll_and_process_results",
+                wraps=orchestrator.poll_and_process_results,
+            ) as mock_poll_and_process_results,
+            patch.object(
+                Orchestrator,
+                "run_trials_and_yield_results",
+                wraps=orchestrator.run_trials_and_yield_results,
+            ) as mock_run_trials_and_yield_results,
+        ):
             manager = Mock()
             manager.attach_mock(
                 mock_poll_and_process_results, "poll_and_process_results"
@@ -676,7 +682,7 @@ class TestAxOrchestrator(TestCase):
         trial2.add_arm(Arm(parameters={"x1": 6, "x2": 3}))
 
         # check that first candidate trial is run when called with max_trials = 1
-        with self.assertLogs(logger="ax.service.orchestrator") as lg:
+        with self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
             orchestrator.run_n_trials(max_trials=1)
             self.assertIn(
                 "Found 1 non-terminal trials on branin_test_experiment: [1]",
@@ -987,14 +993,15 @@ class TestAxOrchestrator(TestCase):
         gs = self.two_sobol_steps_GS
         self.assertIsNotNone(self.branin_timestamp_map_metric_experiment)
         NUM_TRIALS = 5
+        options = OrchestratorOptions(
+            total_trials=NUM_TRIALS,
+            init_seconds_between_polls=0,  # No wait between polls so test is fast.
+            **self.orchestrator_options_kwargs,
+        )
         orchestrator = Orchestrator(
             experiment=self.branin_timestamp_map_metric_experiment,
             generation_strategy=gs,
-            options=OrchestratorOptions(
-                total_trials=NUM_TRIALS,
-                init_seconds_between_polls=0,  # No wait between polls so test is fast.
-                **self.orchestrator_options_kwargs,
-            ),
+            options=options,
             db_settings=self.db_settings,
         )
         with patch.object(
@@ -1002,44 +1009,21 @@ class TestAxOrchestrator(TestCase):
             "attach_data",
             Mock(wraps=orchestrator.experiment.attach_data),
         ) as mock_experiment_attach_data:
-            # Artificial timestamp logic so we can later check that it's the
-            # last-timestamp data that was preserved after multiple `attach_
-            # data` calls.
-            with patch(
-                f"{Experiment.__module__}.current_timestamp_in_millis",
-                side_effect=lambda: len(
-                    orchestrator.experiment.trials_by_status[TrialStatus.COMPLETED]
-                )
-                * 1000
-                + mock_experiment_attach_data.call_count,
-            ):
-                orchestrator.run_all_trials()
+            orchestrator.run_all_trials()
         # Check that experiment and GS were saved and test reloading with reduced state.
-        exp, loaded_gs = orchestrator._load_experiment_and_generation_strategy(
+        exp, _ = orchestrator._load_experiment_and_generation_strategy(
             self.branin_timestamp_map_metric_experiment.name, reduced_state=True
         )
         exp = none_throws(exp)
         self.assertEqual(len(exp.trials), NUM_TRIALS)
 
-        # There should only be one data object for each trial, since by default the
-        # `Orchestrator` should override previous data objects when it gets new ones in
-        # a subsequent `fetch` call.
-        for _, datas in exp._data_by_trial.items():
-            self.assertEqual(len(datas), 1)
-
         # We also should have attempted the fetch more times
         # than there are trials because we have a `MapMetric` (many more since we are
         # waiting 3 seconds for each trial).
         self.assertGreater(mock_experiment_attach_data.call_count, NUM_TRIALS)
-
-        # Check that it's the last-attached data that was kept, using
-        # expected value based on logic in mocked "current_timestamp_in_millis"
-        num_attach_calls = mock_experiment_attach_data.call_count
-        expected_ts_last_trial = len(exp.trials) * 1000 + num_attach_calls
-        self.assertEqual(
-            next(iter(exp._data_by_trial[len(exp.trials) - 1])),
-            expected_ts_last_trial,
-        )
+        df = self.branin_timestamp_map_metric_experiment.lookup_data().full_df
+        # At least one step present from each `attach`
+        self.assertGreaterEqual(len(df), mock_experiment_attach_data.call_count)
 
     def test_sqa_storage_with_experiment_name(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -1091,6 +1075,7 @@ class TestAxOrchestrator(TestCase):
 
     def test_from_stored_experiment(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
+        self.branin_experiment.runner = self.runner
         save_experiment(self.branin_experiment, config=self.db_config)
         with self.subTest("it errors by default without a generation strategy"):
             with self.assertRaisesRegex(
@@ -1128,7 +1113,7 @@ class TestAxOrchestrator(TestCase):
     def test_run_trials_and_yield_results(self) -> None:
         total_trials = 3
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1160,7 +1145,7 @@ class TestAxOrchestrator(TestCase):
         total_trials = 3
         self.branin_experiment.runner = InfinitePollRunner()
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1170,21 +1155,30 @@ class TestAxOrchestrator(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         # All trials should be marked complete after one run.
-        with patch(
-            "ax.service.utils.early_stopping.should_stop_trials_early",
-            wraps=lambda trial_indices, **kwargs: dict.fromkeys(trial_indices),
-        ) as mock_should_stop_trials_early, patch.object(
-            InfinitePollRunner, "stop", return_value=None
-        ) as mock_stop_trial_run:
+        with (
+            patch(
+                "ax.service.utils.early_stopping.should_stop_trials_early",
+                wraps=lambda trial_indices, **kwargs: dict.fromkeys(trial_indices),
+            ) as mock_should_stop_trials_early,
+            patch.object(
+                InfinitePollRunner, "stop", return_value=None
+            ) as mock_stop_trial_run,
+        ):
             res_list = list(
                 orchestrator.run_trials_and_yield_results(max_trials=total_trials)
             )
             expected_num_polls = 2
             self.assertEqual(len(res_list), expected_num_polls + 1)
             # Both trials in first batch of parallelism will be early stopped
+            # Extract max_parallelism from transition criteria
+            node0_max_parallelism = None
+            for tc in self.two_sobol_steps_GS._nodes[0].transition_criteria:
+                if isinstance(tc, MaxGenerationParallelism):
+                    node0_max_parallelism = tc.threshold
+                    break
             self.assertEqual(
                 len(res_list[0]["trials_early_stopped_so_far"]),
-                self.two_sobol_steps_GS._steps[0].max_parallelism,
+                node0_max_parallelism,
             )
             # Third trial in second batch of parallelism will be early stopped
             self.assertEqual(len(res_list[1]["trials_early_stopped_so_far"]), 3)
@@ -1195,6 +1189,75 @@ class TestAxOrchestrator(TestCase):
                 mock_stop_trial_run.call_count,
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
+
+    def test_early_stopping_not_called_without_new_data(self) -> None:
+        """Test that ESS is only called when new data is available."""
+        total_trials = 2
+
+        # Create a runner that simulates polls without new data
+        class RunnerWithIntermittentData(SyntheticRunnerWithStatusPolling):
+            def __init__(self) -> None:
+                super().__init__()
+                self.poll_count = 0
+
+            def poll_trial_status(
+                self, trials: Iterable[BaseTrial]
+            ) -> dict[TrialStatus, set[int]]:
+                """Return RUNNING for several polls before completing trials."""
+                self.poll_count += 1
+                # Only complete trials on specific polls to create gaps
+                if self.poll_count == 5:  # Complete first trial late
+                    return {TrialStatus.COMPLETED: {0}, TrialStatus.RUNNING: {1}}
+                elif self.poll_count == 10:  # Complete second trial even later
+                    return {TrialStatus.COMPLETED: {0, 1}}
+                # Most polls return RUNNING (no status change = no new data to fetch)
+                return {
+                    TrialStatus.RUNNING: {
+                        t.index for t in trials if t.status.is_running
+                    }
+                }
+
+        self.branin_experiment.runner = RunnerWithIntermittentData()
+        gs = self.two_sobol_steps_GS
+        orchestrator = MockOrchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        # Track fetch results
+        fetch_results: list[set[int]] = []
+        original_fetch: Callable[[set[int]], set[int]] = (
+            orchestrator._fetch_data_and_return_trial_indices_with_new_data
+        )
+
+        def track_fetch_results(*args: Any, **kwargs: Any) -> set[int]:
+            result = original_fetch(*args, **kwargs)
+            fetch_results.append(result)
+            return result
+
+        with (
+            patch(
+                "ax.service.utils.early_stopping.should_stop_trials_early",
+                return_value={},
+            ) as mock_should_stop,
+            patch.object(
+                orchestrator,
+                "_fetch_data_and_return_trial_indices_with_new_data",
+                side_effect=track_fetch_results,
+            ) as mock_fetch,
+        ):
+            orchestrator.run_n_trials(max_trials=total_trials)
+            # Calculate fetches with actual new data
+            num_fetches_with_new_data = sum(1 for r in fetch_results if len(r) > 0)
+            # ESS should only be called when there's new data
+            self.assertEqual(mock_should_stop.call_count, num_fetches_with_new_data)
+            # Verify we actually had polls without new data
+            self.assertLess(num_fetches_with_new_data, mock_fetch.call_count)
 
     def test_orchestrator_with_odd_index_early_stopping_strategy(self) -> None:
         total_trials = 3
@@ -1215,13 +1278,17 @@ class TestAxOrchestrator(TestCase):
                 experiment: Experiment,
                 current_node: GenerationNode | None = None,
             ) -> dict[int, str | None]:
-                return {idx: None for idx in trial_indices if idx % 2 == 1}
+                return {
+                    idx: f"Trial {idx} stopped by OddIndexEarlyStoppingStrategy"
+                    for idx in trial_indices
+                    if idx % 2 == 1
+                }
 
         self.branin_timestamp_map_metric_experiment.runner = (
             RunnerWithEarlyStoppingStrategy()
         )
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_timestamp_map_metric_experiment,
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1250,8 +1317,6 @@ class TestAxOrchestrator(TestCase):
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
 
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
-
         looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
         num_metrics = 2
@@ -1267,17 +1332,21 @@ class TestAxOrchestrator(TestCase):
         # For MultiTypeExperiment there are two metrics
         # for trial type "type1"
         expected_num_rows = 7
-        self.assertEqual(
-            len(assert_is_instance(looked_up_data, MapData).map_df), expected_num_rows
-        )
-        self.assertEqual(
-            len(assert_is_instance(fetched_data, MapData).map_df), expected_num_rows
-        )
+        self.assertEqual(len(looked_up_data.full_df), expected_num_rows)
+        self.assertEqual(len(fetched_data.full_df), expected_num_rows)
         ess = orchestrator.options.early_stopping_strategy
         self.assertIsNotNone(ess)
         self.assertAlmostEqual(
             ess.estimate_early_stopping_savings(orchestrator.experiment),
-            0.5,
+            1.0 / 3.0,
+        )
+
+        # Verify that the status reason from early stopping strategy is retained.
+        early_stopped_trial = orchestrator.experiment.trials[1]
+        self.assertEqual(early_stopped_trial.status, TrialStatus.EARLY_STOPPED)
+        self.assertEqual(
+            early_stopped_trial.status_reason,
+            "Trial 1 stopped by OddIndexEarlyStoppingStrategy",
         )
 
     def test_orchestrator_with_metric_with_new_data_after_completion(self) -> None:
@@ -1310,7 +1379,7 @@ class TestAxOrchestrator(TestCase):
             return_value=timedelta(hours=1),
         ):
             orchestrator.run_all_trials()
-        self.assertEqual(len(orchestrator.experiment._data_by_trial[0]), 1)
+        self.assertFalse(orchestrator.experiment.lookup_data(trial_indices={0}).empty)
 
     def test_run_trials_in_batches(self) -> None:
         gs = self.two_sobol_steps_GS
@@ -1404,7 +1473,7 @@ class TestAxOrchestrator(TestCase):
     def test_max_pending_trials(self) -> None:
         # With runners & metrics, `BareBonesTestOrchestrator.run_all_trials` should run.
         gs = self.sobol_MBM_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -1472,7 +1541,9 @@ class TestAxOrchestrator(TestCase):
 
         # We override the optimization config but not objectives, so an error
         # results as expected, but only much deeper in the stack.
-        with self.assertRaisesRegex(ValueError, "'branin_a' is not in list"):
+        # Python <3.14: "'branin_a' is not in list"
+        # Python 3.14+: "list.index(x): x not in list"
+        with self.assertRaisesRegex(ValueError, "not in list"):
             orchestrator.get_pareto_optimal_parameters(
                 optimization_config=get_branin_multi_objective_optimization_config(
                     has_objective_thresholds=True
@@ -1534,14 +1605,17 @@ class TestAxOrchestrator(TestCase):
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
         gs = orchestrator.generation_strategy
         gm = gs.gen
-        with patch(  # Record calls to functions, but still execute them.
-            self.PENDING_FEATURES_BATCH_EXTRACTOR[0],
-            side_effect=self.PENDING_FEATURES_BATCH_EXTRACTOR[1],
-        ) as mock_get_pending, patch.object(
-            gs,
-            "gen",
-            wraps=gm,
-        ) as mock_gen:
+        with (
+            patch(  # Record calls to functions, but still execute them.
+                self.PENDING_FEATURES_BATCH_EXTRACTOR[0],
+                side_effect=self.PENDING_FEATURES_BATCH_EXTRACTOR[1],
+            ) as mock_get_pending,
+            patch.object(
+                gs,
+                "gen",
+                wraps=gm,
+            ) as mock_gen,
+        ):
             orchestrator.run_n_trials(max_trials=1)
             mock_gen.assert_called_once()
             mock_get_pending.assert_called()
@@ -1595,33 +1669,114 @@ class TestAxOrchestrator(TestCase):
         )[0]
 
         self.assertEqual(
-            orchestrator.experiment.trials[failed_idx]._failed_reason,
+            orchestrator.experiment.trials[failed_idx].status_reason,
             DUMMY_EXCEPTION,
         )
         self.assertEqual(
-            orchestrator.experiment.trials[abandoned_idx]._abandoned_reason,
+            orchestrator.experiment.trials[abandoned_idx].status_reason,
             DUMMY_EXCEPTION,
         )
-        self.assertIsNone(orchestrator.experiment.trials[completed_idx]._failed_reason)
+        self.assertIsNone(orchestrator.experiment.trials[completed_idx].status_reason)
+
+    def test_poll_trial_status_fallback_to_individual_polling(self) -> None:
+        """Test that poll_trial_status falls back to individual polling when
+        batch polling fails, and successfully completes trials."""
+        self.branin_experiment.runner = RunnerWithFailingPollTrialStatus()
+        gs = self.two_sobol_steps_GS
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                total_trials=3,
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        with self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
+            orchestrator.run_all_trials()
+
+        # Check that the fallback warning was logged
+        self.assertTrue(
+            any(
+                "Failed to poll all trial statuses at once" in msg
+                and "Falling back to polling trials individually" in msg
+                for msg in lg.output
+            ),
+            f"Expected fallback warning not found in logs: {lg.output}",
+        )
+
+        # All trials should have completed successfully despite batch poll failures
+        self.assertTrue(
+            all(
+                t.completed_successfully
+                for t in orchestrator.experiment.trials.values()
+            )
+        )
+        self.assertEqual(len(orchestrator.experiment.trials), 3)
+
+    def test_poll_trial_status_abandons_trial_on_individual_failure(self) -> None:
+        """Test that poll_trial_status marks individual trials as ABANDONED when
+        their status cannot be retrieved."""
+        self.branin_experiment.runner = RunnerWithAllPollsFailing()
+        gs = self.sobol_GS_no_parallelism
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                total_trials=2,
+                tolerated_trial_failure_rate=0.9,
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        with self.assertLogs(logger="ax.orchestration.orchestrator") as lg:
+            # Expect FailureRateExceededError since all trials are ABANDONED
+            with self.assertRaises(FailureRateExceededError):
+                orchestrator.run_all_trials()
+
+        # Check that the abandonment warning was logged
+        self.assertTrue(
+            any(
+                "Failed to retrieve status of trial" in msg
+                and "Setting trial status to ABANDONED" in msg
+                for msg in lg.output
+            ),
+            f"Expected abandonment warning not found in logs: {lg.output}",
+        )
+
+        # All trials should be abandoned due to poll failures
+        self.assertTrue(
+            all(
+                t.status == TrialStatus.ABANDONED
+                for t in orchestrator.experiment.trials.values()
+            )
+        )
 
     def test_fetch_and_process_trials_data_results_failed_objective_available_while_running(  # noqa
         self,
     ) -> None:
         gs = self.two_sobol_steps_GS
-        with patch(
-            f"{BraninTimestampMapMetric.__module__}.BraninTimestampMapMetric.f",
-            side_effect=[Exception("yikes!"), {"mean": 0, MAP_KEY: 12345}],
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.f",
-            side_effect=[Exception("yikes!"), 0],
-        ), patch(
-            f"{RunnerToAllowMultipleMapMetricFetches.__module__}."
-            "RunnerToAllowMultipleMapMetricFetches.poll_trial_status",
-            side_effect=[
-                {TrialStatus.RUNNING: {0}},
-                {TrialStatus.COMPLETED: {0}},
-            ],
-        ), self.assertLogs(logger="ax.service.orchestrator", level="INFO") as lg:
+        with (
+            patch(
+                f"{BraninTimestampMapMetric.__module__}.BraninTimestampMapMetric.f",
+                side_effect=[Exception("yikes!"), {"mean": 0, MAP_KEY: 12345}],
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=[Exception("yikes!"), 0],
+            ),
+            patch(
+                f"{RunnerToAllowMultipleMapMetricFetches.__module__}."
+                "RunnerToAllowMultipleMapMetricFetches.poll_trial_status",
+                side_effect=[
+                    {TrialStatus.RUNNING: {0}},
+                    {TrialStatus.COMPLETED: {0}},
+                ],
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator", level="INFO") as lg,
+        ):
             orchestrator = Orchestrator(
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
@@ -1642,9 +1797,13 @@ class TestAxOrchestrator(TestCase):
         self,
     ) -> None:
         gs = self.two_sobol_steps_GS
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=Exception("yikes!"),
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             orchestrator = Orchestrator(
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
@@ -1676,12 +1835,17 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=Exception("yikes!"),
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)
@@ -1696,14 +1860,16 @@ class TestAxOrchestrator(TestCase):
             any(
                 re.search(
                     r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.FAILED",
+                    "TrialStatus.ABANDONED",
                     warning,
                 )
                 is not None
                 for warning in lg.output
             )
         )
-        self.assertEqual(orchestrator.experiment.trials[0].status, TrialStatus.FAILED)
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
+        )
 
     def test_fetch_and_process_trials_data_results_failed_objective_but_recoverable(
         self,
@@ -1721,13 +1887,17 @@ class TestAxOrchestrator(TestCase):
         BraninMetric.recoverable_exceptions = {AxError, TypeError}
         # we're throwing a recoverable exception because UserInputError
         # is a subclass of AxError
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f",
-            side_effect=UserInputError("yikes!"),
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=UserInputError("yikes!"),
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             orchestrator.run_n_trials(max_trials=1)
         self.assertTrue(
             any(
@@ -1767,12 +1937,17 @@ class TestAxOrchestrator(TestCase):
         # we're throwing a unrecoverable exception because Exception is not subclass
         # of either error type in recoverable_exceptions
         BraninMetric.recoverable_exceptions = {AxError, TypeError}
-        with patch(
-            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
-        ), patch(
-            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ), self.assertLogs(logger="ax.service.orchestrator") as lg:
+        with (
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.f",
+                side_effect=Exception("yikes!"),
+            ),
+            patch(
+                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+                return_value=False,
+            ),
+            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
+        ):
             # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)
@@ -1787,14 +1962,16 @@ class TestAxOrchestrator(TestCase):
             any(
                 re.search(
                     r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.FAILED",
+                    "TrialStatus.ABANDONED",
                     warning,
                 )
                 is not None
                 for warning in lg.output
             )
         )
-        self.assertEqual(orchestrator.experiment.trials[0].status, TrialStatus.FAILED)
+        self.assertEqual(
+            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
+        )
 
     def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.
@@ -2115,7 +2292,7 @@ class TestAxOrchestrator(TestCase):
                 GenerationStep(generator=Generators.BOTORCH_MODULAR, num_trials=1),
                 GenerationStep(
                     generator=Generators.BOTORCH_MODULAR,
-                    model_kwargs={
+                    generator_kwargs={
                         # this will cause an error if the model
                         # doesn't get fixed features
                         "transforms": MBM_MTGP_trans,
@@ -2220,7 +2397,7 @@ class TestAxOrchestrator(TestCase):
         candidate_trial = orchestrator.experiment.trials[0]
         self.assertEqual(len(candidate_trial.generator_runs), 1)
         self.assertEqual(
-            candidate_trial.generator_runs[0]._model_key,
+            candidate_trial.generator_runs[0]._generator_key,
             Generators.SOBOL.value,
         )
         self.assertEqual(
@@ -2484,12 +2661,53 @@ class TestAxOrchestrator(TestCase):
         self.assertEqual(candidate_trial.status, TrialStatus.CANDIDATE)
         self.assertEqual(len(candidate_trial.generator_runs), 1)
         self.assertEqual(
-            candidate_trial.generator_runs[0]._model_key,
+            candidate_trial.generator_runs[0]._generator_key,
             Generators.BOTORCH_MODULAR.value,
         )
         # MBM may generate less than the requested batch size.
         self.assertLessEqual(
             len(candidate_trial.arms), none_throws(orchestrator.options.batch_size)
+        )
+
+    def test_generate_candidates_updates_experiment_status(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        node_with_status = GenerationNode(
+            name="test_node",
+            generator_specs=[
+                GeneratorSpec(
+                    generator_enum=Generators.SOBOL,
+                    model_kwargs={},
+                )
+            ],
+            suggested_experiment_status=ExperimentStatus.INITIALIZATION,
+        )
+        gs = GenerationStrategy(nodes=[node_with_status])
+
+        # Create orchestrator with this generation strategy
+        self.branin_experiment.runner = InfinitePollRunner()
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                batch_size=1,
+                trial_type=TrialType.BATCH_TRIAL,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings,
+        )
+
+        # Verify the experiment status is not currently ExperimentStatus.INITIALIZATION
+        self.assertNotEqual(
+            orchestrator.experiment.status, ExperimentStatus.INITIALIZATION
+        )
+
+        # Execute: generate candidates
+        orchestrator.generate_candidates(num_trials=1)
+
+        # Assert: verify experiment status was updated
+        self.assertEqual(
+            orchestrator.experiment.status, ExperimentStatus.INITIALIZATION
         )
 
     def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:
@@ -2557,61 +2775,6 @@ class TestAxOrchestrator(TestCase):
         # THEN the experiment should have not generated candidates
         self.assertEqual(len(orchestrator.experiment.trials), 1)
 
-    def test_compute_analyses(self) -> None:
-        init_test_engine_and_session_factory(force_init=True)
-        gs = get_generation_strategy()
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=OrchestratorOptions(
-                total_trials=0,
-                tolerated_trial_failure_rate=0.2,
-                init_seconds_between_polls=10,
-                **self.orchestrator_options_kwargs,
-            ),
-            db_settings=self.db_settings,
-        )
-
-        # Test Analysis when Experiment is not in applicable state
-        analysis = ParallelCoordinatesPlot()
-        cards = orchestrator.compute_analyses(analyses=[analysis])
-
-        self.assertEqual(len(cards), 1)
-        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
-        self.assertEqual(
-            cards[0].subtitle,
-            "AnalysisNotApplicableStateError encountered while computing "
-            "ParallelCoordinatesPlot.",
-        )
-        self.assertIn(
-            "Experiment has no trials",
-            assert_is_instance(cards[0], AnalysisCard).blob,
-        )
-
-        sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
-        sobol_run = sobol_generator.gen(n=1)
-        trial = self.branin_experiment.new_trial(generator_run=sobol_run)
-        trial.mark_running(no_runner_required=True)
-        trial.mark_completed()
-        data = self.branin_experiment.fetch_data()
-        self.branin_experiment.attach_data(data)
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=get_generation_strategy(),
-            options=OrchestratorOptions(
-                total_trials=0,
-                tolerated_trial_failure_rate=0.2,
-                init_seconds_between_polls=10,
-                **self.orchestrator_options_kwargs,
-            ),
-        )
-
-        cards = orchestrator.compute_analyses(analyses=[ParallelCoordinatesPlot()])
-
-        self.assertEqual(len(cards), 1)
-        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-
     def test_validate_options_not_none_mt_trial_type(
         self, msg: str | None = None
     ) -> None:
@@ -2658,8 +2821,8 @@ class TestAxOrchestrator(TestCase):
             {
                 "Generation strategy": MessageOutput(
                     text=(
-                        "This optimization run uses a 'Sobol+BoTorch' generation "
-                        "strategy."
+                        "This optimization run uses a 'GenerationStep_0_Sobol+"
+                        "GenerationStep_1_BoTorch' generation strategy."
                     ),
                     priority=10,
                 )
@@ -2705,7 +2868,7 @@ class TestAxOrchestrator(TestCase):
         self.assertIn("status_quo", data.df["arm_name"].values)
 
         gs = self.two_sobol_steps_GS
-        orchestrator = TestOrchestrator(
+        orchestrator = MockOrchestrator(
             experiment=experiment,
             generation_strategy=gs,
             options=OrchestratorOptions(
@@ -2723,10 +2886,21 @@ class TestAxOrchestrator(TestCase):
 
 
 class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
+    # After D80128678, choose_generation_strategy_legacy returns node-based GS.
     EXPECTED_orchestrator_REPR: str = (
         "Orchestrator(experiment=MultiTypeExperiment(branin_test_experiment), "
-        "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
-        "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
+        "generation_strategy=GenerationStrategy("
+        "name='GenerationStep_0_Sobol+GenerationStep_1_BoTorch', "
+        "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
+        "generator_specs=[GeneratorSpec(generator_enum=Sobol, "
+        "generator_key_override=None)], "
+        "transition_criteria=[MinTrials(transition_to='GenerationStep_1_BoTorch'), "
+        "MinTrials(transition_to='GenerationStep_1_BoTorch')]), "
+        "GenerationNode(name='GenerationStep_1_BoTorch', "
+        "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
+        "generator_key_override=None)], "
+        "transition_criteria="
+        "[MaxGenerationParallelism(transition_to='GenerationStep_1_BoTorch')])]), "
         "options=OrchestratorOptions(max_pending_trials=10, "
         "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
         "total_trials=0, tolerated_trial_failure_rate=0.2, "
@@ -2846,6 +3020,16 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
             "type1", RunnerWithFailedAndAbandonedTrials()
         )
         super().test_poll_and_process_results_with_reasons()
+
+    def test_poll_trial_status_fallback_to_individual_polling(self) -> None:
+        self.branin_experiment.update_runner(
+            "type1", RunnerWithFailingPollTrialStatus()
+        )
+        super().test_poll_trial_status_fallback_to_individual_polling()
+
+    def test_poll_trial_status_abandons_trial_on_individual_failure(self) -> None:
+        self.branin_experiment.update_runner("type1", RunnerWithAllPollsFailing())
+        super().test_poll_trial_status_abandons_trial_on_individual_failure()
 
     def test_generate_candidates_works_for_iteration(self) -> None:
         self.branin_experiment.update_runner("type1", InfinitePollRunner())

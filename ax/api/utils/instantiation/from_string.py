@@ -8,7 +8,6 @@
 from collections.abc import Sequence
 
 from ax.core.map_metric import MapMetric
-
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -20,14 +19,13 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter_constraint import ParameterConstraint
 from ax.exceptions.core import UserInputError
 from ax.utils.common.string_utils import sanitize_name, unsanitize_name
+from ax.utils.common.sympy import extract_coefficient_dict_from_inequality
 from pyre_extensions import assert_is_instance, none_throws
 from sympy.core.add import Add
 from sympy.core.expr import Expr
 from sympy.core.mul import Mul
-from sympy.core.relational import GreaterThan, LessThan
 from sympy.core.symbol import Symbol
 from sympy.core.sympify import sympify
 
@@ -95,35 +93,6 @@ def optimization_config_from_string(
     )
 
 
-def parse_parameter_constraint(constraint_str: str) -> ParameterConstraint:
-    """
-    Parse a parameter constraint string into a ParameterConstraint object using SymPy.
-    Currently only supports linear constraints of the form "a * x + b * y >= k" or
-    "a * x + b * y <= k".
-    """
-    coefficient_dict = _extract_coefficient_dict_from_inequality(
-        inequality_str=constraint_str
-    )
-
-    # Iterate through the coefficients to extract the parameter names and weights and
-    # the bound
-    constraint_dict = {}
-    bound = 0
-    for term, coefficient in coefficient_dict.items():
-        if term.is_symbol:
-            constraint_dict[unsanitize_name(term.name)] = coefficient
-        elif term.is_number:
-            # Invert because we are "moving" the bound to the right hand side
-            bound = -1 * coefficient
-        else:
-            raise UserInputError(
-                "Only linear inequality parameter constraints are supported, found "
-                f"{constraint_str}"
-            )
-
-    return ParameterConstraint(constraint_dict=constraint_dict, bound=bound)
-
-
 def parse_objective(objective_str: str) -> Objective:
     """
     Parse an objective string into an Objective object using SymPy.
@@ -154,7 +123,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
     multiply your bound by "baseline". For example "qps >= 0.95 * baseline" will
     constrain such that the QPS is at least 95% of the baseline arm's QPS.
     """
-    coefficient_dict = _extract_coefficient_dict_from_inequality(
+    coefficient_dict = extract_coefficient_dict_from_inequality(
         inequality_str=constraint_str
     )
 
@@ -176,8 +145,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
             bound = -1 * coefficient
         else:
             raise UserInputError(
-                "Only linear outcome constraints are supported, found "
-                f"{constraint_str}"
+                f"Only linear outcome constraints are supported, found {constraint_str}"
             )
 
     if len(constraint_dict) == 1:
@@ -248,31 +216,3 @@ def _create_single_objective(expression: Expr) -> Objective:
         )
 
     raise UserInputError(f"Only linear objectives are supported, found {expression}.")
-
-
-def _extract_coefficient_dict_from_inequality(
-    inequality_str: str,
-) -> dict[Symbol, float]:
-    """
-    Use SymPy to parse a string into an inequality, invert if necessary to enforce a
-    less-than relationship, move all terms to the left side, and return the
-    coefficients as a dictionary. This is useful for parsing parameter and outcome
-    constraints.
-    """
-    # Parse the constraint string into a SymPy inequality
-    inequality = sympify(sanitize_name(inequality_str))
-
-    # Check the SymPy object is a valid inequality
-    if not isinstance(inequality, GreaterThan | LessThan):
-        raise UserInputError(f"Expected an inequality, found {inequality_str}")
-
-    # Move all terms to the left side of the inequality and invert if necessary to
-    # enforce a less-than relationship
-    if isinstance(inequality, LessThan):
-        expression = inequality.lhs - inequality.rhs
-    else:
-        expression = inequality.rhs - inequality.lhs
-
-    return {
-        key: float(value) for key, value in expression.as_coefficients_dict().items()
-    }

@@ -15,10 +15,10 @@ from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.stratified_standardize_y import StratifiedStandardizeY
 from ax.adapter.transforms.tests.test_standardize_y_transform import osd_allclose
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
@@ -27,6 +27,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from pyre_extensions import assert_is_instance
 
 
 class StratifiedStandardizeYTransformTest(TestCase):
@@ -43,12 +44,17 @@ class StratifiedStandardizeYTransformTest(TestCase):
             ]
         )
         self.experiment = get_experiment_with_observations(
-            observations=[[1.0, 2.0], [float("nan"), 8.0], [1.0, 2.0], [5.0, 1.0]],
+            observations=[
+                [1.0, 2.0, 3.0],
+                [float("nan"), 8.0, 6.0],
+                [1.0, 2.0, 4.0],
+                [5.0, 1.0, 8.0],
+            ],
             sems=[
-                [1.0, sqrt(2.0)],
-                [float("nan"), sqrt(3.0)],
-                [1.0, sqrt(2.0)],
-                [1.0, sqrt(3.0)],
+                [1.0, sqrt(2.0), 1.0],
+                [float("nan"), sqrt(3.0), 1.0],
+                [1.0, sqrt(2.0), 1.0],
+                [1.0, sqrt(3.0), 1.0],
             ],
             search_space=self.search_space,
             parameterizations=[
@@ -57,6 +63,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 {"x": 5.0, "z": "b"},
                 {"x": 7.0, "z": "b"},
             ],
+            constrained=True,
         )
         self.experiment_data = extract_experiment_data(
             experiment=self.experiment, data_loader_config=DataLoaderConfig()
@@ -152,12 +159,16 @@ class StratifiedStandardizeYTransformTest(TestCase):
             ("m1", "b"): 3.0,
             ("m2", "a"): 5.0,
             ("m2", "b"): 1.5,
+            ("m3", "a"): 4.5,
+            ("m3", "b"): 6.0,
         }
         Ystd_expected = {
             ("m1", "a"): 1.0,
             ("m1", "b"): sqrt(2) * 2.0,
             ("m2", "a"): sqrt(2) * 3.0,
             ("m2", "b"): sqrt(2) * 0.5,
+            ("m3", "a"): sqrt(2) * 1.5,
+            ("m3", "b"): sqrt(2) * 2.0,
         }
         self.assertEqual(self.t.Ymean, Ymean_expected)
         self.assertEqual(set(self.t.Ystd), set(Ystd_expected))
@@ -405,14 +416,24 @@ class StratifiedStandardizeYTransformTest(TestCase):
         std_m1_b = sqrt(2) * 2
         std_m2_a = sqrt(2) * 3
         std_m2_b = sqrt(2) * 0.5
+        std_m3_a = sqrt(2) * 1.5
+        std_m3_b = sqrt(2) * 2.0
         expected_means = DataFrame(
             index=observation_data.index,
             columns=observation_data["mean"].columns,
             data=[
-                [0.0, (2.0 - 5.0) / std_m2_a],
-                [float("nan"), (8.0 - 5.0) / std_m2_a],
-                [(1.0 - 3.0) / std_m1_b, (2.0 - 1.5) / std_m2_b],
-                [(5.0 - 3.0) / std_m1_b, (1.0 - 1.5) / std_m2_b],
+                [0.0, (2.0 - 5.0) / std_m2_a, (3.0 - 4.5) / std_m3_a],
+                [float("nan"), (8.0 - 5.0) / std_m2_a, (6.0 - 4.5) / std_m3_a],
+                [
+                    (1.0 - 3.0) / std_m1_b,
+                    (2.0 - 1.5) / std_m2_b,
+                    (4.0 - 6.0) / std_m3_b,
+                ],
+                [
+                    (5.0 - 3.0) / std_m1_b,
+                    (1.0 - 1.5) / std_m2_b,
+                    (8.0 - 6.0) / std_m3_b,
+                ],
             ],
         )
         assert_frame_equal(observation_data["mean"], expected_means)
@@ -421,10 +442,78 @@ class StratifiedStandardizeYTransformTest(TestCase):
             index=observation_data.index,
             columns=observation_data["sem"].columns,
             data=[
-                [1.0, sqrt(2.0) / std_m2_a],
-                [float("nan"), sqrt(3.0) / std_m2_a],
-                [1.0 / std_m1_b, sqrt(2.0) / std_m2_b],
-                [1.0 / std_m1_b, sqrt(3.0) / std_m2_b],
+                [1.0, sqrt(2.0) / std_m2_a, 1.0 / std_m3_a],
+                [float("nan"), sqrt(3.0) / std_m2_a, 1.0 / std_m3_a],
+                [1.0 / std_m1_b, sqrt(2.0) / std_m2_b, 1.0 / std_m3_b],
+                [1.0 / std_m1_b, sqrt(3.0) / std_m2_b, 1.0 / std_m3_b],
             ],
         )
         assert_frame_equal(observation_data["sem"], expected_sems)
+
+    def test_TransformOptimizationConfigWithScalarizedObjective(self) -> None:
+        # Test with ScalarizedObjective
+        # Given: objective = w1*m1 + w2*m2 with w1=0.5, w2=0.5
+        # After standardization: zi = (yi - mu_i) / si
+        # The objective becomes: w1*s1*z1 + w2*s2*z2 (constant term doesn't matter)
+        objective = ScalarizedObjective(
+            metrics=[self.m1, self.m2], weights=[0.5, 0.5], minimize=False
+        )
+        oc = OptimizationConfig(objective=objective)
+        expected_weights = {
+            "a": [0.5 * 1.0, 0.5 * sqrt(2) * 3],
+            "b": [0.5 * 2 * sqrt(2), 0.5 * sqrt(2) * 0.5],
+        }
+        for strata in ["a", "b"]:
+            fixed_features = ObservationFeatures({"z": strata})
+            oc_transformed = self.t.transform_optimization_config(
+                optimization_config=oc.clone(),
+                adapter=None,
+                fixed_features=fixed_features,
+            )
+            transformed_objective = assert_is_instance(
+                oc_transformed.objective, ScalarizedObjective
+            )
+            self.assertTrue(
+                np.allclose(transformed_objective.weights, expected_weights[strata])
+            )
+
+    def test_TransformAndUntransformScalarizedOutcomeConstraint(self) -> None:
+        # Test with ScalarizedOutcomeConstraint
+        # Given: constraint = w1*m1 + w2*m2 <= C with w1=1.0, w2=2.0, C=10.0
+        # After standardization: w1*s1*z1 + w2*s2*z2 <= C - (w1*mu1 + w2*mu2)
+        original_weights = [1.0, 2.0]
+        original_bound = 10.0
+
+        scalarized_constraint = ScalarizedOutcomeConstraint(
+            metrics=[self.m1, self.m2],
+            weights=original_weights.copy(),
+            op=ComparisonOp.LEQ,
+            bound=original_bound,
+            relative=False,
+        )
+        oc = OptimizationConfig(
+            objective=self.objective, outcome_constraints=[scalarized_constraint]
+        )
+        fixed_features = ObservationFeatures({"z": "a"})
+        oc_transformed = self.t.transform_optimization_config(oc, None, fixed_features)
+
+        # For strata "a": mu_m1 = 1.0, mu_m2 = 5.0, std_m1 = 1.0, std_m2 = sqrt(2) * 3
+        # new_bound = 10.0 - (1.0 * 1.0 + 2.0 * 5.0) = 10.0 - 11.0 = -1.0
+        # new_weights = [1.0 * 1.0, 2.0 * sqrt(2) * 3]
+        transformed_constraint = assert_is_instance(
+            oc_transformed.outcome_constraints[0], ScalarizedOutcomeConstraint
+        )
+        expected_bound = 10.0 - (1.0 * 1.0 + 2.0 * 5.0)
+        expected_weights = [1.0 * 1.0, 2.0 * sqrt(2) * 3]
+        self.assertAlmostEqual(transformed_constraint.bound, expected_bound)
+        self.assertTrue(np.allclose(transformed_constraint.weights, expected_weights))
+
+        # Untransform and verify round-trip recovers original values
+        untransformed_constraints = self.t.untransform_outcome_constraints(
+            oc_transformed.outcome_constraints, fixed_features
+        )
+        untransformed_constraint = assert_is_instance(
+            untransformed_constraints[0], ScalarizedOutcomeConstraint
+        )
+        self.assertAlmostEqual(untransformed_constraint.bound, original_bound)
+        self.assertTrue(np.allclose(untransformed_constraint.weights, original_weights))

@@ -60,7 +60,7 @@ def get_single_objective_benchmark_problem(
     num_trials: int = 4,
     test_problem_kwargs: dict[str, Any] | None = None,
     report_inference_value_as_trace: bool = False,
-    noise_std: float | list[float] = 0.0,
+    noise_std: float | dict[str, float] = 0.0,
     status_quo_params: TParameterization | None = None,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(

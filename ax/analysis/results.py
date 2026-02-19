@@ -6,23 +6,33 @@
 # pyre-strict
 
 import itertools
-from typing import final, Sequence
+from collections.abc import Sequence
+from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCardGroup
+from ax.analysis.best_trials import BestTrials
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
+from ax.analysis.plotly.progression import (
+    PROGRESSION_CARDGROUP_SUBTITLE,
+    PROGRESSION_CARDGROUP_TITLE,
+    ProgressionPlot,
+)
 from ax.analysis.plotly.scatter import (
     SCATTER_CARDGROUP_SUBTITLE,
     SCATTER_CARDGROUP_TITLE,
     ScatterPlot,
 )
+from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
+from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import is_bandit_experiment
@@ -96,11 +106,13 @@ class ResultsAnalysis(Analysis):
             adapter=adapter,
         )
 
-        # Relativize the effects if the status quo is set and there are BatchTrials
-        # present.
-        relativize = experiment.status_quo is not None and any(
+        # Check if there are BatchTrials present.
+        has_batch_trials = any(
             isinstance(trial, BatchTrial) for trial in experiment.trials.values()
         )
+        # Relativize the effects if the status quo is set and there are BatchTrials
+        # present.
+        relativize = experiment.status_quo is not None and has_batch_trials
         # Compute both observed and modeled effects for each objective and constraint.
         arm_effect_pair_group = (
             ArmEffectsPair(
@@ -116,7 +128,7 @@ class ResultsAnalysis(Analysis):
         )
 
         # If there are multiple objectives, compute scatter plots of each combination
-        # of two objectives.
+        # of two objectives. For MOO experiments, show the Pareto frontier line.
         objective_scatter_group = (
             AnalysisCardGroup(
                 name="Objective Scatter Plots",
@@ -127,6 +139,7 @@ class ResultsAnalysis(Analysis):
                         x_metric_name=x,
                         y_metric_name=y,
                         relativize=relativize,
+                        show_pareto_frontier=True,
                     ).compute_or_error_card(
                         experiment=experiment,
                         generation_strategy=generation_strategy,
@@ -197,11 +210,72 @@ class ResultsAnalysis(Analysis):
             else None
         )
 
+        # Compute best trials, skip for experiments with ScalarizedOutcomeConstraints or
+        # BatchTrials as it is not supported yet
+        has_scalarized_outcome_constraints = optimization_config is not None and any(
+            isinstance(oc, ScalarizedOutcomeConstraint)
+            for oc in optimization_config.outcome_constraints
+        )
+        best_trials_card = (
+            BestTrials().compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            if not has_batch_trials and not has_scalarized_outcome_constraints
+            else None
+        )
+
+        # Add utility progression if there are objectives
+        # Skip for experiments with ScalarizedOutcomeConstraint as feasibility
+        # evaluation for scalarized outcome constraints is not yet implemented
+        # Skip for online experiments (those with BatchTrials)
+        utility_progression_card = (
+            UtilityProgressionAnalysis().compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            if len(objective_names) > 0
+            and not has_scalarized_outcome_constraints
+            and not has_batch_trials
+            else None
+        )
+
         summary = Summary().compute_or_error_card(
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
         )
+
+        # Compute progression plots if there is curve data.
+        progression_group = None
+        data = experiment.lookup_data()
+        metrics = experiment.metrics.values()
+        map_metrics = [m for m in metrics if isinstance(m, MapMetric)]
+        if (
+            data.has_step_column
+            and data.full_df[MAP_KEY].notna().any()
+            and len(map_metrics) > 0
+        ):
+            progression_cards = [
+                ProgressionPlot(
+                    metric_name=m.name, by_wallclock_time=by_wallclock_time
+                ).compute_or_error_card(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                    adapter=adapter,
+                )
+                for m in map_metrics
+                for by_wallclock_time in (False, True)
+            ]
+            if progression_cards:
+                progression_group = AnalysisCardGroup(
+                    name="ProgressionAnalysis",
+                    title=PROGRESSION_CARDGROUP_TITLE,
+                    subtitle=PROGRESSION_CARDGROUP_SUBTITLE,
+                    children=progression_cards,
+                )
 
         return self._create_analysis_card_group(
             title=RESULTS_CARDGROUP_TITLE,
@@ -213,6 +287,9 @@ class ResultsAnalysis(Analysis):
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,
+                    utility_progression_card,
+                    progression_group,
+                    best_trials_card,
                     summary,
                 )
                 if child is not None

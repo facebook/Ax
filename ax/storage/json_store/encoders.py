@@ -10,7 +10,6 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from ax.adapter.registry import _encode_callables_as_references
 from ax.adapter.transforms.base import Transform
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
@@ -18,7 +17,6 @@ from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -34,11 +32,7 @@ from ax.core.parameter import (
     FixedParameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -56,15 +50,17 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    TransitionCriterion,
-    TrialBasedCriterion,
-)
+from ax.generation_strategy.transition_criterion import TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
+from ax.storage.utils import (
+    data_to_data_by_trial,
+    EXPECT_RELATIVIZED_OUTCOMES,
+    PREFERENCE_PROFILE_NAME,
+)
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from ax.utils.testing.backend_simulator import (
@@ -75,7 +71,6 @@ from ax.utils.testing.backend_simulator import (
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
-from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -94,9 +89,9 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "time_created": experiment.time_created,
         "trials": experiment.trials,
         "is_test": experiment.is_test,
-        "data_by_trial": experiment._data_by_trial,
+        "data_by_trial": data_to_data_by_trial(data=experiment.data),
         "properties": experiment._properties,
-        "default_data_type": experiment._default_data_type,
+        "_trial_type_to_runner": experiment._trial_type_to_runner,
     }
 
 
@@ -125,15 +120,13 @@ def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
         "time_completed": batch.time_completed,
         "time_staged": batch.time_staged,
         "time_run_started": batch.time_run_started,
-        "abandoned_reason": batch.abandoned_reason,
-        "failed_reason": batch.failed_reason,
+        "status_reason": batch.status_reason,
         "run_metadata": batch.run_metadata,
         "stop_metadata": batch.stop_metadata,
         "generator_runs": batch.generator_runs,
         "runner": batch.runner,
         "abandoned_arms_metadata": batch._abandoned_arms_metadata,
         "num_arms_created": batch._num_arms_created,
-        "generation_step_index": batch._generation_step_index,
         "properties": batch._properties,
     }
 
@@ -150,14 +143,12 @@ def trial_to_dict(trial: Trial) -> dict[str, Any]:
         "time_completed": trial.time_completed,
         "time_staged": trial.time_staged,
         "time_run_started": trial.time_run_started,
-        "abandoned_reason": trial.abandoned_reason,
-        "failed_reason": trial.failed_reason,
+        "status_reason": trial.status_reason,
         "run_metadata": trial.run_metadata,
         "stop_metadata": trial.stop_metadata,
         "generator_run": trial.generator_run,
         "runner": trial.runner,
         "num_arms_created": trial._num_arms_created,
-        "generation_step_index": trial._generation_step_index,
         "properties": trial._properties,
     }
 
@@ -194,6 +185,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
         "name": parameter.name,
         "parameter_type": parameter.parameter_type,
         "values": parameter.values,
+        "log_scale": parameter.log_scale,
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
         "dependents": parameter.dependents if parameter.is_hierarchical else None,
@@ -226,39 +218,18 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> dict[str, Any]:
     }
 
 
-def order_parameter_constraint_to_dict(
-    parameter_constraint: OrderConstraint,
-) -> dict[str, Any]:
-    """Convert Ax order parameter constraint to a dictionary."""
-    return {
-        "__type": parameter_constraint.__class__.__name__,
-        "lower_name": parameter_constraint.lower_parameter.name,
-        "upper_name": parameter_constraint.upper_parameter.name,
-    }
-
-
-def sum_parameter_constraint_to_dict(
-    parameter_constraint: SumConstraint,
-) -> dict[str, Any]:
-    """Convert Ax sum parameter constraint to a dictionary."""
-    return {
-        "__type": parameter_constraint.__class__.__name__,
-        "parameter_names": parameter_constraint._parameter_names,
-        "is_upper_bound": parameter_constraint._is_upper_bound,
-        # SumParameterConstraint constructor takes in absolute value of
-        # the bound and transforms it based on the is_upper_bound value
-        "bound": abs(parameter_constraint._bound),
-    }
-
-
 def parameter_constraint_to_dict(
     parameter_constraint: ParameterConstraint,
 ) -> dict[str, Any]:
     """Convert Ax sum parameter constraint to a dictionary."""
+    expr = " + ".join(
+        f"{coeff} * {param}"
+        for param, coeff in parameter_constraint.constraint_dict.items()
+    )
+
     return {
         "__type": parameter_constraint.__class__.__name__,
-        "constraint_dict": parameter_constraint.constraint_dict,
-        "bound": parameter_constraint.bound,
+        "inequality": f"{expr} <= {parameter_constraint.bound}",
     }
 
 
@@ -348,7 +319,10 @@ def preference_optimization_config_to_dict(
         "__type": preference_optimization_config.__class__.__name__,
         "objective": preference_optimization_config.objective,
         "outcome_constraints": preference_optimization_config.outcome_constraints,
-        "preference_profile_name": pref_profile_name,
+        PREFERENCE_PROFILE_NAME: pref_profile_name,
+        EXPECT_RELATIVIZED_OUTCOMES: (
+            preference_optimization_config.expect_relativized_outcomes
+        ),
         "pruning_target_parameterization": (
             preference_optimization_config.pruning_target_parameterization
         ),
@@ -386,14 +360,14 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> dict[str, Any]:
         "generator_run_type": gr.generator_run_type,
         "fit_time": gr.fit_time,
         "gen_time": gr.gen_time,
-        "model_key": gr._model_key,
-        "model_kwargs": gr._model_kwargs,
-        "bridge_kwargs": gr._bridge_kwargs,
+        "generator_key": gr._generator_key,
+        "generator_kwargs": gr._generator_kwargs,
+        "adapter_kwargs": gr._adapter_kwargs,
         "gen_metadata": gr._gen_metadata,
-        "model_state_after_gen": gr._model_state_after_gen,
-        "generation_step_index": gr._generation_step_index,
+        "generator_state_after_gen": gr._generator_state_after_gen,
         "candidate_metadata_by_arm_signature": cand_metadata,
         "generation_node_name": gr._generation_node_name,
+        "suggested_experiment_status": gr.suggested_experiment_status,
     }
 
 
@@ -411,13 +385,6 @@ def data_to_dict(data: Data) -> dict[str, Any]:
     return properties
 
 
-def map_data_to_dict(map_data: MapData) -> dict[str, Any]:
-    """Convert Ax map data to a dictionary."""
-    properties = map_data.serialize_init_args(obj=map_data)
-    properties["__type"] = map_data.__class__.__name__
-    return properties
-
-
 def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
     """Convert a transform class to a dictionary."""
     return {
@@ -428,36 +395,9 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
 
 def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
-    if tc := generation_step.transition_criteria:
-        # If True, `use_all_trials_in_exp` will be set on the first TC.
-        # Otherwise, it'll be False.
-        use_all_trials_in_exp = assert_is_instance(
-            tc[0], TrialBasedCriterion
-        ).use_all_trials_in_exp
-    else:
-        # If there is no TC, then the argument is irrelevant, so we can use False.
-        use_all_trials_in_exp = False
-    return {
-        "__type": generation_step.__class__.__name__,
-        "generator": generation_step.generator,
-        "num_trials": generation_step.num_trials,
-        "min_trials_observed": generation_step.min_trials_observed,
-        "completion_criteria": generation_step.completion_criteria,
-        "max_parallelism": generation_step.max_parallelism,
-        "use_update": generation_step.use_update,
-        "enforce_num_trials": generation_step.enforce_num_trials,
-        "model_kwargs": _encode_callables_as_references(
-            generation_step.model_kwargs or {}
-        ),
-        "model_gen_kwargs": _encode_callables_as_references(
-            generation_step.model_gen_kwargs or {}
-        ),
-        "index": generation_step.index,
-        "should_deduplicate": generation_step.should_deduplicate,
-        "transition_criteria": generation_step.transition_criteria,
-        "generator_name": generation_step.generator_name,
-        "use_all_trials_in_exp": use_all_trials_in_exp,
-    }
+    # pyre-fixme[6]: Currently, Pyre doesn't recognize that `Generation
+    #  Step.__new__` actually returns a `GenerationNode`.
+    return generation_node_to_dict(generation_node=generation_step)
 
 
 def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
@@ -472,6 +412,7 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
         "generator_spec_to_gen_from": generation_node._generator_spec_to_gen_from,
         "previous_node_name": generation_node._previous_node_name,
         "trial_type": generation_node._trial_type,
+        "suggested_experiment_status": generation_node.suggested_experiment_status,
         # need to manually encode input constructors because the key is an enum.
         # Our encoding and decoding logic in object_to_json and object_from_json
         # doesn't recursively encode/decode the keys of dictionaries.
@@ -485,15 +426,12 @@ def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> dict[str, Any]:
     """Converts Ax generation strategy to a dictionary."""
-    node_based_gs = generation_strategy.is_node_based
     return {
         "__type": generation_strategy.__class__.__name__,
         "db_id": generation_strategy._db_id,
         "name": generation_strategy.name,
-        "steps": generation_strategy._steps if not node_based_gs else [],
-        "curr_index": (
-            generation_strategy.current_step_index if not node_based_gs else -1
-        ),
+        "steps": [],
+        "curr_index": -1,
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.adapter is not None,
         "experiment": generation_strategy._experiment,
@@ -504,7 +442,7 @@ def generation_strategy_to_dict(
 
 def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, Any]:
     """Convert Ax TransitionCriterion to a dictionary."""
-    properties = criterion.serialize_init_args(obj=criterion)
+    properties = serialize_init_args(obj=criterion)
     properties["__type"] = criterion.__class__.__name__
     return properties
 
@@ -514,8 +452,10 @@ def generator_spec_to_dict(generator_spec: GeneratorSpec) -> dict[str, Any]:
     return {
         "__type": generator_spec.__class__.__name__,
         "generator_enum": generator_spec.generator_enum,
-        "model_kwargs": generator_spec.model_kwargs,
-        "model_gen_kwargs": generator_spec.model_gen_kwargs,
+        "generator_kwargs": generator_spec.generator_kwargs,
+        "generator_gen_kwargs": generator_spec.generator_gen_kwargs,
+        "cv_kwargs": generator_spec.cv_kwargs,
+        "generator_key_override": generator_spec.generator_key_override,
     }
 
 
@@ -649,7 +589,6 @@ def percentile_early_stopping_strategy_to_dict(
         "percentile_threshold": strategy.percentile_threshold,
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
-        "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
         "normalize_progressions": strategy.normalize_progressions,
     }
 
@@ -663,7 +602,6 @@ def threshold_early_stopping_strategy_to_dict(
         "metric_signatures": strategy.metric_signatures,
         "metric_threshold": strategy.metric_threshold,
         "min_progression": strategy.min_progression,
-        "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
         "normalize_progressions": strategy.normalize_progressions,
     }
 

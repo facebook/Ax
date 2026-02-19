@@ -8,7 +8,6 @@
 
 from ax.adapter import Adapter
 from ax.adapter.transforms.utils import (
-    ClosestLookupDict,
     derelativize_optimization_config_with_raw_status_quo,
 )
 from ax.generators.base import Generator
@@ -20,24 +19,6 @@ from ax.utils.testing.core_stubs import (
 
 
 class TransformUtilsTest(TestCase):
-    def test_closest_lookup_dict(self) -> None:
-        # test empty lookup
-        d = ClosestLookupDict()
-        with self.assertRaises(RuntimeError):
-            d[0]
-        # basic test
-        keys = (1.0, 2, 4)
-        vals = ("a", "b", "c")
-        d = ClosestLookupDict(zip(keys, vals))
-        for k, v in zip(keys, vals):
-            self.assertEqual(d[k], v)
-        self.assertEqual(d[2.5], "b")
-        self.assertEqual(d[0], "a")
-        self.assertEqual(d[6], "c")
-        with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Number` but got `str`.
-            d["str_key"] = 3
-
     def test_derelativize_optimization_config_with_raw_status_quo(self) -> None:
         optimization_config = get_multi_objective_optimization_config()
         experiment = get_experiment_with_observations(

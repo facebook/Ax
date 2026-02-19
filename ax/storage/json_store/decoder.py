@@ -21,21 +21,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from ax.adapter.registry import _decode_callables_from_references, GeneratorRegistryBase
+from ax.adapter.registry import GeneratorRegistryBase
+from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSON_STORAGE_DOCS_SUFFIX, JSONDecodeError
 from ax.generation_strategy.generation_node_input_constructors import (
@@ -47,15 +43,12 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import (
-    AuxiliaryExperimentCheck,
-    TransitionCriterion,
-    TrialBasedCriterion,
-)
+from ax.generation_strategy.transition_criterion import MinTrials, TransitionCriterion
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
+    _cast_parameter_value,
     batch_trial_from_json,
     botorch_component_from_json,
     tensor_from_json,
@@ -65,9 +58,10 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
-from ax.storage.utils import combine_datas_on_data_by_trial
+from ax.storage.utils import data_by_trial_to_data
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
+    extract_init_args,
     SerializationMixin,
     TClassDecoderRegistry,
     TDecoderRegistry,
@@ -79,9 +73,43 @@ from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
-# Deprecated model registry entries and their replacements.
+
+def _cast_arm_parameters(arm: Arm, search_space: SearchSpace) -> None:
+    """Cast arm parameter values to the appropriate Python type.
+
+    This is necessary because JSON may deserialize values as different types
+    (e.g., ints as floats). This function modifies the arm in place.
+
+    Args:
+        arm: The arm whose parameter values should be cast.
+        search_space: The search space containing parameter type information.
+    """
+    for param_name, param_value in arm._parameters.items():
+        if param_name in search_space.parameters:
+            parameter = search_space.parameters[param_name]
+            arm._parameters[param_name] = _cast_parameter_value(
+                param_value, parameter.parameter_type
+            )
+
+
+def _raise_on_legacy_callable_refs(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
+    """Returns kwarg_dict unchanged if no legacy callable refs are present.
+
+    Raises:
+        JSONDecodeError: If any value is a legacy encoded callable reference.
+    """
+    for k, v in kwarg_dict.items():
+        if isinstance(v, dict) and v.get("is_callable_as_path", False):
+            raise JSONDecodeError(
+                f"Legacy callable reference '{k}' cannot be decoded. "
+                "Callable serialization is not supported."
+            )
+    return kwarg_dict
+
+
+# Deprecated generators registry entries and their replacements.
 # Used below in `_update_deprecated_model_registry`.
-_DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
+_DEPRECATED_GENERATOR_TO_REPLACEMENT: dict[str, str] = {
     "GPEI": "BOTORCH_MODULAR",
     "MOO": "BOTORCH_MODULAR",
     "FULLYBAYESIAN": "SAASBO",
@@ -94,8 +122,8 @@ _DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
     "LEGACY_BOTORCH": "BOTORCH_MODULAR",
 }
 
-# Deprecated model kwargs, to be removed from GStep / GNodes.
-_DEPRECATED_MODEL_KWARGS: tuple[str, ...] = (
+# Deprecated generator kwargs, to be removed from GStep / GNodes.
+_DEPRECATED_GENERATOR_KWARGS: tuple[str, ...] = (
     "fit_on_update",
     "fit_out_of_design",
     "fit_abandoned",
@@ -141,7 +169,14 @@ def object_from_json(
         if "__type" not in object_json:
             # this is just a regular dictionary, e.g. the one in Parameter
             # containing parameterizations
-            return {k: _object_from_json(v) for k, v in object_json.items()}
+            result = {}
+            for k, v in object_json.items():
+                # Convert "null" string back to None for dictionary keys
+                # This handles the case where _trial_type_to_runner has None keys
+                # that get serialized to "null" strings in JSON
+                key = None if k == "null" else k
+                result[key] = _object_from_json(v)
+            return result
 
         _type = object_json.pop("__type")
 
@@ -205,6 +240,8 @@ def object_from_json(
             return generator_run_from_json(
                 object_json=object_json, **vars(registry_kwargs)
             )
+        # Backward compatibility. `GenerationStep`-s are now just encoded as
+        # `GenerationNode`-s, but we still need to support loading old GSteps.
         elif _class == GenerationStep:
             return generation_step_from_json(
                 generation_step_json=object_json, **vars(registry_kwargs)
@@ -260,21 +297,21 @@ def object_from_json(
                 object_json["outcome_transform_options"] = (
                     outcome_transform_options_json
                 )
-        elif isclass(_class) and (
-            issubclass(_class, TrialBasedCriterion)
-            or issubclass(_class, AuxiliaryExperimentCheck)
+        elif (
+            isclass(_class)
+            and issubclass(_class, TransitionCriterion)
+            and _class is not TransitionCriterion  # TransitionCriterion is abstract
         ):
-            # TrialBasedCriterion contains a list of `TrialStatus` for args.
-            # AuxiliaryExperimentCheck contains AuxiliaryExperimentPurpose objects
-            # They need to be unpacked by hand to properly retain the types.
-            return unpack_transition_criteria_from_json(
-                class_=_class,
-                transition_criteria_json=object_json,
+            # TransitionCriterion may contain nested Ax objects (TrialStatus, etc.)
+            # that need recursive deserialization via object_from_json.
+            return transition_criterion_from_json(
+                transition_criterion_class=_class,
+                object_json=object_json,
                 **vars(registry_kwargs),
             )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
-            # Special handling for Data and MapData backward compatibility
-            if _class in (Data, MapData):
+            # Special handling for Data backward compatibility
+            if _class is Data:
                 data_json_str = object_json.get("df", {}).get("value", "")
                 data_json = json.loads(data_json_str)
                 if data_json and "metric_signature" not in data_json:
@@ -346,9 +383,23 @@ def generator_run_from_json(
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
     object_json.pop("index", None)  # Deprecated.
+    object_json.pop("generation_step_index", None)  # Deprecated.
     # Remove `objective_thresholds` to avoid issues with registries, since
     # `ObjectiveThreshold` depend on `Metric` objects.
     object_json.pop("objective_thresholds", None)
+
+    # Backwards compatibility: handle old field names
+    if "model_key" in object_json:
+        object_json["generator_key"] = object_json.pop("model_key")
+    if "model_kwargs" in object_json:
+        object_json["generator_kwargs"] = object_json.pop("model_kwargs")
+    if "bridge_kwargs" in object_json:
+        object_json["adapter_kwargs"] = object_json.pop("bridge_kwargs")
+    if "model_state_after_gen" in object_json:
+        object_json["generator_state_after_gen"] = object_json.pop(
+            "model_state_after_gen"
+        )
+
     generator_run = GeneratorRun(
         **{
             k: object_from_json(
@@ -370,18 +421,18 @@ def generator_run_from_json(
     if isinstance(generator_run._model_predictions, list):
         generator_run._model_predictions = tuple(generator_run._model_predictions)
 
-    # Remove deprecated kwargs from model kwargs & adapter kwargs.
-    if generator_run._model_kwargs is not None:
-        generator_run._model_kwargs = {
+    # Remove deprecated kwargs from generator kwargs & adapter kwargs.
+    if generator_run._generator_kwargs is not None:
+        generator_run._generator_kwargs = {
             k: v
-            for k, v in generator_run._model_kwargs.items()
-            if k not in _DEPRECATED_MODEL_KWARGS
+            for k, v in generator_run._generator_kwargs.items()
+            if k not in _DEPRECATED_GENERATOR_KWARGS
         }
-    if generator_run._bridge_kwargs is not None:
-        generator_run._bridge_kwargs = {
+    if generator_run._adapter_kwargs is not None:
+        generator_run._adapter_kwargs = {
             k: v
-            for k, v in generator_run._bridge_kwargs.items()
-            if k not in _DEPRECATED_MODEL_KWARGS
+            for k, v in generator_run._adapter_kwargs.items()
+            if k not in _DEPRECATED_GENERATOR_KWARGS
         }
     generator_run._time_created = object_from_json(
         time_created_json,
@@ -396,32 +447,51 @@ def generator_run_from_json(
     return generator_run
 
 
-def unpack_transition_criteria_from_json(
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-    #  avoid runtime subscripting errors.
-    class_: type,
-    transition_criteria_json: dict[str, Any],
+def transition_criterion_from_json(
+    transition_criterion_class: type[TransitionCriterion],
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> TransitionCriterion | None:
-    """Load Ax transition criteria that depend on Trials from JSON.
+) -> TransitionCriterion:
+    """Load TransitionCriterion from JSON.
 
-    Since ``TrialBasedCriterion`` contain lists of ``TrialStatus``,
-    the json for these criterion needs to be carefully unpacked and
-    re-processed via ``object_from_json`` in order to maintain correct
-    typing. We pass in ``class_`` in order to correctly handle all classes
-    which inherit from ``TrialBasedCriterion`` (ex: ``MinTrials``).
+    TransitionCriterion subclasses may contain nested Ax objects (like TrialStatus
+    enums and AuxiliaryExperimentPurpose) that need recursive deserialization via
+    object_from_json. We also use extract_init_args for backwards compatibility,
+    filtering to only valid constructor arguments.
     """
-    new_dict = {}
-    for key, value in transition_criteria_json.items():
-        new_val = object_from_json(
+    # Handle deprecated MinimumTrialsInStatus -> MinTrials conversion
+    if transition_criterion_class is MinTrials and "status" in object_json:
+        logger.warning(
+            "`MinimumTrialsInStatus` has been deprecated and removed. "
+            "Converting to `MinTrials` with equivalent functionality."
+        )
+        status = object_from_json(
+            object_json=object_json.get("status"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        return MinTrials(
+            threshold=object_json.get("threshold"),
+            only_in_statuses=[status],
+            transition_to=object_json.get("transition_to"),
+            use_all_trials_in_exp=True,
+        )
+
+    decoded = {
+        key: object_from_json(
             object_json=value,
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         )
-        new_dict[key] = new_val
+        for key, value in object_json.items()
+    }
 
-    return class_(**new_dict)
+    # filter to only valid constructor args (backwards compatibility)
+    init_args = extract_init_args(args=decoded, class_=transition_criterion_class)
+
+    # pyre-ignore[45]: Class passed is always a concrete subclass.
+    return transition_criterion_class(**init_args)
 
 
 def search_space_from_json(
@@ -470,33 +540,46 @@ def parameter_constraints_from_json(
         parameter_constraints: Python classes for parameter constraints.
     """
     parameter_constraints = []
-    parameter_map = {p.name: p for p in parameters}
     for constraint in parameter_constraint_json:
+        # For backwards compatibility
         if constraint["__type"] == "OrderConstraint":
-            lower_parameter = parameter_map[constraint["lower_name"]]
-            upper_parameter = parameter_map[constraint["upper_name"]]
             parameter_constraints.append(
-                OrderConstraint(
-                    lower_parameter=lower_parameter, upper_parameter=upper_parameter
+                ParameterConstraint(
+                    inequality=(
+                        f"{constraint['lower_name']} <= {constraint['upper_name']}"
+                    )
                 )
             )
         elif constraint["__type"] == "SumConstraint":
-            parameters = [parameter_map[name] for name in constraint["parameter_names"]]
             parameter_constraints.append(
-                SumConstraint(
-                    parameters=parameters,
-                    is_upper_bound=constraint["is_upper_bound"],
-                    bound=constraint["bound"],
+                ParameterConstraint(
+                    inequality=" + ".join(constraint["parameter_names"])
+                    + ("<=" if constraint["is_upper_bound"] else ">=")
+                    + str(constraint["bound"])
                 )
             )
         else:
-            parameter_constraints.append(
-                object_from_json(
-                    constraint,
-                    decoder_registry=decoder_registry,
-                    class_decoder_registry=class_decoder_registry,
+            # Respect legacy json representation of parameter constraints
+            if "constraint_dict" in constraint and "bound" in constraint:
+                expr = " + ".join(
+                    f"{coeff} * {param}"
+                    for param, coeff in constraint["constraint_dict"].items()
                 )
-            )
+
+                parameter_constraints.append(
+                    ParameterConstraint(
+                        inequality=f"{expr} <= {constraint['bound']}",
+                    )
+                )
+
+            else:
+                parameter_constraints.append(
+                    object_from_json(
+                        constraint,
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                )
     return parameter_constraints
 
 
@@ -536,17 +619,21 @@ def data_from_json(
     data_by_trial_json: Mapping[str, Any] | Mapping[int, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> dict[int, "OrderedDict[int, Data]"]:
+) -> Data:
     """
     Load Ax Data from JSON.
 
-    Old `_data_by_trial` is in the format `{trial_index: {timestamp: Data}}`.
-    Current data is in the format `{trial_index: {0: Data}}`. This function
-    deserializes `_data_by_trial` and then converts it from the current format
-    to the new format. Within each trial_index, it combines each fetch with the
-    previous one, deduplicating in favor of the new data when there are multiple
-    observations with the same "trial_index", "metric_name", and "arm_name",
-    and, when present, "step."
+    Experiments used to have `_data_by_trial` is in the format
+    `{trial_index: {timestamp: Data}}`; they now have a single `Data`. Data is
+    still serialized via the old format (we intend to overhaul storage shortly).
+    This function
+    - combines multiple Datas for the same trial index into one, if there are
+        multiple, keeping only the trial_index-arm_name-metric_name[-step]
+        observation if it appears with multiple timestamps.
+    - concatenates the data for each trial into one
+
+    Produce `None` if `_data_by_trial` is empty. We do this rather than creating
+    an empty data since we don't know the type of the data in that case.
     """
     data_by_trial = object_from_json(
         data_by_trial_json,
@@ -559,7 +646,7 @@ def data_from_json(
         int(k): OrderedDict({int(k2): v2 for k2, v2 in v.items()})
         for k, v in data_by_trial.items()
     }
-    return combine_datas_on_data_by_trial(data_by_trial=deserialized)
+    return data_by_trial_to_data(data_by_trial=deserialized)
 
 
 def multi_type_experiment_from_json(
@@ -618,6 +705,16 @@ def experiment_from_json(
 ) -> Experiment:
     """Load Ax Experiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
+    _trial_type_to_runner_json = object_json.pop("_trial_type_to_runner", None)
+    _trial_type_to_runner = (
+        object_from_json(
+            _trial_type_to_runner_json,
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        if _trial_type_to_runner_json is not None
+        else None
+    )
 
     experiment = Experiment(
         **{
@@ -630,6 +727,8 @@ def experiment_from_json(
         }
     )
     experiment._arms_by_name = {}
+    if _trial_type_to_runner is not None:
+        experiment._trial_type_to_runner = _trial_type_to_runner
 
     _load_experiment_info(
         exp=experiment,
@@ -673,18 +772,24 @@ def _load_experiment_info(
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    exp._data_by_trial = data_from_json(
-        exp_info.get("data_by_trial_json"),
+    exp.data = data_from_json(
+        exp_info.get("data_by_trial_json", {}),
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
     for trial in exp._trials.values():
         for arm in trial.arms:
+            # Cast arm parameter values to the appropriate type based on the
+            # search space parameter types. This is necessary because JSON may
+            # deserialize values as different types (e.g., ints as floats).
+            _cast_arm_parameters(arm, exp.search_space)
             exp._register_arm(arm)
         if trial.ttl_seconds is not None:
             exp._trials_have_ttl = True
     if exp.status_quo is not None:
         sq = none_throws(exp.status_quo)
+        # Cast status_quo arm parameter values as well.
+        _cast_arm_parameters(sq, exp.search_space)
         exp._register_arm(sq)
 
 
@@ -737,6 +842,20 @@ def generation_node_from_json(
         name = generation_node_json.pop("node_name")
     else:
         name = generation_node_json.pop("name")
+
+    # Pop step_index if present (for backward compatibility), but don't use it.
+    # _step_index is non-persistent state that will be set by GenerationStrategy
+    # if needed during _validate_and_set_step_sequence.
+    generation_node_json.pop("step_index", None)
+
+    # Backwards compatibility: For transition criteria with transition_to=None
+    # set transition_to to point to itself.
+    transition_criteria_json = generation_node_json.pop("transition_criteria")
+    if transition_criteria_json is not None:
+        for tc_json in transition_criteria_json:
+            if tc_json.get("transition_to") is None:
+                tc_json["transition_to"] = name
+
     return GenerationNode(
         name=name,
         generator_specs=object_from_json(
@@ -750,14 +869,10 @@ def generation_node_from_json(
             class_decoder_registry=class_decoder_registry,
         ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
-        transition_criteria=(
-            object_from_json(
-                object_json=generation_node_json.pop("transition_criteria"),
-                decoder_registry=decoder_registry,
-                class_decoder_registry=class_decoder_registry,
-            )
-            if "transition_criteria" in generation_node_json.keys()
-            else None
+        transition_criteria=object_from_json(
+            object_json=transition_criteria_json,
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
         ),
         input_constructors=decoded_input_constructors,
         previous_node_name=(
@@ -773,6 +888,15 @@ def generation_node_from_json(
             )
             if "trial_type" in generation_node_json.keys()
             else None
+        ),
+        suggested_experiment_status=(
+            object_from_json(
+                object_json=generation_node_json.pop("suggested_experiment_status"),
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            if "suggested_experiment_status" in generation_node_json.keys()
+            else None  # Default for old records without the field
         ),
     )
 
@@ -905,22 +1029,19 @@ def generation_step_from_json(
     generation_step_json = _convert_generation_step_keys_for_backwards_compatibility(
         generation_step_json
     )
-    kwargs = generation_step_json.pop("model_kwargs", None)
-    for k in _DEPRECATED_MODEL_KWARGS:
-        # Remove deprecated kwargs.
-        kwargs.pop(k, None)
+    if "model_kwargs" in generation_step_json:
+        kwargs = generation_step_json.pop("model_kwargs", None)
+    else:
+        kwargs = generation_step_json.pop("generator_kwargs", None)
     if kwargs is not None:
+        for k in _DEPRECATED_GENERATOR_KWARGS:
+            # Remove deprecated kwargs.
+            kwargs.pop(k, None)
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
-    gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
-    completion_criteria = (
-        object_from_json(
-            generation_step_json.pop("completion_criteria"),
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        )
-        if "completion_criteria" in generation_step_json.keys()
-        else []
-    )
+    if "model_gen_kwargs" in generation_step_json:
+        gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
+    else:
+        gen_kwargs = generation_step_json.pop("generator_gen_kwargs", None)
     if "model" in generation_step_json:
         # Old arg name for backwards compatibility.
         generator_json = generation_step_json.pop("model")
@@ -934,13 +1055,10 @@ def generation_step_from_json(
         ),
         num_trials=generation_step_json.pop("num_trials"),
         min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
-        completion_criteria=(
-            completion_criteria if completion_criteria is not None else []
-        ),
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
-        model_kwargs=(
-            _decode_callables_from_references(
+        generator_kwargs=(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     kwargs,
                     decoder_registry=decoder_registry,
@@ -950,8 +1068,8 @@ def generation_step_from_json(
             if kwargs
             else {}
         ),
-        model_gen_kwargs=(
-            _decode_callables_from_references(
+        generator_gen_kwargs=(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     gen_kwargs,
                     decoder_registry=decoder_registry,
@@ -975,26 +1093,38 @@ def generator_spec_from_json(
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GeneratorSpec:
     """Load GeneratorSpec from JSON."""
-    kwargs = generator_spec_json.pop("model_kwargs", None)
-    for k in _DEPRECATED_MODEL_KWARGS:
+    generator_spec_json = generator_spec_json.copy()  # prevent in-place modification.
+    if "model_kwargs" in generator_spec_json:
+        kwargs = generator_spec_json.pop("model_kwargs", None)
+    else:
+        kwargs = generator_spec_json.pop("generator_kwargs", None)
+    for k in _DEPRECATED_GENERATOR_KWARGS:
         # Remove deprecated model kwargs.
         kwargs.pop(k, None)
     if kwargs is not None:
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
-    gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
+    if "model_gen_kwargs" in generator_spec_json:
+        gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
+    else:
+        gen_kwargs = generator_spec_json.pop("generator_gen_kwargs", None)
+    if "model_cv_kwargs" in generator_spec_json:
+        cv_kwargs = generator_spec_json.pop("model_cv_kwargs", None)
+    else:
+        cv_kwargs = generator_spec_json.pop("cv_kwargs", None)
     if "model_enum" in generator_spec_json:
         # Old arg name for backwards compatibility.
-        enum = generator_spec_json.pop("model_enum")
-    else:
-        enum = generator_spec_json.pop("generator_enum")
+        generator_spec_json["generator_enum"] = generator_spec_json.pop("model_enum")
     return GeneratorSpec(
-        generator_enum=object_from_json(
-            object_json=enum,
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        ),
-        model_kwargs=(
-            _decode_callables_from_references(
+        **{
+            k: object_from_json(
+                object_json=v,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            for k, v in generator_spec_json.items()
+        },
+        generator_kwargs=(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     object_json=kwargs,
                     decoder_registry=decoder_registry,
@@ -1004,8 +1134,8 @@ def generator_spec_from_json(
             if kwargs
             else {}
         ),
-        model_gen_kwargs=(
-            _decode_callables_from_references(
+        generator_gen_kwargs=(
+            _raise_on_legacy_callable_refs(
                 object_from_json(
                     object_json=gen_kwargs,
                     decoder_registry=decoder_registry,
@@ -1013,6 +1143,17 @@ def generator_spec_from_json(
                 ),
             )
             if gen_kwargs
+            else {}
+        ),
+        cv_kwargs=(
+            _raise_on_legacy_callable_refs(
+                object_from_json(
+                    object_json=cv_kwargs,
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=class_decoder_registry,
+                ),
+            )
+            if cv_kwargs
             else {}
         ),
     )
@@ -1042,7 +1183,7 @@ def generation_strategy_from_json(
     )
     if len(steps) > 0:
         gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
-        gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
+        gs._curr = gs._nodes[generation_strategy_json.pop("curr_index")]
     else:
         gs = GenerationStrategy(nodes=nodes, name=generation_strategy_json.pop("name"))
         curr_node_name = generation_strategy_json.pop("curr_node_name")
@@ -1261,7 +1402,7 @@ def _update_deprecated_model_registry(name: str) -> str:
     """Update the enum name for deprecated model registry entries to point to
     a replacement model. This will log an exception to alert the user to the change.
 
-    The replacement models are listed in `_DEPRECATED_MODEL_TO_REPLACEMENT` above.
+    The replacement models are listed in `_DEPRECATED_GENERATOR_TO_REPLACEMENT` above.
     If a deprecated model does not list a replacement, nothing will be done and it
     will error out while looking it up in the corresponding enum.
 
@@ -1271,8 +1412,8 @@ def _update_deprecated_model_registry(name: str) -> str:
     Returns:
         Either the given name or the name of a replacement ``Generators`` enum.
     """
-    if name in _DEPRECATED_MODEL_TO_REPLACEMENT:
-        new_name = _DEPRECATED_MODEL_TO_REPLACEMENT[name]
+    if name in _DEPRECATED_GENERATOR_TO_REPLACEMENT:
+        new_name = _DEPRECATED_GENERATOR_TO_REPLACEMENT[name]
         logger.exception(
             f"{name} model is deprecated and replaced by Generators.{new_name}. "
             f"Please use {new_name} in the future. Note that this warning only "

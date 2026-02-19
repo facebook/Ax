@@ -152,13 +152,66 @@ class RemoveFixedTransformTest(TestCase):
         )
         self.assertEqual(t_obs, t_obs_different)
 
-        # Test untransform with empty parameters (status quo case)
-        # This would previously fail on p.compute(parameters=obsf.parameters)
-        # when obsf.parameters is {} for DerivedParameter
+        # Test untransform with empty parameters
         empty_obs_features = [ObservationFeatures(parameters={})]
         result = self.t.untransform_observation_features(empty_obs_features)
         # Should return unchanged empty observation features
-        self.assertEqual(result, [ObservationFeatures(parameters={})])
+        self.assertEqual(result, [ObservationFeatures(parameters={"c": "a"})])
+
+    def test_UntransformPartialObservationFeatures(self) -> None:
+        """Test untransforming observation features with partial parameters.
+
+        This tests partial fixed_features, which could happen in
+        _untransform_objective_thresholds method where it creats partial
+        fixed_features_obs for context, but RemoveFixed should skip computing
+        derived parameters when dependencies are missing.
+
+        Derived parameters are never needed as context for outcome constraint
+        untransformation - only tunable parameters serve as context (e.g., task
+        IDs for stratified transforms).
+        """
+        # Test case 1: Partial observation with only "b" parameter
+        # The derived parameter "d" depends on "a", which is missing
+        partial_obs_features = [ObservationFeatures(parameters={"b": "a"})]
+        result = self.t.untransform_observation_features(partial_obs_features)
+
+        # Should add fixed parameter "c" but NOT compute derived parameter "d"
+        # since its dependency "a" is missing
+        self.assertEqual(result, [ObservationFeatures(parameters={"b": "a", "c": "a"})])
+
+        # Test case 2: Partial observation with "a" and "b" parameters
+        # Now "d" can be computed since its dependency "a" is present
+        partial_obs_features_with_dep = [
+            ObservationFeatures(parameters={"a": 2.0, "b": "b"})
+        ]
+        result_with_dep = self.t.untransform_observation_features(
+            partial_obs_features_with_dep
+        )
+
+        # Should add both fixed parameter "c" and compute derived parameter "d"
+        # d = 2.0 * a + 1.0 = 2.0 * 2.0 + 1.0 = 5.0
+        self.assertEqual(
+            result_with_dep,
+            [ObservationFeatures(parameters={"a": 2.0, "b": "b", "c": "a", "d": 5.0})],
+        )
+
+        # Test case 3: Multiple partial observations with different missing deps
+        mixed_obs_features = [
+            ObservationFeatures(parameters={"b": "a"}),  # missing "a"
+            ObservationFeatures(parameters={"a": 1.5, "b": "c"}),  # has "a"
+        ]
+        result_mixed = self.t.untransform_observation_features(mixed_obs_features)
+
+        # First should not have "d", second should have "d" = 2.0 * 1.5 + 1.0 = 4.0
+        self.assertEqual(
+            result_mixed,
+            [
+                ObservationFeatures(parameters={"b": "a", "c": "a"}),
+                ObservationFeatures(
+                    parameters={"a": 1.5, "b": "c", "c": "a", "d": 4.0}
+                ),
+            ],
+        )
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()

@@ -10,22 +10,24 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from copy import deepcopy
 from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
-from ax.adapter import Adapter
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.core.objective import MultiObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generators.types import TConfig
 from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import none_throws
@@ -64,16 +66,16 @@ class BaseRelativize(Transform, ABC):
             adapter=adapter,
             config=config,
         )
-        # self.adapter should NOT be modified
-        self.adapter: Adapter = none_throws(
-            adapter, f"{cls_name} transform requires an adapter"
-        )
-
-        sq_data_by_trial = self.adapter.status_quo_data_by_trial
+        sq_data_by_trial = none_throws(
+            self.adapter, f"{cls_name} transform requires an adapter"
+        ).status_quo_data_by_trial
         if not sq_data_by_trial:  # None or empty dict.
             raise DataRequiredError(f"{cls_name} requires status quo data.")
         self.status_quo_data_by_trial: dict[int, ObservationData] = none_throws(
-            sq_data_by_trial.copy()
+            deepcopy(sq_data_by_trial)
+        )
+        self.status_quo_name: str = none_throws(
+            none_throws(self.adapter).status_quo_name
         )
         # use latest index of latest observed trial by default
         # to handle pending trials, which may not have a trial_index
@@ -118,7 +120,16 @@ class BaseRelativize(Transform, ABC):
         for constraint in constraints:
             constraint.relative = False
 
-        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+        if isinstance(optimization_config, PreferenceOptimizationConfig):
+            objective = optimization_config.objective
+            assert isinstance(objective, MultiObjective), (
+                f"Expected MultiObjective, got {type(objective).__name__}"
+            )
+            new_optimization_config = optimization_config.clone_with_args(
+                objective=objective,
+                outcome_constraints=constraints,
+            )
+        elif isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             # Getting objective thresholds
             obj_thresholds = [
                 obj_threshold.clone()
@@ -208,8 +219,7 @@ class BaseRelativize(Transform, ABC):
 
         # Set the SQ values to 0.
         mask = (
-            observation_data.index.get_level_values("arm_name")
-            == self.adapter.status_quo_name
+            observation_data.index.get_level_values("arm_name") == self.status_quo_name
         )
         observation_data.loc[mask, "mean"] = 0
         observation_data.loc[mask, "sem"] = 0
@@ -325,7 +335,7 @@ def get_metric_index(data: ObservationData, metric_signature: str) -> int:
     """Get the index of a metric in the ObservationData."""
     try:
         return data.metric_signatures.index(metric_signature)
-    except (IndexError, StopIteration):
+    except ValueError:
         raise ValueError(
             "Relativization cannot be performed because "
             "ObservationData for status quo is missing metrics"
@@ -355,3 +365,102 @@ class RelativizeWithConstantControl(BaseRelativize):
     @property
     def control_as_constant(self) -> bool:
         return True
+
+
+class SelectiveRelativizeWithConstantControl(RelativizeWithConstantControl):
+    """
+    A selective relativization transform that applies RelativizeWithConstantControl
+    only when PreferenceOptimizationConfig.expect_relativized_outcomes=True.
+
+    This transform inspects the optimization config from the adapter during
+    initialization. If the config is a PreferenceOptimizationConfig with
+    expect_relativized_outcomes=True, the parent RelativizeWithConstantControl
+    is initialized and all transform operations are delegated to it. Otherwise,
+    all transform methods act as no-ops (pass-through).
+
+    This enables BOPE/PLBO to work with any MBM generation node in a single
+    transform pipeline: preference-based optimization gets relativized outcomes
+    while regular BO passes through unchanged.
+
+    Usage:
+        Include this transform in the transform pipeline for nodes that may
+        be used for both regular BO and preference-based optimization:
+        - When PreferenceOptimizationConfig.expect_relativized_outcomes=True,
+          outcomes are relativized via the parent RelativizeWithConstantControl.
+        - When using regular OptimizationConfig or expect_relativized_outcomes=False,
+          no transformation is applied.
+    """
+
+    def __init__(
+        self,
+        search_space: SearchSpace | None = None,
+        experiment_data: ExperimentData | None = None,
+        adapter: adapter_module.base.Adapter | None = None,
+        config: TConfig | None = None,
+    ) -> None:
+        if adapter is None:
+            raise UnsupportedError(
+                "SelectiveRelativizeWithConstantControl requires an adapter "
+                "having a experiment optimization_config"
+            )
+
+        opt_config = adapter._experiment.optimization_config
+        # no-op by default
+        self._should_relativize: bool = False
+        if isinstance(opt_config, PreferenceOptimizationConfig):
+            self._should_relativize = opt_config.expect_relativized_outcomes
+
+        super().__init__(
+            search_space=search_space,
+            experiment_data=experiment_data,
+            adapter=adapter,
+            config=config,
+        )
+
+    def transform_optimization_config(
+        self,
+        optimization_config: OptimizationConfig,
+        adapter: adapter_module.base.Adapter | None = None,
+        fixed_features: ObservationFeatures | None = None,
+    ) -> OptimizationConfig:
+        if self._should_relativize:
+            return super().transform_optimization_config(
+                optimization_config=optimization_config,
+                adapter=adapter,
+                fixed_features=fixed_features,
+            )
+        return optimization_config
+
+    def untransform_outcome_constraints(
+        self,
+        outcome_constraints: list[OutcomeConstraint],
+        fixed_features: ObservationFeatures | None = None,
+    ) -> list[OutcomeConstraint]:
+        if self._should_relativize:
+            return super().untransform_outcome_constraints(
+                outcome_constraints=outcome_constraints,
+                fixed_features=fixed_features,
+            )
+        return outcome_constraints
+
+    def transform_observations(
+        self,
+        observations: list[Observation],
+    ) -> list[Observation]:
+        if self._should_relativize:
+            return super().transform_observations(observations=observations)
+        return observations
+
+    def untransform_observations(
+        self, observations: list[Observation]
+    ) -> list[Observation]:
+        if self._should_relativize:
+            return super().untransform_observations(observations=observations)
+        return observations
+
+    def transform_experiment_data(
+        self, experiment_data: ExperimentData
+    ) -> ExperimentData:
+        if self._should_relativize:
+            return super().transform_experiment_data(experiment_data=experiment_data)
+        return experiment_data

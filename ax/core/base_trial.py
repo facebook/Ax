@@ -8,20 +8,16 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
-from typing import Any, TYPE_CHECKING
-
-import pandas as pd
+from typing import Any, Self, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial_status import TrialStatus
@@ -30,7 +26,6 @@ from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputEr
 from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from pyre_extensions import none_throws
-from typing_extensions import Self
 
 
 if TYPE_CHECKING:
@@ -40,6 +35,7 @@ if TYPE_CHECKING:
 MANUAL_GENERATION_METHOD_STR = "Manual"
 UNKNOWN_GENERATION_METHOD_STR = "Unknown"
 STATUS_QUO_GENERATION_METHOD_STR = "Status Quo"
+MAX_ABANDONED_REASON_LENGTH = 1000
 
 
 def immutable_once_run(func: Callable) -> Callable:
@@ -124,39 +120,35 @@ class BaseTrial(ABC, SortableBase):
         self._time_staged: datetime | None = None
         self._time_run_started: datetime | None = None
 
-        self._abandoned_reason: str | None = None
-        self._failed_reason: str | None = None
+        self._status_reason: str | None = None
         self._run_metadata: dict[str, Any] = {}
         self._stop_metadata: dict[str, Any] = {}
-
-        self._runner: Runner | None = None
 
         # Counter to maintain how many arms have been named by this BatchTrial
         self._num_arms_created = 0
 
-        # If generator run(s) in this trial were generated from a generation
-        # strategy, this property will be set to the generation step that produced
-        # the generator run(s).
-        self._generation_step_index: int | None = None
         # NOTE: Please do not store any data related to trial deployment or data-
         # fetching in properties. It is intended to only store properties related
         # to core Ax functionality and not to any third-system that the trials
         # might be getting deployed to.
         self._properties: dict[str, Any] = {}
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def arms(self) -> list[Arm]:
         """All arms associated with this trial."""
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def arms_by_name(self) -> dict[str, Arm]:
         """A mapping of from arm names, to all arms associated with
         this trial.
         """
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def abandoned_arms(self) -> list[Arm]:
         """All abandoned arms, associated with this trial."""
         pass
@@ -246,12 +238,30 @@ class BaseTrial(ABC, SortableBase):
     @property
     def runner(self) -> Runner | None:
         """The runner object defining how to deploy the trial."""
-        return self._runner
+        return self.experiment.runner_for_trial_type(self.trial_type)
 
     @runner.setter
-    @immutable_once_run
     def runner(self, runner: Runner | None) -> None:
-        self._runner = runner
+        raise UnsupportedError(
+            "Setting runner on individual trials is no longer supported. "
+            "Use experiment-level runners instead."
+        )
+
+    @property
+    def _runner(self) -> Runner | None:
+        """Private runner access is not supported."""
+        raise UnsupportedError(
+            "Accessing _runner on individual trials is no longer supported. "
+            "Use trial.runner instead, which gets the runner from the experiment."
+        )
+
+    @_runner.setter
+    def _runner(self, runner: Runner | None) -> None:
+        """Private runner setting is not supported."""
+        raise UnsupportedError(
+            "Setting _runner on individual trials is no longer supported. "
+            "Use experiment-level runners instead."
+        )
 
     @property
     def deployed_name(self) -> str | None:
@@ -305,13 +315,6 @@ class BaseTrial(ABC, SortableBase):
         # 4. TODO: Capture which generator run the arms we are about to add this
         # this trial, came from.
 
-    def assign_runner(self) -> BaseTrial:
-        """Assigns default experiment runner if trial doesn't already have one."""
-        runner = self.experiment.runner_for_trial(self)
-        if runner is not None:
-            self._runner = runner.clone()
-        return self
-
     def update_run_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         """Updates the run metadata dict stored on this trial and returns the
         updated dict."""
@@ -338,15 +341,12 @@ class BaseTrial(ABC, SortableBase):
         if self.status != TrialStatus.CANDIDATE:
             raise ValueError("Can only run a candidate trial.")
 
-        # Default to experiment runner if trial doesn't have one
-        self.assign_runner()
+        if self.runner is None:
+            raise ValueError("No runner set on experiment.")
 
-        if self._runner is None:
-            raise ValueError("No runner set on trial or experiment.")
+        self.update_run_metadata(none_throws(self.runner).run(self))
 
-        self.update_run_metadata(none_throws(self._runner).run(self))
-
-        if none_throws(self._runner).staging_required:
+        if none_throws(self.runner).staging_required:
             self.mark_staged()
         else:
             self.mark_running()
@@ -379,11 +379,9 @@ class BaseTrial(ABC, SortableBase):
                 "COMPLETED, ABANDONED or EARLY_STOPPED."
             )
 
-        # Default to experiment runner if trial doesn't have one
-        self.assign_runner()
-        if self._runner is None:
-            raise ValueError("No runner set on trial or experiment.")
-        runner = none_throws(self._runner)
+        if self.runner is None:
+            raise ValueError("No runner set on experiment.")
+        runner = none_throws(self.runner)
 
         self._stop_metadata = runner.stop(self, reason=reason)
         self.mark_as(new_status)
@@ -430,9 +428,6 @@ class BaseTrial(ABC, SortableBase):
     def fetch_data(self, metrics: list[Metric] | None = None, **kwargs: Any) -> Data:
         """Fetch data for this trial for all metrics on experiment.
 
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some if Experiment.default_data_type is misconfigured!
-
         Args:
             trial_index: The index of the trial to fetch data for.
             metrics: If provided, fetch data for these metrics instead of the ones
@@ -442,15 +437,9 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             Data for this trial.
         """
-        base_metric_cls = (
-            MapMetric if self.experiment.default_data_constructor == MapData else Metric
-        )
-
-        data = base_metric_cls._unwrap_trial_data_multi(
+        data = Metric._unwrap_trial_data_multi(
             results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
-        if not isinstance(data, MapData):
-            data.full_df = sort_by_trial_index_and_arm_name(data.full_df)
 
         return data
 
@@ -458,11 +447,10 @@ class BaseTrial(ABC, SortableBase):
         """Lookup cached data on experiment for this trial.
 
         Returns:
-            If not merging across timestamps, the latest ``Data`` object
-            associated with the trial. If merging, all data for trial, merged.
+            All ``Data`` on the experiment that is associated with this trial.
 
         """
-        return self.experiment.lookup_data_for_trial(trial_index=self.index)
+        return self.experiment.lookup_data(trial_indices={self.index})
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the
@@ -483,28 +471,13 @@ class BaseTrial(ABC, SortableBase):
             arm_index = self._num_arms_created
         return f"{self.index}_{arm_index}"
 
-    def _set_generation_step_index(self, generation_step_index: int | None) -> None:
-        """Sets the `generation_step_index` property of the trial, to reflect which
-        generation step of a given generation strategy (if any) produced the generator
-        run(s) attached to this trial.
-        """
-        if (
-            self._generation_step_index is not None
-            and generation_step_index is not None
-            and self._generation_step_index != generation_step_index
-        ):
-            raise ValueError(
-                "Cannot add generator runs from different generation steps to a "
-                "single trial."
-            )
-        self._generation_step_index = generation_step_index
-
     @property
     def active_arms(self) -> list[Arm]:
         """All non abandoned arms associated with this trial."""
         return [arm for arm in self.arms if arm not in self.abandoned_arms]
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def generator_runs(self) -> list[GeneratorRun]:
         """All generator runs associated with this trial."""
         pass
@@ -551,12 +524,9 @@ class BaseTrial(ABC, SortableBase):
         return self._status == TrialStatus.ABANDONED
 
     @property
-    def abandoned_reason(self) -> str | None:
-        return self._abandoned_reason
-
-    @property
-    def failed_reason(self) -> str | None:
-        return self._failed_reason
+    def status_reason(self) -> str | None:
+        """Reason string for the trial status (failed, abandoned, or early stopped)."""
+        return self._status_reason
 
     def mark_staged(self, unsafe: bool = False) -> BaseTrial:
         """Mark the trial as being staged for running.
@@ -592,7 +562,7 @@ class BaseTrial(ABC, SortableBase):
 
         prev_step = (
             TrialStatus.STAGED
-            if self._runner is not None and self._runner.staging_required
+            if self.runner is not None and self.runner.staging_required
             else TrialStatus.CANDIDATE
         )
         prev_step_str = "staged" if prev_step == TrialStatus.STAGED else "candidate"
@@ -642,7 +612,7 @@ class BaseTrial(ABC, SortableBase):
         is specified to adapter via ``DataLoaderConfig``.
 
         Args:
-            abandoned_reason: The reason the trial was abandoned.
+            reason: The reason the trial was abandoned.
             unsafe: Ignore sanity checks on state transitions.
 
         Returns:
@@ -651,7 +621,9 @@ class BaseTrial(ABC, SortableBase):
         if not unsafe and none_throws(self._status).is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
 
-        self._abandoned_reason = reason
+        if reason is not None and len(reason) > MAX_ABANDONED_REASON_LENGTH:
+            reason = reason[:MAX_ABANDONED_REASON_LENGTH] + "..."
+        self._status_reason = reason
         self._status = TrialStatus.ABANDONED
         self._time_completed = datetime.now()
         return self
@@ -669,15 +641,18 @@ class BaseTrial(ABC, SortableBase):
                 "Can only mark failed a trial that is currently running."
             )
 
-        self._failed_reason = reason
+        self._status_reason = reason
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
         return self
 
-    def mark_early_stopped(self, unsafe: bool = False) -> BaseTrial:
+    def mark_early_stopped(
+        self, reason: str | None = None, unsafe: bool = False
+    ) -> BaseTrial:
         """Mark trial as early stopped.
 
         Args:
+            reason: The reason the trial was early stopped.
             unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
@@ -694,6 +669,7 @@ class BaseTrial(ABC, SortableBase):
                     "abandoned instead."
                 )
 
+        self._status_reason = reason
         self._status = TrialStatus.EARLY_STOPPED
         self._time_completed = datetime.now()
         return self
@@ -745,7 +721,7 @@ class BaseTrial(ABC, SortableBase):
         elif status == TrialStatus.COMPLETED:
             self.mark_completed(unsafe=unsafe)
         elif status == TrialStatus.EARLY_STOPPED:
-            self.mark_early_stopped(unsafe=unsafe)
+            self.mark_early_stopped(reason=kwargs.get("reason"), unsafe=unsafe)
         elif status == TrialStatus.STALE:
             self.mark_stale(unsafe=unsafe)
         else:
@@ -772,9 +748,9 @@ class BaseTrial(ABC, SortableBase):
             return warm_start_model_key
 
         generation_methods = {
-            none_throws(generator_run._model_key)
+            none_throws(generator_run._generator_key)
             for generator_run in self.generator_runs
-            if generator_run._model_key is not None
+            if generator_run._generator_key is not None
         }
 
         # Add generator-run-type strings for non-Adapter generator runs.
@@ -850,7 +826,6 @@ class BaseTrial(ABC, SortableBase):
                 raw_data=raw_data,
                 metric_name_to_signature=metric_name_to_signature,
                 trial_index=self.index,
-                data_type=self.experiment.default_data_type,
             )
         except UserInputError as e:
             if "not found in metric_name_to_signature." in str(e):
@@ -897,77 +872,10 @@ class BaseTrial(ABC, SortableBase):
         new_trial._run_metadata = deepcopy(self._run_metadata)
         new_trial._stop_metadata = deepcopy(self._stop_metadata)
         new_trial._num_arms_created = self._num_arms_created
-        new_trial.runner = self._runner.clone() if self._runner else None
 
         # Set status and reason accordingly.
         if self.status == TrialStatus.CANDIDATE:
             return
-        if self.status == TrialStatus.STAGED:
-            new_trial.mark_staged()
-            return
-        # Other statuses require the state first be set to `RUNNING`.
-        new_trial.mark_running(no_runner_required=True, unsafe=True)
-        if self.status == TrialStatus.RUNNING:
-            return
-        if self.status == TrialStatus.ABANDONED:
-            new_trial.mark_abandoned(reason=self.abandoned_reason)
-            return
-        if self.status == TrialStatus.FAILED:
-            new_trial.mark_failed(reason=self.failed_reason)
-            return
-        new_trial.mark_as(self.status, unsafe=True)
-
-
-def sort_by_trial_index_and_arm_name(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Sorts the dataframe by trial index and arm name. The arm names with default patterns
-    (e.g. `0_1`, `3_11`) are sorted by trial index part (before underscore) and arm
-    number part (after underscore) within trial index. The arm names with non-default
-    patterns (e.g. `status_quo`, `control`, `capped_param_1`) are sorted alphabetically
-    and will be on the top of the sorted dataframe.
-
-    Args:
-        df: The DataFrame to sort.
-
-    Returns:
-        The sorted DataFrame.
-    """
-
-    # Create new columns for sorting the default arm names
-    df["is_default"] = pd.notna(df["arm_name"]) & df["arm_name"].str.count(
-        pat=r"^\d+_\d+$"
-    )
-
-    df["trial_index_part"] = float("NaN")
-    df["arm_name_part"] = float("NaN")
-
-    split_arm_name = df.loc[df["is_default"], "arm_name"].str.split("_")
-    df.loc[df["is_default"], "trial_index_part"] = split_arm_name.str.get(0).astype(int)
-    df.loc[df["is_default"], "arm_name_part"] = split_arm_name.str.get(1).astype(int)
-
-    # Sort the DataFrame by the new columns (trial_index_part and arm_number_part)
-    # for default arm names
-    df = (
-        df.sort_values(
-            by=[
-                "trial_index",
-                "is_default",
-                "trial_index_part",
-                "arm_name_part",
-                "arm_name",
-            ],
-            inplace=False,
-        ).reset_index(drop=True)
-        if not df.empty
-        else df
-    )
-
-    # Drop the temporary 'trial_index_part' and 'arm_number_part' columns
-    df.drop(
-        columns=["trial_index_part", "arm_name_part", "is_default"],
-        # Ignore errors that occur when dropping columns that do not exist in the
-        # dataframe.
-        errors="ignore",
-        inplace=True,
-    )
-    return df
+        new_trial.mark_as(
+            self.status, reason=self.status_reason, no_runner_required=True, unsafe=True
+        )

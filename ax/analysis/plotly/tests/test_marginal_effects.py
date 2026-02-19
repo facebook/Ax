@@ -43,7 +43,7 @@ class TestMarginalEffectsPlot(TestCase):
             self.experiment.trials[i].mark_running(no_runner_required=True)
             self.experiment.attach_data(
                 Data(
-                    pd.DataFrame(
+                    df=pd.DataFrame(
                         {
                             "trial_index": [i] * num_arms,
                             "arm_name": [f"0_{j}" for j in range(num_arms)],

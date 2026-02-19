@@ -11,7 +11,6 @@ from typing import Any
 
 from ax.api.protocols.utils import _APIRunner
 from ax.api.types import TParameterization
-
 from ax.core.trial_status import TrialStatus
 from pyre_extensions import override
 

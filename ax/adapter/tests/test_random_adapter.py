@@ -18,11 +18,7 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.base import RandomGenerator
@@ -33,6 +29,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space_for_range_values,
     get_small_discrete_search_space,
 )
+from ax.utils.testing.modeling_stubs import get_experiment_for_value
 
 
 class RandomAdapterTest(TestCase):
@@ -43,8 +40,8 @@ class RandomAdapterTest(TestCase):
         z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
         self.parameters = [x, y, z]
         parameter_constraints: list[ParameterConstraint] = [
-            OrderConstraint(x, y),
-            SumConstraint([x, z], False, 3.5),
+            ParameterConstraint(inequality="x <= y"),
+            ParameterConstraint(inequality="x + z >= 3.5"),
         ]
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
         self.experiment = Experiment(search_space=self.search_space)
@@ -306,3 +303,13 @@ class RandomAdapterTest(TestCase):
 
         generated_points_all_out = mock_gen.call_args.kwargs["generated_points"]
         self.assertIsNone(generated_points_all_out)
+
+    def test_generation_with_all_fixed(self) -> None:
+        # Make sure candidate generation succeeds and returns correct parameters
+        # when all parameters are fixed.
+        exp = get_experiment_for_value()
+        adapter = RandomAdapter(
+            experiment=exp, generator=SobolGenerator(), transforms=Cont_X_trans
+        )
+        gr = adapter.gen(n=1)
+        self.assertEqual(gr.arms[0].parameters, {"x": 3.0})

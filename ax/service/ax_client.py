@@ -22,9 +22,8 @@ from ax.adapter.prediction_utils import predict_by_features
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.evaluations_to_data import raw_evaluations_to_data
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
@@ -32,7 +31,6 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
@@ -47,6 +45,7 @@ from ax.exceptions.core import (
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.plot.base import AxPlotConfig
@@ -61,7 +60,6 @@ from ax.service.utils.instantiation import (
     InstantiationBase,
     ObjectiveProperties,
 )
-from ax.service.utils.with_db_settings_base import TDBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -74,6 +72,7 @@ from ax.storage.json_store.registry import (
     CORE_ENCODER_REGISTRY,
     TDecoderRegistry,
 )
+from ax.storage.sqa_store.with_db_settings_base import TDBSettings
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -146,7 +145,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             used for generating new points for trials. Works only for torch-based
             models, such as MBM. Ignored if a `generation_strategy` is passed in
             manually. To specify the device for a custom `generation_strategy`,
-            pass in `torch_device` as part of `model_kwargs`. See
+            pass in `torch_device` as part of `generator_kwargs`. See
             https://ax.dev/tutorials/generation_strategy.html for a tutorial on
             generation strategies.
 
@@ -180,6 +179,15 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
         global_stopping_strategy: BaseGlobalStoppingStrategy | None = None,
     ) -> None:
+        if self.__class__.__name__ in ["AxClient", "AxClientInternal"]:
+            warnings.warn(
+                "The `AxClient` class is deprecated and will be removed in Ax 1.4.0. "
+                "Please migrate to the modern Ax API / `Client` class, found under "
+                "ax/api. For example usage, check out the tutorials at https://ax.dev ",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         super().__init__(
             db_settings=db_settings,
             suppress_all_errors=suppress_storage_errors,
@@ -192,7 +200,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             warnings.warn(
                 "Both a `generation_strategy` and a `torch_device` were specified. "
                 "`torch_device` will be ignored. Instead, specify `torch_device` "
-                "by passing it in `model_kwargs` while creating the "
+                "by passing it in `generator_kwargs` while creating the "
                 "`generation_strategy`.",
                 RuntimeWarning,
                 stacklevel=2,
@@ -572,7 +580,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         logger.info(
             f"Generated new trial {trial.index} with parameters "
             f"{round_floats_for_logging(item=none_throws(trial.arm).parameters)} "
-            f"using model {none_throws(trial.generator_run)._model_key}."
+            f"using model {none_throws(trial.generator_run)._generator_key}."
         )
         trial.mark_running(no_runner_required=True)
         self._save_or_update_trial_in_db_if_possible(
@@ -723,17 +731,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
-        if not self.experiment.default_data_type == DataType.MAP_DATA:
-            raise ValueError(
-                "`update_running_trial_with_intermediate_data` requires that "
-                "this client's `experiment` be constructed with "
-                "`support_intermediate_data=True` and have `default_data_type` of "
-                "`DataType.MAP_DATA`."
-            )
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index, raw_data=raw_data
         )
-        logger.info(f"Updated trial {trial_index} with data: " f"{data_update_repr}.")
+        logger.info(f"Updated trial {trial_index} with data: {data_update_repr}.")
 
     def complete_trial(
         self,
@@ -773,7 +774,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index, raw_data=raw_data, complete_trial=True
         )
-        logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
+        logger.info(f"Completed trial {trial_index} with data: {data_update_repr}.")
 
     def log_trial_failure(
         self, trial_index: int, metadata: dict[str, str] | None = None
@@ -862,9 +863,25 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             Mapping of form {num_trials -> max_parallelism_setting}.
         """
         parallelism_settings = []
-        for step in self.generation_strategy._steps:
+        for node in self.generation_strategy._nodes:
+            # Extract max_parallelism from MaxGenerationParallelism criterion
+            max_parallelism = None
+            for tc in node.transition_criteria:
+                if isinstance(tc, MaxGenerationParallelism):
+                    max_parallelism = tc.threshold
+                    break
+            # Try to get num_trials from the node. If there's no MinTrials
+            # criterion (unlimited trials), num_trials will raise UserInputError.
+            # In that case, use -1 to represent unlimited trials.
+            try:
+                num_trials = node.num_trials
+            except UserInputError:
+                num_trials = -1
             parallelism_settings.append(
-                (step.num_trials, step.max_parallelism or step.num_trials)
+                (
+                    num_trials,
+                    max_parallelism if max_parallelism is not None else num_trials,
+                )
             )
         return parallelism_settings
 
@@ -1032,7 +1049,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         raise ValueError(
             "Could not obtain feature_importances for any metrics "
-            " as a model that can produce feature importances, such as a "
+            "as a model that can produce feature importances, such as a "
             "Gaussian Process, has not yet been trained in the course "
             "of this optimization."
         )
@@ -1263,8 +1280,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             0.11 estimated savings indicates we would expect the experiment to have used
             11% more resources without early stopping present)
         """
-        if self.experiment.default_data_constructor is not MapData:
-            return 0
+        if not self.experiment.lookup_data().has_step_column:
+            return 0.0
         return estimate_early_stopping_savings(experiment=self.experiment)
 
     # ------------------ JSON serialization & storage methods. -----------------
@@ -1471,7 +1488,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 raw_data=raw_data, trial_index=trial_index
             ):
                 logger.warning(
-                    "Marking the trial as failed because it is missing one"
+                    "Marking the trial as failed because it is missing one "
                     "or more required metrics."
                 )
                 trial.mark_failed()
@@ -1550,7 +1567,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def _set_runner(self, experiment: Experiment) -> None:
         """Overridable method to sets a runner on the experiment."""
-        experiment.runner = None
+        pass
 
     def _set_generation_strategy(
         self, choose_generation_strategy_kwargs: dict[str, Any] | None = None
@@ -1623,9 +1640,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             return none_throws(self.generation_strategy).gen_single_trial(
                 experiment=self.experiment,
                 n=n,
-                pending_observations=self._get_pending_observation_features(
-                    experiment=self.experiment
-                ),
                 fixed_features=fixed_feats,
             )
 
@@ -1660,29 +1674,12 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         data = raw_evaluations_to_data(
             raw_data={"data": raw_data},
             trial_index=trial_index,
-            data_type=self.experiment.default_data_type,
             metric_name_to_signature=metric_name_to_signature,
         )
         required_metrics = set(opt_config.metrics.keys())
         provided_metrics = data.metric_names
         missing_metrics = required_metrics - provided_metrics
         return not missing_metrics
-
-    @classmethod
-    def _get_pending_observation_features(
-        cls,
-        experiment: Experiment,
-    ) -> dict[str, list[ObservationFeatures]] | None:
-        """Extract pending points for the given experiment.
-
-        NOTE: With one-arm `Trial`-s, we use a more performant
-        ``get_pending_observation_features_based_on_trial_status`` utility instead
-        of ``get_pending_observation_features``, since we can determine whether a point
-        is pending based on the status of the corresponding trial.
-        """
-        return get_pending_observation_features_based_on_trial_status(
-            experiment=experiment
-        )
 
     # ------------------------------ Validators. -------------------------------
 
@@ -1692,7 +1689,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         if self._early_stopping_strategy is not None and not support_intermediate_data:
             raise ValueError(
                 "Early stopping is only supported for experiments which allow "
-                " reporting intermediate trial data by setting passing "
+                "reporting intermediate trial data by passing "
                 "`support_intermediate_data=True`."
             )
 

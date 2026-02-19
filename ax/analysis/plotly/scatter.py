@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Mapping, Sequence
 from logging import Logger
-from typing import Any, final, Mapping, Sequence
+from typing import Any, final
 
 import numpy as np
 import pandas as pd
@@ -14,7 +15,6 @@ from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
 from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE
-
 from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
     PlotlyAnalysisCard,
@@ -22,6 +22,7 @@ from ax.analysis.plotly.plotly_analysis import (
 from ax.analysis.plotly.utils import (
     BEST_LINE_SETTINGS,
     get_arm_tooltip,
+    get_trial_statuses_with_fallback,
     get_trial_trace_name,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
@@ -151,6 +152,8 @@ class ScatterPlot(Analysis):
                 quo arm. If multiple status quo arms are present, relativize each arm
                 against the status quo arm from the same trial.
             trial_index: If present, only use arms from the trial with the given index.
+            trial_statuses: If present, only use arms from trials with the given
+                statuses. By default, exclude STALE, FAILED and ABANDONED trials.
             additional_arms: If present, include these arms in the plot in addition to
                 the arms in the experiment. These arms will be marked as belonging to a
                 trial with index -1.
@@ -166,15 +169,11 @@ class ScatterPlot(Analysis):
         self.use_model_predictions = use_model_predictions
         self.relativize = relativize
         self.trial_index = trial_index
-        # By default, include all trials except those that are abandoned or stale.
-        if trial_statuses is not None:
-            self.trial_statuses: list[TrialStatus] | None = [*trial_statuses]
-        elif self.trial_index is not None:
-            self.trial_statuses: list[TrialStatus] | None = None
-        else:
-            self.trial_statuses: list[TrialStatus] | None = [
-                *{*TrialStatus} - {TrialStatus.ABANDONED, TrialStatus.STALE}
-            ]
+        self.trial_statuses: list[TrialStatus] | None = (
+            get_trial_statuses_with_fallback(
+                trial_statuses=trial_statuses, trial_index=trial_index
+            )
+        )
         self.additional_arms = additional_arms
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
         self.show_pareto_frontier = show_pareto_frontier
@@ -352,12 +351,8 @@ def get_xy_trial_data(
         error = {
             "type": "data",
             "array": xy_df[sem_name] * Z_SCORE_95_CI,
-            "color": trial_index_to_color(
-                trial_df=trial_df,
-                trials_list=trials_list,
-                trial_index=trial_index,
-                transparent=True,
-            ),
+            "color": "silver",
+            "thickness": 1,
         }
     else:
         error = None
@@ -531,7 +526,7 @@ def _prepare_figure(
     if "status_quo" in df["arm_name"].values:
         x = df[df["arm_name"] == "status_quo"][f"{x_metric_name}_mean"].iloc[0]
         y = df[df["arm_name"] == "status_quo"][f"{y_metric_name}_mean"].iloc[0]
-        if not np.isnan(x) or not np.isnan(y):
+        if not np.isnan(x) and not np.isnan(y):
             figure.add_shape(
                 type="line",
                 yref="paper",
@@ -576,7 +571,11 @@ def _prepare_figure(
                 pareto_x.append(sorted_df[f"{x_metric_name}_mean"].iloc[i])
                 pareto_y.append(sorted_df[f"{y_metric_name}_mean"].iloc[i])
 
-        pareto_trace = go.Scatter(x=pareto_x, y=pareto_y, **BEST_LINE_SETTINGS)
+        pareto_trace = go.Scatter(
+            x=pareto_x,
+            y=pareto_y,
+            **{**BEST_LINE_SETTINGS, "showlegend": True, "name": "Pareto Frontier"},
+        )
 
         figure.add_trace(pareto_trace)
 

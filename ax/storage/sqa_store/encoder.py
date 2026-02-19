@@ -10,20 +10,22 @@ from enum import Enum
 from logging import Logger
 from typing import Any, cast
 
-from ax.analysis.analysis_card import (
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
+from ax.core.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
     AnalysisCardGroup,
     ErrorAnalysisCard,
 )
-from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
-from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
-from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
+from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -32,6 +34,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
@@ -45,11 +48,7 @@ from ax.core.parameter import (
     Parameter,
     RangeParameter,
 )
-from ax.core.parameter_constraint import (
-    OrderConstraint,
-    ParameterConstraint,
-    SumConstraint,
-)
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -75,7 +74,13 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import (
+    DomainType,
+    EXPECT_RELATIVIZED_OUTCOMES,
+    MetricIntent,
+    ParameterConstraintType,
+    PREFERENCE_PROFILE_NAME,
+)
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -242,6 +247,7 @@ class Encoder:
             status_quo_name=status_quo_name,
             status_quo_parameters=status_quo_parameters,
             time_created=experiment.time_created,
+            status=experiment.status,
             experiment_type=experiment_type,
             metrics=optimization_metrics + tracking_metrics,
             parameters=parameters,
@@ -251,7 +257,9 @@ class Encoder:
             data=experiment_data,
             properties=properties,
             default_trial_type=experiment.default_trial_type,
-            default_data_type=experiment.default_data_type,
+            # In for backward compatibility. Experiment._default_data_type no
+            # longer exists.
+            default_data_type=DataType.DATA,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
             auxiliary_experiments=auxiliary_experiments,
         )
@@ -300,6 +308,7 @@ class Encoder:
                 choice_values=parameter.values,
                 is_ordered=parameter.is_ordered,
                 is_task=parameter.is_task,
+                log_scale=parameter.log_scale,
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
@@ -345,30 +354,14 @@ class Encoder:
         param_constraint_cls: SQAParameterConstraint = self.config.class_to_sqa_class[
             ParameterConstraint
         ]
-        if isinstance(parameter_constraint, OrderConstraint):
-            # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
-            return param_constraint_cls(
-                id=parameter_constraint.db_id,
-                type=ParameterConstraintType.ORDER,
-                constraint_dict=parameter_constraint.constraint_dict,
-                bound=parameter_constraint.bound,
-            )
-        elif isinstance(parameter_constraint, SumConstraint):
-            # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
-            return param_constraint_cls(
-                id=parameter_constraint.db_id,
-                type=ParameterConstraintType.SUM,
-                constraint_dict=parameter_constraint.constraint_dict,
-                bound=parameter_constraint.bound,
-            )
-        else:
-            # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
-            return param_constraint_cls(
-                id=parameter_constraint.db_id,
-                type=ParameterConstraintType.LINEAR,
-                constraint_dict=parameter_constraint.constraint_dict,
-                bound=parameter_constraint.bound,
-            )
+
+        # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
+        return param_constraint_cls(
+            id=parameter_constraint.db_id,
+            type=ParameterConstraintType.LINEAR,
+            constraint_dict=parameter_constraint.constraint_dict,
+            bound=parameter_constraint.bound,
+        )
 
     def search_space_to_sqa(
         self, search_space: SearchSpace | None
@@ -511,6 +504,64 @@ class Encoder:
                 intent=MetricIntent.MULTI_OBJECTIVE,
                 scalarized_objective_children_metrics=children_objectives,
                 signature="multi_objective",
+            )
+        )
+        return parent_metric
+
+    def preference_objective_to_sqa(
+        self,
+        multi_objective: MultiObjective,
+        preference_profile_name: str,
+        expect_relativized_outcomes: bool,
+    ) -> SQAMetric:
+        """Convert Ax PreferenceOptimizationConfig objective to SQLAlchemy.
+
+        Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
+            corresponding to `metrics` attribute of the `MultiObjective` from
+            `PreferenceOptimizationConfig`. The parent stores the config-level
+            properties (preference_profile_name, expect_relativized_outcomes)
+            in its properties field.
+            NOTE: The parent is used as a placeholder for storage purposes.
+        """
+        # Constructing children SQAMetric classes (these are the real metrics in
+        # the `MultiObjective`).
+        children_objectives = []
+        for objective in multi_objective.objectives:
+            objective_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            type_and_properties = self.get_metric_type_and_properties(
+                metric=objective.metric
+            )
+            children_objectives.append(
+                objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
+                    id=objective.metric.db_id,
+                    name=objective.metric.name,
+                    signature=objective.metric.signature,
+                    metric_type=type_and_properties[0],
+                    intent=MetricIntent.OBJECTIVE,
+                    minimize=objective.minimize,
+                    properties=type_and_properties[1],
+                    lower_is_better=objective.metric.lower_is_better,
+                )
+            )
+
+        # Store config-level properties in parent metric's properties field
+        parent_properties = {
+            PREFERENCE_PROFILE_NAME: preference_profile_name,
+            EXPECT_RELATIVIZED_OUTCOMES: expect_relativized_outcomes,
+        }
+
+        # Constructing a parent SQAMetric class (not a real metric, only a placeholder
+        # to group the metrics together and store PreferenceOptimizationConfig fields).
+        parent_metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+        parent_metric = (
+            parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
+                id=multi_objective.db_id,
+                name="preference_objective",
+                metric_type=self.config.metric_registry[Metric],
+                intent=MetricIntent.PREFERENCE_OBJECTIVE,
+                scalarized_objective_children_metrics=children_objectives,
+                signature="preference_objective",
+                properties=parent_properties,
             )
         )
         return parent_metric
@@ -674,14 +725,34 @@ class Encoder:
             return []
 
         metrics_sqa = []
-        obj_sqa = self.objective_to_sqa(objective=optimization_config.objective)
+
+        # Handle PreferenceOptimizationConfig separately
+        if isinstance(optimization_config, PreferenceOptimizationConfig):
+            objective = optimization_config.objective
+            if not isinstance(objective, MultiObjective):
+                raise SQAEncodeError(
+                    f"PreferenceOptimizationConfig requires a MultiObjective, "
+                    f"got {type(objective).__name__}"
+                )
+            obj_sqa = self.preference_objective_to_sqa(
+                multi_objective=objective,
+                preference_profile_name=optimization_config.preference_profile_name,
+                expect_relativized_outcomes=(
+                    optimization_config.expect_relativized_outcomes
+                ),
+            )
+        else:
+            obj_sqa = self.objective_to_sqa(objective=optimization_config.objective)
+
         metrics_sqa.append(obj_sqa)
         for constraint in optimization_config.outcome_constraints:
             constraint_sqa = self.outcome_constraint_to_sqa(
                 outcome_constraint=constraint
             )
             metrics_sqa.append(constraint_sqa)
-        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig) and not (
+            isinstance(optimization_config, PreferenceOptimizationConfig)
+        ):
             for threshold in optimization_config.objective_thresholds:
                 threshold_sqa = self.objective_threshold_to_sqa(
                     objective_threshold=threshold
@@ -781,10 +852,12 @@ class Encoder:
             best_arm_parameters=best_arm_parameters,
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
-            model_key=generator_run._model_key,
+            # TODO: rename these in the db schema?
+            # We could just wait for the storage refactor instead.
+            model_key=generator_run._generator_key,
             model_kwargs=(
                 object_to_json(
-                    generator_run._model_kwargs,
+                    generator_run._generator_kwargs,
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
@@ -793,7 +866,7 @@ class Encoder:
             ),
             bridge_kwargs=(
                 object_to_json(
-                    generator_run._bridge_kwargs,
+                    generator_run._adapter_kwargs,
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
@@ -811,20 +884,20 @@ class Encoder:
             ),
             model_state_after_gen=(
                 object_to_json(
-                    generator_run._model_state_after_gen,
+                    generator_run._generator_state_after_gen,
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
                 if not reduced_state
                 else None
             ),
-            generation_step_index=generator_run._generation_step_index,
             candidate_metadata_by_arm_signature=object_to_json(
                 generator_run._candidate_metadata_by_arm_signature,
                 encoder_registry=self.config.json_encoder_registry,
                 class_encoder_registry=self.config.json_class_encoder_registry,
             ),
             generation_node_name=generator_run._generation_node_name,
+            suggested_experiment_status=generator_run.suggested_experiment_status,
         )
         return gr_sqa
 
@@ -843,7 +916,6 @@ class Encoder:
             cast(type[Base], GenerationStrategy)
         ]
         generator_runs_sqa = []
-        node_based_strategy = generation_strategy.is_node_based
         for idx, gr in enumerate(generation_strategy._generator_runs):
             # Never reduce the state of the last generator run because that
             # generator run is needed to recreate the model when reloading the
@@ -857,20 +929,8 @@ class Encoder:
         gs_sqa = gs_class(
             id=generation_strategy.db_id,
             name=generation_strategy.name,
-            steps=(
-                object_to_json(
-                    generation_strategy._steps,
-                    encoder_registry=self.config.json_encoder_registry,
-                    class_encoder_registry=self.config.json_class_encoder_registry,
-                )
-                if not node_based_strategy
-                else []
-            ),
-            curr_index=(
-                generation_strategy.current_step_index
-                if not node_based_strategy
-                else -1
-            ),
+            steps=[],
+            curr_index=-1,
             generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
             nodes=(
@@ -879,8 +939,6 @@ class Encoder:
                     encoder_registry=self.config.json_encoder_registry,
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
-                if node_based_strategy
-                else []
             ),
             curr_node_name=generation_strategy.current_node_name,
         )
@@ -918,9 +976,6 @@ class Encoder:
         """
 
         runner = None
-        if trial.runner:
-            runner = self.runner_to_sqa(runner=none_throws(trial.runner))
-
         abandoned_arms, generator_runs = [], []
 
         if isinstance(trial, Trial) and trial.generator_run:
@@ -943,8 +998,8 @@ class Encoder:
         trial_class: SQATrial = self.config.class_to_sqa_class[Trial]
         trial_sqa = trial_class(  # pyre-fixme[29]: `SQATrial` is not a function.
             id=trial.db_id,
-            abandoned_reason=trial.abandoned_reason,
-            failed_reason=trial.failed_reason,
+            # NOTE: Using the old column here since SQA will soon get refactored.
+            failed_reason=trial.status_reason,
             deployed_name=trial.deployed_name,
             index=trial.index,
             is_batch=isinstance(trial, BatchTrial),
@@ -966,7 +1021,6 @@ class Encoder:
             abandoned_arms=abandoned_arms,
             generator_runs=generator_runs,
             runner=runner,
-            generation_step_index=trial._generation_step_index,
             properties=trial._properties,
         )
         return trial_sqa
@@ -982,9 +1036,12 @@ class Encoder:
             return []
 
         return [
-            self.data_to_sqa(data=data, trial_index=trial_index, timestamp=timestamp)
-            for trial_index, data_by_timestamp in experiment._data_by_trial.items()
-            for timestamp, data in data_by_timestamp.items()
+            self.data_to_sqa(
+                data=Data(df=df),
+                trial_index=trial_index,
+                timestamp=0,
+            )
+            for trial_index, df in experiment.data.full_df.groupby("trial_index")
         ]
 
     def data_to_sqa(
@@ -1113,6 +1170,8 @@ class Encoder:
             blob_annotation = "markdown"
         elif isinstance(card, HealthcheckAnalysisCard):
             blob_annotation = "healthcheck"
+        elif isinstance(card, GraphvizAnalysisCard):
+            blob_annotation = "graphviz"
         else:
             blob_annotation = "dataframe"
 

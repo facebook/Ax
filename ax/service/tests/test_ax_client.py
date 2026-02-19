@@ -9,6 +9,7 @@
 import math
 import sys
 import time
+import warnings
 from itertools import product
 from math import ceil
 from typing import Any, TYPE_CHECKING
@@ -19,6 +20,7 @@ import numpy as np
 import torch
 from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
+from ax.core.data import Data, MAP_KEY
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -31,7 +33,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.parameter_constraint import OrderConstraint
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
@@ -55,6 +57,10 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism,
+    MinTrials,
+)
 from ax.metrics.branin import branin, BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient, ObjectiveProperties
@@ -217,7 +223,7 @@ def get_client_with_simple_discrete_moo_problem(
             GenerationStep(
                 generator=Generators.BOTORCH_MODULAR,
                 num_trials=-1,
-                model_kwargs={
+                generator_kwargs={
                     # To avoid search space exhausted errors.
                     "transforms": Cont_X_trans,
                 },
@@ -265,6 +271,20 @@ def get_client_with_simple_discrete_moo_problem(
 
 class TestAxClient(TestCase):
     """Tests service-like API functionality."""
+
+    def test_deprecation_warning(self) -> None:
+        # Should warn for AxClient but not for arbitrary subclasses.
+        with self.assertWarnsRegex(
+            DeprecationWarning, "`AxClient` class is deprecated and will be removed"
+        ):
+            AxClient()
+
+        class TestAxClient(AxClient):
+            pass
+
+        with warnings.catch_warnings(record=True) as ws:
+            TestAxClient()
+        self.assertEqual(len(ws), 0)
 
     @mock_botorch_optimize
     def test_interruption(self) -> None:
@@ -477,7 +497,10 @@ class TestAxClient(TestCase):
         """
         ax_client = get_branin_optimization()
         self.assertEqual(
-            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
+            [
+                s.generator_spec.generator_enum
+                for s in none_throws(ax_client.generation_strategy)._nodes
+            ],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -507,7 +530,7 @@ class TestAxClient(TestCase):
                 },
             )
         self.assertEqual(
-            none_throws(ax_client.generation_strategy.adapter)._model_key, "BoTorch"
+            none_throws(ax_client.generation_strategy.adapter)._generator_key, "BoTorch"
         )
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
@@ -575,7 +598,7 @@ class TestAxClient(TestCase):
     def test_sobol_generation_strategy_completion(self) -> None:
         ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
-                [GenerationStep(Generators.SOBOL, num_trials=3)]
+                steps=[GenerationStep(Generators.SOBOL, num_trials=3)]
             )
         )
         # All Sobol trials should be able to be generated at once and optimization
@@ -595,7 +618,7 @@ class TestAxClient(TestCase):
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
         generation_strategy = GenerationStrategy(
-            [GenerationStep(Generators.SOBOL, num_trials=3)]
+            steps=[GenerationStep(Generators.SOBOL, num_trials=-1)]
         )
         ax_client = AxClient(
             db_settings=db_settings, generation_strategy=generation_strategy
@@ -671,7 +694,10 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            [s.generator for s in none_throws(ax_client.generation_strategy)._steps],
+            [
+                s.generator_spec.generator_enum
+                for s in none_throws(ax_client.generation_strategy)._nodes
+            ],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -711,8 +737,9 @@ class TestAxClient(TestCase):
                     ),
                 },
             )
-        # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.adapter._model_key, "BoTorch")
+        self.assertEqual(
+            none_throws(ax_client.generation_strategy.adapter)._generator_key, "BoTorch"
+        )
         ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
         trials_df = ax_client.get_trials_data_frame()
@@ -1325,12 +1352,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(
             ax_client.experiment.search_space.parameter_constraints,
-            [
-                OrderConstraint(
-                    lower_parameter=param_x1,
-                    upper_parameter=param_x2,
-                )
-            ],
+            [ParameterConstraint(inequality="x1 <= x2")],
         )
 
     def test_create_moo_experiment(self) -> None:
@@ -1584,10 +1606,25 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        self.assertFalse(
-            ax_client.generation_strategy._steps[0].enforce_num_trials, False
-        )
-        self.assertFalse(ax_client.generation_strategy._steps[1].max_parallelism, None)
+        # Check that enforce_num_trials is False by checking the MinTrials criterion
+        # has block_gen_if_met=False
+        node0_min_trials = [
+            tc
+            for tc in ax_client.generation_strategy._nodes[0].transition_criteria
+            if isinstance(tc, MinTrials)
+        ]
+        self.assertTrue(len(node0_min_trials) > 0)
+        self.assertFalse(node0_min_trials[0].block_gen_if_met)
+
+        # Check that max_parallelism is None by verifying no MaxGenerationParallelism
+        # criterion exists on node 1
+        node1_max_parallelism = [
+            tc
+            for tc in ax_client.generation_strategy._nodes[1].transition_criteria
+            if isinstance(tc, MaxGenerationParallelism)
+        ]
+        self.assertEqual(len(node1_max_parallelism), 0)
+
         for _ in range(10):
             ax_client.get_next_trial()
 
@@ -1613,10 +1650,9 @@ class TestAxClient(TestCase):
                 )
             if t == 2:
                 ax_client.complete_trial(0, raw_data=raw_data)
-            # pyre-fixme[16]: `Data` has no attribute `map_df`.
-            fetch_data = ax_client.experiment.fetch_data().map_df
+            fetch_data = ax_client.experiment.fetch_data().full_df
             self.assertEqual(len(fetch_data), 0 if t < 2 else 3)
-            lookup_data = ax_client.experiment.lookup_data().map_df
+            lookup_data = ax_client.experiment.lookup_data().full_df
             self.assertEqual(len(lookup_data), t + 1)
 
         no_intermediate_data_ax_client = AxClient()
@@ -1626,21 +1662,21 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
             support_intermediate_data=False,
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         parameterization, trial_index = no_intermediate_data_ax_client.get_next_trial()
-        # Error because the experiment isn't configured to use MapData
-        with self.assertRaisesRegex(
-            ValueError, "requires that this client's `experiment` be constructed with"
-        ):
+        x, y = parameterization.get("x"), parameterization.get("y")
+        t = 2
+        value = assert_is_instance(branin(x, y) + t, float)
+        with self.subTest("Attach Data with progression"):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
-                raw_data=[
-                    # pyre-fixme[61]: `t` is undefined, or not always defined.
-                    (p_t, {"branin": (branin(x, y) + t, 0.0)})
-                    # pyre-fixme[61]: `t` is undefined, or not always defined.
-                    for p_t in range(t + 1)
-                ],
+                raw_data=[(p_t, {"branin": (value, 0.0)}) for p_t in range(t + 1)],
             )
+            data = no_intermediate_data_ax_client.experiment.lookup_data()
+            self.assertIsInstance(data, Data)
+            self.assertTrue(data.has_step_column)
+            self.assertIn(t, data.df[MAP_KEY])
 
     # pyre-fixme[56]: Pyre was not able to infer the type of argument `f"{ax.service....
     @patch(
@@ -1701,7 +1737,7 @@ class TestAxClient(TestCase):
         )
 
         ax_client.stop_trial_early(trial_index=idx)
-        df = ax_client.experiment.lookup_data_for_trial(idx).df
+        df = ax_client.experiment.lookup_data(trial_indices={idx}).df
         self.assertEqual(len(df), 1)
 
         # Failed trial.
@@ -1710,7 +1746,7 @@ class TestAxClient(TestCase):
         ax_client._update_trial_with_raw_data(
             trial_index=idx, raw_data=[(0, {"branin": (3, 0.0)})]
         )
-        df = ax_client.experiment.lookup_data_for_trial(idx).df
+        df = ax_client.experiment.lookup_data(trial_indices={idx}).df
         self.assertEqual(df["mean"].item(), 3.0)
 
         # Incomplete trial fails
@@ -2169,7 +2205,7 @@ class TestAxClient(TestCase):
                     # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run`.
                     ax_client.experiment.trials[
                         idx
-                    ]._generator_run._model_state_after_gen["init_position"],
+                    ]._generator_run._generator_state_after_gen["init_position"],
                     idx + 1,
                 )
                 self.assertEqual(params, new_params)
@@ -2380,8 +2416,9 @@ class TestAxClient(TestCase):
             num_trials=20, outcome_constraints=outcome_constraints
         )
         ax_client.fit_model()
+        gs = ax_client.generation_strategy
         self.assertEqual(
-            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
+            gs._curr.generator_spec_to_gen_from.generator_key,
             "BoTorch",
         )
 
@@ -2450,8 +2487,9 @@ class TestAxClient(TestCase):
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
+        gs = ax_client.generation_strategy
         self.assertEqual(
-            ax_client.generation_strategy._curr.generator_spec_to_gen_from.model_key,
+            gs._curr.generator_spec_to_gen_from.generator_key,
             "Sobol",
         )
 
@@ -2771,7 +2809,7 @@ class TestAxClient(TestCase):
         # Make sure we actually tried a Botorch iteration and all the transforms it
         # applies.
         self.assertEqual(
-            ax_client.generation_strategy._generator_runs[-1]._model_key, "BoTorch"
+            ax_client.generation_strategy._generator_runs[-1]._generator_key, "BoTorch"
         )
         self.assertEqual(len(ax_client.experiment.trials), 6)
         ax_client.attach_trial(
@@ -2881,12 +2919,14 @@ class TestAxClient(TestCase):
         with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
             AxClient(
                 generation_strategy=GenerationStrategy(
-                    [GenerationStep(Generators.SOBOL, num_trials=3)]
+                    steps=[GenerationStep(Generators.SOBOL, num_trials=3)]
                 ),
                 torch_device=device,
             )
         ax_client = get_branin_optimization(torch_device=device)
-        gpei_step_kwargs = ax_client.generation_strategy._steps[1].model_kwargs
+        gpei_step_kwargs = (
+            ax_client.generation_strategy._nodes[1].generator_specs[0].generator_kwargs
+        )
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
     def test_repr_function(
@@ -2994,7 +3034,7 @@ class TestAxClient(TestCase):
         self.assertEqual(
             none_throws(
                 assert_is_instance(ax_client.experiment.trials[0], Trial)._generator_run
-            )._model_key,
+            )._generator_key,
             "Sobol",
         )
         with mock.patch(

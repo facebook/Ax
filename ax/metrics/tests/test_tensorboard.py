@@ -7,15 +7,24 @@
 # pyre-strict
 
 import math
-from collections.abc import Sequence
+import warnings
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 from unittest import mock
 
 import numpy as np
 import pandas as pd
-from ax.core.map_data import MapData
+from ax.core.data import Data
 from ax.core.metric import MetricFetchE
 from ax.metrics.tensorboard import _grid_interpolate, logger, TensorboardMetric
+from ax.storage.json_store.decoder import object_from_json
+from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.registry import (
+    CORE_CLASS_DECODER_REGISTRY,
+    CORE_CLASS_ENCODER_REGISTRY,
+)
+from ax.storage.metric_registry import register_metrics
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
@@ -93,22 +102,24 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": fake_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": fake_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
 
@@ -118,23 +129,26 @@ class TensorboardMetricTest(TestCase):
         metric = TensorboardMetric(name="loss", tag="loss")
 
         trial = get_trial()
-        with mock.patch.object(
-            TensorboardMetric,
-            "_get_event_multiplexer_for_trial",
-            return_value=nan_multiplexer,
-        ), mock.patch.object(logger, "warning") as mock_warning:
+        with (
+            mock.patch.object(
+                TensorboardMetric,
+                "_get_event_multiplexer_for_trial",
+                return_value=nan_multiplexer,
+            ),
+            mock.patch.object(logger, "warning") as mock_warning,
+        ):
             result = metric.fetch_trial_data(trial=trial)
         mock_warning.assert_called_once_with(
             "1 / 4 data points are NaNs or Infs. Filtering out non-finite values."
         )
 
         assert_is_instance(result, Ok)
-        map_data = assert_is_instance(result.unwrap(), MapData)
+        map_data = result.unwrap()
         nan_array = np.array(nan_data)
         nan_array = nan_array[np.isfinite(nan_array)]
         self.assertTrue(
             np.array_equal(
-                map_data.map_df["mean"].to_numpy(), nan_array, equal_nan=False
+                map_data.full_df["mean"].to_numpy(), nan_array, equal_nan=False
             )
         )
 
@@ -157,10 +171,10 @@ class TensorboardMetricTest(TestCase):
             )
 
         assert_is_instance(result, Ok)
-        map_data = assert_is_instance(result.unwrap(), MapData)
+        map_data = result.unwrap()
         inf_array = np.array(inf_data)
         inf_array = inf_array[np.isfinite(inf_array)]
-        self.assertTrue(np.array_equal(map_data.map_df["mean"].to_numpy(), inf_array))
+        self.assertTrue(np.array_equal(map_data.full_df["mean"].to_numpy(), inf_array))
 
         # testing all non-finite data
         for non_finite_val in [np.nan, np.inf]:
@@ -198,24 +212,39 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": smooth_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": smooth_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
+
+        # Test that smoothing must be in the range [0, 1).
+        # Valid smoothing values
+        for smoothing in [0, 0.5, 0.99]:
+            with self.subTest(f"smoothing={smoothing}"):
+                TensorboardMetric(name="loss", tag="loss", smoothing=smoothing)
+
+        # Invalid smoothing values
+        expected_str = r"smoothing must be in the range \[0, 1\)"
+        for smoothing in [1, 1.5, -0.1]:
+            with self.subTest(f"smoothing={smoothing}"):
+                with self.assertRaisesRegex(ValueError, expected_str):
+                    TensorboardMetric(name="loss", tag="loss", smoothing=smoothing)
 
     def test_cumulative_best(self) -> None:
         fake_data = [4.0, 8.0, 2.0, 1.0]
@@ -238,22 +267,24 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": cummin_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": cummin_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
 
@@ -302,7 +333,7 @@ class TensorboardMetricTest(TestCase):
             ):
                 result = metric.fetch_trial_data(trial=trial)
 
-            df = assert_is_instance(result.unwrap(), MapData).map_df
+            df = result.unwrap().full_df
 
             # Assert: Verify that smoothing was applied first, then cumulative best
             # Step 1: Apply smoothing to get smoothed values
@@ -353,21 +384,23 @@ class TensorboardMetricTest(TestCase):
                 name="loss", tag="loss", lower_is_better=True, percentile=percentile
             )
             result = metric.fetch_trial_data(trial=trial)
-        df = assert_is_instance(result.unwrap(), MapData).map_df
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "trial_index": 0,
-                    "arm_name": "0_0",
-                    "metric_name": "loss",
-                    "metric_signature": "loss",
-                    "mean": percentile_data[i],
-                    "sem": float("nan"),
-                    "step": float(i),
-                }
-                for i in range(len(fake_data))
-            ]
-        )
+        df = result.unwrap().full_df
+        expected_df = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "trial_index": 0,
+                        "arm_name": "0_0",
+                        "metric_name": "loss",
+                        "metric_signature": "loss",
+                        "mean": percentile_data[i],
+                        "sem": float("nan"),
+                        "step": float(i),
+                    }
+                    for i in range(len(fake_data))
+                ]
+            )
+        ).full_df
 
         self.assertTrue(df.equals(expected_df))
 
@@ -495,9 +528,7 @@ class TensorboardMetricTest(TestCase):
             def PluginRunToTagToContent(self, plugin: str) -> dict[str, dict[str, str]]:
                 return {".": {"loss": ""}}
 
-            def Tensors(
-                self, run: str, tag: str
-            ) -> list[_TensorEvent]:  # pyre-ignore[11]
+            def Tensors(self, run: str, tag: str) -> list[_TensorEvent]:
                 # Unevenly spaced steps: 0, 1, 5, 10
                 return [
                     _TensorEvent(step=0, tensor_proto=_TensorProto(double_val=[8.0])),
@@ -519,7 +550,7 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
         # Should have 4 points
         self.assertEqual(len(df), 4)
@@ -543,9 +574,7 @@ class TensorboardMetricTest(TestCase):
             def PluginRunToTagToContent(self, plugin: str) -> dict[str, dict[str, str]]:
                 return {".": {"loss": ""}}
 
-            def Tensors(
-                self, run: str, tag: str
-            ) -> list[_TensorEvent]:  # pyre-ignore[11]
+            def Tensors(self, run: str, tag: str) -> list[_TensorEvent]:
                 # Return data with varying values
                 return [
                     _TensorEvent(
@@ -567,7 +596,7 @@ class TensorboardMetricTest(TestCase):
         ):
             result = metric.fetch_trial_data(trial=trial)
 
-        df = assert_is_instance(result.unwrap(), MapData).map_df
+        df = result.unwrap().full_df
 
         # Verify smoothing was applied by checking that values are
         # different from original
@@ -584,3 +613,195 @@ class TensorboardMetricTest(TestCase):
             # Check that smoothing effect is present
             # (values should be between neighboring original values due to EMA)
             self.assertTrue(np.isfinite(df["mean"].iloc[i]))
+
+    def test_quantile_percentile_validation_and_deprecation(
+        self: TestCase,
+        metric_class: type[TensorboardMetric] = TensorboardMetric,
+        base_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """Test validation and deprecation for quantile/percentile parameters.
+
+        This method is designed to be reusable by subclasses and external tests
+        by overriding the default arguments.
+
+        Args:
+            metric_class: The metric class to test. Defaults to TensorboardMetric.
+            base_kwargs: Base keyword arguments to pass to the metric constructor.
+                Defaults to {"name": "loss", "tag": "loss"}.
+        """
+        if base_kwargs is None:
+            base_kwargs = {"name": "loss", "tag": "loss"}
+
+        # Test 1: quantile must be in range [0, 1]
+        valid_values = [0.0, 0.5, 1.0]
+        for val in valid_values:
+            with self.subTest(f"valid quantile={val}"):
+                metric_class(**base_kwargs, quantile=val)
+
+        invalid_values = [-0.1, 1.5]
+        for val in invalid_values:
+            with self.subTest(f"invalid quantile={val}"):
+                with self.assertRaisesRegex(
+                    ValueError, r"quantile must be in the range \[0, 1\]"
+                ):
+                    metric_class(**base_kwargs, quantile=val)
+
+        # Test 2: percentile is deprecated alias for quantile
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            metric = metric_class(**base_kwargs, percentile=0.5)
+            self.assertEqual(len(w), 1)
+            self.assertIn("percentile", str(w[0].message))
+            self.assertIn("deprecated", str(w[0].message).lower())
+            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+            # Check that quantile attribute has the correct value
+            self.assertEqual(metric.quantile, 0.5)
+            # Check that percentile attribute is None (deprecated)
+            self.assertIsNone(metric.percentile)
+
+        # Test 3: Cannot specify both quantile and percentile
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Cannot specify both",
+        ):
+            metric_class(**base_kwargs, quantile=0.5, percentile=0.5)
+
+    def test_quantile_applied_to_curve(
+        self: TestCase,
+        fetch_data_with_metric: Callable[[TensorboardMetric], pd.DataFrame]
+        | None = None,
+        metric_class: type[TensorboardMetric] = TensorboardMetric,
+        base_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """Test that quantile is actually applied to the curve data.
+
+        This method is designed to be reusable by subclasses and external tests
+        by overriding the default arguments.
+
+        Args:
+            fetch_data_with_metric: A callable that takes a metric and returns
+                the fetched DataFrame. If None, uses default TensorboardMetric
+                behavior with a fake multiplexer.
+            metric_class: The metric class to test. Defaults to TensorboardMetric.
+            base_kwargs: Base keyword arguments to pass to the metric constructor.
+                Defaults to {"name": "loss", "tag": "loss"}.
+        """
+        if base_kwargs is None:
+            base_kwargs = {"name": "loss", "tag": "loss"}
+
+        # If no fetch function is provided, use default behavior
+        if fetch_data_with_metric is None:
+            fake_data = [8.0, 9.0, 2.0, 1.0]
+            fake_multiplexer: event_multiplexer.EventMultiplexer = (
+                _get_fake_multiplexer(fake_data=fake_data)
+            )
+
+            def fetch_data_with_metric(metric: TensorboardMetric) -> pd.DataFrame:
+                trial = get_trial()
+                with mock.patch.object(
+                    TensorboardMetric,
+                    "_get_event_multiplexer_for_trial",
+                    return_value=fake_multiplexer,
+                ):
+                    result = metric.fetch_trial_data(trial=trial)
+                return result.unwrap().full_df
+
+        # Track calls to Expanding.quantile to verify it's called with the
+        # correct value
+        call_tracker: list[float] = []
+        original_quantile: Callable[..., Any] = (
+            pd.core.window.expanding.Expanding.quantile
+        )
+
+        def tracked_quantile(
+            self: pd.core.window.expanding.Expanding,
+            q: float,
+            *args: Any,
+            **kwargs: Any,
+        ) -> Any:
+            call_tracker.append(q)
+            return original_quantile(self, q, *args, **kwargs)
+
+        # Test: When quantile is set, Expanding.quantile should be called with
+        # the correct value
+        test_quantile = 0.75
+        metric = metric_class(**base_kwargs, quantile=test_quantile)
+
+        with mock.patch.object(
+            pd.core.window.expanding.Expanding,
+            "quantile",
+            tracked_quantile,
+        ):
+            fetch_data_with_metric(metric)
+
+        self.assertIn(
+            test_quantile,
+            call_tracker,
+            f"Expanding.quantile was not called with {test_quantile}. "
+            f"Calls: {call_tracker}",
+        )
+
+    def test_storage_roundtrip(self) -> None:
+        """Test that TensorboardMetric can be serialized and deserialized, i.e.,
+        1. A TensorboardMetric can be encoded to JSON and decoded back.
+        2. The resulting metric is equivalent to the original.
+        3. Metrics created with the deprecated `percentile` parameter can still
+           be serialized and deserialized without throwing validation errors.
+        """
+        _, encoder_registry, decoder_registry = register_metrics(
+            metric_clss={TensorboardMetric: None},
+        )
+
+        test_cases = [
+            # Metric with all options (with quantile)
+            TensorboardMetric(
+                name="test",
+                tag="test",
+                lower_is_better=False,
+                smoothing=0.5,
+                cumulative_best=True,
+                quantile=0.25,
+            ),
+            # Metric with all options (with percentile)
+            TensorboardMetric(
+                name="test",
+                tag="test",
+                lower_is_better=False,
+                smoothing=0.5,
+                cumulative_best=True,
+                percentile=0.25,
+            ),
+        ]
+
+        for original_metric in test_cases:
+            with self.subTest(
+                metric=original_metric.name, quantile=original_metric.quantile
+            ):
+                # Encode metric to JSON
+                json_obj = object_to_json(
+                    original_metric,
+                    encoder_registry=encoder_registry,
+                    class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+                )
+
+                # Decode metric from JSON
+                decoded_metric = object_from_json(
+                    json_obj,
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+                )
+
+                # Verify the decoded metric equals the original
+                self.assertIsInstance(decoded_metric, TensorboardMetric)
+                self.assertEqual(decoded_metric.name, original_metric.name)
+                self.assertEqual(decoded_metric.tag, original_metric.tag)
+                self.assertEqual(
+                    decoded_metric.lower_is_better, original_metric.lower_is_better
+                )
+                self.assertEqual(decoded_metric.smoothing, original_metric.smoothing)
+                self.assertEqual(
+                    decoded_metric.cumulative_best, original_metric.cumulative_best
+                )
+                self.assertEqual(decoded_metric.quantile, original_metric.quantile)
+                # Verify percentile is None (deprecated)
+                self.assertIsNone(decoded_metric.percentile)

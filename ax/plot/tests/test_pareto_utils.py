@@ -107,7 +107,7 @@ class ParetoUtilsTest(TestCase):
         # For the check below, compute which arms are better than SQ
         df = experiment.fetch_data().df
         df["sem"] = np.nan
-        data = Data(df)
+        data = Data(df=df)
         sq_val = df[(df["arm_name"] == "status_quo") & (df["metric_name"] == "m1")][
             "mean"
         ].values[0]

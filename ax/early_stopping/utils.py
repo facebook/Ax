@@ -7,21 +7,99 @@
 # pyre-strict
 
 from logging import Logger
+from typing import Any
 
+import numpy.typing as npt
 import pandas as pd
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
-from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
+# Early stopping message constants for use in analysis and reporting
+EARLY_STOPPING_STATUS_MSG = (
+    "Throughout this experiment, {n_stopped} trials were early stopped, out "
+    "of a total of {n_ran} trials. "
+)
+
+EARLY_STOPPING_SAVINGS_TITLE = "Capacity savings due to early stopping"
+
+EARLY_STOPPING_SAVINGS_MSG = (
+    "The capacity savings (computed using {map_key}) are estimated to be "
+    "{savings:.0f}%."
+)
+
+EARLY_STOPPING_SAVINGS_TBD = (
+    "Capacity savings are not yet available. Either no trials have been early "
+    "stopped, or no trials have completed (which is required to estimate "
+    "savings). Check back once more trials are completed and/or early stopped."
+)
+
+EARLY_STOPPING_NUDGE_MSG = (
+    "This sweep uses metrics that are **compatible with early stopping**! "
+    "Using early stopping could have saved you both capacity and optimization "
+    "wall time. For example, we estimate that using early stopping on the "
+    "'{metric_name}' metric could have provided {savings:.0f}% capacity "
+    "savings, with no regression in optimization performance."
+)
+
+EARLY_STOPPING_NUDGE_TITLE = (
+    "{savings:.0f}% potential capacity savings if you turn on early stopping feature"
+)
+
+
+def format_early_stopping_savings_message(
+    n_stopped: int,
+    n_ran: int,
+    savings: float,
+) -> str:
+    """Format a message describing early stopping status and savings.
+
+    Args:
+        n_stopped: Number of trials that were early stopped.
+        n_ran: Total number of trials that ran.
+        savings: Resource savings as a fraction (0.0 to 1.0). For example, 0.11
+            indicates 11% savings.
+
+    Returns:
+        A formatted message string describing the early stopping status and
+        either the estimated savings percentage or a note that savings are
+        not yet available.
+    """
+    msg = EARLY_STOPPING_STATUS_MSG.format(n_stopped=n_stopped, n_ran=n_ran)
+
+    if savings > 0:
+        msg += EARLY_STOPPING_SAVINGS_MSG.format(map_key=MAP_KEY, savings=savings * 100)
+    else:
+        msg += EARLY_STOPPING_SAVINGS_TBD
+
+    return msg
+
+
+def _is_worse(a: Any, b: Any, minimize: bool) -> Any:
+    """Determine if value `a` is worse than value `b` based on optimization direction.
+
+    Args:
+        a: The first value to compare.
+        b: The second value (threshold) to compare against.
+        minimize: If True, use minimization logic (a is worse if a > b).
+            If False, use maximization logic (a is worse if a < b).
+
+    Returns:
+        True if `a` is worse than `b` according to the optimization direction,
+        False otherwise.
+    """
+    return a > b if minimize else a < b
+
 
 def _interval_boundary(
-    progression: float, min_progression: float, interval: float
-) -> float:
+    progression: float | npt.NDArray,
+    min_progression: float,
+    interval: float,
+) -> float | npt.NDArray:
     """Calculate the interval boundary for a given progression by rounding down.
 
     Interval boundaries are at: min_prog, min_prog + interval,
@@ -44,6 +122,7 @@ def _interval_boundary(
         The interval boundary that this progression is at or past (rounded down).
     """
     interval_num = (progression - min_progression) // interval
+    # pyre-ignore[58]: Numpy handles float + ndarray correctly at runtime
     return min_progression + interval_num * interval
 
 
@@ -124,6 +203,9 @@ def align_partial_results(
     df = df.drop_duplicates(
         subset=["trial_index", "metric_signature", MAP_KEY], keep="first"
     )
+    # sort by MAP_KEY to ensure correct interpolation behavior
+    # (pivot preserves order of first occurrence, not sorted order)
+    df = df.sort_values(MAP_KEY)
     has_sem = not df["sem"].isnull().all()
     # wide dataframe with hierarchical columns aligned to common index
     # (outer join of map keys across "trial_index", "metric_signature")
@@ -155,7 +237,7 @@ def estimate_early_stopping_savings(experiment: Experiment) -> float:
     how much resource each early stopped trial would have consumed.
     Savings are computed as:
 
-        savings = total_resources_saved / total_resources_used
+        savings = total_resources_saved / (total_resources_saved + total_resources_used)
 
     Args:
         experiment: The experiment to analyze.
@@ -165,11 +247,11 @@ def estimate_early_stopping_savings(experiment: Experiment) -> float:
         the experiment would have used 11% more resources without early stopping.
     """
 
-    map_data = assert_is_instance(experiment.lookup_data(), MapData)
-    if map_data.df.empty:
+    map_data = experiment.lookup_data()
+    if map_data.empty:
         return 0
     # Get max progression (resources used) for each trial
-    resources_used = map_data.map_df.groupby("trial_index")[MAP_KEY].max()
+    resources_used = map_data.full_df.groupby("trial_index")[MAP_KEY].max()
 
     trials_by_status = experiment.trial_indices_by_status
     stopped_trials = trials_by_status[TrialStatus.EARLY_STOPPED]
@@ -184,5 +266,8 @@ def estimate_early_stopping_savings(experiment: Experiment) -> float:
         lower=0
     )
 
-    # Return fraction of total resources saved
-    return resources_saved.sum() / resources_used.sum()
+    resources_saved_sum = resources_saved.sum()
+    resources_used_sum = resources_used.sum()
+
+    # Return fraction of savings compared to total resource usage without early stopping
+    return resources_saved_sum / (resources_saved_sum + resources_used_sum)

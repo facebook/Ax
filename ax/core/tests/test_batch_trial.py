@@ -92,7 +92,7 @@ class BatchTrialTest(TestCase):
             self.batch.status = TrialStatus.RUNNING
 
     def test_BasicSetter(self) -> None:
-        self.batch.runner = SyntheticRunner()
+        self.experiment.runner = SyntheticRunner()
         self.assertIsNotNone(self.batch.runner)
 
     def test_AddArm(self) -> None:
@@ -115,9 +115,6 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_runs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
 
-        # Overwrite the GS index to not-None.
-        self.batch._generation_step_index = 0
-
         # one of these arms already exists on the BatchTrial,
         # so we should just update its weight
         new_arms = [
@@ -135,8 +132,6 @@ class BatchTrialTest(TestCase):
             float(sum(self.batch.weights)),
             float(sum(self.weights)) + new_gr_total_weight,
         )
-        # Check the GS index was not overwritten to None.
-        self.assertEqual(self.batch._generation_step_index, 0)
 
     def test_InitWithGeneratorRun(self) -> None:
         generator_run = GeneratorRun(arms=self.arms, weights=self.weights)
@@ -209,7 +204,7 @@ class BatchTrialTest(TestCase):
         with patch.object(SyntheticRunner, "staging_required", staging_mock):
             mock_runner = SyntheticRunner()
             staging_mock.return_value = True
-            self.batch.runner = mock_runner
+            self.experiment.runner = mock_runner
             self.batch.run()
             self.assertEqual(self.batch.status, TrialStatus.STAGED)
             # Check that the trial statuses mapping on experiment has been updated.
@@ -231,7 +226,7 @@ class BatchTrialTest(TestCase):
             with self.assertRaises(TrialMutationError):
                 self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
 
-            with self.assertRaises(TrialMutationError):
+            with self.assertRaises(UnsupportedError):
                 self.batch.runner = None
 
             # Cannot run batch that was already run
@@ -314,10 +309,10 @@ class BatchTrialTest(TestCase):
 
         self.assertEqual(self.batch.status, TrialStatus.ABANDONED)
         self.assertIsNotNone(self.batch.time_completed)
-        self.assertEqual(self.batch.abandoned_reason, reason)
+        self.assertEqual(self.batch.status_reason, reason)
 
     def test_FailedBatchTrial(self) -> None:
-        self.batch.runner = SyntheticRunner()
+        self.experiment.runner = SyntheticRunner()
         self.batch.run()
         self.batch.mark_failed()
 
@@ -332,7 +327,7 @@ class BatchTrialTest(TestCase):
         self.assertIsNotNone(self.batch.time_completed)
 
     def test_EarlyStoppedBatchTrial(self) -> None:
-        self.batch.runner = SyntheticRunner()
+        self.experiment.runner = SyntheticRunner()
         self.batch.run()
         self.batch.attach_batch_trial_data(
             raw_data={
@@ -431,7 +426,7 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             self.batch.mark_running()
 
-        self.batch.runner = SyntheticRunner()
+        self.experiment.runner = SyntheticRunner()
         self.batch.run()
         self.assertEqual(self.batch.deployed_name, "test_0")
         self.assertNotEqual(len(self.batch.run_metadata.keys()), 0)

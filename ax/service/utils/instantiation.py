@@ -10,13 +10,12 @@ import enum
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-
 from logging import Logger
 from typing import Any, Union
 
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
@@ -38,7 +37,6 @@ from ax.core.parameter import (
     TParameterType,
 )
 from ax.core.parameter_constraint import (
-    OrderConstraint,
     ParameterConstraint,
     validate_constraint_parameters,
 )
@@ -328,9 +326,9 @@ class InstantiationBase:
         representation: TParameterRepresentation,
         parameter_type: str | None,
     ) -> DerivedParameter:
-        assert (
-            "expression_str" in representation
-        ), "expression_str is required for derived parameters."
+        assert "expression_str" in representation, (
+            "expression_str is required for derived parameters."
+        )
         msg = "parameter_type is required for derived parameters."
         return DerivedParameter(
             name=name,
@@ -356,7 +354,7 @@ class InstantiationBase:
         unexpected_keys = set(representation.keys()) - EXPECTED_KEYS_IN_PARAM_REPR
         if unexpected_keys:
             raise ValueError(
-                f"Unexpected keys {unexpected_keys} in parameter representation."
+                f"Unexpected keys {unexpected_keys} in parameter representation. "
                 f"Exhaustive set of expected keys: {EXPECTED_KEYS_IN_PARAM_REPR}."
             )
         name = representation["name"]
@@ -388,9 +386,9 @@ class InstantiationBase:
             )
 
         if parameter_class == "choice":
-            assert (
-                "values" in representation
-            ), "Values are required for choice parameters."
+            assert "values" in representation, (
+                "Values are required for choice parameters."
+            )
             values = representation["values"]
             if isinstance(values, list) and len(values) == 1:
                 logger.info(
@@ -717,25 +715,10 @@ class InstantiationBase:
             parameter_constraints if parameter_constraints is not None else []
         )
         typed_parameters = [cls.parameter_from_json(p) for p in parameters]
-        is_hss = any(p.is_hierarchical for p in typed_parameters)
-
         parameter_map = {p.name: p for p in typed_parameters}
-
         typed_parameter_constraints = [
             cls.constraint_from_str(c, parameter_map) for c in parameter_constraints
         ]
-
-        if any(
-            any(
-                isinstance(parameter_map[parameter], ChoiceParameter)
-                for parameter in constraint.constraint_dict
-            )
-            for constraint in typed_parameter_constraints
-        ):
-            raise UnsupportedError(
-                "Constraints on ChoiceParameters are not allowed. Try absorbing "
-                "this constraint into the associated range parameter's bounds."
-            )
 
         if any(
             any(
@@ -755,9 +738,9 @@ class InstantiationBase:
         )
 
         logger.debug(f"Created search space: {ss}.")
-        if is_hss:
+        if ss.is_hierarchical:
             logger.debug(
-                "Hieararchical structure of the search space: \n"
+                "Hierarchical structure of the search space: \n"
                 f"{ss.hierarchical_structure_str(parameter_names_only=True)}"
             )
 
@@ -896,10 +879,6 @@ class InstantiationBase:
             ]
         )
 
-        default_data_type = (
-            DataType.MAP_DATA if support_intermediate_data else DataType.DATA
-        )
-
         properties: dict[str, Any] = {}
 
         if immutable_search_space_and_opt_config:
@@ -924,7 +903,6 @@ class InstantiationBase:
                 is_test=is_test,
                 experiment_type=experiment_type,
                 properties=properties,
-                default_data_type=default_data_type,
             )
 
         return Experiment(
@@ -935,10 +913,10 @@ class InstantiationBase:
             status_quo=status_quo_arm,
             experiment_type=experiment_type,
             tracking_metrics=tracking_metrics,
-            default_data_type=default_data_type,
             properties=properties,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
             is_test=is_test,
+            runner=default_runner,
         )
 
     @classmethod
@@ -1002,7 +980,7 @@ class InstantiationBase:
 def _process_order_constraint(
     tokens: Sequence[str],
     parameters: Mapping[str, Parameter],
-) -> OrderConstraint:
+) -> ParameterConstraint:
     """Processes an order constraint, e.g. "x1 <= x2".
 
     Args:
@@ -1030,8 +1008,8 @@ def _process_order_constraint(
     else:
         lower_parameter = parameters[right]
         upper_parameter = parameters[left]
-    return OrderConstraint(
-        lower_parameter=lower_parameter, upper_parameter=upper_parameter
+    return ParameterConstraint(
+        inequality=f"{lower_parameter.name} <= {upper_parameter.name}",
     )
 
 
@@ -1088,11 +1066,12 @@ def _process_linear_constraint(
     comparison_multiplier = (
         1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
     )
+    constraint_dict = {
+        p: comparison_multiplier * parameter_weights[p] for p in parameter_weights
+    }
+    expr = " + ".join(f"{coeff} * {param}" for param, coeff in constraint_dict.items())
     return ParameterConstraint(
-        constraint_dict={
-            p: comparison_multiplier * parameter_weights[p] for p in parameter_weights
-        },
-        bound=comparison_multiplier * bound,
+        inequality=f"{expr} <= {comparison_multiplier * bound}",
     )
 
 
@@ -1126,7 +1105,7 @@ def _process_monomial(monomial_str: str) -> tuple[float, str]:
             multiplier = 1.0
     else:
         raise ValueError(
-            "Monomial format does not match `multiplier*parameter_name`."
+            "Monomial format does not match `multiplier*parameter_name`. "
             f"Got `{monomial_str}`."
         )
     return multiplier, parameter

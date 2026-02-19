@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from numbers import Number
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
@@ -23,53 +22,20 @@ from numpy import typing as npt
 from pyre_extensions import none_throws
 from scipy.stats import norm
 
-T_MATCH_CI_WIDTH = Callable[[npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]]
-
-
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
 
 
-# pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
-#  to avoid runtime subscripting errors.
-class ClosestLookupDict(dict):
-    """A dictionary with numeric keys that looks up the closest key."""
+T_MATCH_CI_WIDTH = Callable[[npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]]
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._keys = sorted(self.keys())
-
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def __setitem__(self, key: Number, val: Any) -> None:
-        if not isinstance(key, Number):
-            raise ValueError("ClosestLookupDict only allows numerical keys.")
-        super().__setitem__(key, val)
-        # pyre-fixme[6]: For 2nd argument expected `Union[bytes, complex, float,
-        #  int, generic, str]` but got `Number`.
-        ipos = np.searchsorted(self._keys, key)
-        self._keys.insert(ipos, key)
-
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
-    def __getitem__(self, key: Number) -> Any:
-        try:
-            return super().__getitem__(key)
-        except KeyError:
-            if not self.keys():
-                raise RuntimeError("ClosestLookupDict is empty.")
-            # pyre-fixme[6]: For 2nd argument expected `Union[bytes, complex, float,
-            #  int, generic, str]` but got `Number`.
-            ipos = np.searchsorted(self._keys, key)
-            if ipos == 0:
-                return super().__getitem__(self._keys[0])
-            elif ipos == len(self._keys):
-                return super().__getitem__(self._keys[-1])
-            lkey, rkey = self._keys[ipos - 1 : ipos + 1]
-            if np.abs(key - lkey) <= np.abs(key - rkey):  # pyre-ignore [58]
-                return super().__getitem__(lkey)
-            else:
-                return super().__getitem__(rkey)
+HSS_ERROR_MSG_TEMPLATE = (
+    "{name} would encode {p}, which is a hierarchical parameter. This is problematic "
+    "as this would lead to losing information about the structure of the search space. "
+    "If you do not want to leverage the hierarchical structure, use `Cast` transform "
+    "with `flatten_hss=True` (default). Alternatively, you can use a different set of "
+    "transforms to retain the hierarchical structure."
+)
 
 
 def match_ci_width(

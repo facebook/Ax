@@ -12,8 +12,8 @@ from collections.abc import Iterable
 import numpy as np
 from ax.adapter.adapter_utils import observed_hypervolume, predicted_hypervolume
 from ax.adapter.torch import TorchAdapter
+from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.map_data import MAP_KEY, MapData
 from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -387,21 +387,24 @@ class BestPointMixin(ABC):
         objective = optimization_config.objective.metric.name
         minimize = optimization_config.objective.minimize
         map_data = experiment.lookup_data()
-        if not isinstance(map_data, MapData):
-            raise ValueError("`get_trace_by_progression` requires MapData.")
-        map_df = map_data.map_df
+        if not map_data.has_step_column:
+            raise ValueError(
+                "`get_trace_by_progression` requires Data to have a "
+                f"'{MAP_KEY}' column."
+            )
+        full_df = map_data.full_df
 
-        map_df = map_df[map_df["metric_name"] == objective]
-        map_df = map_df.sort_values(by=["trial_index", MAP_KEY])
+        full_df = full_df[full_df["metric_name"] == objective]
+        full_df = full_df.sort_values(by=["trial_index", MAP_KEY])
         df = (
-            map_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
+            full_df.drop_duplicates(Data.DEDUPLICATE_BY_COLUMNS, keep="last")
             if final_progression_only
-            else map_df
+            else full_df
         )
 
         # compute cumulative steps
-        prev_steps_df = map_df.drop_duplicates(
-            MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
+        prev_steps_df = full_df.drop_duplicates(
+            Data.DEDUPLICATE_BY_COLUMNS, keep="last"
         )[["trial_index", MAP_KEY]].copy()
 
         # shift the cumsum by one so that we count cumulative steps not including

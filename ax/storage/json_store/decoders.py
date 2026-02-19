@@ -26,6 +26,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
+    PARAMETER_PYTHON_TYPE_MAP,
     ParameterType,
     TParamValue,
 )
@@ -33,6 +34,9 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import TCandidateMetadata
+from ax.early_stopping.strategies.base import REMOVED_EARLY_STOPPING_STRATEGY_KWARGS
+from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrategy
+from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.exceptions.storage import JSONDecodeError
 from ax.storage.botorch_modular_registry import (
     CLASS_TO_REVERSE_REGISTRY,
@@ -90,6 +94,27 @@ def string_to_parameter_value(s: str, parameter_type: ParameterType) -> TParamVa
         return s
 
 
+def _cast_parameter_value(
+    value: TParamValue, parameter_type: ParameterType
+) -> TParamValue:
+    """Cast a parameter value to the appropriate Python type based on parameter_type.
+
+    This is necessary because JSON may deserialize values as different types
+    (e.g., ints as floats).
+
+    Args:
+        value: The value to cast.
+        parameter_type: The ParameterType to cast to.
+
+    Returns:
+        The value cast to the appropriate Python type.
+    """
+    if value is None:
+        return None
+    python_type = PARAMETER_PYTHON_TYPE_MAP[parameter_type]
+    return python_type(value)
+
+
 def batch_trial_from_json(
     experiment: core.experiment.Experiment,
     index: int,
@@ -99,7 +124,6 @@ def batch_trial_from_json(
     time_completed: datetime | None,
     time_staged: datetime | None,
     time_run_started: datetime | None,
-    abandoned_reason: str | None,
     run_metadata: dict[str, Any] | None,
     generator_runs: list[GeneratorRun],
     runner: Runner | None,
@@ -109,9 +133,10 @@ def batch_trial_from_json(
     status_quo: Arm | None,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
+    status_reason: str | None = None,
+    abandoned_reason: str | None = None,
     failed_reason: str | None = None,
     ttl_seconds: int | None = None,
-    generation_step_index: int | None = None,
     properties: dict[str, Any] | None = None,
     stop_metadata: dict[str, Any] | None = None,
     **kwargs: Any,
@@ -138,15 +163,14 @@ def batch_trial_from_json(
     batch._time_completed = time_completed
     batch._time_staged = time_staged
     batch._time_run_started = time_run_started
-    batch._abandoned_reason = abandoned_reason
-    batch._failed_reason = failed_reason
+    # Backward compatibility: use status_reason if available, otherwise fall back
+    # to abandoned_reason or failed_reason
+    batch._status_reason = status_reason or abandoned_reason or failed_reason
     batch._run_metadata = run_metadata or {}
     batch._stop_metadata = stop_metadata or {}
     batch._generator_runs = generator_runs
-    batch._runner = runner
     batch._abandoned_arms_metadata = abandoned_arms_metadata
     batch._num_arms_created = num_arms_created
-    batch._generation_step_index = generation_step_index
     batch._properties = properties or {}
     batch._refresh_arms_by_name()  # Trigger cache build
 
@@ -170,16 +194,16 @@ def trial_from_json(
     time_completed: datetime | None,
     time_staged: datetime | None,
     time_run_started: datetime | None,
-    abandoned_reason: str | None,
     run_metadata: dict[str, Any] | None,
     generator_run: GeneratorRun,
     runner: Runner | None,
     num_arms_created: int,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
+    status_reason: str | None = None,
+    abandoned_reason: str | None = None,
     failed_reason: str | None = None,
     ttl_seconds: int | None = None,
-    generation_step_index: int | None = None,
     properties: dict[str, Any] | None = None,
     stop_metadata: dict[str, Any] | None = None,
     **kwargs: Any,
@@ -203,13 +227,12 @@ def trial_from_json(
     trial._time_completed = time_completed
     trial._time_staged = time_staged
     trial._time_run_started = time_run_started
-    trial._abandoned_reason = abandoned_reason
-    trial._failed_reason = failed_reason
+    # Backward compatibility: use status_reason if available, otherwise fall back
+    # to abandoned_reason or failed_reason
+    trial._status_reason = status_reason or abandoned_reason or failed_reason
     trial._run_metadata = run_metadata or {}
     trial._stop_metadata = stop_metadata or {}
-    trial._runner = runner
     trial._num_arms_created = num_arms_created
-    trial._generation_step_index = generation_step_index
     trial._properties = properties or {}
     warn_on_kwargs(callable_with_kwargs=Trial, **kwargs)
     return trial
@@ -424,6 +447,7 @@ def choice_parameter_from_json(
     is_fidelity: bool = False,
     target_value: TParamValue = None,
     sort_values: bool | None = None,
+    log_scale: bool | None = None,
     dependents: dict[TParamValue, list[str]] | None = None,
 ) -> ChoiceParameter:
     # JSON converts dictionary keys to strings. We need to convert them back.
@@ -434,6 +458,21 @@ def choice_parameter_from_json(
             for key, value in dependents.items()
         }
 
+    # Backward compatibility: Override sort_values=False for numeric ordered parameters
+    # to prevent validation errors when loading old experiments.
+    if (
+        sort_values is False
+        and parameter_type.is_numeric
+        and (is_ordered or (is_ordered is None and len(values) == 2))
+    ):
+        logger.warning(
+            f"Parameter '{name}' is numeric ordered with sort_values=False. "
+            f"Overriding to sort_values=True for backward compatibility. "
+            f"This parameter was likely stored before the validation requiring "
+            f"sort_values=True for numeric ordered parameters was added."
+        )
+        sort_values = True
+
     return ChoiceParameter(
         name=name,
         parameter_type=parameter_type,
@@ -443,6 +482,7 @@ def choice_parameter_from_json(
         is_fidelity=is_fidelity,
         target_value=target_value,
         sort_values=sort_values,
+        log_scale=log_scale,
         dependents=dependents,
     )
 
@@ -493,3 +533,27 @@ def observation_features_from_json(
         end_time=end_time,
         metadata=metadata,
     )
+
+
+def percentile_early_stopping_strategy_from_json(
+    **kwargs: Any,
+) -> PercentileEarlyStoppingStrategy:
+    """Load PercentileEarlyStoppingStrategy from JSON.
+
+    Discards removed kwargs for backwards compatibility.
+    """
+    for key in REMOVED_EARLY_STOPPING_STRATEGY_KWARGS:
+        kwargs.pop(key, None)
+    return PercentileEarlyStoppingStrategy(**kwargs)
+
+
+def threshold_early_stopping_strategy_from_json(
+    **kwargs: Any,
+) -> ThresholdEarlyStoppingStrategy:
+    """Load ThresholdEarlyStoppingStrategy from JSON.
+
+    Discards removed kwargs for backwards compatibility.
+    """
+    for key in REMOVED_EARLY_STOPPING_STRATEGY_KWARGS:
+        kwargs.pop(key, None)
+    return ThresholdEarlyStoppingStrategy(**kwargs)

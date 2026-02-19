@@ -11,7 +11,6 @@ from collections.abc import Iterable, Mapping
 from logging import Logger
 
 import numpy as np
-
 import pandas as pd
 import torch
 from ax.adapter.adapter_utils import (
@@ -27,25 +26,29 @@ from ax.adapter.cross_validation import (
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.derelativize import Derelativize
+from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.plot.pareto_utils import get_tensor_converter_adapter
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from ax.utils.preference.preference_utils import get_preference_adapter
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
-from numpy import nan
 from numpy.typing import NDArray
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -161,6 +164,7 @@ def get_best_raw_objective_point_with_trial_index(
         df=in_design_df,
         optimization_config=optimization_config,
         use_cumulative_best=False,
+        experiment=experiment,
     )
 
     maximize = isinstance(optimization_config.objective, MultiObjective) or (
@@ -288,19 +292,43 @@ def get_best_parameters_from_model_predictions_with_trial_index(
         return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
     # Check to see if the adapter is worth using.
-    cv_results = cross_validate(model=adapter)
+    cv_results = cross_validate(adapter=adapter)
     diagnostics = compute_diagnostics(result=cv_results)
     assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
-    objective_name = optimization_config.objective.metric.name
-    # If model fit is bad use raw results
-    if objective_name in assess_model_fit_results.bad_fit_metrics_to_fisher_score:
-        logger.warning("Model fit is poor; falling back on raw data for best point.")
 
-        if not _is_all_noiseless(df=data.df, metric_name=objective_name):
+    # For ScalarizedObjective, check model fit for all component metrics
+    # For regular Objective, check model fit for the single objective metric
+    if isinstance(optimization_config.objective, ScalarizedObjective):
+        objective_metric_names = [
+            metric.name for metric in optimization_config.objective.metrics
+        ]
+    else:
+        objective_metric_names = [optimization_config.objective.metric.name]
+
+    # If model fit is bad for any objective metric, use raw results
+    bad_fit_objective_metrics = [
+        name
+        for name in objective_metric_names
+        if name in assess_model_fit_results.bad_fit_metrics_to_fisher_score
+    ]
+
+    if bad_fit_objective_metrics:
+        logger.warning(
+            f"Model fit is poor for objective metric(s) {bad_fit_objective_metrics}; "
+            "falling back on raw data for best point."
+        )
+
+        # Check if any of the objective metrics are noisy
+        noisy_metrics = [
+            name
+            for name in bad_fit_objective_metrics
+            if not _is_all_noiseless(df=data.df, metric_name=name)
+        ]
+        if noisy_metrics:
             logger.warning(
-                "Model fit is poor and data on objective metric "
-                + f"{objective_name} is noisy; interpret best points "
-                + "results carefully."
+                f"Model fit is poor and data on objective metric(s) "
+                f"{noisy_metrics} is noisy; interpret best points "
+                "results carefully."
             )
 
         return get_best_by_raw_objective_with_trial_index(
@@ -359,7 +387,7 @@ def get_best_by_raw_objective_with_trial_index(
             optimization_config=optimization_config,
             trial_indices=trial_indices,
         )
-    except ValueError as err:
+    except (ValueError, UserInputError, DataRequiredError) as err:
         logger.error(
             "Encountered error while trying to identify the best point: "
             f"'{err}'. Returning None."
@@ -617,7 +645,7 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
     name_mask = df["metric_name"] == metric_name
     df_metric_arms_sems = df[name_mask]["sem"]
 
-    return ((df_metric_arms_sems == 0) | df_metric_arms_sems == nan).all()
+    return ((df_metric_arms_sems == 0) | df_metric_arms_sems.isna()).all()
 
 
 def get_values_of_outcomes_single_or_scalarized_objective(
@@ -775,13 +803,98 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
 
     objective_thresholds = torch.tensor(objective_thresholds, dtype=torch.double)
 
-    metrics_tensor = torch.from_numpy(df_wide[objective.metric_names].to_numpy())
+    metrics_tensor = torch.from_numpy(df_wide[objective.metric_names].to_numpy().copy())
     return _compute_hv_trace(
         ref_point=objective_thresholds,
         metrics_tensor=metrics_tensor,
         is_feasible_array=df_wide["feasible"].to_numpy(),
         use_cumulative_hv=use_cumulative_hv,
     )
+
+
+def _compute_utility_from_preference_model(
+    df_wide: pd.DataFrame,
+    experiment: Experiment,
+    optimization_config: PreferenceOptimizationConfig,
+) -> NDArray:
+    """Compute utility predictions for each arm using the learned preference model.
+
+    This function accesses the PE_EXPERIMENT auxiliary experiment, fits a PairwiseGP
+    model to the preference data, and uses it to predict utility values for each
+    arm's metric values.
+
+    Args:
+        df_wide: DataFrame with columns for trial_index, arm_name, feasible,
+            and metric values.
+        experiment: The main experiment containing the PE_EXPERIMENT auxiliary.
+        optimization_config: PreferenceOptimizationConfig specifying the preference
+            profile to use.
+
+    Returns:
+        Array of utility predictions, one for each row in df_wide. Infeasible
+        arms will have utility of negative infinity.
+
+    Raises:
+        DataRequiredError: If PE_EXPERIMENT has no data.
+        UserInputError: If PE_EXPERIMENT is not found for the specified profile.
+    """
+    pref_profile_name = optimization_config.preference_profile_name
+
+    # Find the PE_EXPERIMENT auxiliary experiment
+    pe_aux_exp = experiment.find_auxiliary_experiment_by_name(
+        purpose=AuxiliaryExperimentPurpose.PE_EXPERIMENT,
+        auxiliary_experiment_name=pref_profile_name,
+        raise_if_not_found=False,
+    )
+
+    if pe_aux_exp is None:
+        raise UserInputError(
+            f"Preference profile '{pref_profile_name}' not found in experiment "
+            f"'{experiment.name}'. Cannot compute utility-based trace without "
+            "a valid preference profile."
+        )
+
+    pe_experiment = pe_aux_exp.experiment
+    pe_data = pe_experiment.lookup_data()
+
+    if pe_data.df.empty:
+        raise DataRequiredError(
+            f"No preference data found in preference profile '{pref_profile_name}'. "
+            "Update the preference profile or play the preference game before "
+            "computing utility-based trace."
+        )
+
+    # Create adapter with fitted preference model
+    adapter = get_preference_adapter(experiment=pe_experiment, data=pe_data)
+
+    # Create ObservationFeatures for each arm with metric values as parameters
+    observation_features = []
+    for _, row in df_wide.iterrows():
+        # Create parameters dict with metric names as keys and their values
+        parameters = {
+            metric_name: row[metric_name]
+            for metric_name in optimization_config.objective.metric_names
+        }
+        obs_feat = ObservationFeatures(parameters=parameters)
+        observation_features.append(obs_feat)
+
+    # Predict utilities using the fitted preference model
+    f_dict, _ = adapter.predict(
+        observation_features=observation_features,
+        use_posterior_predictive=False,
+    )
+
+    # Extract utility metric predictions
+    # PE_EXPERIMENT always has a single metric: "pairwise_pref_query"
+    utility_metric_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+    utilities = np.array(f_dict[utility_metric_name])
+
+    # Set infeasible arms to -inf (higher utility is better, so infeasible arms
+    # should have the worst possible utility)
+    infeasible_idx = np.where(~df_wide["feasible"])[0]
+    utilities[infeasible_idx] = float("-inf")
+
+    return utilities
 
 
 def _prepare_data_for_trace(
@@ -843,6 +956,7 @@ def get_trace_by_arm_pull_from_data(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
     use_cumulative_best: bool = True,
+    experiment: Experiment | None = None,
 ) -> pd.DataFrame:
     """
     Get a trace of the objective value or hypervolume of outcomes.
@@ -851,6 +965,10 @@ def get_trace_by_arm_pull_from_data(
     function returns a single value for each arm pull, even if there are
     multiple arms per trial or if an arm is repeated in multiple trials.
 
+    For BOPE experiments, this function computes
+    utility predictions using the learned preference model from the PE_EXPERIMENT
+    auxiliary experiment.
+
     Args:
         df: Data in the format returned by ``Data.df``, with a separate row for
             each trial index-arm name-metric.
@@ -858,10 +976,13 @@ def get_trace_by_arm_pull_from_data(
             not be in relative form.
         use_cumulative_best: If True, the trace will be the cumulative best
             objective. Otherwise, the trace will be the value of each point.
+        experiment: Optional experiment object. Required for preference learning
+            experiments to access the PE_EXPERIMENT auxiliary experiment.
 
     Return:
         A DataFrame containing columns 'trial_index', 'arm_name', and "value",
-        where "value" is the value of the outcomes attained.
+        where "value" is the value of the outcomes attained (or predicted utility
+        for preference learning experiments).
     """
     if any(oc.relative for oc in optimization_config.all_constraints):
         raise ValueError(
@@ -875,6 +996,21 @@ def get_trace_by_arm_pull_from_data(
     df_wide = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
     if len(df_wide) == 0:
         return empty_result
+
+    # Handle preference learning experiments
+    if experiment is not None and isinstance(
+        optimization_config, PreferenceOptimizationConfig
+    ):
+        logger.info(
+            f"Computing utility-based trace for preference learning experiment "
+            f"using PE_EXPERIMENT '{optimization_config.preference_profile_name}'."
+        )
+        df_wide["value"] = _compute_utility_from_preference_model(
+            df_wide=df_wide,
+            experiment=experiment,
+            optimization_config=optimization_config,
+        )
+        return df_wide[["trial_index", "arm_name", "value"]]
 
     # MOO and *not* ScalarizedObjective
     if isinstance(optimization_config.objective, MultiObjective):
@@ -901,6 +1037,7 @@ def get_trace_by_arm_pull_from_data(
 def get_trace(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None = None,
+    include_status_quo: bool = False,
 ) -> list[float]:
     """Compute the optimization trace at each iteration.
 
@@ -908,6 +1045,11 @@ def get_trace(
     at each iteration. For multi-objective, the performance is computed as
     the hypervolume. For single objective, the performance is computed as
     the best observed objective value.
+
+    For BOPE experiments, the utility of each trial is computed using
+    the learned preference model from the PE_EXPERIMENT auxiliary experiment. The
+    preference model is used to predict the utility of each trial's metric values,
+    and the trace represents the best predicted utility over time.
 
     Infeasible points (that violate constraints) do not contribute to
     improvements in the optimization trace. If the first trial(s) are infeasible,
@@ -920,6 +1062,9 @@ def get_trace(
         experiment: The experiment to get the trace for.
         optimization_config: Optimization config to use in place of the one
             stored on the experiment.
+        include_status_quo: If True, include status quo in the trace computation.
+            If False (default), exclude status quo for compatibility with legacy
+            behavior.
 
     Returns:
         A list of performance values at each iteration.
@@ -930,6 +1075,7 @@ def get_trace(
     df = experiment.lookup_data().df
     if len(df) == 0:
         return []
+
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
     for cons in optimization_config.outcome_constraints:
@@ -945,23 +1091,27 @@ def get_trace(
     )
     idx = df["metric_name"].isin(metric_names) & trial_is_completed
     # Don't include status quo (for compatibility with legacy behavior)
-    if (status_quo := experiment.status_quo) is not None:
+    if not include_status_quo and (status_quo := experiment.status_quo) is not None:
         idx &= df["arm_name"] != status_quo.name
     df = df.loc[idx, :]
     if len(df) == 0:
         return []
 
-    # Derelativize the optimization config.
-    optimization_config = derelativize_opt_config(
-        optimization_config=optimization_config,
-        experiment=experiment,
-    )
+    # Derelativize the optimization config only if needed (i.e., if there are
+    # relative constraints). This avoids unnecessary data pivoting that can
+    # fail with duplicate indices.
+    if any(oc.relative for oc in optimization_config.all_constraints):
+        optimization_config = derelativize_opt_config(
+            optimization_config=optimization_config,
+            experiment=experiment,
+        )
 
     # Get a value for each trial_index + arm
     value_by_arm_pull = get_trace_by_arm_pull_from_data(
         df=df,
         optimization_config=optimization_config,
         use_cumulative_best=True,
+        experiment=experiment,
     )
     # Aggregate to trial level
     objective = optimization_config.objective

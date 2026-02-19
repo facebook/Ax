@@ -5,18 +5,18 @@
 
 # pyre-strict
 
+import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from math import sqrt
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
-
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
+from ax.benchmark.noise import GaussianNoise, Noise
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
@@ -25,7 +25,6 @@ from ax.exceptions.core import UnsupportedError
 from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
-from pyre_extensions import assert_is_instance
 
 
 def _dict_of_arrays_to_df(
@@ -37,10 +36,11 @@ def _dict_of_arrays_to_df(
     Return a DataFrame with columns
     ["metric_name", "arm_name", "Y_true", "step", and "virtual runtime"].
 
-    When the trial produces MapData, the "step" column is 0, 1, 2, ...., and
-    "virtual runtime" contains cumulative time for each element of the
-    progression. When the trial does not produce MapData, the "step" column is
-    just 0, and "virtual runtime" is the total runtime of the trial.
+    When the trial produces Data with a "step" column, the returned DataFrame
+    has a "step" column that is 0, 1, 2, ...., and "virtual runtime" contains
+    cumulative time for each element of the progression. When the trial produces
+    Data without a "step" column, the returned DataFrame has a "step" column
+    that contains just 0, "virtual runtime" is the total runtime of the trial.
 
     Args:
         Y_true_by_arm: A mapping from arm name to a 2D arrays each with shape
@@ -70,54 +70,6 @@ def _dict_of_arrays_to_df(
     return df
 
 
-def _add_noise(
-    df: pd.DataFrame,
-    noise_stds: Mapping[str, float],
-    arm_weights: Mapping[str, float] | None,
-) -> pd.DataFrame:
-    """
-    For each ``Y_true`` in ``df``, with metric name ``metric_name`` and
-    arm name ``arm_name``, add noise with standard deviation
-    ``noise_stds[metric_name] / sqrt_nlzd_arm_weights[arm_name]``,
-    where ``sqrt_nlzd_arm_weights = sqrt(arm_weights[arm_name] /
-    sum(arm_weights.values())])``.
-
-    Args:
-        df: A DataFrame with columns including
-            ["metric_name", "arm_name", "Y_true"].
-        noise_stds: A mapping from metric name to what the standard
-            deviation would be if one arm received the entire
-            sample budget.
-        arm_weights: Either ``None`` if there is only one ``Arm``, or a
-            mapping from ``Arm`` name to the arm's allocation. Using arm
-            weights will increase noise levels, since each ``Arm`` is
-            assumed to receive a fraction of the total sample budget.
-
-    Returns:
-        The original ``df``, now with additional columns ["mean", "sem"].
-    """
-    noiseless = all(v == 0 for v in noise_stds.values())
-    if not noiseless:
-        noise_std_ser = df["metric_name"].map(noise_stds)
-        if arm_weights is not None:
-            nlzd_arm_weights_sqrt = {
-                arm_name: sqrt(weight / sum(arm_weights.values()))
-                for arm_name, weight in arm_weights.items()
-            }
-            arm_weights_ser = df["arm_name"].map(nlzd_arm_weights_sqrt)
-            df["sem"] = noise_std_ser / arm_weights_ser
-
-        else:
-            df["sem"] = noise_std_ser
-
-        df["mean"] = df["Y_true"] + np.random.normal(loc=0, scale=df["sem"])
-
-    else:
-        df["sem"] = 0.0
-        df["mean"] = df["Y_true"]
-    return df
-
-
 def get_total_runtime(
     trial: BaseTrial,
     step_runtime_function: TBenchmarkStepRuntimeFunction | None,
@@ -140,7 +92,7 @@ class BenchmarkRunner(Runner):
     A Runner that produces both observed and ground-truth values.
 
     Observed values equal ground-truth values plus noise, with the noise added
-    according to the standard deviations returned by `get_noise_stds()`.
+    according to the `Noise` object provided.
 
     This runner does require that every benchmark has a ground truth, which
     won't necessarily be true for real-world problems. Such problems fall into
@@ -162,8 +114,10 @@ class BenchmarkRunner(Runner):
     Args:
         test_function: A ``BenchmarkTestFunction`` from which to generate
             deterministic data before adding noise.
-        noise_std: The standard deviation of the noise added to the data. Can be
-            a list or dict to be per-metric.
+        noise: A ``Noise`` object that determines how noise is added to the
+            ground-truth evaluations. Defaults to noiseless
+            (``GaussianNoise(noise_std=0.0)``).
+        noise_std: Deprecated. Use ``noise`` instead.
         step_runtime_function: A function that takes in parameters
             (in ``TParameterization`` format) and returns the runtime of a step.
         max_concurrency: The maximum number of trials that can be running at a
@@ -176,13 +130,31 @@ class BenchmarkRunner(Runner):
     """
 
     test_function: BenchmarkTestFunction
-    noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
+    noise: Noise = field(default_factory=GaussianNoise)
+    noise_std: float | Mapping[str, float] | None = None
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     max_concurrency: int = 1
     force_use_simulated_backend: bool = False
     simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)
 
     def __post_init__(self) -> None:
+        # Handle backward compatibility for noise_std parameter
+        if self.noise_std is not None:
+            warnings.warn(
+                "noise_std is deprecated. Use noise=GaussianNoise(noise_std=...) "
+                "instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Check if noise was also explicitly set (not default)
+            if not isinstance(self.noise, GaussianNoise) or self.noise.noise_std != 0.0:
+                raise ValueError(
+                    "Cannot specify both 'noise_std' and a non-default 'noise'. "
+                    "Use only 'noise=GaussianNoise(noise_std=...)' instead."
+                )
+            # Convert noise_std to GaussianNoise (use 0 if None)
+            self.noise = GaussianNoise(noise_std=self.noise_std or 0)
+
         use_simulated_backend = (
             (self.max_concurrency > 1)
             or (self.step_runtime_function is not None)
@@ -227,22 +199,6 @@ class BenchmarkRunner(Runner):
             return result[:, None]
         return result
 
-    def get_noise_stds(self) -> dict[str, float]:
-        noise_std = self.noise_std
-        if isinstance(noise_std, float | int):
-            return {name: float(noise_std) for name in self.outcome_names}
-        elif isinstance(noise_std, dict):
-            if not set(noise_std.keys()) == set(self.outcome_names):
-                raise ValueError(
-                    "Noise std must have keys equal to outcome names if given as "
-                    "a dict."
-                )
-            return noise_std
-        # list of floats
-        return dict(
-            zip(self.outcome_names, assert_is_instance(noise_std, list), strict=True)
-        )
-
     def run(self, trial: BaseTrial) -> dict[str, BenchmarkTrialMetadata]:
         """Run the trial by evaluating its parameterization(s).
 
@@ -281,9 +237,12 @@ class BenchmarkRunner(Runner):
             if isinstance(trial, BatchTrial)
             else None
         )
-
-        df = _add_noise(
-            df=df, noise_stds=self.get_noise_stds(), arm_weights=arm_weights
+        # Use the Noise object to add noise to the ground-truth evaluations
+        df = self.noise.add_noise(
+            df=df,
+            trial=trial,
+            outcome_names=self.outcome_names,
+            arm_weights=arm_weights,
         )
         df["trial_index"] = trial.index
         df.drop(columns=["Y_true"], inplace=True)

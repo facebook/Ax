@@ -6,13 +6,17 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from collections import defaultdict
 from logging import Logger
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.core.metric import Metric
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -44,7 +48,7 @@ class StandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["base_adapter.Adapter"] = None,
+        adapter: base_adapter.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         super().__init__(
@@ -74,53 +78,72 @@ class StandardizeY(Transform):
             obsd.covariance /= np.dot(stds[:, None], stds[:, None].transpose())
         return observation_data
 
+    def _check_metrics_available(self, metrics: list[Metric], context: str) -> set[str]:
+        """Check that all metrics are available and return the set of metrics."""
+        available_metrics = set(self.Ymean).intersection(set(self.Ystd))
+        required_metrics = {metric.signature for metric in metrics}
+        if len(required_metrics - available_metrics) > 0:
+            raise DataRequiredError(
+                f"`StandardizeY` transform requires {context} metric(s) "
+                f"{required_metrics} but received only {available_metrics}."
+            )
+        return available_metrics
+
+    def _transform_scalarized_weights(
+        self, metrics: list[Metric], weights: list[float]
+    ) -> list[float]:
+        """Transform weights for scalarized objectives/constraints.
+
+        When standardizing yi to zi = (yi - μi) / σi, the scalarized term
+        Σ(wi * yi) transforms to Σ(wi * σi * zi) + Σ(wi * μi).
+        This method returns the new weights: new_wi = wi * σi.
+
+        Args:
+            metrics: List of metrics in the scalarized term.
+            weights: Original weights for each metric.
+
+        Returns:
+            Transformed weights scaled by standard deviations.
+        """
+        return [
+            weights[i] * float(self.Ystd[metric.signature])
+            for i, metric in enumerate(metrics)
+        ]
+
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        adapter: Optional["base_adapter.Adapter"] = None,
+        adapter: base_adapter.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
+        # Handle ScalarizedObjective
+        if isinstance(optimization_config.objective, ScalarizedObjective):
+            objective = optimization_config.objective
+            self._check_metrics_available(objective.metrics, context="objective")
+            objective.weights = self._transform_scalarized_weights(
+                objective.metrics, objective.weights
+            )
+
         for c in optimization_config.all_constraints:
             if c.relative:
                 raise ValueError(
                     f"StandardizeY transform does not support relative constraint {c}"
                 )
-            # For required data checks, metrics must be available in Ymean and Ystd.
-            available_metrics = set(self.Ymean).intersection(set(self.Ystd))
             if isinstance(c, ScalarizedOutcomeConstraint):
-                # check metrics are present.
-                constraint_metrics = {metric.signature for metric in c.metrics}
-                if len(constraint_metrics - available_metrics) > 0:
-                    raise DataRequiredError(
-                        "`StandardizeY` transform requires constraint metric(s) "
-                        f"{constraint_metrics} but received only {available_metrics}."
-                    )
+                self._check_metrics_available(c.metrics, context="constraint")
 
-                # transform \sum (wi * yi) <= C to
-                # \sum (wi * si * zi) <= C - \sum (wi * mu_i) that zi = (yi - mu_i) / si
-
-                # update bound C to new c = C.bound - sum_i (wi * mu_i)
+                # Transform Σ(wi * yi) <= C to Σ(wi * σi * zi) <= C - Σ(wi * μi)
+                # where zi = (yi - μi) / σi
                 agg_mean = np.sum(
                     [
-                        c.weights[i] * self.Ymean[metric.signature]
+                        c.weights[i] * float(self.Ymean[metric.signature])
                         for i, metric in enumerate(c.metrics)
                     ]
                 )
                 c.bound = float(c.bound - agg_mean)
-
-                # update the weights in the scalarized constraint
-                # new wi = wi * si
-                new_weight = [
-                    c.weights[i] * self.Ystd[metric.signature]
-                    for i, metric in enumerate(c.metrics)
-                ]
-                c.weights = new_weight
+                c.weights = self._transform_scalarized_weights(c.metrics, c.weights)
             else:
-                if c.metric.signature not in available_metrics:
-                    raise DataRequiredError(
-                        "`StandardizeY` transform requires constraint metric(s) "
-                        f"{c.metric.signature} but got {available_metrics}"
-                    )
+                self._check_metrics_available([c.metric], context="constraint")
                 c.bound = float(
                     (c.bound - self.Ymean[c.metric.signature])
                     / self.Ystd[c.metric.signature]

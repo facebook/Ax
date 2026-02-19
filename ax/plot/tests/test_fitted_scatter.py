@@ -33,7 +33,7 @@ class FittedScatterTest(TestCase):
         model = Generators.BOTORCH_MODULAR(
             # Adapter kwargs
             experiment=exp,
-            data=Data.from_multiple_data([data, Data(df)]),
+            data=Data.from_multiple_data([data, Data(df=df)]),
         )
         # Assert that each type of plot can be constructed successfully
         scalarized_metric_config = [

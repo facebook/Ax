@@ -6,10 +6,11 @@
 # pyre-strict
 
 import pandas as pd
-from ax.analysis.analysis_card import AnalysisCardGroup, ErrorAnalysisCard
+from ax.adapter.registry import Generators
 from ax.analysis.results import ArmEffectsPair, ResultsAnalysis
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.core.analysis_card import AnalysisCardGroup, ErrorAnalysisCard
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -34,6 +35,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_scalarized_objective_and_outcome_constraint,
     get_offline_experiments,
     get_online_experiments,
+    get_test_map_data_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
@@ -108,11 +110,23 @@ class TestResultsAnalysis(TestCase):
         self.assertEqual(card_group.title, "Results Analysis")
         self.assertGreater(len(card_group.children), 0)
 
-        # Assert: Should have arm effects pair
+        # Assert: Should have utility progression
         child_names = [child.name for child in card_group.children]
+        self.assertTrue(
+            any("UtilityProgression" in name for name in child_names),
+            "Should have utility progression in children",
+        )
+
+        # Assert: Should have arm effects pair
         self.assertTrue(
             any("ArmEffects" in name for name in child_names),
             "Should have arm effects in children",
+        )
+
+        # Assert: Should have best trials
+        self.assertTrue(
+            any("BestTrials" in name for name in child_names),
+            "Should have best trials in children",
         )
 
         # Assert: No error cards should be present
@@ -151,8 +165,14 @@ class TestResultsAnalysis(TestCase):
             generation_strategy=generation_strategy,
         )
 
-        # Assert: Should have objective scatter plots for multiple objectives
+        # Assert: Should have utility progression
         child_names = [child.name for child in card_group.children]
+        self.assertTrue(
+            any("UtilityProgression" in name for name in child_names),
+            "Should have utility progression in children",
+        )
+
+        # Assert: Should have objective scatter plots for multiple objectives
         self.assertTrue(
             any("Objective Scatter" in name for name in child_names),
             "Should have objective scatter plots for multiple objectives",
@@ -197,8 +217,14 @@ class TestResultsAnalysis(TestCase):
             generation_strategy=generation_strategy,
         )
 
-        # Assert: Should have constraint scatter plots
+        # Assert: Should have utility progression
         child_names = [child.name for child in card_group.children]
+        self.assertTrue(
+            any("UtilityProgression" in name for name in child_names),
+            "Should have utility progression in children",
+        )
+
+        # Assert: Should have constraint scatter plots
         self.assertTrue(
             any("Constraint Scatter" in name for name in child_names),
             "Should have constraint scatter plots when constraints are present",
@@ -382,7 +408,6 @@ class TestResultsAnalysis(TestCase):
         trial.mark_completed()
 
         # Create bandit generation strategy
-        from ax.adapter.registry import Generators
 
         factorial_node = GenerationNode(
             name="FACTORIAL",
@@ -444,6 +469,14 @@ class TestResultsAnalysis(TestCase):
             self.assertIsNotNone(card_group)
             self.assertGreater(len(card_group.children), 0)
 
+            # Assert: UtilityProgressionAnalysis should NOT be computed
+            child_names = [child.name for child in card_group.flatten()]
+            self.assertFalse(
+                any("UtilityProgression" in name for name in child_names),
+                "UtilityProgressionAnalysis should not be computed for online "
+                "experiments",
+            )
+
     @mock_botorch_optimize
     def test_offline_experiments(self) -> None:
         # Test ResultsAnalysis can be computed for a variety of experiments which
@@ -466,6 +499,40 @@ class TestResultsAnalysis(TestCase):
             # Assert: Should contain expected analysis types
             self.assertIsNotNone(card_group)
             self.assertGreater(len(card_group.children), 0)
+
+    @mock_botorch_optimize
+    def test_compute_with_map_data_includes_progression_plots(self) -> None:
+        # Setup: Create experiment with data that has a "step" column and
+        # MapMetrics
+        experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=2, num_complete=2
+        )
+        generation_strategy = get_default_generation_strategy_at_MBM_node(
+            experiment=experiment
+        )
+
+        # Execute: Compute ResultsAnalysis
+        card_group = ResultsAnalysis().compute(
+            experiment=experiment,
+            generation_strategy=generation_strategy,
+        )
+
+        # Assert: ProgressionAnalysis group exists with children
+        progression_group = None
+        for child in card_group.children:
+            if child.name == "ProgressionAnalysis":
+                progression_group = child
+                break
+
+        self.assertIsNotNone(
+            progression_group,
+            "ProgressionAnalysis group should be present for MapMetric experiments",
+        )
+        self.assertGreater(
+            len(assert_is_instance(progression_group, AnalysisCardGroup).children),
+            0,
+            "ProgressionAnalysis group should have at least one progression plot",
+        )
 
 
 class TestArmEffectsPair(TestCase):

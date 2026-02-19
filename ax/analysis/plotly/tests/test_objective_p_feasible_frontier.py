@@ -9,7 +9,6 @@ import json
 
 import torch
 from ax.adapter.registry import Generators
-
 from ax.analysis.plotly.objective_p_feasible_frontier import (
     ObjectivePFeasibleFrontierPlot,
 )
@@ -20,6 +19,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -46,6 +46,85 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         oc = none_throws(self.experiment.optimization_config).outcome_constraints[0]
         oc.bound = 10.0
         oc.op = ComparisonOp.LEQ
+
+    def test_trial_statuses_behavior(self) -> None:
+        # When neither trial_statuses nor trial_index is provided,
+        # should use default statuses (excluding ABANDONED, STALE, and FAILED)
+        analysis = ObjectivePFeasibleFrontierPlot()
+        self.assertEqual(
+            set(none_throws(analysis.trial_statuses)),
+            DEFAULT_ANALYSIS_STATUSES,
+        )
+
+        # When trial_statuses is explicitly provided, it should be used
+        explicit_statuses = [TrialStatus.COMPLETED, TrialStatus.RUNNING]
+        analysis = ObjectivePFeasibleFrontierPlot(trial_statuses=explicit_statuses)
+        self.assertEqual(analysis.trial_statuses, explicit_statuses)
+
+        # When trial_index is provided (and trial_statuses is None),
+        # trial_statuses should be None to allow filtering by trial_index
+        analysis = ObjectivePFeasibleFrontierPlot(trial_index=0)
+        self.assertIsNone(analysis.trial_statuses)
+
+    @skip_if_import_error
+    @mock_botorch_optimize
+    def test_generated_arms_stored_on_object(self) -> None:
+        # import pymoo here to raise an import error if pymoo is not installed.
+        import pymoo  # noqa: F401
+
+        analysis = ObjectivePFeasibleFrontierPlot(num_points_to_generate=5)
+        # Verify additional_arms is None before compute
+        self.assertEqual(analysis.additional_arms, [])
+
+        adapter = Generators.BOTORCH_MODULAR(experiment=self.experiment)
+        analysis.compute(experiment=self.experiment, adapter=adapter)
+
+        # Verify generated arms are stored on the object after compute
+        self.assertIsNotNone(analysis.additional_arms)
+        self.assertEqual(len(analysis.additional_arms), 5)
+        for i, arm in enumerate(analysis.additional_arms):
+            self.assertEqual(arm.name, f"frontier_{i}")
+
+    @skip_if_import_error
+    @mock_botorch_optimize
+    def test_trial_statuses_used_in_compute(self) -> None:
+        # import pymoo here to raise an import error if pymoo is not installed.
+        import pymoo  # noqa: F401
+
+        # Add a second trial with different status
+        self.experiment.new_batch_trial(
+            generator_run=Generators.SOBOL(experiment=self.experiment).gen(n=1)
+        ).mark_abandoned()
+
+        adapter = Generators.BOTORCH_MODULAR(experiment=self.experiment)
+
+        # Test with only COMPLETED trials
+        analysis_completed = ObjectivePFeasibleFrontierPlot(
+            trial_statuses=[TrialStatus.COMPLETED]
+        )
+        card_completed = analysis_completed.compute(
+            experiment=self.experiment, adapter=adapter
+        )
+        # Only arms from completed trials should be in df (plus generated frontier arms)
+        completed_trial_arms = {
+            arm.name
+            for trial in self.experiment.trials.values()
+            if trial.status == TrialStatus.COMPLETED
+            for arm in trial.arms
+        }
+        df_arm_names = set(card_completed.df["arm_name"])
+        # frontier arms are added
+        frontier_arms = {f"frontier_{i}" for i in range(10)}
+        self.assertTrue(completed_trial_arms.issubset(df_arm_names))
+        self.assertTrue(frontier_arms.issubset(df_arm_names))
+        # Abandoned trial arms should not be present
+        abandoned_trial_arms = {
+            arm.name
+            for trial in self.experiment.trials.values()
+            if trial.status == TrialStatus.ABANDONED
+            for arm in trial.arms
+        }
+        self.assertTrue(abandoned_trial_arms.isdisjoint(df_arm_names))
 
     @skip_if_import_error
     @mock_botorch_optimize

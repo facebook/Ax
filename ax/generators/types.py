@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Union
+from typing import Any
 
 from ax.core.optimization_config import OptimizationConfig
 from ax.generators.winsorization_config import WinsorizationConfig
@@ -15,17 +15,15 @@ from botorch.acquisition import AcquisitionFunction
 # pyre-ignore [33]: `TConfig` cannot alias to a type containing `Any`.
 TConfig = dict[
     str,
-    Union[
-        int,
-        float,
-        str,
-        AcquisitionFunction,
-        list[int],
-        list[str],
-        dict[int, Any],
-        dict[str, Any],
-        OptimizationConfig,
-        WinsorizationConfig,
-        None,
-    ],
+    int
+    | float
+    | str
+    | AcquisitionFunction
+    | list[int]
+    | list[str]
+    | dict[int, Any]
+    | dict[str, Any]
+    | OptimizationConfig
+    | WinsorizationConfig
+    | None,
 ]

@@ -11,19 +11,16 @@ from __future__ import annotations
 import traceback
 import warnings
 from collections.abc import Iterable, Mapping
-
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import reduce
 from logging import Logger
-
 from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data
-from ax.core.map_data import MapData
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-from ax.utils.common.result import Err, Ok, Result, UnwrapError
+from ax.utils.common.result import Err, Ok, Result
 from ax.utils.common.serialization import SerializationMixin
 
 if TYPE_CHECKING:
@@ -91,12 +88,12 @@ class Metric(SortableBase, SerializationMixin):
         properties: Properties specific to a particular metric.
     """
 
-    data_constructor: type[Data] = Data
     # The set of exception types stored in a ``MetchFetchE.exception`` that are
     # recoverable ``orchestrator._fetch_and_process_trials_data_results()``.
     # Exception may be a subclass of any of these types.  If you want your metric
     # to never fail the trial, set this to ``{Exception}`` in your metric subclass.
     recoverable_exceptions: set[type[Exception]] = set()
+    has_map_data: bool = False
 
     def __init__(
         self,
@@ -168,7 +165,7 @@ class Metric(SortableBase, SerializationMixin):
         return timedelta(0)
 
     @classmethod
-    def is_reconverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
+    def is_recoverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
         """Checks whether the given MetricFetchE is recoverable for this metric class
         in ``orchestrator._fetch_and_process_trials_data_results``.
         """
@@ -363,8 +360,8 @@ class Metric(SortableBase, SerializationMixin):
         # first identify trial + metric combos to fetch, then fetch them all
         # at once.
         for trial in completed_trials:
-            cached_trial_data = experiment.lookup_data_for_trial(
-                trial_index=trial.index,
+            cached_trial_data = experiment.lookup_data(
+                trial_indices={trial.index},
             )
 
             cached_metric_signatures = cached_trial_data.metric_signatures
@@ -413,10 +410,6 @@ class Metric(SortableBase, SerializationMixin):
             for trial_index, results_by_metric_signature in trials_results.items()
         }
         return results, contains_new_data
-
-    @property
-    def has_map_data(self) -> bool:
-        return issubclass(self.data_constructor, MapData)
 
     @property
     def _unique_id(self) -> str:
@@ -504,10 +497,6 @@ class Metric(SortableBase, SerializationMixin):
 
     @classmethod
     def _unwrap_experiment_data(cls, results: Mapping[int, MetricFetchResult]) -> Data:
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some MetricFetchResults contain Data not of type
-        # `cls.data_constructor`
-
         oks: list[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
@@ -516,7 +505,6 @@ class Metric(SortableBase, SerializationMixin):
                 result for result in results.values() if isinstance(result, Err)
             ]
 
-            # TODO[mpolson64] Raise all errors in a group via PEP 654
             exceptions = [
                 (
                     err.err.exception
@@ -526,16 +514,11 @@ class Metric(SortableBase, SerializationMixin):
                 for err in errs
             ]
 
-            raise UnwrapError(errs) from (
-                exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+            raise ExceptionGroup(
+                f"Failed to fetch data for {len(errs)} trial(s)", exceptions
             )
 
-        data = [ok.ok for ok in oks]
-        return (
-            cls.data_constructor.from_multiple_data(data=data)
-            if len(data) > 0
-            else cls.data_constructor()
-        )
+        return Data.from_multiple_data(data=[ok.ok for ok in oks])
 
     @classmethod
     def _unwrap_trial_data_multi(
@@ -544,10 +527,6 @@ class Metric(SortableBase, SerializationMixin):
         # TODO[mpolson64] Add critical_metric_names to other unwrap methods
         critical_metric_signatures: list[str] | None = None,
     ) -> Data:
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some MetricFetchResults contain Data not of type
-        # `cls.data_constructor`
-
         oks: list[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
@@ -581,7 +560,6 @@ class Metric(SortableBase, SerializationMixin):
             ]
 
             if len(critical_errs) > 0:
-                # TODO[mpolson64] Raise all errors in a group via PEP 654
                 exceptions = [
                     (
                         err.err.exception
@@ -590,27 +568,18 @@ class Metric(SortableBase, SerializationMixin):
                     )
                     for err in critical_errs
                 ]
-                raise UnwrapError(critical_errs) from (
-                    exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+                raise ExceptionGroup(
+                    f"Failed to fetch data for {len(critical_errs)} critical metric(s)",
+                    exceptions,
                 )
 
-        data = [ok.ok for ok in oks]
-
-        return (
-            cls.data_constructor.from_multiple_data(data=data)
-            if len(data) > 0
-            else cls.data_constructor()
-        )
+        return Data.from_multiple_data(data=[ok.ok for ok in oks])
 
     @classmethod
     def _unwrap_experiment_data_multi(
         cls,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
     ) -> Data:
-        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
-        # lose rows)if some MetricFetchResults contain Data not of type
-        # `cls.data_constructor`
-
         flattened = [
             result for sublist in results.values() for result in sublist.values()
         ]
@@ -622,7 +591,6 @@ class Metric(SortableBase, SerializationMixin):
                 result for result in flattened if isinstance(result, Err)
             ]
 
-            # TODO[mpolson64] Raise all errors in a group via PEP 654
             exceptions = [
                 (
                     err.err.exception
@@ -631,16 +599,11 @@ class Metric(SortableBase, SerializationMixin):
                 )
                 for err in errs
             ]
-            raise UnwrapError(errs) from (
-                exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+            raise ExceptionGroup(
+                f"Failed to fetch data for {len(errs)} metric(s)", exceptions
             )
 
-        data = [ok.ok for ok in oks]
-        return (
-            cls.data_constructor.from_multiple_data(data=data)
-            if len(data) > 0
-            else cls.data_constructor()
-        )
+        return Data.from_multiple_data(data=[ok.ok for ok in oks])
 
     @classmethod
     def _wrap_experiment_data(cls, data: Data) -> dict[int, MetricFetchResult]:

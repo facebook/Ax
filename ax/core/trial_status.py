@@ -173,3 +173,9 @@ STALE_ABANDONED_CANDIDATE_STATUSES: list[TrialStatus] = [
     TrialStatus.STALE,
     TrialStatus.CANDIDATE,
 ]
+
+DEFAULT_ANALYSIS_STATUSES: set[TrialStatus] = set(TrialStatus) - {
+    TrialStatus.ABANDONED,
+    TrialStatus.STALE,
+    TrialStatus.FAILED,
+}

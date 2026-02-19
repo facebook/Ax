@@ -11,7 +11,6 @@ from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
-
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -28,7 +27,14 @@ class TestSlicePlot(TestCase):
                     "name": "x",
                     "type": "range",
                     "bounds": [-1.0, 1.0],
-                }
+                },
+                {
+                    "name": "z",
+                    "type": "choice",
+                    "values": [1, 2, 3, 4],
+                    "value_type": "int",
+                    "is_ordered": True,
+                },
             ],
             objectives={"bar": ObjectiveProperties(minimize=True)},
         )
@@ -60,17 +66,10 @@ class TestSlicePlot(TestCase):
             "SlicePlot",
         )
         self.assertEqual(card.title, "bar vs. x")
-        self.assertEqual(
+        # Subtitle should mention "their best trial value"
+        self.assertIn(
+            "while keeping all other parameters fixed at their best trial value",
             card.subtitle,
-            (
-                "The slice plot provides a one-dimensional view of predicted "
-                "outcomes for bar as a function of a single parameter, "
-                "while keeping all other parameters fixed at their status_quo "
-                "value (or mean value if status_quo is unavailable). "
-                "This visualization helps in understanding the sensitivity and "
-                "impact of changes in the selected parameter on the predicted "
-                "metric outcomes."
-            ),
         )
         self.assertEqual(
             {*card.df.columns},
@@ -103,17 +102,10 @@ class TestSlicePlot(TestCase):
             "SlicePlot",
         )
         self.assertEqual(card.title, "bar vs. x")
-        self.assertEqual(
+        # Subtitle should mention "their best trial value"
+        self.assertIn(
+            "while keeping all other parameters fixed at their best trial value",
             card.subtitle,
-            (
-                "The slice plot provides a one-dimensional view of predicted "
-                "outcomes for bar as a function of a single parameter, "
-                "while keeping all other parameters fixed at their status_quo "
-                "value (or mean value if status_quo is unavailable). "
-                "This visualization helps in understanding the sensitivity and "
-                "impact of changes in the selected parameter on the predicted "
-                "metric outcomes."
-            ),
         )
         self.assertEqual(
             {*card.df.columns},
@@ -148,3 +140,22 @@ class TestSlicePlot(TestCase):
             trial_index,
             card.df["trial_index"].values,
         )
+
+    def test_compute_with_choice_parameter(self) -> None:
+        """Test slice plot with ordered ChoiceParameter."""
+        analysis = SlicePlot(parameter_name="z", metric_name="bar")
+        card = analysis.compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+
+        # Assert: Verify the slice plot was created successfully
+        self.assertEqual(card.name, "SlicePlot")
+        self.assertEqual(card.title, "bar vs. z")
+        self.assertIn("z", card.df.columns)
+        self.assertIn("bar_mean", card.df.columns)
+
+        # Assert: Verify that z only contains the discrete choice values
+        unique_z_values = card.df["z"].unique()
+        for value in unique_z_values:
+            self.assertIn(value, [1, 2, 3, 4])

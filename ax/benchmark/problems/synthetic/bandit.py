@@ -8,9 +8,9 @@
 from warnings import warn
 
 import numpy as np
-
 from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
 from ax.benchmark.benchmark_test_functions.synthetic import IdentityTestFunction
+from ax.benchmark.noise import GaussianNoise
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
 
@@ -44,7 +44,6 @@ def get_bandit_problem(num_choices: int = 30, num_trials: int = 3) -> BenchmarkP
         parameter_type=ParameterType.INT,
         values=list(range(num_choices)),
         is_ordered=False,
-        sort_values=False,
     )
     search_space = SearchSpace(parameters=[parameter])
     test_function = IdentityTestFunction()
@@ -73,6 +72,6 @@ def get_bandit_problem(num_choices: int = 30, num_trials: int = 3) -> BenchmarkP
         baseline_value=baseline_value,
         test_function=test_function,
         report_inference_value_as_trace=True,
-        noise_std=1.0,
+        noise=GaussianNoise(noise_std=1.0),
         status_quo_params={"x0": num_choices // 2},
     )

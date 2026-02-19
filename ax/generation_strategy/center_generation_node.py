@@ -6,19 +6,18 @@
 
 # pyre-strict
 
-import math
 from dataclasses import dataclass
+from typing import Any
 
 from ax.adapter.registry import Generators
+from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.parameter import (
-    ChoiceParameter,
-    DerivedParameter,
-    FixedParameter,
-    RangeParameter,
-)
-from ax.core.search_space import SearchSpace
+from ax.core.experiment_status import ExperimentStatus
+from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
+from ax.core.parameter import DerivedParameter
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
@@ -31,7 +30,12 @@ from pyre_extensions import none_throws
 class CenterGenerationNode(ExternalGenerationNode):
     next_node_name: str
 
-    def __init__(self, next_node_name: str) -> None:
+    def __init__(
+        self,
+        next_node_name: str,
+        suggested_experiment_status: ExperimentStatus
+        | None = ExperimentStatus.INITIALIZATION,
+    ) -> None:
         """A generation node that samples the center of the search space.
         This generation node is only used to generate the first point of the experiment.
         After one point is generated, it will transition to `next_node_name`.
@@ -39,9 +43,16 @@ class CenterGenerationNode(ExternalGenerationNode):
         If the generated point is a duplicate of an arm already attached to the
         experiment, this will fallback to Sobol through the use of ``GenerationNode``
         deduplication logic.
+
+        Args:
+            next_node_name: The name of the node to transition to after generating
+                the center point.
+            suggested_experiment_status: Optional suggested experiment status for this
+                node.
         """
         super().__init__(
             name="CenterOfSearchSpace",
+            suggested_experiment_status=suggested_experiment_status,
             transition_criteria=[
                 AutoTransitionAfterGen(
                     transition_to=next_node_name,
@@ -54,13 +65,94 @@ class CenterGenerationNode(ExternalGenerationNode):
         self.next_node_name = next_node_name
         self.fallback_specs: dict[type[Exception], GeneratorSpec] = {
             AxGenerationException: GeneratorSpec(
-                generator_enum=Generators.SOBOL, model_key_override="Fallback_Sobol"
+                generator_enum=Generators.SOBOL, generator_key_override="Fallback_Sobol"
             ),
             **self.fallback_specs,  # This includes the default fallbacks.
         }
+        # custom property to enable single center point computation
+        self._center_params: TParameterization | None = None
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
+        # State is already set in gen() and will persist during generation
+        pass
+
+    def gen(
+        self,
+        *,
+        experiment: Experiment,
+        pending_observations: dict[str, list[ObservationFeatures]] | None,
+        skip_fit: bool = False,
+        data: Data | None = None,
+        n: int | None = None,
+        **gs_gen_kwargs: Any,
+    ) -> GeneratorRun | None:
+        """Generate candidates or skip if search space is exhausted.
+
+        This method checks if the center point already exists or is infeasible
+        before attempting generation. If so, it sets _should_skip to True and
+        returns None, allowing the generation strategy to transition to the next node.
+        """
         self.search_space = experiment.search_space
+        self._center_params = self.compute_center_params()
+
+        # Check if unable to find a suitable center
+        if self._center_params is None:
+            self._should_skip = True
+            return None
+
+        # Check if center already exists in experiment
+        center_arm = Arm(parameters=self._center_params)
+        if center_arm.signature in experiment.arms_by_signature:
+            self._should_skip = True
+            return None
+
+        return super().gen(
+            experiment=experiment,
+            pending_observations=pending_observations,
+            skip_fit=skip_fit,
+            data=data,
+            n=n,
+            **gs_gen_kwargs,
+        )
+
+    def compute_center_params(self) -> TParameterization | None:
+        """Compute the center of the search space.
+
+        Returns:
+            The center parameters, or None if the center cannot be computed
+            (e.g., due to infeasible constraints).
+        """
+        search_space = none_throws(self.search_space)
+        parameters = search_space.compute_naive_center()
+
+        # Check for search space membership, which will check if the generated
+        # point satisfies the parameter constraints. Fallback to Chebyshev center
+        if not search_space.check_membership(parameterization=parameters):
+            chebyshev_center = search_space.compute_chebyshev_center()
+            if chebyshev_center is not None:
+                for name, value in chebyshev_center.items():
+                    if name in parameters:
+                        parameters[name] = search_space[name].cast(value)
+
+            # recompute derived parameters using the updated parameter values
+            derived_params = [
+                p
+                for p in search_space.parameters.values()
+                if isinstance(p, DerivedParameter)
+            ]
+            for p in derived_params:
+                parameters[p.name] = p.compute(parameters=parameters)
+
+            if isinstance(search_space, HierarchicalSearchSpace):
+                parameters = search_space._cast_parameterization(parameters=parameters)
+
+            # Return None if something goes wrong, or some non-range parameter
+            # remains out of search space
+            if chebyshev_center is None or not search_space.check_membership(
+                parameterization=parameters
+            ):
+                return None
+        return parameters
 
     def get_next_candidate(
         self, pending_parameters: list[TParameterization]
@@ -69,47 +161,18 @@ class CenterGenerationNode(ExternalGenerationNode):
 
         For range parameters, the center is the midpoint of the range. If the
         parameter is log-scale, then the center point will correspond to the
-        mid-point in log-scale.
+        mid-point in log-scale. If the parameter is logit-scale, then the center
+        point will correspond to the mid-point in logit-scale.
         For choice parameters, the center point is determined as the value
         that is at the middle of the values list.
         For both choice and integer range parameters, the ties are broken in
         favor of the larger value / index. For example, a binary parameter with
         values [0, 1] will be sampled as 1.
         Fixed parameters are returned at their only allowed value.
-        """
-        search_space = none_throws(self.search_space)
-        parameters = {}
-        derived_params = []
-        for name, p in search_space.parameters.items():
-            if isinstance(p, RangeParameter):
-                if p.logit_scale:
-                    raise NotImplementedError(f"`logit_scale` is not supported. {p=}")
-                if p.log_scale:
-                    center = 10 ** ((math.log10(p.lower) + math.log10(p.upper)) / 2.0)
-                else:
-                    center = (float(p.lower) + float(p.upper)) / 2.0
-                parameters[name] = p.cast(center)
-            elif isinstance(p, ChoiceParameter):
-                parameters[name] = p.values[int(len(p.values) / 2)]
-            elif isinstance(p, FixedParameter):
-                parameters[name] = p.value
-            elif isinstance(p, DerivedParameter):
-                derived_params.append(p)
-            else:
-                raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
-        for p in derived_params:
-            parameters[p.name] = p.compute(parameters=parameters)
-        if search_space.is_hierarchical:
-            parameters = search_space._cast_parameterization(parameters=parameters)
 
-        # Check for search space membership, which will check if the generated
-        # point satisfies the parameter constraints.
-        if not search_space.check_membership(parameterization=parameters):
-            # TODO: Improve this handling by instead choosing the point
-            # in the center of the feasible set (e.g. by finding the)
-            # Chebyshev center of the constraint polytope.
-            raise AxGenerationException(
-                "Center of the search space does not satisfy parameter constraints. "
-                "The generation strategy will fallback to Sobol. "
-            )
-        return parameters
+        Note: If range naive midpoint fails to remain within parameter constraints, we
+        attempt to compute the Chebyshev center of the constraint polytope defined by
+        parameter bounds and parameter constraints w.r.t non-log range parameters.
+        This finds the center of the largest inscribed ball in the feasible region.
+        """
+        return none_throws(self._center_params)

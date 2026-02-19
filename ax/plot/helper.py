@@ -9,7 +9,7 @@
 import math
 from collections.abc import Callable
 from logging import Logger
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -27,9 +27,9 @@ from pyre_extensions import none_throws
 logger: Logger = get_logger(__name__)
 
 # Typing alias
-RawData = list[dict[str, Union[str, float]]]
+RawData = list[dict[str, str | float]]
 
-TNullableGeneratorRunsDict = Optional[dict[str, GeneratorRun]]
+TNullableGeneratorRunsDict = dict[str, GeneratorRun] | None
 
 
 def extend_range(

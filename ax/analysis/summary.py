@@ -6,15 +6,14 @@
 # pyre-strict
 
 
-from typing import final, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import final
 
 from ax.adapter.base import Adapter
-
 from ax.analysis.analysis import Analysis
-from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.utils import validate_experiment
+from ax.core.analysis_card import AnalysisCard
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -31,7 +30,7 @@ class Summary(Analysis):
     The DataFrame computed will contain one row per arm and the following columns:
         - trial_index: The trial index of the arm
         - arm_name: The name of the arm
-        - trial_status: The status of the trial (e.g. RUNNING, SUCCEDED, FAILED)
+        - trial_status: The status of the trial (e.g. RUNNING, SUCCEEDED, FAILED)
         - failure_reason: The reason for the failure, if applicable
         - generation_node: The name of the ``GenerationNode`` that generated the arm
         - **METADATA: Any metadata associated with the trial, as specified by the
@@ -81,13 +80,14 @@ class Summary(Analysis):
 
         # Determine if we should relativize based on:
         # (1) experiment has metrics and (2) experiment has status quo
-        # (3) experiment data is not MapData (MapData doesn't support relativization
-        # due to time-series step alignment complexities.)
+        # (3) experiment data does not have has_step_column=True (data with a
+        # progression doesn't support relativization due to time-series step
+        # alignment complexities.)
         data = experiment.lookup_data(trial_indices=self.trial_indices)
         should_relativize = (
             len(experiment.metrics) > 0
             and experiment.status_quo is not None
-            and not isinstance(data, MapData)
+            and not data.has_step_column
         )
 
         return self._create_analysis_card(

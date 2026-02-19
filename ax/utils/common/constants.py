@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from enum import Enum, unique
+from enum import StrEnum, unique
 
 # ------------------------- Miscellaneous -------------------------
 
@@ -36,7 +36,7 @@ subclasses with defined fetching logic.
 
 
 @unique
-class Keys(str, Enum):
+class Keys(StrEnum):
     """Enum of reserved keys in options dicts etc, alphabetized.
 
 
@@ -64,6 +64,7 @@ class Keys(str, Enum):
     FRAC_RANDOM = "frac_random"
     FULL_PARAMETERIZATION = "full_parameterization"
     IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF = "immutable_search_space_and_opt_config"
+    LLM_MESSAGES = "llm_messages"
     LONG_RUN = "long_run"
     MAXIMIZE = "maximize"
     METADATA = "metadata"

@@ -6,15 +6,18 @@
 
 # pyre-strict
 
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.standardize_y import compute_standardization_parameters
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -49,7 +52,7 @@ class StratifiedStandardizeY(Transform):
         self,
         search_space: SearchSpace | None = None,
         experiment_data: ExperimentData | None = None,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         config: TConfig | None = None,
     ) -> None:
         """Initialize StratifiedStandardizeY.
@@ -76,20 +79,20 @@ class StratifiedStandardizeY(Transform):
         )
         # Get parameter name for standardization.
         self.strata_mapping = None  # pyre-ignore [8]
-        if config is not None and "parameter_name" in config:
+        if "parameter_name" in self.config:
             # pyre: Attribute `p_name` declared in class `ax.adapter.
             # pyre: transforms.stratified_standardize_y.
             # pyre: StratifiedStandardizeY` has type `str` but is used as type
             # pyre-fixme[8]: `typing.Union[float, int, str]`.
-            self.p_name: str = config["parameter_name"]
+            self.p_name: str = self.config["parameter_name"]
             strat_p = search_space.parameters[self.p_name]
             if not isinstance(strat_p, ChoiceParameter):
                 raise ValueError(f"{self.p_name} not a ChoiceParameter")
-            if "strata_mapping" in config:
+            if "strata_mapping" in self.config:
                 # pyre-ignore [8]
                 self.strata_mapping: dict[
                     bool | float | int | str, bool | float | int | str
-                ] = config["strata_mapping"]
+                ] = self.config["strata_mapping"]
                 if set(strat_p.values) != set(self.strata_mapping.keys()):
                     raise ValueError(
                         f"{self.p_name} values {strat_p.values} do not match "
@@ -124,8 +127,7 @@ class StratifiedStandardizeY(Transform):
         experiment_data = none_throws(experiment_data)
         if len(experiment_data.observation_data.index.names) > 2:
             raise NotImplementedError(
-                "StratifiedStandardizeY does not support experiment data with "
-                "map keys."
+                "StratifiedStandardizeY does not support experiment data with map keys."
             )
         strata = (
             experiment_data.arm_data[self.p_name]
@@ -170,10 +172,12 @@ class StratifiedStandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        adapter: Optional["adapter_module.base.Adapter"] = None,
+        adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
-        if len(optimization_config.all_constraints) == 0:
+        if len(optimization_config.all_constraints) == 0 and not isinstance(
+            optimization_config.objective, ScalarizedObjective
+        ):
             return optimization_config
         if fixed_features is None or self.p_name not in fixed_features.parameters:
             raise ValueError(
@@ -182,15 +186,41 @@ class StratifiedStandardizeY(Transform):
             )
         v = none_throws(fixed_features.parameters[self.p_name])
         strata = self.strata_mapping[v]
+
+        # Handle ScalarizedObjective: update weights by multiplying with std.
+        # Transform \sum (wi * yi) to \sum (wi * si * zi) where zi = (yi - mu_i) / si
+        # The constant term \sum (wi * mu_i) doesn't affect optimization.
+        if isinstance(objective := optimization_config.objective, ScalarizedObjective):
+            objective.weights = [
+                objective.weights[i] * float(self.Ystd[(metric.signature, strata)])
+                for i, metric in enumerate(objective.metrics)
+            ]
+
         for c in optimization_config.all_constraints:
             if c.relative:
                 raise ValueError(
                     "StratifiedStandardizeY transform does not support relative "
                     f"constraint {c}"
                 )
-            c.bound = (c.bound - self.Ymean[(c.metric.signature, strata)]) / self.Ystd[
-                (c.metric.signature, strata)
-            ]
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                # Transform \sum (wi * yi) <= C to
+                # \sum (wi * si * zi) <= C - \sum (wi * mu_i)
+                # Update bound and weights.
+                c.bound = float(
+                    c.bound
+                    - sum(
+                        c.weights[i] * self.Ymean[(m.signature, strata)]
+                        for i, m in enumerate(c.metrics)
+                    )
+                )
+                c.weights = [
+                    c.weights[i] * self.Ystd[(m.signature, strata)]
+                    for i, m in enumerate(c.metrics)
+                ]
+            else:
+                c.bound = (
+                    c.bound - self.Ymean[(c.metric.signature, strata)]
+                ) / self.Ystd[(c.metric.signature, strata)]
         return optimization_config
 
     def untransform_observations(
@@ -226,10 +256,26 @@ class StratifiedStandardizeY(Transform):
                 raise ValueError(
                     "StratifiedStandardizeY does not support relative constraints"
                 )
-            c.bound = float(
-                c.bound * self.Ystd[(c.metric.signature, strata)]
-                + self.Ymean[(c.metric.signature, strata)]
-            )
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                # Untransform \sum (wi * si * zi) <= C' back to \sum (wi * yi) <= C
+                # where C' = C - \sum (wi * mu_i) and weights were multiplied by si.
+                # First untransform weights, then untransform bound.
+                c.weights = [
+                    c.weights[i] / self.Ystd[(m.signature, strata)]
+                    for i, m in enumerate(c.metrics)
+                ]
+                c.bound = float(
+                    c.bound
+                    + sum(
+                        c.weights[i] * self.Ymean[(m.signature, strata)]
+                        for i, m in enumerate(c.metrics)
+                    )
+                )
+            else:
+                c.bound = float(
+                    c.bound * self.Ystd[(c.metric.signature, strata)]
+                    + self.Ymean[(c.metric.signature, strata)]
+                )
         return outcome_constraints
 
     def transform_experiment_data(

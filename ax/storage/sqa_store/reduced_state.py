@@ -7,8 +7,8 @@
 # pyre-strict
 
 
-from ax.storage.sqa_store.sqa_classes import SQAGeneratorRun
-from sqlalchemy.orm import defaultload, lazyload, strategy_options
+from ax.storage.sqa_store.sqa_classes import SQAGeneratorRun, SQATrial
+from sqlalchemy.orm import defaultload, strategy_options
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 
@@ -18,6 +18,15 @@ GR_LARGE_MODEL_ATTRS: list[InstrumentedAttribute] = [  # pyre-ignore[9]
     SQAGeneratorRun.model_state_after_gen,
     SQAGeneratorRun.gen_metadata,
 ]
+
+
+# Mapping from SQA column names to GeneratorRun Python attribute names
+SQA_COL_TO_GR_ATTR = {
+    "model_kwargs": "generator_kwargs",
+    "bridge_kwargs": "adapter_kwargs",
+    "gen_metadata": "gen_metadata",
+    "model_state_after_gen": "generator_state_after_gen",
+}
 
 
 GR_PARAMS_METRICS_COLS = [
@@ -33,7 +42,10 @@ def get_query_options_to_defer_immutable_duplicates() -> list[strategy_options.L
     need to be loaded for experiments with immutable search space and optimization
     configuration.
     """
-    options = [lazyload(f"generator_runs.{col}") for col in GR_PARAMS_METRICS_COLS]
+    options = [
+        defaultload(SQATrial.generator_runs).lazyload(getattr(SQAGeneratorRun, col))
+        for col in GR_PARAMS_METRICS_COLS
+    ]
     return options
 
 
@@ -43,5 +55,6 @@ def get_query_options_to_defer_large_model_cols() -> list[strategy_options.Load]
     when loading experiment and generation strategy in reduced state.
     """
     return [
-        defaultload("generator_runs").defer(col.key) for col in GR_LARGE_MODEL_ATTRS
+        defaultload(SQATrial.generator_runs).defer(col.key)
+        for col in GR_LARGE_MODEL_ATTRS
     ]

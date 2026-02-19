@@ -13,7 +13,6 @@ from typing import Any
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_modular.utils import get_all_task_values_from_ssd
-
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models.transforms.outcome import (
     OutcomeTransform,
@@ -107,17 +106,10 @@ def _outcome_transform_argparse_stratified_standardize(
     dataset = assert_is_instance(dataset, MultiTaskDataset)
     if dataset.has_heterogeneous_features:
         task_feature_index = dataset.task_feature_index or -1
-        task_values = torch.arange(len(dataset.datasets), dtype=torch.long)
     else:
         task_feature_index = dataset.task_feature_index
-        task_values = dataset.X[..., dataset.task_feature_index].unique().long()
     ssd = none_throws(search_space_digest)
-    if (ssd.target_values is not None) and (
-        target_value := ssd.target_values.get(none_throws(task_feature_index))
-    ) is not None:
-        outcome_transform_options.setdefault("default_task_value", int(target_value))
     outcome_transform_options.setdefault("stratification_idx", task_feature_index)
-    outcome_transform_options.setdefault("observed_task_values", task_values)
     outcome_transform_options.setdefault(
         "all_task_values",
         torch.tensor(

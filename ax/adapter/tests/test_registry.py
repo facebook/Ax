@@ -9,10 +9,11 @@
 from ax.adapter.discrete import DiscreteAdapter
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
-    _extract_model_state_after_gen,
+    _extract_generator_state_after_gen,
+    _raise_on_callables,
     Cont_X_trans,
+    GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
-    MODEL_KEY_TO_MODEL_SETUP,
 )
 from ax.adapter.torch import TorchAdapter
 from ax.core.observation import ObservationFeatures
@@ -88,11 +89,11 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(sobol, RandomAdapter)
         for _ in range(5):
             sobol_run = sobol.gen(n=1)
-            self.assertEqual(sobol_run._model_key, "Sobol")
+            self.assertEqual(sobol_run._generator_key, "Sobol")
             exp.new_batch_trial().add_generator_run(sobol_run).run()
         saasbo = Generators.SAASBO(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(saasbo, TorchAdapter)
-        self.assertEqual(saasbo._model_key, "SAASBO")
+        self.assertEqual(saasbo._generator_key, "SAASBO")
         generator = assert_is_instance(saasbo.generator, BoTorchGenerator)
         surrogate_spec = generator.surrogate_spec
         self.assertEqual(
@@ -110,7 +111,7 @@ class ModelRegistryTest(TestCase):
             SaasFullyBayesianSingleTaskGP,
         )
 
-    def test_enum_model_kwargs(self) -> None:
+    def test_enum_generator_kwargs(self) -> None:
         """Tests that kwargs are passed correctly when instantiating through the
         Generators enum."""
         exp = get_branin_experiment()
@@ -211,17 +212,17 @@ class ModelRegistryTest(TestCase):
             ),
         )
 
-    def test_ModelSetups_do_not_share_kwargs(self) -> None:
+    def test_GeneratorSetups_do_not_share_kwargs(self) -> None:
         """Tests that none of the preset model and adapter combinations share a
         kwarg.
         """
-        for model_setup_info in MODEL_KEY_TO_MODEL_SETUP.values():
-            model_class = model_setup_info.model_class
+        for model_setup_info in GENERATOR_KEY_TO_GENERATOR_SETUP.values():
+            generator_class = model_setup_info.generator_class
             adapter_class = model_setup_info.adapter_class
-            model_args = set(get_function_argument_names(model_class))
-            bridge_args = set(get_function_argument_names(adapter_class))
+            generator_args = set(get_function_argument_names(generator_class))
+            adapter_args = set(get_function_argument_names(adapter_class))
             # Intersection of two sets should be empty
-            self.assertEqual(model_args & bridge_args, set())
+            self.assertEqual(adapter_args & generator_args, set())
 
     @mock_botorch_optimize
     def test_ST_MTGP(self, use_saas: bool = False) -> None:
@@ -309,20 +310,51 @@ class ModelRegistryTest(TestCase):
     def test_SAAS_MTGP(self) -> None:
         self.test_ST_MTGP(use_saas=True)
 
-    def test_extract_model_state_after_gen(self) -> None:
+    def test_extract_generator_state_after_gen(self) -> None:
         # Test with actual state.
         exp = get_branin_experiment()
         sobol = Generators.SOBOL(experiment=exp)
         gr = sobol.gen(n=1)
         expected_state = sobol.generator._get_state()
-        self.assertEqual(gr._model_state_after_gen, expected_state)
-        extracted = _extract_model_state_after_gen(
-            generator_run=gr, model_class=SobolGenerator
+        self.assertEqual(gr._generator_state_after_gen, expected_state)
+        extracted = _extract_generator_state_after_gen(
+            generator_run=gr, generator_class=SobolGenerator
         )
         self.assertEqual(extracted, expected_state)
         # Test with empty state.
-        gr._model_state_after_gen = None
-        extracted = _extract_model_state_after_gen(
-            generator_run=gr, model_class=SobolGenerator
+        gr._generator_state_after_gen = None
+        extracted = _extract_generator_state_after_gen(
+            generator_run=gr, generator_class=SobolGenerator
         )
         self.assertEqual(extracted, {})
+
+
+class CallableValidationTest(TestCase):
+    def test_raise_on_callables_raises_for_functions(self) -> None:
+        def example_func(x: int) -> int:
+            return x * 2
+
+        kwarg_dict = {
+            "callback": example_func,
+            "some_value": 42,
+            "another_value": "test",
+        }
+
+        with self.assertRaisesRegex(
+            Exception,
+            "Callable 'callback' cannot be serialized",
+        ):
+            _raise_on_callables(kwarg_dict)
+
+    def test_raise_on_callables_preserves_non_callables(self) -> None:
+        kwarg_dict = {
+            "int_value": 42,
+            "str_value": "test",
+            "list_value": [1, 2, 3],
+            "dict_value": {"nested": "value"},
+            "none_value": None,
+        }
+
+        result = _raise_on_callables(kwarg_dict)
+
+        self.assertEqual(result, kwarg_dict)

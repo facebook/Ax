@@ -7,7 +7,7 @@
 
 
 import pandas as pd
-from ax.analysis.analysis_card import AnalysisCard
+from ax.core.analysis_card import AnalysisCard
 from plotly import graph_objects as go, io as pio
 
 # Body HTML template for Plotly figures with a couple tricks for rendering in Jupyter.

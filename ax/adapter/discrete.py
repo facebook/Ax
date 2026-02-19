@@ -7,7 +7,7 @@
 # pyre-strict
 
 
-from typing import Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 from ax.adapter.adapter_utils import array_to_observation_data, get_fixed_features

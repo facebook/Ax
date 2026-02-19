@@ -13,11 +13,16 @@ from typing import Any
 import numpy.typing as npt
 import torch
 from ax.adapter.torch import TorchAdapter
+from ax.core.data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     sample_discrete_parameters,
+)
+from ax.utils.sensitivity.fixed_feature_model import (
+    FixedFeatureModel,
+    prepare_fixed_feature_inputs,
 )
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
@@ -786,6 +791,7 @@ def compute_sobol_indices_from_model_list(
     bounds: Tensor,
     order: str = "first",
     discrete_features: list[int] | None = None,
+    fixed_features: dict[int, float] | None = None,
     **sobol_kwargs: Any,
 ) -> Tensor:
     """
@@ -804,22 +810,38 @@ def compute_sobol_indices_from_model_list(
         discrete_features: If specified, the inputs associated with the indices in
             this list are generated using an integer-valued uniform distribution,
             rather than the default (pseudo-)random continuous uniform distribution.
+        fixed_features: If specified, a dictionary mapping feature indices to fixed
+            values. These features will be held constant during sensitivity analysis,
+            and their sensitivity will not be computed. The bounds tensor should
+            still include all features (including fixed ones).
         sobol_kwargs: keyword arguments passed on to SobolSensitivityGPMean.
 
     Returns:
-        With m GPs, returns a (m x d) tensor of `order`-order Sobol indices.
+        With m GPs, returns a (m x d') tensor of `order`-order Sobol indices,
+        where d' is the number of non-fixed features.
     """
     if order not in ["first", "total", "second"]:
         raise NotImplementedError(
             f"Order {order} is not supported. Plese choose one of"
             " 'first', 'total' or 'second'."
         )
+
+    # Handle fixed features by reducing bounds and wrapping models
+    models_to_use: list[GPyTorchModel] | list[FixedFeatureModel] = model_list
+    if fixed_features is not None and len(fixed_features) > 0:
+        models_to_use, bounds, discrete_features = prepare_fixed_feature_inputs(
+            model_list=model_list,
+            bounds=bounds,
+            discrete_features=discrete_features,
+            fixed_features=fixed_features,
+        )
+
     indices = []
     method = getattr(SobolSensitivityGPMean, f"{order}_order_indices")
     second_order = order == "second"
-    for model in model_list:
+    for model in models_to_use:
         sens_class = SobolSensitivityGPMean(
-            model=model,
+            model=model,  # pyre-ignore[6]: FixedFeatureModel wraps GPyTorchModel
             bounds=bounds,
             discrete_features=discrete_features,
             second_order=second_order,
@@ -834,6 +856,7 @@ def ax_parameter_sens(
     metrics: list[str] | None = None,
     order: str = "first",
     signed: bool = True,
+    exclude_map_key: bool = True,
     **sobol_kwargs: Any,
 ) -> dict[str, dict[str, npt.NDArray]]:
     """
@@ -854,6 +877,10 @@ def ax_parameter_sens(
         order: A string specifying the order of the Sobol indices to be computed.
             Supports "first" and "total" and defaults to "first".
         signed: A bool for whether the measure should be signed.
+        exclude_map_key: If True (default), the MAP_KEY ("step") feature will be
+            excluded from sensitivity analysis by fixing it at the maximum step value.
+            This makes the sensitivity analysis more interpretable for users who
+            care about the effect of parameters on final performance.
         sobol_kwargs: keyword arguments passed on to SobolSensitivityGPMean, and if
             signed, GpDGSMGpMean.
 
@@ -881,6 +908,21 @@ def ax_parameter_sens(
         device=device,
     ).T  # transposing to make it 2 x d
 
+    feature_names = digest.feature_names
+
+    # Determine if we need to fix the MAP_KEY feature
+    fixed_features: dict[int, float] | None = None
+    output_feature_names = feature_names
+    discrete_features = digest.categorical_features + digest.ordinal_features
+
+    if exclude_map_key and MAP_KEY in feature_names:
+        step_idx = feature_names.index(MAP_KEY)
+        # Use upper bound (maximum step value in normalized space)
+        step_value = float(bounds[1, step_idx])
+        fixed_features = {step_idx: step_value}
+        # Remove MAP_KEY from output feature names
+        output_feature_names = [f for f in feature_names if f != MAP_KEY]
+
     # for second order indices, we need to compute first order indices first
     # which is what is done here. With the first order indices, we can then subtract
     # appropriately using the first-order indices to extract the second-order indices.
@@ -888,40 +930,43 @@ def ax_parameter_sens(
         model_list=model_list,
         bounds=bounds,
         order="first" if order == "second" else order,
-        discrete_features=digest.categorical_features + digest.ordinal_features,
+        discrete_features=discrete_features,
+        fixed_features=fixed_features,
         **sobol_kwargs,
     )
-    feature_names = digest.feature_names
+
     if signed:
         ind_deriv = compute_derivatives_from_model_list(
             model_list=model_list,
             bounds=bounds,
-            discrete_features=digest.categorical_features + digest.ordinal_features,
+            discrete_features=discrete_features,
+            fixed_features=fixed_features,
             **sobol_kwargs,
         )
         # categorical features don't have a direction, so we set the derivative to 1.0
-        # in order not to zero our their sensitivity. We treat categorical features
+        # in order not to zero out their sensitivity. We treat categorical features
         # separately in the sensitivity analysis plot as well, to make clear that they
         # are affecting the metric, but neither increasing nor decreasing. Note that the
-        # orginal variables have a well defined direction, so we do not need to treat
+        # original variables have a well defined direction, so we do not need to treat
         # them differently here.
         for i in digest.categorical_features:
             ind_deriv[:, i] = 1.0
         ind *= torch.sign(ind_deriv).to(device)
 
     indices = array_with_string_indices_to_dict(
-        rows=metrics, cols=feature_names, A=ind.cpu().numpy()
+        rows=metrics, cols=output_feature_names, A=ind.cpu().numpy()
     )
     if order == "second":
         second_order_values = compute_sobol_indices_from_model_list(
             model_list=model_list,
             bounds=bounds,
             order="second",
-            discrete_features=digest.categorical_features + digest.ordinal_features,
+            discrete_features=discrete_features,
+            fixed_features=fixed_features,
             **sobol_kwargs,
         )
         second_order_feature_names = [
-            f"{f1} & {f2}" for f1, f2 in itertools.combinations(digest.feature_names, 2)
+            f"{f1} & {f2}" for f1, f2 in itertools.combinations(output_feature_names, 2)
         ]
 
         second_order_dict = array_with_string_indices_to_dict(

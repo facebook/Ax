@@ -12,7 +12,6 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-from ax.analysis.analysis_card import AnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
 from ax.api.configs import (
@@ -24,9 +23,9 @@ from ax.api.configs import (
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
-from ax.core.evaluations_to_data import DataType
+from ax.core.analysis_card import AnalysisCard
+from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
@@ -42,10 +41,10 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.service.utils.with_db_settings_base import (
+from ax.storage.sqa_store.db import init_test_engine_and_session_factory
+from ax.storage.sqa_store.with_db_settings_base import (
     _save_generation_strategy_to_db_if_possible,
 )
-from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -111,14 +110,13 @@ class TestClient(TestCase):
                     ],
                     parameter_constraints=[
                         ParameterConstraint(
-                            constraint_dict={"int_param": 1, "float_param": -1}, bound=0
+                            inequality="int_param <= float_param",
                         )
                     ],
                 ),
                 name="test_experiment",
                 description="test description",
                 properties={"owners": ["miles"]},
-                default_data_type=DataType.MAP_DATA,
             ),
         )
 
@@ -231,6 +229,112 @@ class TestClient(TestCase):
         all_metrics = [objective.metric] + list(client._experiment.tracking_metrics)
         self.assertEqual(len(all_metrics), 3)
 
+    def test_configure_optimization_with_pruning_target_parameterization(self) -> None:
+        client = Client()
+
+        float_parameter = RangeParameterConfig(
+            name="float_param",
+            parameter_type="float",
+            bounds=(0.0, 1.0),
+        )
+        int_parameter = RangeParameterConfig(
+            name="int_param",
+            parameter_type="int",
+            bounds=(0, 10),
+        )
+        choice_parameter = ChoiceParameterConfig(
+            name="choice_param",
+            parameter_type="str",
+            values=["a", "b", "c"],
+        )
+
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[float_parameter, int_parameter, choice_parameter],
+        )
+
+        # Test that pruning_target_parameterization is set correctly
+        pruning_target = {
+            "float_param": 0.5,
+            "int_param": 5,
+            "choice_param": "b",
+        }
+        client.configure_optimization(
+            objective="-ne",
+            outcome_constraints=["qps >= 0"],
+            pruning_target_parameterization=pruning_target,
+        )
+
+        optimization_config = client._experiment.optimization_config
+        self.assertIsNotNone(optimization_config)
+        self.assertIsNotNone(optimization_config.pruning_target_parameterization)
+        self.assertEqual(
+            optimization_config.pruning_target_parameterization.parameters,
+            pruning_target,
+        )
+
+    def test_configure_optimization_pruning_target_validation(self) -> None:
+        client = Client()
+
+        float_parameter = RangeParameterConfig(
+            name="float_param",
+            parameter_type="float",
+            bounds=(0.0, 1.0),
+        )
+        int_parameter = RangeParameterConfig(
+            name="int_param",
+            parameter_type="int",
+            bounds=(0, 10),
+        )
+        choice_parameter = ChoiceParameterConfig(
+            name="choice_param",
+            parameter_type="str",
+            values=["a", "b", "c"],
+        )
+
+        client.configure_experiment(
+            name="test_experiment",
+            parameters=[float_parameter, int_parameter, choice_parameter],
+        )
+
+        # Test that invalid pruning_target_parameterization raises an error
+        # (parameter value out of bounds)
+        invalid_pruning_target = {
+            "float_param": 2.0,  # Out of bounds (0.0, 1.0)
+            "int_param": 5,
+            "choice_param": "b",
+        }
+        with self.assertRaises(ValueError):
+            client.configure_optimization(
+                objective="-ne",
+                pruning_target_parameterization=invalid_pruning_target,
+            )
+
+        # Test that invalid choice value raises an error
+        invalid_choice_target = {
+            "float_param": 0.5,
+            "int_param": 5,
+            "choice_param": "invalid_choice",  # Not in ["a", "b", "c"]
+        }
+        with self.assertRaises(ValueError):
+            client.configure_optimization(
+                objective="-ne",
+                pruning_target_parameterization=invalid_choice_target,
+            )
+
+        # Test that unknown parameter raises an error
+        unknown_param_target = {
+            "float_param": 0.5,
+            "int_param": 5,
+            "choice_param": "b",
+            "unknown_param": 42,  # Not in search space
+        }
+        with self.assertRaises(ValueError):
+            client.configure_optimization(
+                objective="-ne",
+                pruning_target_parameterization=unknown_param_target,
+            )
+
     def test_configure_runner(self) -> None:
         client = Client()
         runner = DummyRunner()
@@ -317,6 +421,35 @@ class TestClient(TestCase):
             client._experiment.tracking_metrics[0],
         )
 
+    def test_configure_tracking_metrics(self) -> None:
+        """Test adding tracking metrics to an experiment."""
+        client = Client()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.configure_tracking_metrics(metric_names=["tracking1"])
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(0, 1))
+            ],
+            name="test_tracking_metrics",
+        )
+        client.configure_optimization(objective="objective")
+
+        # Test adding tracking metrics
+        client.configure_tracking_metrics(metric_names=["tracking1", "tracking2"])
+
+        # Verify tracking metrics were added
+        self.assertIn("tracking1", client._experiment.metrics)
+        self.assertIn("tracking2", client._experiment.metrics)
+        self.assertEqual(len(client._experiment.tracking_metrics), 2)
+
+        # Test that adding an existing metric logs a warning and skips it
+        with mock.patch("ax.api.client.logger.warning") as mock_logger:
+            client.configure_tracking_metrics(metric_names=["tracking1"])
+            mock_logger.assert_called_once()
+            self.assertIn("already exists", mock_logger.call_args[0][0])
+
     def test_set_experiment(self) -> None:
         client = Client()
         experiment = get_branin_experiment()
@@ -395,7 +528,7 @@ class TestClient(TestCase):
 
         # Test respects fixed features
         with mock.patch(
-            "ax.service.utils.with_db_settings_base"
+            "ax.storage.sqa_store.with_db_settings_base"
             "._save_generation_strategy_to_db_if_possible"
         ) as mock_save:
             trials = client.get_next_trials(max_trials=1, fixed_parameters={"x1": 0.5})
@@ -427,13 +560,13 @@ class TestClient(TestCase):
         self.assertEqual(len(trials), 1)
         self.assertIn(0, trials)
         trial = client._experiment.trials[0]
-        self.assertEqual(trial.generator_runs[0]._model_key, "Sobol")
+        self.assertEqual(trial.generator_runs[0]._generator_key, "Sobol")
         client.complete_trial(
             trial_index=trial.index, raw_data={"foo": (random.random(), 1.0)}
         )
         # Generate one more trial, so that GS transitions to BO.
         with mock.patch(
-            "ax.service.utils.with_db_settings_base"
+            "ax.storage.sqa_store.with_db_settings_base"
             "._save_generation_strategy_to_db_if_possible",
             wraps=_save_generation_strategy_to_db_if_possible,
         ) as mock_save:
@@ -452,7 +585,7 @@ class TestClient(TestCase):
         self.assertEqual(len(trials), 1)
         self.assertIn(2, trials)
         trial = client2._experiment.trials[2]
-        self.assertEqual(trial.generator_runs[0]._model_key, "BoTorch")
+        self.assertEqual(trial.generator_runs[0]._generator_key, "BoTorch")
 
     def test_attach_data(self) -> None:
         client = Client()
@@ -477,21 +610,20 @@ class TestClient(TestCase):
             TrialStatus.RUNNING,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 0},
-                        "arm_name": {0: "0_0"},
-                        "metric_name": {0: "foo"},
-                        "metric_signature": {0: "foo"},
-                        "mean": {0: 1.0},
-                        "sem": {0: np.nan},
-                        "step": {0: np.nan},
-                    }
-                )
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 0},
+                            "arm_name": {0: "0_0"},
+                            "metric_name": {0: "foo"},
+                            "metric_signature": {0: "foo"},
+                            "mean": {0: 1.0},
+                            "sem": {0: np.nan},
+                            "step": {0: np.nan},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -503,21 +635,20 @@ class TestClient(TestCase):
             TrialStatus.RUNNING,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 0, 1: 0},
-                        "arm_name": {0: "0_0", 1: "0_0"},
-                        "metric_name": {0: "foo", 1: "foo"},
-                        "metric_signature": {0: "foo", 1: "foo"},
-                        "mean": {0: 1.0, 1: 2.0},
-                        "sem": {0: np.nan, 1: np.nan},
-                        "step": {0: np.nan, 1: 10.0},
-                    }
-                )
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 0, 1: 0},
+                            "arm_name": {0: "0_0", 1: "0_0"},
+                            "metric_name": {0: "foo", 1: "foo"},
+                            "metric_signature": {0: "foo", 1: "foo"},
+                            "mean": {0: 1.0, 1: 2.0},
+                            "sem": {0: np.nan, 1: np.nan},
+                            "step": {0: np.nan, 1: 10.0},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -542,21 +673,20 @@ class TestClient(TestCase):
             TrialStatus.RUNNING,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 0, 1: 0, 2: 0},
-                        "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
-                        "metric_name": {0: "foo", 1: "foo", 2: "bar"},
-                        "metric_signature": {0: "foo", 1: "foo", 2: "bar"},
-                        "mean": {0: 2.0, 1: 1.0, 2: 2.0},
-                        "sem": {0: np.nan, 1: np.nan, 2: np.nan},
-                        "step": {0: 10.0, 1: np.nan, 2: np.nan},
-                    }
-                )
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 0, 1: 0, 2: 0},
+                            "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
+                            "metric_name": {0: "foo", 1: "foo", 2: "bar"},
+                            "metric_signature": {0: "foo", 1: "foo", 2: "bar"},
+                            "mean": {0: 1.0, 1: 2.0, 2: 2.0},
+                            "sem": {0: np.nan, 1: np.nan, 2: np.nan},
+                            "step": {0: np.nan, 1: 10.0, 2: np.nan},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -585,21 +715,20 @@ class TestClient(TestCase):
             TrialStatus.COMPLETED,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 0, 1: 0},
-                        "arm_name": {0: "0_0", 1: "0_0"},
-                        "metric_name": {0: "foo", 1: "bar"},
-                        "metric_signature": {0: "foo", 1: "bar"},
-                        "mean": {0: 1.0, 1: 2.0},
-                        "sem": {0: np.nan, 1: np.nan},
-                        "step": {0: np.nan, 1: np.nan},
-                    }
-                )
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 0, 1: 0},
+                            "arm_name": {0: "0_0", 1: "0_0"},
+                            "metric_name": {0: "foo", 1: "bar"},
+                            "metric_signature": {0: "foo", 1: "bar"},
+                            "mean": {0: 1.0, 1: 2.0},
+                            "sem": {0: np.nan, 1: np.nan},
+                            "step": {0: np.nan, 1: np.nan},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -615,21 +744,20 @@ class TestClient(TestCase):
         )
 
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 1, 1: 1},
-                        "arm_name": {0: "1_0", 1: "1_0"},
-                        "metric_name": {0: "foo", 1: "bar"},
-                        "metric_signature": {0: "foo", 1: "bar"},
-                        "mean": {0: 1.0, 1: 2.0},
-                        "sem": {0: np.nan, 1: np.nan},
-                        "step": {0: 10.0, 1: 10.0},
-                    }
-                )
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 1, 1: 1},
+                            "arm_name": {0: "1_0", 1: "1_0"},
+                            "metric_name": {0: "foo", 1: "bar"},
+                            "metric_signature": {0: "foo", 1: "bar"},
+                            "mean": {0: 1.0, 1: 2.0},
+                            "sem": {0: np.nan, 1: np.nan},
+                            "step": {0: 10.0, 1: 10.0},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -642,21 +770,20 @@ class TestClient(TestCase):
             TrialStatus.FAILED,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 2},
-                        "arm_name": {0: "2_0"},
-                        "metric_name": {0: "foo"},
-                        "metric_signature": {0: "foo"},
-                        "mean": {0: 1.0},
-                        "sem": {0: np.nan},
-                        "step": {0: np.nan},
-                    }
-                )
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 2},
+                            "arm_name": {0: "2_0"},
+                            "metric_name": {0: "foo"},
+                            "metric_signature": {0: "foo"},
+                            "mean": {0: 1.0},
+                            "sem": {0: np.nan},
+                            "step": {0: np.nan},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -722,7 +849,7 @@ class TestClient(TestCase):
             TrialStatus.FAILED,
         )
         self.assertEqual(
-            client._experiment.trials[trial_index]._failed_reason,
+            client._experiment.trials[trial_index].status_reason,
             "testing the optional parameter",
         )
 
@@ -771,21 +898,20 @@ class TestClient(TestCase):
             TrialStatus.EARLY_STOPPED,
         )
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(trial_indices=[trial_index]),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 0},
-                        "arm_name": {0: "0_0"},
-                        "metric_name": {0: "foo"},
-                        "metric_signature": {0: "foo"},
-                        "mean": {0: 0.0},
-                        "sem": {0: np.nan},
-                        "step": {0: 1.0},
-                    }
-                )
+            client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 0},
+                            "arm_name": {0: "0_0"},
+                            "metric_name": {0: "foo"},
+                            "metric_signature": {0: "foo"},
+                            "mean": {0: 0.0},
+                            "sem": {0: np.nan},
+                            "step": {0: 1.0},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -834,21 +960,25 @@ class TestClient(TestCase):
         )
 
         self.assertTrue(
-            assert_is_instance(
-                client._experiment.lookup_data(),
-                MapData,
-            ).map_df.equals(
-                pd.DataFrame(
-                    {
-                        "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
-                        "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
-                        "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
-                        "metric_signature": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
-                        "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
-                        "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
-                        "step": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
-                    }
-                )
+            client._experiment.lookup_data().full_df.equals(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
+                            "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
+                            "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
+                            "metric_signature": {
+                                0: "foo",
+                                1: "foo",
+                                2: "foo",
+                                3: "foo",
+                            },
+                            "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                            "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
+                            "step": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                        }
+                    )
+                ).full_df
             ),
         )
 
@@ -916,9 +1046,9 @@ class TestClient(TestCase):
         summary_df = client.summarize()
         self.assertTrue(summary_df.empty)
 
-        # Add manual trial.
+        # Add manual trial (not at center so CenterGenerationNode won't be skipped).
         index = client.attach_trial(
-            parameters={"x1": 0.5, "x2": 0.5}, arm_name="manual"
+            parameters={"x1": 0.3, "x2": 0.7}, arm_name="manual"
         )
         client.attach_data(trial_index=index, raw_data={"foo": 0.0, "bar": 0.5})
         summary_df = client.summarize()
@@ -1504,13 +1634,13 @@ class TestClient(TestCase):
         self.assertFalse(
             client._generation_strategy._nodes[2]
             .generator_specs[0]
-            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+            .generator_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
         )
         client.configure_generation_strategy(simplify_parameter_changes=True)
         self.assertTrue(
             client._generation_strategy._nodes[2]
             .generator_specs[0]
-            .model_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
+            .generator_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
         )
 
     def test_configure_experiment_with_derived_parameter(self) -> None:

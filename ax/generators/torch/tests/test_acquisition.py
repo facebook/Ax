@@ -33,6 +33,9 @@ from ax.generators.torch.botorch_modular.optimizer_defaults import (
     MAX_OPT_AGG_SIZE,
 )
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
+from ax.generators.torch.botorch_modular.utils import (
+    _objective_threshold_to_outcome_constraints,
+)
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     get_botorch_objective_and_transform,
@@ -342,15 +345,19 @@ class AcquisitionTest(TestCase):
                 target_point=torch.zeros(3, dtype=torch.double),
             )
             n = 5
-            with mock.patch(
-                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-            ) as mock_optimizer_argparse, mock.patch(
-                f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
-            ) as mock_optimize_acqf, mock.patch.object(
-                acquisition,
-                "_prune_irrelevant_parameters",
-                wraps=acquisition._prune_irrelevant_parameters,
-            ) as mock_prune_irrelevant_parameters:
+            with (
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+                ) as mock_optimizer_argparse,
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
+                ) as mock_optimize_acqf,
+                mock.patch.object(
+                    acquisition,
+                    "_prune_irrelevant_parameters",
+                    wraps=acquisition._prune_irrelevant_parameters,
+                ) as mock_prune_irrelevant_parameters,
+            ):
                 acquisition.optimize(
                     n=n,
                     search_space_digest=self.search_space_digest,
@@ -459,8 +466,9 @@ class AcquisitionTest(TestCase):
                 )
 
         optimizer_options = {"batch_initial_conditions": None}
-        with self.subTest(optimizer_options=None), self.assertRaisesRegex(
-            ValueError, "Argument "
+        with (
+            self.subTest(optimizer_options=None),
+            self.assertRaisesRegex(ValueError, "Argument "),
         ):
             acquisition.optimize(
                 n=n,
@@ -472,11 +480,15 @@ class AcquisitionTest(TestCase):
         # check this works without any fixed_feature specified
         # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
         # not be selected. [2, 3, 4] is the best point, but has already been picked
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf_discrete", wraps=optimize_acqf_discrete
-        ) as mock_optimize_acqf_discrete:
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_discrete",
+                wraps=optimize_acqf_discrete,
+            ) as mock_optimize_acqf_discrete,
+        ):
             X_selected, _, weights = acquisition.optimize(
                 n=n,
                 search_space_digest=ssd1,
@@ -519,12 +531,18 @@ class AcquisitionTest(TestCase):
             categorical_features=[0, 1, 2],
             discrete_choices={k: [0, 1, 2, 3, 4] for k in range(3)},
         )
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf_discrete", wraps=optimize_acqf_discrete
-        ) as mock_optimize_acqf_discrete, mock.patch(
-            "botorch.models.gp_regression.SingleTaskGP.batch_shape", torch.Size([16])
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_discrete",
+                wraps=optimize_acqf_discrete,
+            ) as mock_optimize_acqf_discrete,
+            mock.patch(
+                "botorch.models.gp_regression.SingleTaskGP.batch_shape",
+                torch.Size([16]),
+            ),
         ):
             X_selected, _, weights = acquisition.optimize(
                 n=3,
@@ -593,11 +611,166 @@ class AcquisitionTest(TestCase):
             all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
         )
 
+    def test_optimize_discrete_fewer_candidates(self) -> None:
+        """Test that arm_weights and candidates have the same length when
+        optimize_acqf_discrete returns fewer than n candidates."""
+        # Search space with 2x2x2 = 8 total choices.
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(1, 2), (2, 3), (3, 4)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
+        )
+        # Mark 6 of the 8 choices as observed so only 2 remain.
+        all_choices = list(itertools.product(*ssd.discrete_choices.values()))
+        acquisition = self.get_acquisition_function()
+        acquisition.X_observed = torch.tensor(all_choices[:6], **self.tkwargs)
+        acquisition.X_pending = None
+
+        # Request n=5 candidates but only 2 feasible choices remain.
+        with self.assertWarnsRegex(
+            OptimizationWarning,
+            "only.*possible choices remain.",
+        ):
+            candidates, acqf_values, weights = acquisition.optimize(
+                n=5,
+                search_space_digest=ssd,
+                rounding_func=self.rounding_func,
+            )
+        # optimize_acqf_discrete returns only 2 candidates.
+        self.assertEqual(candidates.shape[0], 2)
+        # arm_weights must match the number of candidates, not n.
+        self.assertEqual(weights.shape[0], candidates.shape[0])
+        self.assertEqual(weights.shape[0], acqf_values.shape[0])
+        self.assertTrue(weights.sum().item(), 5)
+
+    def test_optimize_discrete_single_candidate(self) -> None:
+        """Test arm_weights length when only 1 candidate remains in a
+        discrete search space and n > 1."""
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(1, 2), (2, 3), (3, 4)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
+        )
+        # Mark 7 of 8 choices as observed so only 1 remains.
+        all_choices = list(itertools.product(*ssd.discrete_choices.values()))
+        acquisition = self.get_acquisition_function()
+        acquisition.X_observed = torch.tensor(all_choices[:7], **self.tkwargs)
+        acquisition.X_pending = None
+
+        with self.assertWarnsRegex(
+            OptimizationWarning,
+            "only.*possible choices remain.",
+        ):
+            candidates, acqf_values, weights = acquisition.optimize(
+                n=3,
+                search_space_digest=ssd,
+                rounding_func=self.rounding_func,
+            )
+        self.assertEqual(candidates.shape[0], 1)
+        self.assertEqual(weights.shape[0], candidates.shape[0])
+        # The remaining choice is all_choices[7].
+        expected = torch.tensor([all_choices[7]], **self.tkwargs)
+        self.assertTrue(torch.equal(candidates, expected))
+
+    def test_select_from_candidate_set(self) -> None:
+        """Test all select_from_candidate_set paths and optimize dispatch."""
+        from botorch.generation.sampling import SamplingStrategy
+
+        acquisition = self.get_acquisition_function()
+
+        with self.subTest("validation_too_few_candidates"):
+            with self.assertRaisesRegex(ValueError, "but 3 were requested"):
+                acquisition.select_from_candidate_set(
+                    n=3,
+                    candidate_set=torch.tensor([[1.0, 2.0, 3.0]], **self.tkwargs),
+                )
+
+        with self.subTest("validation_empty_candidate_set"):
+            with self.assertRaisesRegex(ValueError, "empty"):
+                acquisition.select_from_candidate_set(
+                    n=1,
+                    candidate_set=torch.empty(0, 3, **self.tkwargs),
+                )
+
+        with self.subTest("win_counting_normalized"):
+            candidate_set = torch.tensor(
+                [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]],
+                **self.tkwargs,
+            )
+
+            class _AlternatingWinStrategy(SamplingStrategy):
+                """Candidate 0 wins 75% of the time, candidate 1 wins 25%."""
+
+                num_samples: int = 0
+
+                def forward(self, X: Tensor, num_samples: int = 1) -> Tensor:
+                    n_first = int(num_samples * 0.75)
+                    n_second = num_samples - n_first
+                    first = X[..., 0:1, :].expand(*X.shape[:-2], n_first, X.shape[-1])
+                    second = X[..., 1:2, :].expand(*X.shape[:-2], n_second, X.shape[-1])
+                    return torch.cat([first, second], dim=-2)
+
+            strategy = _AlternatingWinStrategy()
+            strategy.num_samples = 100
+
+            candidates, _, weights = acquisition.select_from_candidate_set(
+                n=2,
+                candidate_set=candidate_set,
+                sampling_strategy=strategy,
+            )
+            self.assertEqual(candidates.shape[0], 2)
+            self.assertAlmostEqual(weights.sum().item(), 1.0, places=4)
+            self.assertAlmostEqual(weights[0].item(), 0.75, places=4)
+            self.assertAlmostEqual(weights[1].item(), 0.25, places=4)
+
+        with self.subTest("direct_selection_without_num_samples"):
+            candidate_set = torch.tensor(
+                [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]],
+                **self.tkwargs,
+            )
+
+            class _DirectStrategy(SamplingStrategy):
+                """Always returns the first n candidates."""
+
+                def forward(self, X: Tensor, num_samples: int = 1) -> Tensor:
+                    return X[..., :num_samples, :]
+
+            candidates, _, weights = acquisition.select_from_candidate_set(
+                n=2,
+                candidate_set=candidate_set,
+                sampling_strategy=_DirectStrategy(),
+            )
+            self.assertEqual(candidates.shape[0], 2)
+            self.assertTrue(torch.all(weights == 1.0))
+            self.assertEqual(weights.shape, (2,))
+
+        with self.subTest("greedy_via_optimize_acqf_discrete"):
+            candidate_set = torch.rand(10, 3, **self.tkwargs)
+            candidates, _, weights = acquisition.select_from_candidate_set(
+                n=1,
+                candidate_set=candidate_set,
+            )
+            self.assertEqual(candidates.shape, (1, 3))
+            self.assertEqual(weights.shape, (1,))
+            self.assertAlmostEqual(weights[0].item(), 1.0, places=6)
+            self.assertTrue((candidate_set == candidates[0]).all(dim=-1).any())
+
+        with self.subTest("optimize_raises_strategy_without_candidate_set"):
+            strategy = Mock(spec=SamplingStrategy)
+            with self.assertRaisesRegex(ValueError, "candidate_set.*required"):
+                acquisition.optimize(
+                    n=1,
+                    search_space_digest=self.search_space_digest,
+                    sampling_strategy=strategy,
+                )
+
     # mock `optimize_acqf_discrete_local_search` because it isn't handled by
     # `mock_botorch_optimize`
     @mock.patch(
         f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
-        return_value=(Mock(), Mock()),
+        return_value=(torch.rand(3, 3), torch.rand(3)),
     )
     def test_optimize_acqf_discrete_local_search(
         self,
@@ -701,11 +874,14 @@ class AcquisitionTest(TestCase):
         ]:
             # Mock optimize_acqf_discrete_local_search because it isn't handled
             # by `mock_botorch_optimize`
-            with mock.patch(
-                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-            ) as mock_optimizer_argparse, mock.patch(
-                f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
-                return_value=(Mock(), Mock()),
+            with (
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+                ) as mock_optimizer_argparse,
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
+                    return_value=(torch.rand(3, 3), torch.rand(3)),
+                ),
             ):
                 acquisition.optimize(
                     n=3,
@@ -1101,6 +1277,153 @@ class AcquisitionTest(TestCase):
         self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
         self.assertIsNone(acquisition._full_objective_thresholds)
 
+    @mock_botorch_optimize
+    def test_p_feasible_moo(self) -> None:
+        # Test qLogProbabilityOfFeasibility with outcome constraints, no
+        # objective thresholds, and no feasible points. This verifies that
+        # only the outcome constraint transforms are used (no threshold-
+        # derived constraints) and that objective thresholds remain None.
+        moo_training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y.repeat(1, 3),
+                feature_names=self.feature_names,
+                outcome_names=["m1", "m2", "m3"],
+            )
+        ]
+        self.surrogate.fit(
+            datasets=moo_training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        outcome_constraints = (
+            torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
+            torch.tensor([[0.0]], **self.tkwargs),
+        )
+        torch_opt_config = TorchOptConfig(
+            objective_weights=torch.tensor([1.0, 1.0, 0.0], **self.tkwargs),
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=None,
+            is_moo=True,
+        )
+        with self.assertLogs(logger=logger, level="WARNING") as logs:
+            acquisition = Acquisition(
+                surrogate=self.surrogate,
+                search_space_digest=self.search_space_digest,
+                botorch_acqf_class=qLogProbabilityOfFeasibility,
+                torch_opt_config=torch_opt_config,
+            )
+        self.assertTrue(
+            any("Failed to infer objective thresholds." in str(log) for log in logs)
+        )
+        self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
+        self.assertIsNone(acquisition._full_objective_thresholds)
+        # Verify only outcome constraints are used (no threshold-derived ones).
+        oc_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
+        self.assertIsNotNone(oc_transforms)
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        n_constraints = len(acquisition.acqf._constraints)
+        assert oc_transforms is not None
+        self.assertEqual(n_constraints, len(oc_transforms))
+        # Test that when using qLogProbabilityOfFeasibility with MOO
+        # objective thresholds, the threshold-derived constraints are
+        # combined with the outcome constraints.
+        moo_training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y.repeat(1, 3),
+                feature_names=self.feature_names,
+                outcome_names=["m1", "m2", "m3"],
+            )
+        ]
+        self.surrogate.fit(
+            datasets=moo_training_data,
+            search_space_digest=self.search_space_digest,
+        )
+        moo_objective_weights = torch.tensor([1.0, 1.0, 0.0], **self.tkwargs)
+        moo_objective_thresholds = torch.tensor(
+            [0.5, 1.5, float("nan")], **self.tkwargs
+        )
+        outcome_constraints = (
+            torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
+            torch.tensor([[0.5]], **self.tkwargs),
+        )
+
+        oc_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=outcome_constraints
+        )
+        threshold_constraints = _objective_threshold_to_outcome_constraints(
+            objective_weights=moo_objective_weights,
+            objective_thresholds=moo_objective_thresholds,
+        )
+        threshold_transforms = get_outcome_constraint_transforms(
+            outcome_constraints=threshold_constraints
+        )
+        self.assertIsNotNone(oc_transforms)
+        self.assertIsNotNone(threshold_transforms)
+
+        # Case 1: qLogProbabilityOfFeasibility with both outcome constraints
+        # and objective thresholds. Both should be combined.
+        torch_opt_config = TorchOptConfig(
+            objective_weights=moo_objective_weights,
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
+        )
+        acquisition = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            botorch_acqf_class=qLogProbabilityOfFeasibility,
+            torch_opt_config=torch_opt_config,
+        )
+        self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
+        # Verify the number of constraints: 1 from outcome constraints
+        # + 2 from threshold constraints (two objectives with non-NaN thresholds).
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        n_constraints = len(acquisition.acqf._constraints)
+        assert oc_transforms is not None
+        assert threshold_transforms is not None
+        self.assertEqual(n_constraints, len(oc_transforms) + len(threshold_transforms))
+
+        # Case 2: qLogProbabilityOfFeasibility with only objective thresholds
+        # (no outcome constraints). Only threshold-derived constraints.
+        torch_opt_config_no_oc = TorchOptConfig(
+            objective_weights=moo_objective_weights,
+            outcome_constraints=None,
+            objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
+        )
+        acquisition_no_oc = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            botorch_acqf_class=qLogProbabilityOfFeasibility,
+            torch_opt_config=torch_opt_config_no_oc,
+        )
+        self.assertIsInstance(acquisition_no_oc.acqf, qLogProbabilityOfFeasibility)
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        n_constraints_no_oc = len(acquisition_no_oc.acqf._constraints)
+        assert threshold_transforms is not None
+        self.assertEqual(n_constraints_no_oc, len(threshold_transforms))
+
+        # Case 3: With a non-qLogProbabilityOfFeasibility acqf class, the
+        # threshold constraints should NOT be added.
+        torch_opt_config_nehvi = TorchOptConfig(
+            objective_weights=moo_objective_weights,
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
+        )
+        acquisition_nehvi = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=self.search_space_digest,
+            botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
+            torch_opt_config=torch_opt_config_nehvi,
+        )
+        self.assertIsInstance(
+            acquisition_nehvi.acqf, qNoisyExpectedHypervolumeImprovement
+        )
+
     def test_expand_and_set_single_feature_to_target(self) -> None:
         # Test helper function
         X = torch.tensor([[1.0, 2.0, 3.0]])  # 1 x 3
@@ -1353,6 +1676,23 @@ class AcquisitionTest(TestCase):
         self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.2, 0.8]])))
         self.assertTrue(torch.equal(pruned_values, torch.tensor([0.91])))
 
+        # Verify pruning stops when ALL pruned candidates are infeasible.
+        acq.evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0]),  # baseline
+                torch.tensor([1.0]),  # dense val
+            ]
+        )
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=torch.tensor([[0.8, 0.8]]),
+            search_space_digest=search_space_digest,
+            inequality_constraints=[
+                (torch.tensor([0, 1]), torch.tensor([1.0, 1.0]), 1.5)
+            ],
+        )
+        # No pruning: setting either dim to 0.2 gives sum=1.0 < 1.5 (infeasible)
+        self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.8, 0.8]])))
+
     def test_prune_irrelevant_parameters_already_at_target(self) -> None:
         # Test that features already at target point are excluded from pruning
 
@@ -1461,7 +1801,7 @@ class AcquisitionTest(TestCase):
             side_effect=[
                 torch.tensor([0.0]),  # baseline acquisition value
                 torch.tensor([1.0]),  # original dense acquisition value
-                torch.tensor([0.8, 0.7]),
+                torch.tensor([0.7, 0.3]),
             ]
         )
         acq.evaluate = mock_evaluate
@@ -1658,6 +1998,33 @@ class AcquisitionTest(TestCase):
             torch.equal(pruned_values, torch.tensor([0.95], dtype=torch.double))
         )
 
+    @mock_botorch_optimize
+    def test_no_pruning_with_qLogProbabilityOfFeasibility(self) -> None:
+        # Test that pruning is NOT called when using qLogProbabilityOfFeasibility,
+        # even when prune_irrelevant_parameters option is enabled
+        self.options = {"prune_irrelevant_parameters": True}
+        self.botorch_acqf_class = qLogProbabilityOfFeasibility  # pyre-ignore [8]
+        self.botorch_acqf_options = {}
+        acquisition = self.get_acquisition_function(
+            fixed_features=self.fixed_features,
+        )
+        n = 1
+        with mock.patch.object(
+            acquisition,
+            "_prune_irrelevant_parameters",
+            wraps=acquisition._prune_irrelevant_parameters,
+        ) as mock_prune_irrelevant_parameters:
+            acquisition.optimize(
+                n=n,
+                search_space_digest=self.search_space_digest,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+            mock_prune_irrelevant_parameters.assert_not_called()
+            self.assertIsNone(acquisition.num_pruned_dims)
+
 
 class MultiAcquisitionTest(AcquisitionTest):
     acquisition_class = MultiAcquisition
@@ -1678,10 +2045,19 @@ class MultiAcquisitionTest(AcquisitionTest):
     def test_optimize_acqf_discrete_too_many_choices(self) -> None:
         pass
 
+    def test_optimize_discrete_fewer_candidates(self) -> None:
+        pass
+
+    def test_optimize_discrete_single_candidate(self) -> None:
+        pass
+
     def test_optimize_mixed(self) -> None:
         pass
 
     def test_optimize_acqf_mixed_alternating(self) -> None:
+        pass
+
+    def test_select_from_candidate_set(self) -> None:
         pass
 
     # Mock so that we can check that arguments are passed correctly.
@@ -1760,11 +2136,14 @@ class MultiAcquisitionTest(AcquisitionTest):
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         n = 5
         optimizer_options = {"max_gen": 3, "population_size": 10}
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_with_nsgaii", wraps=optimize_with_nsgaii
-        ) as mock_optimize_with_nsgaii:
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_with_nsgaii", wraps=optimize_with_nsgaii
+            ) as mock_optimize_with_nsgaii,
+        ):
             acquisition.optimize(
                 n=n,
                 search_space_digest=self.search_space_digest,

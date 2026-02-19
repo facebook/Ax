@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from logging import Logger
-from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -19,7 +18,7 @@ from ax.utils.stats.math_utils import relativize
 
 logger: Logger = get_logger(__name__)
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-num_mixed = Union[np.ndarray, list[float]]
+num_mixed = np.ndarray | list[float]
 
 
 def inverse_variance_weight(
@@ -201,7 +200,7 @@ def marginal_effects(
     )
     for cov in covariates:
         if len(df[cov].unique()) <= 1:
-            next
+            continue
         df_gb = df.groupby(cov)
         for name, group_df in df_gb:
             group_mean, group_var = inverse_variance_weight(

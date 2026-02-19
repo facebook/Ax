@@ -7,7 +7,6 @@
 
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.utils.common.testutils import TestCase
-
 from ax.utils.testing.core_stubs import get_experiment
 
 
