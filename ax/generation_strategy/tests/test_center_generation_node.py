@@ -219,7 +219,8 @@ class TestCenterGenerationNode(TestCase):
     def test_repr(self) -> None:
         self.assertEqual(
             repr(self.node),
-            "CenterGenerationNode(next_node_name='test')",
+            "CenterGenerationNode(next_node_name='test',"
+            " use_existing_trials_for_initialization=False)",
         )
 
     def test_equality(self) -> None:
