@@ -13,7 +13,7 @@ from collections.abc import MutableMapping
 from dataclasses import dataclass
 from datetime import datetime
 from logging import Logger
-from typing import Any, TYPE_CHECKING
+from typing import Any, Self, TYPE_CHECKING
 
 import numpy as np
 from ax.core.arm import Arm
@@ -467,9 +467,7 @@ class BatchTrial(BaseTrial):
             weights = weights * (total / np.sum(weights))
         return OrderedDict(zip(self.arms, weights))
 
-    def mark_arm_abandoned(
-        self, arm_name: str, reason: str | None = None
-    ) -> BatchTrial:
+    def mark_arm_abandoned(self, arm_name: str, reason: str | None = None) -> Self:
         """Mark a arm abandoned.
 
         Usually done after deployment when one arm causes issues but
