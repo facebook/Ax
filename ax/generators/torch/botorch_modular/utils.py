@@ -35,6 +35,11 @@ from botorch.acquisition.multi_objective.logei import (
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
+from botorch.models.classifier import (
+    RandomForestClassifierModel,
+    SVCClassifierModel,
+    XGBoostClassifierModel,
+)
 from botorch.models.fully_bayesian import (
     AbstractFullyBayesianSingleTaskGP,
     FullyBayesianSingleTaskGP,
@@ -816,6 +821,32 @@ def _fit_botorch_model_fully_bayesian_nuts(
     mll_options = mll_options or {}
     mll_options.setdefault("disable_progbar", True)
     fit_fully_bayesian_model_nuts(model, **mll_options)
+
+
+@fit_botorch_model.register(
+    (
+        RandomForestClassifierModel,
+        SVCClassifierModel,
+        XGBoostClassifierModel,
+    )
+)
+def _fit_classifier_model(
+    model: (RandomForestClassifierModel | SVCClassifierModel | XGBoostClassifierModel),
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    """No-op fitting routine for classifier models.
+
+    Classifier models are deterministic and already trained during
+    construct_inputs, so no fitting is needed.
+
+    Args:
+        model: The classifier model (already trained).
+        mll_class: Ignored (classifiers don't have likelihoods).
+        mll_options: Ignored (classifiers don't need fitting).
+    """
+    # Classifiers are already trained in construct_inputs, so this is a no-op
+    return
 
 
 @fit_botorch_model.register(object)
