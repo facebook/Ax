@@ -16,7 +16,7 @@ from ax.utils.common.base import Base
 class BenchmarkMethod(Base):
     """Benchmark method, represented in terms of Ax generation strategy (which tells us
     which models to use when) and Orchestrator options (which tell us extra execution
-    information like maximum parallelism, early stopping configuration, etc.).
+    information like maximum pending trials, early stopping configuration, etc.).
 
     Args:
         name: String description. Defaults to the name of the generation strategy.
