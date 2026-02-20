@@ -264,19 +264,23 @@ def _get_default_n(experiment: Experiment, next_node: GenerationNode) -> int:
     if next_node.generator_spec_to_gen_from.generator_gen_kwargs.get("n") is not None:
         return next_node.generator_spec_to_gen_from.generator_gen_kwargs["n"]
 
-    if (
-        exp_n := experiment._properties.get(Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value)
-    ) is None:
+    n_for_this_trial = None
+    concurrency_limit = experiment.design.concurrency_limit
+
+    # If concurrency_limit is set, we will use that in conjunction with the trial
+    # type to determine the number of arms to generate from this node
+    if concurrency_limit is not None:
+        if next_node._trial_type == Keys.SHORT_RUN:
+            n_for_this_trial = floor(0.5 * concurrency_limit)
+        elif next_node._trial_type == Keys.LONG_RUN:
+            n_for_this_trial = ceil(0.5 * concurrency_limit)
+        else:
+            n_for_this_trial = concurrency_limit
+
+    return (
+        n_for_this_trial
+        if n_for_this_trial is not None
         # GS default n is 1, but these input constructors are used for nodes that
         # should generate more than 1 arm per trial, default to 10
-        return 10
-
-    # If exp_n is set, we will use that in conjunction with the trial
-    # type to determine the number of arms to generate from this node
-    # TODO #2 [drfreund, mgarrard]: Instead of this, short- and long-run nodes should
-    # just have different input constructors (`half_n_floor` and `half_n_ceil`).
-    if next_node._trial_type == Keys.SHORT_RUN:
-        return floor(0.5 * exp_n)
-    if next_node._trial_type == Keys.LONG_RUN:
-        return ceil(0.5 * exp_n)
-    return exp_n
+        else 10
+    )

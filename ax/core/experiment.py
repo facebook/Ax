@@ -30,6 +30,7 @@ from ax.core.auxiliary import (
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_data_rows_favoring_recent, Data
+from ax.core.experiment_design import EXPERIMENT_DESIGN_KEY, ExperimentDesign
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.llm_provider import LLMMessage
@@ -152,6 +153,17 @@ class Experiment(Base):
         self._status: ExperimentStatus | None = None
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
+        self._design: ExperimentDesign = ExperimentDesign()
+        # Properties is temporarily being used to serialize/deserialize experiment
+        # in fbcode/ax/storage/sqa_store/encoder.py.
+        # Eventually design will have first-class support as an experiment
+        # attribute
+        # TODO[drfreund, mpolson64]: Replace with proper storage as part of the
+        # refactor.
+        if (
+            design_dict := self._properties.pop(EXPERIMENT_DESIGN_KEY, None)
+        ) is not None:
+            self._design.concurrency_limit = design_dict.get("concurrency_limit")
 
         # Initialize trial type to runner mapping
         self._default_trial_type = default_trial_type
@@ -293,6 +305,11 @@ class Experiment(Base):
             return None
 
         return suggested_statuses.pop()
+
+    @property
+    def design(self) -> ExperimentDesign:
+        """The experiment design configuration."""
+        return self._design
 
     @property
     def search_space(self) -> SearchSpace:

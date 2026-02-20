@@ -27,6 +27,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
+from ax.core.experiment_design import EXPERIMENT_DESIGN_KEY
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -228,6 +229,12 @@ class Encoder:
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
         properties = experiment._properties.copy()
+
+        properties[EXPERIMENT_DESIGN_KEY] = {
+            attribute: getattr(experiment.design, attribute)
+            for attribute in list(experiment.design.__dict__.keys())
+        }
+
         if (
             oc := experiment.optimization_config
         ) is not None and oc.pruning_target_parameterization is not None:

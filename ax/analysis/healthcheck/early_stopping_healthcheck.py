@@ -23,7 +23,7 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.early_stopping.dispatch import get_default_ess_or_none
 from ax.early_stopping.experiment_replay import (
     estimate_hypothetical_early_stopping_savings,
-    MAX_PENDING_TRIALS,
+    MAX_CONCURRENT_TRIALS,
     MIN_SAVINGS_THRESHOLD,
 )
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
@@ -81,7 +81,7 @@ class EarlyStoppingAnalysis(Analysis):
         self,
         early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
         min_savings_threshold: float = MIN_SAVINGS_THRESHOLD,
-        max_pending_trials: int = MAX_PENDING_TRIALS,
+        max_pending_trials: int = MAX_CONCURRENT_TRIALS,
         auto_early_stopping_config: AutoEarlyStoppingConfig | None = None,
         nudge_additional_info: str | None = None,
     ) -> None:
@@ -95,7 +95,7 @@ class EarlyStoppingAnalysis(Analysis):
                 single-objective unconstrained experiments.
             min_savings_threshold: Minimum savings threshold to suggest early
                 stopping. Default is 0.1 (10% savings).
-            max_pending_trials: Maximum number of pending trials for replay
+            max_pending_trials: Maximum number of concurrent trials for replay
                 orchestrator. Default is 5.
             auto_early_stopping_config: A string for configuring automated early
                 stopping strategy.

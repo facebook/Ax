@@ -18,11 +18,9 @@ from time import sleep
 from typing import Any, cast, NamedTuple
 
 import ax.service.utils.early_stopping as early_stopping_utils
-from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.multi_type_experiment import (
     filter_trials_by_type,
@@ -32,18 +30,7 @@ from ax.core.multi_type_experiment import (
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import (
-    AxError,
-    DataRequiredError,
-    OptimizationComplete,
-    UnsupportedError,
-    UserInputError,
-)
-from ax.exceptions.generation_strategy import (
-    AxGenerationException,
-    MaxParallelismReachedException,
-    OptimizationConfigRequired,
-)
+from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.orchestration.orchestrator_options import OrchestratorOptions, TrialType
 from ax.service.utils.best_point import derelativize_opt_config, is_row_feasible
@@ -514,29 +501,97 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     # ---------- Methods below should generally not be modified in subclasses! ---------
     # ---------- I. Methods that are often called outside the `Orchestrator`. ---------
 
-    def generate_candidates(
+    def generate_candidate_trials(
         self,
-        num_trials: int = 1,
+        n: int = 1,
         reduce_state_generator_runs: bool = False,
-    ) -> tuple[list[BaseTrial], Exception | None]:
+        # TODO[@drfreund]: Check that this indeed ended up unused in the previous version
+        # of the code (that was pretty silly if so...) and if yes, see if we do want it
+        # used (the paste functionality in Axolotl is nice).
+        on_generation_error: Callable[[Exception, Experiment], str] | None = None,
+    ) -> tuple[list[BaseTrial], list[BaseTrial], Exception | None, str | None]:
         """Fetch the latest data and generate new candidate trials.
 
+        NOTE: We use ``n`` instead of ``num_trials`` because in the future this will
+        most likely control concurrency with respect to arms, not trials.
+
         Args:
-            num_trials: Number of candidate trials to generate.
+            n: Number of candidate trials to generate.
             reduce_state_generator_runs: Flag to determine
                 whether to save model state for every generator run (default)
                 or to only save model state on the final generator run of each
                 batch.
+            on_generation_error: Optional callback to execute if an error is
+                encountered during candidate generation. The callback receives
+                the exception and the Ax `Experiment` object and should return
+                a string describing why generation failed (e.g., for logging
+                to specific infrastructur or for custom display purposes).
 
         Returns:
-            List of trials, empty if generation is not possible.
+            A 4-tuple of:
+            - List of existing candidate trials to re-deploy (grabbed internally).
+            - List of newly generated trials (empty if generation not possible).
+            - Exception if generation failed, None otherwise.
+            - Error reason string from the callback, None if no error or no callback.
         """
         # Trigger TTL check to ensure expired trials are marked as stale
         self.experiment.trials
 
-        new_trials, err = self._get_next_trials(
-            num_trials=num_trials, n=self.options.batch_size
-        )
+        # Grab existing candidate trials that should be re-deployed.
+        existing_candidate_trials = self.candidate_trials
+
+        # Generate n new trials (caller is responsible for accounting for existing
+        # candidates if needed).
+        if n <= 0:
+            new_trials: list[BaseTrial] = []
+        else:
+            generator_runs, cannot_gen_reason = (
+                self.generation_strategy.gen_handle_exceptions(
+                    experiment=self.experiment,
+                    num_trials=n,
+                    n=self.options.batch_size,
+                )
+            )
+            if cannot_gen_reason is not None:
+                if "Optimization complete" in cannot_gen_reason:
+                    self._optimization_complete = True
+                if self._log_next_no_trials_reason:
+                    self.logger.info(cannot_gen_reason)
+                return existing_candidate_trials, [], None, cannot_gen_reason
+
+            if self.options.trial_type == TrialType.TRIAL and any(
+                len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
+                for generator_run_list in generator_runs
+            ):
+                raise OrchestratorInternalError(
+                    "Generation strategy produced multiple arms when only one was "
+                    "expected."
+                )
+            new_trials = []
+            for generator_run_list in generator_runs:
+                # NEXT STEP: SEE IF WE CAN MAKE ONE METHOD FOR MAKING A BASE TRIAL AND
+                # RESOLVE THE VARIOUS INPUTS WITHIN.
+                if self.options.trial_type == TrialType.BATCH_TRIAL:
+                    new_trials.append(
+                        self.experiment.new_batch_trial(
+                            generator_runs=generator_run_list,
+                            ttl_seconds=self.options.ttl_seconds_for_trials,
+                            trial_type=self.trial_type,
+                            # TODO[@drfreund]: Can we just look at whether the experiment has the
+                            # SQ set? Ideally we don't keep this in OrchOptions. @no-commit
+                            should_add_status_quo_arm=self.options.status_quo_weight
+                            > 0,
+                        )
+                    )
+
+                else:
+                    new_trials.append(
+                        self.experiment.new_trial(
+                            generator_run=generator_run_list[0],
+                            ttl_seconds=self.options.ttl_seconds_for_trials,
+                            trial_type=self.trial_type,
+                        )
+                    )
 
         if len(new_trials) > 0:
             new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
@@ -552,7 +607,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 new_generator_runs=new_generator_runs,
                 reduce_state_generator_runs=reduce_state_generator_runs,
             )
-        return new_trials, err
+        return existing_candidate_trials, new_trials, None, None
 
     def run_n_trials(
         self,
@@ -1266,9 +1321,8 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         # Check if capacity allows for running new evaluations and generate as many
         # trials as possible, limited by capacity and model requirements.
         self._sleep_if_too_early_to_poll()
-        existing_trials, new_trials = self._prepare_trials(
-            max_new_trials=max_new_trials
-        )
+        n = self.compute_n_to_generate(max_new_trials=max_new_trials)
+        existing_trials, new_trials, _err, _reason = self.generate_candidate_trials(n=n)
 
         if not existing_trials and not new_trials:
             # Unable to gen. new run due to max parallelism limit or need for data
@@ -1645,7 +1699,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             )
 
     def _get_max_pending_trials(self) -> int:
-        """Returns the maximum number of pending trials specified in the options, or
+        """Returns the maximum number of concurrent trials specified in the options, or
         zero, if the failure rate limit has been exceeded at any point during the
         optimization.
         """
@@ -1653,32 +1707,25 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             return 0
         return self.options.max_pending_trials
 
-    def _prepare_trials(
-        self, max_new_trials: int
-    ) -> tuple[list[BaseTrial], list[BaseTrial]]:
-        """Prepares one trial or multiple trials for deployment, based on
-        whether `run_trials_in_batches` is set to `True` in this Orchestrator's
-        options.
+    def compute_n_to_generate(self, max_new_trials: int) -> int:
+        """Query available capacity and calculate how many new trials to generate.
 
-        NOTE: If running trials in batches, exact number of trials run at once
-        is determined by available capacity and generation strategy's
-        requirement for more data and parallelism limitation.
+        NOTE: We use ``n`` instead of ``num_trials`` because in the future this will
+        most likely control concurrency with respect to arms, not trials.
 
         Args:
             max_new_trials: Maximum number of new trials to generate.
 
         Returns:
-            Two lists of trials:
-            - list of existing candidate trials whose deployment was attempted
-              but failed before (empty if there were no such trials),
-            - list of new candidate trials that were created in the course of
-              this function (empty if no new trials were generated).
+            Number of new trials to generate (0 if no capacity or constraints
+            prevent it). This value accounts for existing candidate trials, so
+            the caller should pass this directly to `generate_candidate_trials`.
         """
         # 1. Determine available capacity for running trials.
         capacity = self.runner.poll_available_capacity()
         if capacity != -1 and capacity < 1:  # -1 indicates unlimited capacity.
             self.logger.debug("There is no capacity to run any trials.")
-            return [], []
+            return 0
 
         # 2. Determine actual number of trials to run based on capacity,
         # limit on pending trials and limit on total trials.
@@ -1690,153 +1737,26 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         max_pending_upper_bound = max_pending_trials - num_pending_trials
         if max_pending_upper_bound < 1:
             self.logger.debug(
-                f"`max_pending_trials={max_pending_trials}` and {num_pending_trials} "
-                "trials are currently pending; not initiating any additional trials."
+                f"`max_pending_trials={max_pending_trials}` and "
+                f"{num_pending_trials} trials are currently pending; "
+                "not initiating any additional trials."
             )
-            return [], []
+            return 0
         n = max_pending_upper_bound if n == -1 else min(max_pending_upper_bound, n)
 
         if total_trials is not None:
             left_in_total = total_trials - len(self.trials_expecting_data)
             n = min(n, left_in_total)
 
-        existing_candidate_trials = self.candidate_trials[:n]
-        n_new = min(n - len(existing_candidate_trials), max_new_trials)
-        new_trials, _err = (
-            self._get_next_trials(num_trials=n_new, n=self.options.batch_size)
-            if n_new > 0
-            else (
-                [],
-                None,
-            )
-        )
-        return existing_candidate_trials, new_trials
+        # 3. Apply max_new_trials limit.
+        n = min(n, max_new_trials)
 
-    def _get_next_trials(
-        self, num_trials: int = 1, n: int | None = None
-    ) -> tuple[list[BaseTrial], Exception | None]:
-        """Produce up to `num_trials` new generator runs from the underlying
-        generation strategy and create new trials with them. Logs errors
-        encountered during generation.
+        # 4. Account for existing candidate trials that will be reused.
+        # Subtract them so caller generates only the needed new trials.
+        n_existing_candidates = len(self.candidate_trials)
+        n = max(0, n - n_existing_candidates)
 
-        NOTE: Fewer than `num_trials` trials may be produced if generation
-        strategy runs into its parallelism limit or needs more data to proceed.
-
-        Returns:
-            List of trials, empty if generation is not possible.
-        """
-        try:
-            generator_runs = self._gen_new_trials_from_generation_strategy(
-                num_trials=num_trials, n=n
-            )
-        except OptimizationComplete as err:
-            completion_str = f"Optimization complete: {err}"
-            self.logger.info(completion_str)
-            self.markdown_messages["Optimization complete"] = MessageOutput(
-                text=completion_str,
-                priority=OutputPriority.DEBUG,
-            )
-            self._optimization_complete = True
-            return [], err
-        except DataRequiredError as err:
-            # TODO[T62606107]: consider adding a `more_data_required` property to
-            # check to generation strategy to avoid running into this exception.
-            if self._log_next_no_trials_reason:
-                self.logger.info(
-                    "Generated all trials that can be generated currently. "
-                    "Model requires more data to generate more trials."
-                )
-            self.logger.debug(f"Message from generation strategy: {err}")
-            return [], err
-        except MaxParallelismReachedException as err:
-            # TODO[T62606107]: consider adding a `step_max_parallelism_reached`
-            # check to generation strategy to avoid running into this exception.
-            if self._log_next_no_trials_reason:
-                self.logger.info(
-                    "Generated all trials that can be generated currently. "
-                    "Max parallelism currently reached."
-                )
-            self.logger.debug(f"Message from generation strategy: {err}")
-            return [], err
-        except AxGenerationException as err:
-            if self._log_next_no_trials_reason:
-                self.logger.info(
-                    "Generated all trials that can be generated currently. "
-                    "`generation_strategy` encountered an error "
-                    f"{err}."
-                )
-            self.logger.debug(f"Message from generation strategy: {err}")
-            return [], err
-        except OptimizationConfigRequired as err:
-            if self._log_next_no_trials_reason:
-                self.logger.info(
-                    "Generated all trials that can be generated currently. "
-                    "`generation_strategy` requires an optimization config "
-                    "to be set before generating more trials."
-                )
-            self.logger.debug(f"Message from generation strategy: {err}")
-            return [], err
-
-        if self.options.trial_type == TrialType.TRIAL and any(
-            len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
-            for generator_run_list in generator_runs
-        ):
-            raise OrchestratorInternalError(
-                "Generation strategy produced multiple arms when only one was expected."
-            )
-        trials = []
-        for generator_run_list in generator_runs:
-            if self.options.trial_type == TrialType.BATCH_TRIAL:
-                trial = self.experiment.new_batch_trial(
-                    generator_runs=generator_run_list,
-                    ttl_seconds=self.options.ttl_seconds_for_trials,
-                    trial_type=self.trial_type,
-                    should_add_status_quo_arm=self.options.status_quo_weight > 0,
-                )
-
-            else:
-                trial = self.experiment.new_trial(
-                    generator_run=generator_run_list[0],
-                    ttl_seconds=self.options.ttl_seconds_for_trials,
-                    trial_type=self.trial_type,
-                )
-
-            trials.append(trial)
-        return trials, None
-
-    def _gen_new_trials_from_generation_strategy(
-        self,
-        num_trials: int,
-        n: int | None = None,
-    ) -> list[list[GeneratorRun]]:
-        """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
-        ``_gen_multiple`` method of the Orchestrator's ``generation_strategy``, taking
-        into account any ``pending`` observations.
-        """
-        self.generation_strategy.experiment = self.experiment
-        # For ``BatchTrial`-s, we generate trials using the new method that can
-        # produce GRs for multiple trials, with multiple nodes. But we don't yet
-        # want to enable that functionality for single-arm use cases of the
-        # ``Orchestrator``, as it's still in development.
-        if self.options.trial_type == TrialType.BATCH_TRIAL:
-            grs = self.generation_strategy.gen(
-                experiment=self.experiment,
-                num_trials=num_trials,
-                n=n,
-            )
-            return grs
-        else:
-            assert self.options.trial_type == TrialType.TRIAL  # Sanity check.
-            grs = self.generation_strategy.gen(
-                experiment=self.experiment,
-                num_trials=num_trials,
-                n=1,
-                fixed_features=get_fixed_features_from_experiment(
-                    experiment=self.experiment
-                ),
-            )
-            return grs
-        # TODO: pass self.trial_type to GS.gen for multi-type experiments
+        return n
 
     def _update_and_save_trials(
         self,

@@ -1660,6 +1660,60 @@ class JSONStoreTest(TestCase):
             ).pruning_target_parameterization,
         )
 
+    def test_experiment_design_json_roundtrip(self) -> None:
+        """Test that ExperimentDesign is preserved through JSON serialization."""
+        # Setup: create experiment and set concurrency_limit
+        experiment = get_branin_experiment()
+        experiment.design.concurrency_limit = 42
+
+        # Execute: save and load experiment through JSON
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(
+                experiment,
+                f.name,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
+            loaded_experiment = load_experiment(
+                f.name,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Cleanup
+        os.remove(f.name)
+
+        # Assert: confirm ExperimentDesign is preserved
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertEqual(loaded_experiment.design.concurrency_limit, 42)
+
+    def test_experiment_design_none_concurrency_json_roundtrip(self) -> None:
+        """Test that ExperimentDesign with None concurrency_limit is preserved."""
+        # Setup: create experiment with default (None) concurrency_limit
+        experiment = get_branin_experiment()
+        self.assertIsNone(experiment.design.concurrency_limit)
+
+        # Execute: save and load experiment through JSON
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(
+                experiment,
+                f.name,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
+            loaded_experiment = load_experiment(
+                f.name,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+
+        # Cleanup
+        os.remove(f.name)
+
+        # Assert: confirm ExperimentDesign is preserved with None
+        self.assertEqual(experiment, loaded_experiment)
+        self.assertIsNone(loaded_experiment.design.concurrency_limit)
+
     def test_multi_objective_from_json_warning(self) -> None:
         objectives = [get_objective()]
 
