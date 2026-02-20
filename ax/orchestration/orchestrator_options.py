@@ -90,7 +90,7 @@ class OrchestratorOptions:
             deployment. The size of the groups will be determined as
             the minimum of ``self.poll_available_capacity()`` and the number
             of generator runs that the generation strategy is able to produce
-            without more data or reaching its allowed max paralellism limit.
+            without more data or reaching its allowed max concurrency limit.
         debug_log_run_metadata: Whether to log run_metadata for debugging purposes.
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of

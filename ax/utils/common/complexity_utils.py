@@ -111,7 +111,7 @@ class OptimizationSummary:
             is True).
         tolerated_trial_failure_rate: Maximum tolerated trial failure rate
             (should be <= 0.9).
-        max_pending_trials: Maximum number of pending trials.
+        max_pending_trials: Maximum number of concurrent trials.
         min_failed_trials_for_failure_rate_check: Minimum failed trials before
             failure rate is checked.
         non_default_advanced_options: Whether non-default advanced options are set.
