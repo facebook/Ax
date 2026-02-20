@@ -19,10 +19,19 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.utils import extend_pending_observations, extract_pending_observations
-from ax.exceptions.core import AxError, DataRequiredError, UnsupportedError
+from ax.exceptions.core import (
+    AxError,
+    DataRequiredError,
+    OptimizationComplete,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.exceptions.generation_strategy import (
+    AxGenerationException,
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
+    MaxParallelismReachedException,
+    OptimizationConfigRequired,
 )
 from ax.generation_strategy.generation_node import (  # noqa: F401
     GEN_STEP_NAME,
@@ -34,6 +43,10 @@ from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
+
+# Message prefix for generation exceptions that indicate generation cannot proceed
+# but is not a fatal error.
+CANNOT_GENERATE_TRIALS_MSG = "Generated all trials that can be generated currently. "
 
 
 T = TypeVar("T")
@@ -334,6 +347,61 @@ class GenerationStrategy(Base):
 
         # if the generation strategy is not complete, optimization is not complete
         return self._curr.new_trial_limit(), False
+
+    def gen_handle_exceptions(
+        self,
+        experiment: Experiment,
+        num_trials: int = 1,
+        n: int | None = None,
+    ) -> tuple[list[list[GeneratorRun]], str | None]:
+        """Produce generator runs, handling meaningful exceptions in a way that
+        will be convenient for logging but not raising them.
+
+        This method wraps ``gen()`` and catches exceptions that indicate generation
+        cannot proceed (e.g., optimization complete, data required, max parallelism
+        reached). Instead of raising these exceptions, it returns an empty list
+        along with a string describing the reason generation could not proceed.
+
+        Args:
+            experiment: Experiment for which to generate trials.
+            num_trials: Number of trials to generate generator runs for.
+            n: Number of arms per trial (passed to ``gen``).
+
+        Returns:
+            A tuple of:
+              - A list of lists of ``GeneratorRun``s (empty if generation failed).
+              - A string describing why generation could not proceed, or ``None``
+                if generation succeeded.
+        """
+        try:
+            generator_runs = self.gen(
+                experiment=experiment,
+                num_trials=num_trials,
+                n=n,
+            )
+            return generator_runs, None
+        except OptimizationComplete as err:
+            return [], f"Optimization complete: {err}"
+        except DataRequiredError as err:
+            return [], (
+                CANNOT_GENERATE_TRIALS_MSG
+                + f"Model requires more data to generate more trials: {err}"
+            )
+        except MaxParallelismReachedException as err:
+            return [], (
+                CANNOT_GENERATE_TRIALS_MSG + f"Max parallelism currently reached: {err}"
+            )
+        except AxGenerationException as err:
+            return [], (
+                CANNOT_GENERATE_TRIALS_MSG
+                + f"`generation_strategy` encountered an error: {err}"
+            )
+        except OptimizationConfigRequired as err:
+            return [], (
+                CANNOT_GENERATE_TRIALS_MSG
+                + "`generation_strategy` requires an optimization config "
+                + f"to be set before generating more trials: {err}"
+            )
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
