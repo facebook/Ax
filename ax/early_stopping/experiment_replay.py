@@ -130,7 +130,7 @@ def estimate_hypothetical_early_stopping_savings(
     Args:
         experiment: The experiment to analyze.
         metric: The metric to use for early stopping replay.
-        max_pending_trials: Maximum number of pending trials for the replay
+        max_pending_trials: Maximum number of concurrent trials for the replay
             orchestrator. Defaults to 5.
 
     Returns:
