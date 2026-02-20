@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from collections.abc import Sequence
 from logging import Logger
@@ -971,9 +972,9 @@ class GenerationStep:
             If `num_trials` of a given step have been generated but `min_trials_
             observed` have not been completed, a call to `generation_strategy.gen`
             will fail with a `DataRequiredError`.
-        max_parallelism: How many trials generated in the course of this step are
+        max_concurrency: How many trials generated in the course of this step are
             allowed to be run (i.e. have `trial.status` of `RUNNING`) simultaneously.
-            If `max_parallelism` trials from this step are already running, a call
+            If `max_concurrency` trials from this step are already running, a call
             to `generation_strategy.gen` will fail with a `MaxParallelismReached
             Exception`, indicating that more trials need to be completed before
             generating and running next trials.
@@ -1026,7 +1027,7 @@ class GenerationStep:
         generator_kwargs: dict[str, Any] | None = None,
         generator_gen_kwargs: dict[str, Any] | None = None,
         min_trials_observed: int = 0,
-        max_parallelism: int | None = None,
+        max_concurrency: int | None = None,
         enforce_num_trials: bool = True,
         should_deduplicate: bool = False,
         generator_name: str | None = None,
@@ -1037,6 +1038,7 @@ class GenerationStep:
         # Deprecated arguments for backwards compatibility.
         model_kwargs: dict[str, Any] | None = None,
         model_gen_kwargs: dict[str, Any] | None = None,
+        max_parallelism: int | None = None,  # DEPRECATED: use max_concurrency.
     ) -> GenerationNode:
         r"""Creates a ``GenerationNode`` configured as a single-model generation step.
 
@@ -1048,15 +1050,29 @@ class GenerationStep:
         if use_update:
             raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
 
+        # Handle deprecated `max_parallelism` argument.
+        if max_parallelism is not None:
+            warnings.warn(
+                "`max_parallelism` is deprecated and will be removed in Ax 1.4. "
+                "Use `max_concurrency` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if max_concurrency is not None:
+                raise UserInputError(
+                    "Cannot specify both `max_parallelism` and `max_concurrency`."
+                )
+            max_concurrency = max_parallelism
+
         if num_trials < 1 and num_trials != -1:
             raise UserInputError(
                 "`num_trials` must be positive or -1 (indicating unlimited) "
                 "for all generation steps."
             )
-        if max_parallelism is not None and max_parallelism < 1:
+        if max_concurrency is not None and max_concurrency < 1:
             raise UserInputError(
-                "Maximum parallelism should be None (if no limit) or "
-                f"a positive number. Got: {max_parallelism} for "
+                "Maximum concurrency should be None (if no limit) or "
+                f"a positive number. Got: {max_concurrency} for "
                 f"step {generator_name}."
             )
 
@@ -1130,10 +1146,10 @@ class GenerationStep:
                     use_all_trials_in_exp=use_all_trials_in_exp,
                 )
             )
-        if max_parallelism is not None:
+        if max_concurrency is not None:
             transition_criteria.append(
                 MaxGenerationParallelism(
-                    threshold=max_parallelism,
+                    threshold=max_concurrency,
                     transition_to=placeholder_transition_to,
                     only_in_statuses=[TrialStatus.RUNNING],
                     block_gen_if_met=True,

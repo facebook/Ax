@@ -6,6 +6,7 @@
 # pyre-strict
 
 import json
+import warnings
 from collections.abc import Iterable, Sequence
 from logging import Logger
 from typing import Any, Literal, Self
@@ -43,7 +44,7 @@ from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
 )
-from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
+from ax.exceptions.core import ObjectNotFoundError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.orchestration.orchestrator import Orchestrator, OrchestratorOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
@@ -710,9 +711,11 @@ class Client(WithDBSettingsBase):
     def run_trials(
         self,
         max_trials: int,
-        parallelism: int = 1,
+        concurrency: int = 1,
         tolerated_trial_failure_rate: float = 0.5,
         initial_seconds_between_polls: int = 1,
+        # Deprecated argument for backwards compatibility.
+        parallelism: int | None = None,
     ) -> None:
         """
         Run maximum_trials trials in a loop by creating an ephemeral Orchestrator under
@@ -721,12 +724,25 @@ class Client(WithDBSettingsBase):
 
         Saves to database on completion if ``storage_config`` is present.
         """
+        # Handle deprecated `parallelism` argument.
+        if parallelism is not None:
+            warnings.warn(
+                "`parallelism` is deprecated and will be removed in Ax 1.4. "
+                "Use `concurrency` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if concurrency != 1:
+                raise UserInputError(
+                    "Cannot specify both `parallelism` and `concurrency`."
+                )
+            concurrency = parallelism
 
         orchestrator = Orchestrator(
             experiment=self._experiment,
             generation_strategy=self._generation_strategy_or_choose(),
             options=OrchestratorOptions(
-                max_pending_trials=parallelism,
+                max_pending_trials=concurrency,
                 tolerated_trial_failure_rate=tolerated_trial_failure_rate,
                 init_seconds_between_polls=initial_seconds_between_polls,
             ),
