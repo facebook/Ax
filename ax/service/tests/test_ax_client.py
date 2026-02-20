@@ -50,7 +50,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.generation_strategy.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
+from ax.generation_strategy.dispatch_utils import DEFAULT_BAYESIAN_CONCURRENCY
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -511,7 +511,7 @@ class TestAxClient(TestCase):
             if i < 5:
                 self.assertEqual(gen_limit, 5 - i)
             else:
-                self.assertEqual(gen_limit, DEFAULT_BAYESIAN_PARALLELISM)
+                self.assertEqual(gen_limit, DEFAULT_BAYESIAN_CONCURRENCY)
             parameterization, trial_index = ax_client.get_next_trial()
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
