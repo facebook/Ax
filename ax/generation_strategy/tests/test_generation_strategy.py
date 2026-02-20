@@ -520,7 +520,7 @@ class TestGenerationStrategy(TestCase):
         Experiment(
             name="test", search_space=SearchSpace(parameters=[get_choice_parameter()])
         )
-        with self.assertRaisesRegex(UserInputError, "Maximum parallelism should be"):
+        with self.assertRaisesRegex(UserInputError, "Maximum concurrency should be"):
             GenerationStrategy(
                 steps=[
                     GenerationStep(
