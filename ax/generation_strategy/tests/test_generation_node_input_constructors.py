@@ -192,7 +192,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.assertEqual(num_to_gen, 10)
 
     def test_no_n_provided_all_n_with_exp_prop(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 12
+        self.experiment._design.concurrency_limit = 12
         num_to_gen = NodeInputConstructors.ALL_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -202,7 +202,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.assertEqual(num_to_gen, 12)
 
     def test_no_n_provided_all_n_with_exp_prop_long_run(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 13
+        self.experiment._design.concurrency_limit = 13
         self.sobol_generation_node._trial_type = Keys.LONG_RUN
         num_to_gen = NodeInputConstructors.ALL_N(
             previous_node=None,
@@ -213,7 +213,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.assertEqual(num_to_gen, 7)
 
     def test_no_n_provided_all_n_with_exp_prop_short_run(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 13
+        self.experiment._design.concurrency_limit = 13
         self.sobol_generation_node._trial_type = Keys.SHORT_RUN
         num_to_gen = NodeInputConstructors.ALL_N(
             previous_node=None,
@@ -233,7 +233,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.assertEqual(num_to_gen, 1)
 
     def test_no_n_provided_repeat_n_with_exp_prop(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 18
+        self.experiment._design.concurrency_limit = 18
         num_to_gen = NodeInputConstructors.REPEAT_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -243,7 +243,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.assertEqual(num_to_gen, 2)
 
     def test_no_n_provided_repeat_n_with_exp_prop_long_run(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 18
+        self.experiment._design.concurrency_limit = 18
         self.sobol_generation_node._trial_type = Keys.SHORT_RUN
         num_to_gen = NodeInputConstructors.REPEAT_N(
             previous_node=None,
