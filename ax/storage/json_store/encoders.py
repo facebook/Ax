@@ -16,6 +16,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.experiment_design import EXPERIMENT_DESIGN_KEY
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
@@ -76,6 +77,13 @@ from torch import Tensor
 
 def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
     """Convert Ax experiment to a dictionary."""
+    # Serialize ExperimentDesign into properties
+    properties = {
+        **experiment._properties,
+        EXPERIMENT_DESIGN_KEY: {
+            "concurrency_limit": experiment.design.concurrency_limit,
+        },
+    }
     return {
         "__type": experiment.__class__.__name__,
         "name": experiment._name,
@@ -90,7 +98,7 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "trials": experiment.trials,
         "is_test": experiment.is_test,
         "data_by_trial": data_to_data_by_trial(data=experiment.data),
-        "properties": experiment._properties,
+        "properties": properties,
         "_trial_type_to_runner": experiment._trial_type_to_runner,
     }
 

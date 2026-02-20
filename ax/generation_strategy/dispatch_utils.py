@@ -7,6 +7,7 @@
 # pyre-strict
 
 import logging
+import warnings
 from math import ceil
 from typing import Any
 
@@ -16,6 +17,7 @@ from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
@@ -31,7 +33,7 @@ from pyre_extensions import none_throws
 logger: logging.Logger = get_logger(__name__)
 
 
-DEFAULT_BAYESIAN_PARALLELISM = 3
+DEFAULT_BAYESIAN_CONCURRENCY = 3
 # `BO_MIXED` optimizes all range parameters once for each combination of choice
 # parameters, then takes the optimum of those optima. The cost associated with this
 # method grows with the number of combinations, and so it is only used when the
@@ -49,7 +51,7 @@ def _make_sobol_step(
     num_trials: int = -1,
     min_trials_observed: int | None = None,
     enforce_num_trials: bool = True,
-    max_parallelism: int | None = None,
+    max_concurrency: int | None = None,
     seed: int | None = None,
     should_deduplicate: bool = False,
 ) -> GenerationStep:
@@ -62,7 +64,7 @@ def _make_sobol_step(
             ceil(num_trials / 2) if min_trials_observed is None else min_trials_observed
         ),
         enforce_num_trials=enforce_num_trials,
-        max_parallelism=max_parallelism,
+        max_concurrency=max_concurrency,
         generator_kwargs={"deduplicate": True, "seed": seed},
         should_deduplicate=should_deduplicate,
         use_all_trials_in_exp=True,
@@ -73,7 +75,7 @@ def _make_botorch_step(
     num_trials: int = -1,
     min_trials_observed: int | None = None,
     enforce_num_trials: bool = True,
-    max_parallelism: int | None = None,
+    max_concurrency: int | None = None,
     generator: GeneratorRegistryBase = Generators.BOTORCH_MODULAR,
     generator_kwargs: dict[str, Any] | None = None,
     winsorization_config: None
@@ -130,7 +132,7 @@ def _make_botorch_step(
             ceil(num_trials / 2) if min_trials_observed is None else min_trials_observed
         ),
         enforce_num_trials=enforce_num_trials,
-        max_parallelism=max_parallelism,
+        max_concurrency=max_concurrency,
         generator_kwargs=generator_kwargs,
         should_deduplicate=should_deduplicate,
     )
@@ -300,8 +302,8 @@ def choose_generation_strategy_legacy(
     num_completed_initialization_trials: int = 0,
     max_initialization_trials: int | None = None,
     min_sobol_trials_observed: int | None = None,
-    max_parallelism_cap: int | None = None,
-    max_parallelism_override: int | None = None,
+    max_concurrency_cap: int | None = None,
+    max_concurrency_override: int | None = None,
     optimization_config: OptimizationConfig | None = None,
     should_deduplicate: bool = False,
     use_saasbo: bool = False,
@@ -311,6 +313,9 @@ def choose_generation_strategy_legacy(
     suggested_model_override: GeneratorRegistryBase | None = None,
     use_input_warping: bool = False,
     simplify_parameter_changes: bool = False,
+    # Deprecated arguments for backwards compatibility.
+    max_parallelism_cap: int | None = None,
+    max_parallelism_override: int | None = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -325,11 +330,11 @@ def choose_generation_strategy_legacy(
         enforce_sequential_optimization: Whether to enforce that 1) the generation
             strategy needs to be updated with ``min_trials_observed`` observations for
             a given generation step before proceeding to the next one and 2) maximum
-            number of trials running at once (max_parallelism) if enforced for the
-            BayesOpt step. NOTE: ``max_parallelism_override`` and
-            ``max_parallelism_cap`` settings will still take their effect on max
-            parallelism even if ``enforce_sequential_optimization=False``, so if those
-            settings are specified, max parallelism will be enforced.
+            number of trials running at once (max_concurrency) if enforced for the
+            BayesOpt step. NOTE: ``max_concurrency_override`` and
+            ``max_concurrency_cap`` settings will still take their effect on max
+            concurrency even if ``enforce_sequential_optimization=False``, so if those
+            settings are specified, max concurrency will be enforced.
         random_seed: Fixed random seed for the Sobol generator.
         torch_device: The device to use for generation steps implemented in PyTorch
             (e.g. via BoTorch). Some generation steps (in particular EHVI-based ones
@@ -360,21 +365,21 @@ def choose_generation_strategy_legacy(
         min_sobol_trials_observed: Minimum number of Sobol trials that must be
             observed before proceeding to the next generation step. Defaults to
             `ceil(num_initialization_trials / 2)`.
-        max_parallelism_cap: Integer cap on parallelism in this generation strategy.
-            If specified, ``max_parallelism`` setting in each generation step will be
+        max_concurrency_cap: Integer cap on concurrency in this generation strategy.
+            If specified, ``max_concurrency`` setting in each generation step will be
             set to the minimum of the default setting for that step and the value of
-            this cap. ``max_parallelism_cap`` is meant to just be a hard limit on
-            parallelism (e.g. to avoid overloading machine(s) that evaluate the
+            this cap. ``max_concurrency_cap`` is meant to just be a hard limit on
+            concurrency (e.g. to avoid overloading machine(s) that evaluate the
             experiment trials). Specify only if not specifying
-            ``max_parallelism_override``.
-        max_parallelism_override: Integer, with which to override the default max
-            parallelism setting for all steps in the generation strategy returned from
-            this function. Each generation step has a ``max_parallelism`` value, which
+            ``max_concurrency_override``.
+        max_concurrency_override: Integer, with which to override the default max
+            concurrency setting for all steps in the generation strategy returned from
+            this function. Each generation step has a ``max_concurrency`` value, which
             restricts how many trials can run simultaneously during a given generation
-            step. By default, the parallelism setting is chosen as appropriate for the
-            model in a given generation step. If ``max_parallelism_override`` is -1,
-            no max parallelism will be enforced for any step of the generation
-            strategy. Be aware that parallelism is limited to improve performance of
+            step. By default, the concurrency setting is chosen as appropriate for the
+            model in a given generation step. If ``max_concurrency_override`` is -1,
+            no max concurrency will be enforced for any step of the generation
+            strategy. Be aware that concurrency is limited to improve performance of
             Bayesian optimization, so only disable its limiting if necessary.
         optimization_config: Used to infer whether to use MOO.
         should_deduplicate: Whether to deduplicate the parameters of proposed arms
@@ -407,6 +412,34 @@ def choose_generation_strategy_legacy(
             simplify parameter changes in arms generated via Bayesian Optimization
             by pruning irrelevant parameter changes.
     """
+    # Handle deprecated arguments.
+    if max_parallelism_cap is not None:
+        warnings.warn(
+            "`max_parallelism_cap` is deprecated and will be removed in Ax 1.4. "
+            "Use `max_concurrency_cap` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if max_concurrency_cap is not None:
+            raise UserInputError(
+                "Cannot specify both `max_parallelism_cap` and `max_concurrency_cap`."
+            )
+        max_concurrency_cap = max_parallelism_cap
+
+    if max_parallelism_override is not None:
+        warnings.warn(
+            "`max_parallelism_override` is deprecated and will be removed in Ax 1.4. "
+            "Use `max_concurrency_override` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if max_concurrency_override is not None:
+            raise UserInputError(
+                "Cannot specify both `max_parallelism_override` and "
+                "`max_concurrency_override`."
+            )
+        max_concurrency_override = max_parallelism_override
+
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
 
@@ -416,36 +449,36 @@ def choose_generation_strategy_legacy(
         optimization_config=optimization_config,
         use_saasbo=use_saasbo,
     )
-    # Determine max parallelism for the generation steps.
-    if max_parallelism_override == -1:
-        # `max_parallelism_override` of -1 means no max parallelism enforcement in
-        # the generation strategy, which means `max_parallelism=None` in gen. steps.
-        sobol_parallelism = bo_parallelism = None
-    elif max_parallelism_override is not None:
-        sobol_parallelism = bo_parallelism = max_parallelism_override
-    elif max_parallelism_cap is not None:  # Max parallelism override is None by now
-        sobol_parallelism = max_parallelism_cap
-        bo_parallelism = min(max_parallelism_cap, DEFAULT_BAYESIAN_PARALLELISM)
+    # Determine max concurrency for the generation steps.
+    if max_concurrency_override == -1:
+        # `max_concurrency_override` of -1 means no max concurrency enforcement in
+        # the generation strategy, which means `max_concurrency=None` in gen. steps.
+        sobol_concurrency = bo_concurrency = None
+    elif max_concurrency_override is not None:
+        sobol_concurrency = bo_concurrency = max_concurrency_override
+    elif max_concurrency_cap is not None:  # Max concurrency override is None by now
+        sobol_concurrency = max_concurrency_cap
+        bo_concurrency = min(max_concurrency_cap, DEFAULT_BAYESIAN_CONCURRENCY)
     elif not enforce_sequential_optimization:
-        # If no max parallelism settings specified and not enforcing sequential
-        # optimization, do not limit parallelism.
-        sobol_parallelism = bo_parallelism = None
-    else:  # No additional max parallelism settings, use defaults
-        sobol_parallelism = None  # No restriction on Sobol phase
-        bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
+        # If no max concurrency settings specified and not enforcing sequential
+        # optimization, do not limit concurrency.
+        sobol_concurrency = bo_concurrency = None
+    else:  # No additional max concurrency settings, use defaults
+        sobol_concurrency = None  # No restriction on Sobol phase
+        bo_concurrency = DEFAULT_BAYESIAN_CONCURRENCY
 
     if not force_random_search and suggested_model is not None:
         if not enforce_sequential_optimization and (
-            max_parallelism_override is not None or max_parallelism_cap is not None
+            max_concurrency_override is not None or max_concurrency_cap is not None
         ):
             logger.info(
-                "If `enforce_sequential_optimization` is False, max parallelism is "
-                "not enforced and other max parallelism settings will be ignored."
+                "If `enforce_sequential_optimization` is False, max concurrency is "
+                "not enforced and other max concurrency settings will be ignored."
             )
-        if max_parallelism_override is not None and max_parallelism_cap is not None:
+        if max_concurrency_override is not None and max_concurrency_cap is not None:
             raise ValueError(
-                "If `max_parallelism_override` specified, cannot also apply "
-                "`max_parallelism_cap`."
+                "If `max_concurrency_override` specified, cannot also apply "
+                "`max_concurrency_cap`."
             )
 
         # If number of initialization trials is not specified, estimate it.
@@ -503,7 +536,7 @@ def choose_generation_strategy_legacy(
                     min_trials_observed=min_sobol_trials_observed,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
-                    max_parallelism=sobol_parallelism,
+                    max_concurrency=sobol_concurrency,
                     should_deduplicate=should_deduplicate,
                 )
             )
@@ -512,7 +545,7 @@ def choose_generation_strategy_legacy(
                 generator=suggested_model,
                 winsorization_config=winsorization_config,
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
-                max_parallelism=bo_parallelism,
+                max_concurrency=bo_concurrency,
                 generator_kwargs=generator_kwargs,
                 should_deduplicate=should_deduplicate,
                 disable_progbar=disable_progbar,
@@ -544,7 +577,7 @@ def choose_generation_strategy_legacy(
                 _make_sobol_step(
                     seed=random_seed,
                     should_deduplicate=should_deduplicate,
-                    max_parallelism=sobol_parallelism,
+                    max_concurrency=sobol_concurrency,
                 )
             ]
         )

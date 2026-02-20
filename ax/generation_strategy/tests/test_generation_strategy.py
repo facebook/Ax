@@ -1202,7 +1202,7 @@ class TestGenerationStrategy(TestCase):
         self.sobol_node._transition_criteria = []
         gs = GenerationStrategy(nodes=[self.sobol_node], name="test")
         gs.experiment = exp
-        exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
+        exp._design.concurrency_limit = 3
         grs = gs.gen(exp, num_trials=2)
         self.assertEqual(len(grs), 2)
         for gr_list in grs:

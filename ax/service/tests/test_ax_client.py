@@ -50,7 +50,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.generation_strategy.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
+from ax.generation_strategy.dispatch_utils import DEFAULT_BAYESIAN_CONCURRENCY
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -511,7 +511,7 @@ class TestAxClient(TestCase):
             if i < 5:
                 self.assertEqual(gen_limit, 5 - i)
             else:
-                self.assertEqual(gen_limit, DEFAULT_BAYESIAN_PARALLELISM)
+                self.assertEqual(gen_limit, DEFAULT_BAYESIAN_CONCURRENCY)
             parameterization, trial_index = ax_client.get_next_trial()
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
@@ -1616,14 +1616,14 @@ class TestAxClient(TestCase):
         self.assertTrue(len(node0_min_trials) > 0)
         self.assertFalse(node0_min_trials[0].block_gen_if_met)
 
-        # Check that max_parallelism is None by verifying no MaxGenerationParallelism
+        # Check that max_concurrency is None by verifying no MaxGenerationParallelism
         # criterion exists on node 1
-        node1_max_parallelism = [
+        node1_max_concurrency = [
             tc
             for tc in ax_client.generation_strategy._nodes[1].transition_criteria
             if isinstance(tc, MaxGenerationParallelism)
         ]
-        self.assertEqual(len(node1_max_parallelism), 0)
+        self.assertEqual(len(node1_max_concurrency), 0)
 
         for _ in range(10):
             ax_client.get_next_trial()
@@ -1939,17 +1939,17 @@ class TestAxClient(TestCase):
     def test_recommended_parallelism(self) -> None:
         ax_client = AxClient()
         with self.assertRaisesRegex(AssertionError, "No generation strategy"):
-            ax_client.get_max_parallelism()
+            ax_client.get_max_concurrency()
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        self.assertEqual(ax_client.get_max_parallelism(), [(5, 5), (-1, 3)])
+        self.assertEqual(ax_client.get_max_concurrency(), [(5, 5), (-1, 3)])
         self.assertEqual(
             run_trials_using_recommended_parallelism(
-                ax_client, ax_client.get_max_parallelism(), 20
+                ax_client, ax_client.get_max_concurrency(), 20
             ),
             0,
         )
@@ -2872,7 +2872,7 @@ class TestAxClient(TestCase):
 
         self.assertEqual(ax_client.estimate_early_stopping_savings(), 0)
 
-    def test_max_parallelism_exception_when_early_stopping(self) -> None:
+    def test_max_concurrency_exception_when_early_stopping(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
