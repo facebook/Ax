@@ -35,7 +35,7 @@ logger: Logger = get_logger(__name__)
 # Constants for experiment replay
 MAX_REPLAY_TRIALS: int = 50
 REPLAY_NUM_POINTS_PER_CURVE: int = 20
-MAX_PENDING_TRIALS: int = 5
+MAX_CONCURRENT_TRIALS: int = 5
 MIN_SAVINGS_THRESHOLD: float = 0.1  # 10% threshold
 
 
@@ -119,7 +119,7 @@ def replay_experiment(
 def estimate_hypothetical_early_stopping_savings(
     experiment: Experiment,
     metric: Metric,
-    max_pending_trials: int = MAX_PENDING_TRIALS,
+    max_pending_trials: int = MAX_CONCURRENT_TRIALS,
 ) -> float:
     """Estimate hypothetical early stopping savings using experiment replay.
 
@@ -130,7 +130,7 @@ def estimate_hypothetical_early_stopping_savings(
     Args:
         experiment: The experiment to analyze.
         metric: The metric to use for early stopping replay.
-        max_pending_trials: Maximum number of pending trials for the replay
+        max_pending_trials: Maximum number of concurrent trials for the replay
             orchestrator. Defaults to 5.
 
     Returns:

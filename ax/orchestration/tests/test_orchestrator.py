@@ -2357,7 +2357,7 @@ class TestAxOrchestrator(TestCase):
                 **self.orchestrator_options_kwargs,
             )
 
-    def test_generate_candidates_works_for_sobol(self) -> None:
+    def test_generate_candidate_trials_works_for_sobol(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
         # GIVEN a orchestrator using a GS with MBM.
         gs = get_online_sobol_mbm_generation_strategy()
@@ -2381,7 +2381,7 @@ class TestAxOrchestrator(TestCase):
         )
 
         # WHEN generating candidates on a new experiment
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # THEN the experiment should have a Sobol generated trial in the database
         orchestrator = Orchestrator.from_stored_experiment(
@@ -2405,7 +2405,7 @@ class TestAxOrchestrator(TestCase):
             options.batch_size,
         )
 
-    def test_generate_candidates_can_remove_stale_candidates_with_ttl(
+    def test_generate_candidate_trials_can_remove_stale_candidates_with_ttl(
         self,
     ) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -2433,13 +2433,13 @@ class TestAxOrchestrator(TestCase):
 
         # WHEN generating candidates on a new experiment
         # Generate first candidate
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # Wait for 2.1 seconds to ensure TTL is expired for first candidate
         time.sleep(2.1)
 
         # Generate second candidate
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # The first candidate should be marked as STALE
         orchestrator = Orchestrator.from_stored_experiment(
@@ -2458,7 +2458,7 @@ class TestAxOrchestrator(TestCase):
             TrialStatus.STALE,
         )
 
-    def test_generate_candidates_can_remove_stale_candidates(self) -> None:
+    def test_generate_candidate_trials_can_remove_stale_candidates(self) -> None:
         # Check if candidate trials with and without TTL are marked stale correctly
         init_test_engine_and_session_factory(force_init=True)
 
@@ -2486,7 +2486,7 @@ class TestAxOrchestrator(TestCase):
         )
 
         # Generate first candidate without TTL
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # STEP 2: Change orchestrator to use TTL and generate second candidate WITH TTL
         options_with_ttl = OrchestratorOptions(
@@ -2499,13 +2499,13 @@ class TestAxOrchestrator(TestCase):
         orchestrator.options = options_with_ttl
 
         # Generate second candidate with TTL
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # STEP 3: Wait for TTL to expire
         time.sleep(2.1)
 
         # STEP 4: Generate third candidate
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # STEP 5: Verify results - reload from storage to get fresh state
         orchestrator = Orchestrator.from_stored_experiment(
@@ -2535,7 +2535,7 @@ class TestAxOrchestrator(TestCase):
             TrialStatus.CANDIDATE,
         )
 
-    def test_generate_candidates_does_not_fail_stale_candidates_if_fails_to_gen(
+    def test_generate_candidate_trials_does_not_fail_stale_candidates_if_fails_to_gen(
         self,
     ) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -2561,11 +2561,11 @@ class TestAxOrchestrator(TestCase):
         )
 
         # WHEN generating candidates on a new experiment twice
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
         with patch.object(
             Orchestrator, "_gen_new_trials_from_generation_strategy", return_value=[]
         ):
-            orchestrator.generate_candidates(num_trials=1)
+            orchestrator.generate_candidate_trials(n=1)
 
         # THEN the first candidate should be failed
         orchestrator = Orchestrator.from_stored_experiment(
@@ -2579,7 +2579,7 @@ class TestAxOrchestrator(TestCase):
             1,
         )
 
-    def test_generate_candidates_works_with_status_quo(self) -> None:
+    def test_generate_candidate_trials_works_with_status_quo(self) -> None:
         # GIVEN a orchestrator with an experiment that has a status quo
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
         gs = get_online_sobol_mbm_generation_strategy()
@@ -2600,7 +2600,7 @@ class TestAxOrchestrator(TestCase):
         )
 
         # WHEN generating candidates on a new experiment
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # THEN the experiment should have a Sobol generated trial with a status quo arm
         self.assertEqual(len(orchestrator.experiment.trials), 1)
@@ -2619,7 +2619,7 @@ class TestAxOrchestrator(TestCase):
         )
 
     @mock_botorch_optimize
-    def test_generate_candidates_works_for_iteration(self) -> None:
+    def test_generate_candidate_trials_works_for_iteration(self) -> None:
         # GIVEN a orchestrator using a GS with MBM.
         gs = get_online_sobol_mbm_generation_strategy()
 
@@ -2641,7 +2641,7 @@ class TestAxOrchestrator(TestCase):
         orchestrator.poll_and_process_results()
 
         # WHEN generating candidates
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # THEN the experiment should have a MBM generated trial.
         self.assertFalse(orchestrator.experiment.lookup_data().df.empty)
@@ -2710,7 +2710,7 @@ class TestAxOrchestrator(TestCase):
             orchestrator.experiment.status, ExperimentStatus.INITIALIZATION
         )
 
-    def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:
+    def test_generate_candidate_trials_does_not_generate_if_missing_data(self) -> None:
         # GIVEN a orchestrator that can't fetch data
         self.branin_experiment.optimization_config = OptimizationConfig(
             Objective(
@@ -2739,13 +2739,15 @@ class TestAxOrchestrator(TestCase):
         self.assertTrue(orchestrator.experiment.lookup_data().df.empty)
 
         # WHEN generating candidates
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # THEN the experiment should have no new trials
         self.assertTrue(orchestrator.experiment.lookup_data().df.empty)
         self.assertEqual(len(orchestrator.experiment.trials), 1)
 
-    def test_generate_candidates_does_not_generate_if_missing_opt_config(self) -> None:
+    def test_generate_candidate_trials_does_not_generate_if_missing_opt_config(
+        self,
+    ) -> None:
         # GIVEN a orchestrator using a GS with MBM.
         self.branin_experiment._optimization_config = None
         # this is a HITL experiment, so we don't want trials completing on their own.
@@ -2770,9 +2772,124 @@ class TestAxOrchestrator(TestCase):
         self.assertEqual(len(orchestrator.experiment.running_trial_indices), 1)
 
         # WHEN generating candidates
-        orchestrator.generate_candidates(num_trials=1)
+        orchestrator.generate_candidate_trials(n=1)
 
         # THEN the experiment should have not generated candidates
+        self.assertEqual(len(orchestrator.experiment.trials), 1)
+
+    def test_generate_candidate_trials_returns_existing_candidates(self) -> None:
+        # GIVEN an orchestrator with a SOBOL generation strategy
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        self.branin_experiment.runner = InfinitePollRunner()
+        gs = self.two_sobol_steps_GS
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                trial_type=TrialType.TRIAL,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        # AND GIVEN 1 existing candidate trial
+        existing_trials, new_trials, err = orchestrator.generate_candidate_trials(n=1)
+        self.assertEqual(len(existing_trials), 0)
+        self.assertEqual(len(new_trials), 1)
+        self.assertIsNone(err)
+        existing_candidate = new_trials[0]
+        self.assertEqual(existing_candidate.status, TrialStatus.CANDIDATE)
+
+        # WHEN generating candidates with n=2
+        existing_trials, new_trials, err = orchestrator.generate_candidate_trials(n=2)
+
+        # THEN the first tuple element contains the previously created candidate trial
+        self.assertEqual(len(existing_trials), 1)
+        self.assertEqual(existing_trials[0].index, existing_candidate.index)
+        # AND the second tuple element contains 1 new trial (since n=2, existing=1)
+        self.assertEqual(len(new_trials), 1)
+        self.assertNotEqual(new_trials[0].index, existing_candidate.index)
+        # AND no error occurred
+        self.assertIsNone(err)
+
+    def test_generate_candidate_trials_adjusts_n_for_existing_candidates(self) -> None:
+        # GIVEN an orchestrator with a SOBOL generation strategy
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        self.branin_experiment.runner = InfinitePollRunner()
+        gs = self.two_sobol_steps_GS
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                trial_type=TrialType.TRIAL,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        # AND GIVEN 2 existing candidate trials
+        orchestrator.generate_candidate_trials(n=2)
+        self.assertEqual(
+            len(orchestrator.experiment.trial_indices_by_status[TrialStatus.CANDIDATE]),
+            2,
+        )
+        existing_candidate_indices = set(
+            orchestrator.experiment.trial_indices_by_status[TrialStatus.CANDIDATE]
+        )
+
+        # WHEN generating candidates with n=3
+        existing_trials, new_trials, err = orchestrator.generate_candidate_trials(n=3)
+
+        # THEN the first tuple element has 2 existing candidates
+        self.assertEqual(len(existing_trials), 2)
+        self.assertEqual({t.index for t in existing_trials}, existing_candidate_indices)
+        # AND the second tuple element has exactly 1 new trial
+        self.assertEqual(len(new_trials), 1)
+        self.assertNotIn(new_trials[0].index, existing_candidate_indices)
+        # AND total trials = 3
+        self.assertEqual(len(orchestrator.experiment.trials), 3)
+        # AND no error occurred
+        self.assertIsNone(err)
+
+    def test_generate_candidate_trials_skips_generation_when_n_satisfied(self) -> None:
+        # GIVEN an orchestrator with a SOBOL generation strategy
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        self.branin_experiment.runner = InfinitePollRunner()
+        gs = self.two_sobol_steps_GS
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                trial_type=TrialType.TRIAL,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        # AND GIVEN 1 existing candidate trial
+        orchestrator.generate_candidate_trials(n=1)
+        self.assertEqual(
+            len(orchestrator.experiment.trial_indices_by_status[TrialStatus.CANDIDATE]),
+            1,
+        )
+        existing_candidate_index = list(
+            orchestrator.experiment.trial_indices_by_status[TrialStatus.CANDIDATE]
+        )[0]
+
+        # WHEN generating candidates with n=1 (already satisfied by existing)
+        existing_trials, new_trials, err = orchestrator.generate_candidate_trials(n=1)
+
+        # THEN the first tuple element contains the 1 existing candidate
+        self.assertEqual(len(existing_trials), 1)
+        self.assertEqual(existing_trials[0].index, existing_candidate_index)
+        # AND the second tuple element is empty (no new trials generated)
+        self.assertEqual(len(new_trials), 0)
+        # AND no error occurred
+        self.assertIsNone(err)
+        # AND total trials remains 1
         self.assertEqual(len(orchestrator.experiment.trials), 1)
 
     def test_validate_options_not_none_mt_trial_type(
@@ -3031,9 +3148,9 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.branin_experiment.update_runner("type1", RunnerWithAllPollsFailing())
         super().test_poll_trial_status_abandons_trial_on_individual_failure()
 
-    def test_generate_candidates_works_for_iteration(self) -> None:
+    def test_generate_candidate_trials_works_for_iteration(self) -> None:
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
-        super().test_generate_candidates_works_for_iteration()
+        super().test_generate_candidate_trials_works_for_iteration()
 
     def test_orchestrator_with_odd_index_early_stopping_strategy(self) -> None:
         self.branin_timestamp_map_metric_experiment.update_runner(
@@ -3073,13 +3190,15 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         # trial_type)
         self.assertEqual(metric_names, ["m1"])
 
-    def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:
+    def test_generate_candidate_trials_does_not_generate_if_missing_data(self) -> None:
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
-        super().test_generate_candidates_does_not_generate_if_missing_data()
+        super().test_generate_candidate_trials_does_not_generate_if_missing_data()
 
-    def test_generate_candidates_does_not_generate_if_missing_opt_config(self) -> None:
+    def test_generate_candidate_trials_does_not_generate_if_missing_opt_config(
+        self,
+    ) -> None:
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         self.branin_experiment.add_tracking_metric(
             get_branin_metric(), trial_type="type1"
         )
-        super().test_generate_candidates_does_not_generate_if_missing_opt_config()
+        super().test_generate_candidate_trials_does_not_generate_if_missing_opt_config()
