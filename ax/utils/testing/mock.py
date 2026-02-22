@@ -12,6 +12,7 @@ from typing import Any
 from unittest import mock
 
 from botorch.fit import fit_fully_bayesian_model_nuts
+from botorch.optim.optimize import optimize_acqf_discrete_local_search
 from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.test_utils.mock import mock_optimize_context_manager
 from torch import Tensor
@@ -66,6 +67,14 @@ def mock_botorch_optimize_context_manager(
         )
         return optimize_acqf_mixed_alternating(*args, **kwargs)
 
+    def minimal_discrete_local_search(
+        *args: Any, **kwargs: Any
+    ) -> tuple[Tensor, Tensor]:
+        # Reduce iterations for faster testing while still exercising the code path.
+        kwargs["num_restarts"] = 1
+        kwargs["raw_samples"] = 2
+        return optimize_acqf_discrete_local_search(*args, **kwargs)
+
     with ExitStack() as es:
         mock_mcmc_mbm = es.enter_context(
             mock.patch(
@@ -87,6 +96,14 @@ def mock_botorch_optimize_context_manager(
             mock.patch(
                 "ax.generators.torch.botorch_modular.acquisition.optimize_with_nsgaii",
                 wraps=minimal_optimize_with_nsgaii,
+            )
+        )
+
+        mock_discrete_local_search = es.enter_context(
+            mock.patch(
+                "ax.generators.torch.botorch_modular.acquisition."
+                "optimize_acqf_discrete_local_search",
+                wraps=minimal_discrete_local_search,
             )
         )
 
@@ -112,7 +129,12 @@ def mock_botorch_optimize_context_manager(
         not force
         and all(
             mock_.call_count < 1
-            for mock_ in [mock_mcmc_mbm, mock_mixed_optimizer, mock_nsgaii]
+            for mock_ in [
+                mock_mcmc_mbm,
+                mock_mixed_optimizer,
+                mock_nsgaii,
+                mock_discrete_local_search,
+            ]
         )
         and botorch_mocks_called is False
     ):
