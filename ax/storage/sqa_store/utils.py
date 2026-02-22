@@ -16,14 +16,16 @@ from ax.utils.common.base import Base, SortableBase
 from sqlalchemy import inspect
 
 
-JSON_ATTRS = ["baseline_workflow_inputs"]
+JSON_ATTRS: list[str] = []
 # Skip over the following attrs in `copy_db_ids`:
 # * _experiment (to prevent infinite loops)
 # * most generator run and generation strategy metadata
 #   (since no Base objects are nested in there,
 #   and we don't have guarantees about the structure of some
 #   of that data, so the recursion could fail somewhere)
+# * baseline_workflow_inputs (plain JSON dict with no _db_id fields)
 COPY_DB_IDS_ATTRS_TO_SKIP = {
+    "baseline_workflow_inputs",
     "_best_arm_predictions",
     "_adapter_kwargs",
     "_candidate_metadata_by_arm_signature",
@@ -46,7 +48,9 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_metric_fetching_errors",
     "_data_rows",
 }
-SKIP_ATTRS_ERROR_SUFFIX = "Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
+SKIP_ATTRS_ERROR_SUFFIX = (
+    " Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
+)
 
 
 def is_foreign_key_field(field: str) -> bool:
@@ -74,7 +78,7 @@ def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None
     if len(path) > 15:
         # This shouldn't happen, but is a precaution against accidentally
         # introducing infinite loops
-        raise SQADecodeError(error_message_prefix + "Encountered path of length > 10.")
+        raise SQADecodeError(error_message_prefix + "Encountered path of length > 15.")
 
     if type(source) is not type(target):
         if not issubclass(type(target), type(source)):
@@ -111,7 +115,7 @@ def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None
                 source_json = getattr(source, attr)
                 target_json = getattr(target, attr)
                 if source_json != target_json:
-                    SQADecodeError(
+                    raise SQADecodeError(
                         error_message_prefix + f"Json attribute {attr} not matching "
                         f"between source: {source_json} and target: {target_json}."
                     )
