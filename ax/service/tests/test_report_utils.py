@@ -199,9 +199,9 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(f"{fail_reason}...", df["reason"].iloc[0])
 
     def test_exp_to_df(self) -> None:
-        # MultiTypeExperiment should fail
+        # Experiments with multiple trial types should fail
         exp = get_multi_type_experiment()
-        with self.assertRaisesRegex(ValueError, "MultiTypeExperiment"):
+        with self.assertRaisesRegex(ValueError, "multiple trial types"):
             exp_to_df(exp=exp)
 
         # exp with no trials should return empty results

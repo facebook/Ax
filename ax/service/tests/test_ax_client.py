@@ -21,9 +21,9 @@ import torch
 from ax.adapter.registry import Cont_X_trans, Generators
 from ax.core.arm import Arm
 from ax.core.data import Data, MAP_KEY
+from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
@@ -974,8 +974,8 @@ class TestAxClient(TestCase):
             default_runner=SyntheticRunner(),
         )
 
-        self.assertEqual(ax_client.experiment.__class__.__name__, "MultiTypeExperiment")
-        experiment = assert_is_instance(ax_client.experiment, MultiTypeExperiment)
+        self.assertEqual(ax_client.experiment.__class__.__name__, "Experiment")
+        experiment = assert_is_instance(ax_client.experiment, Experiment)
         self.assertEqual(
             experiment._trial_type_to_runner["test_trial_type"].__class__.__name__,
             "SyntheticRunner",

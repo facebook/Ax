@@ -35,7 +35,6 @@ from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -610,13 +609,13 @@ def get_test_map_data_experiment(
 
 def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
-) -> MultiTypeExperiment:
+) -> Experiment:
     oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"]), minimize=True))
-    experiment = MultiTypeExperiment(
+    experiment = Experiment(
         name="test_exp",
         search_space=get_branin_search_space(),
         default_trial_type="type1",
-        default_runner=SyntheticRunner(dummy_metadata="dummy1"),
+        runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
         status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}),
     )
@@ -626,7 +625,8 @@ def get_multi_type_experiment(
     )
     # Switch the order of variables so metric gives different results
     experiment.add_tracking_metric(
-        BraninMetric("m2", ["x2", "x1"]), trial_type="type2", canonical_name="m1"
+        BraninMetric("m2", ["x2", "x1"]),
+        trial_type="type2",
     )
 
     if add_trials and add_trial_type:

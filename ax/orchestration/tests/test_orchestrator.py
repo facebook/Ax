@@ -1317,9 +1317,9 @@ class TestAxOrchestrator(TestCase):
                 len(res_list[1]["trials_early_stopped_so_far"]),
             )
 
-        looked_up_data = orchestrator.experiment.lookup_data()
         fetched_data = orchestrator.experiment.fetch_data()
-        num_metrics = 2
+        looked_up_data = orchestrator.experiment.lookup_data()
+        num_metrics = len(orchestrator.experiment.metrics)
         expected_num_rows = num_metrics * total_trials
         # There are 3 trials and two metrics for "type1" for MT experiments
         self.assertEqual(len(looked_up_data.df), expected_num_rows)
@@ -1331,7 +1331,7 @@ class TestAxOrchestrator(TestCase):
         #   longer and gets results for an extra timestamp.
         # For MultiTypeExperiment there are two metrics
         # for trial type "type1"
-        expected_num_rows = 7
+        expected_num_rows = expected_num_rows + 1
         self.assertEqual(len(looked_up_data.full_df), expected_num_rows)
         self.assertEqual(len(fetched_data.full_df), expected_num_rows)
         ess = orchestrator.options.early_stopping_strategy
@@ -2779,12 +2779,9 @@ class TestAxOrchestrator(TestCase):
         self, msg: str | None = None
     ) -> None:
         # test that error is raised if `mt_experiment_trial_type` is not
-        # compatible with the type of experiment (single or multi-type)
+        # a supported trial type for this experiment
         if msg is None:
-            msg = (
-                "`mt_experiment_trial_type` must be None unless the experiment is a "
-                "MultiTypeExperiment."
-            )
+            msg = "Experiment does not support trial type type1."
         options = OrchestratorOptions(
             init_seconds_between_polls=0,  # No wait bw polls so test is fast.
             batch_size=10,
@@ -2795,7 +2792,7 @@ class TestAxOrchestrator(TestCase):
             ),
         )
         gs = self.two_sobol_steps_GS
-        with self.assertRaisesRegex(UserInputError, msg):
+        with self.assertRaisesRegex(ValueError, msg):
             Orchestrator(
                 experiment=self.branin_experiment,
                 generation_strategy=gs,
@@ -2888,7 +2885,7 @@ class TestAxOrchestrator(TestCase):
 class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     # After D80128678, choose_generation_strategy_legacy returns node-based GS.
     EXPECTED_orchestrator_REPR: str = (
-        "Orchestrator(experiment=MultiTypeExperiment(branin_test_experiment), "
+        "Orchestrator(experiment=Experiment(branin_test_experiment), "
         "generation_strategy=GenerationStrategy("
         "name='GenerationStep_0_Sobol+GenerationStep_1_BoTorch', "
         "nodes=[GenerationNode(name='GenerationStep_0_Sobol', "
@@ -2940,13 +2937,13 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
             trial_type="type1", runner=RunnerToAllowMultipleMapMetricFetches()
         )
 
-        self.branin_experiment_no_impl_runner_or_metrics = MultiTypeExperiment(
+        self.branin_experiment_no_impl_runner_or_metrics = Experiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
                 Objective(Metric(name="branin"), minimize=True)
             ),
             default_trial_type="type1",
-            default_runner=None,
+            runner=None,
             name="branin_experiment_no_impl_runner_or_metrics",
         )
         self.sobol_MBM_GS = choose_generation_strategy_legacy(
@@ -3053,10 +3050,11 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     def test_validate_options_not_none_mt_trial_type(
         self, msg: str | None = None
     ) -> None:
-        # test if a MultiTypeExperiment with `mt_experiment_trial_type=None`
-        self.orchestrator_options_kwargs["mt_experiment_trial_type"] = None
+        # test that error is raised if `mt_experiment_trial_type` is not
+        # a supported trial type for this experiment (using an invalid type)
+        self.orchestrator_options_kwargs["mt_experiment_trial_type"] = "invalid_type"
         super().test_validate_options_not_none_mt_trial_type(
-            msg="Must specify `mt_experiment_trial_type` for MultiTypeExperiment."
+            msg="Experiment does not support trial type invalid_type."
         )
 
     def test_run_n_trials_single_step_existing_experiment(
