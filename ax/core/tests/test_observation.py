@@ -268,6 +268,8 @@ class ObservationsTest(TestCase):
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        experiment.default_trial_type = "default"
+        experiment.supports_trial_type = Mock(return_value=True)
         trials = {
             obs["trial_index"]: Trial(
                 experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
@@ -525,6 +527,8 @@ class ObservationsTest(TestCase):
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        experiment.default_trial_type = "default"
+        experiment.supports_trial_type = Mock(return_value=True)
         trials = {
             obs["trial_index"]: (
                 Trial(experiment, GeneratorRun(arms=[arms[obs["arm_name"]]]))
@@ -637,6 +641,8 @@ class ObservationsTest(TestCase):
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        experiment.default_trial_type = "default"
+        experiment.supports_trial_type = Mock(return_value=True)
         trials = {
             obs["trial_index"]: Trial(
                 experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
@@ -744,6 +750,8 @@ class ObservationsTest(TestCase):
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        experiment.default_trial_type = "default"
+        experiment.supports_trial_type = Mock(return_value=True)
         trials = {
             0: BatchTrial(experiment, GeneratorRun(arms=list(arms_by_name.values())))
         }
@@ -885,6 +893,8 @@ class ObservationsTest(TestCase):
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        experiment.default_trial_type = "default"
+        experiment.supports_trial_type = Mock(return_value=True)
         trials = {
             obs["trial_index"]: Trial(
                 experiment,
