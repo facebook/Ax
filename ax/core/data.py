@@ -292,9 +292,13 @@ class Data(Base, SerializationMixin):
             if col in df.columns.values and coltype is not Any:
                 # Pandas timestamp handlng is weird
                 dtype = "datetime64[ns]" if coltype is pd.Timestamp else coltype
-                if (dtype != dtypes[col]) and not (
-                    coltype is int and df.loc[:, col].isnull().any()
-                ):
+                current_dtype = dtypes[col]
+                # Handle StringDtype -> object conversion (pandas 2.0+ compatibility)
+                needs_cast = (
+                    isinstance(current_dtype, pd.StringDtype)
+                    or (dtype != current_dtype)
+                ) and not (coltype is int and df.loc[:, col].isnull().any())
+                if needs_cast:
                     df[col] = df[col].astype(dtype)
         df.reset_index(inplace=True, drop=True)
         return df
