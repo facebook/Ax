@@ -56,7 +56,7 @@ from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
 from pyre_extensions import assert_is_instance, none_throws
-from torch import Tensor
+from torch import LongTensor, Tensor
 
 logger: Logger = get_logger(__name__)
 
@@ -1262,8 +1262,11 @@ def prep_pairwise_data(
 
     datapoints, comparisons = X, Y.long()
     event_shape = torch.Size([2 * datapoints.shape[-1]])
-    # pyre-ignore[6]: For 2nd param expected `LongTensor` but
-    dataset_X = SliceContainer(datapoints, comparisons, event_shape=event_shape)
+    dataset_X = SliceContainer(
+        values=datapoints,
+        indices=assert_is_instance(comparisons, LongTensor),
+        event_shape=event_shape,
+    )
     dataset_Y = torch.tensor([[0, 1]]).expand(comparisons.shape)
     dataset = RankingDataset(
         X=dataset_X,
