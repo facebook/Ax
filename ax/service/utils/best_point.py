@@ -897,6 +897,140 @@ def _compute_utility_from_preference_model(
     return utilities
 
 
+def _compute_trace_values(
+    df_wide: pd.DataFrame,
+    optimization_config: OptimizationConfig,
+    use_cumulative_best: bool = True,
+) -> tuple[pd.Series, bool]:
+    """
+    Compute per-observation trace values (hypervolume for MOO, objective for SOO).
+
+    This function contains the core logic for computing trace values that is shared
+    between `get_trace_by_arm_pull_from_data` and `get_opt_trace_by_steps`.
+
+    Args:
+        df_wide: DataFrame with metric columns and "feasible" column,
+                 already sorted in desired cumulative order (e.g., by trial_index
+                 or by timestamp).
+        optimization_config: The optimization config. Must not be in relative form.
+        use_cumulative_best: If True, apply cumulative best at observation level
+                             (for SOO only; MOO always uses cumulative HV when True).
+
+    Returns:
+        A tuple of (values Series, maximize flag).
+        The maximize flag indicates whether higher values are better.
+    """
+    objective = optimization_config.objective
+    maximize = True
+    # MOO and *not* ScalarizedObjective
+    if isinstance(objective, MultiObjective):
+        optimization_config = assert_is_instance(
+            optimization_config, MultiObjectiveOptimizationConfig
+        )
+        values = pd.Series(
+            get_hypervolume_trace_of_outcomes_multi_objective(
+                df_wide=df_wide,
+                optimization_config=optimization_config,
+                use_cumulative_hv=use_cumulative_best,
+            )
+        )
+    else:
+        maximize = not objective.minimize
+        values = pd.Series(
+            get_values_of_outcomes_single_or_scalarized_objective(
+                df_wide=df_wide, objective=objective
+            )
+        )
+        if df_wide["feasible"].any() and use_cumulative_best:
+            values = values.cummax() if maximize else values.cummin()
+    return values, maximize
+
+
+def _pivot_data_with_feasibility(
+    df: pd.DataFrame,
+    index: list[str],
+    optimization_config: OptimizationConfig,
+) -> pd.DataFrame:
+    """
+    Pivot data to wide format with feasibility information.
+
+    Core logic shared between `_prepare_data_for_trace` and `get_opt_trace_by_steps`:
+    adds feasibility column, pivots to wide format by metrics, validates all
+    metrics are present, and aggregates feasibility by the specified index.
+
+    Args:
+        df: Data in the format returned by ``Data.df``, with a separate row for
+            each observation-metric combination. Must have "row_feasible" column.
+        optimization_config: The optimization config. Must not be in relative form.
+        index: Column names to use as index for pivoting (e.g., ["trial_index",
+               "arm_name"] or ["trial_index", "arm_name", "step"]).
+
+    Returns:
+        DataFrame with columns from `index` + metric names + "feasible",
+        where "feasible" indicates whether the observation satisfies all constraints.
+    """
+    # Get the metrics we need
+    metric_names = list(optimization_config.metrics.keys())
+    mask = df["metric_name"].isin(metric_names)
+
+    # Transform to wide format with metric columns
+    df_wide = df[mask].pivot(index=index, columns="metric_name", values="mean")
+
+    # Validate all metrics are present:
+    # reindex fills missing columns with NaN, so this catches both
+    # columns absent from df_wide and those containing NaNs
+    incomplete_metrics: pd.Series = df_wide.reindex(columns=metric_names).isna().any()
+
+    if df_wide.empty or incomplete_metrics.any():
+        # If df_wide is empty, all metrics are missing
+        missing_metrics = (
+            metric_names
+            if df_wide.empty
+            else incomplete_metrics.index[incomplete_metrics].tolist()
+        )
+        raise ValueError(
+            "Some metrics are not present for all trials and arms. The "
+            f"following are missing: {missing_metrics}."
+        )
+
+    # Aggregate feasibility by index
+    df_wide["feasible"] = df.groupby(by=index)["row_feasible"].all()
+    df_wide.reset_index(inplace=True)
+
+    return df_wide
+
+
+def _aggregate_and_cumulate_trace(
+    df: pd.DataFrame,
+    by: list[str],
+    value_name: str = "value",
+    maximize: bool = True,
+    keep_order: bool = True,
+) -> pd.Series:
+    """
+    Aggregate values by groups and compute cumulative best.
+
+    This helper encapsulates the common pattern of grouping observations,
+    aggregating to get the best value per group, and then computing the
+    cumulative best across groups.
+
+    Args:
+        df: DataFrame with values to aggregate.
+        by: Columns to group by (e.g., ["trial_index"] or
+            ["trial_index", "step"]).
+        value_name: Column name containing values to aggregate.
+        maximize: Whether to maximize (True) or minimize (False).
+        keep_order: If True, do not sort group keys; groups will appear
+                    in the same order as they did in the original DataFrame.
+
+    Returns:
+        Series with cumulative best values.
+    """
+    grouped = df.groupby(by=by, sort=not keep_order)[value_name]
+    aggregated = grouped.max() if maximize else grouped.min()
+    return aggregated.cummax() if maximize else aggregated.cummin()
+
+
 def _prepare_data_for_trace(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
@@ -927,29 +1061,11 @@ def _prepare_data_for_trace(
         # distinction between infeasible and undetermined is not important.
         undetermined_value=False,
     )
-
-    # Get the metrics we need
-    metrics = list(optimization_config.metrics.keys())
-
-    # Transform to a DataFrame with columns ["trial_index", "arm_name"] +
-    # relevant metric names, and values being means.
-    df_wide = (
-        df[df["metric_name"].isin(metrics)]
-        .set_index(["trial_index", "arm_name", "metric_name"])["mean"]
-        .unstack(level="metric_name")
+    return _pivot_data_with_feasibility(
+        df=df,
+        index=["trial_index", "arm_name"],
+        optimization_config=optimization_config,
     )
-    missing_metrics = [
-        m for m in metrics if m not in df_wide.columns or df_wide[m].isnull().any()
-    ]
-    if len(missing_metrics) > 0:
-        raise ValueError(
-            "Some metrics are not present for all trials and arms. The "
-            f"following are missing: {missing_metrics}."
-        )
-    df_wide["feasible"] = df.groupby(["trial_index", "arm_name"])["row_feasible"].all()
-    df_wide.reset_index(inplace=True)
-
-    return df_wide
 
 
 def get_trace_by_arm_pull_from_data(
@@ -965,9 +1081,8 @@ def get_trace_by_arm_pull_from_data(
     function returns a single value for each arm pull, even if there are
     multiple arms per trial or if an arm is repeated in multiple trials.
 
-    For BOPE experiments, this function computes
-    utility predictions using the learned preference model from the PE_EXPERIMENT
-    auxiliary experiment.
+    For BOPE experiments, this function computes utility predictions using the
+    learned preference model from the PE_EXPERIMENT auxiliary experiment.
 
     Args:
         df: Data in the format returned by ``Data.df``, with a separate row for
@@ -990,11 +1105,11 @@ def get_trace_by_arm_pull_from_data(
             "`Derelativize` the optimization config, or use `get_trace`."
         )
     empty_result = pd.DataFrame(columns=["trial_index", "arm_name", "value"])
-    if len(df) == 0:
+    if df.empty:
         return empty_result
 
     df_wide = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
-    if len(df_wide) == 0:
+    if df_wide.empty:
         return empty_result
 
     # Handle preference learning experiments
@@ -1012,25 +1127,13 @@ def get_trace_by_arm_pull_from_data(
         )
         return df_wide[["trial_index", "arm_name", "value"]]
 
-    # MOO and *not* ScalarizedObjective
-    if isinstance(optimization_config.objective, MultiObjective):
-        optimization_config = assert_is_instance(
-            optimization_config, MultiObjectiveOptimizationConfig
-        )
-        df_wide["value"] = get_hypervolume_trace_of_outcomes_multi_objective(
-            df_wide=df_wide,
-            optimization_config=optimization_config,
-            use_cumulative_hv=use_cumulative_best,
-        )
-        return df_wide[["trial_index", "arm_name", "value"]]
-    df_wide["value"] = get_values_of_outcomes_single_or_scalarized_objective(
-        df_wide=df_wide, objective=optimization_config.objective
+    # Compute per-evaluation (trial_index) cumulative values
+    df_wide["value"], _ = _compute_trace_values(
+        df_wide=df_wide,
+        optimization_config=optimization_config,
+        use_cumulative_best=use_cumulative_best,
     )
-    if df_wide["feasible"].any() and use_cumulative_best:
-        min_or_max = (
-            np.minimum if optimization_config.objective.minimize else np.maximum
-        )
-        df_wide["value"] = min_or_max.accumulate(df_wide["value"])
+
     return df_wide[["trial_index", "arm_name", "value"]]
 
 
@@ -1039,7 +1142,8 @@ def get_trace(
     optimization_config: OptimizationConfig | None = None,
     include_status_quo: bool = False,
 ) -> list[float]:
-    """Compute the optimization trace at each iteration.
+    """
+    Compute the optimization trace at each iteration.
 
     Given an experiment and an optimization config, compute the performance
     at each iteration. For multi-objective, the performance is computed as
@@ -1106,22 +1210,19 @@ def get_trace(
             experiment=experiment,
         )
 
-    # Get a value for each trial_index + arm
+    # Get a value for each (trial_index, arm_name) tuple
     value_by_arm_pull = get_trace_by_arm_pull_from_data(
         df=df,
         optimization_config=optimization_config,
         use_cumulative_best=True,
         experiment=experiment,
     )
-    # Aggregate to trial level
+    # Aggregate by trial, then. compute cumulative best
     objective = optimization_config.objective
     maximize = isinstance(objective, MultiObjective) or not objective.minimize
-    trial_grouped = value_by_arm_pull.groupby("trial_index")["value"]
-    if maximize:
-        value_by_trial = trial_grouped.max()
-        cumulative_value = np.maximum.accumulate(value_by_trial)
-    else:
-        value_by_trial = trial_grouped.min()
-        cumulative_value = np.minimum.accumulate(value_by_trial)
-
-    return cumulative_value.tolist()
+    return _aggregate_and_cumulate_trace(
+        df=value_by_arm_pull,
+        by=["trial_index"],
+        maximize=maximize,
+        keep_order=False,  # sort by trial index
+    ).tolist()

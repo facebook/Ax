@@ -54,9 +54,13 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.orchestration.orchestrator import Orchestrator
 from ax.service.utils.best_point import (
+    _aggregate_and_cumulate_trace,
+    _compute_trace_values,
+    _pivot_data_with_feasibility,
     _prepare_data_for_trace,
     derelativize_opt_config,
     get_trace,
+    is_row_feasible,
 )
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.orchestrator_options import OrchestratorOptions, TrialType
@@ -791,64 +795,80 @@ def get_opt_trace_by_steps(experiment: Experiment) -> npt.NDArray:
     that is in terms of steps, with one element added each time a step
     completes.
 
+    Supports single-objective, multi-objective, and constrained problems.
+    For multi-objective problems, the trace is in terms of hypervolume.
+
     Args:
         experiment: An experiment produced by `benchmark_replication`; it must
             have `BenchmarkTrialMetadata` (as produced by `BenchmarkRunner`) for
             each trial, and its data must have a "step" column.
     """
     optimization_config = none_throws(experiment.optimization_config)
+    full_df = experiment.lookup_data().full_df
 
-    if optimization_config.is_moo_problem:
-        raise NotImplementedError(
-            "Cumulative epochs only supported for single objective problems."
-        )
-    if len(optimization_config.outcome_constraints) > 0:
-        raise NotImplementedError(
-            "Cumulative epochs not supported for problems with outcome constraints."
-        )
-
-    objective_name = optimization_config.objective.metric.name
-    data = experiment.lookup_data()
-    full_df = data.full_df
-
-    # Has timestamps; needs to be merged with full_df because it contains
-    # data on epochs that didn't actually run due to early stopping, and we need
-    # to know which actually ran
-    def _get_df(trial: Trial) -> pd.DataFrame:
-        """
-        Get the (virtual) time each epoch finished at.
-        """
-        metadata = trial.run_metadata["benchmark_metadata"]
-        backend_simulator = none_throws(metadata.backend_simulator)
-        # Data for the first metric, which is the only metric
-        df = next(iter(metadata.dfs.values()))
-        start_time = backend_simulator.get_sim_trial_by_index(
-            trial.index
-        ).sim_start_time
-        df["time"] = df["virtual runtime"] + start_time
-        return df
-
-    with_timestamps = pd.concat(
-        (
-            _get_df(trial=assert_is_instance(trial, Trial))
-            for trial in experiment.trials.values()
-        ),
-        axis=0,
-        ignore_index=True,
-    )[["trial_index", MAP_KEY, "time"]]
-
-    df = (
-        full_df.loc[
-            full_df["metric_name"] == objective_name,
-            ["trial_index", "arm_name", "mean", MAP_KEY],
-        ]
-        .merge(with_timestamps, how="left")
-        .sort_values("time", ignore_index=True)
+    full_df["row_feasible"] = is_row_feasible(
+        df=full_df,
+        optimization_config=optimization_config,
+        # For the sake of this function, we only care about feasible trials. The
+        # distinction between infeasible and undetermined is not important.
+        undetermined_value=False,
     )
-    return (
-        df["mean"].cummin()
-        if optimization_config.objective.minimize
-        else df["mean"].cummax()
+
+    # Pivot to wide format with feasibility
+    df_wide = _pivot_data_with_feasibility(
+        df=full_df,
+        index=["trial_index", "arm_name", MAP_KEY],
+        optimization_config=optimization_config,
+    )
+
+    def _get_timestamps(experiment: Experiment) -> pd.Series:
+        """
+        Get the (virtual) time at which each training progression finished.
+        """
+        frames = []
+        for trial in experiment.trials.values():
+            trial = assert_is_instance(trial, Trial)
+            metadata = trial.run_metadata["benchmark_metadata"]
+            backend_simulator = none_throws(metadata.backend_simulator)
+            sim_trial = backend_simulator.get_sim_trial_by_index(
+                trial_index=trial.index
+            )
+            start_time = sim_trial.sim_start_time
+            # timestamps are identical across all metrics, so just use the first one
+            frame = next(iter(metadata.dfs.values())).copy()
+            frame["time"] = frame["virtual runtime"] + start_time
+            frames.append(frame)
+        df = pd.concat(frames, axis=0, ignore_index=True).set_index(
+            ["trial_index", "arm_name", MAP_KEY]
+        )
+        return df["time"]
+
+    # Compute timestamps and join with df_wide *before* cumulative computations.
+    # This is critical because cumulative HV/objective calculations depend on
+    # the temporal ordering of observations.
+    timestamps = _get_timestamps(experiment=experiment)
+
+    # Merge timestamps and sort by time before cumulative computations
+    df_wide = df_wide.join(
+        timestamps, on=["trial_index", "arm_name", MAP_KEY], how="left"
+    ).sort_values(by="time", ascending=True, ignore_index=True)
+
+    # Compute per-evaluation (trial_index, MAP_KEY) cumulative values,
+    # with keep_order=True to preserve ordering by timestamp
+    df_wide["value"], maximize = _compute_trace_values(
+        df_wide=df_wide,
+        optimization_config=optimization_config,
+        use_cumulative_best=True,
+    )
+    # Get a value for each (trial_index, arm_name, MAP_KEY) tuple
+    value_by_arm_pull = df_wide[["trial_index", "arm_name", MAP_KEY, "value"]]
+
+    # Aggregate by trial and step, then compute cumulative best
+    return _aggregate_and_cumulate_trace(
+        df=value_by_arm_pull,
+        by=["trial_index", MAP_KEY],
+        maximize=maximize,
+        keep_order=True,
     ).to_numpy()
 
 
@@ -867,14 +887,15 @@ def get_benchmark_result_with_cumulative_steps(
     opt_trace = get_opt_trace_by_steps(experiment=experiment)
     return replace(
         result,
-        optimization_trace=opt_trace,
-        cost_trace=np.arange(1, len(opt_trace) + 1, dtype=int),
+        optimization_trace=opt_trace.tolist(),
+        cost_trace=np.arange(1, len(opt_trace) + 1, dtype=int).tolist(),
         # Empty
-        oracle_trace=np.full(len(opt_trace), np.nan),
-        inference_trace=np.full(len(opt_trace), np.nan),
+        oracle_trace=np.full_like(opt_trace, np.nan).tolist(),
+        inference_trace=np.full_like(opt_trace, np.nan).tolist(),
+        is_feasible_trace=None,
         score_trace=compute_score_trace(
             optimization_trace=opt_trace,
             baseline_value=baseline_value,
             optimal_value=optimal_value,
-        ),
+        ).tolist(),
     )
