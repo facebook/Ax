@@ -972,7 +972,7 @@ class GenerationStep:
             observed` have not been completed, a call to `generation_strategy.gen`
             will fail with a `DataRequiredError`.
         max_parallelism: How many trials generated in the course of this step are
-            allowed to be run (i.e. have `trial.status` of `RUNNING`) simultaneously.
+            allowed to be run (i.e. have `trial.status` of `RUNNING`) concurrently.
             If `max_parallelism` trials from this step are already running, a call
             to `generation_strategy.gen` will fail with a `MaxParallelismReached
             Exception`, indicating that more trials need to be completed before
@@ -1055,7 +1055,7 @@ class GenerationStep:
             )
         if max_parallelism is not None and max_parallelism < 1:
             raise UserInputError(
-                "Maximum parallelism should be None (if no limit) or "
+                "Maximum concurrency should be None (if no limit) or "
                 f"a positive number. Got: {max_parallelism} for "
                 f"step {generator_name}."
             )

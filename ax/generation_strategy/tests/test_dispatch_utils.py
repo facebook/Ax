@@ -19,7 +19,7 @@ from ax.generation_strategy.dispatch_utils import (
     _make_botorch_step,
     calculate_num_initialization_trials,
     choose_generation_strategy_legacy,
-    DEFAULT_BAYESIAN_PARALLELISM,
+    DEFAULT_BAYESIAN_CONCURRENCY,
 )
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.transition_criterion import (
@@ -621,14 +621,14 @@ class TestDispatchUtils(TestCase):
                 sobol_gpei._nodes[0].transition_criteria[0], MinTrials
             )
             self.assertTrue(node0_min_trials.block_gen_if_met)
-            # Check that max_parallelism is set by verifying MaxGenerationParallelism
+            # Check that max_concurrency is set by verifying MaxGenerationParallelism
             # criterion exists on node 1
-            node1_max_parallelism = [
+            node1_max_concurrency = [
                 tc
                 for tc in sobol_gpei._nodes[1].transition_criteria
                 if isinstance(tc, MaxGenerationParallelism)
             ]
-            self.assertTrue(len(node1_max_parallelism) > 0)
+            self.assertTrue(len(node1_max_concurrency) > 0)
         with self.subTest("False"):
             sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
@@ -646,14 +646,14 @@ class TestDispatchUtils(TestCase):
                 sobol_gpei._nodes[0].transition_criteria[0], MinTrials
             )
             self.assertFalse(node0_min_trials.block_gen_if_met)
-            # Check that max_parallelism is None by verifying no
+            # Check that max_concurrency is None by verifying no
             # MaxGenerationParallelism criterion exists on node 1
-            node1_max_parallelism = [
+            node1_max_concurrency = [
                 tc
                 for tc in sobol_gpei._nodes[1].transition_criteria
                 if isinstance(tc, MaxGenerationParallelism)
             ]
-            self.assertEqual(len(node1_max_parallelism), 0)
+            self.assertEqual(len(node1_max_concurrency), 0)
         with self.subTest("False and max_parallelism_override"):
             with self.assertLogs(
                 choose_generation_strategy_legacy.__module__, logging.INFO
@@ -706,7 +706,7 @@ class TestDispatchUtils(TestCase):
             search_space=get_branin_search_space(), max_parallelism_override=10
         )
         self.assertTrue(
-            all(self._get_max_parallelism(s) == 10 for s in sobol_gpei._nodes)
+            all(self._get_max_concurrency(s) == 10 for s in sobol_gpei._nodes)
         )
 
     def test_winsorization(self) -> None:
@@ -817,47 +817,47 @@ class TestDispatchUtils(TestCase):
             3,
         )
 
-    def _get_max_parallelism(self, node: GenerationNode) -> int | None:
-        """Helper to extract max_parallelism from transition criteria."""
+    def _get_max_concurrency(self, node: GenerationNode) -> int | None:
+        """Helper to extract max_concurrency from transition criteria."""
         for tc in node.transition_criteria:
             if isinstance(tc, MaxGenerationParallelism):
                 return tc.threshold
         return None
 
-    def test_max_parallelism_adjustments(self) -> None:
+    def test_max_concurrency_adjustments(self) -> None:
         # No adjustment.
         sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space()
         )
-        self.assertIsNone(self._get_max_parallelism(sobol_gpei._nodes[0]))
+        self.assertIsNone(self._get_max_concurrency(sobol_gpei._nodes[0]))
         self.assertEqual(
-            self._get_max_parallelism(sobol_gpei._nodes[1]),
-            DEFAULT_BAYESIAN_PARALLELISM,
+            self._get_max_concurrency(sobol_gpei._nodes[1]),
+            DEFAULT_BAYESIAN_CONCURRENCY,
         )
         # Impose a cap of 1 on max parallelism for all steps.
         sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), max_parallelism_cap=1
         )
         self.assertEqual(
-            self._get_max_parallelism(sobol_gpei._nodes[0]),
+            self._get_max_concurrency(sobol_gpei._nodes[0]),
             1,
         )
         self.assertEqual(
-            self._get_max_parallelism(sobol_gpei._nodes[1]),
+            self._get_max_concurrency(sobol_gpei._nodes[1]),
             1,
         )
         # Disable enforcing max parallelism for all steps.
         sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), max_parallelism_override=-1
         )
-        self.assertIsNone(self._get_max_parallelism(sobol_gpei._nodes[0]))
-        self.assertIsNone(self._get_max_parallelism(sobol_gpei._nodes[1]))
+        self.assertIsNone(self._get_max_concurrency(sobol_gpei._nodes[0]))
+        self.assertIsNone(self._get_max_concurrency(sobol_gpei._nodes[1]))
         # Override max parallelism for all steps.
         sobol_gpei = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(), max_parallelism_override=10
         )
-        self.assertEqual(self._get_max_parallelism(sobol_gpei._nodes[0]), 10)
-        self.assertEqual(self._get_max_parallelism(sobol_gpei._nodes[1]), 10)
+        self.assertEqual(self._get_max_concurrency(sobol_gpei._nodes[0]), 10)
+        self.assertEqual(self._get_max_concurrency(sobol_gpei._nodes[1]), 10)
 
     def test_set_should_deduplicate(self) -> None:
         sobol_gpei = choose_generation_strategy_legacy(
