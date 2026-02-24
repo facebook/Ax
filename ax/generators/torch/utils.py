@@ -17,6 +17,7 @@ from ax.generators.utils import filter_constraints_and_fixed_features, get_obser
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
+from botorch.acquisition.logei import qLogProbabilityOfFeasibility
 from botorch.acquisition.monte_carlo import (
     MCAcquisitionFunction,
     qSimpleRegret,
@@ -328,6 +329,8 @@ def get_botorch_objective_and_transform(
     if learned_objective_preference_model is not None:
         objective = LearnedObjective(pref_model=learned_objective_preference_model)
         return objective, None
+    if botorch_acqf_class is qLogProbabilityOfFeasibility:
+        return None, None
 
     if issubclass(
         botorch_acqf_class,
