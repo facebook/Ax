@@ -283,7 +283,7 @@ def compute_scatter_adhoc(
     generation_strategy: GenerationStrategy | None = None,
     adapter: Adapter | None = None,
     use_model_predictions: bool = True,
-    relativize: bool = False,
+    relativize: bool = True,
     trial_index: int | None = None,
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
