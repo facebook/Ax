@@ -21,7 +21,7 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
-from ax.plot.pareto_utils import (
+from ax.service.utils.best_point import (
     get_tensor_converter_adapter,
     infer_reference_point_from_experiment,
 )

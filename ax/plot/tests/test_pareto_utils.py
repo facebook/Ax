@@ -7,16 +7,11 @@
 # pyre-strict
 
 import copy
-from unittest import mock
-from unittest.mock import patch
 
 import numpy as np
-import torch
 from ax.adapter.registry import Generators
-from ax.adapter.torch import TorchAdapter
 from ax.core.data import Data
 from ax.core.objective import MultiObjective, Objective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
@@ -30,16 +25,12 @@ from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
     _relativize_values,
     get_observed_pareto_frontiers,
-    get_tensor_converter_adapter,
-    infer_reference_point_from_experiment,
-    logger,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.math_utils import relativize
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
-    get_experiment_with_observations,
 )
 
 
@@ -221,171 +212,6 @@ class ParetoUtilsTest(TestCase):
         self.assertTrue(
             np.array_equal(pareto, np.array([[3.0, 0.0], [2.1, 1.0], [2.0, 2.0]]))
         )
-
-
-class TestInfereReferencePointFromExperiment(TestCase):
-    def test_infer_reference_point_from_experiment(self) -> None:
-        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
-        # Getting an experiment with 2 objectives by the above observations.
-        experiment = get_experiment_with_observations(
-            observations=observations,
-            minimize=True,
-            scalarized=False,
-            constrained=False,
-        )
-        data = experiment.fetch_data()
-        inferred_reference_point = infer_reference_point_from_experiment(
-            experiment, data=data
-        )
-        # The nadir point for this experiment is [-0.5, 0.5]. The function actually
-        # deducts 0.1*Y_range from each of the objectives. Since the range for each
-        # of the objectives is +/-1.5, the inferred reference point would
-        # be [-0.35, 0.35].
-        self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
-        self.assertEqual(inferred_reference_point[0].bound, -0.35)
-        self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
-        self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
-        self.assertEqual(inferred_reference_point[1].bound, 0.35)
-        self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
-
-        with mock.patch(
-            "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
-            return_value=([], [], [], []),
-        ):
-            with self.assertRaisesRegex(RuntimeError, "No frontier observations found"):
-                infer_reference_point_from_experiment(experiment, data=data)
-
-    def test_constrained_infer_reference_point_from_experiment(self) -> None:
-        experiments = []
-        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
-        # adding constraint observations
-        observations = [o + [c] for o, c in zip(observations, [1.0, 0.5, 1.0, 1.0])]
-        # Getting an experiment with 2 objectives by the above observations.
-        experiment = get_experiment_with_observations(
-            observations=observations,
-            minimize=True,
-            scalarized=False,
-            constrained=True,
-        )
-        experiments.append(experiment)
-
-        # Special case: An experiment with no feasible observations.
-        # TODO: Use experiment clone function once D50804778 is landed.
-        experiment = copy.deepcopy(experiment)
-        # Ensure that no observation is feasible.
-        experiment.optimization_config.outcome_constraints[0].bound = 1000.0
-        experiments.append(experiment)
-
-        for experiment in experiments:
-            # special case logs a warning message.
-            data = experiment.fetch_data()
-            if experiment.optimization_config.outcome_constraints[0].bound == 1000.0:
-                with self.assertLogs(logger, "WARNING"):
-                    inferred_reference_point = infer_reference_point_from_experiment(
-                        experiment, data=data
-                    )
-            else:
-                inferred_reference_point = infer_reference_point_from_experiment(
-                    experiment, data=data
-                )
-            # The nadir point for this experiment is [-0.5, 0.5]. The function actually
-            # deducts 0.1*Y_range from each of the objectives. Since the range for each
-            # of the objectives is +/-1.5, the inferred reference point would
-            # be [-0.35, 0.35].
-            self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
-            self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
-            self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
-            self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
-
-    def test_infer_reference_point_from_experiment_shuffled_metrics(self) -> None:
-        # Generating an experiment with given data.
-        observations = [
-            [-1.0, 1.0, 0.1],
-            [-0.5, 2.0, 0.2],
-            [-2.0, 0.5, 0.3],
-            [-0.1, 0.1, 0.4],
-        ]
-        experiment = get_experiment_with_observations(
-            observations=observations,
-            minimize=True,
-            scalarized=False,
-            constrained=True,
-        )
-
-        # Constructing fake outputs for `get_pareto_frontier_and_configs` so that
-        # the order of metrics `m1`, `m2` and `m3` are reversed.
-        frontier_observations_shuffled = [
-            Observation(
-                features=ObservationFeatures(parameters={"x": 0.0, "y": 0.0}),
-                data=ObservationData(
-                    metric_signatures=["m3", "m2", "m1"],
-                    means=np.array([0.1, 1.0, -1.0]),
-                    covariance=np.diag(np.full(3, float("nan"))),
-                ),
-            ),
-            Observation(
-                features=ObservationFeatures(parameters={"x": 0.1, "y": 0.1}),
-                data=ObservationData(
-                    metric_signatures=["m3", "m2", "m1"],
-                    means=np.array([0.2, 2.0, -0.5]),
-                    covariance=np.diag(np.full(3, float("nan"))),
-                ),
-            ),
-            Observation(
-                features=ObservationFeatures(parameters={"x": 0.2, "y": 0.2}),
-                data=ObservationData(
-                    metric_signatures=["m3", "m2", "m1"],
-                    means=np.array([0.3, 0.5, -2.0]),
-                    covariance=np.diag(np.full(3, float("nan"))),
-                ),
-            ),
-        ]
-        f_shuffled = torch.tensor(
-            [
-                [0.1000, 1.0000, -1.0000],
-                [0.2000, 2.0000, -0.5000],
-                [0.3000, 0.5000, -2.0000],
-            ],
-            dtype=torch.float64,
-        )
-        obj_w_shuffled = torch.tensor([0.0, 1.0, -1.0], dtype=torch.float64)
-        obj_t_shuffled = torch.tensor(
-            [-torch.inf, -torch.inf, torch.inf], dtype=torch.float64
-        )
-
-        # Test the function with these shuffled output for
-        # `get_pareto_frontier_and_configs`.
-        with patch(
-            "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
-            return_value=(
-                frontier_observations_shuffled,
-                f_shuffled,
-                obj_w_shuffled,
-                obj_t_shuffled,
-            ),
-        ):
-            inferred_reference_point = infer_reference_point_from_experiment(
-                experiment, data=experiment.fetch_data()
-            )
-
-            self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
-            self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
-            self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
-            self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
-
-    def test_get_tensor_converter_adapter(self) -> None:
-        # Test that it can convert experiments with different number of observations.
-        for num_observations in (1, 10, 2000):
-            experiment = get_experiment_with_observations(
-                observations=[[0.0] for _ in range(num_observations)],
-            )
-            self.assertIsInstance(
-                get_tensor_converter_adapter(experiment=experiment), TorchAdapter
-            )
 
     def test__relativize_values(self) -> None:
         # With NaN sem.
