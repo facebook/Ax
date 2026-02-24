@@ -20,6 +20,7 @@ from ax.analysis.utils import extract_relevant_adapter, validate_adapter_can_pre
 from ax.core.analysis_card import AnalysisCardBase
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.stats.model_fit_stats import coefficient_of_determination
 from plotly import graph_objects as go
 from pyre_extensions import override
 
@@ -62,6 +63,10 @@ class CrossValidationPlot(Analysis):
         - observed_sem: The SEM of the observed mean of the metric specified
         - predicted: The predicted mean of the metric specified
         - predicted_sem: The SEM of the predicted mean of the metric specified
+
+
+    The card title includes the R² (coefficient of determination) score for
+    the metric.
     """
 
     def __init__(
@@ -153,6 +158,11 @@ class CrossValidationPlot(Analysis):
             # If a human readable metric name is provided, use it in the title
             metric_title = self.labels.get(metric_name, metric_name)
 
+            r_squared = coefficient_of_determination(
+                y_obs=df["observed"].to_numpy(),
+                y_pred=df["predicted"].to_numpy(),
+            )
+
             # Define the cross-validation description based on the number of folds
             cv_description = (
                 (
@@ -169,7 +179,9 @@ class CrossValidationPlot(Analysis):
 
             card = create_plotly_analysis_card(
                 name=self.__class__.__name__,
-                title=f"Cross Validation for {metric_title}",
+                title=(
+                    f"Cross Validation for {metric_title} (R\u00b2 = {r_squared:.2f})"
+                ),
                 subtitle=(
                     "The cross-validation plot displays the model fit for each "
                     f"metric in the experiment. It employs a {k_folds_substring} "
