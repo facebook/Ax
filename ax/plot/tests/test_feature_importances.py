@@ -16,10 +16,6 @@ from ax.plot.base import AxPlotConfig
 from ax.plot.feature_importances import (
     plot_feature_importance_by_feature,
     plot_feature_importance_by_feature_plotly,
-    plot_feature_importance_by_metric,
-    plot_feature_importance_by_metric_plotly,
-    plot_relative_feature_importance,
-    plot_relative_feature_importance_plotly,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -79,14 +75,6 @@ class FeatureImportancesTest(TestCase):
         self.assertEqual(len(plot.layout.annotations), 1)
         self.assertEqual(plot.layout.annotations[0].text, DUMMY_CAPTION)
         plot = plot_feature_importance_by_feature(model=model)
-        self.assertIsInstance(plot, AxPlotConfig)
-        plot = plot_feature_importance_by_metric_plotly(model=model)
-        self.assertIsInstance(plot, go.Figure)
-        plot = plot_feature_importance_by_metric(model=model)
-        self.assertIsInstance(plot, AxPlotConfig)
-        plot = plot_relative_feature_importance_plotly(model=model)
-        self.assertIsInstance(plot, go.Figure)
-        plot = plot_relative_feature_importance(model=model)
         self.assertIsInstance(plot, AxPlotConfig)
 
         lengthscale_sensitivity_values = get_sensitivity_values(model)

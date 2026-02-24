@@ -6,22 +6,16 @@
 
 # pyre-strict
 
-from datetime import datetime, timedelta
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
-from ax.core.experiment import Experiment
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
-from ax.utils.common.timeutils import timestamps_in_range
 from plotly import express as px
 from plotly.express.colors import sample_colorscale
-from pyre_extensions import none_throws
-
-FIVE_MINUTES = timedelta(minutes=5)
 
 
 # type aliases
@@ -689,57 +683,6 @@ def optimization_times(
         # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
         #  `Figure`.
         data=go.Figure(layout=layout, data=data),
-        plot_type=AxPlotTypes.GENERIC,
-    )
-
-
-def get_running_trials_per_minute(
-    experiment: Experiment,
-    show_until_latest_end_plus_timedelta: timedelta = FIVE_MINUTES,
-) -> AxPlotConfig:
-    trial_runtimes: list[tuple[int, datetime, datetime | None]] = [
-        (
-            trial.index,
-            none_throws(trial._time_run_started),
-            trial._time_completed,  # Time trial was completed, failed, or abandoned.
-        )
-        for trial in experiment.trials.values()
-        if trial._time_run_started is not None
-    ]
-
-    earliest_start = min(tr[1] for tr in trial_runtimes)
-    latest_end = max(none_throws(tr[2]) for tr in trial_runtimes if tr[2] is not None)
-
-    running_during = {
-        ts: [
-            t[0]  # Trial index.
-            for t in trial_runtimes
-            # Trial is running during a given timestamp if:
-            # 1) it's run start time is at/before the timestamp,
-            # 2) it's completion time has not yet come or is after the timestamp.
-            if t[1] <= ts and (True if t[2] is None else none_throws(t[2]) >= ts)
-        ]
-        for ts in timestamps_in_range(
-            earliest_start,
-            latest_end + show_until_latest_end_plus_timedelta,
-            timedelta(seconds=60),
-        )
-    }
-
-    num_running_at_ts = {ts: len(trials) for ts, trials in running_during.items()}
-
-    scatter = go.Scatter(
-        x=list(num_running_at_ts.keys()),
-        y=[num_running_at_ts[ts] for ts in num_running_at_ts],
-    )
-
-    return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
-        data=go.Figure(
-            layout=go.Layout(title="Number of running trials during experiment"),
-            data=[scatter],
-        ),
         plot_type=AxPlotTypes.GENERIC,
     )
 
