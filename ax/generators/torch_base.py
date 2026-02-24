@@ -79,8 +79,8 @@ class TorchOptConfig:
             the optimization config.
         is_moo: Whether this is a multi-objective optimization problem.
             Inferred from ``objective_weights.shape[0] > 1``.
-        outcome_mask: A 1D boolean tensor indicating which outcomes are used
-            by any objective.
+        outcome_mask: A 1D boolean tensor indicating which outcomes
+            participate in at least one objective.
         pruning_target_point: A `d`-dim tensor that specifies values that irrelevant
             parameters should be set to.
     """
@@ -108,7 +108,7 @@ class TorchOptConfig:
     @cached_property
     def outcome_mask(self) -> Tensor:
         """A 1D boolean tensor of shape ``(n_outcomes,)`` that is ``True``
-        where any objective has a nonzero weight."""
+        for outcomes that participate in at least one objective."""
         return (self.objective_weights != 0).any(dim=0)
 
 
