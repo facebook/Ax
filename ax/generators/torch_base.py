@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Any
 
 import torch
@@ -30,10 +31,13 @@ class TorchOptConfig:
     an ephemeral object and not meant to be stored / serialized.
 
     Attributes:
-        objective_weights: If doing multi-objective optimization, these denote
-            which objectives should be maximized and which should be minimized.
-            Otherwise, the objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
+        objective_weights: A 2D tensor of shape ``(n_objectives, n_outcomes)``.
+            Each row corresponds to one objective, each column to one modeled
+            outcome.  For single-objective optimization the tensor has one row.
+            For multi-objective optimization there is one row per objective.
+            The nonzero entries indicate which outcomes contribute to each
+            objective and their weights / signs (positive = maximize,
+            negative = minimize).
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b.
@@ -73,7 +77,10 @@ class TorchOptConfig:
             appropriately (i.e., according to `round-trip` transformations).
         opt_config_metrics: A dictionary of metrics that are included in
             the optimization config.
-        is_moo: A boolean denoting whether this is for an MOO problem.
+        is_moo: Whether this is a multi-objective optimization problem.
+            Inferred from ``objective_weights.shape[0] > 1``.
+        outcome_mask: A 1D boolean tensor indicating which outcomes are used
+            by any objective.
         pruning_target_point: A `d`-dim tensor that specifies values that irrelevant
             parameters should be set to.
     """
@@ -87,9 +94,22 @@ class TorchOptConfig:
     model_gen_options: TConfig = field(default_factory=dict)
     rounding_func: Callable[[Tensor], Tensor] | None = None
     opt_config_metrics: dict[str, Metric] = field(default_factory=dict)
-    is_moo: bool = False
     use_learned_objective: bool = False
     pruning_target_point: Tensor | None = None
+
+    @cached_property
+    def is_moo(self) -> bool:
+        """Whether this is a multi-objective optimization problem.
+
+        Inferred from the number of rows in ``objective_weights``.
+        """
+        return self.objective_weights.shape[0] > 1
+
+    @cached_property
+    def outcome_mask(self) -> Tensor:
+        """A 1D boolean tensor of shape ``(n_outcomes,)`` that is ``True``
+        where any objective has a nonzero weight."""
+        return (self.objective_weights != 0).any(dim=0)
 
 
 @dataclass(frozen=True)

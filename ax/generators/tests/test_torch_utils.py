@@ -42,8 +42,8 @@ class TorchUtilsTest(TestCase):
             torch.tensor([[1.0]], **tkwargs),
             torch.tensor([[0.5]], **tkwargs),
         )
-        self.objective_weights = torch.ones(1, **tkwargs)
-        self.moo_objective_weights = torch.ones(2, **tkwargs)
+        self.objective_weights = torch.ones(1, 1, **tkwargs)
+        self.moo_objective_weights = torch.tensor([[1.0], [1.0]], **tkwargs)
         self.objective_thresholds = torch.tensor([0.5, 1.5], **tkwargs)
 
     def test_get_X_pending_and_observed(self) -> None:

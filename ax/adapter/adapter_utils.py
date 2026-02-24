@@ -277,6 +277,36 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
     return objective_weights
 
 
+def extract_objective_weight_matrix(
+    objective: Objective, outcomes: list[str]
+) -> npt.NDArray:
+    """Extract a 2D weight matrix for objectives.
+
+    Each row corresponds to one objective and each column to one modeled
+    outcome.  Outcomes that are not part of an objective get weight 0 in
+    every row.
+
+    For a single ``Objective`` (including ``ScalarizedObjective``), the
+    matrix has a single row.  For a ``MultiObjective``, each sub-objective
+    gets its own row.
+
+    Args:
+        objective: Objective to extract weights from.
+        outcomes: n-length list of names of metrics.
+
+    Returns:
+        ``(n_objectives, n)`` array of weights.
+    """
+    if isinstance(objective, MultiObjective):
+        rows: list[npt.NDArray] = []
+        for obj in objective.objectives:
+            rows.append(extract_objective_weights(obj, outcomes))
+        return np.stack(rows, axis=0)
+    else:
+        # Single row – covers Objective and ScalarizedObjective
+        return extract_objective_weights(objective, outcomes).reshape(1, -1)
+
+
 def extract_outcome_constraints(
     outcome_constraints: list[OutcomeConstraint], outcomes: list[str]
 ) -> TBounds:

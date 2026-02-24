@@ -441,6 +441,8 @@ def best_in_sample_point(
     if objective_weights is None:
         return None
     objective_weights_np = assert_is_instance(as_array(objective_weights), np.ndarray)
+    # Collapse to 1D — objective_weights is always 2D from the Torch path.
+    objective_weights_np = objective_weights_np.sum(axis=0)
     X_obs = get_observed(
         Xs=Xs,
         objective_weights=objective_weights,
@@ -537,7 +539,9 @@ def get_observed(
         Points observed for all objective outcomes and outcome constraints.
     """
     objective_weights_np = as_array(objective_weights)
-    used_outcomes: set[int] = set(np.where(objective_weights_np != 0)[0])
+    # objective_weights is always 2D (n_objectives, n_outcomes).
+    mask = np.any(objective_weights_np != 0, axis=0)
+    used_outcomes: set[int] = set(np.where(mask)[0])
     if len(used_outcomes) == 0:
         raise ValueError("At least one objective weight must be non-zero")
     if outcome_constraints is not None:
