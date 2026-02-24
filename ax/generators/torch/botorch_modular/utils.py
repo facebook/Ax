@@ -369,8 +369,8 @@ def _objective_threshold_to_outcome_constraints(
         A tuple ``(A, b)`` of outcome constraint tensors.
     """
     obj_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
-    # Filter to objectives with non-NaN thresholds. Objective threhsolds
-    # can contain NaNs if there objective thresholds were inferred, but
+    # Filter to objectives with non-NaN thresholds. Objective thresholds
+    # can contain NaNs if the objective thresholds were inferred, but
     # there are no feasible points. In that case,
     # qLogProbabilityOfFeasibility is used.
     obj_idcs = obj_idcs[~objective_thresholds[obj_idcs].isnan()]

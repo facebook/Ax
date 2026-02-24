@@ -377,7 +377,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
 
     def test_objective_threshold_to_outcome_constraints(self) -> None:
-        # Test basic conversion: maximize both objectives.
+        # Test basic conversion: maximize obj 0, minimize obj 1, skip obj 2.
         objective_weights = torch.tensor([1.0, -1.0, 0.0])
         objective_thresholds = torch.tensor([0.5, 1.5, float("nan")])
         A, b = _objective_threshold_to_outcome_constraints(
