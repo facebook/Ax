@@ -38,7 +38,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_data,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
-    get_offline_experiments,
+    get_offline_experiments_subset,
     get_online_experiments,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -166,7 +166,7 @@ class TestOverview(TestCase):
 
         analysis = OverviewAnalysis()
 
-        for experiment in get_offline_experiments():
+        for experiment in get_offline_experiments_subset():
             generation_strategy = get_default_generation_strategy_at_MBM_node(
                 experiment=experiment
             )
