@@ -59,8 +59,6 @@ jobs:
       with:
         python-version: "3.14"
     - name: Install dependencies
-      env:
-        ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         # use latest BoTorch
         uv pip install git+https://github.com/cornellius-gp/linear_operator.git

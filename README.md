@@ -122,14 +122,9 @@ developing Ax (`dev`) are also available.
 You can install the latest (bleeding edge) version from GitHub using `pip`.
 
 The bleeding edge for Ax depends on bleeding edge versions of BoTorch and
-GPyTorch. We therefore recommend installing those from Github, as well as
-setting the following environment variables to allow the Ax to use the latest
-version of both BoTorch and GPyTorch.
+GPyTorch. We therefore recommend installing those from Github as well.
 
 ```shell
-export ALLOW_LATEST_GPYTORCH_LINOP=true
-export ALLOW_BOTORCH_LATEST=true
-
 pip install git+https://github.com/cornellius-gp/gpytorch.git
 pip install git+https://github.com/pytorch/botorch.git
 
@@ -156,9 +151,7 @@ dependencies:
 ```
 pip install git+https://github.com/cornellius-gp/linear_operator.git
 pip install git+https://github.com/cornellius-gp/gpytorch.git
-export ALLOW_LATEST_GPYTORCH_LINOP=true
 pip install git+https://github.com/pytorch/botorch.git
-export ALLOW_BOTORCH_LATEST=true
 git clone https://github.com/facebook/ax.git --depth 1
 cd ax
 pip install -e .[tutorial]
