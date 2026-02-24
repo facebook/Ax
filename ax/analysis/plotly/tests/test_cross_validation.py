@@ -52,7 +52,11 @@ class TestCrossValidationPlot(TestCase):
                 },
             )
 
-    def test_compute(self) -> None:
+    @mock.patch(
+        "ax.analysis.plotly.cross_validation.coefficient_of_determination",
+        return_value=0.85,
+    )
+    def test_compute(self, mock_r2: mock.Mock) -> None:
         analysis = CrossValidationPlot(metric_names=["bar"])
 
         # Test that it fails if no GenerationStrategy is provided
@@ -68,7 +72,10 @@ class TestCrossValidationPlot(TestCase):
             card.name,
             "CrossValidationPlot",
         )
-        self.assertEqual(card.title, "Cross Validation for bar")
+        self.assertEqual(
+            card.title,
+            "Cross Validation for bar (R\u00b2 = 0.85)",
+        )
         self.assertEqual(
             card.subtitle,
             (
@@ -89,7 +96,13 @@ class TestCrossValidationPlot(TestCase):
         )
         self.assertEqual(
             {*card.df.columns},
-            {"arm_name", "observed", "observed_95_ci", "predicted", "predicted_95_ci"},
+            {
+                "arm_name",
+                "observed",
+                "observed_95_ci",
+                "predicted",
+                "predicted_95_ci",
+            },
         )
         self.assertIsNotNone(card.blob)
 
@@ -133,7 +146,11 @@ class TestCrossValidationPlot(TestCase):
         mock_cross_validate.assert_called_once()
 
     @mock_botorch_optimize
-    def test_compute_adhoc(self) -> None:
+    @mock.patch(
+        "ax.analysis.plotly.cross_validation.coefficient_of_determination",
+        return_value=0.85,
+    )
+    def test_compute_adhoc(self, mock_r2: mock.Mock) -> None:
         metric_mapping = {"bar": "spunky", "foo": "foo2"}
         data = self.client.experiment.lookup_data()
         adapter = Generators.BOTORCH_MODULAR(
@@ -143,10 +160,12 @@ class TestCrossValidationPlot(TestCase):
             adapter=adapter, labels=metric_mapping
         ).flatten()
         self.assertEqual(len(cards), 2)
-        titles = {"Cross Validation for spunky", "Cross Validation for foo2"}
+        titles = {
+            "Cross Validation for spunky (R\u00b2 = 0.85)",
+            "Cross Validation for foo2 (R\u00b2 = 0.85)",
+        }
         for card in cards:
             self.assertEqual(card.name, "CrossValidationPlot")
-            # validate that the metric name replacement occurred
             self.assertIn(card.title, titles)
             titles.remove(card.title)
 
