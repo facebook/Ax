@@ -65,16 +65,12 @@ def extract_objectives(
 
     Args:
         objective_weights: ``(n_objectives, n_outcomes)`` tensor.
-            Also accepts a 1D ``(n_outcomes,)`` tensor for backwards
-            compatibility, which is treated as a single row.
 
     Returns:
         A tuple of (outcome_indices, weights):
         - outcome_indices: list of int outcome column indices
         - weights: 1D tensor of corresponding weight values
     """
-    if objective_weights.dim() == 1:
-        objective_weights = objective_weights.unsqueeze(0)
     outcome_indices: list[int] = []
     weights_list: list[Tensor] = []
     for row in objective_weights:

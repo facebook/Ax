@@ -60,7 +60,7 @@ def get_weighted_mc_objective_and_objective_thresholds(
 
     Args:
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
-            weights. Also accepts 1D for backwards compatibility.
+            weights.
         objective_thresholds: A tensor containing thresholds forming a reference point
             from which to calculate pareto frontier hypervolume. Points that do not
             dominate the objective_thresholds contribute nothing to hypervolume.

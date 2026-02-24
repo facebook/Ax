@@ -181,7 +181,15 @@ class MultiObjectiveTorchAdapterTest(TestCase):
 
         wrapped_frontier_evaluator.assert_called_once()
         self.assertEqual(f.shape, (1, n_outcomes))
-        self.assertTrue(torch.equal(obj_w[:2], -torch.ones(2, dtype=torch.double)))
+        # obj_w is now 2D (n_objectives, n_outcomes). Each objective has
+        # weight -1 (minimization) on its corresponding outcome.
+        self.assertEqual(obj_w.shape[0], 2)
+        self.assertTrue(
+            torch.equal(
+                obj_w[obj_w != 0],
+                -torch.ones(2, dtype=torch.double),
+            )
+        )
         self.assertTrue(obj_t is not None)
         self.assertTrue(
             torch.equal(

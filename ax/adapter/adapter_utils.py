@@ -633,7 +633,7 @@ def get_pareto_frontier_and_configs(
         MultiObjectiveOptimizationConfig,
     )
     # Extract weights, constraints, and objective_thresholds
-    objective_weights = extract_objective_weights(
+    objective_weights = extract_objective_weight_matrix(
         objective=optimization_config.objective, outcomes=adapter.outcomes
     )
     outcome_constraints = extract_outcome_constraints(
@@ -907,7 +907,7 @@ def hypervolume(
         objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
     )
     f_t = obj(f)
-    obj_mask = obj_w.nonzero().view(-1)
+    obj_mask = (obj_w != 0).any(dim=0).nonzero().view(-1)
     selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]
     obj_t = obj_t[selected_metrics_mask]

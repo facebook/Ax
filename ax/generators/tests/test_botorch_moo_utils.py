@@ -68,8 +68,10 @@ class FrontierEvaluatorTest(TestCase):
             ]
         )
         self.Yvar = torch.zeros(5, 3)
-        self.objective_thresholds = torch.tensor([0.5, 1.5])
-        self.objective_weights = torch.tensor([1.0, 1.0])
+        self.objective_thresholds = torch.tensor([0.5, 1.5, float("nan")])
+        self.objective_weights = torch.tensor(
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+        )
 
     def test_pareto_frontier_raise_error_when_missing_data(self) -> None:
         with self.assertRaises(ValueError):
@@ -113,7 +115,7 @@ class FrontierEvaluatorTest(TestCase):
         # Change objective_weights so goal is to minimize b
         Y, cov, indx = pareto_frontier_evaluator(
             model=model,
-            objective_weights=torch.tensor([1.0, -1.0]),
+            objective_weights=torch.tensor([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0]]),
             objective_thresholds=self.objective_thresholds,
             Y=self.Y,
             Yvar=Yvar,
@@ -169,7 +171,7 @@ class FrontierEvaluatorTest(TestCase):
     def test_pareto_frontier_evaluator_with_nan(self) -> None:
         Y = torch.cat([self.Y, torch.zeros(5, 1)], dim=-1)
         Yvar = torch.zeros(5, 4, 4)
-        weights = torch.tensor([1.0, 1.0, 0.0, 0.0])
+        weights = torch.tensor([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
         outcome_constraints = (
             torch.tensor([[0.0, 0.0, 1.0, 0.0]]),
             torch.tensor([[3.5]]),

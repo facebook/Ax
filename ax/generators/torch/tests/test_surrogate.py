@@ -1545,10 +1545,7 @@ class SurrogateTest(TestCase):
                 ):
                     surrogate.best_in_sample_point(
                         search_space_digest=self.search_space_digest,
-                        torch_opt_config=dataclasses.replace(
-                            self.torch_opt_config,
-                            objective_weights=None,
-                        ),
+                        torch_opt_config=self.torch_opt_config,
                     )
             with self.subTest("All points are in the search space"):
                 # No linear constraints

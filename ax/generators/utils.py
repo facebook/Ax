@@ -441,7 +441,7 @@ def best_in_sample_point(
     if objective_weights is None:
         return None
     objective_weights_np = assert_is_instance(as_array(objective_weights), np.ndarray)
-    # Collapse to 1D — objective_weights is always 2D from the Torch path.
+    # Collapse to 1D — objective_weights is always 2D (n_objectives, n_outcomes).
     objective_weights_np = objective_weights_np.sum(axis=0)
     X_obs = get_observed(
         Xs=Xs,

@@ -52,7 +52,7 @@ class TorchUtilsTest(TestCase):
 
         # Apply filter normally
         Xs = [torch.tensor([[0.0, 0.0], [0.0, 1.0]])]
-        objective_weights = torch.tensor([1.0])
+        objective_weights = torch.tensor([[1.0]])
         bounds = [(0.0, 1.0), (0.0, 1.0)]
         fixed_features = {1: 1.0}
         _, X_observed = _get_X_pending_and_observed(
