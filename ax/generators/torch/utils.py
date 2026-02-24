@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
@@ -47,6 +48,8 @@ from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.transforms import is_ensemble
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -329,7 +332,9 @@ def get_botorch_objective_and_transform(
     if learned_objective_preference_model is not None:
         objective = LearnedObjective(pref_model=learned_objective_preference_model)
         return objective, None
-    if botorch_acqf_class is qLogProbabilityOfFeasibility:
+    # qLogProbabilityOfFeasibility uses constraints only, not objectives or
+    # posterior transforms.
+    if issubclass(botorch_acqf_class, qLogProbabilityOfFeasibility):
         return None, None
 
     if issubclass(
@@ -366,7 +371,10 @@ def get_botorch_objective_and_transform(
             objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
         return objective, None
-    # Case of linear weights - use ScalarizedPosteriorTransform
+    # Default: single-objective, unconstrained — scalarize to weighted sum.
+    logger.debug(
+        f"Using ScalarizedPosteriorTransform for {botorch_acqf_class.__name__}."
+    )
     transform = ScalarizedPosteriorTransform(weights=objective_weights)
     return None, transform
 
