@@ -30,10 +30,13 @@ class TorchOptConfig:
     an ephemeral object and not meant to be stored / serialized.
 
     Attributes:
-        objective_weights: If doing multi-objective optimization, these denote
-            which objectives should be maximized and which should be minimized.
-            Otherwise, the objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
+        objective_weights: A 2D tensor of shape ``(n_objectives, n_outcomes)``.
+            Each row corresponds to one objective, each column to one modeled
+            outcome.  For single-objective optimization the tensor has one row.
+            For multi-objective optimization there is one row per objective.
+            The nonzero entries indicate which outcomes contribute to each
+            objective and their weights / signs (positive = maximize,
+            negative = minimize).
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b.

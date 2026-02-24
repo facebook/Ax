@@ -214,7 +214,9 @@ class FrontierEvaluatorTest(TestCase):
 
 class BotorchMOOUtilsTest(TestCase):
     def test_get_weighted_mc_objective_and_objective_thresholds(self) -> None:
-        objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
+        objective_weights = torch.tensor(
+            [[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+        )
         objective_thresholds = torch.arange(4, dtype=torch.float)
         (
             weighted_obj,
@@ -223,7 +225,9 @@ class BotorchMOOUtilsTest(TestCase):
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
         )
-        self.assertTrue(torch.equal(weighted_obj.weights, objective_weights[[1, 3]]))
+        self.assertTrue(
+            torch.equal(weighted_obj.weights, torch.tensor([1.0, 1.0]))
+        )
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
         self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
 
@@ -252,7 +256,9 @@ class BotorchMOOUtilsTest(TestCase):
                 torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
                 torch.tensor([[10.0]], **tkwargs),
             )
-            objective_weights = torch.tensor([-1.0, -1.0, 0.0], **tkwargs)
+            objective_weights = torch.tensor(
+                [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], **tkwargs
+            )
             with ExitStack() as es:
                 _mock_infer_reference_point = es.enter_context(
                     mock.patch(

@@ -498,7 +498,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                     optimization_config=oc,
                     fixed_features=fixed_features,
                 )
-                expected_obj_weights = torch.tensor([-1.0, -1.0], dtype=torch.double)
+                expected_obj_weights = torch.tensor([[-1.0, 0.0], [0.0, -1.0]], dtype=torch.double)
                 ckwargs = mock_model_infer_obj_t.call_args.kwargs
                 self.assertTrue(
                     torch.equal(ckwargs["objective_weights"], expected_obj_weights)

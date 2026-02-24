@@ -157,7 +157,7 @@ class AcquisitionTest(TestCase):
             )
 
         self.botorch_acqf_class = DummyAcquisitionFunction
-        self.objective_weights = torch.tensor([1.0])
+        self.objective_weights = torch.tensor([[1.0]])
         self.objective_thresholds = None
         self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **self.tkwargs)]
         self.outcome_constraints = (
@@ -1117,7 +1117,7 @@ class AcquisitionTest(TestCase):
                 outcome_names=["m1", "m2", "m3"],
             )
         ]
-        moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
+        moo_objective_weights = torch.tensor([[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], **self.tkwargs)
         moo_objective_thresholds = (
             torch.tensor([0.5, 1.5, float("nan")], **self.tkwargs)
             if with_objective_thresholds
@@ -1257,7 +1257,7 @@ class AcquisitionTest(TestCase):
             search_space_digest=self.search_space_digest,
         )
         torch_opt_config = TorchOptConfig(
-            objective_weights=torch.tensor([1.0, 1.0, 0.0], **self.tkwargs),
+            objective_weights=torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs),
             outcome_constraints=(
                 torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
                 torch.tensor([[0.0]], **self.tkwargs),
@@ -1300,7 +1300,7 @@ class AcquisitionTest(TestCase):
             torch.tensor([[0.0]], **self.tkwargs),
         )
         torch_opt_config = TorchOptConfig(
-            objective_weights=torch.tensor([1.0, 1.0, 0.0], **self.tkwargs),
+            objective_weights=torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs),
             outcome_constraints=outcome_constraints,
             objective_thresholds=None,
             is_moo=True,
@@ -1341,7 +1341,9 @@ class AcquisitionTest(TestCase):
             datasets=moo_training_data,
             search_space_digest=self.search_space_digest,
         )
-        moo_objective_weights = torch.tensor([1.0, 1.0, 0.0], **self.tkwargs)
+        moo_objective_weights = torch.tensor(
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs
+        )
         moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **self.tkwargs
         )

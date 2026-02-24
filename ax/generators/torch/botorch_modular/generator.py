@@ -27,6 +27,7 @@ from ax.generators.torch.botorch_modular.utils import (
 )
 from ax.generators.torch.utils import (
     _to_inequality_constraints,
+    collapse_objective_weights,
     get_feature_importances_from_botorch_model,
     get_rounding_func,
 )
@@ -112,9 +113,10 @@ def _build_candidate_generation_options(
             # Get objective weights - for minimization this is -1, maximization is 1
             objective_weights = torch_opt_config.objective_weights
             # Only use non-zero weights (actual objectives, not constraints)
-            obj_mask = objective_weights.nonzero().view(-1)
+            collapsed = collapse_objective_weights(objective_weights)
+            obj_mask = collapsed.nonzero().view(-1)
             posterior_transform = ScalarizedPosteriorTransform(
-                weights=objective_weights[obj_mask]
+                weights=collapsed[obj_mask]
             )
 
             sampling_strategy = sampling_strategy_class(
@@ -425,7 +427,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         gen_metadata: TGenMetadata = {
             Keys.EXPECTED_ACQF_VAL: expected_acquisition_value.tolist()
         }
-        if torch_opt_config.objective_weights.nonzero().numel() > 1:
+        if torch_opt_config.is_moo:
             gen_metadata["objective_thresholds"] = acqf.objective_thresholds
             gen_metadata["objective_weights"] = acqf.objective_weights
 

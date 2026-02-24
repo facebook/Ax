@@ -48,6 +48,43 @@ from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
 
+def get_outcome_mask(objective_weights: Tensor) -> Tensor:
+    """Return a 1D boolean mask of shape ``(n_outcomes,)`` indicating which
+    outcomes are used by any objective.
+
+    Args:
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
+            weights. Also accepts a 1D ``(n_outcomes,)`` tensor for backwards
+            compatibility.
+
+    Returns:
+        A 1D boolean tensor of shape ``(n_outcomes,)`` that is ``True`` where
+        any objective has a nonzero weight.
+    """
+    if objective_weights.dim() == 1:
+        return objective_weights != 0
+    return (objective_weights != 0).any(dim=0)
+
+
+def collapse_objective_weights(objective_weights: Tensor) -> Tensor:
+    """Sum rows of the objective weight matrix to produce a 1D
+    ``(n_outcomes,)`` vector.
+
+    For standard MOO (one nonzero entry per column), this reproduces the
+    legacy 1D objective weights representation.
+
+    Args:
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor. Also
+            accepts a 1D ``(n_outcomes,)`` tensor, which is returned as-is.
+
+    Returns:
+        A 1D tensor of shape ``(n_outcomes,)``.
+    """
+    if objective_weights.dim() == 1:
+        return objective_weights
+    return objective_weights.sum(dim=0)
+
+
 @dataclass
 class SubsetModelData:
     model: Model
@@ -205,7 +242,7 @@ def subset_model(
         outputs that appear in either the objective weights or the outcome
         constraints, along with the indices of the outputs.
     """
-    nonzero = objective_weights != 0
+    nonzero = get_outcome_mask(objective_weights)
     if outcome_constraints is not None:
         A, _ = outcome_constraints
         nonzero = nonzero | torch.any(A != 0, dim=0)
@@ -214,7 +251,7 @@ def subset_model(
     # note that the number of metrics can be different than
     # model.num_outputs which counts multiple tasks per
     # outcome as separate outputs
-    num_outcomes = objective_weights.shape[0]
+    num_outcomes = objective_weights.shape[1]
     if len(idcs) == num_outcomes:
         # if we use all model outputs, just return the inputs
         return SubsetModelData(
@@ -234,7 +271,7 @@ def subset_model(
         )
     try:
         model = model.subset_output(idcs=idcs)
-        objective_weights = objective_weights[nonzero]
+        objective_weights = objective_weights[:, nonzero]
         if outcome_constraints is not None:
             A, b = outcome_constraints
             outcome_constraints = A[:, nonzero], b
@@ -289,10 +326,11 @@ def _get_weighted_mo_objective(
     """Constructs the `WeightedMCMultiOutputObjective` for the given
     objective weights.
     """
-    nonzero_idcs = torch.nonzero(objective_weights).view(-1)
-    objective_weights = objective_weights[nonzero_idcs]
+    collapsed = collapse_objective_weights(objective_weights)
+    nonzero_idcs = torch.nonzero(collapsed).view(-1)
+    collapsed = collapsed[nonzero_idcs]
     return WeightedMCMultiOutputObjective(
-        weights=objective_weights, outcomes=nonzero_idcs.tolist()
+        weights=collapsed, outcomes=nonzero_idcs.tolist()
     )
 
 
@@ -340,8 +378,9 @@ def get_botorch_objective_and_transform(
         return _get_weighted_mo_objective(objective_weights=objective_weights), None
     if outcome_constraints and issubclass(botorch_acqf_class, MCAcquisitionFunction):
         # If there are outcome constraints, we use MC Acquisition functions.
+        collapsed = collapse_objective_weights(objective_weights)
         obj_tf: Callable[[Tensor, Tensor | None], Tensor] = (
-            get_objective_weights_transform(objective_weights)
+            get_objective_weights_transform(collapsed)
         )
 
         def objective(samples: Tensor, X: Tensor | None = None) -> Tensor:
@@ -364,7 +403,8 @@ def get_botorch_objective_and_transform(
         )
         return objective, None
     # Case of linear weights - use ScalarizedPosteriorTransform
-    transform = ScalarizedPosteriorTransform(weights=objective_weights)
+    collapsed = collapse_objective_weights(objective_weights)
+    transform = ScalarizedPosteriorTransform(weights=collapsed)
     return None, transform
 
 

@@ -36,6 +36,7 @@ from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     get_botorch_objective_and_transform,
+    get_outcome_mask,
     subset_model,
 )
 from ax.generators.torch_base import TorchOptConfig
@@ -301,7 +302,9 @@ class Acquisition(Base):
             torch_opt_config.is_moo
             and (
                 self._full_objective_thresholds is None
-                or self._full_objective_thresholds[self._full_objective_weights != 0]
+                or self._full_objective_thresholds[
+                    get_outcome_mask(self._full_objective_weights)
+                ]
                 .isnan()
                 .any()
             )

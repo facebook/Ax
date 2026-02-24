@@ -30,6 +30,10 @@ from __future__ import annotations
 import torch
 from ax.exceptions.core import AxError
 from ax.generators.torch.utils import subset_model
+from ax.generators.torch.utils import (
+    collapse_objective_weights,
+    get_outcome_mask,
+)
 from ax.generators.torch_base import TorchGenerator
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.models.model import Model
@@ -69,13 +73,14 @@ def get_weighted_mc_objective_and_objective_thresholds(
             - The objective thresholds
 
     """
-    nonzero_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
-    objective_weights = objective_weights[nonzero_idcs]
+    collapsed = collapse_objective_weights(objective_weights)
+    nonzero_idcs = collapsed.nonzero(as_tuple=False).view(-1)
+    collapsed = collapsed[nonzero_idcs]
     objective_thresholds = objective_thresholds[nonzero_idcs]
     objective = WeightedMCMultiOutputObjective(
-        weights=objective_weights, outcomes=nonzero_idcs.tolist()
+        weights=collapsed, outcomes=nonzero_idcs.tolist()
     )
-    objective_thresholds = torch.mul(objective_thresholds, objective_weights)
+    objective_thresholds = torch.mul(objective_thresholds, collapsed)
     return objective, objective_thresholds
 
 
@@ -118,6 +123,9 @@ def pareto_frontier_evaluator(
     """
     # TODO: better input validation, making more explicit whether we are using
     # model predictions or not
+    # Guard: if objective_weights is 2D, collapse to 1D for this function.
+    if objective_weights.dim() == 2:
+        objective_weights = collapse_objective_weights(objective_weights)
     if X is not None:
         Y, Yvar = none_throws(model).predict(X)
         # model.predict returns cpu tensors
@@ -232,7 +240,7 @@ def infer_objective_thresholds(
         A `m`-dim tensor of objective thresholds, where the objective
             threshold is `nan` if the outcome is not an objective.
     """
-    num_outcomes = objective_weights.shape[0]
+    num_outcomes = objective_weights.shape[1]
     if subset_idcs is None:
         # Subset the model so that we only compute the posterior
         # over the relevant outcomes.
@@ -248,7 +256,7 @@ def infer_objective_thresholds(
         outcome_constraints = subset_model_results.outcome_constraints
         subset_idcs = subset_model_results.indices
     else:
-        objective_weights = objective_weights[subset_idcs]
+        objective_weights = objective_weights[:, subset_idcs]
         if outcome_constraints is not None:
             outcome_constraints = (
                 outcome_constraints[0][:, subset_idcs],
@@ -266,8 +274,8 @@ def infer_objective_thresholds(
         pred = pred[feas]
     if pred.shape[0] == 0:
         raise AxError(NO_FEASIBLE_POINTS_MESSAGE)
-    obj_mask = objective_weights.nonzero().view(-1)
-    obj_weights_subset = objective_weights[obj_mask]
+    obj_mask = get_outcome_mask(objective_weights).nonzero().view(-1)
+    obj_weights_subset = collapse_objective_weights(objective_weights)[obj_mask]
     obj = pred[..., obj_mask] * obj_weights_subset
     pareto_obj = obj[is_non_dominated(obj)]
     # If objective thresholds are provided, set max_ref_point accordingly.

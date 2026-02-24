@@ -24,6 +24,19 @@ from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
+def get_outcome_mask_np(objective_weights: npt.NDArray) -> npt.NDArray:
+    """Return a 1D boolean mask indicating which outcomes are used by any
+    objective.
+
+    Args:
+        objective_weights: A ``(n_objectives, n_outcomes)`` numpy array.
+
+    Returns:
+        A 1D boolean array of shape ``(n_outcomes,)``.
+    """
+    return np.any(objective_weights != 0, axis=0)
+
+
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 Tensoray = Union[torch.Tensor, np.ndarray]
 TTensoray = TypeVar("TTensoray", bound=Tensoray)
@@ -441,6 +454,9 @@ def best_in_sample_point(
     if objective_weights is None:
         return None
     objective_weights_np = assert_is_instance(as_array(objective_weights), np.ndarray)
+    # Collapse to 1D if 2D (e.g., from Torch path)
+    if objective_weights_np.ndim == 2:
+        objective_weights_np = objective_weights_np.sum(axis=0)
     X_obs = get_observed(
         Xs=Xs,
         objective_weights=objective_weights,
@@ -537,7 +553,11 @@ def get_observed(
         Points observed for all objective outcomes and outcome constraints.
     """
     objective_weights_np = as_array(objective_weights)
-    used_outcomes: set[int] = set(np.where(objective_weights_np != 0)[0])
+    if objective_weights_np.ndim == 2:
+        mask = np.any(objective_weights_np != 0, axis=0)
+        used_outcomes: set[int] = set(np.where(mask)[0])
+    else:
+        used_outcomes = set(np.where(objective_weights_np != 0)[0])
     if len(used_outcomes) == 0:
         raise ValueError("At least one objective weight must be non-zero")
     if outcome_constraints is not None:

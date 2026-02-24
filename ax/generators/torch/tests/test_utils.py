@@ -323,7 +323,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 0.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0]]),
                     is_moo=False,
                 ),
                 datasets=[self.supervised_dataset],
@@ -334,7 +334,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, -1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, -1.0]]),
                     is_moo=True,
                 ),
                 datasets=[self.supervised_dataset],
@@ -346,7 +346,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, -1.0, 1.0, 1.0, 1.0]),
+                    objective_weights=torch.tensor([
+                        [1.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, -1.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 1.0],
+                    ]),
                     is_moo=True,
                 ),
                 datasets=[self.supervised_dataset],
@@ -360,7 +366,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, -1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, -1.0]]),
                     is_moo=True,
                     outcome_constraints=(
                         torch.tensor([[1.0, 0.0]]),
@@ -378,7 +384,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
 
     def test_objective_threshold_to_outcome_constraints(self) -> None:
         # Test basic conversion: maximize both objectives.
-        objective_weights = torch.tensor([1.0, -1.0, 0.0])
+        objective_weights = torch.tensor([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
         objective_thresholds = torch.tensor([0.5, 1.5, float("nan")])
         A, b = _objective_threshold_to_outcome_constraints(
             objective_weights=objective_weights,
@@ -395,7 +401,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(b[1].item(), 1.5)
 
         # Test with NaN thresholds: should be skipped.
-        objective_weights = torch.tensor([1.0, 1.0])
+        objective_weights = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
         objective_thresholds = torch.tensor([float("nan"), 2.0])
         A, b = _objective_threshold_to_outcome_constraints(
             objective_weights=objective_weights,
@@ -429,7 +435,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
                     objective_thresholds=torch.tensor([2.0, 1.5]),
                     is_moo=True,
                 ),
@@ -444,7 +450,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
                     objective_thresholds=torch.tensor([2.0, 0.0]),
                     is_moo=True,
                 ),
@@ -458,7 +464,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
                     objective_thresholds=torch.tensor([2.0, 1.5]),
                     is_moo=True,
                 ),
@@ -475,7 +481,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([-1.0, -1.0]),
+                    objective_weights=torch.tensor([[-1.0, 0.0], [0.0, -1.0]]),
                     objective_thresholds=torch.tensor([2.0, 1.5]),
                     is_moo=True,
                 ),
@@ -489,7 +495,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
                     objective_thresholds=torch.tensor([float("nan"), float("nan")]),
                     is_moo=True,
                 ),
@@ -508,7 +514,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
                     objective_thresholds=torch.tensor([0.5, 1.0]),
                     outcome_constraints=(
                         torch.tensor([[1.0, 0.0]]),
@@ -532,7 +538,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
                     objective_thresholds=torch.tensor([2.0, 1.5]),
                     outcome_constraints=(
                         torch.tensor([[1.0, 0.0]]),
@@ -554,7 +560,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 0.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0]]),
                     outcome_constraints=(
                         torch.tensor([[1.0, 0.0]]),
                         torch.tensor([[1.5]]),
@@ -574,7 +580,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 1.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
                     outcome_constraints=(
                         torch.tensor([[1.0, 0.0]]),
                         torch.tensor([[0.5]]),
@@ -593,7 +599,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
-                    objective_weights=torch.tensor([1.0, 0.0]),
+                    objective_weights=torch.tensor([[1.0, 0.0]]),
                     outcome_constraints=(
                         torch.tensor([[1.0, 0.0]]),
                         torch.tensor([[0.5]]),
@@ -1299,7 +1305,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # Test: With outcome constraints, should fix MAP_KEY before checking feasibility
         # Constraint: metric2 <= 5.0 (so both points should be feasible)
         torch_opt_config = TorchOptConfig(
-            objective_weights=torch.tensor([1.0, 0.0]),
+            objective_weights=torch.tensor([[1.0, 0.0]]),
             outcome_constraints=(
                 torch.tensor([[0.0, 1.0]]),  # coefficient for metric2
                 torch.tensor([[5.0]]),  # bound: metric2 <= 5.0

@@ -20,6 +20,7 @@ from ax.adapter.adapter_utils import (
     arm_to_np_array,
     array_to_observation_data,
     extract_objective_thresholds,
+    extract_objective_weight_matrix,
     extract_objective_weights,
     extract_outcome_constraints,
     extract_parameter_constraints,
@@ -81,7 +82,11 @@ from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputErr
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
-from ax.generators.torch.utils import _get_X_pending_and_observed
+from ax.generators.torch.utils import (
+    _get_X_pending_and_observed,
+    collapse_objective_weights,
+    get_outcome_mask,
+)
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -991,7 +996,7 @@ class TorchAdapter(Adapter):
             )
 
         validate_transformed_optimization_config(optimization_config, self.outcomes)
-        objective_weights = extract_objective_weights(
+        objective_weights = extract_objective_weight_matrix(
             objective=optimization_config.objective, outcomes=self.outcomes
         )
         outcome_constraints = extract_outcome_constraints(
@@ -1103,12 +1108,13 @@ class TorchAdapter(Adapter):
         Returns:
             A list of ``ObjectiveThreshold``s on the raw, untransformed scale.
         """
-        idxs = objective_weights.nonzero().view(-1).tolist()
+        idxs = get_outcome_mask(objective_weights).nonzero().view(-1).tolist()
 
         # Create transformed ObjectiveThresholds from tensor thresholds.
+        collapsed = collapse_objective_weights(objective_weights)
         thresholds = []
         for idx in idxs:
-            sign = torch.sign(objective_weights[idx])
+            sign = torch.sign(collapsed[idx])
             thresholds.append(
                 ObjectiveThreshold(
                     metric=opt_config_metrics[self.outcomes[idx]],
