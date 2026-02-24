@@ -306,11 +306,21 @@ class SobolGeneratorTest(TestCase):
             np.allclose(generated_points_single_batch, generated_points_two_trials)
         )
 
-    def test_SobolGeneratorBadBounds(self) -> None:
-        generator = SobolGenerator()
-        ssd = SearchSpaceDigest(feature_names=["x"], bounds=[(-1, 1)])
-        with self.assertRaisesRegex(ValueError, "This generator operates on"):
-            generator.gen(n=1, search_space_digest=ssd, rounding_func=lambda x: x)
+    def test_SobolGeneratorGeneralBounds(self) -> None:
+        generator = SobolGenerator(seed=0)
+        bounds = [(2.0, 10.0), (0.5, 5.5), (-3.0, 3.0)]
+        ssd = SearchSpaceDigest(
+            feature_names=["x0", "x1", "x2"],
+            bounds=bounds,
+        )
+        generated_points, weights = generator.gen(
+            n=5, search_space_digest=ssd, rounding_func=lambda x: x
+        )
+        self.assertEqual(np.shape(generated_points), (5, 3))
+        np_bounds = np.array(bounds)
+        self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
+        self.assertTrue(np.all(weights == 1.0))
 
     def test_SobolGeneratorMaxDraws(self) -> None:
         generator = SobolGenerator(seed=0)

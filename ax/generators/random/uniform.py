@@ -41,16 +41,21 @@ class UniformGenerator(RandomGenerator):
             # Fast-forward the random state by generating & discarding samples.
             self._rs.uniform(size=(self.init_position))
 
-    def _gen_samples(self, n: int, tunable_d: int) -> npt.NDArray:
+    def _gen_samples(self, n: int, tunable_d: int, bounds: npt.NDArray) -> npt.NDArray:
         """Generate samples from the scipy uniform distribution.
 
         Args:
             n: Number of samples to generate.
             tunable_d: Dimension of samples to generate.
+            bounds: A (tunable_d x 2) array of (lower, upper) bounds.
 
         Returns:
-            samples: An (n x d) array of random points.
+            samples: An (n x tunable_d) array of random points.
 
         """
         self.init_position += n * tunable_d
-        return self._rs.uniform(size=(n, tunable_d))
+        return self._rs.uniform(
+            low=bounds[:, 0],
+            high=bounds[:, 1],
+            size=(n, tunable_d),
+        )

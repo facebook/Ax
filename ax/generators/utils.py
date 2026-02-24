@@ -70,8 +70,7 @@ def rejection_sample(
     rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
     existing_points: npt.NDArray | None = None,
 ) -> tuple[npt.NDArray, int]:
-    """Rejection sample in parameter space. Parameter space is typically
-    [0, 1] for all tunable parameters.
+    """Rejection sample in parameter space.
 
     Generators must implement a `gen_unconstrained` method in order to support
     rejection sampling via this utility.
@@ -271,30 +270,6 @@ def tunable_feature_indices(
     fixed_feature_indices = list(fixed_features.keys()) if fixed_features else []
     feature_indices = np.arange(len(bounds))
     return np.delete(feature_indices, fixed_feature_indices)
-
-
-def validate_bounds(
-    bounds: Sequence[tuple[float, float]],
-    fixed_feature_indices: npt.NDArray,
-) -> None:
-    """Ensure the requested space is [0,1]^d.
-
-    Args:
-        bounds: A list of d (lower, upper) tuples for each column of X.
-        fixed_feature_indices: Indices of features which are fixed at a
-            particular value.
-    """
-    for feature_idx, bound in enumerate(bounds):
-        # Bounds for fixed features are not unit-transformed.
-        if feature_idx in fixed_feature_indices:
-            continue
-
-        if bound[0] != 0 or bound[1] != 1:
-            raise ValueError(
-                "This generator operates on [0,1]^d. Please make use "
-                "of the UnitX transform in the Adapter, and ensure "
-                "task features are fixed."
-            )
 
 
 def best_observed_point(
