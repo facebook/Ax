@@ -14,7 +14,7 @@ import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.standardize_y import compute_standardization_parameters
-from ax.core.objective import ScalarizedObjective
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -175,9 +175,16 @@ class StratifiedStandardizeY(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
-        if len(optimization_config.all_constraints) == 0 and not isinstance(
+        has_scalarized = isinstance(
             optimization_config.objective, ScalarizedObjective
-        ):
+        ) or (
+            isinstance(optimization_config.objective, MultiObjective)
+            and any(
+                isinstance(o, ScalarizedObjective)
+                for o in optimization_config.objective.objectives
+            )
+        )
+        if len(optimization_config.all_constraints) == 0 and not has_scalarized:
             return optimization_config
         if fixed_features is None or self.p_name not in fixed_features.parameters:
             raise ValueError(
@@ -195,6 +202,15 @@ class StratifiedStandardizeY(Transform):
                 objective.weights[i] * float(self.Ystd[(metric.signature, strata)])
                 for i, metric in enumerate(objective.metrics)
             ]
+        # Handle MultiObjective with ScalarizedObjective children
+        elif isinstance(optimization_config.objective, MultiObjective):
+            for sub_obj in optimization_config.objective.objectives:
+                if isinstance(sub_obj, ScalarizedObjective):
+                    sub_obj.weights = [
+                        sub_obj.weights[i]
+                        * float(self.Ystd[(metric.signature, strata)])
+                        for i, metric in enumerate(sub_obj.metrics)
+                    ]
 
         for c in optimization_config.all_constraints:
             if c.relative:
