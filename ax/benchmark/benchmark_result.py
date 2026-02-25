@@ -32,6 +32,8 @@ class BenchmarkResult(Base):
         name: Name of the benchmark. Should make it possible to determine the
             problem and the method.
         seed: Seed used for determinism.
+        fit_time: Total time spent fitting models.
+        gen_time: Total time spent generating candidates.
         oracle_trace: For single-objective problems, the oracle trace is the
             best oracle objective value seen on completed trials up to that
             point. For multi-objective problems, it is the cumulative
@@ -75,10 +77,6 @@ class BenchmarkResult(Base):
             `report_inference_value`. Having `optimization_trace` specified
             separately is useful when we need just one value to evaluate how
             well the benchmark went.
-        is_feasible_trace: Whether a trial was feasible or not. Differently from
-            the `inference_trace` and `oracle_trace`, the `is_feasible_trace` is
-            not cumulative. For problems with no constraints all elements of
-            `is_feasible_trace` will be True.
         score_trace: The scores associated with the problem, typically either
             the optimization_trace or inference_value_trace normalized to a
             0-100 scale for comparability between problems.
@@ -89,8 +87,16 @@ class BenchmarkResult(Base):
             not produce Data with a "step" column have a cost of 1, and trials
             that produce Data with a "step" column have a cost equal to the
             number of steps in the Data.
-        fit_time: Total time spent fitting models.
-        gen_time: Total time spent generating candidates.
+        num_trials: The cumulative number of trials that have completed or been
+            early stopped at each completion event. Like the other traces, it
+            has one element per completion event. In the synchronous case, this
+            is simply ``[1, 2, 3, ..., n]``. In the asynchronous case, it can
+            increase by more than 1 at a step if multiple trials complete at
+            the same time, e.g., ``[2, 4, 5, ...]``.
+        is_feasible_trace: Whether a trial was feasible or not. Differently from
+            the `inference_trace` and `oracle_trace`, the `is_feasible_trace` is
+            not cumulative. For problems with no constraints all elements of
+            `is_feasible_trace` will be True.
         experiment: If not ``None``, the Ax experiment associated with the
             optimization that generated this data. Either ``experiment`` or
             ``experiment_storage_id`` must be provided.
@@ -108,6 +114,7 @@ class BenchmarkResult(Base):
     optimization_trace: list[float]
     score_trace: list[float]
     cost_trace: list[float]
+    num_trials: list[int] | None = None  # optional for backwards compatibility
     is_feasible_trace: list[bool] | None = None  # optional for backwards compatibility
 
     experiment: Experiment | None = None
@@ -130,6 +137,14 @@ class BenchmarkResult(Base):
 class AggregatedBenchmarkResult(Base):
     """The result of a benchmark test, or series of replications. Scalar data present
     in the BenchmarkResult is here represented as (mean, sem) pairs.
+
+    The ``optimization_trace`` and ``score_trace`` DataFrames have columns
+    ``["mean", "sem", "P25", "P50", "P75"]`` for the trace values. If
+    ``num_trials`` is available on all underlying ``BenchmarkResult`` objects,
+    a ``"num_trials"`` column is also included, representing the mean number
+    of completed or early-stopped trials across replications at each step.
+    This value may be fractional because different replications can have
+    different trial-to-step groupings in the asynchronous case.
     """
 
     name: str
@@ -168,13 +183,33 @@ class AggregatedBenchmarkResult(Base):
             stats = _get_stats(step_data=step_data, percentiles=PERCENTILES)
             trace_stats[name] = stats
 
+        # Compute mean num_trials at each step and add as a column to each
+        # trace DataFrame if available on all results
+        num_trials_mean = None
+        if all(res.num_trials is not None for res in results):
+            num_trials_step_data = zip(
+                *(
+                    # pyre-ignore[16]: already checked for None above
+                    res.num_trials
+                    for res in results
+                )
+            )
+            num_trials_mean = [nanmean(step_vals) for step_vals in num_trials_step_data]
+
+        trace_dfs = {}
+        for name, stats in trace_stats.items():
+            df = DataFrame(stats)
+            if num_trials_mean is not None:
+                df["num_trials"] = num_trials_mean
+            trace_dfs[name] = df
+
         # Return aggregated results
         return cls(
             name=results[0].name,
             results=results,
             fit_time=fit_time,
             gen_time=gen_time,
-            **{name: DataFrame(stats) for name, stats in trace_stats.items()},
+            **trace_dfs,
         )
 
 

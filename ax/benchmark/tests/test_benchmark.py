@@ -368,6 +368,12 @@ class TestBenchmark(TestCase):
             "Trials complete at same time": [1, 2],
             "Complete out of order": [1, 2, 3, 4],
         }
+        expected_num_trials = {
+            "All complete at different times": [1, 2, 3, 4],
+            "Trials complete immediately": [2, 4],
+            "Trials complete at same time": [2, 4],
+            "Complete out of order": [1, 2, 3, 4],
+        }
         expected_backend_simulator_time = {
             "All complete at different times": 12,
             "Trials complete immediately": 2,
@@ -463,6 +469,11 @@ class TestBenchmark(TestCase):
                 self.assertEqual(
                     result.cost_trace,
                     expected_costs[case_name],
+                    msg=case_name,
+                )
+                self.assertEqual(
+                    result.num_trials,
+                    expected_num_trials[case_name],
                     msg=case_name,
                 )
                 if map_data:
@@ -840,6 +851,10 @@ class TestBenchmark(TestCase):
 
         self.assertTrue(np.all(np.array(res.score_trace) <= 100))
         self.assertEqual(len(res.cost_trace), problem.num_trials)
+        self.assertEqual(len(none_throws(res.num_trials)), problem.num_trials)
+        self.assertEqual(
+            none_throws(res.num_trials), list(range(1, problem.num_trials + 1))
+        )
         self.assertEqual(len(res.inference_trace), problem.num_trials)
         # since inference trace is not supported for MOO, it should be all NaN
         self.assertTrue(np.isnan(res.inference_trace).all())
@@ -866,6 +881,10 @@ class TestBenchmark(TestCase):
 
         for col in ["mean", "P25", "P50", "P75"]:
             self.assertTrue((agg.score_trace[col] <= 100).all())
+        self.assertIn("num_trials", agg.optimization_trace.columns)
+        self.assertIn("num_trials", agg.score_trace.columns)
+        self.assertTrue((agg.optimization_trace["num_trials"] > 0).all())
+        self.assertTrue((agg.score_trace["num_trials"] > 0).all())
 
     @mock_botorch_optimize
     def test_benchmark_multiple_problems_methods(self) -> None:
