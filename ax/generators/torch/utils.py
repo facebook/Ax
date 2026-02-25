@@ -28,7 +28,10 @@ from botorch.acquisition.multi_objective.base import (
     MultiObjectiveAnalyticAcquisitionFunction,
     MultiObjectiveMCAcquisitionFunction,
 )
-from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
+from botorch.acquisition.multi_objective.objective import (
+    GenericMCMultiOutputObjective,
+    WeightedMCMultiOutputObjective,
+)
 from botorch.acquisition.objective import (
     ConstrainedMCObjective,
     GenericMCObjective,
@@ -50,6 +53,37 @@ from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def extract_objectives(
+    objective_weights: Tensor,
+) -> tuple[list[int], Tensor]:
+    """Extract per-objective outcome indices and weights from the weight matrix.
+
+    Iterates over rows of objective_weights. Each row is one objective;
+    the nonzero entries indicate which outcome(s) it uses and the weights.
+
+    For standard MOO each row has exactly one nonzero entry, yielding
+    one (outcome_index, weight) pair per objective.
+
+    Args:
+        objective_weights: ``(n_objectives, n_outcomes)`` tensor.  A 1D tensor
+            is treated as a single row.
+
+    Returns:
+        A tuple of (outcome_indices, weights):
+        - outcome_indices: list of int outcome column indices
+        - weights: 1D tensor of corresponding weight values
+    """
+    if objective_weights.dim() == 1:
+        objective_weights = objective_weights.unsqueeze(0)
+    outcome_indices: list[int] = []
+    weights_list: list[Tensor] = []
+    for row in objective_weights:
+        nz = row.nonzero().view(-1)
+        outcome_indices.extend(nz.tolist())
+        weights_list.append(row[nz])
+    return outcome_indices, torch.cat(weights_list)
 
 
 @dataclass
@@ -74,8 +108,8 @@ def _filter_X_observed(
 
     Args:
         Xs: The input tensors of a model.
-        objective_weights: The objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
+            weights.
         bounds: A list of (lower, upper) tuples for each column of X.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
@@ -127,8 +161,8 @@ def _get_X_pending_and_observed(
 
     Args:
         Xs: The input tensors of a model.
-        objective_weights: The objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
+            weights.
         bounds: A list of (lower, upper) tuples for each column of X.
         pending_observations:  A list of m (k_i x d) feature tensors X
             for m outcomes and k_i pending observations for outcome i.
@@ -195,9 +229,9 @@ def subset_model(
         model: A BoTorch Model. If the model does not implement the
             `subset_outputs` method, this function is a null-op and returns the
             input arguments.
-        objective_weights: The objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
-        objective_thresholds:  The `m`-dim tensor of objective thresholds. There
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
+            weights.
+        objective_thresholds: A ``m``-dim tensor of objective thresholds. There
             is one for each modeled metric.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
@@ -209,7 +243,7 @@ def subset_model(
         outputs that appear in either the objective weights or the outcome
         constraints, along with the indices of the outputs.
     """
-    nonzero = objective_weights != 0
+    nonzero = (objective_weights != 0).any(dim=0)
     if outcome_constraints is not None:
         A, _ = outcome_constraints
         nonzero = nonzero | torch.any(A != 0, dim=0)
@@ -218,7 +252,7 @@ def subset_model(
     # note that the number of metrics can be different than
     # model.num_outputs which counts multiple tasks per
     # outcome as separate outputs
-    num_outcomes = objective_weights.shape[0]
+    num_outcomes = objective_weights.shape[1]
     if len(idcs) == num_outcomes:
         # if we use all model outputs, just return the inputs
         return SubsetModelData(
@@ -238,7 +272,7 @@ def subset_model(
         )
     try:
         model = model.subset_output(idcs=idcs)
-        objective_weights = objective_weights[nonzero]
+        objective_weights = objective_weights[:, nonzero]
         if outcome_constraints is not None:
             A, b = outcome_constraints
             outcome_constraints = A[:, nonzero], b
@@ -293,11 +327,45 @@ def _get_weighted_mo_objective(
     """Constructs the `WeightedMCMultiOutputObjective` for the given
     objective weights.
     """
-    nonzero_idcs = torch.nonzero(objective_weights).view(-1)
-    objective_weights = objective_weights[nonzero_idcs]
-    return WeightedMCMultiOutputObjective(
-        weights=objective_weights, outcomes=nonzero_idcs.tolist()
-    )
+    outcome_indices, weights = extract_objectives(objective_weights)
+    return WeightedMCMultiOutputObjective(weights=weights, outcomes=outcome_indices)
+
+
+def has_scalarized_objectives(objective_weights: Tensor) -> bool:
+    """Detect whether any objective row uses multiple outcomes (scalarized).
+
+    Args:
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor.
+
+    Returns:
+        True if at least one row has more than one nonzero entry.
+    """
+    return bool((objective_weights != 0).sum(dim=1).max() > 1)
+
+
+def _get_scalarized_mo_objective(
+    objective_weights: Tensor,
+) -> GenericMCMultiOutputObjective:
+    """Constructs a `GenericMCMultiOutputObjective` that maps model outputs
+    to scalarized objective values using the objective weight matrix.
+
+    Args:
+        objective_weights: A ``(n_objectives x n_outcomes)`` tensor
+            where each row defines one MOO objective as a linear combination
+            of model outputs. Signs encode direction (positive = maximize).
+
+    Returns:
+        A `GenericMCMultiOutputObjective` that computes
+        ``samples @ weight_matrix.T``.
+    """
+    W = objective_weights
+
+    def scalarized_objective(
+        samples: Tensor, X: Tensor | None = None
+    ) -> Tensor:
+        return samples @ W.T
+
+    return GenericMCMultiOutputObjective(objective=scalarized_objective)
 
 
 def get_botorch_objective_and_transform(
@@ -316,8 +384,8 @@ def get_botorch_objective_and_transform(
             used to determine whether to construct a multi-output or a
             single-output objective.
         model: A BoTorch Model.
-        objective_weights: The objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
+            weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
@@ -345,11 +413,19 @@ def get_botorch_objective_and_transform(
         ),
     ):
         # We are doing multi-objective optimization.
+        if has_scalarized_objectives(objective_weights):
+            return (
+                _get_scalarized_mo_objective(
+                    objective_weights=objective_weights
+                ),
+                None,
+            )
         return _get_weighted_mo_objective(objective_weights=objective_weights), None
     if outcome_constraints and issubclass(botorch_acqf_class, MCAcquisitionFunction):
         # If there are outcome constraints, we use MC Acquisition functions.
+        weights_1d = objective_weights.sum(dim=0)
         obj_tf: Callable[[Tensor, Tensor | None], Tensor] = (
-            get_objective_weights_transform(objective_weights)
+            get_objective_weights_transform(weights_1d)
         )
 
         def objective(samples: Tensor, X: Tensor | None = None) -> Tensor:
@@ -375,7 +451,8 @@ def get_botorch_objective_and_transform(
     logger.debug(
         f"Using ScalarizedPosteriorTransform for {botorch_acqf_class.__name__}."
     )
-    transform = ScalarizedPosteriorTransform(weights=objective_weights)
+    weights_1d = objective_weights.sum(dim=0)
+    transform = ScalarizedPosteriorTransform(weights=weights_1d)
     return None, transform
 
 

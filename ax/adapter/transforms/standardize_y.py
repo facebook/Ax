@@ -16,7 +16,7 @@ import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.core.metric import Metric
-from ax.core.objective import ScalarizedObjective
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -123,6 +123,16 @@ class StandardizeY(Transform):
             objective.weights = self._transform_scalarized_weights(
                 objective.metrics, objective.weights
             )
+        # Handle MultiObjective with ScalarizedObjective children
+        elif isinstance(optimization_config.objective, MultiObjective):
+            for sub_obj in optimization_config.objective.objectives:
+                if isinstance(sub_obj, ScalarizedObjective):
+                    self._check_metrics_available(
+                        sub_obj.metrics, context="objective"
+                    )
+                    sub_obj.weights = self._transform_scalarized_weights(
+                        sub_obj.metrics, sub_obj.weights
+                    )
 
         for c in optimization_config.all_constraints:
             if c.relative:

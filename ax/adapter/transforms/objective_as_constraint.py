@@ -226,20 +226,38 @@ class ObjectiveAsConstraint(Transform):
 
         # Add a constraint for each objective at the status quo value.
         for obj in objectives:
-            metric = obj.metric
-            metric_idx = sq_data.metric_signatures.index(metric.signature)
-            sq_value = sq_data.means[metric_idx]
+            if isinstance(obj, ScalarizedObjective):
+                # Create a ScalarizedOutcomeConstraint for scalarized sub-objectives.
+                scalarized_sq_value = 0.0
+                for metric, weight in obj.metric_weights:
+                    metric_idx = sq_data.metric_signatures.index(metric.signature)
+                    scalarized_sq_value += weight * sq_data.means[metric_idx]
 
-            op = ComparisonOp.LEQ if obj.minimize else ComparisonOp.GEQ
-            new_constraint = OutcomeConstraint(
-                metric=metric.clone(),
-                op=op,
-                bound=float(sq_value),
-                relative=False,
-            )
+                op = ComparisonOp.LEQ if obj.minimize else ComparisonOp.GEQ
+                new_constraint = ScalarizedOutcomeConstraint(
+                    metrics=[m.clone() for m in obj.metrics],
+                    weights=list(obj.weights),
+                    op=op,
+                    bound=float(scalarized_sq_value),
+                    relative=False,
+                )
+                optimization_config._outcome_constraints.append(new_constraint)
+                self._scalarized_objective_constraint_added = True
+            else:
+                metric = obj.metric
+                metric_idx = sq_data.metric_signatures.index(metric.signature)
+                sq_value = sq_data.means[metric_idx]
 
-            optimization_config._outcome_constraints.append(new_constraint)
-            self._objective_metrics_added.append(metric.name)
+                op = ComparisonOp.LEQ if obj.minimize else ComparisonOp.GEQ
+                new_constraint = OutcomeConstraint(
+                    metric=metric.clone(),
+                    op=op,
+                    bound=float(sq_value),
+                    relative=False,
+                )
+
+                optimization_config._outcome_constraints.append(new_constraint)
+                self._objective_metrics_added.append(metric.name)
 
         return optimization_config
 

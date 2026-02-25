@@ -15,7 +15,7 @@ import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import match_ci_width
-from ax.core.objective import ScalarizedObjective
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
@@ -164,6 +164,20 @@ class PowerTransformY(Transform):
                     "The power transform is a non-linear transformation and cannot "
                     "preserve the linear scalarization of the objective."
                 )
+        elif isinstance(optimization_config.objective, MultiObjective):
+            for sub_obj in optimization_config.objective.objectives:
+                if isinstance(sub_obj, ScalarizedObjective):
+                    sub_metric_sigs = [m.signature for m in sub_obj.metrics]
+                    intersection = set(sub_metric_sigs) & set(self.metric_signatures)
+                    if intersection:
+                        raise NotImplementedError(
+                            "PowerTransformY cannot be used for metric(s) "
+                            f"{intersection} that are part of a "
+                            "ScalarizedObjective within a MultiObjective. "
+                            "The power transform is a non-linear transformation "
+                            "and cannot preserve the linear scalarization of "
+                            "the objective."
+                        )
 
         for c in optimization_config.all_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):

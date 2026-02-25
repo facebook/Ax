@@ -20,6 +20,7 @@ from ax.core.data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchOptConfig
+from ax.generators.torch.utils import extract_objectives, has_scalarized_objectives
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -361,20 +362,53 @@ def _objective_threshold_to_outcome_constraints(
     ``t_i``, the constraint is ``w_i * Y_i >= w_i * t_i``, which is equivalent
     to ``-w_i * Y_i <= -w_i * t_i`` in the standard ``A f(x) <= b`` format.
 
+    For scalarized objectives, each row of ``objective_weights`` becomes one
+    constraint row: ``A[i] = -W_i``, ``b[i] = -scalarized_threshold_i``.
+
     Args:
-        objective_weights: A ``m``-dim tensor of objective weights.
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
+            weights.
         objective_thresholds: A ``m``-dim tensor of objective thresholds.
 
     Returns:
         A tuple ``(A, b)`` of outcome constraint tensors.
     """
-    obj_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
+    m = objective_weights.shape[1]
+
+    if has_scalarized_objectives(objective_weights):
+        # Scalarized case: each row of W becomes one constraint.
+        # Compute scalarized thresholds: clean_thresholds @ W.T
+        clean_thresholds = objective_thresholds.clone()
+        clean_thresholds[clean_thresholds.isnan()] = 0.0
+        scalarized_thresholds = clean_thresholds @ objective_weights.T
+        # Filter out rows where the scalarized threshold is NaN
+        n_obj = objective_weights.shape[0]
+        valid_rows = ~scalarized_thresholds.isnan()
+        k = int(valid_rows.sum().item())
+        A = torch.zeros(
+            k, m, dtype=objective_weights.dtype, device=objective_weights.device
+        )
+        b = torch.zeros(
+            k, 1, dtype=objective_weights.dtype, device=objective_weights.device
+        )
+        j = 0
+        for i in range(n_obj):
+            if valid_rows[i]:
+                A[j] = -objective_weights[i]
+                b[j] = -scalarized_thresholds[i]
+                j += 1
+        return A, b
+
+    obj_indices, obj_weights = extract_objectives(objective_weights)
+    obj_idcs = torch.tensor(obj_indices, device=objective_weights.device)
     # Filter to objectives with non-NaN thresholds. Objective thresholds
     # can contain NaNs if the objective thresholds were inferred, but
     # there are no feasible points. In that case,
     # qLogProbabilityOfFeasibility is used.
-    obj_idcs = obj_idcs[~objective_thresholds[obj_idcs].isnan()]
-    m = objective_weights.shape[0]
+    non_nan_mask = ~objective_thresholds[obj_idcs].isnan()
+    obj_idcs = obj_idcs[non_nan_mask]
+    obj_weights = obj_weights[non_nan_mask]
+    m = objective_weights.shape[1]
     k = len(obj_idcs)
     A = torch.zeros(
         k, m, dtype=objective_weights.dtype, device=objective_weights.device
@@ -382,8 +416,7 @@ def _objective_threshold_to_outcome_constraints(
     b = torch.zeros(
         k, 1, dtype=objective_weights.dtype, device=objective_weights.device
     )
-    for i, idx in enumerate(obj_idcs):
-        w = objective_weights[idx]
+    for i, (idx, w) in enumerate(zip(obj_idcs, obj_weights)):
         A[i, idx] = -w
         b[i] = -w * objective_thresholds[idx]
     return A, b
@@ -453,12 +486,13 @@ def choose_botorch_acqf_class(
             if has_objective_thresholds:
                 obj_weights = torch_opt_config.objective_weights
                 obj_thresholds = none_throws(torch_opt_config.objective_thresholds)
-                obj_idcs = obj_weights.nonzero(as_tuple=False).view(-1)
+                obj_indices, weights = extract_objectives(obj_weights)
+                obj_idcs = torch.tensor(obj_indices, device=obj_weights.device)
                 non_nan_mask = ~obj_thresholds[obj_idcs].isnan()
                 if non_nan_mask.any():
                     # Check: w_i * Y_i >= w_i * t_i for all objectives i.
-                    weighted_Y = dataset.Y[:, obj_idcs] * obj_weights[obj_idcs]
-                    weighted_t = obj_thresholds[obj_idcs] * obj_weights[obj_idcs]
+                    weighted_Y = dataset.Y[:, obj_idcs] * weights
+                    weighted_t = obj_thresholds[obj_idcs] * weights
                     is_feasible = is_feasible & (
                         (weighted_Y[:, non_nan_mask] >= weighted_t[non_nan_mask]).all(
                             dim=-1
@@ -474,10 +508,7 @@ def choose_botorch_acqf_class(
 
     if torch_opt_config.is_moo and not torch_opt_config.use_learned_objective:
         # For MOO problems with > 4 objectives, use ParEGO to prevent slow optimization.
-        if (
-            torch_opt_config.objective_weights.count_nonzero()
-            >= MIN_NUM_OBJECTIVES_PAREGO
-        ):
+        if torch_opt_config.objective_weights.shape[0] >= MIN_NUM_OBJECTIVES_PAREGO:
             acqf_class = qLogNParEGO
         else:
             acqf_class = qLogNoisyExpectedHypervolumeImprovement
@@ -492,8 +523,9 @@ def construct_acquisition_and_optimizer_options(
     acqf_options: TConfig,
     botorch_acqf_options: TConfig,
     model_gen_options: TConfig | None = None,
-    botorch_acqf_classes_with_options: list[tuple[type[AcquisitionFunction], TConfig]]
-    | None = None,
+    botorch_acqf_classes_with_options: (
+        list[tuple[type[AcquisitionFunction], TConfig]] | None
+    ) = None,
 ) -> tuple[
     TConfig, TConfig, TConfig, list[tuple[type[AcquisitionFunction], TConfig]] | None
 ]:

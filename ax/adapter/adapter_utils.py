@@ -270,11 +270,47 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
     elif isinstance(objective, MultiObjective):
         for obj in objective.objectives:
             s = -1.0 if obj.minimize else 1.0
-            objective_weights[outcomes.index(obj.metric.signature)] = s
+            if isinstance(obj, ScalarizedObjective):
+                # For ScalarizedObjective children, set all component metrics
+                # to nonzero so subset_model keeps them.
+                for metric in obj.metrics:
+                    objective_weights[outcomes.index(metric.signature)] = s
+            else:
+                objective_weights[outcomes.index(obj.metric.signature)] = s
     else:
         s = -1.0 if objective.minimize else 1.0
         objective_weights[outcomes.index(objective.metric.signature)] = s
     return objective_weights
+
+
+def extract_objective_weight_matrix(
+    objective: Objective, outcomes: list[str]
+) -> npt.NDArray:
+    """Extract a 2D weight matrix for objectives.
+
+    Each row corresponds to one objective and each column to one modeled
+    outcome.  Outcomes that are not part of an objective get weight 0 in
+    every row.
+
+    For a single ``Objective`` (including ``ScalarizedObjective``), the
+    matrix has a single row.  For a ``MultiObjective``, each sub-objective
+    gets its own row.
+
+    Args:
+        objective: Objective to extract weights from.
+        outcomes: n-length list of names of metrics.
+
+    Returns:
+        ``(n_objectives, n)`` array of weights.
+    """
+    if isinstance(objective, MultiObjective):
+        rows: list[npt.NDArray] = []
+        for obj in objective.objectives:
+            rows.append(extract_objective_weights(obj, outcomes))
+        return np.stack(rows, axis=0)
+    else:
+        # Single row – covers Objective and ScalarizedObjective
+        return extract_objective_weights(objective, outcomes).reshape(1, -1)
 
 
 def extract_outcome_constraints(
@@ -603,7 +639,7 @@ def get_pareto_frontier_and_configs(
         MultiObjectiveOptimizationConfig,
     )
     # Extract weights, constraints, and objective_thresholds
-    objective_weights = extract_objective_weights(
+    objective_weights = extract_objective_weight_matrix(
         objective=optimization_config.objective, outcomes=adapter.outcomes
     )
     outcome_constraints = extract_outcome_constraints(
@@ -877,7 +913,7 @@ def hypervolume(
         objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
     )
     f_t = obj(f)
-    obj_mask = obj_w.nonzero().view(-1)
+    obj_mask = (obj_w != 0).any(dim=0).nonzero().view(-1)
     selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]
     obj_t = obj_t[selected_metrics_mask]
@@ -1083,19 +1119,68 @@ def feasible_hypervolume(
 
     Returns: Array of feasible hypervolumes.
     """
+    objective = optimization_config.objective
+    assert isinstance(objective, MultiObjective)
+
+    # Check if any sub-objective is scalarized
+    has_scalarized = any(
+        isinstance(o, ScalarizedObjective) for o in objective.objectives
+    )
+
     # Get objective at each iteration
     obj_threshold_dict = {
         ot.metric.signature: ot.bound for ot in optimization_config.objective_thresholds
     }
-    f_vals = np.hstack(
-        [
-            values[m.signature].reshape(-1, 1)
-            for m in optimization_config.objective.metrics
-        ]
-    )
-    obj_thresholds = np.array(
-        [obj_threshold_dict[m.signature] for m in optimization_config.objective.metrics]
-    )
+
+    if has_scalarized:
+        # Compute scalarized objective values and thresholds
+        f_cols = []
+        obj_thresholds_list = []
+        obj_weights_list = []
+        for sub_obj in objective.objectives:
+            s = -1.0 if sub_obj.minimize else 1.0
+            if isinstance(sub_obj, ScalarizedObjective):
+                # Compute scalarized value from component metrics
+                scalarized_vals = np.zeros_like(
+                    next(iter(values.values()))
+                )
+                for metric, weight in sub_obj.metric_weights:
+                    scalarized_vals = scalarized_vals + weight * values[metric.signature]
+                f_cols.append(scalarized_vals.reshape(-1, 1))
+                # Threshold for scalarized objectives: use expression-based
+                # lookup or NaN
+                threshold = obj_threshold_dict.get(sub_obj.expression, float("nan"))
+                obj_thresholds_list.append(threshold)
+            else:
+                f_cols.append(values[sub_obj.metric.signature].reshape(-1, 1))
+                obj_thresholds_list.append(
+                    obj_threshold_dict[sub_obj.metric.signature]
+                )
+            obj_weights_list.append(s)
+
+        f_vals = np.hstack(f_cols)
+        obj_thresholds = np.array(obj_thresholds_list)
+        obj_weights = np.array(obj_weights_list)
+    else:
+        f_vals = np.hstack(
+            [
+                values[m.signature].reshape(-1, 1)
+                for m in optimization_config.objective.metrics
+            ]
+        )
+        obj_thresholds = np.array(
+            [
+                obj_threshold_dict[m.signature]
+                for m in optimization_config.objective.metrics
+            ]
+        )
+        obj_weights = np.array(
+            [
+                -1 if m.lower_is_better else 1
+                for m in optimization_config.objective.metrics
+            ]
+        )
+
     # Set infeasible points to be the objective threshold
     for oc in optimization_config.outcome_constraints:
         if oc.relative:
@@ -1106,9 +1191,6 @@ def feasible_hypervolume(
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f_vals[~feas] = obj_thresholds
 
-    obj_weights = np.array(
-        [-1 if m.lower_is_better else 1 for m in optimization_config.objective.metrics]
-    )
     obj_thresholds = obj_thresholds * obj_weights
     f_vals = f_vals * obj_weights
     partitioning = DominatedPartitioning(

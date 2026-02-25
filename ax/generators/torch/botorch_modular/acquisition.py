@@ -36,6 +36,7 @@ from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     get_botorch_objective_and_transform,
+    has_scalarized_objectives,
     subset_model,
 )
 from ax.generators.torch_base import TorchOptConfig
@@ -301,7 +302,9 @@ class Acquisition(Base):
             torch_opt_config.is_moo
             and (
                 self._full_objective_thresholds is None
-                or self._full_objective_thresholds[self._full_objective_weights != 0]
+                or self._full_objective_thresholds[
+                    torch_opt_config.outcome_mask
+                ]
                 .isnan()
                 .any()
             )
@@ -395,11 +398,24 @@ class Acquisition(Base):
                 constraint_transforms = constraint_transforms + threshold_transforms
             elif threshold_transforms is not None:
                 constraint_transforms = threshold_transforms
+
+        # For scalarized multi-objective, replace NaN in thresholds with 0
+        # so the BoTorch input constructor can correctly compute ref_point.
+        objective_thresholds_for_constructor = self._objective_thresholds
+        if (
+            has_scalarized_objectives(self._objective_weights)
+            and self._objective_thresholds is not None
+        ):
+            objective_thresholds_for_constructor = self._objective_thresholds.clone()
+            objective_thresholds_for_constructor[
+                objective_thresholds_for_constructor.isnan()
+            ] = 0.0
+
         input_constructor_kwargs = {
             "model": model,
             "X_baseline": self.X_observed,
             "X_pending": self.X_pending,
-            "objective_thresholds": self._objective_thresholds,
+            "objective_thresholds": objective_thresholds_for_constructor,
             "constraints": constraint_transforms,
             "constraints_tuple": self._outcome_constraints,
             "objective": objective,
