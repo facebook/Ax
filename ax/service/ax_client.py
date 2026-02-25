@@ -19,6 +19,8 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.adapter.prediction_utils import predict_by_features
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
+from ax.api.utils.instantiation.from_config import parameter_from_config
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.evaluations_to_data import raw_evaluations_to_data
@@ -27,6 +29,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
+from ax.core.parameter import RangeParameter
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -516,6 +519,111 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         self._save_experiment_to_db_if_possible(
             experiment=self.experiment,
         )
+
+    def add_parameters(
+        self,
+        parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
+        backfill_values: TParameterization,
+        status_quo_values: TParameterization | None = None,
+    ) -> None:
+        """
+        Add new parameters to the experiment's search space. This allows extending
+        the search space after the experiment has run some trials.
+
+        Backfill values must be provided for all new parameters to ensure existing
+        trials in the experiment remain valid within the expanded search space. The
+        backfill values represent the parameter values that were used in the existing
+        trials.
+
+        Args:
+            parameters: A sequence of parameter configurations to add to the search
+                space.
+            backfill_values: Parameter values to assign to existing trials for the
+                new parameters being added. All new parameter names must have
+                corresponding backfill values provided.
+            status_quo_values: Optional parameter values for the new parameters to
+                use in the status quo (baseline) arm, if one is defined. If None,
+                the backfill values will be used for the status quo.
+        """
+        parameters_to_add = [
+            parameter_from_config(parameter_config) for parameter_config in parameters
+        ]
+        parameter_names = {parameter.name for parameter in parameters_to_add}
+        missing_backfill_values = parameter_names - backfill_values.keys()
+        if missing_backfill_values:
+            raise UserInputError(
+                "You must provide backfill values for all parameters being added. "
+                f"Missing values for parameters: {missing_backfill_values}."
+            )
+        extra_backfill_values = backfill_values.keys() - parameter_names
+        if extra_backfill_values:
+            logger.warning(
+                "Backfill values provided for parameters not being added: "
+                f"{extra_backfill_values}. Will ignore these values."
+            )
+        for parameter in parameters_to_add:
+            if parameter.name in backfill_values:
+                parameter._backfill_value = backfill_values[parameter.name]
+        self.experiment.add_parameters_to_search_space(
+            parameters=parameters_to_add,
+            status_quo_values=status_quo_values,
+        )
+        self._save_experiment_to_db_if_possible(experiment=self.experiment)
+
+    def disable_parameters(
+        self,
+        default_parameter_values: TParameterization,
+    ) -> None:
+        """
+        Disable parameters in the experiment. This allows narrowing the search space
+        after the experiment has run some trials.
+
+        When parameters are disabled, they are effectively removed from the search
+        space for future trial generation. Existing trials remain valid, and the
+        disabled parameters are replaced with fixed default values for all subsequent
+        trials.
+
+        Args:
+            default_parameter_values: Fixed values to use for the disabled parameters
+                in all future trials. These values will be used for the parameter in
+                all subsequent trials.
+        """
+        self.experiment.disable_parameters_in_search_space(
+            default_parameter_values=default_parameter_values
+        )
+        self._save_experiment_to_db_if_possible(experiment=self.experiment)
+
+    def update_parameters(
+        self,
+        parameters: Sequence[RangeParameterConfig],
+    ) -> None:
+        """Update parameters in the experiment's search space.
+
+        This allows modifying the search space after the experiment has run some
+        trials.
+
+        Args:
+            parameters: A sequence of ``RangeParameterConfig`` to update in the
+                search space.
+
+        Raises:
+            UserInputError: If a parameter is not found in the search space or
+                if the parameter is not a ``RangeParameter``.
+        """
+        search_space = self.experiment.search_space
+        for parameter in parameters:
+            if parameter.name not in search_space.parameters:
+                raise UserInputError(
+                    f"Parameter {parameter.name} not found in search space."
+                )
+            if not isinstance(search_space.parameters[parameter.name], RangeParameter):
+                raise UserInputError(
+                    f"Parameter {parameter.name} is not a RangeParameter."
+                )
+
+        for parameter in parameters:
+            search_space.update_parameter(parameter=parameter_from_config(parameter))
+        self._save_experiment_to_db_if_possible(experiment=self.experiment)
 
     @retry_on_exception(
         logger=logger,
