@@ -1098,10 +1098,10 @@ def generator_spec_from_json(
         kwargs = generator_spec_json.pop("model_kwargs", None)
     else:
         kwargs = generator_spec_json.pop("generator_kwargs", None)
-    for k in _DEPRECATED_GENERATOR_KWARGS:
-        # Remove deprecated model kwargs.
-        kwargs.pop(k, None)
     if kwargs is not None:
+        for k in _DEPRECATED_GENERATOR_KWARGS:
+            # Remove deprecated model kwargs.
+            kwargs.pop(k, None)
         kwargs = _sanitize_surrogate_spec_input(object_json=kwargs)
     if "model_gen_kwargs" in generator_spec_json:
         gen_kwargs = generator_spec_json.pop("model_gen_kwargs", None)
