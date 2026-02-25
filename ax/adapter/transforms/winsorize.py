@@ -303,11 +303,25 @@ def _get_auto_winsorization_cutoffs_multi_objective(
             stacklevel=3,
         )
         objectives = assert_is_instance(optimization_config.objective, MultiObjective)
-        minimize = [
-            objective.minimize
-            for objective in objectives.objectives
-            if objective.metric.signature == metric_signature
-        ][0]
+        # Find the minimize flag for the objective containing this metric.
+        # For ScalarizedObjective children, check if the metric is a
+        # component metric and infer direction from the product of
+        # minimize flag and weight sign.
+        minimize = None
+        for sub_obj in objectives.objectives:
+            if isinstance(sub_obj, ScalarizedObjective):
+                for m, w in sub_obj.metric_weights:
+                    if m.signature == metric_signature:
+                        # Effective direction: minimize if (minimize XOR w<0)
+                        minimize = sub_obj.minimize if w >= 0 else not sub_obj.minimize
+                        break
+            else:
+                if sub_obj.metric.signature == metric_signature:
+                    minimize = sub_obj.minimize
+            if minimize is not None:
+                break
+        if minimize is None:
+            return DEFAULT_CUTOFFS
         return _get_auto_winsorization_cutoffs_single_objective(
             metric_values=metric_values,
             minimize=minimize,

@@ -434,9 +434,13 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         outcome_constraints = outcome_constraints or []
         objective_thresholds = objective_thresholds or []
         if isinstance(objective, MultiObjective):
-            objectives_by_signature = {
-                obj.metric.signature: obj for obj in objective.objectives
-            }
+            objectives_by_signature = {}
+            for obj in objective.objectives:
+                if isinstance(obj, ScalarizedObjective):
+                    # Use the expression as the key for scalarized sub-objectives.
+                    objectives_by_signature[obj.expression] = obj
+                else:
+                    objectives_by_signature[obj.metric.signature] = obj
             check_objective_thresholds_match_objectives(
                 objectives_by_signature=objectives_by_signature,
                 objective_thresholds=objective_thresholds,

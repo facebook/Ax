@@ -85,6 +85,7 @@ from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
     extract_objectives,
+    has_scalarized_objectives,
 )
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
@@ -881,6 +882,7 @@ class TorchAdapter(Adapter):
         if (
             isinstance(optimization_config, MultiObjectiveOptimizationConfig)
             and gen_metadata.get("objective_thresholds", None) is not None
+            and not has_scalarized_objectives(torch_opt_config.objective_weights)
         ):
             # If objective_thresholds are supplied by the user, then the transformed
             # user-specified objective thresholds are in gen_metadata. Otherwise,

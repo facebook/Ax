@@ -20,7 +20,7 @@ from ax.core.data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch_base import TorchOptConfig
-from ax.generators.torch.utils import extract_objectives
+from ax.generators.torch.utils import extract_objectives, has_scalarized_objectives
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -362,6 +362,9 @@ def _objective_threshold_to_outcome_constraints(
     ``t_i``, the constraint is ``w_i * Y_i >= w_i * t_i``, which is equivalent
     to ``-w_i * Y_i <= -w_i * t_i`` in the standard ``A f(x) <= b`` format.
 
+    For scalarized objectives, each row of ``objective_weights`` becomes one
+    constraint row: ``A[i] = -W_i``, ``b[i] = -scalarized_threshold_i``.
+
     Args:
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
             weights.
@@ -370,6 +373,32 @@ def _objective_threshold_to_outcome_constraints(
     Returns:
         A tuple ``(A, b)`` of outcome constraint tensors.
     """
+    m = objective_weights.shape[1]
+
+    if has_scalarized_objectives(objective_weights):
+        # Scalarized case: each row of W becomes one constraint.
+        # Compute scalarized thresholds: clean_thresholds @ W.T
+        clean_thresholds = objective_thresholds.clone()
+        clean_thresholds[clean_thresholds.isnan()] = 0.0
+        scalarized_thresholds = clean_thresholds @ objective_weights.T
+        # Filter out rows where the scalarized threshold is NaN
+        n_obj = objective_weights.shape[0]
+        valid_rows = ~scalarized_thresholds.isnan()
+        k = int(valid_rows.sum().item())
+        A = torch.zeros(
+            k, m, dtype=objective_weights.dtype, device=objective_weights.device
+        )
+        b = torch.zeros(
+            k, 1, dtype=objective_weights.dtype, device=objective_weights.device
+        )
+        j = 0
+        for i in range(n_obj):
+            if valid_rows[i]:
+                A[j] = -objective_weights[i]
+                b[j] = -scalarized_thresholds[i]
+                j += 1
+        return A, b
+
     obj_indices, obj_weights = extract_objectives(objective_weights)
     obj_idcs = torch.tensor(obj_indices, device=objective_weights.device)
     # Filter to objectives with non-NaN thresholds. Objective thresholds

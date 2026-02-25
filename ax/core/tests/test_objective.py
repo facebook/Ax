@@ -85,24 +85,36 @@ class ObjectiveTest(TestCase):
             [self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
         )
 
-        # Test that ScalarizedObjective is not allowed in MultiObjective
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Scalarized objectives are not supported for a `MultiObjective`.",
-        ):
-            MultiObjective(objectives=[self.scalarized_objective])
+        # Test that ScalarizedObjective is allowed in MultiObjective
+        mo_with_scalarized = MultiObjective(
+            objectives=[self.scalarized_objective]
+        )
+        self.assertEqual(len(mo_with_scalarized.objectives), 1)
+        self.assertIsInstance(mo_with_scalarized.objectives[0], ScalarizedObjective)
+        # metrics should return all component metrics
+        self.assertEqual(
+            mo_with_scalarized.metrics,
+            [self.metrics["m1"], self.metrics["m2"]],
+        )
 
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Scalarized objectives are not supported for a `MultiObjective`.",
-        ):
-            MultiObjective(
-                objectives=[
-                    self.objectives["o1"],
-                    self.scalarized_objective,
-                    self.objectives["o3"],
-                ]
-            )
+        mixed_mo = MultiObjective(
+            objectives=[
+                self.objectives["o1"],
+                self.scalarized_objective,
+                self.objectives["o3"],
+            ]
+        )
+        self.assertEqual(len(mixed_mo.objectives), 3)
+        # metrics: o1's metric + scalarized's 2 metrics + o3's metric = 4
+        self.assertEqual(
+            mixed_mo.metrics,
+            [
+                self.metrics["m1"],
+                self.metrics["m1"],
+                self.metrics["m2"],
+                self.metrics["m3"],
+            ],
+        )
 
     def test_ScalarizedObjective(self) -> None:
         with self.assertRaises(NotImplementedError):

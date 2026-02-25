@@ -28,7 +28,10 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
@@ -1841,6 +1844,195 @@ class TestClient(TestCase):
         self.assertIn("param2", summary_df.columns)
         self.assertIn("param_sum", summary_df.columns)
         self.assertEqual(len(summary_df), 3)
+
+    @mock_botorch_optimize
+    def test_multi_objective_with_scalarized_sub_objectives(self) -> None:
+        """Test MOO with ScalarizedObjective children in MultiObjective."""
+        # Case 1: Both objectives are scalarized
+        client = Client()
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="x1", parameter_type="float", bounds=(-1, 1)
+                ),
+                RangeParameterConfig(
+                    name="x2", parameter_type="float", bounds=(-1, 1)
+                ),
+            ],
+            name="scalarized_moo",
+        )
+        client.configure_optimization(objective="a_1 + a_2, b_1 + b_2 + b_3")
+        client.configure_generation_strategy(initialization_budget=5)
+
+        # Verify optimization config structure
+        opt_config = client._experiment.optimization_config
+        self.assertIsInstance(opt_config, MultiObjectiveOptimizationConfig)
+        objective = assert_is_instance(opt_config, MultiObjectiveOptimizationConfig)
+        multi_obj = assert_is_instance(objective.objective, MultiObjective)
+        self.assertEqual(len(multi_obj.objectives), 2)
+        self.assertIsInstance(multi_obj.objectives[0], ScalarizedObjective)
+        self.assertIsInstance(multi_obj.objectives[1], ScalarizedObjective)
+        # metrics should be flat list of all 5 component metrics
+        self.assertEqual(len(multi_obj.metrics), 5)
+
+        # Run 5 Sobol trials
+        for _ in range(5):
+            for index, parameters in client.get_next_trials(max_trials=1).items():
+                x1 = assert_is_instance(parameters["x1"], float)
+                x2 = assert_is_instance(parameters["x2"], float)
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "a_1": x1 + x2,
+                        "a_2": x1 - x2,
+                        "b_1": x1 * x2,
+                        "b_2": x1**2,
+                        "b_3": x2**2,
+                    },
+                )
+
+        # Run 1 BoTorch trial
+        for index, parameters in client.get_next_trials(max_trials=1).items():
+            x1 = assert_is_instance(parameters["x1"], float)
+            x2 = assert_is_instance(parameters["x2"], float)
+            client.complete_trial(
+                trial_index=index,
+                raw_data={
+                    "a_1": x1 + x2,
+                    "a_2": x1 - x2,
+                    "b_1": x1 * x2,
+                    "b_2": x1**2,
+                    "b_3": x2**2,
+                },
+            )
+
+        # Case 2: Mixed - one scalarized, one plain
+        client2 = Client()
+        client2.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="x1", parameter_type="float", bounds=(-1, 1)
+                ),
+                RangeParameterConfig(
+                    name="x2", parameter_type="float", bounds=(-1, 1)
+                ),
+            ],
+            name="mixed_moo",
+        )
+        client2.configure_optimization(objective="a_1 + a_2, single_metric")
+        client2.configure_generation_strategy(initialization_budget=5)
+
+        opt_config2 = client2._experiment.optimization_config
+        self.assertIsInstance(opt_config2, MultiObjectiveOptimizationConfig)
+        multi_obj2 = assert_is_instance(
+            assert_is_instance(
+                opt_config2, MultiObjectiveOptimizationConfig
+            ).objective,
+            MultiObjective,
+        )
+        self.assertEqual(len(multi_obj2.objectives), 2)
+        self.assertIsInstance(multi_obj2.objectives[0], ScalarizedObjective)
+        # The second objective should be a plain Objective
+        self.assertNotIsInstance(multi_obj2.objectives[1], ScalarizedObjective)
+        # 3 total metrics: a_1, a_2, single_metric
+        self.assertEqual(len(multi_obj2.metrics), 3)
+
+        # Run 5 Sobol + 1 BoTorch
+        for _ in range(5):
+            for index, parameters in client2.get_next_trials(max_trials=1).items():
+                x1 = assert_is_instance(parameters["x1"], float)
+                x2 = assert_is_instance(parameters["x2"], float)
+                client2.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "a_1": x1 + x2,
+                        "a_2": x1 - x2,
+                        "single_metric": x1 * x2,
+                    },
+                )
+
+        for index, parameters in client2.get_next_trials(max_trials=1).items():
+            x1 = assert_is_instance(parameters["x1"], float)
+            x2 = assert_is_instance(parameters["x2"], float)
+            client2.complete_trial(
+                trial_index=index,
+                raw_data={
+                    "a_1": x1 + x2,
+                    "a_2": x1 - x2,
+                    "single_metric": x1 * x2,
+                },
+            )
+
+        # Case 3: Weighted scalarization
+        client3 = Client()
+        client3.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="x1", parameter_type="float", bounds=(-1, 1)
+                ),
+                RangeParameterConfig(
+                    name="x2", parameter_type="float", bounds=(-1, 1)
+                ),
+            ],
+            name="weighted_moo",
+        )
+        client3.configure_optimization(
+            objective="0.5 * a_1 + 0.5 * a_2, b_1 + 2 * b_2 + b_3"
+        )
+        client3.configure_generation_strategy(initialization_budget=5)
+
+        opt_config3 = client3._experiment.optimization_config
+        multi_obj3 = assert_is_instance(
+            assert_is_instance(
+                opt_config3, MultiObjectiveOptimizationConfig
+            ).objective,
+            MultiObjective,
+        )
+        scalarized_1 = assert_is_instance(
+            multi_obj3.objectives[0], ScalarizedObjective
+        )
+        scalarized_2 = assert_is_instance(
+            multi_obj3.objectives[1], ScalarizedObjective
+        )
+        self.assertEqual(scalarized_1.weights, [0.5, 0.5])
+        # SymPy may reorder terms; verify by checking metric-weight pairs
+        metric_weight_pairs_2 = {
+            m.name: w for m, w in scalarized_2.metric_weights
+        }
+        self.assertEqual(
+            metric_weight_pairs_2,
+            {"b_1": 1.0, "b_2": 2.0, "b_3": 1.0},
+        )
+
+        # Run 5 Sobol + 1 BoTorch
+        for _ in range(5):
+            for index, parameters in client3.get_next_trials(max_trials=1).items():
+                x1 = assert_is_instance(parameters["x1"], float)
+                x2 = assert_is_instance(parameters["x2"], float)
+                client3.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "a_1": x1 + x2,
+                        "a_2": x1 - x2,
+                        "b_1": x1 * x2,
+                        "b_2": x1**2,
+                        "b_3": x2**2,
+                    },
+                )
+
+        for index, parameters in client3.get_next_trials(max_trials=1).items():
+            x1 = assert_is_instance(parameters["x1"], float)
+            x2 = assert_is_instance(parameters["x2"], float)
+            client3.complete_trial(
+                trial_index=index,
+                raw_data={
+                    "a_1": x1 + x2,
+                    "a_2": x1 - x2,
+                    "b_1": x1 * x2,
+                    "b_2": x1**2,
+                    "b_3": x2**2,
+                },
+            )
 
 
 class DummyRunner(IRunner):

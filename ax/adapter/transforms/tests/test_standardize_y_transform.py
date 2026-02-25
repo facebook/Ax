@@ -16,7 +16,10 @@ from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationData
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
@@ -268,12 +271,32 @@ class StandardizeYTransformTest(TestCase):
             )
         )
 
-        # Multi-objective with scalarized objective should error out
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Scalarized objectives are not supported for a `MultiObjective`.",
-        ):
-            MultiObjective([objective_minimize, Objective(metric=m3, minimize=False)])
+        # Multi-objective with scalarized objective should transform weights
+        fresh_scalarized = ScalarizedObjective(
+            metrics=[m1, m2], weights=[1.0, -2.0], minimize=True
+        )
+        mo_obj = MultiObjective(
+            [fresh_scalarized, Objective(metric=m3, minimize=False)]
+        )
+        mo_oc = MultiObjectiveOptimizationConfig(objective=mo_obj)
+        # Transform should update the ScalarizedObjective child's weights
+        t_copy = deepcopy(self.t)
+        # Add m3 data so the transform can proceed
+        t_copy.Ymean["m3"] = 0.0
+        t_copy.Ystd["m3"] = 1.0
+        mo_oc_transformed = t_copy.transform_optimization_config(
+            mo_oc, None, None
+        )
+        mo_transformed = assert_is_instance(
+            mo_oc_transformed.objective, MultiObjective
+        )
+        scalarized_child = assert_is_instance(
+            mo_transformed.objectives[0], ScalarizedObjective
+        )
+        # Weights should be scaled by sigma: [1.0 * 1.0, -2.0 * sqrt(1/3)]
+        self.assertTrue(
+            np.allclose(scalarized_child.weights, expected_weights_minimize)
+        )
 
 
 def osd_allclose(osd1: ObservationData, osd2: ObservationData) -> bool:

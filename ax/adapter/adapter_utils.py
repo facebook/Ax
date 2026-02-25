@@ -270,7 +270,13 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
     elif isinstance(objective, MultiObjective):
         for obj in objective.objectives:
             s = -1.0 if obj.minimize else 1.0
-            objective_weights[outcomes.index(obj.metric.signature)] = s
+            if isinstance(obj, ScalarizedObjective):
+                # For ScalarizedObjective children, set all component metrics
+                # to nonzero so subset_model keeps them.
+                for metric in obj.metrics:
+                    objective_weights[outcomes.index(metric.signature)] = s
+            else:
+                objective_weights[outcomes.index(obj.metric.signature)] = s
     else:
         s = -1.0 if objective.minimize else 1.0
         objective_weights[outcomes.index(objective.metric.signature)] = s
@@ -1113,19 +1119,68 @@ def feasible_hypervolume(
 
     Returns: Array of feasible hypervolumes.
     """
+    objective = optimization_config.objective
+    assert isinstance(objective, MultiObjective)
+
+    # Check if any sub-objective is scalarized
+    has_scalarized = any(
+        isinstance(o, ScalarizedObjective) for o in objective.objectives
+    )
+
     # Get objective at each iteration
     obj_threshold_dict = {
         ot.metric.signature: ot.bound for ot in optimization_config.objective_thresholds
     }
-    f_vals = np.hstack(
-        [
-            values[m.signature].reshape(-1, 1)
-            for m in optimization_config.objective.metrics
-        ]
-    )
-    obj_thresholds = np.array(
-        [obj_threshold_dict[m.signature] for m in optimization_config.objective.metrics]
-    )
+
+    if has_scalarized:
+        # Compute scalarized objective values and thresholds
+        f_cols = []
+        obj_thresholds_list = []
+        obj_weights_list = []
+        for sub_obj in objective.objectives:
+            s = -1.0 if sub_obj.minimize else 1.0
+            if isinstance(sub_obj, ScalarizedObjective):
+                # Compute scalarized value from component metrics
+                scalarized_vals = np.zeros_like(
+                    next(iter(values.values()))
+                )
+                for metric, weight in sub_obj.metric_weights:
+                    scalarized_vals = scalarized_vals + weight * values[metric.signature]
+                f_cols.append(scalarized_vals.reshape(-1, 1))
+                # Threshold for scalarized objectives: use expression-based
+                # lookup or NaN
+                threshold = obj_threshold_dict.get(sub_obj.expression, float("nan"))
+                obj_thresholds_list.append(threshold)
+            else:
+                f_cols.append(values[sub_obj.metric.signature].reshape(-1, 1))
+                obj_thresholds_list.append(
+                    obj_threshold_dict[sub_obj.metric.signature]
+                )
+            obj_weights_list.append(s)
+
+        f_vals = np.hstack(f_cols)
+        obj_thresholds = np.array(obj_thresholds_list)
+        obj_weights = np.array(obj_weights_list)
+    else:
+        f_vals = np.hstack(
+            [
+                values[m.signature].reshape(-1, 1)
+                for m in optimization_config.objective.metrics
+            ]
+        )
+        obj_thresholds = np.array(
+            [
+                obj_threshold_dict[m.signature]
+                for m in optimization_config.objective.metrics
+            ]
+        )
+        obj_weights = np.array(
+            [
+                -1 if m.lower_is_better else 1
+                for m in optimization_config.objective.metrics
+            ]
+        )
+
     # Set infeasible points to be the objective threshold
     for oc in optimization_config.outcome_constraints:
         if oc.relative:
@@ -1136,9 +1191,6 @@ def feasible_hypervolume(
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f_vals[~feas] = obj_thresholds
 
-    obj_weights = np.array(
-        [-1 if m.lower_is_better else 1 for m in optimization_config.objective.metrics]
-    )
     obj_thresholds = obj_thresholds * obj_weights
     f_vals = f_vals * obj_weights
     partitioning = DominatedPartitioning(
