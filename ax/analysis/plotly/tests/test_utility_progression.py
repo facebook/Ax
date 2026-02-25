@@ -5,12 +5,16 @@
 
 # pyre-strict
 
+import math
+from unittest.mock import patch
+
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import PreferenceOptimizationConfig
+from ax.exceptions.core import ExperimentNotReadyError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -199,3 +203,18 @@ class TestUtilityProgressionAnalysis(TestCase):
 
         # Assert: Check that title/subtitle show the formula
         self.assertIn("formula:", card.subtitle)
+
+    def test_all_infeasible_points_raises_error(self) -> None:
+        """Test that an error is raised when all points are infeasible."""
+        experiment = get_branin_experiment(with_completed_trial=True)
+
+        with (
+            patch(
+                "ax.analysis.plotly.utility_progression.get_trace",
+                return_value=[math.inf, -math.inf, math.inf],
+            ),
+            self.assertRaises(ExperimentNotReadyError) as cm,
+        ):
+            self.analysis.compute(experiment=experiment)
+
+        self.assertIn("infeasible", str(cm.exception).lower())
