@@ -16,14 +16,15 @@ from ax.utils.common.base import Base, SortableBase
 from sqlalchemy import inspect
 
 
-JSON_ATTRS = ["baseline_workflow_inputs"]
 # Skip over the following attrs in `copy_db_ids`:
 # * _experiment (to prevent infinite loops)
 # * most generator run and generation strategy metadata
 #   (since no Base objects are nested in there,
 #   and we don't have guarantees about the structure of some
 #   of that data, so the recursion could fail somewhere)
+# * baseline_workflow_inputs (plain JSON dict with no _db_id fields)
 COPY_DB_IDS_ATTRS_TO_SKIP = {
+    "baseline_workflow_inputs",
     "_best_arm_predictions",
     "_adapter_kwargs",
     "_candidate_metadata_by_arm_signature",
@@ -102,19 +103,6 @@ def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None
 
             # Skip attrs that are doubly private or in COPY_DB_IDS_TO_SKIP.
             if attr.startswith("__") or attr in COPY_DB_IDS_ATTRS_TO_SKIP:
-                continue
-
-            # For Json attributes we would like to simply test for equality and not
-            # recurse through the Json.
-            # TODO: Add json_attrs as an argument and plumb through to `copy_db_ids`.
-            if attr in JSON_ATTRS:
-                source_json = getattr(source, attr)
-                target_json = getattr(target, attr)
-                if source_json != target_json:
-                    SQADecodeError(
-                        error_message_prefix + f"Json attribute {attr} not matching "
-                        f"between source: {source_json} and target: {target_json}."
-                    )
                 continue
 
             # Arms are referenced twice on an Experiment object; once in
