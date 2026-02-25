@@ -50,21 +50,21 @@ def parameter_from_config(
                     "The range of the parameter must be evenly divisible by the "
                     "step size."
                 )
-
-            return ChoiceParameter(
+            return RangeParameter(
                 name=config.name,
                 parameter_type=_parameter_type_converter(config.parameter_type),
-                values=[*np.arange(lower, upper + step_size, step_size)],
-                is_ordered=True,
+                lower=lower,
+                upper=upper,
+                log_scale=config.scaling == "log",
             )
-
-        return RangeParameter(
+        return ChoiceParameter(
             name=config.name,
             parameter_type=_parameter_type_converter(config.parameter_type),
-            lower=lower,
-            upper=upper,
-            log_scale=config.scaling == "log",
+            values=[*np.arange(lower, upper + step_size, step_size)],
+            is_ordered=True,
         )
+
+
     elif isinstance(config, DerivedParameterConfig):
         return DerivedParameter(
             name=config.name,
