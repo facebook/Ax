@@ -18,7 +18,6 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -75,7 +74,12 @@ from torch import Tensor
 
 
 def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
-    """Convert Ax experiment to a dictionary."""
+    """Convert Ax experiment to a dictionary.
+
+    This encoder handles all experiments uniformly, including those with
+    multiple trial types. The _metric_to_trial_type and _trial_type_to_runner
+    fields are always included.
+    """
     return {
         "__type": experiment.__class__.__name__,
         "name": experiment._name,
@@ -92,19 +96,21 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "data_by_trial": data_to_data_by_trial(data=experiment.data),
         "properties": experiment._properties,
         "_trial_type_to_runner": experiment._trial_type_to_runner,
-    }
-
-
-def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> dict[str, Any]:
-    """Convert AE multitype experiment to a dictionary."""
-    multi_type_dict = {
-        "default_trial_type": experiment._default_trial_type,
-        "_metric_to_canonical_name": experiment._metric_to_canonical_name,
         "_metric_to_trial_type": experiment._metric_to_trial_type,
-        "_trial_type_to_runner": experiment._trial_type_to_runner,
+        "default_trial_type": experiment._default_trial_type,
     }
-    multi_type_dict.update(experiment_to_dict(experiment))
-    return multi_type_dict
+
+
+def multi_type_experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
+    """Convert AE multitype experiment to a dictionary.
+
+    This encoder is kept for backwards compatibility. It uses the same
+    unified encoding as experiment_to_dict but sets __type to
+    MultiTypeExperiment for older loaders.
+    """
+    result = experiment_to_dict(experiment)
+    result["__type"] = "MultiTypeExperiment"
+    return result
 
 
 def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:

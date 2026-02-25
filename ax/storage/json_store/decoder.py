@@ -59,6 +59,7 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
 )
 from ax.storage.utils import data_by_trial_to_data
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     extract_init_args,
@@ -653,49 +654,17 @@ def multi_type_experiment_from_json(
     object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> MultiTypeExperiment:
-    """Load AE MultiTypeExperiment from JSON."""
-    experiment_info = _get_experiment_info(object_json)
+) -> Experiment:
+    """Load AE MultiTypeExperiment from JSON.
 
-    _metric_to_canonical_name = object_json.pop("_metric_to_canonical_name")
-    _metric_to_trial_type = object_json.pop("_metric_to_trial_type")
-    _trial_type_to_runner = object_from_json(
-        object_json.pop("_trial_type_to_runner"),
+    This function is kept for backwards compatibility. It delegates to the
+    unified experiment_from_json which handles all experiments uniformly.
+    """
+    return experiment_from_json(
+        object_json=object_json,
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    tracking_metrics = object_from_json(
-        object_json.pop("tracking_metrics"),
-        decoder_registry=decoder_registry,
-        class_decoder_registry=class_decoder_registry,
-    )
-    # not relevant to multi type experiment
-    del object_json["runner"]
-
-    kwargs = {
-        k: object_from_json(
-            v,
-            decoder_registry=decoder_registry,
-            class_decoder_registry=class_decoder_registry,
-        )
-        for k, v in object_json.items()
-    }
-    kwargs["default_runner"] = _trial_type_to_runner[object_json["default_trial_type"]]
-
-    experiment = MultiTypeExperiment(**kwargs)
-    for metric in tracking_metrics:
-        experiment._tracking_metrics[metric.name] = metric
-    experiment._metric_to_canonical_name = _metric_to_canonical_name
-    experiment._metric_to_trial_type = _metric_to_trial_type
-    experiment._trial_type_to_runner = _trial_type_to_runner
-
-    _load_experiment_info(
-        exp=experiment,
-        exp_info=experiment_info,
-        decoder_registry=decoder_registry,
-        class_decoder_registry=class_decoder_registry,
-    )
-    return experiment
 
 
 def experiment_from_json(
@@ -703,8 +672,17 @@ def experiment_from_json(
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Experiment:
-    """Load Ax Experiment from JSON."""
+    """Load Ax Experiment from JSON.
+
+    This function handles all experiments uniformly, including those with
+    multiple trial types (formerly MultiTypeExperiment).
+    """
     experiment_info = _get_experiment_info(object_json)
+
+    # Handle _metric_to_trial_type (may or may not be present)
+    _metric_to_trial_type = object_json.pop("_metric_to_trial_type", {})
+
+    # Handle _trial_type_to_runner
     _trial_type_to_runner_json = object_json.pop("_trial_type_to_runner", None)
     _trial_type_to_runner = (
         object_from_json(
@@ -715,6 +693,20 @@ def experiment_from_json(
         if _trial_type_to_runner_json is not None
         else None
     )
+
+    # Handle tracking_metrics separately for multi-type experiments
+    tracking_metrics = object_from_json(
+        object_json.pop("tracking_metrics"),
+        decoder_registry=decoder_registry,
+        class_decoder_registry=class_decoder_registry,
+    )
+
+    # Handle default_trial_type (may or may not be present)
+    default_trial_type = object_json.pop("default_trial_type", None)
+
+    # For multi-type experiments, runner in JSON is not relevant
+    # (we use _trial_type_to_runner instead)
+    runner_json = object_json.pop("runner", None)
 
     experiment = Experiment(
         **{
@@ -727,8 +719,34 @@ def experiment_from_json(
         }
     )
     experiment._arms_by_name = {}
-    if _trial_type_to_runner is not None:
+
+    # Add tracking metrics
+    for metric in tracking_metrics:
+        experiment._tracking_metrics[metric.name] = metric
+
+    # Set up _metric_to_trial_type
+    experiment._metric_to_trial_type = _metric_to_trial_type
+
+    # Set up _trial_type_to_runner
+    if (
+        _trial_type_to_runner is not None
+        and len(_trial_type_to_runner) > 0
+        and ({*_trial_type_to_runner.keys()} != {None})
+    ):
         experiment._trial_type_to_runner = _trial_type_to_runner
+        # Set the runner from _trial_type_to_runner if we have a default_trial_type
+        if default_trial_type is not None:
+            experiment._runner = _trial_type_to_runner.get(default_trial_type)
+            experiment._default_trial_type = default_trial_type
+    else:
+        # Decode and set the runner for non-multi-type experiments
+        runner = object_from_json(
+            runner_json,
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        experiment._runner = runner
+        experiment._trial_type_to_runner = {Keys.DEFAULT_TRIAL_TYPE.value: runner}
 
     _load_experiment_info(
         exp=experiment,

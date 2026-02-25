@@ -32,7 +32,6 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -215,10 +214,16 @@ class Decoder:
         load_auxiliary_experiments: bool = True,
         reduced_state: bool = False,
     ) -> Experiment:
-        """First step of conversion within experiment_from_sqa."""
+        """Convert SQAExperiment to Experiment.
+
+        This method handles all experiments uniformly, including those with
+        multiple trial types (formerly MultiTypeExperiment).
+        """
         # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
+        is_multi_type = properties.get(Keys.SUBCLASS) == "MultiTypeExperiment"
+
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
             metrics_sqa=experiment_sqa.metrics,
             pruning_target_parameterization=(
@@ -241,14 +246,34 @@ class Decoder:
             if experiment_sqa.status_quo_parameters is not None
             else None
         )
+
+        # Build trial_type_to_runner from runners
+        trial_type_to_runner: dict[str, Runner | None] = {}
         if len(experiment_sqa.runners) == 0:
             runner = None
-        elif len(experiment_sqa.runners) == 1:
+        elif len(experiment_sqa.runners) == 1 and not is_multi_type:
             runner = self.runner_from_sqa(runner_sqa=experiment_sqa.runners[0])
         else:
-            raise ValueError(
-                "Multiple runners on experiment only supported for MultiTypeExperiment."
-            )
+            # Multiple runners or multi-type experiment
+            runner = None
+            for sqa_runner in experiment_sqa.runners:
+                trial_type = sqa_runner.trial_type
+                trial_type_to_runner[none_throws(trial_type)] = self.runner_from_sqa(
+                    sqa_runner
+                )
+
+        # Handle default_trial_type for multi-type experiments
+        default_trial_type = experiment_sqa.default_trial_type
+        if is_multi_type and default_trial_type is not None:
+            if len(trial_type_to_runner) == 0:
+                trial_type_to_runner = {default_trial_type: None}
+                trial_types_with_metrics = {
+                    metric.trial_type
+                    for metric in experiment_sqa.metrics
+                    if metric.trial_type
+                }
+                trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
+            runner = trial_type_to_runner.get(default_trial_type)
 
         auxiliary_experiments_by_purpose = (
             (
@@ -261,88 +286,52 @@ class Decoder:
             else {}
         )
 
-        return Experiment(
+        experiment = Experiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
             search_space=search_space,
             optimization_config=opt_config,
-            tracking_metrics=tracking_metrics,
+            tracking_metrics=(
+                tracking_metrics if not is_multi_type else []
+            ),  # Add later for multi-type
             runner=runner,
             status_quo=status_quo,
             is_test=experiment_sqa.is_test,
             properties=properties,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
+            default_trial_type=default_trial_type
+            if default_trial_type is not None
+            else Keys.DEFAULT_TRIAL_TYPE.value,
         )
+
+        # For multi-type experiments, set up trial_type_to_runner and add
+        # tracking metrics with their trial types
+        if is_multi_type:
+            experiment._trial_type_to_runner = trial_type_to_runner
+            sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
+            for tracking_metric in tracking_metrics:
+                sqa_metric = sqa_metric_dict[tracking_metric.name]
+                experiment.add_tracking_metric(
+                    tracking_metric,
+                    trial_type=none_throws(sqa_metric.trial_type),
+                )
+
+        return experiment
 
     def _init_mt_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
-    ) -> MultiTypeExperiment:
-        """First step of conversion within experiment_from_sqa."""
-        properties = dict(experiment_sqa.properties or {})
-        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics,
-            pruning_target_parameterization=(
-                self._get_pruning_target_parameterization_from_experiment_properties(
-                    properties=properties
-                )
-            ),
-        )
-        search_space = self.search_space_from_sqa(
-            parameters_sqa=experiment_sqa.parameters,
-            parameter_constraints_sqa=experiment_sqa.parameter_constraints,
-        )
-        if search_space is None:
-            raise SQADecodeError("Experiment SearchSpace cannot be None.")
-        status_quo = (
-            Arm(
-                parameters=experiment_sqa.status_quo_parameters,
-                name=experiment_sqa.status_quo_name,
-            )
-            if experiment_sqa.status_quo_parameters is not None
-            else None
-        )
+    ) -> Experiment:
+        """First step of conversion within experiment_from_sqa.
 
-        default_trial_type = none_throws(experiment_sqa.default_trial_type)
-        trial_type_to_runner = {
-            none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
-            for sqa_runner in experiment_sqa.runners
-        }
-        if len(trial_type_to_runner) == 0:
-            trial_type_to_runner = {default_trial_type: None}
-            trial_types_with_metrics = {
-                metric.trial_type
-                for metric in experiment_sqa.metrics
-                if metric.trial_type
-            }
-            # trial_type_to_runner is instantiated to map all trial types to None,
-            # so the trial types are associated with the experiment. This is
-            # important for adding metrics.
-            trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
-
-        experiment = MultiTypeExperiment(
-            name=experiment_sqa.name,
-            description=experiment_sqa.description,
-            search_space=search_space,
-            default_trial_type=default_trial_type,
-            default_runner=trial_type_to_runner.get(default_trial_type),
-            optimization_config=opt_config,
-            status_quo=status_quo,
-            properties=properties,
+        This method is kept for backwards compatibility. It delegates to the
+        unified _init_experiment_from_sqa.
+        """
+        return self._init_experiment_from_sqa(
+            experiment_sqa=experiment_sqa,
+            load_auxiliary_experiments=False,
+            reduced_state=False,
         )
-        # pyre-ignore Imcompatible attribute type [8]: attribute _trial_type_to_runner
-        # has type Dict[str, Optional[Runner]] but is used as type
-        # Uniont[Dict[str, Optional[Runner]], Dict[str, None]]
-        experiment._trial_type_to_runner = trial_type_to_runner
-        sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
-        for tracking_metric in tracking_metrics:
-            sqa_metric = sqa_metric_dict[tracking_metric.name]
-            experiment.add_tracking_metric(
-                tracking_metric,
-                trial_type=none_throws(sqa_metric.trial_type),
-                canonical_name=sqa_metric.canonical_name,
-            )
-        return experiment
 
     def experiment_from_sqa(
         self,
@@ -360,14 +349,14 @@ class Decoder:
             load_auxiliary_experiment: whether to load auxiliary experiments.
         """
         subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
-        if subclass == "MultiTypeExperiment":
-            experiment = self._init_mt_experiment_from_sqa(experiment_sqa)
-        else:
-            experiment = self._init_experiment_from_sqa(
-                experiment_sqa,
-                load_auxiliary_experiments=load_auxiliary_experiments,
-                reduced_state=reduced_state,
-            )
+        is_multi_type = subclass == "MultiTypeExperiment"
+
+        experiment = self._init_experiment_from_sqa(
+            experiment_sqa,
+            load_auxiliary_experiments=load_auxiliary_experiments,
+            reduced_state=reduced_state,
+        )
+
         trials = [
             self.trial_from_sqa(
                 trial_sqa=trial,
@@ -387,11 +376,15 @@ class Decoder:
         experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
 
         trial_type_to_runner = {
-            sqa_runner.trial_type: self.runner_from_sqa(sqa_runner)
+            (
+                sqa_runner.trial_type
+                if sqa_runner.trial_type is not None
+                else Keys.DEFAULT_TRIAL_TYPE.value
+            ): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
         if len(trial_type_to_runner) == 0:
-            trial_type_to_runner = {None: None}
+            trial_type_to_runner = {Keys.DEFAULT_TRIAL_TYPE.value: None}
 
         experiment._trials = {trial.index: trial for trial in trials}
         experiment._arms_by_name = {}
@@ -414,12 +407,26 @@ class Decoder:
         experiment._experiment_type = self.get_enum_name(
             value=experiment_sqa.experiment_type, enum=self.config.experiment_type_enum
         )
-        # `_trial_type_to_runner` is set in _init_mt_experiment_from_sqa
-        if subclass != "MultiTypeExperiment":
+        # `_trial_type_to_runner` is set in _init_experiment_from_sqa for multi-type
+        if not is_multi_type:
             experiment._trial_type_to_runner = cast(
-                dict[str | None, Runner | None], trial_type_to_runner
+                dict[str, Runner | None], trial_type_to_runner
             )
         experiment.db_id = experiment_sqa.id
+
+        # Populate _metric_to_trial_type for all experiments
+        # For multi-type experiments, this was already done in _init_experiment_from_sqa
+        if not is_multi_type:
+            default_trial_type = Keys.DEFAULT_TRIAL_TYPE.value
+            # Add OC metrics
+            oc = experiment.optimization_config
+            if oc is not None:
+                for metric_name in oc.metrics.keys():
+                    experiment._metric_to_trial_type[metric_name] = default_trial_type
+            # Add tracking metrics
+            for metric_name in experiment._tracking_metrics.keys():
+                experiment._metric_to_trial_type[metric_name] = default_trial_type
+
         return experiment
 
     def parameter_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
@@ -999,7 +1006,11 @@ class Decoder:
                     reduced_state=reduced_state,
                     immutable_search_space_and_opt_config=immutable_ss_and_oc,
                 )
-        trial._trial_type = trial_sqa.trial_type
+        trial._trial_type = (
+            trial_sqa.trial_type
+            if trial_sqa.trial_type is not None
+            else Keys.DEFAULT_TRIAL_TYPE.value
+        )
         # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
         # equivalent to `RUNNING`.
         trial._status = (

@@ -17,7 +17,6 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
@@ -838,12 +837,9 @@ class InstantiationBase:
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments for
                 different use cases (e.g., transfer learning).
             default_trial_type: The default trial type if multiple
-                trial types are intended to be used in the experiment.  If specified,
-                a MultiTypeExperiment will be created. Otherwise, a single-type
-                Experiment will be created.
+                trial types are intended to be used in the experiment.
             default_runner: The default runner in this experiment.
-                This only applies to MultiTypeExperiment (when default_trial_type
-                is specified).
+                This is required if default_trial_type is specified.
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
 
@@ -851,7 +847,7 @@ class InstantiationBase:
         if (default_trial_type is None) != (default_runner is None):
             raise ValueError(
                 "Must specify both default_trial_type and default_runner if "
-                "using a MultiTypeExperiment."
+                "using multiple trial types."
             )
 
         status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
@@ -888,23 +884,6 @@ class InstantiationBase:
 
         if owners is not None:
             properties["owners"] = owners
-        if default_trial_type is not None:
-            return MultiTypeExperiment(
-                name=none_throws(name),
-                search_space=cls.make_search_space(
-                    parameters=parameters, parameter_constraints=parameter_constraints
-                ),
-                default_trial_type=none_throws(default_trial_type),
-                default_runner=none_throws(default_runner),
-                optimization_config=optimization_config,
-                tracking_metrics=tracking_metrics,
-                status_quo=status_quo_arm,
-                description=description,
-                is_test=is_test,
-                experiment_type=experiment_type,
-                properties=properties,
-            )
-
         return Experiment(
             name=name,
             description=description,
@@ -917,6 +896,7 @@ class InstantiationBase:
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
             is_test=is_test,
             runner=default_runner,
+            default_trial_type=default_trial_type or Keys.DEFAULT_TRIAL_TYPE.value,
         )
 
     @classmethod

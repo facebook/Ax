@@ -29,7 +29,6 @@ from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -213,7 +212,7 @@ class Encoder:
             ]
             auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
         runners = []
-        if isinstance(experiment, MultiTypeExperiment):
+        if experiment.is_multi_type:
             experiment._properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             for trial_type, runner in experiment._trial_type_to_runner.items():
                 runner_sqa = self.runner_to_sqa(none_throws(runner), trial_type)
@@ -221,12 +220,13 @@ class Encoder:
 
             for metric in tracking_metrics:
                 metric.trial_type = experiment._metric_to_trial_type[metric.name]
-                if metric.name in experiment._metric_to_canonical_name:
-                    metric.canonical_name = experiment._metric_to_canonical_name[
-                        metric.name
-                    ]
         elif experiment.runner:
-            runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
+            runners.append(
+                self.runner_to_sqa(
+                    none_throws(experiment.runner),
+                    trial_type=experiment.default_trial_type,
+                )
+            )
         properties = experiment._properties.copy()
         if (
             oc := experiment.optimization_config
