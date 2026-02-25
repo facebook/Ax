@@ -1274,12 +1274,15 @@ def infer_reference_point_from_experiment(
         for metric_signature in frontier_observations[0].data.metric_signatures
     ]
     f = f[:, order]
-    obj_w = obj_w[order]
+    obj_w = obj_w[:, order]
 
     # Dropping the columns related to outcome constraints.
-    f = f[:, obj_w.nonzero().view(-1)]
+    # obj_w is 2D (n_objectives, n_outcomes); collapse to a 1D mask.
+    obj_w_mask = (obj_w != 0).any(dim=0)
+    obj_col_indices = obj_w_mask.nonzero().view(-1)
+    f = f[:, obj_col_indices]
     multiplier_tensor = torch.tensor(multiplier, dtype=f.dtype, device=f.device)
-    multiplier_nonzero = multiplier_tensor[obj_w.nonzero().view(-1)]
+    multiplier_nonzero = multiplier_tensor[obj_col_indices]
 
     # Transforming all the objectives to be maximized.
     f_transformed = multiplier_nonzero * f

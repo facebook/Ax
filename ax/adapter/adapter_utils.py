@@ -277,6 +277,36 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
     return objective_weights
 
 
+def extract_objective_weight_matrix(
+    objective: Objective, outcomes: list[str]
+) -> npt.NDArray:
+    """Extract a 2D weight matrix for objectives.
+
+    Each row corresponds to one objective and each column to one modeled
+    outcome.  Outcomes that are not part of an objective get weight 0 in
+    every row.
+
+    For a single ``Objective`` (including ``ScalarizedObjective``), the
+    matrix has a single row.  For a ``MultiObjective``, each sub-objective
+    gets its own row.
+
+    Args:
+        objective: Objective to extract weights from.
+        outcomes: n-length list of names of metrics.
+
+    Returns:
+        ``(n_objectives, n)`` array of weights.
+    """
+    if isinstance(objective, MultiObjective):
+        rows: list[npt.NDArray] = []
+        for obj in objective.objectives:
+            rows.append(extract_objective_weights(obj, outcomes))
+        return np.stack(rows, axis=0)
+    else:
+        # Single row – covers Objective and ScalarizedObjective
+        return extract_objective_weights(objective, outcomes).reshape(1, -1)
+
+
 def extract_outcome_constraints(
     outcome_constraints: list[OutcomeConstraint], outcomes: list[str]
 ) -> TBounds:
@@ -603,7 +633,7 @@ def get_pareto_frontier_and_configs(
         MultiObjectiveOptimizationConfig,
     )
     # Extract weights, constraints, and objective_thresholds
-    objective_weights = extract_objective_weights(
+    objective_weights = extract_objective_weight_matrix(
         objective=optimization_config.objective, outcomes=adapter.outcomes
     )
     outcome_constraints = extract_outcome_constraints(
@@ -877,7 +907,7 @@ def hypervolume(
         objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
     )
     f_t = obj(f)
-    obj_mask = obj_w.nonzero().view(-1)
+    obj_mask = (obj_w != 0).any(dim=0).nonzero().view(-1)
     selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]
     obj_t = obj_t[selected_metrics_mask]

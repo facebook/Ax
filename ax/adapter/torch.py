@@ -20,7 +20,7 @@ from ax.adapter.adapter_utils import (
     arm_to_np_array,
     array_to_observation_data,
     extract_objective_thresholds,
-    extract_objective_weights,
+    extract_objective_weight_matrix,
     extract_outcome_constraints,
     extract_parameter_constraints,
     extract_search_space_digest,
@@ -81,7 +81,7 @@ from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputErr
 from ax.exceptions.generation_strategy import OptimizationConfigRequired
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
-from ax.generators.torch.utils import _get_X_pending_and_observed
+from ax.generators.torch.utils import _get_X_pending_and_observed, extract_objectives
 from ax.generators.torch_base import TorchGenerator, TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -991,7 +991,7 @@ class TorchAdapter(Adapter):
             )
 
         validate_transformed_optimization_config(optimization_config, self.outcomes)
-        objective_weights = extract_objective_weights(
+        objective_weights = extract_objective_weight_matrix(
             objective=optimization_config.objective, outcomes=self.outcomes
         )
         outcome_constraints = extract_outcome_constraints(
@@ -1049,7 +1049,6 @@ class TorchAdapter(Adapter):
             model_gen_options=model_gen_options or {},
             rounding_func=rounding_func,
             opt_config_metrics=opt_config_metrics,
-            is_moo=optimization_config.is_moo_problem,
             use_learned_objective=use_learned_objective,
             pruning_target_point=pruning_target_p,
         )
@@ -1091,9 +1090,9 @@ class TorchAdapter(Adapter):
         Args:
             objective_thresholds: A tensor of (possibly inferred) objective thresholds
                 of shape `(num_metrics)`.
-            objective_weights: A tensor of objective weights that denote whether each
-                objective is being minimized (-1) or maximized (+1). May also include
-                0 values, which represents outcome constraints and tracking metrics.
+            objective_weights: A ``(n_objectives, n_outcomes)`` tensor of
+                objective weights. Weights are +1 for maximization and -1 for
+                minimization.
             opt_config_metrics: A dictionary mapping the metric name to the ``Metric``
                 object from the original optimization config.
             fixed_features: A map {feature_index: value} for features that should be
@@ -1103,12 +1102,10 @@ class TorchAdapter(Adapter):
         Returns:
             A list of ``ObjectiveThreshold``s on the raw, untransformed scale.
         """
-        idxs = objective_weights.nonzero().view(-1).tolist()
-
-        # Create transformed ObjectiveThresholds from tensor thresholds.
+        obj_indices, obj_weights = extract_objectives(objective_weights)
         thresholds = []
-        for idx in idxs:
-            sign = torch.sign(objective_weights[idx])
+        for idx, w in zip(obj_indices, obj_weights):
+            sign = torch.sign(w)
             thresholds.append(
                 ObjectiveThreshold(
                     metric=opt_config_metrics[self.outcomes[idx]],
