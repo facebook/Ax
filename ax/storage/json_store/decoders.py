@@ -48,6 +48,7 @@ from ax.storage.transform_registry import (
     REMOVED_TRANSFORMS,
     REVERSE_TRANSFORM_REGISTRY,
 )
+from ax.utils.common.constants import Keys
 from ax.utils.common.kwargs import warn_on_kwargs
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils_torch import torch_type_from_str
@@ -159,7 +160,9 @@ def batch_trial_from_json(
         # the SQ at the end of this function.
     )
     batch._index = index
-    batch._trial_type = trial_type
+    batch._trial_type = (
+        trial_type if trial_type is not None else Keys.DEFAULT_TRIAL_TYPE.value
+    )
     batch._time_created = time_created
     batch._time_completed = time_completed
     batch._time_staged = time_staged
@@ -220,7 +223,9 @@ def trial_from_json(
         experiment=experiment, generator_run=generator_run, ttl_seconds=ttl_seconds
     )
     trial._index = index
-    trial._trial_type = trial_type
+    trial._trial_type = (
+        trial_type if trial_type is not None else Keys.DEFAULT_TRIAL_TYPE.value
+    )
     # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
     # equivalent to `RUNNING`.
     trial._status = status if status != TrialStatus.DISPATCHED else TrialStatus.RUNNING

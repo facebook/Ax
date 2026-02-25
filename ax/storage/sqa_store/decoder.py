@@ -387,11 +387,15 @@ class Decoder:
         experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
 
         trial_type_to_runner = {
-            sqa_runner.trial_type: self.runner_from_sqa(sqa_runner)
+            (
+                sqa_runner.trial_type
+                if sqa_runner.trial_type is not None
+                else Keys.DEFAULT_TRIAL_TYPE.value
+            ): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
         if len(trial_type_to_runner) == 0:
-            trial_type_to_runner = {None: None}
+            trial_type_to_runner = {Keys.DEFAULT_TRIAL_TYPE.value: None}
 
         experiment._trials = {trial.index: trial for trial in trials}
         experiment._arms_by_name = {}
@@ -417,9 +421,24 @@ class Decoder:
         # `_trial_type_to_runner` is set in _init_mt_experiment_from_sqa
         if subclass != "MultiTypeExperiment":
             experiment._trial_type_to_runner = cast(
-                dict[str | None, Runner | None], trial_type_to_runner
+                dict[str, Runner | None], trial_type_to_runner
             )
         experiment.db_id = experiment_sqa.id
+
+        # For non-MultiTypeExperiment, populate _metric_to_trial_type
+        # This is needed because the metrics were added directly to the experiment
+        # without going through the setters that populate this field.
+        if subclass != "MultiTypeExperiment":
+            default_trial_type = Keys.DEFAULT_TRIAL_TYPE.value
+            # Add OC metrics
+            oc = experiment.optimization_config
+            if oc is not None:
+                for metric_name in oc.metrics.keys():
+                    experiment._metric_to_trial_type[metric_name] = default_trial_type
+            # Add tracking metrics
+            for metric_name in experiment._tracking_metrics.keys():
+                experiment._metric_to_trial_type[metric_name] = default_trial_type
+
         return experiment
 
     def parameter_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
@@ -999,7 +1018,11 @@ class Decoder:
                     reduced_state=reduced_state,
                     immutable_search_space_and_opt_config=immutable_ss_and_oc,
                 )
-        trial._trial_type = trial_sqa.trial_type
+        trial._trial_type = (
+            trial_sqa.trial_type
+            if trial_sqa.trial_type is not None
+            else Keys.DEFAULT_TRIAL_TYPE.value
+        )
         # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
         # equivalent to `RUNNING`.
         trial._status = (

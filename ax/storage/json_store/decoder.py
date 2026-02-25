@@ -59,6 +59,7 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
 )
 from ax.storage.utils import data_by_trial_to_data
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import (
     extract_init_args,
@@ -727,8 +728,19 @@ def experiment_from_json(
         }
     )
     experiment._arms_by_name = {}
-    if _trial_type_to_runner is not None:
+
+    # Handle backwards compatibility issue where some Experiments support None
+    # trial types.
+    if (
+        _trial_type_to_runner is not None
+        and len(_trial_type_to_runner) > 0
+        and ({*_trial_type_to_runner.keys()} != {None})
+    ):
         experiment._trial_type_to_runner = _trial_type_to_runner
+    else:
+        experiment._trial_type_to_runner = {
+            Keys.DEFAULT_TRIAL_TYPE.value: experiment.runner
+        }
 
     _load_experiment_info(
         exp=experiment,
