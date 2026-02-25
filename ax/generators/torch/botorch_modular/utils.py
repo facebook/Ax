@@ -19,6 +19,7 @@ import torch
 from ax.core.data import MAP_KEY
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
+from ax.generators.torch.utils import extract_objectives
 from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -362,19 +363,22 @@ def _objective_threshold_to_outcome_constraints(
     to ``-w_i * Y_i <= -w_i * t_i`` in the standard ``A f(x) <= b`` format.
 
     Args:
-        objective_weights: A ``m``-dim tensor of objective weights.
+        objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
+            weights.
         objective_thresholds: A ``m``-dim tensor of objective thresholds.
 
     Returns:
         A tuple ``(A, b)`` of outcome constraint tensors.
     """
-    obj_idcs = objective_weights.nonzero(as_tuple=False).view(-1)
+    obj_idcs, obj_weights = extract_objectives(objective_weights)
     # Filter to objectives with non-NaN thresholds. Objective thresholds
     # can contain NaNs if the objective thresholds were inferred, but
     # there are no feasible points. In that case,
     # qLogProbabilityOfFeasibility is used.
-    obj_idcs = obj_idcs[~objective_thresholds[obj_idcs].isnan()]
-    m = objective_weights.shape[0]
+    non_nan_mask = ~objective_thresholds[obj_idcs].isnan()
+    obj_idcs = obj_idcs[non_nan_mask]
+    obj_weights = obj_weights[non_nan_mask]
+    m = objective_weights.shape[1]
     k = len(obj_idcs)
     A = torch.zeros(
         k, m, dtype=objective_weights.dtype, device=objective_weights.device
@@ -382,8 +386,7 @@ def _objective_threshold_to_outcome_constraints(
     b = torch.zeros(
         k, 1, dtype=objective_weights.dtype, device=objective_weights.device
     )
-    for i, idx in enumerate(obj_idcs):
-        w = objective_weights[idx]
+    for i, (idx, w) in enumerate(zip(obj_idcs, obj_weights)):
         A[i, idx] = -w
         b[i] = -w * objective_thresholds[idx]
     return A, b
@@ -453,12 +456,12 @@ def choose_botorch_acqf_class(
             if has_objective_thresholds:
                 obj_weights = torch_opt_config.objective_weights
                 obj_thresholds = none_throws(torch_opt_config.objective_thresholds)
-                obj_idcs = obj_weights.nonzero(as_tuple=False).view(-1)
+                obj_idcs, weights = extract_objectives(obj_weights)
                 non_nan_mask = ~obj_thresholds[obj_idcs].isnan()
                 if non_nan_mask.any():
                     # Check: w_i * Y_i >= w_i * t_i for all objectives i.
-                    weighted_Y = dataset.Y[:, obj_idcs] * obj_weights[obj_idcs]
-                    weighted_t = obj_thresholds[obj_idcs] * obj_weights[obj_idcs]
+                    weighted_Y = dataset.Y[:, obj_idcs] * weights
+                    weighted_t = obj_thresholds[obj_idcs] * weights
                     is_feasible = is_feasible & (
                         (weighted_Y[:, non_nan_mask] >= weighted_t[non_nan_mask]).all(
                             dim=-1
@@ -474,10 +477,7 @@ def choose_botorch_acqf_class(
 
     if torch_opt_config.is_moo and not torch_opt_config.use_learned_objective:
         # For MOO problems with > 4 objectives, use ParEGO to prevent slow optimization.
-        if (
-            torch_opt_config.objective_weights.count_nonzero()
-            >= MIN_NUM_OBJECTIVES_PAREGO
-        ):
+        if torch_opt_config.objective_weights.shape[0] >= MIN_NUM_OBJECTIVES_PAREGO:
             acqf_class = qLogNParEGO
         else:
             acqf_class = qLogNoisyExpectedHypervolumeImprovement
@@ -492,8 +492,9 @@ def construct_acquisition_and_optimizer_options(
     acqf_options: TConfig,
     botorch_acqf_options: TConfig,
     model_gen_options: TConfig | None = None,
-    botorch_acqf_classes_with_options: list[tuple[type[AcquisitionFunction], TConfig]]
-    | None = None,
+    botorch_acqf_classes_with_options: (
+        list[tuple[type[AcquisitionFunction], TConfig]] | None
+    ) = None,
 ) -> tuple[
     TConfig, TConfig, TConfig, list[tuple[type[AcquisitionFunction], TConfig]] | None
 ]:

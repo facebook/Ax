@@ -40,7 +40,7 @@ class SubsetModelTest(TestCase):
         self.y = torch.rand(1, 2)
         self.obj_t = torch.rand(2)
         self.model = SingleTaskGP(self.x, self.y)
-        self.obj_weights = torch.tensor([1.0, 0.0])
+        self.obj_weights = torch.tensor([[1.0, 0.0]])
 
     def test_can_subset(self) -> None:
         # basic test, can subset
@@ -52,10 +52,10 @@ class SubsetModelTest(TestCase):
         self.assertIsNone(ocs_sub)
         self.assertIsNone(obj_t_sub)
         self.assertEqual(model_sub.num_outputs, 1)
-        self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([1.0])))
+        self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([[1.0]])))
 
     def test_cannot_subset(self) -> None:
-        obj_weights = torch.tensor([1.0, 2.0])
+        obj_weights = torch.tensor([[1.0, 2.0]])
         subset_model_results = subset_model(self.model, obj_weights)
         model_sub = subset_model_results.model
         obj_weights_sub = subset_model_results.objective_weights
@@ -76,7 +76,7 @@ class SubsetModelTest(TestCase):
         obj_t_sub = subset_model_results.objective_thresholds
         self.assertEqual(model_sub.num_outputs, 1)
         self.assertIsNone(obj_t_sub)
-        self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([1.0])))
+        self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([[1.0]])))
         # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertTrue(torch.equal(ocs_sub[0], torch.tensor([[1.0]])))
         self.assertTrue(torch.equal(ocs_sub[1], torch.tensor([1.0])))
@@ -123,7 +123,7 @@ class SubsetModelTest(TestCase):
         obj_t_sub = subset_model_results.objective_thresholds
         self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0])))
         self.assertEqual(model_sub.num_outputs, 1)
-        self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([1.0])))
+        self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([[1.0]])))
         # pyre-fixme[6]: For 1st param expected `Tensor` but got `Optional[Tensor]`.
         self.assertTrue(torch.equal(obj_t_sub, self.obj_t[:1]))
         self.assertTrue(torch.equal(ocs_sub[0], torch.tensor([[1.0]])))
@@ -142,8 +142,8 @@ class SubsetModelTest(TestCase):
         self.assertIs(obj_weights_sub, self.obj_weights)  # check identity
         self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
         # test error on size inconsistency
-        obj_weights = torch.ones(4)
-        obj_weights[0] = 0
+        obj_weights = torch.ones(1, 4)
+        obj_weights[0, 0] = 0
         with self.assertRaises(RuntimeError):
             subset_model(model, obj_weights)
 
@@ -165,11 +165,11 @@ class SubsetModelTestMultiTask(TestCase):
         # This test is explicitly tests that model is not
         # subset when subset_model is called because all
         # outcomes are relevant.
-        obj_weights = torch.ones(2)
+        obj_weights = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
         subset_model_results = subset_model(model, obj_weights)
         self.assertIs(subset_model_results.model, model)
         # test subset
-        obj_weights = torch.tensor([1.0, 0.0])
+        obj_weights = torch.tensor([[1.0, 0.0]])
         subset_model_results = subset_model(model, obj_weights)
         # check that the model is m1
         self.assertIs(subset_model_results.model, m1)
@@ -183,15 +183,15 @@ class SubsetModelTestMultiTask(TestCase):
             train_Y=torch.cat([self.y1, self.y2], dim=-1),
         )
         model = ModelList(m1, m2)
-        obj_weights = torch.zeros(5)
-        obj_weights[:3] = 1
+        obj_weights = torch.zeros(1, 5)
+        obj_weights[0, :3] = 1
         subset_model_results = subset_model(model, obj_weights)
         self.assertIs(subset_model_results.model, m1)
         # set subset where m2 is subset
         m1 = GenericDeterministicModel(lambda x: x, num_outputs=1)
         model = ModelList(m1, m2)
-        obj_weights = torch.ones(3)
-        obj_weights[1] = 0
+        obj_weights = torch.ones(1, 3)
+        obj_weights[0, 1] = 0
         subset_model_results = subset_model(model, obj_weights)
         models = subset_model_results.model.models
         # pyre-fixme[6]: For 1st argument expected
@@ -221,9 +221,9 @@ class SubsetModelTestMultiTask(TestCase):
             train_Y=self.y2,
         )
         model = ModelListGP(m1, ModelListGP(m2a, m2b))
-        obj_weights = torch.zeros(4)
-        obj_weights[0] = 1
-        obj_weights[2] = 1
+        obj_weights = torch.zeros(1, 4)
+        obj_weights[0, 0] = 1
+        obj_weights[0, 2] = 1
         subset_model_results = subset_model(model, obj_weights)
         models = subset_model_results.model.models
         # pyre-fixme[6]: For 1st argument expected

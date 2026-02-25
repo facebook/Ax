@@ -42,7 +42,7 @@ class UtilsTest(TestCase):
         )
         # Filters to 3
 
-        objective_weights = np.array([-1.0, 1.0, 0.0])
+        objective_weights = np.array([[-1.0, 1.0, 0.0]])
         outcome_constraints = (
             np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]),
             np.array([[10.0], [24.0]]),
@@ -126,7 +126,7 @@ class UtilsTest(TestCase):
             xbest = best_observed_point(
                 model=model,
                 bounds=bounds,
-                objective_weights=np.zeros(3),
+                objective_weights=np.zeros((1, 3)),
                 outcome_constraints=outcome_constraints,
                 linear_constraints=linear_constraints,
                 fixed_features={1: 100},
@@ -138,7 +138,7 @@ class UtilsTest(TestCase):
             xbest = best_observed_point(
                 model=model,
                 bounds=bounds,
-                objective_weights=np.zeros(3),
+                objective_weights=np.zeros((1, 3)),
                 outcome_constraints=outcome_constraints,
                 linear_constraints=linear_constraints,
                 fixed_features={1: 100},

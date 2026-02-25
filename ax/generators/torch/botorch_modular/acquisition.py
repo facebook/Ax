@@ -301,7 +301,7 @@ class Acquisition(Base):
             torch_opt_config.is_moo
             and (
                 self._full_objective_thresholds is None
-                or self._full_objective_thresholds[self._full_objective_weights != 0]
+                or self._full_objective_thresholds[torch_opt_config.outcome_mask]
                 .isnan()
                 .any()
             )

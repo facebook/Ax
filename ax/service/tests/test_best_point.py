@@ -685,7 +685,9 @@ class InferReferencePointFromExperimentTest(TestCase):
             ],
             dtype=torch.float64,
         )
-        obj_w_shuffled = torch.tensor([0.0, 1.0, -1.0], dtype=torch.float64)
+        obj_w_shuffled = torch.tensor(
+            [[0.0, 0.0, -1.0], [0.0, 1.0, 0.0]], dtype=torch.float64
+        )
         obj_t_shuffled = torch.tensor(
             [-torch.inf, -torch.inf, torch.inf], dtype=torch.float64
         )
