@@ -260,7 +260,9 @@ def _save_or_update_trials(
             objs=trials_to_reduce_state,
             encode_func=trial_to_reduced_state_sqa_encoder,
             decode_func=decoder.trial_from_sqa,
-            decode_args_list=[{"experiment": experiment} for _ in range(len(trials))],
+            decode_args_list=[
+                {"experiment": experiment} for _ in range(len(trials_to_reduce_state))
+            ],
             modify_sqa=add_experiment_id,
             batch_size=batch_size,
         )
@@ -269,7 +271,7 @@ def _save_or_update_trials(
             objs=[latest_trial],
             encode_func=encoder.trial_to_sqa,
             decode_func=decoder.trial_from_sqa,
-            decode_args_list=[{"experiment": experiment} for _ in range(len(trials))],
+            decode_args_list=[{"experiment": experiment}],
             modify_sqa=add_experiment_id,
             batch_size=batch_size,
         )

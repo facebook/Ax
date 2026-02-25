@@ -47,7 +47,9 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_metric_fetching_errors",
     "_data_rows",
 }
-SKIP_ATTRS_ERROR_SUFFIX = "Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
+SKIP_ATTRS_ERROR_SUFFIX = (
+    " Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
+)
 
 
 def is_foreign_key_field(field: str) -> bool:
@@ -75,7 +77,7 @@ def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None
     if len(path) > 15:
         # This shouldn't happen, but is a precaution against accidentally
         # introducing infinite loops
-        raise SQADecodeError(error_message_prefix + "Encountered path of length > 10.")
+        raise SQADecodeError(error_message_prefix + "Encountered path of length > 15.")
 
     if type(source) is not type(target):
         if not issubclass(type(target), type(source)):

@@ -218,8 +218,8 @@ def create_all_tables(engine: Engine) -> None:
     """
     if engine.dialect.name == "mysql" and engine.dialect.default_schema_name == "ax":
         raise ValueError(
-            "The open-source Ax table creation is likely not applicable in this case,"
-            + "please contact the Adaptive Experimentation team if you need help."
+            "The open-source Ax table creation is likely not applicable in this case, "
+            "please contact the Adaptive Experimentation team if you need help."
         )
     Base.metadata.create_all(engine)
 
