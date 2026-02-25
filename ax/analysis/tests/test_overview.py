@@ -11,6 +11,7 @@ from datetime import datetime
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
+from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.scatter import ScatterPlot
@@ -394,3 +395,55 @@ class TestOverview(TestCase):
             0,
             "Experiment should have at least one ScalarizedOutcomeConstraint",
         )
+
+    @mock_botorch_optimize
+    def test_insights_analysis_single_parameter(self) -> None:
+        """Test InsightsAnalysis with a single-parameter experiment.
+
+        When there is only one parameter in the experiment, second-order
+        sensitivity analysis cannot be computed (it requires at least 2
+        parameters for interaction effects). InsightsAnalysis should fall
+        back to first-order analysis and generate plots successfully.
+        """
+        client = Client()
+        client.configure_experiment(
+            name="single_param",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    bounds=(0.0, 1.0),
+                    parameter_type="float",
+                ),
+            ],
+        )
+        client.configure_optimization(objective="objective_metric")
+
+        # Run enough trials to get into the BO phase
+        for _ in range(6):
+            for trial_index, parameters in client.get_next_trials(max_trials=1).items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={
+                        "objective_metric": float(parameters["x1"]) ** 2,
+                    },
+                )
+
+        # Compute InsightsAnalysis - should not error with single parameter
+        insights_card = InsightsAnalysis().compute(
+            experiment=client._experiment,
+            generation_strategy=client._generation_strategy,
+        )
+
+        # Verify we got results
+        self.assertIsNotNone(insights_card)
+        self.assertEqual(insights_card.title, "Insights Analysis")
+
+        # Flatten cards and verify TopSurfacesAnalysis produced valid results
+        all_cards = insights_card.flatten()
+
+        # Should have at least sensitivity and slice plot cards
+        self.assertGreater(len(all_cards), 0)
+
+        # Check that none of the cards are error cards
+        for card in all_cards:
+            self.assertNotIsInstance(card, ErrorAnalysisCard)
