@@ -53,6 +53,7 @@ class Keys(StrEnum):
     COST_INTERCEPT = "cost_intercept"
     CURRENT_VALUE = "current_value"
     DEFAULT_OBJECTIVE_NAME = "objective"
+    DEFAULT_TRIAL_TYPE = "default"
     EXPAND = "expand"
     EXPECTED_ACQF_VAL = "expected_acquisition_value"
     EXPERIMENT_TOTAL_CONCURRENT_ARMS = "total_concurrent_arms"

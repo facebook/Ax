@@ -98,16 +98,15 @@ class BaseTrial(ABC, SortableBase):
         self._ttl_seconds: int | None = ttl_seconds
         self._index: int = self._experiment._attach_trial(self, index=index)
 
-        trial_type = (
+        self._trial_type: str = (
             trial_type
             if trial_type is not None
             else self._experiment.default_trial_type
         )
-        if not self._experiment.supports_trial_type(trial_type):
+        if not self._experiment.supports_trial_type(self._trial_type):
             raise ValueError(
-                f"Trial type {trial_type} is not supported by the experiment."
+                f"Trial type {self._trial_type} is not supported by the experiment."
             )
-        self._trial_type = trial_type
 
         self.__status: TrialStatus | None = None
         # Uses `_status` setter, which updates trial statuses to trial indices
@@ -288,7 +287,7 @@ class BaseTrial(ABC, SortableBase):
         return self._stop_metadata
 
     @property
-    def trial_type(self) -> str | None:
+    def trial_type(self) -> str:
         """The type of the trial.
 
         Relevant for experiments containing different kinds of trials
