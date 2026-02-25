@@ -9,12 +9,7 @@
 import plotly.graph_objects as go
 from ax.adapter.registry import Generators
 from ax.plot.base import AxPlotConfig
-from ax.plot.contour import (
-    interact_contour,
-    interact_contour_plotly,
-    plot_contour,
-    plot_contour_plotly,
-)
+from ax.plot.contour import interact_contour_plotly, plot_contour, plot_contour_plotly
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -48,8 +43,6 @@ class ContoursTest(TestCase):
         self.assertIsInstance(plot, go.Figure)
         plot = interact_contour_plotly(model, model_metric_names[0])
         self.assertIsInstance(plot, go.Figure)
-        plot = interact_contour(model, model_metric_names[0])
-        self.assertIsInstance(plot, AxPlotConfig)
         plot = plot_contour(
             model,
             model.parameters[0],

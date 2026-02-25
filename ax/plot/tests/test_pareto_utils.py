@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import copy
 
 import numpy as np
 from ax.adapter.registry import Generators
@@ -17,10 +16,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
-from ax.plot.pareto_frontier import (
-    interact_multiple_pareto_frontier,
-    interact_pareto_frontier,
-)
+from ax.plot.pareto_frontier import interact_pareto_frontier
 from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
     _relativize_values,
@@ -182,9 +178,6 @@ class ParetoUtilsTest(TestCase):
         )
         self.assertEqual(b.data["layout"]["xaxis"]["title"]["text"], "branin_b")
         self.assertEqual(b.data["layout"]["yaxis"]["title"]["text"], "a_new_metric")
-        pfrs2 = copy.deepcopy(pfrs)
-        pfr_lists = {"pfrs 1": pfrs, "pfrs 2": pfrs2}
-        self.assertIsNotNone(interact_multiple_pareto_frontier(pfr_lists))
 
     def test_extract_observed_pareto_2d(self) -> None:
         Y = np.array([[1.0, 2.0], [2.1, 1.0], [1.0, 1.0], [2.0, 2.0], [3.0, 0.0]])
