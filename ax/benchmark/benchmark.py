@@ -25,7 +25,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
-from itertools import product
+from itertools import accumulate, product
 from logging import Logger, WARNING
 from time import time
 
@@ -439,6 +439,8 @@ def get_benchmark_result_from_experiment_and_gs(
         trial_completion_order = [{i} for i in range(len(experiment.trials))]
         cost_trace = 1.0 + np.arange(len(experiment.trials), dtype=float)
 
+    num_trials = list(accumulate(len(trials) for trials in trial_completion_order))
+
     # {trial_index: {arm_name: params}}
     dict_of_dict_of_params = {
         new_trial_index: {
@@ -524,6 +526,7 @@ def get_benchmark_result_from_experiment_and_gs(
         is_feasible_trace=is_feasible_trace.tolist(),
         score_trace=score_trace.tolist(),
         cost_trace=cost_trace.tolist(),
+        num_trials=num_trials,
         fit_time=fit_time,
         gen_time=gen_time,
     )
@@ -869,6 +872,7 @@ def get_benchmark_result_with_cumulative_steps(
         result,
         optimization_trace=opt_trace,
         cost_trace=np.arange(1, len(opt_trace) + 1, dtype=int),
+        num_trials=list(range(1, len(opt_trace) + 1)),
         # Empty
         oracle_trace=np.full(len(opt_trace), np.nan),
         inference_trace=np.full(len(opt_trace), np.nan),

@@ -179,6 +179,7 @@ def get_benchmark_result(seed: int = 0) -> BenchmarkResult:
         inference_trace=[1.0, 1.0, 1.0, 1.0],
         oracle_trace=[0.0, 0.0, 0.0, 0.0],
         cost_trace=[0.0, 0.0, 0.0, 0.0],
+        num_trials=[1, 2, 3, 4],
         optimization_trace=[3.0, 2.0, 1.0, 0.1],
         score_trace=[3.0, 2.0, 1.0, 0.1],
         is_feasible_trace=[True, True, True, True],
