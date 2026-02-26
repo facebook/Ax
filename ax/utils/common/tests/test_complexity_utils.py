@@ -326,6 +326,10 @@ class TestCheckIfInStandard(TestCase):
                 get_optimization_summary(uses_global_stopping=True),
                 "Global stopping is enabled",
             ),
+            (
+                get_optimization_summary(uses_merge_multiple_curves=True),
+                "merge_multiple_curves",
+            ),
         ]
 
         for summary, expected_msg in test_cases:
@@ -376,10 +380,6 @@ class TestCheckIfInStandard(TestCase):
             (
                 get_optimization_summary(non_default_advanced_options=True),
                 "Non-default advanced_options",
-            ),
-            (
-                get_optimization_summary(uses_merge_multiple_curves=True),
-                "merge_multiple_curves=True",
             ),
             (
                 get_optimization_summary(

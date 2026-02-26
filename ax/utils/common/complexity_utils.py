@@ -116,7 +116,7 @@ class OptimizationSummary:
             failure rate is checked.
         non_default_advanced_options: Whether non-default advanced options are set.
         uses_merge_multiple_curves: Whether merge_multiple_curves is used
-            (not supported).
+            (classified as Advanced tier).
     """
 
     # Required keys
@@ -398,7 +398,7 @@ def _check_if_is_in_standard_other_settings(
     tolerated_trial_failure_rate = optimization_summary.tolerated_trial_failure_rate
     if tolerated_trial_failure_rate is not None and tolerated_trial_failure_rate > 0.9:
         is_in_standard, is_supported = False, False
-        why_not_supported.append(f"{tolerated_trial_failure_rate=} is larger than 0.9.")
+        why_not_supported.append(f"{tolerated_trial_failure_rate=} is larger than 0.9")
 
     max_pending_trials = optimization_summary.max_pending_trials
     min_failed_trials_for_failure_rate_check = (
@@ -414,22 +414,20 @@ def _check_if_is_in_standard_other_settings(
             f"{min_failed_trials_for_failure_rate_check=} exceeds "
             f"{max(2 * max_pending_trials, 5)=}. Please reduce "
             "min_failed_trials_for_failure_rate_check below the stated threshold for "
-            "this sweep to be in a supported tier."
+            "this sweep to be in a supported tier"
         )
     non_default_advanced_options = optimization_summary.non_default_advanced_options
     if non_default_advanced_options:
         is_in_standard, is_supported = False, False
         why_not_supported.append(
-            "Non-default advanced_options are set on GenerationStrategyConfig."
+            "Non-default advanced_options are set on GenerationStrategyConfig"
         )
 
     uses_merge_multiple_curves = optimization_summary.uses_merge_multiple_curves
     if uses_merge_multiple_curves:
-        is_in_standard, is_supported = False, False
-        why_not_supported.append(
-            "Metrics with merge_multiple_curves=True are not supported. "
-            "This feature is experimental and caution is advised not to merge "
-            "unrelated curves."
+        is_in_standard = False
+        why_not_is_in_standard.append(
+            "merge_multiple_curves requires caution to avoid merging unrelated curves"
         )
 
     return is_in_standard, is_supported
