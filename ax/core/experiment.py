@@ -30,6 +30,7 @@ from ax.core.auxiliary import (
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_data_rows_favoring_recent, Data
+from ax.core.derived_metric import DerivedMetric
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.llm_provider import LLMMessage
@@ -1045,19 +1046,94 @@ class Experiment(Base):
             logger.debug("No trials are in a state expecting data.")
             return {}
         metrics_to_fetch = list(metrics or self.metrics.values())
-        metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
+
+        # Separate base metrics from derived metrics.
+        # Derived metrics must be fetched after base metrics because they
+        # depend on base metric data being available in the cache.
+        base_metrics: list[Metric] = [
+            m for m in metrics_to_fetch if not isinstance(m, DerivedMetric)
+        ]
+        derived_metrics: list[Metric] = [
+            m for m in metrics_to_fetch if isinstance(m, DerivedMetric)
+        ]
 
         results: dict[int, dict[str, MetricFetchResult]] = {}
         contains_new_data = False
 
-        for metric_cls, metrics in metrics_by_class.items():
-            first_metric_of_group = metrics[0]
+        # Phase 1: Fetch all base (non-derived) metrics first.
+        if base_metrics:
+            base_results, base_new = self._fetch_metrics_by_class(
+                trials=trials,
+                metrics=base_metrics,
+                **kwargs,
+            )
+            results = base_results
+            contains_new_data = base_new
+
+            # Attach base metric results to the cache BEFORE fetching derived
+            # metrics so they can access base data via lookup_data().
+            if base_new and derived_metrics:
+                self._try_attach_fetch_results(base_results)
+
+        # Phase 2: Fetch derived metrics (they look up base data from cache).
+        if derived_metrics:
+            derived_results, derived_new = self._fetch_metrics_by_class(
+                trials=trials,
+                metrics=derived_metrics,
+                **kwargs,
+            )
+            for trial_index, trial_metrics in derived_results.items():
+                results.setdefault(trial_index, {}).update(trial_metrics)
+            contains_new_data = contains_new_data or derived_new
+
+        # Attach all results (base + derived).
+        if contains_new_data:
+            self._try_attach_fetch_results(results)
+
+        return results
+
+    def _try_attach_fetch_results(
+        self,
+        results: dict[int, dict[str, MetricFetchResult]],
+    ) -> None:
+        """Attach fetch results to the experiment cache, logging on error."""
+        try:
+            self.attach_fetch_results(results=results)
+        except ValueError as e:
+            logger.error(
+                f"Encountered ValueError {e} while attaching results. "
+                "Proceeding and returning results fetched without attaching."
+            )
+
+    def _fetch_metrics_by_class(
+        self,
+        trials: list[BaseTrial],
+        metrics: list[Metric],
+        **kwargs: Any,
+    ) -> tuple[dict[int, dict[str, MetricFetchResult]], bool]:
+        """Fetch metrics grouped by class.
+
+        Args:
+            trials: List of trials to fetch data for.
+            metrics: List of metrics to fetch.
+            **kwargs: Additional keyword arguments passed to fetch methods.
+
+        Returns:
+            A tuple of (results dict, contains_new_data bool).
+        """
+        metrics_by_class = self._metrics_by_class(metrics=metrics)
+
+        results: dict[int, dict[str, MetricFetchResult]] = {}
+        contains_new_data = False
+
+        for _metric_cls, cls_metrics in metrics_by_class.items():
+            first_metric_of_group = cls_metrics[0]
             (
                 new_fetch_results,
                 new_results_contains_new_data,
             ) = first_metric_of_group.fetch_data_prefer_lookup(
                 experiment=self,
-                metrics=metrics_by_class[metric_cls],
+                metrics=cls_metrics,
                 trials=trials,
                 **kwargs,
             )
@@ -1077,16 +1153,7 @@ class Experiment(Base):
                 for trial in trials
             }
 
-        if contains_new_data:
-            try:
-                self.attach_fetch_results(results=results)
-            except ValueError as e:
-                logger.error(
-                    f"Encountered ValueError {e} while attaching results. Proceeding "
-                    "and returning Results fetched without attaching."
-                )
-
-        return results
+        return results, contains_new_data
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
