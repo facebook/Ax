@@ -1041,6 +1041,7 @@ def get_trace_by_arm_pull_from_data(
 def get_trace(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None = None,
+    include_abandoned: bool = False,
     include_status_quo: bool = False,
 ) -> list[float]:
     """Compute the optimization trace at each iteration.
@@ -1069,6 +1070,11 @@ def get_trace(
         include_status_quo: If True, include status quo in the trace computation.
             If False (default), exclude status quo for compatibility with legacy
             behavior.
+        include_abandoned: If True, include ABANDONED trials in the trace by
+            carrying forward the last best value. This ensures the trace has
+            one value per trial, reflecting that ABANDONED trials consumed
+            resources but didn't improve optimization. If False (default),
+            only COMPLETED and EARLY_STOPPED trials are included.
 
     Returns:
         A list of performance values at each iteration.
@@ -1128,7 +1134,34 @@ def get_trace(
         value_by_trial = trial_grouped.min()
         cumulative_value = np.minimum.accumulate(value_by_trial)
 
-    return cumulative_value.tolist()
+    compact_trace = cumulative_value.tolist()
+
+    # If not including abandoned trials, return early
+    if not include_abandoned:
+        return compact_trace
+
+    # Expand trace to include ABANDONED trials with carry-forward values
+    expanded_trace = []
+    compact_idx = 0
+    last_best_value = -float("inf") if maximize else float("inf")
+
+    for trial_index in sorted(experiment.trials.keys()):
+        trial = experiment.trials[trial_index]
+        if trial.status in (TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED):
+            # Use value from compact trace
+            if compact_idx < len(compact_trace):
+                value = compact_trace[compact_idx]
+                expanded_trace.append(value)
+                last_best_value = value
+                compact_idx += 1
+            else:
+                # Should not happen, but handle gracefully
+                expanded_trace.append(last_best_value)
+        else:
+            # ABANDONED or other status: carry forward last best value
+            expanded_trace.append(last_best_value)
+
+    return expanded_trace
 
 
 def get_tensor_converter_adapter(
