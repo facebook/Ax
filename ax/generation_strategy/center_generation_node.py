@@ -29,12 +29,14 @@ from pyre_extensions import none_throws
 @dataclass(init=False)
 class CenterGenerationNode(ExternalGenerationNode):
     next_node_name: str
+    use_existing_trials_for_initialization: bool
 
     def __init__(
         self,
         next_node_name: str,
         suggested_experiment_status: ExperimentStatus
         | None = ExperimentStatus.INITIALIZATION,
+        use_existing_trials_for_initialization: bool = False,
     ) -> None:
         """A generation node that samples the center of the search space.
         This generation node is only used to generate the first point of the experiment.
@@ -49,6 +51,9 @@ class CenterGenerationNode(ExternalGenerationNode):
                 the center point.
             suggested_experiment_status: Optional suggested experiment status for this
                 node.
+            use_existing_trials_for_initialization: If True and the experiment already
+                has trials, this node will be skipped during transition checks
+                outside the gen flow (e.g., when fitting a model for analysis).
         """
         super().__init__(
             name="CenterOfSearchSpace",
@@ -63,6 +68,9 @@ class CenterGenerationNode(ExternalGenerationNode):
         )
         self.search_space: SearchSpace | None = None
         self.next_node_name = next_node_name
+        self.use_existing_trials_for_initialization = (
+            use_existing_trials_for_initialization
+        )
         self.fallback_specs: dict[type[Exception], GeneratorSpec] = {
             AxGenerationException: GeneratorSpec(
                 generator_enum=Generators.SOBOL, generator_key_override="Fallback_Sobol"
@@ -71,6 +79,23 @@ class CenterGenerationNode(ExternalGenerationNode):
         }
         # custom property to enable single center point computation
         self._center_params: TParameterization | None = None
+
+    def should_transition_to_next_node(
+        self, raise_data_required_error: bool = True
+    ) -> tuple[bool, str]:
+        # Lazily evaluate skip condition for cases where gen() hasn't been
+        # called (e.g., maybe_transition_to_next_node from analysis code).
+        # When use_existing_trials_for_initialization is True, existing trials
+        # count toward initialization, so the center node can be skipped.
+        if (
+            not self._should_skip
+            and self.use_existing_trials_for_initialization
+            and len(self.experiment.trials) > 0
+        ):
+            self._should_skip = True
+        return super().should_transition_to_next_node(
+            raise_data_required_error=raise_data_required_error
+        )
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         # State is already set in gen() and will persist during generation
