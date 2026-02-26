@@ -90,7 +90,9 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
+    PausingCriterion,
     TransitionCriterion,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
@@ -179,6 +181,7 @@ def get_experiment_with_map_data_type() -> Experiment:
 
 
 def get_trial_based_criterion() -> list[TransitionCriterion]:
+    """Returns a list of trial-based TransitionCriteria for testing."""
     return [
         MinTrials(
             threshold=3,
@@ -186,16 +189,21 @@ def get_trial_based_criterion() -> list[TransitionCriterion]:
             only_in_statuses=[TrialStatus.RUNNING, TrialStatus.COMPLETED],
             not_in_statuses=None,
         ),
+        AutoTransitionAfterGen(
+            transition_to="next_node",
+        ),
+    ]
+
+
+def get_pausing_criterion() -> list[PausingCriterion]:
+    """Returns a list of PausingCriterion for testing."""
+    return [
         MaxGenerationParallelism(
             threshold=5,
             only_in_statuses=None,
             not_in_statuses=[
                 TrialStatus.RUNNING,
             ],
-            transition_to="Sobol",
-        ),
-        AutoTransitionAfterGen(
-            transition_to="next_node",
         ),
     ]
 
@@ -2961,14 +2969,12 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
         MinTrials(
             threshold=1,
             transition_to="MBM_node",
-            block_gen_if_met=True,
             only_in_statuses=None,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         ),
         MinTrials(
             threshold=1,
             transition_to="MBM_node",
-            block_gen_if_met=True,
             only_in_statuses=[
                 TrialStatus.RUNNING,
                 TrialStatus.COMPLETED,
@@ -2986,9 +2992,25 @@ def get_online_sobol_mbm_generation_strategy() -> GenerationStrategy:
         generator_kwargs=step_generator_kwargs,
         generator_gen_kwargs={},
     )
+    sobol_blocking_criteria = [
+        MaxTrialsAwaitingData(
+            threshold=1,
+            only_in_statuses=None,
+            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+        ),
+        MaxTrialsAwaitingData(
+            threshold=1,
+            only_in_statuses=[
+                TrialStatus.RUNNING,
+                TrialStatus.COMPLETED,
+                TrialStatus.EARLY_STOPPED,
+            ],
+        ),
+    ]
     sobol_node = GenerationNode(
         name="sobol_node",
         transition_criteria=sobol_criterion,
+        pausing_criteria=sobol_blocking_criteria,
         generator_specs=[sobol_generator_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )

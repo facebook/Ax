@@ -57,13 +57,17 @@ from ax.exceptions.core import (
 )
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
-from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
+    MinTrials,
+)
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.decoder import (
     generation_node_from_json,
-    transition_criterion_from_json,
+    pausing_criterion_from_json,
 )
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
@@ -3449,7 +3453,10 @@ class SQAStoreTest(TestCase):
 
     def test_transition_criterion_deserialize_with_extra_fields(self) -> None:
         """Test that deserialization gracefully handles extra/unknown fields
-        ie this validates that backwards compatibility is maintained"""
+        ie this validates that backwards compatibility is maintained for
+        MaxGenerationParallelism, which is now a PausingCriterion.
+        Old serialized experiments may have transition_to, block_gen_if_met, etc.
+        fields that are now deprecated and should be ignored."""
         # Simulate old serialized format with extra fields that no longer exist
         old_format_json = {
             "threshold": 5,
@@ -3463,10 +3470,11 @@ class SQAStoreTest(TestCase):
             "some_deprecated_field": "should_be_ignored",
         }
 
-        # Should not raise, extra field should be ignored
+        # Should not raise, extra fields should be ignored.
+        # Note: MaxGenerationParallelism is now a PausingCriterion
         criterion = assert_is_instance(
-            transition_criterion_from_json(
-                transition_criterion_class=MaxGenerationParallelism,
+            pausing_criterion_from_json(
+                pausing_criterion_class=MaxGenerationParallelism,
                 object_json=old_format_json,
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
@@ -3474,13 +3482,13 @@ class SQAStoreTest(TestCase):
             MaxGenerationParallelism,
         )
         self.assertEqual(criterion.threshold, 5)
-        self.assertEqual(criterion.transition_to, "test_node")
 
     def test_gen_node_deserialize_with_tc_transition_to_none(
         self,
     ) -> None:
-        """Test backwards compatibility when loading a MaxGenerationParallelism
-        that was stored with transition_to=None
+        """Test backwards compatibility when loading an old GenerationNode that
+        has MaxGenerationParallelism stored in transition_criteria. The decoder
+        should automatically migrate it to pausing_criteria.
         """
         old_format_node_json = {
             "__type": "GenerationNode",
@@ -3498,7 +3506,8 @@ class SQAStoreTest(TestCase):
                     "__type": "MaxGenerationParallelism",
                     "threshold": 3,
                     "only_in_statuses": [{"__type": "TrialStatus", "name": "RUNNING"}],
-                    "transition_to": None,  # Old default
+                    "block_gen_if_met": True,
+                    "transition_to": None,  # Old default - should be ignored
                 }
             ],
         }
@@ -3509,11 +3518,63 @@ class SQAStoreTest(TestCase):
             class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
         )
         self.assertEqual(node.name, "test_node")
-        self.assertEqual(len(node.transition_criteria), 1)
+        # MaxGenerationParallelism should have been migrated from
+        # transition_criteria to pausing_criteria
+        self.assertEqual(len(node.transition_criteria), 0)
+        self.assertEqual(len(node.pausing_criteria), 1)
         criterion = assert_is_instance(
-            node.transition_criteria[0],
+            node.pausing_criteria[0],
             MaxGenerationParallelism,
         )
         self.assertEqual(criterion.threshold, 3)
-        # transition_to should now be set to the node name (pointing to itself)
-        self.assertEqual(criterion.transition_to, "test_node")
+
+    def test_block_gen_if_met_mintrials_migration(self) -> None:
+        """Test backwards compatibility when loading an old GenerationNode that
+        has MinTrials with block_gen_if_met=True. The decoder should
+        automatically migrate it to MaxTrialsAwaitingData in
+        pausing_criteria.
+        """
+        # MinTrials with both block_gen_if_met=True and
+        # block_transition_if_unmet=True should create MaxTrialsAwaitingData
+        # AND keep in transition_criteria
+        old_format_node_json = {
+            "__type": "GenerationNode",
+            "name": "test_node",
+            "generator_specs": [
+                {
+                    "__type": "GeneratorSpec",
+                    "generator_enum": {"__type": "Generators", "name": "SOBOL"},
+                    "generator_kwargs": {},
+                    "generator_gen_kwargs": {},
+                }
+            ],
+            "transition_criteria": [
+                {
+                    "__type": "MinTrials",
+                    "threshold": 5,
+                    "only_in_statuses": None,
+                    "not_in_statuses": None,
+                    "use_all_trials_in_exp": True,
+                    "block_gen_if_met": True,
+                    "block_transition_if_unmet": True,
+                    "transition_to": "next_node",
+                }
+            ],
+        }
+
+        node = generation_node_from_json(
+            generation_node_json=old_format_node_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+        self.assertEqual(node.name, "test_node")
+        # Should have both, one to represent the pausing criterion and
+        # one to represent the transition criterion
+        self.assertEqual(len(node.transition_criteria), 1)
+        self.assertEqual(len(node.pausing_criteria), 1)
+        tc = assert_is_instance(node.transition_criteria[0], MinTrials)
+        self.assertEqual(tc.threshold, 5)
+        self.assertEqual(tc.transition_to, "next_node")
+        pausing = assert_is_instance(node.pausing_criteria[0], MaxTrialsAwaitingData)
+        self.assertEqual(pausing.threshold, 5)
+        self.assertTrue(pausing.use_all_trials_in_exp)

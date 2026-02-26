@@ -11,7 +11,8 @@ from logging import Logger
 from ax.adapter.registry import Generators
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -23,6 +24,7 @@ from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
 )
 from ax.utils.common.logger import get_logger
@@ -167,7 +169,6 @@ class TestTransitionCriterion(TestCase):
         step_0_expected_transition_criteria = [
             MinTrials(
                 threshold=3,
-                block_gen_if_met=True,
                 transition_to="GenerationStep_1_BoTorch",
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
@@ -176,7 +177,6 @@ class TestTransitionCriterion(TestCase):
         step_1_expected_transition_criteria = [
             MinTrials(
                 threshold=4,
-                block_gen_if_met=False,
                 transition_to="GenerationStep_2_BoTorch",
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
@@ -186,12 +186,11 @@ class TestTransitionCriterion(TestCase):
                 threshold=2,
                 transition_to="GenerationStep_2_BoTorch",
             ),
+        ]
+        step_1_expected_pausing_criteria = [
             MaxGenerationParallelism(
                 threshold=1,
                 only_in_statuses=[TrialStatus.RUNNING],
-                block_gen_if_met=True,
-                block_transition_if_unmet=False,
-                transition_to="GenerationStep_1_BoTorch",
             ),
         ]
         step_2_expected_transition_criteria = []
@@ -200,6 +199,9 @@ class TestTransitionCriterion(TestCase):
         )
         self.assertEqual(
             gs._nodes[1].transition_criteria, step_1_expected_transition_criteria
+        )
+        self.assertEqual(
+            gs._nodes[1].pausing_criteria, step_1_expected_pausing_criteria
         )
         self.assertEqual(
             gs._nodes[2].transition_criteria, step_2_expected_transition_criteria
@@ -391,12 +393,9 @@ class TestTransitionCriterion(TestCase):
         max_criterion_with_status = MinTrials(
             threshold=2,
             transition_to="next_node",
-            block_gen_if_met=True,
             only_in_statuses=[TrialStatus.COMPLETED],
         )
-        max_criterion = MinTrials(
-            threshold=2, transition_to="next_node", block_gen_if_met=True
-        )
+        max_criterion = MinTrials(threshold=2, transition_to="next_node")
         self.assertFalse(
             max_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
@@ -428,8 +427,6 @@ class TestTransitionCriterion(TestCase):
         min_trials_criterion = MinTrials(
             threshold=5,
             transition_to="GenerationStep_1",
-            block_gen_if_met=True,
-            block_transition_if_unmet=False,
             only_in_statuses=[TrialStatus.COMPLETED],
             not_in_statuses=[TrialStatus.FAILED],
         )
@@ -439,8 +436,6 @@ class TestTransitionCriterion(TestCase):
             + "'transition_to': 'GenerationStep_1', "
             + "'only_in_statuses': [<enum 'TrialStatus'>.COMPLETED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': False, "
             + "'count_only_trials_with_data': False})",
@@ -449,8 +444,6 @@ class TestTransitionCriterion(TestCase):
             threshold=0,
             transition_to="GenerationStep_2",
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
-            block_gen_if_met=True,
-            block_transition_if_unmet=False,
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
@@ -460,8 +453,6 @@ class TestTransitionCriterion(TestCase):
             + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.COMPLETED, <enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': False, "
             + "'count_only_trials_with_data': False})",
@@ -469,27 +460,54 @@ class TestTransitionCriterion(TestCase):
         max_parallelism = MaxGenerationParallelism(
             only_in_statuses=[TrialStatus.EARLY_STOPPED],
             threshold=3,
-            transition_to="GenerationStep_2",
-            block_gen_if_met=True,
-            block_transition_if_unmet=False,
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
             str(max_parallelism),
             "MaxGenerationParallelism({'threshold': 3, "
-            + "'transition_to': 'GenerationStep_2', "
             + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
-            + "'continue_trial_generation': False})",
+            + "'count_only_trials_with_data': False})",
         )
         auto_transition = AutoTransitionAfterGen(transition_to="GenerationStep_2")
         self.assertEqual(
             str(auto_transition),
             "AutoTransitionAfterGen({'transition_to': 'GenerationStep_2', "
-            + "'block_transition_if_unmet': True, "
             + "'continue_trial_generation': True})",
         )
+
+
+class TestPausingCriterion(TestCase):
+    """Tests for PausingCriterion classes."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.experiment = get_branin_experiment()
+
+    def test_max_trials_awaiting_data(self) -> None:
+        with self.subTest("default_not_in_statuses"):
+            criterion = MaxTrialsAwaitingData(threshold=10)
+            self.assertEqual(
+                criterion.not_in_statuses,
+                [TrialStatus.FAILED, TrialStatus.ABANDONED],
+            )
+
+        with self.subTest("block_continued_generation_error"):
+            criterion = MaxTrialsAwaitingData(threshold=3)
+            with self.assertRaises(DataRequiredError):
+                criterion.block_continued_generation_error(
+                    node_name="test", experiment=self.experiment, trials_from_node=set()
+                )
+
+    def test_max_generation_parallelism_block_error(self) -> None:
+        criterion = MaxGenerationParallelism(
+            threshold=2, only_in_statuses=[TrialStatus.RUNNING]
+        )
+        with self.assertRaises(MaxParallelismReachedException):
+            criterion.block_continued_generation_error(
+                node_name="test",
+                experiment=self.experiment,
+                trials_from_node={0, 1, 2},
+            )

@@ -394,7 +394,8 @@ class TestGenerationNode(TestCase):
             "generator_specs=[GeneratorSpec(generator_enum=BoTorch, "
             "generator_key_override=None)], "
             "transition_criteria=[MinTrials(transition_to='next_node')], "
-            "suggested_experiment_status=ExperimentStatus.OPTIMIZATION)",
+            "suggested_experiment_status=ExperimentStatus.OPTIMIZATION, "
+            "pausing_criteria=None)",
         )
 
     def test_single_fixed_features(self) -> None:
@@ -504,8 +505,6 @@ class TestGenerationStep(TestCase):
                     threshold=5,
                     transition_to="GenerationStep_-1",  # overwritten during GS init
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-                    block_gen_if_met=True,
-                    block_transition_if_unmet=True,
                     use_all_trials_in_exp=False,
                 ),
             ],
@@ -530,8 +529,6 @@ class TestGenerationStep(TestCase):
                     threshold=5,
                     transition_to="GenerationStep_-1",  # overwritten during GS init
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-                    block_gen_if_met=False,
-                    block_transition_if_unmet=True,
                     use_all_trials_in_exp=True,
                 ),
                 MinTrials(
@@ -541,8 +538,6 @@ class TestGenerationStep(TestCase):
                         TrialStatus.COMPLETED,
                         TrialStatus.EARLY_STOPPED,
                     ],
-                    block_gen_if_met=False,
-                    block_transition_if_unmet=True,
                     use_all_trials_in_exp=True,
                 ),
             ],
