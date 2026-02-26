@@ -576,11 +576,17 @@ def run_optimization_with_orchestrator(
         include_status_quo=sq_arm is not None,
         logging_level=orchestrator_logging_level,
     )
-    runner = get_benchmark_runner(
-        problem=problem,
-        max_concurrency=orchestrator_options.max_pending_trials,
-        force_use_simulated_backend=method.early_stopping_strategy is not None,
-    )
+
+    # Use custom runner if provided on the problem, otherwise create standard runner
+    if problem.runner is not None:
+        runner = problem.runner
+    else:
+        runner = get_benchmark_runner(
+            problem=problem,
+            max_concurrency=orchestrator_options.max_pending_trials,
+            force_use_simulated_backend=method.early_stopping_strategy is not None,
+        )
+
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
