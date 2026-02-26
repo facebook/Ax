@@ -95,7 +95,7 @@ class EarlyStoppingAnalysis(Analysis):
                 single-objective unconstrained experiments.
             min_savings_threshold: Minimum savings threshold to suggest early
                 stopping. Default is 0.1 (10% savings).
-            max_pending_trials: Maximum number of pending trials for replay
+            max_pending_trials: Maximum number of concurrent trials for replay
                 orchestrator. Default is 5.
             auto_early_stopping_config: A string for configuring automated early
                 stopping strategy.
