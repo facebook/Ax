@@ -231,10 +231,31 @@ class UtilsTest(TestCase):
             get_pending_observation_features(self.experiment),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
-        # With `fetch_data` on trial returning data for metric "m2", that metric
-        # should no longer have pending observation features.
+        # With data for metric "m2", that metric should no longer have pending
+        # observation features.
         with patch.object(
-            self.trial,
+            self.experiment,
+            "lookup_data",
+            return_value=raw_evaluations_to_data(
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
+            )
+        # A completed trial without data should still appear as pending.
+        self.trial.mark_completed()
+        self.assertEqual(
+            get_pending_observation_features(self.experiment),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+        # A completed trial with data for some metrics should be pending only
+        # for metrics without data.
+        with patch.object(
+            self.experiment,
             "lookup_data",
             return_value=raw_evaluations_to_data(
                 {self.trial.arm.name: {"m2": (1, 0)}},
@@ -247,78 +268,34 @@ class UtilsTest(TestCase):
                 {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
             )
         # When a trial is marked failed, it should no longer appear in pending.
-        self.trial.mark_failed()
+        self.trial._status = TrialStatus.FAILED
         self.assertIsNone(get_pending_observation_features(self.experiment))
-        # When a trial is abandoned, it should appear in pending features whether
-        # or not there is data for it.
+        # Abandoned trials without data should appear as pending for all metrics.
         self.trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
         self.assertEqual(
             get_pending_observation_features(self.experiment),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
-        # When an arm is abandoned, it should appear in pending features whether
-        # or not there is data for it.
+        # Abandoned trials with data for some metrics should only be pending
+        # for metrics without data.
+        with patch.object(
+            self.experiment,
+            "lookup_data",
+            return_value=raw_evaluations_to_data(
+                {self.trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.trial.index,
+                metric_name_to_signature={"m2": "m2"},
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
+            )
+        # Individually abandoned arms in a batch trial should NOT appear
+        # in pending features.
+        self.trial._status = TrialStatus.FAILED  # Remove trial from pending.
         self.batch_trial.mark_arm_abandoned(arm_name="0_0")
-        # Checking with data for all metrics.
-        with patch.object(
-            self.batch_trial,
-            "fetch_data",
-            return_value=Metric._wrap_trial_data_multi(
-                data=raw_evaluations_to_data(
-                    {
-                        self.batch_trial.arms[0].name: {
-                            "m1": (1, 0),
-                            "m2": (1, 0),
-                            "tracking": (1, 0),
-                        }
-                    },
-                    trial_index=self.trial.index,
-                    metric_name_to_signature={
-                        "m1": "m1",
-                        "m2": "m2",
-                        "tracking": "tracking",
-                    },
-                ),
-            ),
-        ):
-            self.assertEqual(
-                get_pending_observation_features(self.experiment),
-                {
-                    "tracking": [self.obs_feat],
-                    "m2": [self.obs_feat],
-                    "m1": [self.obs_feat],
-                },
-            )
-        # Checking with data for all metrics.
-        with patch.object(
-            self.trial,
-            "fetch_data",
-            return_value=Metric._wrap_trial_data_multi(
-                data=raw_evaluations_to_data(
-                    {
-                        self.trial.arm.name: {
-                            "m1": (1, 0),
-                            "m2": (1, 0),
-                            "tracking": (1, 0),
-                        }
-                    },
-                    trial_index=self.trial.index,
-                    metric_name_to_signature={
-                        "m1": "m1",
-                        "m2": "m2",
-                        "tracking": "tracking",
-                    },
-                ),
-            ),
-        ):
-            self.assertEqual(
-                get_pending_observation_features(self.experiment),
-                {
-                    "tracking": [self.obs_feat],
-                    "m2": [self.obs_feat],
-                    "m1": [self.obs_feat],
-                },
-            )
+        self.assertIsNone(get_pending_observation_features(self.experiment))
 
     def test_update_trial_status(self) -> None:
         """
@@ -390,11 +367,11 @@ class UtilsTest(TestCase):
             self.assertEqual(trial.status, original_status)
 
     def test_get_pending_observation_features_multi_trial(self) -> None:
-        # With `fetch_data` on trial returning data for metric "m2", that metric
-        # should no longer have pending observation features.
+        # With data for metric "m2", that metric should no longer have pending
+        # observation features.
         self.trial.mark_running(no_runner_required=True)
         with patch.object(
-            self.trial,
+            self.experiment,
             "lookup_data",
             return_value=raw_evaluations_to_data(
                 {self.trial.arm.name: {"m2": (1, 0)}},
@@ -412,33 +389,31 @@ class UtilsTest(TestCase):
         other_trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         other_trial.mark_running(no_runner_required=True)
 
+        trial_0_data = raw_evaluations_to_data(
+            {self.trial.arm.name: {"m2": (1, 0)}},
+            trial_index=self.trial.index,
+            metric_name_to_signature={"m2": "m2"},
+        )
+        trial_1_data = raw_evaluations_to_data(
+            {other_trial.arm.name: {"m2": (1, 0), "tracking": (1, 0)}},
+            trial_index=other_trial.index,
+            metric_name_to_signature={"m2": "m2", "tracking": "tracking"},
+        )
+        combined_data = Data.from_multiple_data([trial_0_data, trial_1_data])
         with patch.object(
-            self.trial,
+            self.experiment,
             "lookup_data",
-            return_value=raw_evaluations_to_data(
-                {self.trial.arm.name: {"m2": (1, 0)}},
-                trial_index=self.trial.index,
-                metric_name_to_signature={"m2": "m2"},
-            ),
+            return_value=combined_data,
         ):
-            with patch.object(
-                other_trial,
-                "lookup_data",
-                return_value=raw_evaluations_to_data(
-                    {other_trial.arm.name: {"m2": (1, 0), "tracking": (1, 0)}},
-                    trial_index=other_trial.index,
-                    metric_name_to_signature={"m2": "m2", "tracking": "tracking"},
-                ),
-            ):
-                pending = get_pending_observation_features(self.experiment)
-                self.assertEqual(
-                    pending,
-                    {
-                        "tracking": [self.obs_feat],
-                        "m2": [],
-                        "m1": [self.obs_feat, other_obs_feat],
-                    },
-                )
+            pending = get_pending_observation_features(self.experiment)
+            self.assertEqual(
+                pending,
+                {
+                    "tracking": [self.obs_feat],
+                    "m2": [],
+                    "m1": [self.obs_feat, other_obs_feat],
+                },
+            )
 
     def test_get_pending_observation_features_out_of_design(self) -> None:
         # Out of design points are excluded depending on the kwarg.
@@ -492,11 +467,11 @@ class UtilsTest(TestCase):
                     ],
                 )
 
-        # With `fetch_data` on trial returning data for metric "m2", that metric
-        # should no longer have pending observation features.
+        # With data for metric "m2", that metric should no longer have pending
+        # observation features.
         self.hss_trial.mark_running(no_runner_required=True)
         with patch.object(
-            self.hss_trial,
+            self.hss_exp,
             "lookup_data",
             return_value=raw_evaluations_to_data(
                 {self.hss_trial.arm.name: {"m2": (1, 0)}},
@@ -512,69 +487,13 @@ class UtilsTest(TestCase):
         self.hss_trial.mark_failed()
         self.assertIsNone(get_pending_observation_features(self.hss_exp))
 
-        # When an arm is abandoned, it should appear in pending features whether
-        # or not there is data for it.
+        # Abandoned arms should not appear in pending features.
         hss_exp = get_hierarchical_search_space_experiment()
         hss_batch_trial = hss_exp.new_batch_trial(generator_run=self.hss_gr)
         hss_batch_trial.mark_arm_abandoned(hss_batch_trial.arms[0].name)
-        # Mark the trial failed, so that only abandoned arm shows up.
+        # Mark the trial failed, so that only abandoned arm remains.
         hss_batch_trial.mark_running(no_runner_required=True).mark_failed()
-        # Checking with data for all metrics.
-        with patch.object(
-            hss_batch_trial,
-            "fetch_data",
-            return_value=Metric._wrap_trial_data_multi(
-                data=raw_evaluations_to_data(
-                    {
-                        hss_batch_trial.arms[0].name: {
-                            "m1": (1, 0),
-                            "m2": (1, 0),
-                        }
-                    },
-                    trial_index=hss_batch_trial.index,
-                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
-                ),
-            ),
-        ):
-            pending = get_pending_observation_features(hss_exp)
-        self.assertEqual(
-            pending,
-            {"m1": [self.hss_obs_feat], "m2": [self.hss_obs_feat]},
-        )
-        # Check that candidate metadata is property propagated for abandoned arm.
-        for p in none_throws(pending).values():
-            for pf in p:
-                self.assertEqual(
-                    none_throws(pf.metadata),
-                    none_throws(self.hss_gr.candidate_metadata_by_arm_signature)[
-                        self.hss_arm.signature
-                    ],
-                )
-
-        # Checking with data for all metrics.
-        with patch.object(
-            hss_batch_trial,
-            "fetch_data",
-            return_value=Metric._wrap_trial_data_multi(
-                data=raw_evaluations_to_data(
-                    {
-                        hss_batch_trial.arms[0].name: {
-                            "m1": (1, 0),
-                            "m2": (1, 0),
-                        }
-                    },
-                    trial_index=hss_batch_trial.index,
-                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
-                ),
-            ),
-        ):
-            self.assertEqual(
-                get_pending_observation_features(hss_exp),
-                {
-                    "m2": [self.hss_obs_feat],
-                    "m1": [self.hss_obs_feat],
-                },
-            )
+        self.assertIsNone(get_pending_observation_features(hss_exp))
 
     def test_get_pending_observation_features_batch_trial(self) -> None:
         # Check the same functionality for batched trials.
@@ -660,7 +579,7 @@ class UtilsTest(TestCase):
         # When a trial is marked failed, it should no longer appear in pending.
         self.trial.mark_failed()
         self.assertIsNone(get_pending_status(self.experiment))
-        # And if the trial is abandoned, it should always appear in pending features.
+        # Abandoned trials should appear in pending features.
         self.trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
         self.assertEqual(
             get_pending_status(self.experiment),
@@ -696,8 +615,9 @@ class UtilsTest(TestCase):
         # When a trial is marked failed, it should no longer appear in pending.
         self.hss_trial.mark_failed()
         self.assertIsNone(get_pending_status(self.hss_exp))
-        # And if the trial is abandoned, it should always appear in pending features.
+        # Abandoned trials should appear in pending features.
         self.hss_trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
+        pending = get_pending_status(self.hss_exp)
         self.assertEqual(
             pending,
             {
@@ -705,17 +625,6 @@ class UtilsTest(TestCase):
                 "m2": [self.hss_obs_feat],
             },
         )
-
-        # Check that transforming observation features works correctly (it should inject
-        # full parameterization into resulting obs.feats.)
-        for p in none_throws(pending).values():
-            for pf in p:
-                self.assertEqual(
-                    none_throws(pf.metadata),
-                    none_throws(self.hss_gr.candidate_metadata_by_arm_signature)[
-                        self.hss_arm.signature
-                    ],
-                )
 
     def test_extract_pending_observations(self) -> None:
         exp_with_many_trials = get_experiment()
