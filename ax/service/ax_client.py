@@ -42,10 +42,14 @@ from ax.exceptions.core import (
     UnsupportedPlotError,
     UserInputError,
 )
-from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.exceptions.generation_strategy import (
+    MaxParallelismReachedException as MaxConcurrencyReachedException,
+)
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism as MaxGenerationConcurrency,
+)
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.plot.base import AxPlotConfig
@@ -570,7 +574,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 ),
                 ttl_seconds=ttl_seconds,
             )
-        except MaxParallelismReachedException as e:
+        except MaxConcurrencyReachedException as e:
             if self._early_stopping_strategy is not None:
                 e.message += (  # noqa: B306
                     " When stopping trials early, make sure to call `stop_trial_early` "
@@ -836,39 +840,39 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         return self.experiment.to_df()
 
-    def get_max_parallelism(self) -> list[tuple[int, int]]:
-        """Retrieves maximum number of trials that can be scheduled in parallel
+    def get_max_concurrency(self) -> list[tuple[int, int]]:
+        """Retrieves maximum number of trials that can be scheduled concurrently
         at different stages of optimization.
 
         Some optimization algorithms profit significantly from sequential
         optimization (i.e. suggest a few points, get updated with data for them,
         repeat, see https://ax.dev/docs/bayesopt.html).
-        Parallelism setting indicates how many trials should be running simulteneously
+        Concurrency setting indicates how many trials should be running simultaneously
         (generated, but not yet completed with data).
 
         The output of this method is mapping of form
-        {num_trials -> max_parallelism_setting}, where the max_parallelism_setting
-        is used for num_trials trials. If max_parallelism_setting is -1, as
-        many of the trials can be ran in parallel, as necessary. If num_trials
-        in a tuple is -1, then the corresponding max_parallelism_setting
+        {num_trials -> max_concurrency_setting}, where the max_concurrency_setting
+        is used for num_trials trials. If max_concurrency_setting is -1, as
+        many of the trials can be ran concurrently, as necessary. If num_trials
+        in a tuple is -1, then the corresponding max_concurrency_setting
         should be used for all subsequent trials.
 
         For example, if the returned list is [(5, -1), (12, 6), (-1, 3)],
-        the schedule could be: run 5 trials with any parallelism, run 6 trials in
-        parallel twice, run 3 trials in parallel for as long as needed. Here,
+        the schedule could be: run 5 trials with any concurrency, run 6 trials
+        concurrently twice, run 3 trials concurrently for as long as needed. Here,
         'running' a trial means obtaining a next trial from `AxClient` through
         get_next_trials and completing it with data when available.
 
         Returns:
-            Mapping of form {num_trials -> max_parallelism_setting}.
+            Mapping of form {num_trials -> max_concurrency_setting}.
         """
-        parallelism_settings = []
+        concurrency_settings = []
         for node in self.generation_strategy._nodes:
-            # Extract max_parallelism from MaxGenerationParallelism criterion
-            max_parallelism = None
+            # Extract max_concurrency from MaxGenerationConcurrency criterion
+            max_concurrency = None
             for tc in node.transition_criteria:
-                if isinstance(tc, MaxGenerationParallelism):
-                    max_parallelism = tc.threshold
+                if isinstance(tc, MaxGenerationConcurrency):
+                    max_concurrency = tc.threshold
                     break
             # Try to get num_trials from the node. If there's no MinTrials
             # criterion (unlimited trials), num_trials will raise UserInputError.
@@ -877,13 +881,16 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 num_trials = node.num_trials
             except UserInputError:
                 num_trials = -1
-            parallelism_settings.append(
+            concurrency_settings.append(
                 (
                     num_trials,
-                    max_parallelism if max_parallelism is not None else num_trials,
+                    max_concurrency if max_concurrency is not None else num_trials,
                 )
             )
-        return parallelism_settings
+        return concurrency_settings
+
+    def get_max_parallelism(self) -> list[tuple[int, int]]:
+        raise NotImplementedError("Use `get_max_concurrency` instead.")
 
     def get_optimization_trace(
         self, objective_optimum: float | None = None
@@ -1702,8 +1709,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     @staticmethod
     def get_recommended_max_parallelism() -> None:
         raise NotImplementedError(
-            "Use `get_max_parallelism` instead; parallelism levels are now "
-            "enforced in generation strategy, so max parallelism is no longer "
+            "Use `get_max_concurrency` instead; concurrency levels are now "
+            "enforced in generation strategy, so max concurrency is no longer "
             "just recommended."
         )
 
