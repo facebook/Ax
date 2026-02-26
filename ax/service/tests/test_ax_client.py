@@ -19,6 +19,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import torch
 from ax.adapter.registry import Cont_X_trans, Generators
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 from ax.core.arm import Arm
 from ax.core.data import Data, MAP_KEY
 from ax.core.generator_run import GeneratorRun
@@ -1354,6 +1355,198 @@ class TestAxClient(TestCase):
             ax_client.experiment.search_space.parameter_constraints,
             [ParameterConstraint(inequality="x1 <= x2")],
         )
+
+    def test_update_parameters(self) -> None:
+        """Test that update_parameters correctly updates parameters and raises
+        appropriate errors."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [1, 10],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x3",
+                    "type": "choice",
+                    "values": ["a", "b", "c"],
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+
+        # --- sub-test 1: update RangeParameter bounds (float) ---
+        with self.subTest("update_float_range_parameter"):
+            ax_client.update_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1",
+                        bounds=(0.5, 2.0),
+                        parameter_type="float",
+                    ),
+                ]
+            )
+            param = ax_client.experiment.search_space.parameters["x1"]
+            self.assertIsInstance(param, RangeParameter)
+            assert isinstance(param, RangeParameter)
+            self.assertEqual(param.lower, 0.5)
+            self.assertEqual(param.upper, 2.0)
+
+        # --- sub-test 2: update RangeParameter bounds (int) ---
+        with self.subTest("update_int_range_parameter"):
+            ax_client.update_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x2",
+                        bounds=(5, 20),
+                        parameter_type="int",
+                    ),
+                ]
+            )
+            param = ax_client.experiment.search_space.parameters["x2"]
+            self.assertIsInstance(param, RangeParameter)
+            assert isinstance(param, RangeParameter)
+            self.assertEqual(param.lower, 5)
+            self.assertEqual(param.upper, 20)
+
+        # --- sub-test 3: raises on missing parameter ---
+        with self.subTest("raises_on_missing_parameter"):
+            with self.assertRaisesRegex(
+                UserInputError, "Parameter nonexistent not found in search space"
+            ):
+                ax_client.update_parameters(
+                    parameters=[
+                        RangeParameterConfig(
+                            name="nonexistent",
+                            bounds=(0.0, 1.0),
+                            parameter_type="float",
+                        ),
+                    ]
+                )
+
+        # --- sub-test 4: raises on non-RangeParameter ---
+        with self.subTest("raises_on_non_range_parameter"):
+            with self.assertRaisesRegex(
+                UserInputError, "Parameter x3 is not a RangeParameter"
+            ):
+                ax_client.update_parameters(
+                    parameters=[
+                        RangeParameterConfig(
+                            name="x3",
+                            bounds=(0.0, 1.0),
+                            parameter_type="float",
+                        ),
+                    ]
+                )
+
+    def test_add_parameters(self) -> None:
+        """Test that add_parameters correctly adds new parameters to the
+        search space.
+        """
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+
+        ax_client.add_parameters(
+            parameters=[
+                RangeParameterConfig(
+                    name="x2",
+                    bounds=(0.0, 10.0),
+                    parameter_type="float",
+                ),
+                ChoiceParameterConfig(
+                    name="x3",
+                    values=["a", "b", "c"],
+                    parameter_type="str",
+                ),
+            ],
+            backfill_values={"x2": 5.0, "x3": "a"},
+        )
+
+        search_space = ax_client.experiment.search_space
+        self.assertIn("x1", search_space.parameters)
+        self.assertIn("x2", search_space.parameters)
+        self.assertIn("x3", search_space.parameters)
+
+        param_x2 = search_space.parameters["x2"]
+        self.assertIsInstance(param_x2, RangeParameter)
+        assert isinstance(param_x2, RangeParameter)
+        self.assertEqual(param_x2.lower, 0.0)
+        self.assertEqual(param_x2.upper, 10.0)
+
+        param_x3 = search_space.parameters["x3"]
+        self.assertIsInstance(param_x3, ChoiceParameter)
+        assert isinstance(param_x3, ChoiceParameter)
+        self.assertEqual(param_x3.values, ["a", "b", "c"])
+
+    def test_disable_parameters(self) -> None:
+        """Test that disable_parameters correctly disables parameters in the search
+        space."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [1, 10],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x3",
+                    "type": "choice",
+                    "values": ["a", "b", "c"],
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+
+        ax_client.disable_parameters(default_parameter_values={"x2": 5, "x3": "b"})
+
+        search_space = ax_client.experiment.search_space
+        self.assertIn("x1", search_space.parameters)
+        self.assertIn("x2", search_space.parameters)
+        self.assertIn("x3", search_space.parameters)
+
+        param_x1 = search_space.parameters["x1"]
+        self.assertIsInstance(param_x1, RangeParameter)
+        self.assertFalse(param_x1.is_disabled)
+
+        param_x2 = search_space.parameters["x2"]
+        self.assertTrue(param_x2.is_disabled)
+        self.assertEqual(param_x2.default_value, 5)
+
+        param_x3 = search_space.parameters["x3"]
+        self.assertTrue(param_x3.is_disabled)
+        self.assertEqual(param_x3.default_value, "b")
 
     def test_create_moo_experiment(self) -> None:
         """Test basic experiment creation."""
