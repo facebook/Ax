@@ -49,7 +49,9 @@ from ax.exceptions.core import (
     UnsupportedPlotError,
     UserInputError,
 )
-from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.exceptions.generation_strategy import (
+    MaxParallelismReachedException as MaxConcurrencyReachedException,
+)
 from ax.generation_strategy.dispatch_utils import DEFAULT_BAYESIAN_CONCURRENCY
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
@@ -58,7 +60,7 @@ from ax.generation_strategy.generation_strategy import (
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
-    MaxGenerationParallelism,
+    MaxGenerationParallelism as MaxGenerationConcurrency,
     MinTrials,
 )
 from ax.metrics.branin import branin, BraninMetric
@@ -1616,14 +1618,14 @@ class TestAxClient(TestCase):
         self.assertTrue(len(node0_min_trials) > 0)
         self.assertFalse(node0_min_trials[0].block_gen_if_met)
 
-        # Check that max_parallelism is None by verifying no MaxGenerationParallelism
+        # Check that max_concurrency is None by verifying no MaxGenerationConcurrency
         # criterion exists on node 1
-        node1_max_parallelism = [
+        node1_max_concurrency = [
             tc
             for tc in ax_client.generation_strategy._nodes[1].transition_criteria
-            if isinstance(tc, MaxGenerationParallelism)
+            if isinstance(tc, MaxGenerationConcurrency)
         ]
-        self.assertEqual(len(node1_max_parallelism), 0)
+        self.assertEqual(len(node1_max_concurrency), 0)
 
         for _ in range(10):
             ax_client.get_next_trial()
@@ -1939,17 +1941,17 @@ class TestAxClient(TestCase):
     def test_recommended_parallelism(self) -> None:
         ax_client = AxClient()
         with self.assertRaisesRegex(AssertionError, "No generation strategy"):
-            ax_client.get_max_parallelism()
+            ax_client.get_max_concurrency()
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        self.assertEqual(ax_client.get_max_parallelism(), [(5, 5), (-1, 3)])
+        self.assertEqual(ax_client.get_max_concurrency(), [(5, 5), (-1, 3)])
         self.assertEqual(
             run_trials_using_recommended_parallelism(
-                ax_client, ax_client.get_max_parallelism(), 20
+                ax_client, ax_client.get_max_concurrency(), 20
             ),
             0,
         )
@@ -2320,6 +2322,8 @@ class TestAxClient(TestCase):
             ax_client.load_experiment("test_experiment")
         with self.assertRaises(NotImplementedError):
             ax_client.get_recommended_max_parallelism()
+        with self.assertRaises(NotImplementedError):
+            ax_client.get_max_parallelism()
 
     def test_find_last_trial_with_parameterization(self) -> None:
         ax_client = AxClient()
@@ -2872,7 +2876,7 @@ class TestAxClient(TestCase):
 
         self.assertEqual(ax_client.estimate_early_stopping_savings(), 0)
 
-    def test_max_parallelism_exception_when_early_stopping(self) -> None:
+    def test_max_concurrency_exception_when_early_stopping(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
@@ -2882,7 +2886,7 @@ class TestAxClient(TestCase):
             support_intermediate_data=True,
         )
 
-        exception = MaxParallelismReachedException(step_index=1, num_running=10)
+        exception = MaxConcurrencyReachedException(step_index=1, num_running=10)
 
         # pyre-fixme[53]: Captured variable `exception` is not annotated.
         def fake_new_trial(*args: Any, **kwargs: Any) -> None:
@@ -2892,7 +2896,7 @@ class TestAxClient(TestCase):
         ax_client.experiment.new_trial = fake_new_trial
 
         # Without early stopping.
-        with self.assertRaises(MaxParallelismReachedException) as cm:
+        with self.assertRaises(MaxConcurrencyReachedException) as cm:
             ax_client.get_next_trial()
         # Assert Exception's message is unchanged.
         self.assertEqual(cm.exception.message, exception.message)
@@ -2900,7 +2904,7 @@ class TestAxClient(TestCase):
         # With early stopping.
         ax_client._early_stopping_strategy = DummyEarlyStoppingStrategy()
         # Assert Exception's message is augmented to mention early stopping.
-        with self.assertRaisesRegex(MaxParallelismReachedException, ".*early.*stop"):
+        with self.assertRaisesRegex(MaxConcurrencyReachedException, ".*early.*stop"):
             ax_client.get_next_trial()
 
     def test_experiment_does_not_support_early_stopping(self) -> None:
