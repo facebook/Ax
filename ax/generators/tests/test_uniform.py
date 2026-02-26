@@ -167,13 +167,18 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
-    def test_with_bad_bounds(self) -> None:
-        generator = UniformGenerator()
-        with self.assertRaises(ValueError):
-            generated_points, weights = generator.gen(
-                n=1,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=["a"], bounds=[(-1, 1)]
-                ),
-                rounding_func=lambda x: x,
-            )
+    def test_with_general_bounds(self) -> None:
+        generator = UniformGenerator(seed=self.seed)
+        bounds = [(2.0, 10.0), (0.5, 5.5), (-3.0, 3.0)]
+        ssd = SearchSpaceDigest(
+            feature_names=["x0", "x1", "x2"],
+            bounds=bounds,
+        )
+        generated_points, weights = generator.gen(
+            n=5, search_space_digest=ssd, rounding_func=lambda x: x
+        )
+        self.assertEqual(np.shape(generated_points), (5, 3))
+        np_bounds = np.array(bounds)
+        self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
+        self.assertTrue(np.all(weights == 1.0))
