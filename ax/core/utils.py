@@ -273,10 +273,13 @@ def extract_pending_observations(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
 ) -> dict[str, list[ObservationFeatures]] | None:
-    """Computes a list of pending observation features (corresponding to:
-    - arms that have been generated and run in the course of the experiment,
-    but have not been completed with data,
-    - arms that have been abandoned or belong to abandoned trials).
+    """Computes a list of pending observation features (corresponding to
+    arms that have been generated and run in the course of the experiment
+    but have not been completed with data, or arms that belong to
+    abandoned trials).
+
+    Note: Individually abandoned arms within a BatchTrial are NOT
+    included as pending.
 
     This function dispatches to:
     - ``get_pending_observation_features`` if experiment is using
@@ -311,10 +314,13 @@ def get_pending_observation_features(
     *,
     include_out_of_design_points: bool = False,
 ) -> dict[str, list[ObservationFeatures]] | None:
-    """Computes a list of pending observation features (corresponding to:
-    - arms that have been generated in the course of the experiment,
-    but have not been completed with data,
-    - arms that have been abandoned or belong to abandoned trials).
+    """Computes a list of pending observation features (corresponding to
+    arms that have been generated in the course of the experiment
+    but have not been completed with data, or arms that belong to
+    abandoned trials).
+
+    Note: Individually abandoned arms within a BatchTrial are NOT
+    included as pending.
 
     NOTE: Pending observation features are passed to the model to
     instruct it to not generate the same points again.
@@ -353,39 +359,35 @@ def get_pending_observation_features(
             metadata=trial._get_candidate_metadata(arm_name=arm.name),
         )
 
-    # Note that this assumes that if a metric appears in fetched data, the trial is
-    # not pending for the metric. Where only the most recent data matters, this will
-    # work, but may need to add logic to check previously added data objects, too.
+    # Build a mapping from trial_index to the set of metric names with data,
+    # using a single lookup_data call on the experiment for efficiency.
+    all_data_df = experiment.lookup_data().df
+    if len(all_data_df) > 0:
+        metric_names_by_trial: dict[int, set[str]] = (
+            all_data_df.groupby("trial_index")["metric_name"]
+            .apply(lambda x: set(x))
+            .to_dict()
+        )
+    else:
+        metric_names_by_trial = {}
+
     for trial_index, trial in experiment.trials.items():
-        if trial.status.is_deployed:
-            metric_names_in_data = set(trial.lookup_data().df.metric_name.values)
-        else:
-            metric_names_in_data = set()
+        metric_names_in_data = metric_names_by_trial.get(trial_index, set())
 
         for metric_name in experiment.metrics:
             if metric_name not in pending_features:
                 pending_features[metric_name] = []
 
-            if (
-                trial.status.is_abandoned
-                or trial.status.is_candidate
-                or (
+            if trial.status.is_candidate or (
+                (
                     trial.status.is_deployed
-                    and metric_name not in metric_names_in_data
-                    and trial.arms is not None
+                    or trial.status.is_completed
+                    or trial.status.is_abandoned
                 )
+                and metric_name not in metric_names_in_data
+                and trial.arms is not None
             ):
                 for arm in trial.arms:
-                    if feature := create_observation_feature(
-                        arm=arm,
-                        trial_index=trial_index,
-                        trial=trial,
-                    ):
-                        pending_features[metric_name].append(feature)
-
-            # Also add abandoned arms as pending for all metrics.
-            if isinstance(trial, BatchTrial):
-                for arm in trial.abandoned_arms:
                     if feature := create_observation_feature(
                         arm=arm,
                         trial_index=trial_index,
