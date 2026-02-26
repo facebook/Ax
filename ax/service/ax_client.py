@@ -864,11 +864,11 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         parallelism_settings = []
         for node in self.generation_strategy._nodes:
-            # Extract max_parallelism from MaxGenerationParallelism criterion
+            # Check pausing_criteria for max parallelism
             max_parallelism = None
-            for tc in node.transition_criteria:
-                if isinstance(tc, MaxGenerationParallelism):
-                    max_parallelism = tc.threshold
+            for pc in node.pausing_criteria:
+                if isinstance(pc, MaxGenerationParallelism):
+                    max_parallelism = pc.threshold
                     break
             # Try to get num_trials from the node. If there's no MinTrials
             # criterion (unlimited trials), num_trials will raise UserInputError.

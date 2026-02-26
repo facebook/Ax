@@ -59,7 +59,7 @@ from ax.generation_strategy.generation_strategy import (
 from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
-    MinTrials,
+    MaxTrialsAwaitingData,
 )
 from ax.metrics.branin import branin, BraninMetric
 from ax.runners.synthetic import SyntheticRunner
@@ -1606,22 +1606,21 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        # Check that enforce_num_trials is False by checking the MinTrials criterion
-        # has block_gen_if_met=False
-        node0_min_trials = [
-            tc
-            for tc in ax_client.generation_strategy._nodes[0].transition_criteria
-            if isinstance(tc, MinTrials)
+        # Check that enforce_num_trials is False by verifying no
+        # MaxTrialsAwaitingData exists in pausing_criteria
+        node0_pausing_criteria = [
+            pc
+            for pc in ax_client.generation_strategy._nodes[0].pausing_criteria
+            if isinstance(pc, MaxTrialsAwaitingData)
         ]
-        self.assertTrue(len(node0_min_trials) > 0)
-        self.assertFalse(node0_min_trials[0].block_gen_if_met)
+        self.assertEqual(len(node0_pausing_criteria), 0)
 
         # Check that max_parallelism is None by verifying no MaxGenerationParallelism
-        # criterion exists on node 1
+        # criterion exists in pausing_criteria
         node1_max_parallelism = [
-            tc
-            for tc in ax_client.generation_strategy._nodes[1].transition_criteria
-            if isinstance(tc, MaxGenerationParallelism)
+            pc
+            for pc in ax_client.generation_strategy._nodes[1].pausing_criteria
+            if isinstance(pc, MaxGenerationParallelism)
         ]
         self.assertEqual(len(node1_max_parallelism), 0)
 
