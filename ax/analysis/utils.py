@@ -173,7 +173,6 @@ def prepare_arm_data(
     # status quo arm from the target trial if relativizing.
     target_trial_index = get_target_trial_index(
         experiment=experiment,
-        require_data_for_all_metrics=True,
     )
     if use_model_predictions:
         if adapter is None:
