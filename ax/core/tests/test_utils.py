@@ -28,6 +28,7 @@ from ax.core.utils import (
     _maybe_update_trial_status_to_complete,
     batch_trial_only,
     best_feasible_objective,
+    compute_metric_availability,
     extract_pending_observations,
     get_missing_metrics,
     get_missing_metrics_by_name,
@@ -37,9 +38,10 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending_status,
     get_target_trial_index,
     is_bandit_experiment,
+    MetricAvailability,
     MissingMetrics,
 )
-from ax.exceptions.core import AxError, UserInputError
+from ax.exceptions.core import AxError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -299,8 +301,8 @@ class UtilsTest(TestCase):
 
     def test_update_trial_status(self) -> None:
         """
-        Test that _update_trial_status marks a trial as failed when optimization_config
-        is not None and there are missing metrics.
+        Test that _maybe_update_trial_status_to_complete always marks the trial
+        as COMPLETED, even when optimization config metrics are missing.
         """
         # Create an experiment with optimization config
         experiment = get_experiment()
@@ -329,19 +331,14 @@ class UtilsTest(TestCase):
         )
         experiment.attach_data(data)
 
-        # The trial should be marked as failed since there are missing metrics
-        # and optimization_config is not None
-        _maybe_update_trial_status_to_complete(
-            experiment=experiment, trial_index=trial.index
-        )
-        self.assertEqual(trial.status, TrialStatus.FAILED)
-
-        # Check that the failure reason contains information about missing metrics
-        self.assertIsNotNone(trial.status_reason)
-
+        # The trial should be marked as COMPLETED even with missing metrics
+        with self.assertLogs("ax.core.utils", level="WARNING") as log:
+            _maybe_update_trial_status_to_complete(
+                experiment=experiment, trial_index=trial.index
+            )
+        self.assertEqual(trial.status, TrialStatus.COMPLETED)
         self.assertTrue(
-            "missing" in trial.status_reason,
-            f"Expected 'missing' in failure reason, but got: {trial.status_reason}",
+            any("missing optimization config metrics" in msg for msg in log.output)
         )
 
         with self.subTest("Test with no opt config"):
@@ -353,18 +350,139 @@ class UtilsTest(TestCase):
 
             trial = experiment.new_trial(GeneratorRun([self.arm]))
             trial.mark_running(no_runner_required=True)
-            original_status = trial.status
 
-            # this should return early without modifying the trial
-            with self.assertRaisesRegex(
-                UserInputError,
-                "Cannot attempt to mark a trial as failed without an optimization"
-                " config on the expeirment",
-            ):
-                _maybe_update_trial_status_to_complete(
-                    experiment=experiment, trial_index=trial.index
+            # Should still mark as COMPLETED when no opt config
+            _maybe_update_trial_status_to_complete(
+                experiment=experiment, trial_index=trial.index
+            )
+            self.assertEqual(trial.status, TrialStatus.COMPLETED)
+
+        with self.subTest("Test with all metrics present"):
+            experiment = get_experiment()
+            self.assertIsNotNone(experiment.optimization_config)
+            trial = experiment.new_trial(GeneratorRun([self.arm]))
+            trial.mark_running(no_runner_required=True)
+
+            # Attach data for all required metrics
+            all_data = Data(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": none_throws(trial.arm).name,
+                            "mean": 1.0,
+                            "sem": 0.1,
+                            "trial_index": trial.index,
+                            "metric_name": metric_name,
+                            "metric_signature": metric_name,
+                        }
+                        for metric_name in none_throws(
+                            experiment.optimization_config
+                        ).metrics
+                    ]
                 )
-            self.assertEqual(trial.status, original_status)
+            )
+            experiment.attach_data(all_data)
+
+            _maybe_update_trial_status_to_complete(
+                experiment=experiment, trial_index=trial.index
+            )
+            self.assertEqual(trial.status, TrialStatus.COMPLETED)
+
+    def test_completed_incomplete_trials_are_pending(self) -> None:
+        """Test that COMPLETED trials with incomplete metric availability appear
+        as pending in both pending observation feature functions."""
+        experiment = get_experiment()
+        self.assertIsNotNone(experiment.optimization_config)
+        arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
+        trial = experiment.new_trial(GeneratorRun([arm]))
+        trial.mark_running(no_runner_required=True)
+
+        # Attach data for only m1 (missing m2 from opt config)
+        data = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "arm_name": none_throws(trial.arm).name,
+                        "mean": 1.0,
+                        "sem": 0.1,
+                        "trial_index": trial.index,
+                        "metric_name": "m1",
+                        "metric_signature": "m1",
+                    }
+                ]
+            )
+        )
+        experiment.attach_data(data)
+        trial.mark_completed()
+
+        obs_feat = ObservationFeatures.from_arm(
+            arm=none_throws(trial.arm), trial_index=trial.index
+        )
+
+        # get_pending_observation_features: COMPLETED+INCOMPLETE trial should
+        # be pending for the missing metric m2 but NOT for the present metric m1.
+        pending = get_pending_observation_features(experiment)
+        self.assertIsNotNone(pending)
+        # m2 is missing from trial data, so this trial's arm is pending for m2
+        self.assertIn(obs_feat, pending["m2"])
+        # m1 is present, so this trial's arm should NOT be pending for m1
+        self.assertNotIn(obs_feat, pending["m1"])
+
+        # get_pending_observation_features_based_on_trial_status:
+        # COMPLETED+INCOMPLETE trial should be pending for all metrics
+        # (this function doesn't do per-metric tracking).
+        pending_status = get_pending_status(experiment)
+        self.assertIsNotNone(pending_status)
+        self.assertIn(obs_feat, pending_status["m1"])
+        self.assertIn(obs_feat, pending_status["m2"])
+
+    def test_completed_complete_trials_not_pending(self) -> None:
+        """Test that COMPLETED trials with complete metric availability do NOT
+        appear as pending."""
+        experiment = get_experiment()
+        self.assertIsNotNone(experiment.optimization_config)
+        arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5, "d": 11.0})
+        trial = experiment.new_trial(GeneratorRun([arm]))
+        trial.mark_running(no_runner_required=True)
+
+        # Attach data for all opt config metrics
+        data = Data(
+            df=pd.DataFrame(
+                [
+                    {
+                        "arm_name": none_throws(trial.arm).name,
+                        "mean": 1.0,
+                        "sem": 0.1,
+                        "trial_index": trial.index,
+                        "metric_name": metric_name,
+                        "metric_signature": metric_name,
+                    }
+                    for metric_name in none_throws(
+                        experiment.optimization_config
+                    ).metrics
+                ]
+            )
+        )
+        experiment.attach_data(data)
+        trial.mark_completed()
+
+        obs_feat = ObservationFeatures.from_arm(
+            arm=none_throws(trial.arm), trial_index=trial.index
+        )
+
+        # get_pending_observation_features: COMPLETED+COMPLETE trial should
+        # NOT be pending for any metric.
+        pending = get_pending_observation_features(experiment)
+        if pending is not None:
+            for metric_name in none_throws(experiment.optimization_config).metrics:
+                self.assertNotIn(obs_feat, pending.get(metric_name, []))
+
+        # get_pending_observation_features_based_on_trial_status:
+        # COMPLETED+COMPLETE trial should NOT be pending.
+        pending_status = get_pending_status(experiment)
+        if pending_status is not None:
+            for metric_name in none_throws(experiment.optimization_config).metrics:
+                self.assertNotIn(obs_feat, pending_status.get(metric_name, []))
 
     def test_get_pending_observation_features_multi_trial(self) -> None:
         # With data for metric "m2", that metric should no longer have pending
@@ -862,3 +980,288 @@ class UtilsTest(TestCase):
             get_target_trial_index(experiment=self.batch_experiment),
             completed_trial.index,
         )
+
+
+class TestMetricAvailability(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        # Constrained experiment: requires "branin" (objective) + "branin_e"
+        # (absolute constraint).
+        self.exp = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+            with_absolute_constraint=True,
+            num_trial=3,
+        )
+
+    def test_availability_levels(self) -> None:
+        """Test COMPLETE, INCOMPLETE, and NOT_OBSERVED availability in a single
+        experiment with multiple trials."""
+        exp = self.exp
+
+        # Trial 0: all metrics → COMPLETE
+        exp.trials[0].mark_running(no_runner_required=True)
+        exp.attach_data(
+            get_branin_data(trial_indices=[0], metrics=["branin", "branin_e"])
+        )
+        exp.trials[0].mark_completed()
+
+        # Trial 1: partial metrics → INCOMPLETE
+        exp.trials[1].mark_running(no_runner_required=True)
+        exp.attach_data(get_branin_data(trial_indices=[1], metrics=["branin"]))
+        exp.trials[1].mark_completed()
+
+        # Trial 2: no data → NOT_OBSERVED
+        exp.trials[2].mark_running(no_runner_required=True)
+        exp.trials[2].mark_completed()
+
+        result = compute_metric_availability(experiment=exp)
+        self.assertEqual(
+            [result[i] for i in range(3)],
+            [
+                MetricAvailability.COMPLETE,
+                MetricAvailability.INCOMPLETE,
+                MetricAvailability.NOT_OBSERVED,
+            ],
+        )
+
+        # Tracking-only data also counts as NOT_OBSERVED.
+        exp_tracking = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+        )
+        trial = exp_tracking.trials[0]
+        trial.mark_running(no_runner_required=True)
+        exp_tracking.attach_data(
+            get_branin_data(trial_indices=[0], metrics=["tracking_metric"])
+        )
+        trial.mark_completed()
+        result = compute_metric_availability(experiment=exp_tracking)
+        self.assertEqual(result[0], MetricAvailability.NOT_OBSERVED)
+
+    def test_no_optimization_config_raises(self) -> None:
+        """An error is raised when no optimization config is available."""
+        exp = get_branin_experiment(
+            has_optimization_config=False,
+            with_trial=True,
+            with_completed_trial=False,
+        )
+        exp.trials[0].mark_running(no_runner_required=True)
+        exp.trials[0].mark_completed()
+
+        with self.assertRaisesRegex(ValueError, "optimization config is required"):
+            compute_metric_availability(experiment=exp)
+
+    def test_custom_optimization_config(self) -> None:
+        """An explicit optimization_config overrides the experiment's, and a
+        subset config can change the result."""
+        exp = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+            with_absolute_constraint=True,
+        )
+        trial = exp.trials[0]
+        trial.mark_running(no_runner_required=True)
+        # Attach data for "branin" only (missing "branin_e").
+        exp.attach_data(get_branin_data(trial_indices=[0], metrics=["branin"]))
+        trial.mark_completed()
+
+        # Against experiment's opt config (requires branin + branin_e): INCOMPLETE.
+        result = compute_metric_availability(experiment=exp)
+        self.assertEqual(result[0], MetricAvailability.INCOMPLETE)
+
+        # Custom config requiring only "branin": COMPLETE.
+        custom_config = OptimizationConfig(
+            objective=Objective(metric=Metric(name="branin"), minimize=False),
+        )
+        result = compute_metric_availability(
+            experiment=exp, optimization_config=custom_config
+        )
+        self.assertEqual(result[0], MetricAvailability.COMPLETE)
+
+        # Custom config requiring an unrelated metric: INCOMPLETE.
+        other_config = OptimizationConfig(
+            objective=Objective(metric=Metric(name="branin"), minimize=False),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    metric=Metric(name="other_metric"),
+                    op=ComparisonOp.LEQ,
+                    bound=10.0,
+                    relative=False,
+                ),
+            ],
+        )
+        result = compute_metric_availability(
+            experiment=exp, optimization_config=other_config
+        )
+        self.assertEqual(result[0], MetricAvailability.INCOMPLETE)
+
+    def test_metric_names_parameter(self) -> None:
+        """The metric_names parameter overrides optimization_config for
+        determining required metrics."""
+        exp = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+        )
+        trial = exp.trials[0]
+        trial.mark_running(no_runner_required=True)
+        # Attach data for "branin" only.
+        exp.attach_data(get_branin_data(trial_indices=[0], metrics=["branin"]))
+        trial.mark_completed()
+
+        # With metric_names={"branin"}: COMPLETE (data exists).
+        result = compute_metric_availability(experiment=exp, metric_names={"branin"})
+        self.assertEqual(result[0], MetricAvailability.COMPLETE)
+
+        # With metric_names={"branin", "other"}: INCOMPLETE (missing "other").
+        result = compute_metric_availability(
+            experiment=exp, metric_names={"branin", "other"}
+        )
+        self.assertEqual(result[0], MetricAvailability.INCOMPLETE)
+
+        # With metric_names={"nonexistent"}: NOT_OBSERVED.
+        result = compute_metric_availability(
+            experiment=exp, metric_names={"nonexistent"}
+        )
+        self.assertEqual(result[0], MetricAvailability.NOT_OBSERVED)
+
+        # metric_names takes precedence over optimization_config.
+        result = compute_metric_availability(
+            experiment=exp, metric_names={"branin", "other"}
+        )
+        self.assertEqual(result[0], MetricAvailability.INCOMPLETE)
+
+    def test_curve_data(self) -> None:
+        """For curve data, a metric observed at any step counts as available;
+        a metric with zero rows is still missing."""
+        exp = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+        )
+        exp.optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric(name="metric_a"), minimize=False),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    metric=Metric(name="metric_b"),
+                    op=ComparisonOp.LEQ,
+                    bound=10.0,
+                    relative=False,
+                ),
+            ],
+        )
+        trial = exp.trials[0]
+        trial.mark_running(no_runner_required=True)
+        arm_name = trial.arm.name  # pyre-ignore[16]
+
+        # Both metrics present at various steps → COMPLETE.
+        df_both = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "arm_name": arm_name,
+                    "metric_name": metric,
+                    "metric_signature": metric,
+                    "mean": float(i),
+                    "sem": 0.0,
+                    "step": step,
+                }
+                for i, (metric, step) in enumerate(
+                    [("metric_a", 0), ("metric_a", 1), ("metric_a", 2), ("metric_b", 0)]
+                )
+            ]
+        )
+        exp.attach_data(Data(df=df_both))
+        trial.mark_completed()
+        result = compute_metric_availability(experiment=exp)
+        self.assertEqual(result[0], MetricAvailability.COMPLETE)
+
+        # Only metric_a present, metric_b missing → INCOMPLETE.
+        exp2 = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+        )
+        exp2.optimization_config = none_throws(exp.optimization_config)
+        trial2 = exp2.trials[0]
+        trial2.mark_running(no_runner_required=True)
+        arm_name2 = trial2.arm.name  # pyre-ignore[16]
+        df_partial = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "arm_name": arm_name2,
+                    "metric_name": "metric_a",
+                    "metric_signature": "metric_a",
+                    "mean": float(step),
+                    "sem": 0.0,
+                    "step": step,
+                }
+                for step in range(2)
+            ]
+        )
+        exp2.attach_data(Data(df=df_partial))
+        trial2.mark_completed()
+        result2 = compute_metric_availability(experiment=exp2)
+        self.assertEqual(result2[0], MetricAvailability.INCOMPLETE)
+
+    def test_trial_indices_and_empty(self) -> None:
+        """Specific trial_indices limits computation; empty returns empty dict."""
+        exp = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=True,
+            num_trial=3,
+        )
+        # Specific trial index.
+        result = compute_metric_availability(experiment=exp, trial_indices=[0])
+        self.assertEqual(len(result), 1)
+        self.assertIn(0, result)
+        self.assertEqual(result[0], MetricAvailability.COMPLETE)
+
+        # Empty trial indices.
+        result = compute_metric_availability(experiment=exp, trial_indices=[])
+        self.assertEqual(result, {})
+
+    def test_all_trials_included_by_default(self) -> None:
+        """All trials (including non-terminal) are computed by default."""
+        exp = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+            num_trial=3,
+        )
+        # Trial 0: completed with data.
+        exp.trials[0].mark_running(no_runner_required=True)
+        exp.attach_data(get_branin_data(trial_indices=[0], metrics=["branin"]))
+        exp.trials[0].mark_completed()
+
+        # Trial 1: CANDIDATE (non-terminal, no data).
+        # Trial 2: failed with data.
+        exp.trials[2].mark_running(no_runner_required=True)
+        exp.attach_data(get_branin_data(trial_indices=[2], metrics=["branin"]))
+        exp.trials[2].mark_failed()
+
+        result = compute_metric_availability(experiment=exp)
+        # All 3 trials are included.
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0], MetricAvailability.COMPLETE)
+        self.assertEqual(result[1], MetricAvailability.NOT_OBSERVED)
+        self.assertEqual(result[2], MetricAvailability.COMPLETE)
+
+    def test_early_stopped_and_stale_trials(self) -> None:
+        """Early-stopped trials are included; stale trials are also included
+        when computing for all trials by default."""
+        exp = get_branin_experiment(
+            with_trial=True,
+            with_completed_trial=False,
+            num_trial=2,
+        )
+        # Trial 0: early stopped with data.
+        exp.trials[0].mark_running(no_runner_required=True)
+        exp.attach_data(get_branin_data(trial_indices=[0], metrics=["branin"]))
+        exp.trials[0].mark_early_stopped()
+
+        # Trial 1: stale (no data).
+        exp.trials[1].mark_stale()
+
+        result = compute_metric_availability(experiment=exp)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0], MetricAvailability.COMPLETE)
+        self.assertEqual(result[1], MetricAvailability.NOT_OBSERVED)

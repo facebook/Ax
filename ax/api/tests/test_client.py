@@ -39,6 +39,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
@@ -761,13 +762,17 @@ class TestClient(TestCase):
             ),
         )
 
-        # With missing metrics
+        # With missing metrics — trial is still COMPLETED (not FAILED)
         trial_index = [*client.get_next_trials(max_trials=1).keys()][0]
-        client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
+        with self.assertLogs("ax.api.client", level="WARNING") as log:
+            client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
+        self.assertTrue(
+            any("missing optimization config metrics" in msg for msg in log.output)
+        )
 
         self.assertEqual(
             client._experiment.trials[trial_index].status,
-            TrialStatus.FAILED,
+            TrialStatus.COMPLETED,
         )
         self.assertTrue(
             client._experiment.lookup_data(trial_indices=[trial_index]).full_df.equals(
@@ -786,6 +791,62 @@ class TestClient(TestCase):
                 ).full_df
             ),
         )
+
+    @mock_botorch_optimize
+    def test_complete_trial_partial_data_e2e(self) -> None:
+        """End-to-end test: complete trials with partial/missing metric data,
+        transition from Sobol to BoTorch, and verify generation succeeds."""
+        client = Client()
+
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+                RangeParameterConfig(name="x2", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="partial_data_e2e",
+        )
+        client.configure_optimization(objective="obj", outcome_constraints=["con >= 0"])
+        # 5 Sobol trials, then BoTorch.
+        client.configure_generation_strategy(initialization_budget=5)
+
+        # Complete 5 trials with varying levels of metric data.
+        trial_data: list[dict[str, float] | None] = [
+            {"obj": 1.0, "con": 0.5},  # Trial 0: all metrics
+            {"obj": 2.0},  # Trial 1: missing constraint
+            {"con": 0.3},  # Trial 2: missing objective
+            None,  # Trial 3: no data
+            {"obj": 0.5, "con": 1.0},  # Trial 4: all metrics
+        ]
+        for raw_data in trial_data:
+            for index, _params in client.get_next_trials(max_trials=1).items():
+                client.complete_trial(trial_index=index, raw_data=raw_data)
+                self.assertEqual(
+                    client._experiment.trials[index].status, TrialStatus.COMPLETED
+                )
+
+        # Verify metric availability across all trials.
+        availability = compute_metric_availability(
+            experiment=client._experiment,
+        )
+        self.assertEqual(
+            [availability[i] for i in range(5)],
+            [
+                MetricAvailability.COMPLETE,
+                MetricAvailability.INCOMPLETE,
+                MetricAvailability.INCOMPLETE,
+                MetricAvailability.NOT_OBSERVED,
+                MetricAvailability.COMPLETE,
+            ],
+        )
+
+        # Transition to BoTorch — generation should succeed despite
+        # partial data on some trials. Only trials 0 and 4 have complete
+        # data, which meets min_trials_observed=2 (count_only_trials_with_data).
+        self.assertEqual(client._generation_strategy.current_node_name, "Sobol")
+        for index, _params in client.get_next_trials(max_trials=1).items():
+            self.assertEqual(client._generation_strategy.current_node_name, "MBM")
+            # Complete the BoTorch trial with all metrics.
+            client.complete_trial(index, raw_data={"obj": 0.8, "con": 0.6})
 
     def test_attach_trial(self) -> None:
         client = Client()
