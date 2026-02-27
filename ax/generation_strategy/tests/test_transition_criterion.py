@@ -8,8 +8,10 @@
 
 from logging import Logger
 
+import pandas as pd
 from ax.adapter.registry import Generators
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
@@ -30,6 +32,7 @@ from ax.generation_strategy.transition_criterion import (
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_data,
     get_branin_experiment,
     get_branin_multi_objective_optimization_config,
     get_experiment,
@@ -185,6 +188,7 @@ class TestTransitionCriterion(TestCase):
                 only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=2,
                 transition_to="GenerationStep_2_BoTorch",
+                count_only_trials_with_data=True,
             ),
         ]
         step_1_expected_pausing_criteria = [
@@ -246,11 +250,25 @@ class TestTransitionCriterion(TestCase):
             .is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
-        # Should pass after two trials are marked completed
+        # Should pass after two trials are marked completed AND have data
         for idx, trial in experiment.trials.items():
             trial.mark_running(no_runner_required=True).mark_completed()
             if idx == 1:
                 break
+        # With count_only_trials_with_data=True (now the default for
+        # min_trials_observed), this should still be False without data.
+        self.assertFalse(
+            gs._nodes[0]
+            .transition_criteria[1]
+            .is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+        # Attach data for both completed trials
+        experiment.attach_data(
+            get_branin_data(
+                trials=[experiment.trials[0], experiment.trials[1]],
+                metrics=["branin"],
+            )
+        )
         self.assertTrue(
             gs._nodes[0]
             .transition_criteria[1]
@@ -269,6 +287,91 @@ class TestTransitionCriterion(TestCase):
         for idx, trial in experiment.trials.items():
             if idx == 2:
                 trial._status = TrialStatus.EARLY_STOPPED
+        self.assertTrue(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+    def test_min_trials_count_only_with_data(self) -> None:
+        """Test that count_only_trials_with_data excludes COMPLETED trials
+        that are missing required optimization config metrics."""
+        experiment = self.branin_experiment
+        gs = GenerationStrategy(
+            name="SOBOL::default",
+            steps=[
+                GenerationStep(
+                    generator=Generators.SOBOL,
+                    num_trials=4,
+                    min_trials_observed=2,
+                    enforce_num_trials=True,
+                ),
+                GenerationStep(
+                    Generators.SOBOL,
+                    num_trials=-1,
+                    max_parallelism=1,
+                ),
+            ],
+        )
+        gs.experiment = experiment
+
+        for _i in range(4):
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(experiment=experiment)
+            )
+
+        # Create a MinTrials criterion with count_only_trials_with_data=True
+        min_criterion = MinTrials(
+            threshold=2,
+            transition_to="GenerationStep_1",
+            only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
+            count_only_trials_with_data=True,
+        )
+
+        # Mark all 4 trials as completed
+        for trial in experiment.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
+
+        # Even though 4 trials are COMPLETED, none have data, so the
+        # criterion should not be met.
+        self.assertFalse(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+        # Attach data for "branin" (the opt config metric) to 1 trial only
+        experiment.attach_data(
+            get_branin_data(trials=[experiment.trials[0]], metrics=["branin"])
+        )
+        # Still not met — only 1 trial has data, need 2
+        self.assertFalse(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+        # Attach data for a NON-opt-config metric to trial 1 (missing "branin")
+        experiment.attach_data(
+            Data(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "trial_index": 1,
+                            "arm_name": experiment.trials[1].arm.name,
+                            "metric_name": "not_branin",
+                            "mean": 1.0,
+                            "sem": 0.0,
+                            "metric_signature": "not_branin",
+                        }
+                    ]
+                )
+            )
+        )
+        # Still not met — trial 1 has data but not for "branin"
+        self.assertFalse(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+        # Attach "branin" data to trial 1 too
+        experiment.attach_data(
+            get_branin_data(trials=[experiment.trials[1]], metrics=["branin"])
+        )
+        # Now 2 trials have "branin" data — criterion should be met
         self.assertTrue(
             min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
