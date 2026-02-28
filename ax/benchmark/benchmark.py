@@ -48,6 +48,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
@@ -157,6 +158,7 @@ def get_benchmark_runner(
 def get_oracle_experiment_from_params(
     problem: BenchmarkProblem,
     dict_of_dict_of_params: Mapping[int, Mapping[str, Mapping[str, TParamValue]]],
+    trial_statuses: Mapping[int, TrialStatus] | None = None,
 ) -> Experiment:
     """
     Get a new experiment with the same search space and optimization config
@@ -170,6 +172,12 @@ def get_oracle_experiment_from_params(
             config for generating an experiment.
         dict_of_dict_of_params: Keys are trial indices, values are Mappings
             (e.g. dicts) that map arm names to parameterizations.
+        trial_statuses: Optional mapping from trial indices to their statuses.
+            If provided, trials in oracle experiments will be set to the
+            specified status.
+            This helps preserve the trial status from the original experiment,
+            especially if we want to take `ABANDONED` trials into account.
+            If not provided, trials will be set to completed.
 
     Example:
         >>> get_oracle_experiment_from_params(
@@ -215,11 +223,33 @@ def get_oracle_experiment_from_params(
         trial = experiment.trials[trial_index]
         metadata = runner.run(trial=trial)
         trial.update_run_metadata(metadata=metadata)
-        trial.mark_completed()
+
+        # Determine the status for the trial in the oracle experiment.
+        # Mark ABANDONED and FAILED immediately (they don't require data).
+        # EARLY_STOPPED requires data, so mark as completed for now and
+        # defer the status change until after fetch_data().
+        if trial_statuses is not None:
+            status = trial_statuses[trial_index]
+        else:
+            status = TrialStatus.COMPLETED
+
+        if status == TrialStatus.ABANDONED:
+            trial.mark_abandoned()
+        elif status == TrialStatus.FAILED:
+            trial.mark_failed()
+        else:
+            trial.mark_completed()
 
     logger.setLevel(level=original_log_level)
 
     experiment.fetch_data()
+
+    # Apply EARLY_STOPPED status after data is available, since
+    # mark_early_stopped() requires data on the trial.
+    if trial_statuses is not None:
+        for trial_index, status in trial_statuses.items():
+            if status == TrialStatus.EARLY_STOPPED:
+                experiment.trials[trial_index].mark_early_stopped(unsafe=True)
     return experiment
 
 
@@ -230,6 +260,7 @@ def get_benchmark_orchestrator_options(
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     include_status_quo: bool = False,
     logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> OrchestratorOptions:
     """
     Get the ``OrchestratorOptions`` for the given ``BenchmarkMethod``.
@@ -244,6 +275,8 @@ def get_benchmark_orchestrator_options(
         early_stopping_strategy: The early stopping strategy to use (if any).
         include_status_quo: Whether to include the status quo in each trial.
         logging_level: The logging level to use for the Orchestrator.
+        tolerated_trial_failure_rate: Fraction of trials allowed to fail without
+            aborting the optimization. Expects value between 0 and 1. Default is 0.5.
 
     Returns:
         ``OrchestratorOptions``
@@ -265,6 +298,7 @@ def get_benchmark_orchestrator_options(
         early_stopping_strategy=early_stopping_strategy,
         status_quo_weight=1.0 if include_status_quo else 0.0,
         logging_level=logging_level,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
     )
 
 
@@ -451,13 +485,22 @@ def get_benchmark_result_from_experiment_and_gs(
         for new_trial_index, trials in enumerate(trial_completion_order)
     }
 
+    # Create trial_statuses mapping to preserve trial status in oracle experiment
+    trial_statuses = {
+        trial_index: experiment.trials[trial_index].status
+        for trial_index in dict_of_dict_of_params.keys()
+    }
+
     actual_params_oracle_dummy_experiment = get_oracle_experiment_from_params(
-        problem=problem, dict_of_dict_of_params=dict_of_dict_of_params
+        problem=problem,
+        dict_of_dict_of_params=dict_of_dict_of_params,
+        trial_statuses=trial_statuses,
     )
     oracle_trace = np.array(
         get_trace(
             experiment=actual_params_oracle_dummy_experiment,
             optimization_config=problem.optimization_config,
+            include_abandoned=True,
         )
     )
     is_feasible_trace = np.array(
@@ -539,6 +582,7 @@ def run_optimization_with_orchestrator(
     run_trials_in_batches: bool = False,
     timeout_hours: float | None = None,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> Experiment:
     """
     Optimize the ``problem`` using the ``method`` and ``Orchestrator``, seeding
@@ -575,12 +619,19 @@ def run_optimization_with_orchestrator(
         early_stopping_strategy=method.early_stopping_strategy,
         include_status_quo=sq_arm is not None,
         logging_level=orchestrator_logging_level,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
     )
-    runner = get_benchmark_runner(
-        problem=problem,
-        max_concurrency=orchestrator_options.max_pending_trials,
-        force_use_simulated_backend=method.early_stopping_strategy is not None,
-    )
+
+    # Use custom runner if provided on the problem, otherwise create standard runner
+    if problem.runner is not None:
+        runner = problem.runner
+    else:
+        runner = get_benchmark_runner(
+            problem=problem,
+            max_concurrency=orchestrator_options.max_pending_trials,
+            force_use_simulated_backend=method.early_stopping_strategy is not None,
+        )
+
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
@@ -626,6 +677,7 @@ def benchmark_replication(
     timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
     strip_runner_before_saving: bool = True,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -663,6 +715,7 @@ def benchmark_replication(
         run_trials_in_batches=run_trials_in_batches,
         timeout_hours=timeout_hours,
         orchestrator_logging_level=orchestrator_logging_level,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
     )
 
     benchmark_result = get_benchmark_result_from_experiment_and_gs(
@@ -744,6 +797,7 @@ def benchmark_one_method_problem(
     run_trials_in_batches: bool = False,
     timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> AggregatedBenchmarkResult:
     return AggregatedBenchmarkResult.from_benchmark_results(
         results=[
@@ -754,6 +808,7 @@ def benchmark_one_method_problem(
                 run_trials_in_batches=run_trials_in_batches,
                 timeout_hours=timeout_hours,
                 orchestrator_logging_level=orchestrator_logging_level,
+                tolerated_trial_failure_rate=tolerated_trial_failure_rate,
             )
             for seed in seeds
         ]
@@ -767,6 +822,7 @@ def benchmark_multiple_problems_methods(
     run_trials_in_batches: bool = False,
     timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> list[AggregatedBenchmarkResult]:
     """
     For each `problem` and `method` in the Cartesian product of `problems` and
@@ -782,6 +838,7 @@ def benchmark_multiple_problems_methods(
             run_trials_in_batches=run_trials_in_batches,
             timeout_hours=timeout_hours,
             orchestrator_logging_level=orchestrator_logging_level,
+            tolerated_trial_failure_rate=tolerated_trial_failure_rate,
         )
         for p, m in product(problems, methods)
     ]

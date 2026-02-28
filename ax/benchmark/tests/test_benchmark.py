@@ -68,6 +68,7 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
 )
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
@@ -1014,6 +1015,52 @@ class TestBenchmark(TestCase):
                 problem=problem, dict_of_dict_of_params={0: {}}
             )
 
+        with self.subTest("trial_statuses"):
+            trial_statuses = {
+                0: TrialStatus.COMPLETED,
+                1: TrialStatus.ABANDONED,
+            }
+            experiment = get_oracle_experiment_from_params(
+                problem=problem,
+                dict_of_dict_of_params={
+                    0: {"0": near_opt_params},
+                    1: {"1": other_params},
+                },
+                trial_statuses=trial_statuses,
+            )
+            self.assertEqual(len(experiment.trials), 2)
+            self.assertTrue(experiment.trials[0].status.is_completed)
+            self.assertEqual(experiment.trials[1].status, TrialStatus.ABANDONED)
+
+        with self.subTest("trial_statuses with FAILED and EARLY_STOPPED"):
+            trial_statuses = {
+                0: TrialStatus.FAILED,
+                1: TrialStatus.EARLY_STOPPED,
+            }
+            experiment = get_oracle_experiment_from_params(
+                problem=problem,
+                dict_of_dict_of_params={
+                    0: {"0": near_opt_params},
+                    1: {"1": other_params},
+                },
+                trial_statuses=trial_statuses,
+            )
+            self.assertEqual(experiment.trials[0].status, TrialStatus.FAILED)
+            self.assertEqual(experiment.trials[1].status, TrialStatus.EARLY_STOPPED)
+
+        with self.subTest("trial_statuses=None defaults to COMPLETED"):
+            experiment = get_oracle_experiment_from_params(
+                problem=problem,
+                dict_of_dict_of_params={
+                    0: {"0": near_opt_params},
+                    1: {"1": other_params},
+                },
+                trial_statuses=None,
+            )
+            self.assertTrue(
+                all(t.status.is_completed for t in experiment.trials.values())
+            )
+
     def _test_multi_fidelity_or_multi_task(
         self, fidelity_or_task: Literal["fidelity", "task"]
     ) -> None:
@@ -1084,6 +1131,18 @@ class TestBenchmark(TestCase):
             self.assertEqual(
                 orchestrator_options.status_quo_weight, 1.0 if include_sq else 0.0
             )
+            # Default tolerated_trial_failure_rate should be 0.5
+            self.assertEqual(orchestrator_options.tolerated_trial_failure_rate, 0.5)
+
+        with self.subTest("custom tolerated_trial_failure_rate"):
+            orchestrator_options = get_benchmark_orchestrator_options(
+                batch_size=1,
+                run_trials_in_batches=False,
+                max_pending_trials=2,
+                early_stopping_strategy=None,
+                tolerated_trial_failure_rate=0.9,
+            )
+            self.assertEqual(orchestrator_options.tolerated_trial_failure_rate, 0.9)
 
     def test_replication_with_status_quo(self) -> None:
         method = BenchmarkMethod(

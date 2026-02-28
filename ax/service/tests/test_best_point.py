@@ -183,6 +183,50 @@ class TestBestPointMixin(TestCase):
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
         self.assertEqual(get_trace(exp), [2.0, 20.0])
 
+    def test_get_trace_include_abandoned(self) -> None:
+        with self.subTest("minimize with abandoned trial"):
+            exp = get_experiment_with_observations(
+                observations=[[11], [10], [9], [15], [5]], minimize=True
+            )
+            # Mark trial 2 (value=9) as abandoned
+            exp.trials[2].mark_abandoned(unsafe=True)
+
+            # Without include_abandoned (default): abandoned trial excluded
+            trace_default = get_trace(exp)
+            self.assertEqual(trace_default, [11, 10, 10, 5])
+
+            # With include_abandoned=True: abandoned trial carries forward
+            trace_with_abandoned = get_trace(exp, include_abandoned=True)
+            self.assertEqual(len(trace_with_abandoned), 5)
+            # Trial 0: 11, Trial 1: 10, Trial 2 (abandoned): carry forward 10
+            self.assertEqual(trace_with_abandoned, [11, 10, 10, 10, 5])
+
+        with self.subTest("maximize with abandoned trial"):
+            exp = get_experiment_with_observations(
+                observations=[[1], [3], [2], [5], [4]], minimize=False
+            )
+            # Mark trial 1 (value=3) as abandoned
+            exp.trials[1].mark_abandoned(unsafe=True)
+
+            # Without include_abandoned: only 4 values
+            trace_default = get_trace(exp)
+            self.assertEqual(trace_default, [1, 2, 5, 5])
+
+            # With include_abandoned: 5 values, carry forward
+            trace_with_abandoned = get_trace(exp, include_abandoned=True)
+            self.assertEqual(len(trace_with_abandoned), 5)
+            # Trial 0: 1, Trial 1 (abandoned): carry forward 1,
+            # Trial 2: 2, Trial 3: 5, Trial 4: 5
+            self.assertEqual(trace_with_abandoned, [1, 1, 2, 5, 5])
+
+        with self.subTest("include_abandoned=False is default"):
+            exp = get_experiment_with_observations(
+                observations=[[11], [10], [9]], minimize=True
+            )
+            trace_explicit = get_trace(exp, include_abandoned=False)
+            trace_default = get_trace(exp)
+            self.assertEqual(trace_explicit, trace_default)
+
     def test_get_trace_with_include_status_quo(self) -> None:
         with self.subTest("Multi-objective: status quo dominates in some trials"):
             # Create experiment with multi-objective optimization where status quo
