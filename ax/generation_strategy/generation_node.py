@@ -1148,6 +1148,7 @@ class GenerationStep:
                         TrialStatus.EARLY_STOPPED,
                     ],
                     use_all_trials_in_exp=use_all_trials_in_exp,
+                    count_only_trials_with_data=True,
                 )
             )
         if max_parallelism is not None:
