@@ -9,6 +9,7 @@
 from collections.abc import Callable, Iterable
 from copy import deepcopy
 from datetime import datetime, timedelta
+from enum import Enum
 from functools import wraps
 from logging import Logger
 from typing import Any, NamedTuple
@@ -28,7 +29,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import AxError, UserInputError
+from ax.exceptions.core import AxError
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
@@ -137,36 +138,32 @@ def _maybe_update_trial_status_to_complete(
     experiment: Experiment,
     trial_index: int,
 ) -> None:
-    """Check if a trial has all relevant metrics and mark it as completed.
-    If the trial has all relevant metrics, mark it as completed.
-    If the trial is missing metrics, mark it as failed.
+    """Mark a trial as completed, logging a warning if any optimization config
+    metrics are missing.
+
+    The trial is always marked ``COMPLETED`` regardless of which metrics are
+    present.  Data availability is tracked separately from trial orchestration
+    status.
 
     Args:
         experiment: The experiment to check.
         trial_index: The index of the trial to check.
     """
-    if experiment.optimization_config is None:
-        raise UserInputError(
-            "Cannot attempt to mark a trial as failed without an optimization"
-            " config on the expeirment"
-        )
-    optimization_config = experiment.optimization_config
-    trial_data = experiment.lookup_data(trial_indices=[trial_index])
-    missing_metrics = {*optimization_config.metrics.keys()} - {*trial_data.metric_names}
+    experiment.trials[trial_index].mark_completed()
 
-    # If all necessary metrics are present mark the trial as COMPLETED
-    if len(missing_metrics) == 0:
-        experiment.trials[trial_index].mark_completed()
-        return
+    if experiment.optimization_config is not None:
+        optimization_config = experiment.optimization_config
+        trial_data = experiment.lookup_data(trial_indices=[trial_index])
+        missing_metrics = set(optimization_config.metrics.keys()) - {
+            *trial_data.metric_names
+        }
 
-    # If any metrics are missing mark the trial as FAILED
-    logger.warning(
-        f"Trial {trial_index} marked completed but metrics "
-        f"{missing_metrics} are missing, marking trial FAILED."
-    )
-    experiment.trials[trial_index].mark_failed(
-        reason=f"{missing_metrics} are missing, marking trial FAILED."
-    )
+        if len(missing_metrics) > 0:
+            logger.warning(
+                f"Trial {trial_index} marked COMPLETED but missing optimization "
+                f"config metrics: {missing_metrics}. "
+                "Partial data will still be used for modeling."
+            )
 
 
 # -------------------- Experiment result extraction utils. ---------------------
@@ -264,6 +261,121 @@ def is_bandit_experiment(generation_strategy_name: str) -> bool:
         generation_strategy_name
         == Keys.FACTORIAL_PLUS_EMPIRICAL_BAYES_THOMPSON_SAMPLING
     )
+
+
+# -------------------- Metric availability. ------------------------------------
+
+
+class MetricAvailability(int, Enum):
+    """Metric data availability relative to a set of required metrics.
+
+    This enum describes how complete a trial's metric data is relative to the
+    metrics required by an ``OptimizationConfig``.
+
+    Values:
+        NOT_OBSERVED: The trial has no data for any of the required metrics.
+            This includes trials with no data at all, and trials that only have
+            data for tracking metrics not in the optimization config.
+        INCOMPLETE: The trial has data for some but not all required metrics.
+        COMPLETE: The trial has data for all required metrics.
+    """
+
+    NOT_OBSERVED = 0
+    INCOMPLETE = 1
+    COMPLETE = 2
+
+
+def compute_metric_availability(
+    experiment: Experiment,
+    trial_indices: Iterable[int] | None = None,
+    optimization_config: OptimizationConfig | None = None,
+    metric_names: set[str] | None = None,
+) -> dict[int, MetricAvailability]:
+    """Compute metric data availability for trials relative to a set of required
+    metrics.
+
+    This function checks which required metrics have data for each trial.
+    It only inspects whether a metric name appears anywhere in the trial's data
+    (at any step, for any arm). It does not check for data at specific steps or
+    fidelity levels. For curve data with a "step" column, a metric is considered
+    observed if it appears at any step.
+
+    The computation is purely in-memory, operating on ``experiment.data``. There
+    are no database queries or network calls.
+
+    Args:
+        experiment: The experiment whose data to inspect.
+        trial_indices: Trial indices to compute availability for. If ``None``,
+            computes for all trials in the experiment.
+        optimization_config: The optimization config whose metrics define the
+            required set. If ``None``, uses ``experiment.optimization_config``.
+            Ignored if ``metric_names`` is provided.
+        metric_names: An explicit set of required metric names. If provided,
+            takes precedence over ``optimization_config``.
+
+    Returns:
+        A dict mapping trial index to ``MetricAvailability``.
+
+    Raises:
+        ValueError: If no required metrics can be determined (no
+            ``metric_names``, no ``optimization_config``, and no optimization
+            config on the experiment).
+    """
+    # Resolve required metrics.
+    if metric_names is not None:
+        required_metrics = metric_names
+    else:
+        resolved_opt_config = (
+            optimization_config
+            if optimization_config is not None
+            else experiment.optimization_config
+        )
+
+        if resolved_opt_config is None:
+            raise ValueError(
+                "An optimization config is required to compute metric availability. "
+                "Either pass one explicitly, set one on the experiment, or provide "
+                "metric_names."
+            )
+        required_metrics = set(resolved_opt_config.metrics.keys())
+
+    # Resolve trial indices.
+    if trial_indices is not None:
+        resolved_trial_indices = list(trial_indices)
+    else:
+        resolved_trial_indices = list(experiment.trials.keys())
+
+    if len(resolved_trial_indices) == 0:
+        return {}
+
+    # If there are no required metrics, everything is COMPLETE.
+    if len(required_metrics) == 0:
+        return {idx: MetricAvailability.COMPLETE for idx in resolved_trial_indices}
+
+    # Get the set of metric names per trial from the experiment data.
+    # Use lookup_data to access the public API, then groupby on the DataFrame
+    # to extract distinct metric names per trial.
+    data = experiment.lookup_data(trial_indices=resolved_trial_indices)
+    metrics_per_trial: dict[int, set[str]] = {}
+    if len(data.metric_names) > 0:
+        df = data.full_df
+        for trial_idx, group in df.groupby("trial_index")["metric_name"]:
+            metrics_per_trial[int(trial_idx)] = set(group.unique())
+
+    # Compute availability for each trial.
+    result: dict[int, MetricAvailability] = {}
+    for idx in resolved_trial_indices:
+        available = metrics_per_trial.get(idx, set())
+        available_required = available & required_metrics
+
+        if len(available_required) == 0:
+            result[idx] = MetricAvailability.NOT_OBSERVED
+        elif len(available_required) == len(required_metrics):
+            result[idx] = MetricAvailability.COMPLETE
+        else:
+            result[idx] = MetricAvailability.INCOMPLETE
+
+    return result
 
 
 # -------------------- Pending observations extraction utils. ---------------------
@@ -370,7 +482,6 @@ def get_pending_observation_features(
         )
     else:
         metric_names_by_trial = {}
-
     for trial_index, trial in experiment.trials.items():
         metric_names_in_data = metric_names_by_trial.get(trial_index, set())
 
@@ -411,7 +522,10 @@ def get_pending_observation_features_based_on_trial_status(
 
     * All arms in all trials in ``CANDIDATE``, ``STAGED``, ``RUNNING`` and ``ABANDONED``
       statuses are to be considered pending for all outcomes.
-    * All arms in all trials in other statuses are to be considered not pending for
+    * ``COMPLETED`` trials with incomplete metric availability (i.e., missing
+      one or more optimization config metrics) are also considered pending to
+      prevent re-suggestion of partially evaluated arms.
+    * All arms in all other trials are to be considered not pending for
       all outcomes.
 
     This entails:
@@ -453,6 +567,34 @@ def get_pending_observation_features_based_on_trial_status(
                             metadata=trial._get_candidate_metadata(arm_name=arm.name),
                         )
                     )
+
+    # Also add COMPLETED trials with incomplete metric availability as pending,
+    # so that partially evaluated arms are not re-suggested.
+    completed_trials = list(experiment.trials_by_status[TrialStatus.COMPLETED])
+    if completed_trials and experiment.optimization_config is not None:
+        metric_availabilities = compute_metric_availability(
+            experiment=experiment,
+            trial_indices=[t.index for t in completed_trials],
+        )
+        for trial in completed_trials:
+            if metric_availabilities.get(trial.index) in (
+                MetricAvailability.INCOMPLETE,
+                MetricAvailability.NOT_OBSERVED,
+            ):
+                for arm in trial.arms:
+                    if (
+                        include_out_of_design_points
+                        or experiment.search_space.check_membership(arm.parameters)
+                    ):
+                        pending_features_list.append(
+                            ObservationFeatures.from_arm(
+                                arm=arm,
+                                trial_index=trial.index,
+                                metadata=trial._get_candidate_metadata(
+                                    arm_name=arm.name
+                                ),
+                            )
+                        )
     pending_features = {
         # Using deepcopy here to avoid issues due to in-place transforms.
         metric_name: deepcopy(pending_features_list)
@@ -600,11 +742,13 @@ def get_trial_indices_with_required_metrics(
     df: "pd.DataFrame",
     require_data_for_all_metrics: bool,
 ) -> set[int]:
-    """Return trial indicies in an experiment which have data for required metrics
+    """Return trial indices in an experiment which have data for required metrics.
 
     Args:
         experiment: an Ax experiment
-        df: experiment data to search through
+        df: experiment data to search through (used only to extract trial
+            indices; actual availability is computed via
+            ``compute_metric_availability``).
         require_data_for_all_metrics: If True, require data for all metrics
             on the experiment. If False, only require data for optimization
             config metrics.
@@ -612,24 +756,29 @@ def get_trial_indices_with_required_metrics(
     Returns:
         Set of trial indices with data for required metrics.
     """
+    trial_indices = {int(idx) for idx in df.trial_index.unique()}
+    if len(trial_indices) == 0:
+        return set()
+
     if require_data_for_all_metrics:
-        required_metrics = set(experiment.metrics.keys())
+        metric_names = set(experiment.metrics.keys())
     else:
         if experiment.optimization_config is None:
-            # if there is no optimization config set, any trial with data
-            # is valid
-            return set(df.trial_index.unique())
-        required_metrics = set(experiment.optimization_config.metrics.keys())
+            # If there is no optimization config set, any trial with data
+            # is valid.
+            return trial_indices
+        metric_names = None  # Will use optimization config metrics.
 
-    # Find trials that have data for all required metrics
-    valid_trial_indices = set()
-    for trial_idx in set(df.trial_index.unique()):
-        trial_df = df[df.trial_index == trial_idx]
-        metrics_in_trial = set(trial_df.metric_name.unique())
-        if required_metrics.issubset(metrics_in_trial):
-            valid_trial_indices.add(trial_idx)
-
-    return valid_trial_indices
+    availability = compute_metric_availability(
+        experiment=experiment,
+        trial_indices=trial_indices,
+        metric_names=metric_names,
+    )
+    return {
+        idx
+        for idx, avail in availability.items()
+        if avail == MetricAvailability.COMPLETE
+    }
 
 
 def _sort_trials(

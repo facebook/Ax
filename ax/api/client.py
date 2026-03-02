@@ -494,13 +494,11 @@ class Client(WithDBSettingsBase):
         progression: int | None = None,
     ) -> TrialStatus:
         """
-        Indicate the trial is complete and optionally attach data. In non-timeseries
-        settings users should prefer to use ``complete_trial`` with ``raw_data`` over
-        ``attach_data``. Ax will determine the trial's status automatically:
-            - If all metrics on the ``OptimizationConfig`` are present the trial will be
-                marked as COMPLETED
-            - If any metrics on the ``OptimizationConfig`` are missing the trial will be
-                marked as FAILED
+        Indicate the trial is complete and optionally attach data.
+
+        The trial is always marked ``COMPLETED`` regardless of which metrics
+        are present.  Data availability is tracked separately from trial
+        orchestration status — partial data is still used for modeling.
 
         Saves to database on completion if ``storage_config`` is present.
         """
@@ -509,32 +507,22 @@ class Client(WithDBSettingsBase):
                 trial_index=trial_index, raw_data=raw_data, progression=progression
             )
 
-        # If no OptimizationConfig is set, mark the trial as COMPLETED
-        if (optimization_config := self._experiment.optimization_config) is None:
-            self._experiment.trials[trial_index].mark_completed()
-        else:
+        self._experiment.trials[trial_index].mark_completed()
+
+        # Log metric availability for user visibility.
+        if (optimization_config := self._experiment.optimization_config) is not None:
             trial_data = self._experiment.lookup_data(trial_indices=[trial_index])
-            missing_metrics = {*optimization_config.metrics.keys()} - {
+            missing_metrics = set(optimization_config.metrics.keys()) - {
                 *trial_data.metric_names
             }
 
-            # If all necessary metrics are present mark the trial as COMPLETED
             if len(missing_metrics) == 0:
-                self._experiment.trials[trial_index].mark_completed()
                 logger.info(f"Trial {trial_index} marked COMPLETED.")
-
-            # If any metrics are missing mark the trial as FAILED
             else:
-                self.mark_trial_failed(
-                    trial_index=trial_index,
-                    failed_reason=(
-                        f"{missing_metrics} are missing, marking trial FAILED."
-                    ),
-                )
-
                 logger.warning(
-                    f"Trial {trial_index} marked FAILED because the following metrics "
-                    f"are missing: {missing_metrics}"
+                    f"Trial {trial_index} marked COMPLETED but missing optimization "
+                    f"config metrics: {missing_metrics}. "
+                    "Partial data will still be used for modeling."
                 )
 
         self._save_or_update_trial_in_db_if_possible(

@@ -2649,8 +2649,7 @@ class SQAStoreTest(TestCase):
                 no_runner_required=True
             )
             trial.mark_completed()
-
-        experiment.fetch_data()
+            experiment.fetch_data()
         save_experiment(experiment=experiment)
         update_generation_strategy(
             generation_strategy=generation_strategy,
@@ -2675,6 +2674,7 @@ class SQAStoreTest(TestCase):
                 no_runner_required=True
             )
             trial.mark_completed()
+            experiment.fetch_data()
 
         save_experiment(experiment=experiment)
         update_generation_strategy(

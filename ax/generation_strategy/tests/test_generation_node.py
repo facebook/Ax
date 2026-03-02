@@ -539,6 +539,7 @@ class TestGenerationStep(TestCase):
                         TrialStatus.EARLY_STOPPED,
                     ],
                     use_all_trials_in_exp=True,
+                    count_only_trials_with_data=True,
                 ),
             ],
         )
