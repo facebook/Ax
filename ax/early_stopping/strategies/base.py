@@ -8,7 +8,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from logging import Logger
 from typing import cast
 
@@ -665,19 +665,3 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             full_df = full_df[full_df[MAP_KEY] >= self.min_progression_modeling]
             map_data = Data(df=full_df)
         return map_data
-
-    def get_training_data(
-        self,
-        experiment: Experiment,
-        map_data: Data,
-        max_training_size: int | None = None,
-        outcomes: Sequence[str] | None = None,
-        parameters: list[str] | None = None,
-    ) -> None:
-        # Deprecated in Ax 1.1.0, so should be removed in Ax 1.2.0+.
-        raise DeprecationWarning(
-            "`ModelBasedEarlyStoppingStrategy.get_training_data` is deprecated. "
-            "Subclasses should either extract the training data manually, "
-            "or rely on the fitted surrogates available in the current generation "
-            "node that is passed into `should_stop_trials_early`."
-        )
