@@ -33,6 +33,19 @@ html_card_template = """
 .card-header:hover {{
     cursor: pointer;
 }}
+.card-header details summary {{
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+}}
+.card-header details summary::-webkit-details-marker {{
+    display: none;
+}}
+.card-header details summary::after {{
+    content: "ℹ️";
+    font-size: 0.9em;
+}}
 </style>
 <div class="card">
     <div class="card-header">
