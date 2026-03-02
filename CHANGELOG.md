@@ -5,12 +5,12 @@ The release log for Ax.
 
 #### Breaking Changes
 
-**Requirements**
+**Packack Requirements**
 * Python 3.11+ required (#4810)
 * Pandas 3.0 upgrade (#4838)
 * BoTorch 0.17.0 (#4911)
 
-**API Removals**
+**Method Removals (non-API)**
 * `transition_to` now required on `TransitionCriterion` (#4848) — Users must explicitly specify transition targets
 * Removed callable serialization (#4806) — Encoding callables now raises an exception
 * Removed legacy classes: `TData` (#4771), `MinimumTrialsInStatus` (#4786), completion criteria (#4850), `arms_per_node` override (#4822)
