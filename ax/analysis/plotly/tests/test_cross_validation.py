@@ -106,6 +106,10 @@ class TestCrossValidationPlot(TestCase):
         )
         self.assertIsNotNone(card.blob)
 
+        # Assert that _r2s is populated after compute
+        self.assertIn("bar", analysis._r2s)
+        self.assertAlmostEqual(analysis._r2s["bar"], 0.85)
+
         # Assert that all arms are in the cross validation df
         # because trial index is not specified
         for t in self.client.experiment.trials.values():

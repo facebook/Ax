@@ -11,6 +11,7 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.graphviz.generation_strategy_graph import GenerationStrategyGraph
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
+from ax.analysis.plotly.metric_r2 import create_metric_r2_analysis_card
 from ax.analysis.utils import validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.experiment import Experiment
@@ -76,17 +77,18 @@ class DiagnosticAnalysis(Analysis):
             generation_strategy_name=generation_strategy.name
         )
 
-        cross_validation_plots = (
-            [
-                CrossValidationPlot(metric_names=metric_names).compute_or_error_card(
-                    experiment=experiment,
-                    generation_strategy=generation_strategy,
-                    adapter=adapter,
-                )
-            ]
-            if not is_bandit
-            else []
-        )
+        cross_validation_plots = []
+        metric_r2_card = []
+        if not is_bandit:
+            cv_analysis = CrossValidationPlot(metric_names=metric_names)
+            cv_card = cv_analysis.compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            cross_validation_plots = [cv_card]
+            if cv_analysis._r2s:
+                metric_r2_card = [create_metric_r2_analysis_card(r2s=cv_analysis._r2s)]
 
         generation_strategy_graph = (
             [
@@ -103,5 +105,9 @@ class DiagnosticAnalysis(Analysis):
         return self._create_analysis_card_group(
             title=DIAGNOSTICS_CARDGROUP_TITLE,
             subtitle=DIAGNOSTICS_CARDGROUP_SUBTITLE,
-            children=[*cross_validation_plots, *generation_strategy_graph],
+            children=[
+                *cross_validation_plots,
+                *metric_r2_card,
+                *generation_strategy_graph,
+            ],
         )

@@ -16,6 +16,7 @@ from ax.analysis.diagnostics import (
     DIAGNOSTICS_CARDGROUP_TITLE,
 )
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
+from ax.analysis.plotly.metric_r2 import MetricR2AnalysisCard
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.analysis_card import ErrorAnalysisCard
@@ -118,6 +119,13 @@ class DiagnosticAnalysisTest(TestCase):
         for card in card_group.flatten():
             self.assertNotIsInstance(card, ErrorAnalysisCard)
 
+        # Should have a MetricR2AnalysisCard with the expected title
+        r2_cards = [
+            c for c in card_group.flatten() if isinstance(c, MetricR2AnalysisCard)
+        ]
+        self.assertEqual(len(r2_cards), 1)
+        self.assertEqual(r2_cards[0].title, "Summary of model fits")
+
         # --- Verify metric_names via patching CrossValidationPlot ---
         original_cv_init: Callable[..., None] = CrossValidationPlot.__init__
 
@@ -162,6 +170,12 @@ class DiagnosticAnalysisTest(TestCase):
         child_names_no_gs = [child.name for child in card_group_no_gs.children]
         self.assertIn("CrossValidationPlot", child_names_no_gs)
         self.assertNotIn("GenerationStrategyGraph", child_names_no_gs)
+
+        # MetricR2AnalysisCard not present when CV errors (no adapter available)
+        r2_cards_no_gs = [
+            c for c in card_group_no_gs.flatten() if isinstance(c, MetricR2AnalysisCard)
+        ]
+        self.assertEqual(len(r2_cards_no_gs), 0)
 
     def test_compute_bandit(self) -> None:
         experiment = Experiment(
@@ -249,6 +263,12 @@ class DiagnosticAnalysisTest(TestCase):
 
         # Bandit experiment should NOT include CrossValidationPlot
         self.assertNotIn("CrossValidationPlot", child_names)
+
+        # Bandit experiment should NOT include MetricR2AnalysisCard
+        r2_cards = [
+            c for c in card_group.flatten() if isinstance(c, MetricR2AnalysisCard)
+        ]
+        self.assertEqual(len(r2_cards), 0)
 
         # GenerationStrategyGraph should still be included (GS is provided)
         self.assertIn("GenerationStrategyGraph", child_names)
