@@ -303,6 +303,47 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss2.check_membership(p_dict, raise_error=True)
 
+    def test_CheckMembershipSkipRangeBounds(self) -> None:
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                ChoiceParameter(
+                    name="c",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b"],
+                ),
+            ]
+        )
+
+        # Value out of range: default check rejects it
+        p_dict = {"x": 5.0, "c": "a"}
+        self.assertFalse(ss.check_membership(p_dict))
+        self.assertFalse(ss.check_membership(p_dict, check_range_bounds=True))
+
+        # With check_range_bounds=False, out-of-range value is accepted
+        self.assertTrue(ss.check_membership(p_dict, check_range_bounds=False))
+
+        # Wrong type for range parameter is still rejected
+        p_dict_wrong_type = {"x": "not_a_number", "c": "a"}
+        self.assertFalse(
+            ss.check_membership(p_dict_wrong_type, check_range_bounds=False)
+        )
+        with self.assertRaises(ValueError):
+            ss.check_membership(
+                p_dict_wrong_type, check_range_bounds=False, raise_error=True
+            )
+
+        # Invalid choice value is still rejected
+        p_dict_bad_choice = {"x": 5.0, "c": "invalid"}
+        self.assertFalse(
+            ss.check_membership(p_dict_bad_choice, check_range_bounds=False)
+        )
+
     def test_check_membership_df(self) -> None:
         """Test vectorized membership check on DataFrames."""
         # Create test DataFrame with valid and invalid rows
