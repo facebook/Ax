@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from logging import Logger
 
 import numpy as np
@@ -18,6 +18,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
@@ -102,6 +103,7 @@ def prepare_arm_data(
     trial_index: int | None = None,
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
+    generator_runs: Mapping[str, GeneratorRun] | None = None,
     relativize: bool = False,
     compute_p_feasible_per_constraint: bool = False,
 ) -> pd.DataFrame:
@@ -204,6 +206,7 @@ def prepare_arm_data(
             trial_index=trial_index,
             trial_statuses=trial_statuses,
             additional_arms=additional_arms,
+            generator_runs=generator_runs,
             target_trial_index=target_trial_index,
         )
     else:
@@ -211,6 +214,12 @@ def prepare_arm_data(
             raise UserInputError(
                 "Cannot provide additional arms when use_model_predictions=False since "
                 "there is no observed raw data for the additional arms that are not "
+                "part of the Experiment."
+            )
+        if generator_runs is not None:
+            raise UserInputError(
+                "Cannot provide generator_runs when use_model_predictions=False since "
+                "there is no observed raw data for the generator run arms that are not "
                 "part of the Experiment."
             )
 
@@ -222,6 +231,8 @@ def prepare_arm_data(
             target_trial_index=target_trial_index,
         )
     raw_df = df
+    if "generator_run_key" not in df.columns:
+        df["generator_run_key"] = None
     has_relative_constraints = experiment.optimization_config is not None and any(
         oc.relative for oc in experiment.optimization_config.outcome_constraints
     )
@@ -250,10 +261,15 @@ def prepare_arm_data(
             )
 
     # Add additional columns which do not require predicting or extracting data.
-    df["trial_status"] = df["trial_index"].apply(
-        lambda trial_index: experiment.trials[trial_index].status.name
-        if trial_index != -1
-        else "Additional Arm"
+    df["trial_status"] = df.apply(
+        lambda row: experiment.trials[row["trial_index"]].status.name
+        if row["trial_index"] != -1
+        else (
+            row["generator_run_key"]
+            if pd.notna(row.get("generator_run_key"))
+            else "Additional Arm"
+        ),
+        axis=1,
     )
     df["status_reason"] = df["trial_index"].apply(
         lambda trial_index: experiment.trials[trial_index].status_reason
@@ -312,6 +328,7 @@ def _prepare_modeled_arm_data(
     trial_index: int | None = None,
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
+    generator_runs: Mapping[str, GeneratorRun] | None = None,
     target_trial_index: int | None = None,
 ) -> pd.DataFrame:
     """
@@ -366,21 +383,40 @@ def _prepare_modeled_arm_data(
             else trial.arms
         )
     ]
+    # Track generator_run_key for each pair: None for trial/additional arms
+    generator_run_keys: list[str | None] = [
+        None for _ in range(len(trial_index_arm_pairs))
+    ]
     # Add additional arms passed in by the user
-    trial_index_arm_pairs += [(-1, arm) for arm in additional_arms or []]
+    additional_arms_list = additional_arms or []
+    trial_index_arm_pairs += [(-1, arm) for arm in additional_arms_list]
+    generator_run_keys += [None] * len(additional_arms_list)
+    # Add generator run arms with naming
+    if generator_runs is not None:
+        for gr_key, gr in generator_runs.items():
+            for j, arm in enumerate(gr.arms):
+                if not arm.has_name:
+                    arm = Arm(parameters=arm.parameters, name=f"{gr_key}_{j}")
+                trial_index_arm_pairs.append((-1, arm))
+                generator_run_keys.append(gr_key)
 
     # Remove arms with missing parameters since we cannot predict for them.
     predictable_pairs = []
     unpredictable_pairs = []
-    for trial_index, arm in trial_index_arm_pairs:
+    predictable_gr_keys: list[str | None] = []
+    unpredictable_gr_keys: list[str | None] = []
+    for i, (trial_index, arm) in enumerate(trial_index_arm_pairs):
         if adapter.model_space.check_membership(
             parameterization=arm.parameters,
             raise_error=False,
             check_all_parameters_present=True,
+            check_range_bounds=False,
         ):
             predictable_pairs.append((trial_index, arm))
+            predictable_gr_keys.append(generator_run_keys[i])
         else:
             unpredictable_pairs.append((trial_index, arm))
+            unpredictable_gr_keys.append(generator_run_keys[i])
 
     # Batch predict for efficiency.
     predictions = adapter.predict(
@@ -400,6 +436,7 @@ def _prepare_modeled_arm_data(
                 "arm_name": predictable_pairs[i][1].name
                 if predictable_pairs[i][1].has_name
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
+                "generator_run_key": predictable_gr_keys[i],
                 **{
                     f"{metric_name}_mean": predictions[0][metric_name][i]
                     for metric_name in metric_names
@@ -418,6 +455,7 @@ def _prepare_modeled_arm_data(
                 "arm_name": unpredictable_pairs[i][1].name
                 if unpredictable_pairs[i][1].has_name
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
+                "generator_run_key": unpredictable_gr_keys[i],
                 **{f"{metric_name}_mean": None for metric_name in metric_names},
                 **{f"{metric_name}_sem": None for metric_name in metric_names},
             }

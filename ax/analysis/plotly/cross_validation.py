@@ -106,6 +106,7 @@ class CrossValidationPlot(Analysis):
         self.untransform = untransform
         self.trial_index = trial_index
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
+        self._r2s: dict[str, float] = {}
 
     @override
     def validate_applicable_state(
@@ -144,6 +145,7 @@ class CrossValidationPlot(Analysis):
             relevant_adapter._experiment.signature_to_metric[signature].name
             for signature in relevant_adapter._metric_signatures
         ]
+        self._r2s = {}
         for metric_name in self.metric_names or relevant_adapter_metric_names:
             df = _prepare_data(
                 metric_name=metric_name, cv_results=cv_results, adapter=relevant_adapter
@@ -162,6 +164,7 @@ class CrossValidationPlot(Analysis):
                 y_obs=df["observed"].to_numpy(),
                 y_pred=df["predicted"].to_numpy(),
             )
+            self._r2s[metric_title] = r_squared
 
             # Define the cross-validation description based on the number of folds
             cv_description = (
