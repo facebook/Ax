@@ -35,6 +35,15 @@ class DiagnosticAnalysis(Analysis):
     of leave-one-out cross validation.
     """
 
+    def __init__(self, include_tracking_metrics: bool = False) -> None:
+        """Initialize the DiagnosticAnalysis.
+
+        Args:
+            include_tracking_metrics: Whether to include tracking metrics or just use
+                the optimization config metrics.
+        """
+        self.include_tracking_metrics = include_tracking_metrics
+
     @override
     def validate_applicable_state(
         self,
@@ -57,8 +66,11 @@ class DiagnosticAnalysis(Analysis):
     ) -> AnalysisCardGroup:
         experiment = none_throws(experiment)
 
-        # Extract all metric names from the OptimizationConfig.
-        metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
+        if self.include_tracking_metrics:
+            metric_names = list(experiment.metrics.keys())
+        else:
+            # Extract all metric names from the OptimizationConfig.
+            metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
 
         is_bandit = generation_strategy and is_bandit_experiment(
             generation_strategy_name=generation_strategy.name
