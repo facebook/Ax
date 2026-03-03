@@ -377,6 +377,7 @@ def _prepare_modeled_arm_data(
             parameterization=arm.parameters,
             raise_error=False,
             check_all_parameters_present=True,
+            check_range_bounds=False,
         ):
             predictable_pairs.append((trial_index, arm))
         else:
