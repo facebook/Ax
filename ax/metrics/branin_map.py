@@ -117,9 +117,8 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                         "sem": self.noise_sd if noisy else 0.0,
                         "trial_index": trial.index,
                         "mean": [
-                            item["mean"] + self.noise_sd * np.random.randn()
-                            if noisy
-                            else 0.0
+                            item["mean"]
+                            + (self.noise_sd * np.random.randn() if noisy else 0.0)
                             for item in res
                         ],
                         "metric_signature": self.signature,

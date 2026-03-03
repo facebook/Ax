@@ -85,7 +85,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         # Should raise ValueError if trying to check an invalid trial
         with self.assertRaisesRegex(
             ValueError,
-            r"trial_to_check is larger than the total number of trials \(=4\).",
+            r"trial_to_check is larger than the maximum completed trial index \(=4\).",
         ):
             stop, message = gss.should_stop_optimization(
                 experiment=exp, trial_to_check=5

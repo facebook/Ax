@@ -130,8 +130,8 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             trial_to_check = max_completed_trial
         elif trial_to_check > max_completed_trial:
             raise ValueError(
-                "trial_to_check is larger than the total number of "
-                f"trials (={max_completed_trial})."
+                "trial_to_check is larger than the maximum completed "
+                f"trial index (={max_completed_trial})."
             )
 
         # Only counting the trials up to trial_to_check.
