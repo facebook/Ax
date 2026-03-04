@@ -1615,14 +1615,14 @@ class TestAxClient(TestCase):
         ]
         self.assertEqual(len(node0_pausing_criteria), 0)
 
-        # Check that max_parallelism is None by verifying no MaxGenerationParallelism
+        # Check that max_concurrency is None by verifying no MaxGenerationConcurrency
         # criterion exists in pausing_criteria
-        node1_max_parallelism = [
+        node1_max_concurrency = [
             pc
             for pc in ax_client.generation_strategy._nodes[1].pausing_criteria
             if isinstance(pc, MaxGenerationParallelism)
         ]
-        self.assertEqual(len(node1_max_parallelism), 0)
+        self.assertEqual(len(node1_max_concurrency), 0)
 
         for _ in range(10):
             ax_client.get_next_trial()
@@ -1938,17 +1938,17 @@ class TestAxClient(TestCase):
     def test_recommended_parallelism(self) -> None:
         ax_client = AxClient()
         with self.assertRaisesRegex(AssertionError, "No generation strategy"):
-            ax_client.get_max_parallelism()
+            ax_client.get_max_concurrency()
         ax_client.create_experiment(
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        self.assertEqual(ax_client.get_max_parallelism(), [(5, 5), (-1, 3)])
+        self.assertEqual(ax_client.get_max_concurrency(), [(5, 5), (-1, 3)])
         self.assertEqual(
             run_trials_using_recommended_parallelism(
-                ax_client, ax_client.get_max_parallelism(), 20
+                ax_client, ax_client.get_max_concurrency(), 20
             ),
             0,
         )
@@ -2319,6 +2319,8 @@ class TestAxClient(TestCase):
             ax_client.load_experiment("test_experiment")
         with self.assertRaises(NotImplementedError):
             ax_client.get_recommended_max_parallelism()
+        with self.assertRaises(NotImplementedError):
+            ax_client.get_max_parallelism()
 
     def test_find_last_trial_with_parameterization(self) -> None:
         ax_client = AxClient()
@@ -2871,7 +2873,7 @@ class TestAxClient(TestCase):
 
         self.assertEqual(ax_client.estimate_early_stopping_savings(), 0)
 
-    def test_max_parallelism_exception_when_early_stopping(self) -> None:
+    def test_max_concurrency_exception_when_early_stopping(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
