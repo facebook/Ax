@@ -168,7 +168,8 @@ class TestBestPointUtils(TestCase):
                 optimization_config=optimization_config,
                 use_cumulative_hv=True,
             )
-            self.assertEqual(hvs, [0.0, 2.0, 2.0, 3.0])
+            # Inferred ref point is (1.9, 1.9) from Pareto front {(2,3),(3,2)}.
+            np.testing.assert_allclose(hvs, [0.0, 0.11, 0.11, 0.21], atol=1e-10)
 
         with self.subTest("Non-cumulative HV"):
             hvs = get_hypervolume_trace_of_outcomes_multi_objective(
@@ -176,7 +177,41 @@ class TestBestPointUtils(TestCase):
                 optimization_config=optimization_config,
                 use_cumulative_hv=False,
             )
-            self.assertEqual(hvs, [0.0, 2.0, 0.0, 2.0])
+            np.testing.assert_allclose(hvs, [0.0, 0.11, 0.0, 0.11], atol=1e-10)
+
+    def test_get_hypervolume_trace_minimization_inferred_thresholds(self) -> None:
+        """Test that inferred thresholds work correctly with minimization
+        objectives. Regression test for a bug where the reference point was
+        computed from already-negated data but treated as un-negated, causing
+        the reference point to dominate all observations (yielding 0 HV).
+        """
+        objective = MultiObjective(
+            objectives=[
+                Objective(metric=Metric("m1"), minimize=True),
+                Objective(metric=Metric("m2"), minimize=True),
+            ],
+        )
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objective=objective,
+        )
+        df_wide = pd.DataFrame.from_records(
+            [
+                {"m1": 3.0, "m2": 1.0, "feasible": True},
+                {"m1": 1.0, "m2": 3.0, "feasible": True},
+                {"m1": 7.0, "m2": 7.0, "feasible": True},
+                {"m1": 2.0, "m2": 2.0, "feasible": True},
+            ]
+        )
+        hvs = get_hypervolume_trace_of_outcomes_multi_objective(
+            df_wide=df_wide.copy(),
+            optimization_config=optimization_config,
+            use_cumulative_hv=True,
+        )
+        # All HVs should be positive (before the fix, they were all 0.0)
+        self.assertGreater(hvs[-1], 0.0)
+        # The trace should be non-decreasing (cumulative best)
+        for i in range(1, len(hvs)):
+            self.assertGreaterEqual(hvs[i], hvs[i - 1])
 
     def test_get_trace_by_arm_pull_from_data(self) -> None:
         objective = Objective(metric=Metric("m1"), minimize=False)
@@ -318,14 +353,16 @@ class TestBestPointUtils(TestCase):
                 ],
             ),
         )
-        # reference point inferred to be [1, 0]
+        # reference point inferred via infer_reference_point on Pareto front
         with self.subTest("Multi-objective, cumulative"):
             result = get_trace_by_arm_pull_from_data(
                 df=df, optimization_config=moo_opt_config, use_cumulative_best=True
             )
             self.assertEqual(len(result), 3)
             self.assertEqual(set(result.columns), {"trial_index", "arm_name", "value"})
-            self.assertEqual(result["value"].tolist(), [0.0, 0.0, 2.0])
+            np.testing.assert_allclose(
+                result["value"].tolist(), [0.22, 0.22, 0.42], atol=1e-10
+            )
 
         with self.subTest("Multi-objective, non-cumulative"):
             result = get_trace_by_arm_pull_from_data(
@@ -333,7 +370,9 @@ class TestBestPointUtils(TestCase):
             )
             self.assertEqual(len(result), 3)
             self.assertEqual(set(result.columns), {"trial_index", "arm_name", "value"})
-            self.assertEqual(result["value"].tolist(), [0.0, 0.0, 2.0])
+            np.testing.assert_allclose(
+                result["value"].tolist(), [0.22, 0.0, 0.22], atol=1e-10
+            )
 
     @mock_botorch_optimize
     def test_best_from_model_prediction(self) -> None:
