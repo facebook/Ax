@@ -396,7 +396,7 @@ class BatchTrial(BaseTrial):
             if self.experiment.search_space.check_membership(arm.parameters)
         ]
 
-    # pyre-ignore[6]: T77111662.
+    # pyre-ignore[6]: pyre does not understand @copy_doc with @property.
     @copy_doc(BaseTrial.generator_runs)
     @property
     def generator_runs(self) -> list[GeneratorRun]:

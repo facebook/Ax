@@ -16,7 +16,7 @@ from copy import deepcopy
 from functools import cached_property
 from io import StringIO
 from logging import Logger
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -177,29 +177,24 @@ class Data(Base, SerializationMixin):
                     f"Dataframe must contain required columns {list(missing_columns)}."
                 )
 
+            # Using itertuples() instead of iterrows() for speed.
+            # cast() suppresses pyre errors on namedtuple attribute access.
             self._data_rows = [
                 DataRow(
-                    # pyre-ignore[16] Intentional unsafe namedtuple access
                     # int() cast needed because pd.read_json with dtype=False
                     # can return string trial indices from storage
                     trial_index=int(row.trial_index),
-                    # pyre-ignore[16] Intentional unsafe namedtuple access
                     arm_name=row.arm_name,
-                    # pyre-ignore[16] Intentional unsafe namedtuple access
                     metric_name=row.metric_name,
-                    # pyre-ignore[16] Intentional unsafe namedtuple access
                     metric_signature=row.metric_signature,
-                    # pyre-ignore[16] Intentional unsafe namedtuple access
                     mean=row.mean,
-                    # pyre-ignore[16] Intentional unsafe namedtuple access
                     se=row.sem,
                     step=getattr(row, "step", None),
                     start_time=getattr(row, "start_time", None),
                     end_time=getattr(row, "end_time", None),
                     n=getattr(row, "n", None),
                 )
-                # Using itertuples() instead of iterrows() for speed
-                for row in df.itertuples(index=False)
+                for row in cast(Any, df.itertuples(index=False))
             ]
         else:
             self._data_rows = []

@@ -25,8 +25,7 @@ logger: Logger = get_logger(__name__)
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
-# pyre-fixme[5]: Global expression must be annotated.
-round_floats_for_logging = partial(
+round_floats_for_logging: partial[Any] = partial(
     _round_floats_for_logging,
     decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
 )
@@ -115,19 +114,15 @@ class Trial(BaseTrial):
             The trial instance.
         """
 
+        cand_metadata_by_sig: dict[str, TCandidateMetadata] | None = None
+        if candidate_metadata is not None:
+            cand_metadata: TCandidateMetadata = candidate_metadata.copy()
+            cand_metadata_by_sig = {arm.signature: cand_metadata}
         return self.add_generator_run(
             generator_run=GeneratorRun(
                 arms=[arm],
                 type=GeneratorRunType.MANUAL.name,
-                # pyre-ignore[6]: In call `GeneratorRun.__init__`, for 3rd parameter
-                # `candidate_metadata_by_arm_signature`
-                # expected `Optional[Dict[str, Optional[Dict[str, typing.Any]]]]`
-                # but got `Optional[Dict[str, Dict[str, typing.Any]]]`
-                candidate_metadata_by_arm_signature=(
-                    None
-                    if candidate_metadata is None
-                    else {arm.signature: candidate_metadata.copy()}
-                ),
+                candidate_metadata_by_arm_signature=cand_metadata_by_sig,
             )
         )
 

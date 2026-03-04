@@ -38,15 +38,12 @@ STATUS_QUO_GENERATION_METHOD_STR = "Status Quo"
 MAX_ABANDONED_REASON_LENGTH = 1000
 
 
-def immutable_once_run(func: Callable) -> Callable:
+def immutable_once_run(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator for methods that should throw Error when
     trial is running or has ever run and immutable.
     """
 
-    # no type annotation for now; breaks sphinx-autodoc-typehints
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def _immutable_once_run(self, *args, **kwargs):
+    def _immutable_once_run(self: Any, *args: Any, **kwargs: Any) -> Any:
         if self._status != TrialStatus.CANDIDATE:
             raise TrialMutationError(
                 "Cannot modify a trial that is running or has ever run. "

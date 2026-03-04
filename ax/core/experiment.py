@@ -72,8 +72,7 @@ NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
-# pyre-fixme[5]: Global expression must be annotated.
-round_floats_for_logging = partial(
+round_floats_for_logging: partial[Any] = partial(
     _round_floats_for_logging,
     decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
 )
@@ -135,9 +134,7 @@ class Experiment(Base):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        # appease pyre
-        # pyre-fixme[13]: Attribute `_search_space` is never initialized.
-        self._search_space: SearchSpace
+        self._search_space: SearchSpace = search_space
         self._status_quo: Arm | None = None
 
         self._name = name
@@ -194,7 +191,6 @@ class Experiment(Base):
         self.add_tracking_metrics(tracking_metrics or [])
 
         # call setters defined below
-        self.search_space: SearchSpace = search_space
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
