@@ -28,6 +28,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
+from ax.core.derived_metric import ExpressionDerivedMetric
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
@@ -202,6 +203,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     ChainedInputTransform: botorch_component_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
+    ExpressionDerivedMetric: metric_to_dict,
     DerivedParameter: derived_parameter_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
@@ -317,6 +319,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Data": Data,
     "DataLoaderConfig": DataLoaderConfig,
     "DataType": DataType,
+    "ExpressionDerivedMetric": ExpressionDerivedMetric,
     "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
     "Experiment": Experiment,

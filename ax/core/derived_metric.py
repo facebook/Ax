@@ -32,6 +32,11 @@ Subclasses that need cross-trial data lookup (e.g., when an arm's base
 metric data lives in a different trial) should override
 ``_resolve_source_trial_indices``.
 
+Concrete subclasses:
+
+* ``ExpressionDerivedMetric`` (below) – computes values from a mathematical
+  expression of other metrics (e.g. ``log(a) - log(b)``).
+
 .. note:: **Transform compatibility.**
    Derived metrics are computed *before* any adapter transforms run.
    Transforms that modify metric values (e.g. ``Relativize``, ``Log``) will
@@ -44,7 +49,7 @@ metric data lives in a different trial) should override
 from __future__ import annotations
 
 from logging import Logger
-from typing import Any
+from typing import Any, Callable, cast
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
@@ -53,7 +58,12 @@ from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.exceptions.core import UserInputError
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok
+from ax.utils.common.string_utils import sanitize_name, unsanitize_name
 from pyre_extensions import none_throws
+from sympy import lambdify, sympify
+from sympy.core.expr import Expr
+from sympy.core.relational import Relational
+from sympy.core.symbol import Symbol
 
 
 logger: Logger = get_logger(__name__)
@@ -506,4 +516,193 @@ class DerivedMetric(Metric):
             "input_metric_names": self._input_metric_names,
             "relativize_inputs": self._relativize_inputs,
             "as_percent": self._as_percent,
+        }
+
+
+class ExpressionDerivedMetric(DerivedMetric):
+    """A metric computed from a mathematical expression of other metrics.
+
+    The expression is parsed using sympy (consistent with other expression
+    parsing in Ax) and compiled via ``lambdify`` for fast numeric evaluation.
+    It may reference:
+
+    * Input metric names as variables
+    * Mathematical operators: ``+``, ``-``, ``*``, ``/``, ``**``
+    * Any function available in Python's ``math`` module (e.g. ``log``,
+      ``exp``, ``sqrt``, ``abs``, ``sin``, ``cos``, ``asin``, ``pow``, etc.)
+    * Numeric constants
+
+    Attributes:
+        expression_str: The mathematical expression string.
+
+    Example::
+
+        >>> log_ratio = ExpressionDerivedMetric(
+        ...     name="log_ratio",
+        ...     input_metric_names=["metric_a", "metric_b"],
+        ...     expression_str="log(metric_a) - log(metric_b)",
+        ... )
+    """
+
+    def __init__(
+        self,
+        name: str,
+        input_metric_names: list[str],
+        expression_str: str,
+        relativize_inputs: bool = False,
+        as_percent: bool = True,
+        lower_is_better: bool | None = None,
+        properties: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            name=name,
+            input_metric_names=input_metric_names,
+            relativize_inputs=relativize_inputs,
+            as_percent=as_percent,
+            lower_is_better=lower_is_better,
+            properties=properties,
+        )
+        self._expression_str = expression_str
+
+        # Parse & validate once; cache the compiled evaluator for reuse.
+        # sanitize_name handles metric names with dots, slashes, etc.
+        # (consistent with DerivedParameter's expression parsing).
+        try:
+            self._sympy_expr: Expr = sympify(  # pyre-ignore[8]
+                sanitize_name(self._expression_str),
+            )
+        except Exception as e:
+            raise UserInputError(
+                f"Invalid expression in ExpressionDerivedMetric "
+                f"'{self.name}': {self._expression_str}. Error: {e}"
+            ) from e
+        self._validate_expression()
+        # _sympy_symbols are the sanitized names used by sympy/lambdify.
+        # _symbols are the original (unsanitized) metric names used for
+        # looking up values at evaluation time.
+        # Cast free_symbols to set[Symbol] since Pyre stubs use Basic
+        # pyre-fixme[16]: Pyre cannot infer that free_symbols contains Symbol
+        free_syms = cast(set[Symbol], self._sympy_expr.free_symbols)
+        sympy_symbols: list[str] = sorted(s.name for s in free_syms)
+        self._symbols: list[str] = [unsanitize_name(s) for s in sympy_symbols]
+        self._evaluator: Callable[..., float] = lambdify(
+            sympy_symbols, self._sympy_expr, modules="math"
+        )
+
+    @property
+    def expression_str(self) -> str:
+        """The expression string defining the derivation."""
+        return self._expression_str
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+
+    def _validate_expression(self) -> None:
+        """Validate that the parsed expression is a numeric expression with
+        only declared input metrics as free symbols."""
+        if isinstance(self._sympy_expr, Relational):
+            raise UserInputError(
+                "Comparison operators are not allowed in "
+                "ExpressionDerivedMetric expressions. "
+                "Use outcome constraints for comparisons."
+            )
+
+        # Reject undeclared variable names.
+        # Cast free_symbols to set[Symbol] since Pyre stubs use Basic
+        # pyre-fixme[16]: Pyre cannot infer that free_symbols contains Symbol
+        free_syms = cast(set[Symbol], self._sympy_expr.free_symbols)
+        referenced_names = {unsanitize_name(s.name) for s in free_syms}
+        input_metric_set = set(self._input_metric_names)
+
+        unknown_names = referenced_names - input_metric_set
+        if unknown_names:
+            raise UserInputError(
+                f"Expression for ExpressionDerivedMetric '{self.name}' references "
+                f"unknown names: {unknown_names}. Allowed metric names: "
+                f"{input_metric_set}."
+            )
+
+        unused_inputs = input_metric_set - referenced_names
+        if unused_inputs:
+            logger.warning(
+                f"ExpressionDerivedMetric '{self.name}' declares input metrics "
+                f"that are not used in the expression: {unused_inputs}."
+            )
+
+    # ------------------------------------------------------------------
+    # Evaluation
+    # ------------------------------------------------------------------
+
+    def _evaluate_expression(self, metric_values: dict[str, float]) -> float:
+        """Evaluate the expression with the given metric values."""
+        args = [metric_values[s] for s in self._symbols]
+        return float(self._evaluator(*args))
+
+    # ------------------------------------------------------------------
+    # Core computation (subclass hook)
+    # ------------------------------------------------------------------
+
+    def _compute_derived_values(
+        self,
+        trial: BaseTrial,
+        arm_data: dict[str, pd.DataFrame],
+    ) -> MetricFetchResult:
+        """Evaluate the expression for each arm using pre-collected data.
+
+        When ``relativize_inputs`` is ``True``, the base class has already
+        relativized the ``mean`` values and excluded the status quo arm.
+        """
+        result_rows: list[dict[str, Any]] = []
+
+        for arm_name, arm_df in arm_data.items():
+            try:
+                metric_values = self._extract_means(arm_df)
+                derived_value = self._evaluate_expression(metric_values)
+            except Exception as e:
+                return Err(
+                    MetricFetchE(
+                        message=(
+                            f"Error evaluating ExpressionDerivedMetric "
+                            f"'{self.name}' for arm '{arm_name}' "
+                            f"in trial {trial.index}: {e}"
+                        ),
+                        exception=e,
+                    )
+                )
+
+            result_rows.append(
+                {
+                    "trial_index": trial.index,
+                    "arm_name": arm_name,
+                    "metric_name": self.name,
+                    "metric_signature": self.signature,
+                    "mean": derived_value,
+                    "sem": float("nan"),
+                }
+            )
+
+        return Ok(value=Data(df=pd.DataFrame(result_rows)))
+
+    # ------------------------------------------------------------------
+    # Misc
+    # ------------------------------------------------------------------
+
+    def __repr__(self) -> str:
+        parts = [
+            f"name='{self.name}'",
+            f"expression='{self._expression_str}'",
+        ]
+        if self._relativize_inputs:
+            parts.append("relativize_inputs=True")
+        return f"ExpressionDerivedMetric({', '.join(parts)})"
+
+    @property
+    def summary_dict(self) -> dict[str, Any]:
+        """Fields of this metric's configuration that will appear
+        in the ``Summary`` analysis table.
+        """
+        return {
+            **super().summary_dict,
+            "expression_str": self._expression_str,
         }
