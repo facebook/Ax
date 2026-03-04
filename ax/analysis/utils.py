@@ -76,7 +76,7 @@ def extract_relevant_adapter(
             "Provided GenerationStrategy has no adapter, but no Experiment was "
             "provided to source data to fit the adapter."
         )
-
+    generation_strategy.maybe_transition_to_next_node(raise_data_required_error=False)
     generation_strategy.current_node._fit(experiment=experiment)
     adapter = generation_strategy.adapter
 

@@ -1226,7 +1226,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 "At least one trial must be completed with data to fit a model."
             )
         # Check if we should transition before generating the next candidate.
-        self.generation_strategy._maybe_transition_to_next_node()
+        self.generation_strategy.maybe_transition_to_next_node()
         self.generation_strategy._curr._fit(experiment=self.experiment)
 
     def verify_trial_parameterization(
