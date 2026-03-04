@@ -16,7 +16,9 @@ from ax.adapter.transforms.base import Transform
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
+from ax.core.types import TParamValueList
 from ax.generators.types import TConfig
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -58,10 +60,11 @@ class MetricsAsTask(Transform):
         # Use config to specify metric task map
         if "metric_task_map" not in self.config:
             raise ValueError("config must specify metric_task_map")
-        self.metric_task_map: dict[str, list[str]] = self.config[  # pyre-ignore
-            "metric_task_map"
-        ]
-        self.task_values: list[str] = list(self.metric_task_map.keys())
+        self.metric_task_map: dict[str, list[str]] = assert_is_instance(
+            self.config["metric_task_map"], dict
+        )
+        # Explicitly type to match ChoiceParameter.values expected type
+        self.task_values: TParamValueList = list(self.metric_task_map.keys())
         assert "TARGET" not in self.task_values
         self.task_values.append("TARGET")
 
@@ -136,7 +139,7 @@ class MetricsAsTask(Transform):
         task_param = ChoiceParameter(
             name="METRIC_TASK",
             parameter_type=ParameterType.STRING,
-            values=self.task_values,  # pyre-ignore
+            values=self.task_values,
             is_ordered=False,
             is_task=True,
             sort_values=True,

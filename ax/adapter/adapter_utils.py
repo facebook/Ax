@@ -38,7 +38,7 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
-from ax.core.types import TBounds, TCandidateMetadata
+from ax.core.types import TBounds, TCandidateMetadata, TNumeric
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.torch.botorch_moo_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
@@ -143,8 +143,11 @@ def extract_search_space_digest(
             else:
                 categorical_features.append(i)
             # at this point we can assume that values are numeric due to transforms
-            discrete_choices[i] = p.values  # pyre-ignore [6]
-            bounds.append((min(p.values), max(p.values)))  # pyre-ignore [6]
+            numeric_values: list[TNumeric] = [
+                assert_is_instance_of_tuple(v, (int, float)) for v in p.values
+            ]
+            discrete_choices[i] = numeric_values
+            bounds.append((min(numeric_values), max(numeric_values)))
         elif isinstance(p, RangeParameter):
             if p.log_scale or p.logit_scale:
                 raise UserInputError(
@@ -154,8 +157,7 @@ def extract_search_space_digest(
                 )
             if p.parameter_type == ParameterType.INT:
                 ordinal_features.append(i)
-                d_choices = list(range(int(p.lower), int(p.upper) + 1))
-                # pyre-ignore [6]
+                d_choices: list[TNumeric] = list(range(int(p.lower), int(p.upper) + 1))
                 discrete_choices[i] = d_choices
             bounds.append((p.lower, p.upper))
         else:

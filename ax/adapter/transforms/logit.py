@@ -16,6 +16,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
+from pyre_extensions import assert_is_instance
 from scipy.special import expit, logit
 
 if TYPE_CHECKING:
@@ -58,7 +59,7 @@ class Logit(Transform):
         for obsf in observation_features:
             for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
-                    param: float = obsf.parameters[p_name]  # pyre-ignore [9]
+                    param = assert_is_instance(obsf.parameters[p_name], float)
                     obsf.parameters[p_name] = logit(param).item()
         return observation_features
 
@@ -78,7 +79,7 @@ class Logit(Transform):
         for obsf in observation_features:
             for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
-                    param: float = obsf.parameters[p_name]  # pyre-ignore [9]
+                    param = assert_is_instance(obsf.parameters[p_name], float)
                     obsf.parameters[p_name] = expit(param).item()
         return observation_features
 
