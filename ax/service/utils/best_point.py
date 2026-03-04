@@ -53,6 +53,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.preference.preference_utils import get_preference_adapter
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
+from botorch.utils.multi_objective.pareto import is_non_dominated
 from numpy.typing import NDArray
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -738,7 +739,10 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
         df_wide: Dataframe with columns ["feasible"] + relevant
             metrics. This can come from reshaping the data that comes from `Data.df`.
         optimization_config: A multi-objective optimization config with a
-            `MultiObjective` (not a `ScalarizedObjective`).
+            `MultiObjective` (not a `ScalarizedObjective`). When objective
+            thresholds are not provided, they are inferred using
+            ``infer_reference_point`` on the Pareto frontier of the feasible
+            observations.
         use_cumulative_hv: If True, the hypervolume returned is the cumulative
             hypervolume of the points in each row. Otherwise, this is the
             hypervolume of each point.
@@ -754,8 +758,21 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
     ...             Objective(metric=Metric(name="m2"), minimize=False),
     ...         ]
     ...     ),
+    ...     objective_thresholds=[
+    ...         ObjectiveThreshold(
+    ...             metric=Metric(name="m1"),
+    ...             bound=0.0,
+    ...             relative=False,
+    ...             op=ComparisonOp.GEQ,
+    ...         ),
+    ...         ObjectiveThreshold(
+    ...             metric=Metric(name="m2"),
+    ...             bound=0.0,
+    ...             relative=False,
+    ...             op=ComparisonOp.GEQ,
+    ...         ),
+    ...     ],
     ... )
-    >>> # Objective threshols will be inferred to be zero
     >>> df_wide = pd.DataFrame.from_records(
     ...     [
     ...         {"m1": 0.0, "m2": 0.0, "feasible": True},
@@ -788,6 +805,8 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
         threshold.metric.name: threshold
         for threshold in optimization_config.objective_thresholds
     }
+    # First pass: collect explicit thresholds, mark missing ones with NaN.
+    needs_inference = False
     for obj in objective.objectives:
         metric_name = obj.metric.name
         if metric_name in objective_thresholds_dict:
@@ -798,14 +817,49 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
                     "`Derelativize` the optimization config, or use "
                     "`get_trace`."
                 )
+            # Explicit thresholds are in the original metric space, so negate
+            # for minimization objectives to match the negated data.
             bound = threshold.bound
+            objective_thresholds.append(-bound if obj.minimize else bound)
         else:
-            metric_vals = df_wide[metric_name]
-            bound = metric_vals.max() if obj.minimize else metric_vals.min()
+            needs_inference = True
+            objective_thresholds.append(float("nan"))
 
-        objective_thresholds.append(-bound if obj.minimize else bound)
+    if needs_inference:
+        # Infer missing thresholds using infer_reference_point on the
+        # observed Pareto frontier (data is already in maximization
+        # convention after negating minimization objectives above).
+        feasible_mask = df_wide["feasible"].to_numpy()
+        Y_feasible = torch.from_numpy(
+            df_wide.loc[feasible_mask, objective.metric_names].to_numpy().copy()
+        ).to(torch.double)
+        if Y_feasible.shape[0] > 0:
+            pareto_Y = Y_feasible[is_non_dominated(Y_feasible)]
+        else:
+            # No feasible points -- use all data as fallback.
+            Y_all = torch.from_numpy(
+                df_wide[objective.metric_names].to_numpy().copy()
+            ).to(torch.double)
+            pareto_Y = Y_all[is_non_dominated(Y_all)]
 
-    objective_thresholds = torch.tensor(objective_thresholds, dtype=torch.double)
+        max_ref_point = torch.tensor(objective_thresholds, dtype=torch.double)
+        has_any_explicit = not max_ref_point.isnan().all()
+
+        inferred = infer_reference_point(
+            pareto_Y=pareto_Y,
+            max_ref_point=max_ref_point if has_any_explicit else None,
+            scale=0.1,
+        )
+
+        if has_any_explicit:
+            # Replace NaN entries with inferred values.
+            objective_thresholds = torch.where(
+                max_ref_point.isnan(), inferred, max_ref_point
+            )
+        else:
+            objective_thresholds = inferred
+    else:
+        objective_thresholds = torch.tensor(objective_thresholds, dtype=torch.double)
 
     metrics_tensor = torch.from_numpy(df_wide[objective.metric_names].to_numpy().copy())
     return _compute_hv_trace(
