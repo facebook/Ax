@@ -18,6 +18,7 @@ from ax.analysis.plotly.plotly_analysis import (
     create_plotly_analysis_card,
     PlotlyAnalysisCard,
 )
+from ax.analysis.plotly.utils import get_trial_statuses_with_fallback
 from ax.analysis.utils import (
     extract_relevant_adapter,
     prepare_arm_data,
@@ -57,7 +58,11 @@ class PFeasiblePlot(Analysis):
     ) -> None:
         self.use_model_predictions = use_model_predictions
         self.trial_index = trial_index
-        self.trial_statuses = trial_statuses
+        self.trial_statuses: list[TrialStatus] | None = (
+            get_trial_statuses_with_fallback(
+                trial_statuses=trial_statuses, trial_index=trial_index
+            )
+        )
         self.additional_arms = additional_arms
 
     def validate_applicable_state(
@@ -157,15 +162,20 @@ class PFeasiblePlot(Analysis):
             relativize=False,
         )
 
+        # Only show status quo arm for the first trial to avoid clutter
+        status_quo_arm_name = (
+            experiment.status_quo.name if experiment.status_quo is not None else None
+        )
+        if status_quo_arm_name is not None:
+            sq_mask = arm_data["arm_name"] == status_quo_arm_name
+            first_sq_trial = arm_data.loc[sq_mask, "trial_index"].min()
+            arm_data = arm_data[~sq_mask | (arm_data["trial_index"] == first_sq_trial)]
+
         fig = _arm_effects_prepare_figure(
             df=arm_data,
             metric_name="p_feasible",
             is_relative=False,
-            status_quo_arm_name=(
-                experiment.status_quo.name
-                if experiment.status_quo is not None
-                else None
-            ),
+            status_quo_arm_name=status_quo_arm_name,
             metric_label="% Chance of Feasibility",
         )
 
