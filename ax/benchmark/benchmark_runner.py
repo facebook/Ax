@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import logging
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -25,6 +26,8 @@ from ax.exceptions.core import UnsupportedError
 from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _dict_of_arrays_to_df(
@@ -264,12 +267,61 @@ class BenchmarkRunner(Runner):
         )
         return {"benchmark_metadata": metadata}
 
+    def _trial_has_nan(self, trial: BaseTrial) -> bool:
+        """Check if a trial's benchmark metadata contains NaN in the mean column.
+
+        Args:
+            trial: The trial to check.
+
+        Returns:
+            True if any metric's DataFrame has NaN in the "mean" column.
+        """
+        run_metadata = trial.run_metadata
+        if not isinstance(run_metadata, dict):
+            return False
+        metadata = run_metadata.get("benchmark_metadata")
+        if metadata is None:
+            return False
+        for df in metadata.dfs.values():
+            if not df.empty and df["mean"].isna().any():
+                return True
+        return False
+
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
     ) -> dict[TrialStatus, set[int]]:
+        trials = list(trials)
         if self.simulated_backend_runner is None:
-            return {TrialStatus.COMPLETED: {t.index for t in trials}}
-        return self.simulated_backend_runner.poll_trial_status(trials=trials)
+            statuses: dict[TrialStatus, set[int]] = {
+                TrialStatus.COMPLETED: {t.index for t in trials}
+            }
+        else:
+            statuses = self.simulated_backend_runner.poll_trial_status(trials=trials)
+
+        # Move completed trials with NaN data to ABANDONED.
+        completed_indices = statuses.get(TrialStatus.COMPLETED, set())
+        if completed_indices:
+            trials_by_index = {t.index: t for t in trials}
+            nan_indices = {
+                idx
+                for idx in completed_indices
+                if (trial := trials_by_index.get(idx)) is not None
+                and self._trial_has_nan(trial)
+            }
+            if nan_indices:
+                for idx in nan_indices:
+                    logger.info(
+                        f"Trial {idx} has NaN in metrics and will be "
+                        "marked as ABANDONED."
+                    )
+                statuses.pop(TrialStatus.COMPLETED)
+                remaining = completed_indices - nan_indices
+                if remaining:
+                    statuses[TrialStatus.COMPLETED] = remaining
+                statuses[TrialStatus.ABANDONED] = (
+                    statuses.get(TrialStatus.ABANDONED, set()) | nan_indices
+                )
+        return statuses
 
     @classmethod
     def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
