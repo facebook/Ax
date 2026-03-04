@@ -7,7 +7,10 @@
 
 from unittest.mock import patch
 
-from ax.analysis.plotly.surface.utils import get_fixed_values_for_slice_or_contour
+from ax.analysis.plotly.surface.utils import (
+    _get_best_trial_info,
+    get_fixed_values_for_slice_or_contour,
+)
 from ax.core.arm import Arm
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
@@ -121,3 +124,50 @@ class TestGetFixedValuesForSliceOrContour(TestCase):
 
         self.assertEqual(fixed_values, {"x": 0.0, "y": 0.0})
         self.assertEqual(description, "the center of the search space")
+
+    def test_get_best_trial_info_with_batch_trial(self) -> None:
+        """Test that _get_best_trial_info works with BatchTrial (PTS experiments),
+        both when a matching arm is found and when no arm matches."""
+        client = self._create_client()
+        experiment = client.experiment
+        trial = experiment.new_batch_trial()
+        trial.add_arms_and_weights(
+            arms=[
+                Arm(parameters={"x": 0.1, "y": 0.2}, name="0_0"),
+                Arm(parameters={"x": 0.3, "y": 0.4}, name="0_1"),
+                Arm(parameters={"x": 0.5, "y": 0.6}, name="0_2"),
+            ],
+        )
+
+        # Subtest 1: matching arm found
+        with self.subTest("matching_arm_found"):
+            with patch(
+                "ax.analysis.plotly.surface.utils."
+                "get_best_parameters_from_model_predictions_with_trial_index",
+                return_value=(0, {"x": 0.3, "y": 0.4}, None),
+            ):
+                result = _get_best_trial_info(
+                    experiment=experiment,
+                    generation_strategy=client.generation_strategy,
+                )
+
+            self.assertIsNotNone(result)
+            # pyre-ignore[16]: result is not None per assertion above
+            parameterization, trial_index, arm_name = result
+            self.assertEqual(parameterization, {"x": 0.3, "y": 0.4})
+            self.assertEqual(trial_index, 0)
+            self.assertEqual(arm_name, "0_1")
+
+        # Subtest 2: no matching arm returns None
+        with self.subTest("no_matching_arm_returns_none"):
+            with patch(
+                "ax.analysis.plotly.surface.utils."
+                "get_best_parameters_from_model_predictions_with_trial_index",
+                return_value=(0, {"x": 0.9, "y": 0.9}, None),
+            ):
+                result = _get_best_trial_info(
+                    experiment=experiment,
+                    generation_strategy=client.generation_strategy,
+                )
+
+            self.assertIsNone(result)
