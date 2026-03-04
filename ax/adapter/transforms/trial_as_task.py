@@ -20,7 +20,7 @@ from ax.core.utils import get_target_trial_index
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -86,10 +86,7 @@ class TrialAsTask(Transform):
             )
         # Get trial level map
         if "trial_level_map" in self.config:
-            # pyre-ignore [9]
-            trial_level_map: dict[str, dict[int | str, int | str]] = self.config[
-                "trial_level_map"
-            ]
+            trial_level_map = assert_is_instance(self.config["trial_level_map"], dict)
             # Validate
             self.trial_level_map: dict[str, dict[int, int | str]] = {}
             for _p_name, level_dict in trial_level_map.items():
