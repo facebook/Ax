@@ -87,10 +87,11 @@ class OneHot(Transform):
             config=config,
         )
         # Identify parameters that should be transformed
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.rounding = "strict"
+        self.rounding: str = "strict"
         if self.config is not None:
-            self.rounding = self.config.get("rounding", "strict")
+            self.rounding = assert_is_instance(
+                self.config.get("rounding", "strict"), str
+            )
         self.encoded_parameters: dict[str, list[str]] = {}
         self.encoded_values: dict[str, list[TParamValue]] = {}
         for p in search_space.parameters.values():

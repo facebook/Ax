@@ -21,7 +21,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import ComparisonOp
+from ax.core.types import ComparisonOp, TParamValue
 from ax.exceptions.core import DataRequiredError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
@@ -162,7 +162,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
             ("m3", "a"): 4.5,
             ("m3", "b"): 6.0,
         }
-        Ystd_expected = {
+        Ystd_expected: dict[tuple[str, TParamValue], float] = {
             ("m1", "a"): 1.0,
             ("m1", "b"): sqrt(2) * 2.0,
             ("m2", "a"): sqrt(2) * 3.0,

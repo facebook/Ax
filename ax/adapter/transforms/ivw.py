@@ -13,6 +13,7 @@ import numpy.typing as npt
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import ObservationData
 from ax.utils.common.logger import get_logger
+from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -121,9 +122,9 @@ class IVW(Transform):
         self,
         observation_data: list[ObservationData],
     ) -> list[ObservationData]:
-        # pyre: conflicting_noiseless is declared to have type `str` but is
-        # pyre-fixme[9]: used as type `typing.Union[float, int, str]`.
-        conflicting_noiseless: str = self.config.get("conflicting_noiseless", "warn")
+        conflicting_noiseless = assert_is_instance(
+            self.config.get("conflicting_noiseless", "warn"), str
+        )
         return [
             ivw_metric_merge(obsd=obsd, conflicting_noiseless=conflicting_noiseless)
             for obsd in observation_data

@@ -253,6 +253,4 @@ class TransformToNewSQ(BaseRelativize):
         if rel_op == relativize:
             means_rel = means_rel * abs_target_mean_c + target_mean_c
             sems_rel = sems_rel * abs_target_mean_c
-        # pyre-fixme[7]: Expected `Tuple[float, float]` but got
-        #  `Tuple[ndarray[typing.Any, typing.Any], ndarray[typing.Any, typing.Any]]`.
-        return means_rel, sems_rel
+        return float(means_rel), float(sems_rel)
