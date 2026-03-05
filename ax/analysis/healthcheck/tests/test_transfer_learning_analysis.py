@@ -39,6 +39,13 @@ def _make_experiment(
     )
 
 
+def _dummy_create_diff_paste(
+    before_content: str, after_content: str, title: str
+) -> str:
+    """Dummy callable that returns a fake diffing URL."""
+    return "https://www.internalfb.com/intern/diffing/?paste_number=12345"
+
+
 _MOCK_TARGET = "ax.storage.sqa_store.load.identify_transferable_experiments"
 
 
@@ -162,3 +169,81 @@ class TestTransferLearningAnalysis(TestCase):
         mock_identify.assert_called_once()  # pyre-ignore[16]
         call_kwargs = mock_identify.call_args.kwargs  # pyre-ignore[16]
         self.assertEqual(call_kwargs["experiment_name"], "test_experiment")
+
+    @patch(_MOCK_TARGET)
+    def test_diff_paste_callable_adds_comparison_column(
+        self, mock_identify: object
+    ) -> None:
+        """When create_diff_paste_callable is provided, a 'Comparison' column
+        should be added alongside the existing 'Parameters' column."""
+        experiment = _make_experiment(
+            ["x1", "x2", "x3", "x4"], experiment_type="my_type"
+        )
+        mock_identify.return_value = {  # pyre-ignore[16]
+            "source_exp": TransferLearningMetadata(
+                overlap_parameters=["x1", "x2", "x3"],
+            ),
+        }
+        analysis = TransferLearningAnalysis(
+            create_diff_paste_callable=_dummy_create_diff_paste,
+        )
+        card = analysis.compute(experiment=experiment)
+        self.assertIn("Comparison", card.df.columns)
+        self.assertIn("Parameters", card.df.columns)
+        self.assertIn("diffing", card.df.iloc[0]["Comparison"])
+        self.assertEqual(card.df.iloc[0]["Parameters"], "x1, x2, x3")
+
+    @patch(_MOCK_TARGET)
+    def test_diff_paste_callable_receives_correct_content(
+        self, mock_identify: object
+    ) -> None:
+        """Verify before/after content includes experiment name headers and
+        sorted parameters."""
+        experiment = _make_experiment(
+            ["alpha", "beta", "gamma"], experiment_type="my_type"
+        )
+        mock_identify.return_value = {  # pyre-ignore[16]
+            "source_exp": TransferLearningMetadata(
+                overlap_parameters=["gamma", "alpha"],
+            ),
+        }
+        captured_args: list[tuple[str, str, str]] = []
+
+        def _capture_callable(before: str, after: str, title: str) -> str:
+            captured_args.append((before, after, title))
+            return "https://example.com/diff"
+
+        analysis = TransferLearningAnalysis(
+            create_diff_paste_callable=_capture_callable,
+        )
+        analysis.compute(experiment=experiment)
+        self.assertEqual(len(captured_args), 1)
+        before, after, title = captured_args[0]
+        # Before should have source experiment in YAML format
+        self.assertEqual(
+            before,
+            "experiment_name: source_exp (old)\nparameter_names:\n  - alpha\n  - gamma",
+        )
+        # After should have current experiment in YAML format
+        self.assertEqual(
+            after,
+            "experiment_name: test_experiment (new)\n"
+            "parameter_names:\n  - alpha\n  - beta\n  - gamma",
+        )
+        self.assertIn("source_exp", title)
+        self.assertIn("test_experiment", title)
+
+    @patch(_MOCK_TARGET)
+    def test_no_callable_has_no_comparison_column(self, mock_identify: object) -> None:
+        """Without callable, the 'Parameters' column should be present
+        but no 'Comparison' column."""
+        experiment = _make_experiment(["x1", "x2", "x3"], experiment_type="my_type")
+        mock_identify.return_value = {  # pyre-ignore[16]
+            "source_exp": TransferLearningMetadata(
+                overlap_parameters=["x1", "x2"],
+            ),
+        }
+        analysis = TransferLearningAnalysis()
+        card = analysis.compute(experiment=experiment)
+        self.assertIn("Parameters", card.df.columns)
+        self.assertNotIn("Comparison", card.df.columns)
