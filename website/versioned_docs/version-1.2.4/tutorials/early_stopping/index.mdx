@@ -1,0 +1,1057 @@
+---
+title: Trial-level Early Stopping
+sidebar_label: Trial-level Early Stopping
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/early_stopping/early_stopping.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/early_stopping/early_stopping.ipynb"
+/>
+
+# Trial-level early stopping
+
+Trial-level early stopping aims to monitor the results of expensive evaluations with
+timeseries-like data and terminate those that are unlikely to produce promising results
+prior to completing that evaluation. This reduces computational waste, and enables the
+same amount of resources to explore more configurations. Early stopping is useful for
+expensive to evaluate problems where stepwise information is available on the way to the
+final measurement.
+
+Like the [Getting Started tutorial](../getting_started) we'll be minimizing the
+Hartmann6 function, but this time we've modified it to incorporate a new parameter $t$
+which allows the function to produce timeseries-like data where the value returned is
+closer and closer to Hartmann6's true value as $t$ increases. At $t = 100$ the function
+will simply return Hartmann6's unaltered value.
+
+$$
+
+f(x, t) = hartmann6(x) - log_2(t/100)
+
+$$
+
+While the function is synthetic, the workflow captures the intended principles for this
+tutorial and is similar to the process of training typical machine learning models.
+
+## Learning Objectives
+
+- Understand when time-series-like data can be used in an optimization experiment
+- Run a simple optimization experiment with early stopping
+- Configure details of an early stopping strategy
+- Analyze the results of the optimization
+
+## Prerequisites
+
+- Familiarity with Python and basic programming concepts
+- Understanding of [adaptive experimentation](../../intro-to-ae.mdx) and
+  [Bayesian optimization](../../intro-to-bo.mdx)
+- [Getting Started with Ax](../getting_started/index.mdx)
+
+## Step 1: Import Necessary Modules
+
+First, ensure you have all the necessary imports:
+
+```python
+import numpy as np
+from ax.api.client import Client
+from ax.api.configs import  RangeParameterConfig
+```
+
+## Step 2: Initialize the Client
+
+Create an instance of the `Client` to manage the state of your experiment.
+
+```python
+client = Client()
+```
+
+## Step 3: Configure the Experiment
+
+The `Client` instance can be configured with a series of `Config`s that define how the
+experiment will be run.
+
+The Hartmann6 problem is usually evaluated on the hypercube $x_i \in (0, 1)$, so we will
+define six identical `RangeParameterConfig`s with these bounds.
+
+You may specify additional features like parameter constraints to further refine the
+search space and parameter scaling to help navigate parameters with nonuniform effects.
+
+```python
+# Define six float parameters for the Hartmann6 function
+parameters = [
+    RangeParameterConfig(
+        name=f"x{i + 1}", parameter_type="float", bounds=(0, 1)
+    )
+    for i in range(6)
+]
+
+client.configure_experiment(parameters=parameters)
+```
+
+## Step 4: Configure Optimization
+
+Now, we must configure the objective for this optimization, which we do using
+`Client.configure_optimization`. This method expects a string `objective`, an expression
+containing either a single metric to maximize, a linear combination of metrics to
+maximize, or a tuple of multiple metrics to jointly maximize. These expressions are
+parsed using [SymPy](https://www.sympy.org/en/index.html). For example:
+
+- `"score"` would direct Ax to maximize a metric named score
+- `"-loss"` would direct Ax to Ax to minimize a metric named loss
+- `"task_0 + 0.5 * task_1"` would direct Ax to maximize the sum of two task scores,
+  downweighting task_1 by a factor of 0.5
+- `"score, -flops"` would direct Ax to simultaneously maximize score while minimizing
+  flops
+
+See these recipes for more information on configuring
+[objectives](../../recipes/multi-objective-optimization) and
+[outcome constraints](../../recipes/outcome-constraints).
+
+```python
+client.configure_optimization(objective="-hartmann6")
+```
+
+## Step 5: Run Trials with early stopping
+
+Here, we will configure the ask-tell loop.
+
+We begin by defining our Hartmann6 function as written above. Remember, this is just an
+example problem and any Python function can be substituted here.
+
+Then we will iteratively do the following:
+
+- Call `client.get_next_trials` to "ask" Ax for a parameterization to evaluate
+- Evaluate `hartmann6_curve` using those parameters in an inner loop to simulate the
+  generation of timeseries data
+- "Tell" Ax the partial result using `client.attach_data`
+- Query whether the trial should be stopped via `client.should_stop_trial_early`
+- Stop the underperforming trial and report back to Ax that is has been stopped
+
+This loop will run multiple trials to optimize the function.
+
+Ax will configure an EarlyStoppingStrategy when `should_stop_trial_early` is called for
+the first time. By default Ax uses a Percentile early stopping strategy which will
+terminate a trial early if its performance falls below a percentile threshold when
+compared to other trials at the same step. Early stopping can only occur after a minimum
+number of `progressions` to prevent premature early stopping. This validates that both
+enough data is gathered to make a decision and there is a minimum number of completed
+trials with curve data; these completed trials establish a baseline.
+
+```python
+# Hartmann6 function
+def hartmann6(x1, x2, x3, x4, x5, x6):
+    alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    A = np.array(
+        [
+            [10, 3, 17, 3.5, 1.7, 8],
+            [0.05, 10, 17, 0.1, 8, 14],
+            [3, 3.5, 1.7, 10, 17, 8],
+            [17, 8, 0.05, 10, 0.1, 14],
+        ]
+    )
+    P = 10**-4 * np.array(
+        [
+            [1312, 1696, 5569, 124, 8283, 5886],
+            [2329, 4135, 8307, 3736, 1004, 9991],
+            [2348, 1451, 3522, 2883, 3047, 6650],
+            [4047, 8828, 8732, 5743, 1091, 381],
+        ]
+    )
+
+    outer = 0.0
+    for i in range(4):
+        inner = 0.0
+        for j, x in enumerate([x1, x2, x3, x4, x5, x6]):
+            inner += A[i, j] * (x - P[i, j]) ** 2
+        outer += alpha[i] * np.exp(-inner)
+    return -outer
+
+
+# Hartmann6 function with additional t term such that
+# hartmann6(X) == hartmann6_curve(X, t=100)
+def hartmann6_curve(x1, x2, x3, x4, x5, x6, t):
+    return hartmann6(x1, x2, x3, x4, x5, x6) - np.log2(t / 100)
+
+
+(
+    hartmann6(0.1, 0.45, 0.8, 0.25, 0.552, 1.0),
+    hartmann6_curve(0.1, 0.45, 0.8, 0.25, 0.552, 1.0, 100),
+)
+```
+
+<CellOutput>
+{
+`(np.float64(-0.4878737485613134), np.float64(-0.4878737485613134))`
+}
+</CellOutput>
+
+```python
+maximum_progressions = 100  # Observe hartmann6_curve over 100 progressions
+
+for _ in range(30):  # Run 30 rounds of trials
+    trials = client.get_next_trials(max_trials=3)
+    for trial_index, parameters in trials.items():
+        for t in range(1, maximum_progressions + 1):
+            raw_data = {"hartmann6": hartmann6_curve(t=t, **parameters)}
+
+            # On the final reading call complete_trial and break, else call attach_data
+            if t == maximum_progressions:
+                client.complete_trial(
+                    trial_index=trial_index, raw_data=raw_data, progression=t
+                )
+                break
+
+            client.attach_data(
+                trial_index=trial_index, raw_data=raw_data, progression=t
+            )
+
+            # If the trial is underperforming, stop it
+            if client.should_stop_trial_early(trial_index=trial_index):
+                client.mark_trial_early_stopped(trial_index=trial_index)
+                break
+```
+
+<CellOutput>
+{
+`[INFO 03-05 01:39:30] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, generator_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')], suggested_experiment_status=ExperimentStatus.INITIALIZATION, pausing_criteria=[MaxTrialsAwaitingData(threshold=5)]), GenerationNode(name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, generator_key_override=None)], transition_criteria=None, suggested_experiment_status=ExperimentStatus.OPTIMIZATION, pausing_criteria=None)]) chosen based on user input and problem structure.
+[INFO 03-05 01:39:30] ax.api.client: Generated new trial 0 with parameters {'x1': 0.5, 'x2': 0.5, 'x3': 0.5, 'x4': 0.5, 'x5': 0.5, 'x6': 0.5} using GenerationNode CenterOfSearchSpace.
+[INFO 03-05 01:39:30] ax.api.client: Generated new trial 1 with parameters {'x1': 0.44625, 'x2': 0.464496, 'x3': 0.546695, 'x4': 0.133404, 'x5': 0.023892, 'x6': 0.330966} using GenerationNode Sobol.
+[INFO 03-05 01:39:30] ax.api.client: Generated new trial 2 with parameters {'x1': 0.562002, 'x2': 0.725257, 'x3': 0.259715, 'x4': 0.525745, 'x5': 0.822402, 'x6': 0.793164} using GenerationNode Sobol.
+[INFO 03-05 01:39:33] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 03-05 01:39:37] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 03-05 01:39:41] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 03-05 01:39:41] ax.api.client: Generated new trial 3 with parameters {'x1': 0.939125, 'x2': 0.063523, 'x3': 0.840446, 'x4': 0.301361, 'x5': 0.587497, 'x6': 0.535915} using GenerationNode Sobol.
+[INFO 03-05 01:39:41] ax.api.client: Generated new trial 4 with parameters {'x1': 0.052866, 'x2': 0.871098, 'x3': 0.119872, 'x4': 0.912475, 'x5': 0.261521, 'x6': 0.088001} using GenerationNode Sobol.
+[WARNING 03-05 01:39:41] ax.api.client: 3 trials requested but only 2 could be generated.
+[INFO 03-05 01:39:45] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 03-05 01:39:49] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 03-05 01:39:49] ax.api.client: Generated new trial 5 with parameters {'x1': 0.45297, 'x2': 0.490418, 'x3': 0.535548, 'x4': 0.43964, 'x5': 0.401712, 'x6': 0.475429} using GenerationNode MBM.
+[WARNING 03-05 01:39:49] ax.api.client: 3 trials requested but only 1 could be generated.
+[INFO 03-05 01:39:54] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 03-05 01:39:56] ax.api.client: Generated new trial 6 with parameters {'x1': 0.431454, 'x2': 0.48523, 'x3': 0.596366, 'x4': 0.303515, 'x5': 0.367895, 'x6': 0.583283} using GenerationNode MBM.
+[INFO 03-05 01:39:56] ax.api.client: Generated new trial 7 with parameters {'x1': 0.530496, 'x2': 0.401106, 'x3': 0.551323, 'x4': 0.5339, 'x5': 0.379848, 'x6': 0.312538} using GenerationNode MBM.
+[INFO 03-05 01:39:56] ax.api.client: Generated new trial 8 with parameters {'x1': 0.266243, 'x2': 0.673529, 'x3': 0.423676, 'x4': 0.461035, 'x5': 0.389915, 'x6': 0.554115} using GenerationNode MBM.
+[INFO 03-05 01:40:00] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 03-05 01:40:05] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 03-05 01:40:11] ax.api.client: Trial 8 marked COMPLETED.
+[INFO 03-05 01:40:12] ax.api.client: Generated new trial 9 with parameters {'x1': 0.331717, 'x2': 0.487254, 'x3': 0.698319, 'x4': 0.259068, 'x5': 0.378755, 'x6': 0.704738} using GenerationNode MBM.
+[INFO 03-05 01:40:12] ax.api.client: Generated new trial 10 with parameters {'x1': 0.467731, 'x2': 0.596615, 'x3': 0.425645, 'x4': 0.249144, 'x5': 0.367525, 'x6': 0.608553} using GenerationNode MBM.
+[INFO 03-05 01:40:12] ax.api.client: Generated new trial 11 with parameters {'x1': 0.406357, 'x2': 0.633028, 'x3': 0.757926, 'x4': 0.262615, 'x5': 0.36442, 'x6': 0.383691} using GenerationNode MBM.
+[INFO 03-05 01:40:17] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 03-05 01:40:23] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 03-05 01:40:28] ax.api.client: Trial 11 marked COMPLETED.
+[INFO 03-05 01:40:29] ax.api.client: Generated new trial 12 with parameters {'x1': 0.410613, 'x2': 0.389137, 'x3': 0.683017, 'x4': 0.227597, 'x5': 0.317815, 'x6': 0.670958} using GenerationNode MBM.
+[INFO 03-05 01:40:29] ax.api.client: Generated new trial 13 with parameters {'x1': 0.784815, 'x2': 0.455408, 'x3': 0.726275, 'x4': 0.484349, 'x5': 0.329564, 'x6': 0.68036} using GenerationNode MBM.
+[INFO 03-05 01:40:29] ax.api.client: Generated new trial 14 with parameters {'x1': 0.0, 'x2': 0.389061, 'x3': 0.652703, 'x4': 0.0, 'x5': 0.344863, 'x6': 0.653048} using GenerationNode MBM.
+[INFO 03-05 01:40:35] ax.api.client: Trial 12 marked COMPLETED.
+[INFO 03-05 01:40:36] ax.api.client: Trial 13 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [2.7090660855238773]
+- Thresholds: [2.6973246905777097]
+- Number of trials: [14]
+- Trial indices: [[0, 10, 4, 1, 12, 9, 8, 7, 11, 5, 13, 3, 2, 6]]
+[INFO 03-05 01:40:36] ax.api.client: Trial 13 marked EARLY_STOPPED.
+[INFO 03-05 01:40:42] ax.api.client: Trial 14 marked COMPLETED.
+[INFO 03-05 01:40:43] ax.api.client: Generated new trial 15 with parameters {'x1': 0.500989, 'x2': 0.210066, 'x3': 0.709023, 'x4': 0.425704, 'x5': 0.274395, 'x6': 0.714955} using GenerationNode MBM.
+[INFO 03-05 01:40:43] ax.api.client: Generated new trial 16 with parameters {'x1': 0.564537, 'x2': 0.336024, 'x3': 0.792112, 'x4': 0.0, 'x5': 0.269461, 'x6': 0.712709} using GenerationNode MBM.
+[INFO 03-05 01:40:43] ax.api.client: Generated new trial 17 with parameters {'x1': 0.445165, 'x2': 0.352652, 'x3': 0.726425, 'x4': 0.91007, 'x5': 0.247901, 'x6': 0.713905} using GenerationNode MBM.
+[INFO 03-05 01:40:49] ax.api.client: Trial 15 marked COMPLETED.
+[INFO 03-05 01:40:55] ax.api.client: Trial 16 marked COMPLETED.
+[INFO 03-05 01:40:56] ax.api.client: Trial 17 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.030243069661278]
+- Thresholds: [2.603823414787842]
+- Number of trials: [18]
+- Trial indices: [[0, 16, 13, 15, 14, 9, 12, 11, 10, 2, 3, 4, 1, 6, 8, 7, 5, 17]]
+[INFO 03-05 01:40:56] ax.api.client: Trial 17 marked EARLY_STOPPED.
+[INFO 03-05 01:40:57] ax.api.client: Generated new trial 18 with parameters {'x1': 0.061936, 'x2': 0.292154, 'x3': 0.471005, 'x4': 0.270354, 'x5': 0.279472, 'x6': 0.763805} using GenerationNode MBM.
+[INFO 03-05 01:40:57] ax.api.client: Generated new trial 19 with parameters {'x1': 0.170477, 'x2': 0.346668, 'x3': 1.0, 'x4': 0.291822, 'x5': 0.242306, 'x6': 0.797236} using GenerationNode MBM.
+[INFO 03-05 01:40:57] ax.api.client: Generated new trial 20 with parameters {'x1': 0.158349, 'x2': 0.26294, 'x3': 0.0, 'x4': 0.259689, 'x5': 0.313373, 'x6': 0.810261} using GenerationNode MBM.
+[INFO 03-05 01:41:04] ax.api.client: Trial 18 marked COMPLETED.
+[INFO 03-05 01:41:10] ax.api.client: Trial 19 marked COMPLETED.
+[INFO 03-05 01:41:17] ax.api.client: Trial 20 marked COMPLETED.
+[INFO 03-05 01:41:18] ax.api.client: Generated new trial 21 with parameters {'x1': 0.0, 'x2': 0.210152, 'x3': 0.442972, 'x4': 0.252264, 'x5': 0.311737, 'x6': 0.963047} using GenerationNode MBM.
+[INFO 03-05 01:41:18] ax.api.client: Generated new trial 22 with parameters {'x1': 0.0, 'x2': 0.119345, 'x3': 0.430816, 'x4': 0.239876, 'x5': 0.290771, 'x6': 0.713199} using GenerationNode MBM.
+[INFO 03-05 01:41:18] ax.api.client: Generated new trial 23 with parameters {'x1': 0.022857, 'x2': 0.311134, 'x3': 0.399326, 'x4': 0.296125, 'x5': 0.234841, 'x6': 1.0} using GenerationNode MBM.
+[INFO 03-05 01:41:25] ax.api.client: Trial 21 marked COMPLETED.
+[INFO 03-05 01:41:32] ax.api.client: Trial 22 marked COMPLETED.
+[INFO 03-05 01:41:33] ax.api.client: Trial 23 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [2.1973370431742882]
+- Thresholds: [2.091140271089809]
+- Number of trials: [22]
+- Trial indices: [[0, 18, 14, 10, 12, 4, 19, 7, 3, 11, 5, 8, 1, 6, 2, 22, 15, 16, 9, 21, 20, 23]]
+[INFO 03-05 01:41:33] ax.api.client: Trial 23 marked EARLY_STOPPED.
+[INFO 03-05 01:41:34] ax.api.client: Generated new trial 24 with parameters {'x1': 0.0, 'x2': 0.18296, 'x3': 0.436451, 'x4': 0.285702, 'x5': 0.121113, 'x6': 0.675321} using GenerationNode MBM.
+[INFO 03-05 01:41:34] ax.api.client: Generated new trial 25 with parameters {'x1': 0.0, 'x2': 0.188715, 'x3': 0.451823, 'x4': 0.303409, 'x5': 0.266728, 'x6': 0.666609} using GenerationNode MBM.
+[INFO 03-05 01:41:34] ax.api.client: Generated new trial 26 with parameters {'x1': 0.0, 'x2': 0.140273, 'x3': 0.351932, 'x4': 0.256848, 'x5': 0.0, 'x6': 0.708858} using GenerationNode MBM.
+[INFO 03-05 01:41:41] ax.api.client: Trial 24 marked COMPLETED.
+[INFO 03-05 01:41:48] ax.api.client: Trial 25 marked COMPLETED.
+[INFO 03-05 01:41:49] ax.api.client: Trial 26 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [2.714647512421238]
+- Thresholds: [2.334840566924223]
+- Number of trials: [27]
+- Trial indices: [[17, 21, 18, 10, 4, 11, 1, 16, 9, 20, 7, 6, 12, 3, 5, 23, 19, 14, 13, 24, 8, 15, 25, 22, 0, 2, 26]]
+[INFO 03-05 01:41:49] ax.api.client: Trial 26 marked EARLY_STOPPED.
+[INFO 03-05 01:41:51] ax.api.client: Generated new trial 27 with parameters {'x1': 0.0, 'x2': 0.164915, 'x3': 0.443908, 'x4': 0.301126, 'x5': 0.328536, 'x6': 0.675789} using GenerationNode MBM.
+[INFO 03-05 01:41:51] ax.api.client: Generated new trial 28 with parameters {'x1': 0.0, 'x2': 0.175927, 'x3': 0.350901, 'x4': 0.246218, 'x5': 0.290484, 'x6': 0.637372} using GenerationNode MBM.
+[INFO 03-05 01:41:51] ax.api.client: Generated new trial 29 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.309907, 'x4': 0.373179, 'x5': 0.384162, 'x6': 0.688715} using GenerationNode MBM.
+[INFO 03-05 01:41:58] ax.api.client: Trial 27 marked COMPLETED.
+[INFO 03-05 01:42:06] ax.api.client: Trial 28 marked COMPLETED.
+[INFO 03-05 01:42:14] ax.api.client: Trial 29 marked COMPLETED.
+[INFO 03-05 01:42:15] ax.api.client: Generated new trial 30 with parameters {'x1': 0.0, 'x2': 0.214105, 'x3': 0.495916, 'x4': 0.276633, 'x5': 0.312204, 'x6': 0.681795} using GenerationNode MBM.
+[INFO 03-05 01:42:15] ax.api.client: Generated new trial 31 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.102673, 'x5': 0.259137, 'x6': 0.018681} using GenerationNode MBM.
+[INFO 03-05 01:42:15] ax.api.client: Generated new trial 32 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.514111, 'x5': 0.029558, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:42:23] ax.api.client: Trial 30 marked COMPLETED.
+[INFO 03-05 01:42:24] ax.api.client: Trial 31 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2927434061709637]
+- Thresholds: [2.1052140711464764]
+- Number of trials: [32]
+- Trial indices: [[0, 31, 19, 29, 16, 21, 24, 27, 10, 8, 30, 11, 3, 4, 5, 7, 12, 18, 26, 6, 2, 28, 1, 15, 14, 25, 23, 20, 17, 9, 13, 22]]
+[INFO 03-05 01:42:24] ax.api.client: Trial 31 marked EARLY_STOPPED.
+[INFO 03-05 01:42:25] ax.api.client: Trial 32 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.1543053494540865]
+- Thresholds: [2.1224470227552645]
+- Number of trials: [33]
+- Trial indices: [[0, 31, 11, 26, 4, 21, 27, 3, 10, 1, 16, 12, 24, 9, 23, 18, 22, 8, 7, 25, 2, 15, 32, 6, 13, 19, 14, 20, 17, 28, 5, 29, 30]]
+[INFO 03-05 01:42:25] ax.api.client: Trial 32 marked EARLY_STOPPED.
+[INFO 03-05 01:42:26] ax.api.client: Generated new trial 33 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.907068, 'x5': 0.609034, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:42:26] ax.api.client: Generated new trial 34 with parameters {'x1': 0.0, 'x2': 0.239717, 'x3': 0.418924, 'x4': 0.296253, 'x5': 0.30259, 'x6': 0.692064} using GenerationNode MBM.
+[INFO 03-05 01:42:26] ax.api.client: Generated new trial 35 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.385407, 'x4': 0.921171, 'x5': 0.726628, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:42:27] ax.api.client: Trial 33 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.266019219443039]
+- Thresholds: [2.2286437948397437]
+- Number of trials: [34]
+- Trial indices: [[0, 32, 12, 29, 19, 22, 7, 6, 18, 15, 5, 17, 1, 27, 24, 8, 2, 28, 20, 9, 11, 31, 23, 21, 3, 13, 25, 16, 26, 30, 14, 4, 10, 33]]
+[INFO 03-05 01:42:27] ax.api.client: Trial 33 marked EARLY_STOPPED.
+[INFO 03-05 01:42:35] ax.api.client: Trial 34 marked COMPLETED.
+[INFO 03-05 01:42:36] ax.api.client: Trial 35 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2721432111949618]
+- Thresholds: [2.2286437948397437]
+- Number of trials: [36]
+- Trial indices: [[0, 18, 33, 7, 13, 32, 31, 24, 9, 10, 30, 19, 1, 17, 14, 23, 6, 20, 27, 29, 2, 26, 16, 21, 5, 3, 22, 4, 25, 28, 11, 8, 12, 35, 34, 15]]
+[INFO 03-05 01:42:36] ax.api.client: Trial 35 marked EARLY_STOPPED.
+[INFO 03-05 01:42:38] ax.api.client: Generated new trial 36 with parameters {'x1': 0.0, 'x2': 0.861839, 'x3': 1.0, 'x4': 0.931488, 'x5': 0.992785, 'x6': 0.499535} using GenerationNode MBM.
+[INFO 03-05 01:42:38] ax.api.client: Generated new trial 37 with parameters {'x1': 0.0, 'x2': 0.073644, 'x3': 0.704423, 'x4': 0.251615, 'x5': 0.303609, 'x6': 0.604736} using GenerationNode MBM.
+[INFO 03-05 01:42:38] ax.api.client: Generated new trial 38 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 0.0, 'x4': 0.93551, 'x5': 1.0, 'x6': 0.348149} using GenerationNode MBM.
+[INFO 03-05 01:42:38] ax.api.client: Trial 36 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.319012167870942]
+- Thresholds: [2.334840566924223]
+- Number of trials: [37]
+- Trial indices: [[0, 17, 15, 9, 20, 32, 13, 21, 34, 5, 6, 24, 23, 1, 33, 22, 31, 14, 16, 25, 4, 12, 30, 29, 10, 8, 28, 11, 3, 26, 19, 27, 35, 7, 18, 2, 36]]
+[INFO 03-05 01:42:38] ax.api.client: Trial 36 marked EARLY_STOPPED.
+[INFO 03-05 01:42:47] ax.api.client: Trial 37 marked COMPLETED.
+[INFO 03-05 01:42:48] ax.api.client: Trial 38 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3214926373764038]
+- Thresholds: [2.334840566924223]
+- Number of trials: [39]
+- Trial indices: [[0, 24, 19, 9, 3, 37, 31, 22, 1, 16, 34, 11, 25, 8, 32, 21, 4, 33, 7, 36, 12, 2, 35, 17, 26, 18, 27, 20, 30, 14, 28, 6, 5, 29, 13, 10, 15, 38, 23]]
+[INFO 03-05 01:42:48] ax.api.client: Trial 38 marked EARLY_STOPPED.
+[INFO 03-05 01:42:49] ax.api.client: Generated new trial 39 with parameters {'x1': 0.0, 'x2': 0.783847, 'x3': 0.0, 'x4': 0.325468, 'x5': 0.179354, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:42:49] ax.api.client: Generated new trial 40 with parameters {'x1': 0.0, 'x2': 1.0, 'x3': 0.225372, 'x4': 0.451523, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:42:49] ax.api.client: Generated new trial 41 with parameters {'x1': 0.0, 'x2': 0.562667, 'x3': 1.0, 'x4': 0.775303, 'x5': 0.974636, 'x6': 0.157035} using GenerationNode MBM.
+[INFO 03-05 01:42:50] ax.api.client: Trial 39 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2182822706390777]
+- Thresholds: [2.3451168326042198]
+- Number of trials: [40]
+- Trial indices: [[0, 39, 38, 7, 12, 30, 21, 5, 14, 4, 22, 32, 13, 25, 27, 31, 11, 33, 3, 9, 1, 20, 29, 23, 15, 34, 26, 6, 10, 2, 35, 36, 19, 37, 24, 8, 28, 16, 18, 17]]
+[INFO 03-05 01:42:50] ax.api.client: Trial 39 marked EARLY_STOPPED.
+[INFO 03-05 01:42:51] ax.api.client: Trial 40 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.1749020835177024]
+- Thresholds: [2.3553930982842166]
+- Number of trials: [41]
+- Trial indices: [[0, 8, 36, 18, 37, 35, 14, 1, 27, 3, 4, 26, 15, 25, 19, 17, 24, 5, 29, 9, 6, 30, 22, 10, 32, 34, 23, 20, 16, 7, 11, 28, 33, 13, 39, 38, 21, 12, 31, 2, 40]]
+[INFO 03-05 01:42:51] ax.api.client: Trial 40 marked EARLY_STOPPED.
+[INFO 03-05 01:42:52] ax.api.client: Trial 41 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.277181141335524]
+- Thresholds: [2.4008886992419907]
+- Number of trials: [42]
+- Trial indices: [[0, 38, 1, 37, 29, 23, 7, 11, 27, 35, 25, 16, 22, 24, 3, 12, 4, 17, 10, 21, 8, 18, 36, 33, 32, 13, 34, 26, 15, 14, 19, 31, 28, 20, 5, 2, 9, 39, 40, 6, 30, 41]]
+[INFO 03-05 01:42:52] ax.api.client: Trial 41 marked EARLY_STOPPED.
+[INFO 03-05 01:42:53] ax.api.client: Generated new trial 42 with parameters {'x1': 0.0, 'x2': 0.185791, 'x3': 1.0, 'x4': 0.853662, 'x5': 1.0, 'x6': 0.895904} using GenerationNode MBM.
+[INFO 03-05 01:42:53] ax.api.client: Generated new trial 43 with parameters {'x1': 0.0, 'x2': 0.572374, 'x3': 1.0, 'x4': 0.833528, 'x5': 0.0, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:42:53] ax.api.client: Generated new trial 44 with parameters {'x1': 0.0, 'x2': 0.236013, 'x3': 0.0, 'x4': 0.023681, 'x5': 0.289195, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:42:54] ax.api.client: Trial 42 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3202293645280987]
+- Thresholds: [2.4463843001997647]
+- Number of trials: [43]
+- Trial indices: [[0, 40, 19, 39, 11, 25, 5, 38, 20, 15, 6, 1, 22, 30, 9, 29, 7, 36, 4, 16, 8, 37, 26, 35, 21, 24, 31, 33, 13, 27, 32, 2, 10, 12, 3, 23, 34, 17, 28, 18, 14, 41, 42]]
+[INFO 03-05 01:42:54] ax.api.client: Trial 42 marked EARLY_STOPPED.
+[INFO 03-05 01:42:55] ax.api.client: Trial 43 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2760244669181557]
+- Thresholds: [2.4842239170719536]
+- Number of trials: [44]
+- Trial indices: [[41, 32, 40, 10, 14, 23, 35, 36, 3, 34, 6, 1, 38, 39, 17, 20, 26, 13, 33, 29, 31, 11, 28, 15, 7, 30, 16, 18, 25, 19, 9, 5, 24, 12, 2, 8, 37, 4, 42, 22, 27, 43, 0, 21]]
+[INFO 03-05 01:42:55] ax.api.client: Trial 43 marked EARLY_STOPPED.
+[INFO 03-05 01:42:56] ax.api.client: Trial 44 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2926879925376085]
+- Thresholds: [2.522063533944142]
+- Number of trials: [45]
+- Trial indices: [[0, 43, 22, 11, 37, 41, 39, 10, 4, 40, 21, 36, 32, 1, 12, 26, 15, 3, 13, 20, 24, 38, 19, 23, 34, 6, 33, 35, 14, 27, 5, 29, 28, 8, 17, 7, 42, 31, 44, 18, 25, 16, 30, 9, 2]]
+[INFO 03-05 01:42:56] ax.api.client: Trial 44 marked EARLY_STOPPED.
+[INFO 03-05 01:42:57] ax.api.client: Generated new trial 45 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.652712} using GenerationNode MBM.
+[INFO 03-05 01:42:57] ax.api.client: Generated new trial 46 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.632756} using GenerationNode MBM.
+[INFO 03-05 01:42:57] ax.api.client: Generated new trial 47 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.657786} using GenerationNode MBM.
+[INFO 03-05 01:42:58] ax.api.client: Trial 45 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3193995866379913]
+- Thresholds: [2.603823414787842]
+- Number of trials: [46]
+- Trial indices: [[0, 6, 27, 19, 31, 8, 1, 42, 40, 36, 16, 9, 15, 4, 37, 3, 28, 21, 29, 41, 12, 5, 10, 14, 26, 11, 22, 17, 18, 30, 32, 7, 33, 34, 35, 38, 2, 13, 20, 24, 25, 39, 23, 44, 43, 45]]
+[INFO 03-05 01:42:58] ax.api.client: Trial 45 marked EARLY_STOPPED.
+[INFO 03-05 01:42:59] ax.api.client: Trial 46 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3210501258488936]
+- Thresholds: [2.685583295631542]
+- Number of trials: [47]
+- Trial indices: [[0, 44, 6, 20, 27, 26, 45, 7, 1, 13, 36, 5, 43, 33, 35, 37, 32, 24, 4, 10, 41, 17, 28, 29, 19, 9, 31, 15, 34, 8, 21, 22, 11, 12, 16, 23, 25, 46, 14, 38, 30, 3, 40, 39, 2, 42, 18]]
+[INFO 03-05 01:42:59] ax.api.client: Trial 46 marked EARLY_STOPPED.
+[INFO 03-05 01:43:00] ax.api.client: Trial 47 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.1489097716892056]
+- Thresholds: [2.6973246905777097]
+- Number of trials: [48]
+- Trial indices: [[45, 25, 12, 46, 44, 35, 1, 36, 32, 0, 14, 37, 6, 15, 13, 30, 26, 42, 11, 9, 40, 29, 43, 10, 23, 5, 24, 22, 16, 2, 41, 33, 31, 20, 39, 4, 7, 19, 27, 18, 34, 8, 17, 28, 21, 3, 47, 38]]
+[INFO 03-05 01:43:00] ax.api.client: Trial 47 marked EARLY_STOPPED.
+[INFO 03-05 01:43:01] ax.api.client: Generated new trial 48 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.636409} using GenerationNode MBM.
+[INFO 03-05 01:43:01] ax.api.client: Generated new trial 49 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.65532} using GenerationNode MBM.
+[INFO 03-05 01:43:01] ax.api.client: Generated new trial 50 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.604417} using GenerationNode MBM.
+[INFO 03-05 01:43:02] ax.api.client: Trial 48 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3180058941583552]
+- Thresholds: [2.7090660855238773]
+- Number of trials: [49]
+- Trial indices: [[35, 9, 37, 7, 36, 10, 32, 46, 34, 24, 11, 1, 26, 6, 47, 33, 12, 31, 45, 5, 13, 14, 3, 38, 23, 28, 39, 16, 30, 25, 17, 15, 4, 18, 29, 19, 27, 40, 22, 43, 21, 20, 8, 0, 42, 41, 2, 44, 48]]
+[INFO 03-05 01:43:02] ax.api.client: Trial 48 marked EARLY_STOPPED.
+[INFO 03-05 01:43:03] ax.api.client: Trial 49 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2975982544077103]
+- Thresholds: [2.7118567989725575]
+- Number of trials: [50]
+- Trial indices: [[48, 16, 31, 29, 34, 5, 44, 46, 4, 1, 42, 43, 45, 15, 33, 30, 8, 13, 27, 19, 36, 39, 3, 25, 41, 6, 26, 14, 7, 28, 18, 17, 20, 11, 21, 24, 0, 47, 10, 22, 2, 23, 9, 35, 37, 12, 32, 49, 38, 40]]
+[INFO 03-05 01:43:03] ax.api.client: Trial 49 marked EARLY_STOPPED.
+[INFO 03-05 01:43:04] ax.api.client: Trial 50 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321800474374254]
+- Thresholds: [2.714647512421238]
+- Number of trials: [51]
+- Trial indices: [[0, 50, 49, 47, 34, 20, 33, 35, 4, 16, 5, 37, 31, 36, 21, 32, 15, 30, 6, 45, 14, 3, 7, 19, 13, 22, 17, 18, 38, 29, 8, 39, 23, 2, 46, 1, 12, 40, 41, 28, 42, 24, 9, 10, 27, 26, 43, 44, 11, 25, 48]]
+[INFO 03-05 01:43:04] ax.api.client: Trial 50 marked EARLY_STOPPED.
+[INFO 03-05 01:43:05] ax.api.client: Generated new trial 51 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.676108} using GenerationNode MBM.
+[INFO 03-05 01:43:05] ax.api.client: Generated new trial 52 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.626137} using GenerationNode MBM.
+[INFO 03-05 01:43:05] ax.api.client: Generated new trial 53 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.764549} using GenerationNode MBM.
+[INFO 03-05 01:43:06] ax.api.client: Trial 51 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.1819145895525156]
+- Thresholds: [2.7656303078031836]
+- Number of trials: [52]
+- Trial indices: [[46, 47, 5, 1, 10, 31, 13, 25, 35, 20, 40, 14, 18, 3, 39, 32, 19, 12, 21, 17, 44, 24, 6, 33, 15, 30, 27, 23, 28, 26, 29, 38, 45, 9, 43, 34, 22, 16, 48, 36, 11, 4, 41, 2, 49, 50, 51, 0, 7, 8, 37, 42]]
+[INFO 03-05 01:43:06] ax.api.client: Trial 51 marked EARLY_STOPPED.
+[INFO 03-05 01:43:07] ax.api.client: Trial 52 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.295983254345993]
+- Thresholds: [2.816613103185129]
+- Number of trials: [53]
+- Trial indices: [[52, 36, 51, 22, 10, 21, 0, 30, 12, 29, 38, 47, 49, 1, 9, 11, 28, 4, 31, 8, 43, 32, 39, 40, 41, 27, 15, 3, 33, 48, 14, 13, 35, 26, 34, 23, 2, 46, 44, 17, 19, 5, 18, 25, 20, 7, 6, 50, 37, 45, 16, 42, 24]]
+[INFO 03-05 01:43:07] ax.api.client: Trial 52 marked EARLY_STOPPED.
+[INFO 03-05 01:43:08] ax.api.client: Trial 53 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2657067339024755]
+- Thresholds: [2.833849127144525]
+- Number of trials: [54]
+- Trial indices: [[0, 20, 50, 5, 34, 8, 27, 41, 32, 33, 38, 39, 48, 1, 40, 17, 18, 24, 43, 29, 13, 9, 25, 11, 49, 12, 4, 14, 42, 37, 3, 44, 31, 45, 30, 6, 21, 46, 26, 35, 2, 10, 28, 22, 53, 51, 52, 23, 47, 16, 36, 15, 19, 7]]
+[INFO 03-05 01:43:08] ax.api.client: Trial 53 marked EARLY_STOPPED.
+[INFO 03-05 01:43:10] ax.api.client: Generated new trial 54 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.521904} using GenerationNode MBM.
+[INFO 03-05 01:43:10] ax.api.client: Generated new trial 55 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.562122, 'x5': 1.0, 'x6': 0.766541} using GenerationNode MBM.
+[INFO 03-05 01:43:10] ax.api.client: Generated new trial 56 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.721416} using GenerationNode MBM.
+[INFO 03-05 01:43:11] ax.api.client: Trial 54 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3197713969886706]
+- Thresholds: [2.851085151103921]
+- Number of trials: [55]
+- Trial indices: [[0, 54, 52, 24, 51, 29, 18, 39, 53, 17, 27, 16, 25, 15, 23, 26, 7, 37, 30, 6, 1, 20, 40, 43, 46, 8, 5, 28, 44, 45, 3, 13, 21, 38, 14, 49, 47, 36, 10, 22, 12, 2, 50, 48, 33, 32, 35, 31, 11, 9, 34, 19, 41, 42, 4]]
+[INFO 03-05 01:43:11] ax.api.client: Trial 54 marked EARLY_STOPPED.
+[INFO 03-05 01:43:11] ax.api.client: Trial 55 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.320687485858514]
+- Thresholds: [2.9406641103825994]
+- Number of trials: [56]
+- Trial indices: [[0, 55, 53, 9, 44, 28, 16, 17, 4, 37, 45, 54, 1, 31, 52, 46, 18, 7, 30, 32, 42, 15, 35, 20, 47, 3, 36, 25, 38, 19, 40, 43, 24, 41, 5, 11, 23, 21, 10, 14, 50, 12, 33, 39, 51, 6, 34, 13, 29, 48, 22, 2, 27, 8, 26, 49]]
+[INFO 03-05 01:43:11] ax.api.client: Trial 55 marked EARLY_STOPPED.
+[INFO 03-05 01:43:12] ax.api.client: Trial 56 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321817093459507]
+- Thresholds: [3.030243069661278]
+- Number of trials: [57]
+- Trial indices: [[0, 56, 30, 47, 55, 35, 46, 18, 50, 1, 3, 41, 23, 14, 24, 40, 53, 48, 49, 42, 27, 7, 8, 22, 19, 38, 12, 13, 36, 37, 5, 4, 45, 34, 10, 20, 2, 11, 9, 31, 39, 28, 6, 25, 44, 43, 32, 51, 33, 52, 15, 26, 16, 17, 29, 54, 21]]
+[INFO 03-05 01:43:12] ax.api.client: Trial 56 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:796: RuntimeWarning: Optimization failed in gen_candidates_scipy with the following warning(s):
+[OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+  return _optimize_acqf_batch(opt_inputs=opt_inputs)
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:796: RuntimeWarning: Optimization failed on the second try, after generating a new set of initial conditions.
+  return _optimize_acqf_batch(opt_inputs=opt_inputs)
+[INFO 03-05 01:43:14] ax.api.client: Generated new trial 57 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.543305} using GenerationNode MBM.
+[INFO 03-05 01:43:14] ax.api.client: Generated new trial 58 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.544829} using GenerationNode MBM.
+[INFO 03-05 01:43:14] ax.api.client: Generated new trial 59 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.738821} using GenerationNode MBM.
+[INFO 03-05 01:43:16] ax.api.client: Trial 57 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3138746312968275]
+- Thresholds: [3.0603274083863665]
+- Number of trials: [58]
+- Trial indices: [[56, 1, 28, 50, 39, 34, 40, 33, 20, 18, 7, 46, 16, 19, 15, 49, 51, 52, 25, 23, 47, 32, 10, 17, 8, 30, 38, 27, 11, 45, 3, 53, 31, 22, 29, 36, 2, 24, 12, 42, 0, 55, 57, 54, 41, 21, 43, 5, 48, 14, 6, 4, 37, 26, 9, 44, 35, 13]]
+[INFO 03-05 01:43:16] ax.api.client: Trial 57 marked EARLY_STOPPED.
+[INFO 03-05 01:43:16] ax.api.client: Trial 58 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.1675659799914193]
+- Thresholds: [3.0904117471114545]
+- Number of trials: [59]
+- Trial indices: [[38, 0, 57, 39, 11, 3, 10, 9, 53, 29, 25, 41, 30, 8, 45, 46, 1, 54, 19, 37, 16, 6, 31, 18, 47, 12, 34, 42, 7, 17, 20, 24, 36, 35, 51, 43, 50, 52, 26, 13, 28, 15, 44, 48, 32, 33, 21, 5, 58, 23, 55, 56, 14, 22, 27, 49, 2, 40, 4]]
+[INFO 03-05 01:43:16] ax.api.client: Trial 58 marked EARLY_STOPPED.
+[INFO 03-05 01:43:18] ax.api.client: Trial 59 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.156328693472811]
+- Thresholds: [3.11966075940033]
+- Number of trials: [60]
+- Trial indices: [[16, 42, 58, 5, 56, 43, 14, 39, 22, 54, 6, 38, 1, 40, 41, 55, 4, 17, 52, 11, 31, 18, 44, 47, 27, 30, 45, 12, 13, 21, 26, 24, 32, 8, 3, 25, 28, 49, 10, 23, 29, 15, 57, 59, 0, 34, 19, 50, 37, 53, 20, 35, 48, 33, 9, 51, 46, 36, 7, 2]]
+[INFO 03-05 01:43:18] ax.api.client: Trial 59 marked EARLY_STOPPED.
+[INFO 03-05 01:43:19] ax.api.client: Generated new trial 60 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.729033} using GenerationNode MBM.
+[INFO 03-05 01:43:19] ax.api.client: Generated new trial 61 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.511854} using GenerationNode MBM.
+[INFO 03-05 01:43:19] ax.api.client: Generated new trial 62 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.509708} using GenerationNode MBM.
+[INFO 03-05 01:43:20] ax.api.client: Trial 60 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3194815599831555]
+- Thresholds: [3.1489097716892056]
+- Number of trials: [61]
+- Trial indices: [[0, 6, 12, 55, 11, 53, 56, 58, 54, 14, 5, 18, 1, 16, 52, 13, 15, 10, 50, 20, 42, 24, 44, 46, 4, 17, 45, 48, 19, 47, 49, 51, 21, 22, 29, 39, 38, 30, 36, 35, 60, 59, 57, 3, 33, 34, 31, 32, 26, 2, 27, 25, 7, 37, 40, 28, 23, 41, 9, 8, 43]]
+[INFO 03-05 01:43:20] ax.api.client: Trial 60 marked EARLY_STOPPED.
+[INFO 03-05 01:43:21] ax.api.client: Trial 61 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3181475241503144]
+- Thresholds: [3.1516075605716463]
+- Number of trials: [62]
+- Trial indices: [[0, 57, 5, 6, 56, 20, 21, 54, 10, 9, 52, 24, 53, 22, 23, 3, 1, 19, 51, 7, 8, 49, 17, 25, 28, 26, 27, 46, 4, 48, 47, 50, 43, 16, 30, 29, 41, 11, 45, 44, 42, 39, 12, 40, 13, 18, 31, 59, 15, 14, 58, 55, 60, 61, 36, 34, 33, 35, 37, 2, 38, 32]]
+[INFO 03-05 01:43:21] ax.api.client: Trial 61 marked EARLY_STOPPED.
+[INFO 03-05 01:43:22] ax.api.client: Trial 62 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.32109992885678]
+- Thresholds: [3.1543053494540865]
+- Number of trials: [63]
+- Trial indices: [[0, 62, 57, 17, 32, 31, 55, 58, 35, 56, 12, 13, 1, 33, 34, 29, 30, 14, 39, 40, 4, 41, 23, 8, 54, 52, 38, 37, 3, 20, 36, 42, 45, 6, 10, 9, 46, 24, 15, 25, 19, 5, 59, 60, 18, 7, 61, 48, 27, 51, 49, 44, 2, 16, 47, 50, 22, 21, 26, 53, 28, 11, 43]]
+[INFO 03-05 01:43:22] ax.api.client: Trial 62 marked EARLY_STOPPED.
+[INFO 03-05 01:43:23] ax.api.client: Generated new trial 63 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.728086} using GenerationNode MBM.
+[INFO 03-05 01:43:23] ax.api.client: Generated new trial 64 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.760567} using GenerationNode MBM.
+[INFO 03-05 01:43:23] ax.api.client: Generated new trial 65 with parameters {'x1': 0.0, 'x2': 0.22172, 'x3': 0.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.63504} using GenerationNode MBM.
+[INFO 03-05 01:43:24] ax.api.client: Trial 63 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321120589022936]
+- Thresholds: [3.155317021463449]
+- Number of trials: [64]
+- Trial indices: [[58, 7, 15, 62, 16, 17, 56, 59, 20, 13, 55, 1, 5, 18, 19, 57, 14, 6, 51, 50, 48, 27, 26, 8, 25, 52, 24, 23, 54, 22, 53, 21, 10, 9, 36, 35, 41, 40, 43, 34, 37, 61, 63, 60, 0, 3, 38, 39, 32, 46, 2, 11, 33, 31, 42, 44, 45, 30, 29, 4, 28, 12, 47, 49]]
+[INFO 03-05 01:43:24] ax.api.client: Trial 63 marked EARLY_STOPPED.
+[INFO 03-05 01:43:25] ax.api.client: Trial 64 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3011298506003364]
+- Thresholds: [3.156328693472811]
+- Number of trials: [65]
+- Trial indices: [[0, 57, 9, 10, 40, 63, 22, 38, 60, 33, 30, 31, 56, 1, 58, 8, 41, 20, 5, 26, 27, 42, 34, 13, 53, 25, 52, 55, 54, 11, 6, 32, 51, 21, 3, 39, 19, 12, 49, 14, 35, 23, 50, 62, 61, 28, 4, 29, 36, 24, 47, 18, 7, 59, 37, 43, 44, 45, 46, 15, 17, 16, 2, 48, 64]]
+[INFO 03-05 01:43:25] ax.api.client: Trial 64 marked EARLY_STOPPED.
+[INFO 03-05 01:43:27] ax.api.client: Trial 65 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3192687841396458]
+- Thresholds: [3.161947336732115]
+- Number of trials: [66]
+- Trial indices: [[0, 65, 60, 61, 26, 28, 29, 25, 9, 58, 59, 10, 57, 1, 5, 30, 31, 23, 11, 32, 53, 19, 7, 54, 22, 21, 55, 56, 33, 34, 24, 4, 35, 36, 37, 20, 12, 50, 52, 38, 13, 51, 27, 8, 62, 15, 18, 46, 44, 45, 42, 2, 16, 47, 48, 17, 6, 43, 14, 39, 41, 3, 49, 40, 63, 64]]
+[INFO 03-05 01:43:27] ax.api.client: Trial 65 marked EARLY_STOPPED.
+[INFO 03-05 01:43:29] ax.api.client: Generated new trial 66 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.296367, 'x5': 1.0, 'x6': 0.609939} using GenerationNode MBM.
+[INFO 03-05 01:43:29] ax.api.client: Generated new trial 67 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.31892, 'x5': 0.0, 'x6': 0.586557} using GenerationNode MBM.
+[INFO 03-05 01:43:29] ax.api.client: Generated new trial 68 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 0.277598, 'x5': 0.0, 'x6': 0.642332} using GenerationNode MBM.
+[INFO 03-05 01:43:30] ax.api.client: Trial 66 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.318591341037486]
+- Thresholds: [3.1675659799914193]
+- Number of trials: [67]
+- Trial indices: [[0, 24, 64, 59, 16, 58, 60, 63, 1, 34, 8, 35, 10, 37, 6, 23, 4, 26, 33, 25, 17, 39, 55, 53, 36, 15, 18, 32, 57, 11, 56, 31, 38, 54, 22, 27, 52, 30, 51, 41, 9, 50, 14, 13, 45, 47, 43, 61, 7, 21, 28, 49, 19, 20, 29, 46, 3, 2, 48, 12, 5, 42, 44, 40, 66, 62, 65]]
+[INFO 03-05 01:43:30] ax.api.client: Trial 66 marked EARLY_STOPPED.
+[INFO 03-05 01:43:31] ax.api.client: Trial 67 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [2.811310543023056]
+- Thresholds: [1.8112669403522725]
+- Number of trials: [31]
+- Trial indices: [[34, 7, 1, 11, 25, 5, 24, 10, 30, 37, 23, 15, 14, 3, 16, 22, 9, 2, 12, 8, 27, 4, 6, 28, 20, 19, 18, 21, 29, 0, 67]]
+[INFO 03-05 01:43:31] ax.api.client: Trial 67 marked EARLY_STOPPED.
+[INFO 03-05 01:43:32] ax.api.client: Trial 68 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [2.919730690376906]
+- Thresholds: [1.8213726642661867]
+- Number of trials: [32]
+- Trial indices: [[0, 5, 1, 19, 10, 25, 8, 37, 18, 27, 14, 20, 4, 7, 11, 34, 21, 9, 30, 3, 24, 23, 22, 12, 6, 15, 2, 28, 29, 16, 67, 68]]
+[INFO 03-05 01:43:32] ax.api.client: Trial 68 marked EARLY_STOPPED.
+[INFO 03-05 01:43:34] ax.api.client: Generated new trial 69 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.268324} using GenerationNode MBM.
+[INFO 03-05 01:43:34] ax.api.client: Generated new trial 70 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.718483} using GenerationNode MBM.
+[INFO 03-05 01:43:34] ax.api.client: Generated new trial 71 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.517083} using GenerationNode MBM.
+[INFO 03-05 01:43:35] ax.api.client: Trial 69 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3218457695149395]
+- Thresholds: [3.161947336732115]
+- Number of trials: [70]
+- Trial indices: [[69, 66, 36, 64, 3, 65, 6, 34, 23, 25, 52, 11, 63, 31, 10, 24, 16, 33, 18, 17, 53, 61, 30, 5, 45, 49, 7, 1, 48, 51, 54, 50, 32, 4, 60, 9, 19, 57, 58, 12, 56, 27, 37, 28, 20, 42, 2, 40, 44, 21, 39, 55, 62, 59, 14, 41, 38, 29, 26, 8, 47, 13, 43, 46, 22, 0, 68, 67, 15, 35]]
+[INFO 03-05 01:43:35] ax.api.client: Trial 69 marked EARLY_STOPPED.
+[INFO 03-05 01:43:36] ax.api.client: Trial 70 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.318416909706161]
+- Thresholds: [3.1675659799914193]
+- Number of trials: [71]
+- Trial indices: [[0, 70, 45, 69, 38, 64, 32, 8, 39, 37, 44, 22, 3, 1, 25, 11, 17, 52, 7, 53, 40, 26, 62, 16, 30, 18, 23, 34, 14, 41, 20, 51, 55, 50, 46, 13, 2, 48, 59, 42, 58, 10, 65, 57, 28, 19, 35, 5, 68, 21, 56, 36, 61, 6, 29, 15, 4, 63, 9, 60, 49, 47, 54, 27, 24, 67, 43, 31, 33, 66, 12]]
+[INFO 03-05 01:43:36] ax.api.client: Trial 70 marked EARLY_STOPPED.
+[INFO 03-05 01:43:38] ax.api.client: Trial 71 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321803994709134]
+- Thresholds: [3.171234031754561]
+- Number of trials: [72]
+- Trial indices: [[28, 68, 48, 45, 21, 47, 29, 12, 66, 67, 44, 5, 17, 27, 1, 18, 65, 10, 26, 42, 22, 46, 49, 50, 9, 13, 63, 25, 30, 4, 51, 43, 14, 64, 31, 52, 40, 41, 19, 32, 6, 39, 61, 38, 23, 58, 15, 55, 20, 24, 3, 56, 57, 8, 34, 54, 37, 7, 53, 16, 2, 33, 60, 62, 36, 59, 0, 35, 11, 69, 71, 70]]
+[INFO 03-05 01:43:38] ax.api.client: Trial 71 marked EARLY_STOPPED.
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:796: RuntimeWarning: Optimization failed in gen_candidates_scipy with the following warning(s):
+[OptimizationWarning('Optimization failed within scipy.optimize.minimize with status 2 and message ABNORMAL: .')]
+Trying again with a new set of initial conditions.
+  return _optimize_acqf_batch(opt_inputs=opt_inputs)
+/opt/hostedtoolcache/Python/3.14.3/x64/lib/python3.14/site-packages/botorch/optim/optimize.py:796: RuntimeWarning: Optimization failed on the second try, after generating a new set of initial conditions.
+  return _optimize_acqf_batch(opt_inputs=opt_inputs)
+[INFO 03-05 01:43:40] ax.api.client: Generated new trial 72 with parameters {'x1': 0.140983, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 1.0, 'x6': 0.678534} using GenerationNode MBM.
+[INFO 03-05 01:43:40] ax.api.client: Generated new trial 73 with parameters {'x1': 0.165968, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.720366} using GenerationNode MBM.
+[INFO 03-05 01:43:40] ax.api.client: Generated new trial 74 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.595857} using GenerationNode MBM.
+[INFO 03-05 01:43:41] ax.api.client: Trial 72 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.31747969809628]
+- Thresholds: [3.1749020835177024]
+- Number of trials: [73]
+- Trial indices: [[0, 70, 67, 69, 20, 7, 12, 43, 54, 55, 57, 29, 68, 1, 44, 14, 37, 27, 66, 30, 45, 8, 23, 19, 4, 56, 22, 35, 58, 3, 51, 53, 46, 25, 36, 6, 62, 24, 47, 33, 50, 48, 2, 63, 61, 31, 40, 49, 10, 16, 11, 15, 65, 64, 18, 32, 34, 17, 5, 9, 60, 52, 59, 26, 39, 28, 21, 71, 13, 42, 38, 41, 72]]
+[INFO 03-05 01:43:41] ax.api.client: Trial 72 marked EARLY_STOPPED.
+[INFO 03-05 01:43:42] ax.api.client: Trial 73 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.319057484492874]
+- Thresholds: [3.1784083365351092]
+- Number of trials: [74]
+- Trial indices: [[0, 73, 71, 39, 21, 54, 5, 70, 1, 36, 35, 69, 68, 51, 17, 52, 58, 55, 13, 37, 50, 57, 49, 29, 11, 30, 4, 56, 40, 18, 25, 10, 61, 67, 65, 45, 20, 27, 26, 60, 63, 31, 23, 24, 62, 66, 2, 12, 6, 46, 7, 16, 59, 3, 43, 48, 42, 47, 34, 41, 9, 8, 28, 33, 44, 14, 38, 72, 64, 32, 53, 15, 22, 19]]
+[INFO 03-05 01:43:42] ax.api.client: Trial 73 marked EARLY_STOPPED.
+[INFO 03-05 01:43:43] ax.api.client: Trial 74 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3194884305388683]
+- Thresholds: [3.1819145895525156]
+- Number of trials: [75]
+- Trial indices: [[0, 71, 19, 69, 59, 4, 10, 47, 7, 70, 48, 1, 58, 26, 60, 37, 36, 57, 18, 20, 62, 53, 46, 44, 29, 56, 34, 24, 22, 49, 23, 11, 12, 38, 13, 64, 40, 8, 66, 68, 2, 14, 25, 41, 50, 67, 39, 32, 5, 65, 33, 31, 30, 16, 43, 9, 51, 42, 54, 63, 55, 17, 61, 3, 6, 73, 35, 45, 15, 21, 74, 28, 72, 52, 27]]
+[INFO 03-05 01:43:43] ax.api.client: Trial 74 marked EARLY_STOPPED.
+[INFO 03-05 01:43:46] ax.api.client: Generated new trial 75 with parameters {'x1': 0.0, 'x2': 0.88372, 'x3': 1.0, 'x4': 0.314404, 'x5': 0.982292, 'x6': 0.35573} using GenerationNode MBM.
+[INFO 03-05 01:43:46] ax.api.client: Generated new trial 76 with parameters {'x1': 1.0, 'x2': 1.0, 'x3': 1.0, 'x4': 0.416476, 'x5': 1.0, 'x6': 0.148532} using GenerationNode MBM.
+[INFO 03-05 01:43:46] ax.api.client: Generated new trial 77 with parameters {'x1': 1.0, 'x2': 0.967909, 'x3': 1.0, 'x4': 0.329759, 'x5': 0.882555, 'x6': 0.0} using GenerationNode MBM.
+[INFO 03-05 01:43:47] ax.api.client: Trial 75 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.296280286196163]
+- Thresholds: [3.1934793042333913]
+- Number of trials: [76]
+- Trial indices: [[73, 74, 53, 37, 13, 14, 36, 12, 64, 11, 38, 3, 39, 62, 4, 15, 35, 65, 66, 63, 7, 55, 72, 56, 54, 40, 41, 34, 61, 42, 44, 33, 16, 10, 1, 24, 51, 52, 31, 32, 59, 67, 68, 17, 43, 69, 2, 45, 9, 70, 71, 23, 50, 49, 58, 18, 60, 57, 20, 19, 46, 47, 21, 30, 5, 22, 29, 48, 8, 26, 28, 25, 6, 0, 27, 75]]
+[INFO 03-05 01:43:47] ax.api.client: Trial 75 marked EARLY_STOPPED.
+[INFO 03-05 01:43:48] ax.api.client: Trial 76 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.317721210566182]
+- Thresholds: [3.2050440189142675]
+- Number of trials: [77]
+- Trial indices: [[0, 34, 28, 43, 45, 42, 44, 57, 73, 75, 6, 58, 22, 9, 59, 19, 1, 55, 29, 56, 11, 18, 7, 62, 14, 49, 54, 60, 61, 5, 51, 23, 10, 41, 71, 31, 12, 69, 24, 30, 50, 72, 17, 38, 48, 35, 53, 52, 39, 40, 37, 26, 27, 21, 32, 47, 4, 20, 25, 65, 2, 70, 64, 63, 36, 8, 13, 16, 68, 66, 3, 67, 74, 46, 15, 33, 76]]
+[INFO 03-05 01:43:48] ax.api.client: Trial 76 marked EARLY_STOPPED.
+[INFO 03-05 01:43:49] ax.api.client: Trial 77 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.318221295723559]
+- Thresholds: [3.2116631447766726]
+- Number of trials: [78]
+- Trial indices: [[0, 77, 32, 21, 50, 34, 71, 1, 44, 60, 42, 40, 59, 23, 58, 43, 41, 7, 22, 57, 4, 26, 62, 3, 54, 51, 6, 61, 56, 63, 25, 46, 45, 30, 19, 64, 65, 15, 10, 12, 31, 48, 27, 39, 38, 47, 11, 17, 2, 8, 14, 28, 66, 49, 53, 24, 33, 9, 55, 13, 36, 68, 69, 67, 16, 18, 20, 29, 37, 35, 72, 73, 70, 5, 52, 74, 75, 76]]
+[INFO 03-05 01:43:49] ax.api.client: Trial 77 marked EARLY_STOPPED.
+[INFO 03-05 01:43:51] ax.api.client: Generated new trial 78 with parameters {'x1': 0.0, 'x2': 0.151847, 'x3': 0.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.651074} using GenerationNode MBM.
+[INFO 03-05 01:43:51] ax.api.client: Generated new trial 79 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 1.0, 'x6': 0.656464} using GenerationNode MBM.
+[INFO 03-05 01:43:51] ax.api.client: Generated new trial 80 with parameters {'x1': 0.0, 'x2': 0.14791, 'x3': 1.0, 'x4': 1.0, 'x5': 0.0, 'x6': 0.679024} using GenerationNode MBM.
+[INFO 03-05 01:43:52] ax.api.client: Trial 78 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3217915438366914]
+- Thresholds: [3.2182822706390777]
+- Number of trials: [79]
+- Trial indices: [[0, 21, 78, 76, 43, 75, 42, 14, 12, 61, 63, 3, 59, 57, 31, 62, 58, 4, 64, 15, 45, 73, 74, 47, 44, 28, 66, 33, 11, 32, 34, 56, 16, 65, 26, 27, 54, 55, 52, 41, 1, 71, 40, 10, 35, 17, 53, 5, 2, 67, 68, 69, 36, 51, 38, 46, 72, 23, 24, 39, 50, 6, 70, 49, 25, 18, 48, 9, 8, 19, 37, 77, 20, 7, 30, 29, 13, 60, 22]]
+[INFO 03-05 01:43:52] ax.api.client: Trial 78 marked EARLY_STOPPED.
+[INFO 03-05 01:43:53] ax.api.client: Trial 79 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.321804987080634]
+- Thresholds: [3.2192137823693505]
+- Number of trials: [80]
+- Trial indices: [[76, 18, 49, 78, 12, 20, 74, 1, 32, 75, 51, 47, 46, 50, 52, 6, 48, 45, 36, 10, 22, 7, 31, 53, 15, 73, 44, 54, 33, 34, 35, 72, 25, 71, 16, 56, 57, 17, 55, 5, 69, 11, 59, 37, 66, 28, 64, 23, 8, 60, 41, 62, 68, 61, 43, 4, 29, 26, 27, 58, 30, 2, 70, 42, 39, 21, 9, 19, 63, 13, 24, 14, 40, 67, 65, 38, 79, 77, 0, 3]]
+[INFO 03-05 01:43:53] ax.api.client: Trial 79 marked EARLY_STOPPED.
+[INFO 03-05 01:43:55] ax.api.client: Trial 80 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.243269181384964]
+- Thresholds: [3.220145294099623]
+- Number of trials: [81]
+- Trial indices: [[0, 6, 34, 75, 13, 65, 43, 45, 55, 1, 64, 61, 54, 76, 62, 31, 8, 14, 47, 28, 36, 33, 73, 24, 16, 15, 44, 20, 12, 37, 51, 29, 46, 67, 27, 72, 5, 25, 74, 32, 56, 2, 41, 40, 69, 71, 70, 52, 68, 48, 57, 26, 35, 21, 11, 3, 50, 7, 66, 19, 4, 17, 42, 9, 79, 53, 10, 77, 18, 23, 78, 22, 58, 38, 49, 60, 39, 80, 30, 63, 59]]
+[INFO 03-05 01:43:55] ax.api.client: Trial 80 marked EARLY_STOPPED.
+[INFO 03-05 01:43:57] ax.api.client: Generated new trial 81 with parameters {'x1': 0.0, 'x2': 0.120242, 'x3': 1.0, 'x4': 0.300427, 'x5': 1.0, 'x6': 0.631096} using GenerationNode MBM.
+[INFO 03-05 01:43:57] ax.api.client: Generated new trial 82 with parameters {'x1': 0.0, 'x2': 0.175679, 'x3': 0.0, 'x4': 0.320849, 'x5': 1.0, 'x6': 0.614542} using GenerationNode MBM.
+[INFO 03-05 01:43:57] ax.api.client: Generated new trial 83 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.243587, 'x5': 0.0, 'x6': 0.663396} using GenerationNode MBM.
+[INFO 03-05 01:43:58] ax.api.client: Trial 81 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.300703965791103]
+- Thresholds: [3.2317072377422935]
+- Number of trials: [82]
+- Trial indices: [[0, 81, 6, 55, 56, 48, 46, 78, 20, 1, 76, 57, 9, 45, 29, 77, 54, 30, 44, 17, 18, 32, 52, 51, 25, 16, 31, 74, 4, 64, 63, 66, 8, 50, 47, 15, 75, 34, 42, 41, 65, 43, 53, 7, 67, 79, 27, 13, 39, 40, 49, 61, 22, 37, 59, 33, 72, 26, 14, 2, 62, 71, 24, 73, 11, 38, 10, 5, 35, 60, 3, 70, 23, 68, 36, 21, 80, 58, 69, 12, 28, 19]]
+[INFO 03-05 01:43:58] ax.api.client: Trial 81 marked EARLY_STOPPED.
+[INFO 03-05 01:43:59] ax.api.client: Trial 82 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3184463708981102]
+- Thresholds: [3.243269181384964]
+- Number of trials: [83]
+- Trial indices: [[0, 82, 12, 78, 77, 27, 30, 10, 14, 39, 7, 53, 21, 38, 55, 28, 52, 57, 29, 59, 4, 56, 54, 81, 46, 50, 60, 58, 19, 62, 5, 37, 8, 35, 61, 51, 20, 36, 6, 15, 74, 63, 17, 41, 11, 13, 31, 65, 3, 66, 32, 23, 67, 64, 33, 9, 72, 44, 43, 40, 48, 68, 24, 18, 42, 26, 22, 47, 70, 2, 45, 73, 71, 34, 69, 49, 80, 79, 1, 25, 16, 75, 76]]
+[INFO 03-05 01:43:59] ax.api.client: Trial 82 marked EARLY_STOPPED.
+[INFO 03-05 01:44:00] ax.api.client: Trial 83 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [2.796577819122516]
+- Thresholds: [1.8314783881801011]
+- Number of trials: [33]
+- Trial indices: [[0, 8, 22, 7, 1, 6, 23, 20, 9, 24, 37, 19, 10, 34, 11, 4, 18, 25, 30, 12, 2, 5, 27, 29, 15, 14, 67, 3, 28, 16, 68, 21, 83]]
+[INFO 03-05 01:44:00] ax.api.client: Trial 83 marked EARLY_STOPPED.
+[INFO 03-05 01:44:02] ax.api.client: Generated new trial 84 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 1.0, 'x5': 0.263024, 'x6': 0.621206} using GenerationNode MBM.
+[INFO 03-05 01:44:02] ax.api.client: Generated new trial 85 with parameters {'x1': 0.0, 'x2': 0.0, 'x3': 1.0, 'x4': 1.0, 'x5': 0.272387, 'x6': 0.632337} using GenerationNode MBM.
+[INFO 03-05 01:44:02] ax.api.client: Generated new trial 86 with parameters {'x1': 1.0, 'x2': 0.0, 'x3': 0.353073, 'x4': 0.0, 'x5': 1.0, 'x6': 0.189764} using GenerationNode MBM.
+[INFO 03-05 01:44:04] ax.api.client: Trial 84 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3103058973992416]
+- Thresholds: [3.243269181384964]
+- Number of trials: [85]
+- Trial indices: [[0, 82, 45, 18, 56, 69, 80, 4, 28, 23, 67, 29, 1, 53, 79, 81, 52, 68, 61, 11, 66, 37, 24, 60, 41, 21, 35, 36, 44, 55, 58, 65, 26, 71, 72, 70, 74, 30, 77, 64, 8, 22, 2, 59, 40, 38, 75, 19, 6, 20, 62, 54, 46, 27, 33, 5, 78, 76, 3, 34, 12, 16, 57, 15, 14, 63, 39, 42, 17, 13, 47, 25, 10, 31, 9, 7, 51, 84, 83, 43, 73, 48, 49, 50, 32]]
+[INFO 03-05 01:44:04] ax.api.client: Trial 84 marked EARLY_STOPPED.
+[INFO 03-05 01:44:05] ax.api.client: Trial 85 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.2989340458257974]
+- Thresholds: [3.25448795764372]
+- Number of trials: [86]
+- Trial indices: [[0, 17, 16, 50, 80, 81, 1, 35, 36, 68, 66, 32, 31, 43, 12, 40, 19, 3, 20, 63, 6, 10, 18, 44, 51, 48, 76, 61, 62, 74, 7, 41, 75, 46, 11, 28, 25, 24, 52, 30, 72, 33, 53, 21, 60, 58, 59, 54, 22, 9, 34, 47, 49, 67, 73, 71, 39, 5, 2, 8, 4, 69, 13, 65, 55, 23, 29, 14, 64, 37, 15, 42, 38, 70, 79, 77, 78, 85, 83, 26, 56, 82, 45, 84, 57, 27]]
+[INFO 03-05 01:44:05] ax.api.client: Trial 85 marked EARLY_STOPPED.
+[INFO 03-05 01:44:06] ax.api.client: Trial 86 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [3.3218549134196214]
+- Thresholds: [3.2657067339024755]
+- Number of trials: [87]
+- Trial indices: [[0, 86, 42, 23, 20, 37, 1, 83, 36, 44, 15, 24, 26, 14, 46, 45, 53, 63, 38, 3, 47, 13, 62, 54, 76, 57, 18, 41, 32, 5, 71, 12, 77, 2, 67, 17, 10, 25, 8, 16, 27, 31, 39, 78, 52, 11, 75, 6, 34, 65, 55, 22, 69, 58, 79, 66, 50, 81, 9, 82, 72, 70, 40, 49, 80, 74, 7, 4, 61, 84, 51, 30, 56, 43, 29, 33, 48, 85, 19, 68, 73, 59, 64, 60, 28, 21, 35]]
+[INFO 03-05 01:44:06] ax.api.client: Trial 86 marked EARLY_STOPPED.`
+}
+</CellOutput>
+
+## Step 6: Analyze Results
+
+After running trials, you can analyze the results. Most commonly this means extracting
+the parameterization from the best performing trial you conducted.
+
+```python
+best_parameters, prediction, index, name = client.get_best_parameterization()
+print("Best Parameters:", best_parameters)
+print("Prediction (mean, variance):", prediction)
+```
+
+<CellOutput>
+{
+`Best Parameters: {'x1': 0.0, 'x2': 0.18871517382604427, 'x3': 0.45182306631072583, 'x4': 0.3034091572325213, 'x5': 0.2667284590686469, 'x6': 0.6666088863061816}
+Prediction (mean, variance): {'hartmann6': (np.float64(-2.58668578133908), np.float64(0.0060870184451602555))}`
+}
+</CellOutput>
+
+## Step 7: Compute Analyses
+
+Ax can also produce a number of analyses to help interpret the results of the experiment
+via `client.compute_analyses`. Users can manually select which analyses to run, or can
+allow Ax to select which would be most relevant. In this case Ax selects the following:
+
+- **Arm Effects Plots** show the metric value for each
+  [arm](https://ax.dev/docs/next/glossary#arm) on the experiment. Ax produces one plot
+  using values from its internal surrogate model (this can be helpful for seeing the
+  true effect of an arm when evaluations are noisy) and another using the raw metric
+  values as observed.
+- **Summary** lists all trials generated along with their parameterizations,
+  observations, and miscellaneous metadata
+- **Sensitivity Analysis Plot** shows which parameters have the largest affect on the
+  objective using
+  [Sobol Indicies](https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis)
+- **Slice Plot** shows how the model predicts a single parameter effects the objective
+  along with a confidence interval
+- **Contour Plot** shows how the model predicts a pair of parameters effects the
+  objective as a 2D surface
+- **Cross Validation** helps to visualize how well the surrogate model is able to
+  predict out of sample points
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Modeled Arm Effects on hartmann6**
+
+Modeled effects on hartmann6. This plot visualizes predictions of the true metric
+changes for each arm based on Ax's model. This is the expected delta you would expect if
+you (re-)ran that arm. This plot helps in anticipating the outcomes and performance of
+arms based on the model's predictions. Note, flat predictions across arms indicate that
+the model predicts that there is no effect, meaning if you were to re-run the
+experiment, the delta you would see would be small and fall within the confidence
+interval indicated in the plot.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/8bf4ab9e-b250-4904-8c95-bb5ea9489a26.json')} />
+
+
+**Observed Arm Effects on hartmann6**
+
+Observed effects on hartmann6. This plot visualizes the effects from previously-run arms
+on a specific metric, providing insights into their performance. This plot allows one to
+compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/bd4e326b-d8c3-43fe-8e28-423b1c79176b.json')} />
+
+
+**Utility Progression**
+
+Shows the best hartmann6 value achieved so far across completed trials (objective is to
+minimize). The x-axis shows trace index, which counts completed or early-stopped trials
+sequentially (1, 2, 3, ...). This differs from trial index, which may have gaps if some
+trials failed or were abandoned. For example, if trials 0, 2, and 5 completed while
+trials 1, 3, and 4 failed, the trace indices would be 1, 2, 3 corresponding to trial
+indices 0, 2, 5. The y-axis shows cumulative best utility. Only improvements are
+plotted, so flat segments indicate trials that didn't surpass the previous best.
+Infeasible trials (violating outcome constraints) don't contribute to the improvements.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/5d00665b-f24c-4ae8-bdae-609e47157139.json')} />
+
+
+**hartmann6 by progression**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/f6b9547f-8155-4acd-80db-842ab11cf452.json')} />
+
+
+**hartmann6 by wallclock time**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/2d447c73-20d4-4146-9135-12e79c3c9e20.json')} />
+
+
+**Best Trial for Experiment**
+
+Displays the trial with the best objective value based on raw observations. This
+reflects actual measured performance during execution. This trial achieved the optimal
+objective value and represents the recommended configuration for your optimization goal.
+Only considering COMPLETED trials.
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node   |   hartmann6 |   x1 |       x2 |       x3 |       x4 |       x5 |       x6 |
+|---:|--------------:|-----------:|:---------------|:------------------|------------:|-----:|---------:|---------:|---------:|---------:|---------:|
+|  0 |            27 |       27_0 | COMPLETED      | MBM               |    -2.79192 |    0 | 0.164915 | 0.443908 | 0.301126 | 0.328536 | 0.675789 |
+
+
+**Summary for Experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|     | trial_index   | arm_name   | trial_status   | generation_node     | hartmann6   | x1       | x2       | x3       | x4       | x5       | x6       |
+|:----|:--------------|:-----------|:---------------|:--------------------|:------------|:---------|:---------|:---------|:---------|:---------|:---------|
+| 0   | 0             | 0_0        | COMPLETED      | CenterOfSearchSpace | -0.505315   | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 | 0.500000 |
+| 1   | 1             | 1_0        | COMPLETED      | Sobol               | -0.231516   | 0.446250 | 0.464496 | 0.546695 | 0.133404 | 0.023892 | 0.330966 |
+| 2   | 2             | 2_0        | COMPLETED      | Sobol               | -0.007934   | 0.562002 | 0.725257 | 0.259715 | 0.525745 | 0.822402 | 0.793164 |
+| 3   | 3             | 3_0        | COMPLETED      | Sobol               | -0.101783   | 0.939125 | 0.063523 | 0.840446 | 0.301361 | 0.587497 | 0.535915 |
+| 4   | 4             | 4_0        | COMPLETED      | Sobol               | -0.116884   | 0.052866 | 0.871098 | 0.119872 | 0.912475 | 0.261521 | 0.088001 |
+| ... | ...           | ...        | ...            | ...                 | ...         | ...      | ...      | ...      | ...      | ...      | ...      |
+| 82  | 82            | 82_0       | EARLY_STOPPED  | MBM                 | 3.318446    | 0.000000 | 0.175679 | 0.000000 | 0.320849 | 1.000000 | 0.614542 |
+| 83  | 83            | 83_0       | EARLY_STOPPED  | MBM                 | 2.796578    | 0.000000 | 0.000000 | 0.000000 | 0.243587 | 0.000000 | 0.663396 |
+| 84  | 84            | 84_0       | EARLY_STOPPED  | MBM                 | 3.310306    | 0.000000 | 0.000000 | 0.000000 | 1.000000 | 0.263024 | 0.621206 |
+| 85  | 85            | 85_0       | EARLY_STOPPED  | MBM                 | 3.298934    | 0.000000 | 0.000000 | 1.000000 | 1.000000 | 0.272387 | 0.632337 |
+| 86  | 86            | 86_0       | EARLY_STOPPED  | MBM                 | 3.321855    | 1.000000 | 0.000000 | 0.353073 | 0.000000 | 1.000000 | 0.189764 |
+
+
+**Sensitivity Analysis for hartmann6**
+
+Understand how each parameter affects hartmann6 according to a second-order sensitivity
+analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/3b410ab6-24a9-402f-b02d-52a4d94ed90c.json')} />
+
+
+**hartmann6 vs. x5**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their best
+trial value (Arm 25_0). This visualization helps in understanding the sensitivity and
+impact of changes in the selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/59d9cb62-bde5-49cc-ad90-a5a80afd6e77.json')} />
+
+
+**hartmann6 vs. x6**
+
+The slice plot provides a one-dimensional view of predicted outcomes for hartmann6 as a
+function of a single parameter, while keeping all other parameters fixed at their best
+trial value (Arm 25_0). This visualization helps in understanding the sensitivity and
+impact of changes in the selected parameter on the predicted metric outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/c61e22b7-1c30-4772-b4d7-d4fcf1cd2f86.json')} />
+
+
+**hartmann6 (Mean) vs. x5, x6**
+
+The contour plot visualizes the predicted outcomes for hartmann6 across a
+two-dimensional parameter space, with other parameters held fixed at their best trial
+value (Arm 25_0). This plot helps in identifying regions of optimal performance and
+understanding how changes in the selected parameters influence the predicted outcomes.
+Contour lines represent levels of constant predicted values, providing insights into the
+gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/1e360708-4eab-4675-8478-ea73e963ed32.json')} />
+
+
+**Cross Validation for hartmann6 (R² = 0.98)**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/e8ade23e-a211-43d6-9aa0-b0cb40bcdb8e.json')} />
+
+
+**Generation Strategy Graph**
+
+GenerationStrategy: Center+Sobol+MBM:fast
+
+Visualize the structure of a GenerationStrategy as a directed graph. Each node
+represents a GenerationNode in the strategy, and edges represent transitions between
+nodes based on TransitionCriterion. Edge labels show the criterion class names that
+trigger the transition.
+
+
+
+
+|    | node_name           | generators   | transitions                        | is_current   |
+|---:|:--------------------|:-------------|:-----------------------------------|:-------------|
+|  0 | CenterOfSearchSpace | nan          | -> Sobol: AutoTransitionAfterGen   | False        |
+|  1 | Sobol               | Sobol        | -> MBM: MinTrials(5), MinTrials(2) | False        |
+|  2 | MBM                 | BoTorch      | nan                                | True         |
+
+## Conclusion
+
+This tutorial demonstates Ax's early stopping capabilities, which utilize
+timeseries-like data to monitor the results of expensive evaluations and terminate those
+that are unlikely to produce promising results, freeing up resources to explore more
+configurations. This can be used in a number of applications, and is especially useful
+in machine learning contexts.
+

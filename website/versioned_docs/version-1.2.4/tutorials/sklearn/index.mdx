@@ -1,0 +1,1205 @@
+---
+title: Ax for AutoML with scikit-learn
+sidebar_label: Ax for AutoML with scikit-learn
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/sklearn/sklearn.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/sklearn/sklearn.ipynb"
+/>
+
+# Ax for AutoML with scikit-learn
+
+Automated machine learning (AutoML) encompasses a large class of problems related to
+automating time-consuming and labor-intensive aspects of developing ML models. Adaptive
+experimentation is a natural fit for solving many AutoML tasks, which are often
+iterative in nature and can involve many expensive trial evaluations.
+
+In this tutorial we will use Ax for hyperparameter optimization (HPO), a common AutoML
+task in which a model's hyperparameters are adjusted to improve model performance.
+Hyperparameters refer to the parameters which are set prior to model training or
+fitting, rather than parameters being learned from data. Traditionally, ML engineers use
+a combination of domain knowledge, intuition, and manual experimentation comparing many
+models with different hyperparameter configurations to determine good hyperparameters.
+As the number of hyperparameters grows and as models become more expensive to train and
+evaluate sample efficient aproaches to experimentation like Bayesian optimization become
+increasingly valuable.
+
+In this tutorial we will train an `SGDClassifier` from the popular
+[scikit-learn](https://scikit-learn.org/) library to recognize handwritten digits and
+tune the model's hyperparameters to improve its performance. You can read more about the
+`SGDClassifier` model in their example
+[here](https://scikit-learn.org/stable/auto_examples/classification/plot_digits_classification.html),
+which this tutorial is largely based on. This tutorial will incorporate many advanced
+features in Ax to demonstrate how they can be applied on complex engineering challenges
+in a real-world setting.
+
+## Learning Objectives
+
+- Understand how Ax can be used for HPO tasks
+- Use complex optimization configurations like multiple objectives and outcome
+  constraints to achieve nuanced real-world goals
+- Use early stopping to save experimentation resources
+- Analyze the results of the optimization
+
+## Prerequisites
+
+- Familiarity with [scikit-learn](https://scikit-learn.org/) and basic machine learning
+  concepts
+- Understanding of [adaptive experimentation](../../intro-to-ae) and
+  [Bayesian optimization](../../intro-to-bo)
+- [Ask-tell Optimization of Python Functions with early stopping](../early_stopping)
+
+## Step 1: Import Necessary Modules
+
+First, ensure you have all the necessary imports:
+
+```python
+import time
+
+import matplotlib.pyplot as plt
+
+import numpy as np
+
+import sklearn.datasets
+import sklearn.linear_model
+import sklearn.model_selection
+
+from ax.api.client import Client
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
+
+from pyre_extensions import assert_is_instance
+```
+
+## Step 1.1: Understanding the baseline performance of `SGDClassifier`
+
+Before we begin HPO, let's understand the task and the performance of `SGDClassifier`
+with its default hyperparameters. The following code is largely adapted from the example
+on scikit-learn's webiste
+[here](https://scikit-learn.org/stable/auto_examples/classification/plot_digits_classification.html).
+
+```python
+# Load the digits dataset and display the first 4 images to demonstrate
+digits = sklearn.datasets.load_digits()
+classes = list(set(digits.target))
+
+_, axes = plt.subplots(nrows=1, ncols=4, figsize=(10, 3))
+for ax, image, label in zip(axes, digits.images, digits.target):
+    ax.set_axis_off()
+    ax.imshow(image, cmap=plt.cm.gray_r, interpolation="nearest")
+    ax.set_title("Training: %i" % label)
+```
+
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAxsAAADSCAYAAAAi0d0oAAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAEhNJREFUeJzt3W+QlWX9P/DPCrEbAbIi5JIlLDpjySABzSQm4LgQpMYqgT5gZB0bqGSM/swsU5gLlknajBVmxBMMzFFKIZtMYXBzmp7Eyloaziyx6GQ4KS5/FPnr/XvQ1/1FS+6C1+Vhd1+vGWbc65z7fV+H5eOe99xnzykriqIIAACAxM4o9QYAAICeSdkAAACyUDYAAIAslA0AACALZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZOAV1dXUxYsSIUzq2oaEhysrK0m4ITkPmBDpnTqBz5qR761Flo6ysrEt/GhsbS73V086f/vSn+MxnPhP9+/ePc845J2655ZZ44403Sr0tMjAnp+bJJ5+Mm266KUaPHh19+vQ55R98dA/m5OQdOHAg7r333pg2bVpUVVXFwIED45Of/GTcd999cezYsVJvjwzMyam544474tOf/nQMHTo0Kioq4oILLohFixbFq6++WuqtZVFWFEVR6k2ksnbt2uO+/sUvfhEbN26MNWvWHLc+derU+PCHP3zK5zly5Ei8/fbbUV5eftLHHj16NI4ePRoVFRWnfP7Umpub45JLLomPf/zjMX/+/PjHP/4Rd999d1x++eXx+OOPl3p7JGZOTk1dXV089NBDMW7cuHjppZeiT58+sXPnzlJvi0zMycl77rnnYsyYMXHFFVfEtGnTYtCgQfHEE0/Eo48+GjfccEPcf//9pd4iiZmTUzNr1qwYOnRoXHjhhTFw4MDYtm1brFq1KoYNGxbNzc3xoQ99qNRbTKvowW6++eaiKw/xzTfffB92c/qaMWNGUVVVVezdu7d9bdWqVUVEFE888UQJd8b7wZx0zcsvv1wcPny4KIqiuPLKK4vzzjuvtBvifWVOOvfqq68Wzz33XIf1G2+8sYiIoqWlpQS74v1kTk7dr371qyIiigcffLDUW0muR72MqiumTJkSo0ePjqamppg0aVL0798/vvWtb0VExIYNG+LKK6+M4cOHR3l5eYwaNSpuv/32Dpd///u1gzt37oyysrK4++674+c//3mMGjUqysvL41Of+lT8+c9/Pu7YE712sKysLBYuXBjr16+P0aNHR3l5eVx00UXx+9//vsP+GxsbY8KECVFRURGjRo2KlStXnjDztddeixdeeCEOHDjwrn8f+/bti40bN8bcuXNj0KBB7es33HBDDBgwIB5++OF3PZ6eyZx0NHz48PjABz7Q6f3oPczJ8c4+++y46KKLOqxfc801ERGxbdu2dz2ensmcdM07j2/Pnj2ndPzprG+pN1AKu3fvjhkzZsT1118fc+fObb+0t3r16hgwYEB8/etfjwEDBsTmzZvjO9/5Tuzbty/uuuuuTnN/+ctfxv79+2PBggVRVlYWP/jBD+Laa6+NHTt2dPok5Y9//GM88sgj8ZWvfCUGDhwYP/7xj2PWrFnx0ksvxZAhQyIiYuvWrTF9+vSoqqqKpUuXxrFjx2LZsmUxdOjQDnkrVqyIpUuXxlNPPRVTpkz5n+f961//GkePHo0JEyYct96vX78YO3ZsbN26tdPHTc9kTqBz5qRzr7zySkT8u4zQO5mTjoqiiN27d8fRo0ejpaUlFi9eHH369OmZP4tKfWklpxNdzps8eXIREcXPfvazDvc/cOBAh7UFCxYU/fv3Lw4ePNi+Nm/evONeQtHa2lpERDFkyJDi9ddfb1/fsGFDERHFY4891r522223ddhTRBT9+vUrtm/f3r727LPPFhFR/OQnP2lfu/rqq4v+/fsXL7/8cvtaS0tL0bdv3w6Z75znqaee6vCY/tO6deuKiCiefvrpDrfNnj27OOecc971eLo/c9L5nPw3L6PqfczJyc9JURTFoUOHik984hPFyJEjiyNHjpz08XQv5qTrc7Jr164iItr/nHvuucVDDz3UpWO7m173MqqIiPLy8rjxxhs7rH/wgx9s/+/9+/fHa6+9FpdddlkcOHAgXnjhhU5zr7vuuqisrGz/+rLLLouIiB07dnR6bE1NTYwaNar96zFjxsSgQYPajz127Fhs2rQpamtrY/jw4e33O//882PGjBkd8hoaGqIoik4b8ltvvRURccJfuqqoqGi/nd7HnEDnzMm7W7hwYfztb3+LFStWRN++vfLFFIQ5OZGzzjorNm7cGI899lgsW7Yszj777B77LqC9cvI/8pGPRL9+/TqsP//887FkyZLYvHlz7Nu377jb9u7d22nuxz72seO+fmcA2traTvrYd45/59h//etf8dZbb8X555/f4X4nWuuqdwb90KFDHW47ePDgcf8joHcxJ9A5c/K/3XXXXbFq1aq4/fbb43Of+1yyXLofc9JRv379oqamJiIirrrqqrjiiivi0ksvjWHDhsVVV131nvNPJ72ybJzoCfSePXti8uTJMWjQoFi2bFmMGjUqKioq4plnnon6+vp4++23O83t06fPCdeLLry78Hs59r2oqqqKiIhdu3Z1uG3Xrl3HtXl6F3MCnTMnJ7Z69eqor6+PL33pS7FkyZL37bycnsxJ5yZOnBhVVVXxwAMPKBs9VWNjY+zevTseeeSRmDRpUvt6a2trCXf1/w0bNiwqKipi+/btHW470VpXjR49Ovr27RtbtmyJOXPmtK8fPnw4mpubj1uD3joncDJ6+5xs2LAhvvjFL8a1114b995773vOo2fq7XNyIgcPHuzSFZ3uplf+zsaJvNNw/7PRHj58OH7605+WakvH6dOnT9TU1MT69evjn//8Z/v69u3bT/jBe119C7YzzzwzampqYu3atbF///729TVr1sQbb7wRs2fPTvcg6PZ665zAyejNc/L000/H9ddfH5MmTYoHHnggzjjD0wxOrLfOyZtvvnnC+/z617+Otra2Du8O2hO4svF/Jk6cGJWVlTFv3ry45ZZboqysLNasWXNavTyjoaEhnnzyybj00kvjy1/+chw7dixWrFgRo0ePjubm5uPuezJvwfa9730vJk6cGJMnT27/BPEf/vCHMW3atJg+fXq+B0S305vn5C9/+Uv85je/iYh//7DZu3dvfPe7342IiIsvvjiuvvrqHA+Hbqi3zsmLL74Yn//856OsrCy+8IUvxLp16467fcyYMTFmzJgMj4buqLfOSUtLS9TU1MR1110XF154YZxxxhmxZcuWWLt2bYwYMSK++tWv5n1QJaBs/J8hQ4bEb3/72/jGN74RS5YsicrKypg7d25cccUV8dnPfrbU24uIiPHjx8fjjz8e3/zmN+PWW2+Nj370o7Fs2bLYtm1bl9614X8ZN25cbNq0Kerr6+NrX/taDBw4MG666ab4/ve/n3D39AS9eU6eeeaZuPXWW49be+frefPmKRu0661z0tra2v4SkJtvvrnD7bfddpuyQbveOifnnntuzJo1KzZv3hz3339/HDlyJM4777xYuHBhfPvb327/jI+epKw4nSokp6S2tjaef/75aGlpKfVW4LRlTqBz5gQ6Z05OjhdTdjP//bkXLS0t8bvf/c7nBMB/MCfQOXMCnTMn750rG91MVVVV1NXVRXV1dbz44otx3333xaFDh2Lr1q1xwQUXlHp7cFowJ9A5cwKdMyfvnd/Z6GamT58eDz74YLzyyitRXl4el1xySdxxxx3+wcN/MCfQOXMCnTMn750rGwAAQBZ+ZwMAAMhC2QAAALJQNgAAgCx63C+I//cnlqZQX1+fPHPq1KnJMyMi7rzzzuSZlZWVyTPpeXK8DeCePXuSZ0b8+1NhU6utrU2eSc/T2NiYPDPXv72xY8cmz8zx+Cm95cuXJ89cvHhx8syRI0cmz4yIaGpqSp7Zk557ubIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBbKBgAAkIWyAQAAZKFsAAAAWSgbAABAFsoGAACQhbIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBZ9S72B1Orr65Nntra2Js9sa2tLnhkRcdZZZyXPfPjhh5Nnzp49O3kmpTV48ODkmX/4wx+SZ0ZENDY2Js+sra1NnklpNTc3J8+8/PLLk2eeeeaZyTMjInbu3Jkll9JavHhx8swczxNWrlyZPHPBggXJMyMimpqakmfW1NQkzywVVzYAAIAslA0AACALZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZAAAAslA2AACALJQNAAAgC2UDAADIQtkAAACyUDYAAIAslA0AACALZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZAAAAsuhbypM3NTUlz2xtbU2e+fe//z15ZnV1dfLMiIipU6cmz8zxfZo9e3byTLquubk5eWZjY2PyzFzGjh1b6i3QDaxfvz555sUXX5w8s7a2NnlmRMTSpUuz5FJa8+fPT55ZX1+fPHP8+PHJM0eOHJk8MyKipqYmS25P4coGAACQhbIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBbKBgAAkIWyAQAAZKFsAAAAWSgbAABAFsoGAACQhbIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBZ9S3nytra25Jnjxo1LnlldXZ08M5fx48eXegskds899yTPbGhoSJ65d+/e5Jm5TJkypdRboBtYtGhR8swRI0Ykz8yxz4iImTNnZsmltHI8p9mxY0fyzNbW1uSZNTU1yTMj8jyfraysTJ5ZKq5sAAAAWSgbAABAFsoGAACQhbIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBbKBgAAkIWyAQAAZKFsAAAAWSgbAABAFsoGAACQhbIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGTRt5Qnb2trS545derU5JndSY6/08rKyuSZdN2iRYuSZ9bV1SXP7E7/Tvbs2VPqLZBYju/pPffckzxz/fr1yTNzWb16dam3QDdRXV2dPPP1119PnllTU5M8M1fupk2bkmeW6ue0KxsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBbKBgAAkIWyAQAAZKFsAAAAWSgbAABAFsoGAACQhbIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBbKBgAAkIWyAQAAZKFsAAAAWSgbAABAFn1LefLKysrkmU1NTckzc2hra8uSu2XLluSZc+bMSZ4JpdTc3Jw8c+zYsckz6bqGhobkmT/60Y+SZ+bw6KOPZskdPHhwllzoihzPETdt2pQ8MyJiwYIFyTOXL1+ePPPOO+9MntkVrmwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBbKBgAAkIWyAQAAZKFsAAAAWSgbAABAFsoGAACQhbIBAABkoWwAAABZKBsAAEAWygYAAJCFsgEAAGShbAAAAFkoGwAAQBbKBgAAkIWyAQAAZNG3lCevrq5Onrlly5bkmevWresWmbnU19eXegsA76quri55ZmNjY/LMZ599NnnmNddckzwzImLmzJnJM3N8n2pra5NncnIWL16cPLOmpiZ5ZltbW/LMiIiNGzcmz5wzZ07yzFJxZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZAAAAslA2AACALJQNAAAgC2UDAADIQtkAAACyUDYAAIAslA0AACALZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZAAAAslA2AACALJQNAAAgi76lPHl1dXXyzOXLlyfPrK+vT545YcKE5JkREU1NTVly6VkGDx6cPHPmzJnJMzds2JA8MyKisbExeWZdXV3yTLpu7NixyTObm5u7RWZDQ0PyzIg88zdixIjkmbW1tckzOTmVlZXJM+fPn588M5c5c+Ykz1y5cmXyzFJxZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZAAAAslA2AACALJQNAAAgC2UDAADIQtkAAACyUDYAAIAslA0AACALZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZAAAAslA2AACALJQNAAAgi7KiKIpSbwIAAOh5XNkAAACyUDYAAIAslA0AACALZQMAAMhC2QAAALJQNgAAgCyUDQAAIAtlAwAAyELZAAAAsvh/SwTEIK6TZWQAAAAASUVORK5CYII=)
+
+```python
+# Split the data into a training set and a validation set
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    digits.data, digits.target, test_size=0.20, random_state=0
+)
+
+# Instantiate a SGDClassifier with default hyperparameters
+clf = sklearn.linear_model.SGDClassifier()
+
+# Train the classifier on the training set using 10 batches.
+# Also time the training.
+n_batches = 10
+batch_size = X_train.shape[0] // n_batches
+start_time = time.monotonic()
+for epoch in range(20):
+    for i in range(n_batches):
+        start = i * batch_size
+        end = start + batch_size
+
+        X_batch = X_train[start:end]
+        y_batch = y_train[start:end]
+
+        clf.partial_fit(X_batch, y_batch, classes=classes)
+
+training_time = time.monotonic() - start_time
+
+# Evaluate the classifier on the validation set
+score = clf.score(X_test, y_test)
+score, training_time
+```
+
+<CellOutput>
+{
+`(0.9361111111111111, 0.7512457169999607)`
+}
+</CellOutput>
+
+The model performs well, but let's see if we can improve performance by tuning the
+hyperparameters.
+
+## Step 2: Initialize the Client
+
+As always, the first step in running our adaptive experiment with Ax is to create an
+instance of the `Client` to manage the state of your experiment.
+
+```python
+client = Client()
+```
+
+## Step 3: Configure the Experiment
+
+The `Client` expects a series of `Config`s which define how the experiment will be run.
+We'll set this up the same way as we did in our previous tutorial.
+
+Our current task is to tune the hyperparameters of an scikit-learn's
+[SGDClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html).
+These parameters control aspects of the model's training process and configuring them
+can have dramatic effects on the model's ability to correctly classify inputs. A full
+list of this model's hyperparameters and appropriate values are available in the
+library's documentation. In this tutorial we will tune the following hyperparameters:
+
+- **loss:** The loss function to be used
+- **penalty:** The penalty (aka regularization term) to be used
+- **learning_rate:** The learning rate schedule
+- **alpha:** Constant that multiplies the regularization term. The higher the value, the
+  stronger the regularization
+- **eta0**: The learning rate for training. In this example we will use a constant
+  learning rate schedule
+- **batch_size**: A training parameter which controls how many examples are shown during
+  a single call to `partial_fit`
+
+You will notice some hyperparameters are continuous ranges, some are discrete ranges,
+and some are categorical choices; Ax is able to handle all of these types of parameters
+via its `RangeParameterConfig` and `ChoiceParameterConfig` classes.
+
+```python
+# Configure and experiment with the desired parameters
+client.configure_experiment(
+    parameters=[
+        ChoiceParameterConfig(
+            name="loss",
+            parameter_type="str",
+            values=[
+                "hinge",
+                "log_loss",
+                "squared_hinge",
+                "modified_huber",
+                "perceptron",
+            ],
+            is_ordered=False,
+        ),
+        ChoiceParameterConfig(
+            name="penalty",
+            parameter_type="str",
+            values=["l1", "l2", "elasticnet"],
+            is_ordered=False,
+        ),
+        ChoiceParameterConfig(
+            name="learning_rate",
+            parameter_type="str",
+            values=["constant", "optimal", "invscaling", "adaptive"],
+            is_ordered=False,
+        ),
+        RangeParameterConfig(
+            name="alpha",
+            bounds=(1e-8, 100),
+            parameter_type="float",
+            scaling="log",  # Sample this parameter in log transformed space
+        ),
+        RangeParameterConfig(
+            name="eta0",
+            bounds=(1e-8, 1),
+            parameter_type="float",
+            scaling="log",
+        ),
+        RangeParameterConfig(
+            name="batch_size",
+            bounds=(5, 500),
+            parameter_type="int",
+        ),
+    ]
+)
+```
+
+## Step 4: Configure Optimization
+
+Now, we must set up the optimization objective in `Client`, where `objective` is a
+string that specifies which metric we would like to optimize and the direction (higher
+or lower) that is considered optimal.
+
+In our example we want to consider both performance and computational cost implications
+of hyperparameter modifications. `scikit-learn` models use a function called `score` to
+report the mean accuracy of the model, and in our optimization we should seek to
+maximize this value. Since model training can be a very expensive process, especially
+for large models, this can represent a significant cost.
+
+Let's configure Ax to maximize score while minimizing training time. We call this a
+multi-objective optimization, and rather than returning a single best parameterization
+we return a Pareto frontier of points which represent optimal tradeoffs between all
+metrics present. Multi-objective optimization is useful for competing metrics where a
+gain in one metric may represent a regression in the other.
+
+In these settings we can also specify outcome constraints, which indicate that if a
+metric result falls outside of the specified threshold we are not interested in any
+result, regardless of the wins observed in any other metric. For a concrete example,
+imagine Ax finding a parameterization that trains in no time at all but has an score no
+better than if the model were guessing at random.
+
+For this toy example let's configure Ax to maximize score and minimize training time,
+but avoid any hyperparameter configurations that result in a mean accuracy score of less
+than 85% or a training time greater than 2 seconds.
+
+```python
+client.configure_optimization(
+    objective="score, -training_time",
+    outcome_constraints=["score >= 0.85", "training_time <= 2"],
+)
+```
+
+## Step 5: Run Trials with early stopping
+
+Before we begin our Bayesian optimization loop, we can attach the data we collected from
+triaing `SGDClassifier` with default hyperparameters. This will give our experiment a
+head start by providing a datapoint to our surrogate model. Because these are the
+default settings provided by `scikit-learn`, it's likely they will be pretty good and
+will provide the optimization with a promising start. It is always advantageous to
+attach any existing data to an experiment to improve performance.
+
+```python
+trial_index = client.attach_baseline(
+    parameters={
+        "loss": clf.loss,
+        "penalty": clf.penalty,
+        "alpha": clf.alpha,
+        "learning_rate": clf.learning_rate,
+        "eta0": clf.eta0
+        + 1e-8,  # Default eta is 0.0, so add a small value to avoid division by zero
+        "batch_size": batch_size,
+    }
+)
+
+client.complete_trial(
+    trial_index=trial_index,
+    raw_data={"score": score, "training_time": training_time},
+)
+```
+
+<CellOutput>
+{
+`[INFO 03-05 01:44:25] ax.api.client: Trial 0 marked COMPLETED.
+<enum 'TrialStatus'>.COMPLETED`
+}
+</CellOutput>
+
+After attaching the initial trial, we will begin the experimentation loop by writing a
+for loop to execute our full experimentation budget of 30 trials. In each iteration we
+will ask Ax for the next trials (in this case just one), then instantiate an
+`SGDClassifier` with the suggested hyperparameters. Next we will define two inner loops
+to perform minibatch training, in which we divide the train set into a number of smaller
+batches and train one epoch of stochastic gradient descent at a time. After each epoch
+we will report the score and the time.
+
+Because training machine learning models is expensive, we will utilize Ax's early
+stopping functionality to kill trials unlikely to produce optimal results before they
+have been completed. After data has been attached we will ask the `Client` whether or
+not we should stop the trial, and if it advises us to do so we will report it early
+stopped and exit out of the training loop. By early stopping, we proactively save
+compute without regressing optimization performance.
+
+```python
+for _ in range(20): # Run 20 rounds of 1 trial each
+    trials = client.get_next_trials(max_trials=1)
+    for trial_index, parameters in trials.items():
+        clf = sklearn.linear_model.SGDClassifier(
+            loss=parameters["loss"],
+            penalty=parameters["penalty"],
+            alpha=parameters["alpha"],
+            learning_rate=parameters["learning_rate"],
+            eta0=parameters["eta0"],
+        )
+
+        batch_size = assert_is_instance(parameters["batch_size"], int)
+        n_batches = X_train.shape[0] // batch_size
+
+        # Create a flag to track whether the trial was stopped early
+        is_early_stopped = False
+
+        start_time = time.monotonic()
+        for epoch in range(20):
+            for i in range(n_batches):
+                # Calculate the minibatch and fit the model
+                start = i * batch_size
+                end = start + batch_size
+
+                X_batch = X_train[start:end]
+                y_batch = y_train[start:end]
+
+                clf.partial_fit(X_batch, y_batch, classes=classes)
+
+            # Evaluate the model and report the score back to Ax
+            score = clf.score(X_test, y_test)
+
+            client.attach_data(
+                trial_index=trial_index,
+                raw_data={"score": score, "training_time": time.monotonic() - start_time},
+                progression=epoch + 1,
+            )
+
+            # If the trial is underperforming, stop it
+            if client.should_stop_trial_early(trial_index=trial_index):
+                is_early_stopped = True
+                client.mark_trial_early_stopped(trial_index=trial_index)
+                break
+
+        if is_early_stopped:
+            break
+
+
+        if not is_early_stopped:
+            client.complete_trial(trial_index=trial_index)
+
+```
+
+<CellOutput>
+{
+`[INFO 03-05 01:44:25] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol'), GenerationNode(name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, generator_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')], suggested_experiment_status=ExperimentStatus.INITIALIZATION, pausing_criteria=[MaxTrialsAwaitingData(threshold=5)]), GenerationNode(name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, generator_key_override=None)], transition_criteria=None, suggested_experiment_status=ExperimentStatus.OPTIMIZATION, pausing_criteria=None)]) chosen based on user input and problem structure.
+[INFO 03-05 01:44:25] ax.api.client: Generated new trial 1 with parameters {'loss': 'squared_hinge', 'penalty': 'l2', 'learning_rate': 'invscaling', 'alpha': 0.001, 'eta0': 0.0001, 'batch_size': 252} using GenerationNode CenterOfSearchSpace.
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:26] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 03-05 01:44:26] ax.api.client: Generated new trial 2 with parameters {'alpha': 8.6e-05, 'eta0': 0.005958, 'batch_size': 214, 'loss': 'log_loss', 'penalty': 'elasticnet', 'learning_rate': 'constant'} using GenerationNode Sobol.
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:26] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:27] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:28] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 03-05 01:44:28] ax.api.client: Generated new trial 3 with parameters {'alpha': 0.066055, 'eta0': 2.4e-05, 'batch_size': 325, 'loss': 'squared_hinge', 'penalty': 'l1', 'learning_rate': 'adaptive'} using GenerationNode Sobol.
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:28] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:29] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 03-05 01:44:29] ax.api.client: Generated new trial 4 with parameters {'alpha': 0.0, 'eta0': 0.031428, 'batch_size': 421, 'loss': 'log_loss', 'penalty': 'elasticnet', 'learning_rate': 'optimal'} using GenerationNode Sobol.
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:30] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 03-05 01:44:32] ax.api.client: Generated new trial 5 with parameters {'alpha': 0.000152, 'eta0': 0.023475, 'batch_size': 85, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:32] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:33] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:33] ax.api.client: Trial 5 should be stopped early: Trial objective values at progressions in [16.00, 16.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [16.0]
+- Underperforms: [True]
+- Trial objective values: [0.9305555555555556]
+- Thresholds: [0.9333333333333333]
+- Number of trials: [5]
+- Trial indices: [[1, 2, 4, 3, 5]]
+[INFO 03-05 01:44:33] ax.api.client: Trial 5 marked EARLY_STOPPED.
+[INFO 03-05 01:44:35] ax.api.client: Generated new trial 6 with parameters {'alpha': 1.6e-05, 'eta0': 0.000363, 'batch_size': 352, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:44:35] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:36] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:36] ax.api.client: Trial 6 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.9472222222222222]
+- Thresholds: [0.95]
+- Number of trials: [6]
+- Trial indices: [[1, 2, 4, 3, 6, 5]]
+[INFO 03-05 01:44:36] ax.api.client: Trial 6 marked EARLY_STOPPED.
+[INFO 03-05 01:44:38] ax.api.client: Generated new trial 7 with parameters {'alpha': 100.0, 'eta0': 1.0, 'batch_size': 396, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:44:38] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:38] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:38] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:39] ax.api.client: Trial 7 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.8527777777777777]
+- Thresholds: [0.9472222222222222]
+- Number of trials: [7]
+- Trial indices: [[1, 2, 4, 3, 6, 7, 5]]
+[INFO 03-05 01:44:39] ax.api.client: Trial 7 marked EARLY_STOPPED.
+[INFO 03-05 01:44:42] ax.api.client: Generated new trial 8 with parameters {'alpha': 0.0, 'eta0': 0.0, 'batch_size': 5, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:44:43] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:45] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:46] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:47] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:48] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:50] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:51] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:52] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:53] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:53] ax.api.client: Trial 8 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.9222222222222223]
+- Thresholds: [0.9402777777777778]
+- Number of trials: [8]
+- Trial indices: [[1, 2, 4, 3, 6, 7, 8, 5]]
+[INFO 03-05 01:44:53] ax.api.client: Trial 8 marked EARLY_STOPPED.
+[INFO 03-05 01:44:56] ax.api.client: Generated new trial 9 with parameters {'alpha': 6e-06, 'eta0': 0.001374, 'batch_size': 243, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:56] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:44:56] ax.api.client: Trial 9 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.9166666666666666]
+- Thresholds: [0.9333333333333333]
+- Number of trials: [9]
+- Trial indices: [[1, 2, 4, 3, 6, 7, 9, 5, 8]]
+[INFO 03-05 01:44:56] ax.api.client: Trial 9 marked EARLY_STOPPED.
+[INFO 03-05 01:44:59] ax.api.client: Generated new trial 10 with parameters {'alpha': 0.0, 'eta0': 1.0, 'batch_size': 231, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:44:59] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:59] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:59] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:59] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:59] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:44:59] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:00] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:00] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:00] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:00] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:00] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:00] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:00] ax.api.client: Trial 10 should be stopped early: Trial objective values at progressions in [12.00, 12.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [12.0]
+- Underperforms: [True]
+- Trial objective values: [0.925]
+- Thresholds: [0.9347222222222222]
+- Number of trials: [6]
+- Trial indices: [[1, 2, 4, 3, 5, 10]]
+[INFO 03-05 01:45:00] ax.api.client: Trial 10 marked EARLY_STOPPED.
+[INFO 03-05 01:45:03] ax.api.client: Generated new trial 11 with parameters {'alpha': 0.01207, 'eta0': 0.008164, 'batch_size': 231, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:03] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:03] ax.api.client: Trial 11 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [0.9333333333333333]
+- Thresholds: [0.9388888888888889]
+- Number of trials: [7]
+- Trial indices: [[1, 2, 4, 3, 5, 10, 11]]
+[INFO 03-05 01:45:03] ax.api.client: Trial 11 marked EARLY_STOPPED.
+[INFO 03-05 01:45:07] ax.api.client: Generated new trial 12 with parameters {'alpha': 7.3e-05, 'eta0': 2.2e-05, 'batch_size': 447, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:07] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:07] ax.api.client: Trial 12 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.925]
+- Thresholds: [0.9375]
+- Number of trials: [12]
+- Trial indices: [[1, 2, 4, 3, 6, 7, 9, 5, 8, 12, 11, 10]]
+[INFO 03-05 01:45:07] ax.api.client: Trial 12 marked EARLY_STOPPED.
+[INFO 03-05 01:45:11] ax.api.client: Generated new trial 13 with parameters {'alpha': 0.167056, 'eta0': 0.0, 'batch_size': 207, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:11] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:12] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:12] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:12] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:12] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:12] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:12] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:12] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:12] ax.api.client: Trial 13 should be stopped early: Trial objective values at progressions in [15.00, 15.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [15.0]
+- Underperforms: [True]
+- Trial objective values: [0.9333333333333333]
+- Thresholds: [0.9361111111111111]
+- Number of trials: [6]
+- Trial indices: [[1, 2, 4, 3, 5, 13]]
+[INFO 03-05 01:45:12] ax.api.client: Trial 13 marked EARLY_STOPPED.
+[INFO 03-05 01:45:15] ax.api.client: Generated new trial 14 with parameters {'alpha': 0.019871, 'eta0': 1.0, 'batch_size': 312, 'loss': 'squared_hinge', 'penalty': 'l1', 'learning_rate': 'adaptive'} using GenerationNode MBM.
+[WARNING 03-05 01:45:15] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:15] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:15] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:15] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:15] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:16] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:16] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:16] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:16] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:16] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:16] ax.api.client: Trial 14 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.9305555555555556]
+- Thresholds: [0.9347222222222222]
+- Number of trials: [14]
+- Trial indices: [[1, 2, 4, 3, 6, 7, 9, 5, 8, 12, 11, 14, 13, 10]]
+[INFO 03-05 01:45:16] ax.api.client: Trial 14 marked EARLY_STOPPED.
+[INFO 03-05 01:45:19] ax.api.client: Generated new trial 15 with parameters {'alpha': 0.000595, 'eta0': 1.0, 'batch_size': 142, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:45:19] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:19] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:20] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:20] ax.api.client: Trial 15 should be stopped early: Trial objective values at progressions in [13.00, 13.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [13.0]
+- Underperforms: [True]
+- Trial objective values: [0.9194444444444444]
+- Thresholds: [0.9333333333333333]
+- Number of trials: [7]
+- Trial indices: [[1, 2, 4, 3, 5, 15, 13]]
+[INFO 03-05 01:45:20] ax.api.client: Trial 15 marked EARLY_STOPPED.
+[INFO 03-05 01:45:24] ax.api.client: Generated new trial 16 with parameters {'alpha': 0.0, 'eta0': 0.003366, 'batch_size': 211, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:45:24] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:24] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:24] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:24] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:24] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:24] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:25] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:25] ax.api.client: Trial 16 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [0.9333333333333333]
+- Thresholds: [0.9444444444444444]
+- Number of trials: [10]
+- Trial indices: [[1, 2, 4, 3, 5, 16, 15, 13, 11, 10]]
+[INFO 03-05 01:45:25] ax.api.client: Trial 16 marked EARLY_STOPPED.
+[INFO 03-05 01:45:29] ax.api.client: Generated new trial 17 with parameters {'alpha': 0.156344, 'eta0': 0.0, 'batch_size': 333, 'loss': 'squared_hinge', 'penalty': 'l1', 'learning_rate': 'adaptive'} using GenerationNode MBM.
+[WARNING 03-05 01:45:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:29] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:30] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:30] ax.api.client: Trial 17 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.7333333333333333]
+- Thresholds: [0.9361111111111111]
+- Number of trials: [17]
+- Trial indices: [[1, 2, 4, 3, 6, 7, 9, 5, 8, 16, 17, 14, 13, 12, 11, 10, 15]]
+[INFO 03-05 01:45:30] ax.api.client: Trial 17 marked EARLY_STOPPED.
+[INFO 03-05 01:45:34] ax.api.client: Generated new trial 18 with parameters {'alpha': 0.0, 'eta0': 0.000864, 'batch_size': 471, 'loss': 'hinge', 'penalty': 'l2', 'learning_rate': 'optimal'} using GenerationNode MBM.
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:34] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:34] ax.api.client: Trial 18 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [0.9111111111111111]
+- Thresholds: [0.9388888888888889]
+- Number of trials: [11]
+- Trial indices: [[1, 2, 4, 3, 5, 16, 13, 11, 10, 15, 18]]
+[INFO 03-05 01:45:35] ax.api.client: Trial 18 marked EARLY_STOPPED.
+[INFO 03-05 01:45:38] ax.api.client: Generated new trial 19 with parameters {'alpha': 0.004656, 'eta0': 0.001168, 'batch_size': 145, 'loss': 'squared_hinge', 'penalty': 'l1', 'learning_rate': 'adaptive'} using GenerationNode MBM.
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:39] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:39] ax.api.client: Trial 19 should be stopped early: Trial objective values at progressions in [10.00, 10.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [10.0]
+- Underperforms: [True]
+- Trial objective values: [0.9055555555555556]
+- Thresholds: [0.9361111111111111]
+- Number of trials: [19]
+- Trial indices: [[1, 2, 4, 3, 6, 7, 9, 5, 8, 16, 17, 14, 13, 12, 11, 10, 15, 18, 19]]
+[INFO 03-05 01:45:39] ax.api.client: Trial 19 marked EARLY_STOPPED.
+[INFO 03-05 01:45:44] ax.api.client: Generated new trial 20 with parameters {'alpha': 0.024089, 'eta0': 0.001185, 'batch_size': 447, 'loss': 'squared_hinge', 'penalty': 'l1', 'learning_rate': 'adaptive'} using GenerationNode MBM.
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[WARNING 03-05 01:45:44] ax.early_stopping.strategies.base: Dropped 1 row(s) with NaN values in the progression column ('step') for trial(s) [0].
+[INFO 03-05 01:45:44] ax.api.client: Trial 20 should be stopped early: Trial objective values at progressions in [11.00, 11.00] are all worse than 50.0-th percentile across comparable trials 
+- Progressions: [11.0]
+- Underperforms: [True]
+- Trial objective values: [0.8888888888888888]
+- Thresholds: [0.9361111111111111]
+- Number of trials: [12]
+- Trial indices: [[1, 2, 18, 3, 5, 4, 16, 10, 11, 13, 15, 20]]
+[INFO 03-05 01:45:45] ax.api.client: Trial 20 marked EARLY_STOPPED.`
+}
+</CellOutput>
+
+## Step 6: Analyze Results
+
+After running trials, you can analyze the results. Most commonly this means extracting
+the parameterization from the best performing trial you conducted.
+
+Since we are optimizing multiple objectives, rather than a single best point we want to
+get the Pareto frontier -- the set of points that presents optimal tradeoffs between
+maximizing score and minimizing training time.
+
+```python
+frontier = client.get_pareto_frontier()
+
+# Frontier is a list of tuples, where each tuple contains the parameters, the metric readings, the trial index, and the arm name for a point on the Pareto frontier
+for parameters, metrics, trial_index, arm_name in frontier:
+    print(f"Trial {trial_index} with {parameters=} and {metrics=}\n")
+```
+
+<CellOutput>
+{
+`Trial 6 with parameters={'loss': 'hinge', 'penalty': 'l2', 'alpha': 1.615910788768174e-05, 'learning_rate': 'optimal', 'eta0': 0.00036263694264258546, 'batch_size': 352} and metrics={'score': (np.float64(0.946179399175673), 1.4232524060654944e-05), 'training_time': (np.float64(0.5615373461174773), 0.0013839282563360613)}
+Trial 3 with parameters={'loss': 'squared_hinge', 'penalty': 'l1', 'alpha': 0.06605480841727722, 'learning_rate': 'adaptive', 'eta0': 2.4491153751203433e-05, 'batch_size': 325} and metrics={'score': (np.float64(0.9607805704726691), 1.4514078449911059e-05), 'training_time': (np.float64(1.1439958029453092), 0.001518197445953349)}
+Trial 7 with parameters={'loss': 'hinge', 'penalty': 'l2', 'alpha': 100.0, 'learning_rate': 'optimal', 'eta0': 1.0, 'batch_size': 396} and metrics={'score': (np.float64(0.8537075552013312), 1.4395823503433995e-05), 'training_time': (np.float64(0.5290847528963027), 0.0013062011244019348)}`
+}
+</CellOutput>
+
+## Step 7: Compute Analyses
+
+Ax can also produce a number of analyses to help interpret the results of the experiment
+via `client.compute_analyses`. Users can manually select which analyses to run, or can
+allow Ax to select which would be most relevant. In this case Ax selects the following:
+
+- **Arm Effects Plots** show the metric value for each
+  [arm](https://ax.dev/docs/next/glossary#arm) on the experiment. Ax produces one plot
+  using values from its internal surrogate model (this can be helpful for seeing the
+  true effect of an arm when evaluations are noisy) and another using the raw metric
+  values as observed.
+- **Scatter Plot** shows the effects of each trial on two metrics, and is useful for
+  understanding the trade-off between the two outcomes
+- **Summary** lists all trials generated along with their parameterizations,
+  observations, and miscellaneous metadata
+- **Sensitivity Analysis Plot** shows which parameters have the largest affect on the
+  objective using
+  [Sobol Indicies](https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis)
+- **Slice Plot** shows how the model predicts a single parameter effects the objective
+  along with a confidence interval
+- **Contour Plot** shows how the model predicts a pair of parameters effects the
+  objective as a 2D surface
+- **Cross Validation** helps to visualize how well the surrogate model is able to
+  predict out of sample points
+
+```python
+# display=True instructs Ax to sort then render the resulting analyses
+cards = client.compute_analyses(display=True)
+```
+
+**Modeled Arm Effects on score**
+
+Modeled effects on score. This plot visualizes predictions of the true metric changes
+for each arm based on Ax's model. This is the expected delta you would expect if you
+(re-)ran that arm. This plot helps in anticipating the outcomes and performance of arms
+based on the model's predictions. Note, flat predictions across arms indicate that the
+model predicts that there is no effect, meaning if you were to re-run the experiment,
+the delta you would see would be small and fall within the confidence interval indicated
+in the plot.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/c0504c59-a187-4735-9d77-47d90d6f8fd1.json')} />
+
+
+**Observed Arm Effects on score**
+
+Observed effects on score. This plot visualizes the effects from previously-run arms on
+a specific metric, providing insights into their performance. This plot allows one to
+compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/398d7b2f-2cce-4e4a-962f-66244760e99e.json')} />
+
+
+**Modeled Arm Effects on training_time**
+
+Modeled effects on training_time. This plot visualizes predictions of the true metric
+changes for each arm based on Ax's model. This is the expected delta you would expect if
+you (re-)ran that arm. This plot helps in anticipating the outcomes and performance of
+arms based on the model's predictions. Note, flat predictions across arms indicate that
+the model predicts that there is no effect, meaning if you were to re-run the
+experiment, the delta you would see would be small and fall within the confidence
+interval indicated in the plot.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/09b0e63c-ebb4-439d-8d84-e39c85da4122.json')} />
+
+
+**Observed Arm Effects on training_time**
+
+Observed effects on training_time. This plot visualizes the effects from previously-run
+arms on a specific metric, providing insights into their performance. This plot allows
+one to compare and contrast the effectiveness of different arms, highlighting which
+configurations have yielded the most favorable outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/d12bb7b7-ae22-4af3-9aba-268d3da2a635.json')} />
+
+
+**Modeled Effects: score vs. training_time**
+
+This plot displays the effects of each arm on the two selected metrics. It is useful for
+understanding the trade-off between the two metrics and for visualizing the Pareto
+frontier.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/4d5ac9b5-6187-42f1-a1bf-806aa25a892c.json')} />
+
+
+**Utility Progression**
+
+Shows the hypervolume of the Pareto frontier achieved so far across completed trials.
+The x-axis shows trace index, which counts completed or early-stopped trials
+sequentially (1, 2, 3, ...). This differs from trial index, which may have gaps if some
+trials failed or were abandoned. For example, if trials 0, 2, and 5 completed while
+trials 1, 3, and 4 failed, the trace indices would be 1, 2, 3 corresponding to trial
+indices 0, 2, 5. The y-axis shows cumulative best hypervolume—only improvements, so flat
+segments indicate trials that didn't improve the frontier. Hypervolume measures the
+volume of objective space dominated by the Pareto frontier. Infeasible trials (violating
+outcome constraints) don't contribute to the improvements.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/9279cb36-1325-4a34-813e-010fe8bba8ca.json')} />
+
+
+**score by progression**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/da504498-820c-40df-833d-cb7517fd8749.json')} />
+
+
+**score by wallclock time**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/04a7983a-3991-4e95-a8f6-3127fc49fcd7.json')} />
+
+
+**training_time by progression**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/c0e425e1-5da2-4b83-a3f0-326855b425be.json')} />
+
+
+**training_time by wallclock time**
+
+The progression plot tracks the evolution of each metric over the course of the
+experiment. This visualization is typically used to monitor the improvement of metrics
+over Trial iterations, but can also be useful in informing decisions about early
+stopping for Trials.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/4b410100-d92a-449d-b68f-bfd93c38219b.json')} />
+
+
+**Pareto Frontier Trials for Experiment**
+
+Displays trials on the Pareto frontier based on raw observations. This reflects actual
+measured performance during execution. No trial is strictly better across all
+objectives. These trials represent optimal trade-offs between competing objectives. Use
+this to understand the available trade-offs and select a trial that best balances your
+optimization goals. Only considering COMPLETED trials.
+
+
+
+
+|    |   trial_index |   arm_name | trial_status   | generation_node   |    score |   training_time |      alpha |     eta0 |   batch_size | loss          | penalty   | learning_rate   |
+|---:|--------------:|-----------:|:---------------|:------------------|---------:|----------------:|-----------:|---------:|-------------:|:--------------|:----------|:----------------|
+|  0 |             6 |        6_0 | EARLY_STOPPED  | MBM               | 0.947222 |        0.565349 |   1.6e-05  | 0.000363 |          352 | hinge         | l2        | optimal         |
+|  1 |            12 |       12_0 | EARLY_STOPPED  | MBM               | 0.925    |        0.560713 |   7.3e-05  | 2.2e-05  |          447 | hinge         | l2        | optimal         |
+|  2 |             3 |        3_0 | COMPLETED      | Sobol             | 0.961111 |        1.14353  |   0.066055 | 2.4e-05  |          325 | squared_hinge | l1        | adaptive        |
+|  3 |             7 |        7_0 | EARLY_STOPPED  | MBM               | 0.852778 |        0.528152 | 100        | 1        |          396 | hinge         | l2        | optimal         |
+
+
+**Summary for Experiment**
+
+High-level summary of the `Trial`-s in this `Experiment`
+
+
+
+
+|    |   trial_index | arm_name   | trial_status   | generation_node     |    score |   training_time | loss          | penalty    |         alpha | learning_rate   |        eta0 |   batch_size |
+|---:|--------------:|:-----------|:---------------|:--------------------|---------:|----------------:|:--------------|:-----------|--------------:|:----------------|------------:|-------------:|
+|  0 |             0 | baseline   | COMPLETED      | nan                 | 0.936111 |        0.751246 | hinge         | l2         |   0.0001      | optimal         | 0.01        |          143 |
+|  1 |             1 | 1_0        | COMPLETED      | CenterOfSearchSpace | 0.933333 |        1.14549  | squared_hinge | l2         |   0.001       | invscaling      | 0.0001      |          252 |
+|  2 |             2 | 2_0        | COMPLETED      | Sobol               | 0.955556 |        1.29212  | log_loss      | elasticnet |   8.57947e-05 | constant        | 0.00595799  |          214 |
+|  3 |             3 | 3_0        | COMPLETED      | Sobol               | 0.961111 |        1.14353  | squared_hinge | l1         |   0.0660548   | adaptive        | 2.44912e-05 |          325 |
+|  4 |             4 | 4_0        | COMPLETED      | Sobol               | 0.925    |        1.09023  | log_loss      | elasticnet |   6.58694e-08 | optimal         | 0.0314275   |          421 |
+|  5 |             5 | 5_0        | EARLY_STOPPED  | MBM                 | 0.930556 |        1.6493   | hinge         | l2         |   0.000151739 | optimal         | 0.023475    |           85 |
+|  6 |             6 | 6_0        | EARLY_STOPPED  | MBM                 | 0.947222 |        0.565349 | hinge         | l2         |   1.61591e-05 | optimal         | 0.000362637 |          352 |
+|  7 |             7 | 7_0        | EARLY_STOPPED  | MBM                 | 0.852778 |        0.528152 | hinge         | l2         | 100           | optimal         | 1           |          396 |
+|  8 |             8 | 8_0        | EARLY_STOPPED  | MBM                 | 0.922222 |       10.9299   | hinge         | l2         |   5.69343e-08 | optimal         | 1e-08       |            5 |
+|  9 |             9 | 9_0        | EARLY_STOPPED  | MBM                 | 0.916667 |        0.616412 | hinge         | l2         |   6.27853e-06 | optimal         | 0.00137426  |          243 |
+| 10 |            10 | 10_0       | EARLY_STOPPED  | MBM                 | 0.925    |        0.805684 | hinge         | l2         |   1e-08       | optimal         | 1           |          231 |
+| 11 |            11 | 11_0       | EARLY_STOPPED  | MBM                 | 0.933333 |        0.741943 | hinge         | l2         |   0.0120697   | optimal         | 0.00816447  |          231 |
+| 12 |            12 | 12_0       | EARLY_STOPPED  | MBM                 | 0.925    |        0.560713 | hinge         | l2         |   7.28989e-05 | optimal         | 2.18142e-05 |          447 |
+| 13 |            13 | 13_0       | EARLY_STOPPED  | MBM                 | 0.933333 |        1.05148  | hinge         | l2         |   0.167056    | optimal         | 1.16167e-07 |          207 |
+| 14 |            14 | 14_0       | EARLY_STOPPED  | MBM                 | 0.930556 |        0.622401 | squared_hinge | l1         |   0.0198707   | adaptive        | 1           |          312 |
+| 15 |            15 | 15_0       | EARLY_STOPPED  | MBM                 | 0.919444 |        1.10938  | hinge         | l2         |   0.000594702 | optimal         | 1           |          142 |
+| 16 |            16 | 16_0       | EARLY_STOPPED  | MBM                 | 0.933333 |        0.777175 | hinge         | l2         |   1.11927e-08 | optimal         | 0.00336634  |          211 |
+| 17 |            17 | 17_0       | EARLY_STOPPED  | MBM                 | 0.733333 |        0.684302 | squared_hinge | l1         |   0.156344    | adaptive        | 1e-08       |          333 |
+| 18 |            18 | 18_0       | EARLY_STOPPED  | MBM                 | 0.911111 |        0.664981 | hinge         | l2         |   1e-08       | optimal         | 0.000863815 |          471 |
+| 19 |            19 | 19_0       | EARLY_STOPPED  | MBM                 | 0.905556 |        0.843419 | squared_hinge | l1         |   0.00465604  | adaptive        | 0.00116767  |          145 |
+| 20 |            20 | 20_0       | EARLY_STOPPED  | MBM                 | 0.888889 |        0.709653 | squared_hinge | l1         |   0.0240891   | adaptive        | 0.00118522  |          447 |
+
+
+**Sensitivity Analysis for score**
+
+Understand how each parameter affects score according to a second-order sensitivity
+analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/71855215-b6ee-4540-9a97-59440575a677.json')} />
+
+
+**score vs. eta0**
+
+The slice plot provides a one-dimensional view of predicted outcomes for score as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (Arm baseline). This visualization helps in understanding the
+sensitivity and impact of changes in the selected parameter on the predicted metric
+outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/8c85f37c-8edd-4154-9004-dfef6fd28ed2.json')} />
+
+
+**score vs. batch_size**
+
+The slice plot provides a one-dimensional view of predicted outcomes for score as a
+function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (Arm baseline). This visualization helps in understanding the
+sensitivity and impact of changes in the selected parameter on the predicted metric
+outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/e93008b9-6d69-4367-b22a-a3c70b9c5ec6.json')} />
+
+
+**score (Mean) vs. eta0, batch_size**
+
+The contour plot visualizes the predicted outcomes for score across a two-dimensional
+parameter space, with other parameters held fixed at their status_quo value (Arm
+baseline). This plot helps in identifying regions of optimal performance and
+understanding how changes in the selected parameters influence the predicted outcomes.
+Contour lines represent levels of constant predicted values, providing insights into the
+gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/07a7086e-356b-4d34-addc-5d3da0eee2f3.json')} />
+
+
+**Sensitivity Analysis for training_time**
+
+Understand how each parameter affects training_time according to a second-order
+sensitivity analysis.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/f575b772-082b-4535-9d80-55fc5287483f.json')} />
+
+
+**training_time vs. batch_size**
+
+The slice plot provides a one-dimensional view of predicted outcomes for training_time
+as a function of a single parameter, while keeping all other parameters fixed at their
+status_quo value (Arm baseline). This visualization helps in understanding the
+sensitivity and impact of changes in the selected parameter on the predicted metric
+outcomes.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/595317e5-b1ff-47ed-aed2-a02acd042407.json')} />
+
+
+**training_time (Mean) vs. alpha, batch_size**
+
+The contour plot visualizes the predicted outcomes for training_time across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (Arm baseline). This plot helps in identifying regions of optimal performance and
+understanding how changes in the selected parameters influence the predicted outcomes.
+Contour lines represent levels of constant predicted values, providing insights into the
+gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/ba6a46b3-ba42-4925-a9ef-a576de43a2a7.json')} />
+
+
+**training_time (Mean) vs. alpha, eta0**
+
+The contour plot visualizes the predicted outcomes for training_time across a
+two-dimensional parameter space, with other parameters held fixed at their status_quo
+value (Arm baseline). This plot helps in identifying regions of optimal performance and
+understanding how changes in the selected parameters influence the predicted outcomes.
+Contour lines represent levels of constant predicted values, providing insights into the
+gradient and potential optima within the parameter space.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/42db9eb0-7381-4970-94cf-6e053ec2ca6a.json')} />
+
+
+**Cross Validation for score (R² = 0.02)**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/938ff18d-d62f-4d70-a22e-194028e66e60.json')} />
+
+
+**Cross Validation for training_time (R² = 0.69)**
+
+The cross-validation plot displays the model fit for each metric in the experiment. It
+employs a leave-one-out approach, where the model is trained on all data except one
+sample, which is used for validation. The plot shows the predicted outcome for the
+validation set on the y-axis against its actual value on the x-axis. Points that align
+closely with the dotted diagonal line indicate a strong model fit, signifying accurate
+predictions. Additionally, the plot includes 95% confidence intervals that provide
+insight into the noise in observations and the uncertainty in model predictions. A
+horizontal, flat line of predictions indicates that the model has not picked up on
+sufficient signal in the data, and instead is just predicting the mean.
+
+
+
+<PlotlyFigure data={require('./assets/plot_data/2aea6d5a-de5c-4d4d-a082-89d4767b9395.json')} />
+
+
+**Generation Strategy Graph**
+
+GenerationStrategy: Center+Sobol+MBM:fast
+
+Visualize the structure of a GenerationStrategy as a directed graph. Each node
+represents a GenerationNode in the strategy, and edges represent transitions between
+nodes based on TransitionCriterion. Edge labels show the criterion class names that
+trigger the transition.
+
+
+
+
+|    | node_name           | generators   | transitions                        | is_current   |
+|---:|:--------------------|:-------------|:-----------------------------------|:-------------|
+|  0 | CenterOfSearchSpace | nan          | -> Sobol: AutoTransitionAfterGen   | False        |
+|  1 | Sobol               | Sobol        | -> MBM: MinTrials(5), MinTrials(2) | False        |
+|  2 | MBM                 | BoTorch      | nan                                | True         |
+
+
+**Early Stopping Healthcheck**
+
+This experiment has 16 early stopped trial(s), but no early stopping strategy was
+provided. For multi-objective or constrained experiments, please pass the original
+early_stopping_strategy used during the experiment to EarlyStoppingAnalysis for accurate
+reporting of metrics and savings.
+
+
+
+
+|    | Property             | Value                                             |
+|---:|:---------------------|:--------------------------------------------------|
+|  0 | Early Stopped Trials | 16                                                |
+|  1 | Problem Type         | Multi-objective                                   |
+|  2 | Action Required      | Pass the original early_stopping_strategy to E... |
+
+
+**Predictable Metrics Warning**
+
+The predictable metrics health check evaluates whether metrics can be reliably predicted
+by the model. The following metric(s) are behaving unpredictably and may be noisy or
+misconfigured: ['score']. Please check that they are measuring the intended quantity,
+and are expected to vary reliably as a function of your parameters.
+
+
+## Conclusion
+
+This tutorial demonstates Ax's ability to solve AutoML tasks with in a resource
+efficient manor. We configured a complex optimization which captures the nuanced goals
+of the experiment and utilized early stopping to save resources by killing training runs
+unlikely to produce optimal results.
+
+While this tutorial shows how to use Ax for HPO on an `SGDClassifier`, the same
+techniques can be used for many different AutoML tasks such as feature selection,
+architecture search, and more.
+
