@@ -57,7 +57,7 @@ class DataLoaderConfig:
             in the `MAP_KEY` column for each (arm, metric) is limited by this value.
     """
 
-    # pyre-ignore [16]: Pyre doesn't understand InitVar.
+    # pyre-ignore[16]: Pyre doesn't support dataclass InitVar.
     fit_out_of_design: InitVar[bool | None] = None
     fit_abandoned: bool = False
     fit_only_completed_map_metrics: bool = False
@@ -258,7 +258,8 @@ class ExperimentData:
         """
         has_map_keys = self.observation_data.index.nlevels > 2
         observations = []
-        # pyre-ignore [23]: Pyre doesn't know the structure of the index.
+        # pyre-ignore[23]: Pyre can't infer MultiIndex tuple structure
+        # from iterrows().
         for (trial_index, arm_name), row in self.arm_data.iterrows():
             obs_ft_base = ObservationFeatures(
                 # NOTE: It is crucial to pop metadata first here.

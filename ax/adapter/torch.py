@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -88,7 +88,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.models.model import Model
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -517,16 +517,19 @@ class TorchAdapter(Adapter):
         # Check if there is a `parameter_decomposition` experiment property to
         # decide whether it is a contextual experiment.
         if self._experiment_properties.get("parameter_decomposition", None) is not None:
-            # Convert to a list of ContextualDateset for contextual experiments.
-            # pyre-ignore [9]: ContextualDataset is a subclass of SupervisedDataset.
-            datasets = process_contextual_datasets(
-                datasets=datasets,
-                outcomes=outcomes,
-                parameter_decomposition=self._experiment_properties[
-                    "parameter_decomposition"
-                ],
-                metric_decomposition=self._experiment_properties.get(
-                    "metric_decomposition", None
+            # Convert to a list of ContextualDataset for contextual experiments.
+            # cast() needed: list invariance (ContextualDataset <: SupervisedDataset).
+            datasets = cast(
+                list[SupervisedDataset],
+                process_contextual_datasets(
+                    datasets=datasets,
+                    outcomes=outcomes,
+                    parameter_decomposition=self._experiment_properties[
+                        "parameter_decomposition"
+                    ],
+                    metric_decomposition=self._experiment_properties.get(
+                        "metric_decomposition", None
+                    ),
                 ),
             )
 
@@ -622,10 +625,14 @@ class TorchAdapter(Adapter):
                 "The `optimization_config` must be specified either while initializing "
                 "the Adapter or to the `evaluate_acquisition_function` call."
             )
-        # pyre-ignore Incompatible parameter type [9]
-        obs_feats: list[list[ObservationFeatures]] = deepcopy(observation_features)
-        if not isinstance(obs_feats[0], list):
-            obs_feats = [[obs] for obs in obs_feats]
+        obs_feats_copy = deepcopy(observation_features)
+        obs_feats: list[list[ObservationFeatures]]
+        if not isinstance(obs_feats_copy[0], list):
+            obs_feats = [
+                [assert_is_instance(obs, ObservationFeatures)] for obs in obs_feats_copy
+            ]
+        else:
+            obs_feats = cast(list[list[ObservationFeatures]], obs_feats_copy)
 
         for t in self.transforms.values():
             for i, batch in enumerate(obs_feats):

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from logging import Logger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
@@ -63,7 +63,8 @@ class StandardizeY(Transform):
             signature: column.dropna().values for signature, column in means_df.items()
         }
         # Compute means and SDs
-        # pyre-fixme[4]: Attribute must be annotated.
+        self.Ymean: dict[str, float]
+        self.Ystd: dict[str, float]
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys=Ys)
 
     def _transform_observation_data(
@@ -198,22 +199,23 @@ class StandardizeY(Transform):
         )
 
 
+_TYKey = TypeVar("_TYKey", bound=str | tuple[str, TParamValue])
+
+
 def compute_standardization_parameters(
-    Ys: defaultdict[str | tuple[str, TParamValue], list[float]],
-) -> tuple[dict[str | tuple[str, str], float], dict[str | tuple[str, str], float]]:
+    Ys: defaultdict[_TYKey, list[float]] | dict[_TYKey, list[float]],
+) -> tuple[dict[_TYKey, float], dict[_TYKey, float]]:
     """Compute mean and std. dev of Ys."""
-    Ymean = {k: np.mean(y) for k, y in Ys.items()}
+    Ymean: dict[_TYKey, float] = {k: float(np.mean(y)) for k, y in Ys.items()}
     # We use the Bessel correction term (divide by N-1) here in order to
     # be consistent with the default behavior of torch.std that is used to
     # validate input data standardization in BoTorch.
-    Ystd = {k: np.std(y, ddof=1) if len(y) > 1 else 0.0 for k, y in Ys.items()}
+    Ystd: dict[_TYKey, float] = {
+        k: float(np.std(y, ddof=1)) if len(y) > 1 else 0.0 for k, y in Ys.items()
+    }
     for k, s in Ystd.items():
         # Don't standardize if variance is too small.
         if s < 1e-8:
             Ystd[k] = 1.0
             logger.warning(f"Outcome {k} is constant, within tolerance.")
-    # pyre-fixme[7]: Expected `Tuple[Dict[Union[Tuple[str, str], str], float],
-    #  Dict[Union[Tuple[str, str], str], float]]` but got `Tuple[Dict[Union[Tuple[str,
-    #  Union[None, bool, float, int, str]], str], typing.Any], Dict[Union[Tuple[str,
-    #  Union[None, bool, float, int, str]], str], typing.Any]]`.
     return Ymean, Ystd

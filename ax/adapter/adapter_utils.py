@@ -363,38 +363,37 @@ def validate_and_apply_final_transform(
 ]:
     # TODO: use some container down the road (similar to
     # SearchSpaceDigest) to limit the return arguments
-    # pyre-fixme[35]: Target cannot be annotated.
-    objective_weights: Tensor = final_transform(objective_weights)
+    obj_weights_tensor = final_transform(objective_weights)
+    outcome_constraints_tensors: tuple[Tensor, Tensor] | None = None
     if outcome_constraints is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        outcome_constraints: tuple[Tensor, Tensor] = (
+        outcome_constraints_tensors = (
             final_transform(outcome_constraints[0]),
             final_transform(outcome_constraints[1]),
         )
+    linear_constraints_tensors: tuple[Tensor, Tensor] | None = None
     if linear_constraints is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        linear_constraints: tuple[Tensor, Tensor] = (
+        linear_constraints_tensors = (
             final_transform(linear_constraints[0]),
             final_transform(linear_constraints[1]),
         )
+    pending_obs_tensors: list[Tensor] | None = None
     if pending_observations is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        pending_observations: list[Tensor] = [
+        pending_obs_tensors = [
             final_transform(pending_obs) for pending_obs in pending_observations
         ]
+    obj_thresholds_tensor: Tensor | None = None
     if objective_thresholds is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        objective_thresholds: Tensor = final_transform(objective_thresholds)
+        obj_thresholds_tensor = final_transform(objective_thresholds)
+    pruning_target_tensor: Tensor | None = None
     if pruning_target_point is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        pruning_target_point: Tensor = final_transform(pruning_target_point)
+        pruning_target_tensor = final_transform(pruning_target_point)
     return (
-        objective_weights,
-        outcome_constraints,
-        linear_constraints,
-        pending_observations,
-        objective_thresholds,
-        pruning_target_point,
+        obj_weights_tensor,
+        outcome_constraints_tensors,
+        linear_constraints_tensors,
+        pending_obs_tensors,
+        obj_thresholds_tensor,
+        pruning_target_tensor,
     )
 
 
