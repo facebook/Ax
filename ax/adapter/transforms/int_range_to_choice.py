@@ -16,6 +16,7 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import construct_new_search_space
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.core.types import TParamValue
 from ax.generators.types import TConfig
 
 if TYPE_CHECKING:
@@ -66,11 +67,11 @@ class IntRangeToChoice(Transform):
                 and p.parameter_type == ParameterType.INT
                 and p.cardinality() <= self.max_choices
             ):
-                values = list(range(int(p.lower), int(p.upper) + 1))
+                values: list[TParamValue] = list(range(int(p.lower), int(p.upper) + 1))
                 transformed_parameters[p_name] = ChoiceParameter(
                     name=p_name,
                     parameter_type=p.parameter_type,
-                    values=values,  # pyre-fixme[6]
+                    values=values,
                     is_ordered=True,
                     is_fidelity=p.is_fidelity,
                     target_value=p.target_value,
